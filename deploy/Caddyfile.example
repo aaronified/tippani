@@ -1,0 +1,10 @@
+# Reverse proxy with TLS + your choice of auth in front of localhost-only tippani.
+# basic_auth hash comes from: caddy hash-password
+books.example.com {
+	basic_auth {
+		alice $2a$14$REPLACE_WITH_HASH
+	}
+	reverse_proxy 127.0.0.1:8080
+}
+# When TLS terminates here, run tippani with TIPPANI_COOKIE_SECURE=1
+# (and TIPPANI_TRUSTED_PROXY=1 if you want real client IPs in the login limiter).

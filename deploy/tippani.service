@@ -1,0 +1,22 @@
+[Unit]
+Description=Tippani book annotations
+After=network.target
+
+[Service]
+User=tippani
+Group=tippani
+ExecStart=/usr/local/bin/tippani serve
+Environment=TIPPANI_DATA=/var/lib/tippani
+Environment=TIPPANI_BIND=127.0.0.1:8080
+Environment=GOMAXPROCS=1
+Environment=GOMEMLIMIT=64MiB
+Environment=GOGC=200
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tippani
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
