@@ -34,10 +34,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
+          # A git tag v1.2.3 -> image tags 1.2.3, 1.2, and latest (latest=auto
+          # moves only on non-prerelease semver tags). Pushes to main -> edge +
+          # a short-sha tag, so :latest always points at the newest release.
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,format=short,enable={{is_default_branch}}
+          flavor: |
+            latest=auto
 
       - name: Build and push
         uses: docker/build-push-action@v6

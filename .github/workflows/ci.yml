@@ -16,6 +16,26 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
+      # Smoke-test the `healthcheck` subcommand against a real running server
+      # (the container HEALTHCHECK depends on it). Runs on the CI runner.
+      - name: Smoke-test healthcheck
+        run: |
+          go build -o /tmp/tippani ./cmd/tippani
+          TIPPANI_DATA="$(mktemp -d)" TIPPANI_BIND=127.0.0.1:8080 /tmp/tippani serve &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          ok=0
+          for _ in $(seq 1 20); do
+            if /tmp/tippani healthcheck; then ok=1; break; fi
+            sleep 0.5
+          done
+          [ "$ok" = 1 ] || { echo "server never became healthy"; exit 1; }
+          # A dead port must make healthcheck fail (non-zero exit).
+          if TIPPANI_BIND=127.0.0.1:8099 /tmp/tippani healthcheck; then
+            echo "healthcheck should have failed against a dead port"; exit 1
+          fi
+          echo "healthcheck smoke test passed"
+
   frontend:
     runs-on: ubuntu-latest
     steps:

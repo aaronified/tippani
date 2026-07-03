@@ -7,6 +7,7 @@
 //	tippani user add <name>       create a user (password read from stdin)
 //	tippani user passwd <name>    reset a user's password (stdin)
 //	tippani user del <name>       delete a user and their data
+//	tippani healthcheck           probe /healthz; exit 0 if healthy (Docker HEALTHCHECK)
 //
 // Configuration (env):
 //
@@ -21,6 +22,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,9 +46,38 @@ func main() {
 		serve()
 	case "user":
 		userCmd(args[1:])
+	case "healthcheck":
+		healthcheck()
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
 		os.Exit(2)
+	}
+}
+
+// healthcheck probes GET /healthz and exits 0 when healthy, non-zero otherwise.
+// It is the container HEALTHCHECK command: the distroless image has no shell or
+// curl, so the binary checks itself. It dials the loopback interface on the
+// configured port (TIPPANI_BIND may be 0.0.0.0, which isn't a valid dial target).
+func healthcheck() {
+	host, port, err := net.SplitHostPort(envOr("TIPPANI_BIND", "127.0.0.1:8080"))
+	if err != nil {
+		host, port = "127.0.0.1", "8080"
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "127.0.0.1"
+	}
+	url := "http://" + net.JoinHostPort(host, port) + "/healthz"
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "healthcheck: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "healthcheck: unhealthy (status %d)\n", resp.StatusCode)
+		os.Exit(1)
 	}
 }
 

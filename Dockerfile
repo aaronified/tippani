@@ -30,6 +30,9 @@ ENV TIPPANI_DATA=/data
 ENV TIPPANI_BIND=0.0.0.0:8080
 VOLUME /data
 EXPOSE 8080
+# The binary probes itself — distroless has no shell/curl, so exec form only.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["/tippani", "healthcheck"]
 USER nonroot:nonroot
 ENTRYPOINT ["/tippani"]
 CMD ["serve"]
