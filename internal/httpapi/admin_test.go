@@ -111,6 +111,19 @@ func TestOnboardingAndAdmin(t *testing.T) {
 	if rec := do("GET", "/admin/users", nil, admin); bytes.Contains(rec.Body.Bytes(), []byte(`"bob"`)) {
 		t.Fatalf("deleted user still listed: %s", rec.Body)
 	}
+
+	// The last-admin guard must not block deleting a *non-last* admin. No API
+	// promotes users, so create a second admin directly, then delete it.
+	if _, err := st.DB.Exec(`INSERT INTO users (username, password_hash, is_admin) VALUES ('carol', 'x', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	var carolID int64
+	if err := st.DB.QueryRow(`SELECT id FROM users WHERE username = 'carol'`).Scan(&carolID); err != nil {
+		t.Fatal(err)
+	}
+	if rec := do("DELETE", "/admin/users/"+itoa(carolID), nil, admin); rec.Code != 200 {
+		t.Fatalf("deleting a non-last admin should succeed: %d %s", rec.Code, rec.Body)
+	}
 }
 
 func itoa(n int64) string {

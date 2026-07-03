@@ -84,9 +84,26 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "username and password required")
 		return
 	}
+	// Rate-limit this unauthenticated route so it can't be used to pin CPU via
+	// repeated bcrypt hashing during the (brief) onboarding window.
+	if !s.loginLimiter.Allow(s.clientIP(r) + "|signup") {
+		writeErr(w, http.StatusTooManyRequests, "too many attempts; try again later")
+		return
+	}
 	uname, ok := normalizeUsername(req.Username)
 	if !ok || len(req.Password) < 8 {
 		writeErr(w, http.StatusBadRequest, "username required and password must be at least 8 characters")
+		return
+	}
+	// Cheap check before the expensive hash: once any user exists onboarding is
+	// closed, so don't spend bcrypt on a request we're going to reject.
+	var exists bool
+	if err := s.Store.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users)`).Scan(&exists); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if exists {
+		writeErr(w, http.StatusForbidden, "onboarding is closed; ask an admin to add you")
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)
@@ -94,6 +111,8 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	// The INSERT ... WHERE NOT EXISTS stays as the atomic guard: if a concurrent
+	// signup won the race after the check above, this inserts nothing.
 	res, err := s.Store.DB.Exec(
 		`INSERT INTO users (username, password_hash, is_admin)
 		 SELECT ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM users)`,

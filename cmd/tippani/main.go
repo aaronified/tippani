@@ -64,7 +64,7 @@ func healthcheck() {
 		host, port = "127.0.0.1", "8080"
 	}
 	switch host {
-	case "", "0.0.0.0", "::", "[::]":
+	case "", "0.0.0.0", "::": // SplitHostPort strips brackets, so [::] arrives as "::"
 		host = "127.0.0.1"
 	}
 	url := "http://" + net.JoinHostPort(host, port) + "/healthz"
