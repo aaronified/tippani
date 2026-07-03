@@ -76,18 +76,18 @@ func (s Sessions) Create(userID int64) (token string, err error) {
 	return token, err
 }
 
-// Validate resolves a cookie token to (userID, username), sliding the expiry
-// forward when it has passed the halfway mark.
-func (s Sessions) Validate(token string) (userID int64, username string, err error) {
+// Validate resolves a cookie token to (userID, username, isAdmin), sliding the
+// expiry forward when it has passed the halfway mark.
+func (s Sessions) Validate(token string) (userID int64, username string, isAdmin bool, err error) {
 	th := HashToken(token)
 	var expires string
 	err = s.DB.QueryRow(`
-		SELECT s.user_id, u.username, s.expires_at
+		SELECT s.user_id, u.username, u.is_admin, s.expires_at
 		FROM sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = ? AND s.expires_at >= datetime('now')`, th,
-	).Scan(&userID, &username, &expires)
+	).Scan(&userID, &username, &isAdmin, &expires)
 	if err != nil {
-		return 0, "", ErrInvalidSession
+		return 0, "", false, ErrInvalidSession
 	}
 	if t, perr := time.Parse("2006-01-02 15:04:05", expires); perr == nil {
 		if time.Until(t) < sessionRefreshAt {
@@ -97,7 +97,7 @@ func (s Sessions) Validate(token string) (userID int64, username string, err err
 			)
 		}
 	}
-	return userID, username, nil
+	return userID, username, isAdmin, nil
 }
 
 func (s Sessions) Delete(token string) error {

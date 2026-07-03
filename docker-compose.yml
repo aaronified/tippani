@@ -1,0 +1,28 @@
+# Tippani — self-hosted book annotations. Bring it up with:
+#
+#   docker compose up -d
+#
+# Then open http://<host>:8080 and create the admin account (first-run
+# onboarding). The admin adds further users from inside the app.
+#
+# How you expose the port, terminate TLS, or tunnel in (reverse proxy, VPN,
+# Tailscale/Twingate, LAN, localhost-only) is entirely your call — this file
+# ships the plain defaults and stays out of that decision.
+services:
+  tippani:
+    image: ghcr.io/aaronified/tippani:latest
+    container_name: tippani
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - tippani-data:/data
+    # environment:
+    #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
+    #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
+    #   GOMAXPROCS: "1"              # NAS-friendly runtime caps (see PLAN §8)
+    #   GOMEMLIMIT: "64MiB"
+    #   GOGC: "200"
+
+volumes:
+  tippani-data:

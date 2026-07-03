@@ -2,3 +2,4 @@
 /data/
 web/frontend/node_modules/
 *.tar.gz
+.vscode/

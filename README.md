@@ -15,38 +15,55 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md).
 Scaffold / milestone 2 of the build order (PLAN §9):
 
 - [x] Schema + migrations, FTS5 external-content tables + triggers (tested)
-- [x] Auth: form login, SQLite sessions (hashed tokens), bcrypt, stdlib CSRF (Go 1.25 `CrossOriginProtection`), login rate limiting, CLI user management
+- [x] Auth: form login, SQLite sessions (hashed tokens), bcrypt, stdlib CSRF (Go 1.25 `CrossOriginProtection`), login rate limiting
+- [x] Users: first-run onboarding (creates the admin), in-app admin user management, CLI user management
 - [x] `GET /search` — injection-safe FTS5 across books (title/author/genre) and annotations (quote/note)
+- [x] React UI shell: onboarding, login, admin users panel
 - [ ] Annotation/book CRUD
 - [ ] Markdown importer
 - [ ] Kindle `My Clippings.txt` importer
 - [ ] Bookcision JSON importer
 - [ ] Google Books + Open Library metadata, local cover store
-- [ ] React UI (login shell exists)
+- [ ] Library / annotations / search UI
 
-## Quick start
+## Run it (Docker Compose)
+
+The simplest way to host Tippani — pulls the prebuilt multi-arch image
+(`linux/amd64` + `linux/arm64`) from GHCR:
+
+```sh
+curl -O https://raw.githubusercontent.com/aaronified/tippani/main/docker-compose.yml
+docker compose up -d
+```
+
+Then open `http://<host>:8080` and **create the admin account** on the first-run
+onboarding screen. The admin adds any further users from inside the app.
+
+How you expose port 8080 (reverse proxy, TLS, VPN, Tailscale/Twingate, LAN, or
+localhost-only) is your call — the shipped compose file stays out of it. When a
+TLS-terminating proxy sits in front, set `TIPPANI_COOKIE_SECURE=1`.
+
+## Build from source
 
 Requires Go 1.25+ (Node only if you rebuild the frontend, and only on your dev machine).
 
 ```sh
 make build                                   # -> bin/tippani (CGO_ENABLED=0, static)
-printf '%s\n' 'a-long-password' | ./bin/tippani user add alice
-./bin/tippani serve                          # http://127.0.0.1:8080
+./bin/tippani serve                          # http://127.0.0.1:8080, then onboard in the browser
 ```
 
-Frontend (optional now — a placeholder page is embedded):
+To bootstrap without the browser (or for scripting), the CLI still works — the
+first user created becomes the admin:
+
+```sh
+printf '%s\n' 'a-long-password' | ./bin/tippani user add alice
+```
+
+Rebuild the frontend after changing it (re-embeds into the binary):
 
 ```sh
 make frontend    # builds the SPA into web/dist
 make build       # re-embed
-```
-
-Docker (distroless static, non-root):
-
-```sh
-docker build -t tippani .
-docker run -d -p 127.0.0.1:8080:8080 -v tippani-data:/data tippani
-docker run --rm -it -v tippani-data:/data tippani user add alice
 ```
 
 ## Configuration
@@ -65,8 +82,15 @@ Backup: nightly `sqlite3 data/tippani.db "VACUUM INTO 'backup.db'"` from cron, o
 
 ## Users
 
+The **first user** is the admin, created either by the browser onboarding screen
+on first run or by the CLI when the database is still empty. The admin manages
+everyone else from the in-app **Users** panel (add / remove). Onboarding closes
+automatically once a user exists.
+
+The CLI remains available for bootstrapping and scripting:
+
 ```sh
-tippani user add <name>      # password read from stdin
+tippani user add <name>      # password read from stdin (first user -> admin)
 tippani user passwd <name>
 tippani user del <name>      # cascades to that user's books/annotations
 ```
@@ -76,7 +100,7 @@ Each user has a fully isolated library (PLAN §2). Passwords change in-app via
 
 ## Layout
 
-```
+```text
 cmd/tippani/          entrypoint: serve + user subcommands
 internal/store/       SQLite open (WAL etc.), embedded migrations, schema tests
 internal/auth/        bcrypt, hashed-token sessions, login rate limiter
@@ -86,6 +110,7 @@ web/frontend/         Vite + React 19 + Tailwind v4 source
 web/dist/             built SPA, embedded via go:embed
 deploy/               Caddyfile + systemd examples
 docs/PLAN.md          the design document this repo implements
+.github/workflows/    CI (go test/vet, frontend build) + GHCR image publish
 ```
 
 ## Publishing note

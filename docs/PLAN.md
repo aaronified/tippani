@@ -34,7 +34,7 @@ Driver tradeoff: `modernc` costs ~1.5–2× the per-query CPU of CGo `mattn/go-s
 - **Passwords:** **bcrypt, cost 10** (tunable). ~60–100 ms per login on weak ARM — a rare event, acceptable. *Primary downside:* not memory-hard. Argon2id rejected deliberately: its ~64 MB per hash is exactly wrong on a RAM-shared NAS.
 - **CSRF:** Go 1.25 **`http.CrossOriginProtection`** (Sec-Fetch-Site / Origin check) wrapping all non-GET routes — stdlib, zero tokens, zero deps. *Primary downside:* requires Go 1.25+ and evergreen browsers (both fine here).
 - **Brute force:** `golang.org/x/time/rate` limiter keyed on (client IP, username), e.g. 5/min burst 5. Client IP read from `X-Forwarded-For` **only when** `TRUSTED_PROXY` is configured.
-- **User management:** CLI subcommands — `app user add|passwd|del` — plus an in-app change-password form. No admin UI (YAGNI).
+- **User management:** the **first user is the admin** — created by first-run onboarding (`GET /auth/status` → `POST /auth/signup`, which only succeeds while the users table is empty) or by the CLI when the DB is empty. The admin adds/removes other users from an in-app panel (`GET/POST /admin/users`, `DELETE /admin/users/{id}`); onboarding closes once any user exists. CLI subcommands (`app user add|passwd|del`) remain for bootstrapping/scripting, plus an in-app change-password form. Roles are a single `is_admin` flag — no finer-grained permissions (YAGNI).
 - **Binding:** default `127.0.0.1:8080`, overridable via `BIND`. Docker note: inside a container bind `0.0.0.0` and publish host-locally: `-p 127.0.0.1:8080:8080`.
 - **Headers:** CSP `default-src 'self'` (+ nothing external — covers are served locally, §6), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`. **No CORS** — same-origin SPA; none needed.
 
@@ -245,8 +245,10 @@ Map `text→quote`, `location.value→location` (keep `url` optionally), `isNote
 ## 7. API Surface
 
 ```bash
+GET    /auth/status         POST /auth/signup    # onboarding (first user only)
 POST   /auth/login          POST /auth/logout
 POST   /auth/password       GET  /auth/me
+GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin only
 POST   /books/lookup
 POST   /books    GET /books    GET/PUT/DELETE /books/{id}
 POST   /annotations
@@ -260,7 +262,7 @@ GET    /search?q=&scope=&genre=&author=&book_id=&tag=&color=
 GET    /covers/{file}                # local static
 ```
 
-Everything except `POST /auth/login` and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user.
+Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` additionally requires `is_admin`.
 
 ---
 

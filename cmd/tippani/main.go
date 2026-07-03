@@ -105,12 +105,22 @@ func userCmd(args []string) {
 	switch action {
 	case "add":
 		hash := readPasswordHash()
+		// The first user becomes the admin (same rule as first-run onboarding),
+		// so a CLI-bootstrapped instance always has someone who can manage users.
 		if _, err := st.DB.Exec(
-			`INSERT INTO users (username, password_hash) VALUES (?, ?)`, name, hash,
+			`INSERT INTO users (username, password_hash, is_admin)
+			 SELECT ?, ?, CASE WHEN NOT EXISTS (SELECT 1 FROM users) THEN 1 ELSE 0 END`,
+			name, hash,
 		); err != nil {
 			log.Fatalf("add user: %v", err)
 		}
-		fmt.Printf("user %q created\n", name)
+		var admin bool
+		_ = st.DB.QueryRow(`SELECT is_admin FROM users WHERE username = ?`, name).Scan(&admin)
+		if admin {
+			fmt.Printf("user %q created (admin)\n", name)
+		} else {
+			fmt.Printf("user %q created\n", name)
+		}
 	case "passwd":
 		hash := readPasswordHash()
 		res, err := st.DB.Exec(

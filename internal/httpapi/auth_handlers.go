@@ -45,13 +45,70 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.startSession(w, id, req.Username)
+}
+
+// startSession creates a session, sets the cookie, and writes {username}.
+func (s *Server) startSession(w http.ResponseWriter, id int64, uname string) {
 	token, err := s.Sessions.Create(id)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	http.SetCookie(w, s.sessionCookie(token, int(auth.SessionLifetime.Seconds())))
-	writeJSON(w, http.StatusOK, map[string]string{"username": req.Username})
+	writeJSON(w, http.StatusOK, map[string]string{"username": uname})
+}
+
+// handleStatus is public: it tells the SPA whether first-run onboarding is
+// still open (no users yet) so it can show the "create admin" screen.
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	var n int
+	if err := s.Store.DB.QueryRow(`SELECT count(*) FROM users`).Scan(&n); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"needs_onboarding": n == 0})
+}
+
+// handleSignup creates the first user (the admin) during onboarding. It only
+// succeeds while the users table is empty; afterwards the admin adds users
+// in-app (PLAN §2). The insert is atomic, so concurrent onboarding requests
+// can't create two admins.
+func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "username and password required")
+		return
+	}
+	uname, ok := normalizeUsername(req.Username)
+	if !ok || len(req.Password) < 8 {
+		writeErr(w, http.StatusBadRequest, "username required and password must be at least 8 characters")
+		return
+	}
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	res, err := s.Store.DB.Exec(
+		`INSERT INTO users (username, password_hash, is_admin)
+		 SELECT ?, ?, 1 WHERE NOT EXISTS (SELECT 1 FROM users)`,
+		uname, hash,
+	)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeErr(w, http.StatusForbidden, "onboarding is closed; ask an admin to add you")
+		return
+	}
+	id, _ := res.LastInsertId()
+	s.startSession(w, id, uname)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +123,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":       userID(r),
 		"username": username(r),
+		"is_admin": isAdmin(r),
 	})
 }
 

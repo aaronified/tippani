@@ -41,11 +41,19 @@ func New(st *store.Store, static fs.FS, cookieSecure, trustedProxy bool) *Server
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	// Auth (login is the only unauthenticated API route).
+	// Auth. /auth/status and /auth/login are the only unauthenticated routes;
+	// /auth/signup self-guards (it only works during first-run onboarding).
+	mux.HandleFunc("GET /auth/status", s.handleStatus)
+	mux.HandleFunc("POST /auth/signup", s.handleSignup)
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
 	mux.Handle("POST /auth/password", s.requireAuth(s.handlePassword))
+
+	// User management — admin only (PLAN §2). The first user is the admin.
+	mux.Handle("GET /admin/users", s.requireAdmin(s.handleListUsers))
+	mux.Handle("POST /admin/users", s.requireAdmin(s.handleCreateUser))
+	mux.Handle("DELETE /admin/users/{id}", s.requireAdmin(s.handleDeleteUser))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
@@ -92,6 +100,7 @@ type ctxKey int
 const (
 	ctxUserID ctxKey = iota
 	ctxUsername
+	ctxIsAdmin
 )
 
 const sessionCookie = "tippani_session"
@@ -103,19 +112,32 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "not logged in")
 			return
 		}
-		userID, username, err := s.Sessions.Validate(c.Value)
+		uid, uname, isAdmin, err := s.Sessions.Validate(c.Value)
 		if err != nil {
 			writeErr(w, http.StatusUnauthorized, "not logged in")
 			return
 		}
-		ctx := context.WithValue(r.Context(), ctxUserID, userID)
-		ctx = context.WithValue(ctx, ctxUsername, username)
+		ctx := context.WithValue(r.Context(), ctxUserID, uid)
+		ctx = context.WithValue(ctx, ctxUsername, uname)
+		ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// requireAdmin is requireAuth plus an is_admin check, for user management.
+func (s *Server) requireAdmin(next http.HandlerFunc) http.Handler {
+	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if !isAdmin(r) {
+			writeErr(w, http.StatusForbidden, "admin only")
+			return
+		}
+		next(w, r)
 	})
 }
 
 func userID(r *http.Request) int64    { v, _ := r.Context().Value(ctxUserID).(int64); return v }
 func username(r *http.Request) string { v, _ := r.Context().Value(ctxUsername).(string); return v }
+func isAdmin(r *http.Request) bool    { v, _ := r.Context().Value(ctxIsAdmin).(bool); return v }
 
 func (s *Server) clientIP(r *http.Request) string {
 	if s.TrustedProxy {
