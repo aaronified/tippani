@@ -12,8 +12,8 @@ import (
 	"testing"
 )
 
-// pngData sniffs as image/png: magic header plus padding.
-var pngData = append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 100)...)
+// pngData sniffs as image/png: magic header plus padding past minImageBytes.
+var pngData = append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 600)...)
 
 // allowAny lifts the SSRF guard for this test so plain-http httptest servers
 // on 127.0.0.1 are reachable.

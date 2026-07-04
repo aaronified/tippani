@@ -494,15 +494,18 @@ function EditBook({ book, onSaved, onCancel }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Adopt an API candidate: fill blank-or-all fields and queue its cover.
+  // Adopt an API candidate: fill only the fields you haven't already filled
+  // (add missing info, never clobber your edits), and queue its cover if you
+  // don't already have one.
+  const keep = (v, next) => (String(v).trim() ? v : next || v)
   function applyCandidate(c) {
-    if (c.title) setTitle(c.title)
-    if (c.author) setAuthor(c.author)
-    if (c.isbn13) setIsbn(c.isbn13)
-    if (c.published_year) setYear(String(c.published_year))
-    if (c.description) setDescription(c.description)
-    if (c.genres && c.genres.length) setGenres(c.genres.join(', '))
-    if (c.cover_url) {
+    setTitle((v) => keep(v, c.title))
+    setAuthor((v) => keep(v, c.author))
+    setIsbn((v) => keep(v, c.isbn13))
+    setYear((v) => keep(v, c.published_year ? String(c.published_year) : ''))
+    setDescription((v) => keep(v, c.description))
+    setGenres((v) => keep(v, c.genres && c.genres.length ? c.genres.join(', ') : ''))
+    if (c.cover_url && !coverPath && !coverUrl) {
       setCoverUrl(c.cover_url)
       setClearCover(false)
     }

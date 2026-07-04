@@ -8,18 +8,20 @@ import (
 )
 
 type bookHit struct {
-	ID     int64    `json:"id"`
-	Title  string   `json:"title"`
-	Author string   `json:"author"`
-	Genres []string `json:"genres"` // array, matching GET /books (the UI maps over it)
+	ID        int64    `json:"id"`
+	Title     string   `json:"title"`
+	Author    string   `json:"author"`
+	CoverPath string   `json:"cover_path"`
+	Genres    []string `json:"genres"` // array, matching GET /books (the UI maps over it)
 }
 
 type annotationHit struct {
-	ID        int64  `json:"id"`
-	BookID    int64  `json:"book_id"`
-	BookTitle string `json:"book_title"`
-	Quote     string `json:"quote"`
-	Note      string `json:"note"`
+	ID            int64  `json:"id"`
+	BookID        int64  `json:"book_id"`
+	BookTitle     string `json:"book_title"`
+	BookCoverPath string `json:"book_cover_path"` // group header art (§ search grouping)
+	Quote         string `json:"quote"`
+	Note          string `json:"note"`
 }
 
 type movieHit struct {
@@ -27,16 +29,18 @@ type movieHit struct {
 	Title       string `json:"title"`
 	Director    string `json:"director"`
 	ReleaseYear int    `json:"release_year"`
+	PosterPath  string `json:"poster_path"`
 }
 
 type dialogueHit struct {
-	ID         int64  `json:"id"`
-	MovieID    int64  `json:"movie_id"`
-	MovieTitle string `json:"movie_title"`
-	Quote      string `json:"quote"`
-	Character  string `json:"character"`
-	Actor      string `json:"actor"`
-	Timestamp  string `json:"timestamp"`
+	ID              int64  `json:"id"`
+	MovieID         int64  `json:"movie_id"`
+	MovieTitle      string `json:"movie_title"`
+	MoviePosterPath string `json:"movie_poster_path"` // group header art
+	Quote           string `json:"quote"`
+	Character       string `json:"character"`
+	Actor           string `json:"actor"`
+	Timestamp       string `json:"timestamp"`
 }
 
 // handleSearch implements
@@ -72,7 +76,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	if scope == "all" || scope == "books" {
 		rows, err := s.Store.DB.Query(`
-			SELECT b.id, b.title, COALESCE(b.author, '')
+			SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, '')
 			FROM books_fts
 			JOIN books b ON b.id = books_fts.rowid
 			WHERE books_fts MATCH ? AND b.user_id = ?
@@ -85,7 +89,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			h := bookHit{Genres: []string{}}
-			if err := rows.Scan(&h.ID, &h.Title, &h.Author); err == nil {
+			if err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.CoverPath); err == nil {
 				resp.Books = append(resp.Books, h)
 			}
 		}
@@ -103,7 +107,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	if scope == "all" || scope == "annotations" {
 		rows, err := s.Store.DB.Query(`
-			SELECT a.id, a.book_id, b.title, COALESCE(a.quote, ''), COALESCE(a.note, '')
+			SELECT a.id, a.book_id, b.title, COALESCE(b.cover_path, ''), COALESCE(a.quote, ''), COALESCE(a.note, '')
 			FROM annotations_fts
 			JOIN annotations a ON a.id = annotations_fts.rowid
 			JOIN books b ON b.id = a.book_id
@@ -117,7 +121,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			var h annotationHit
-			if err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.Quote, &h.Note); err == nil {
+			if err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note); err == nil {
 				resp.Annotations = append(resp.Annotations, h)
 			}
 		}
@@ -125,7 +129,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	if scope == "all" || scope == "movies" {
 		rows, err := s.Store.DB.Query(`
-			SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0)
+			SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.poster_path, '')
 			FROM movies_fts
 			JOIN movies m ON m.id = movies_fts.rowid
 			WHERE movies_fts MATCH ? AND m.user_id = ?
@@ -138,7 +142,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			var h movieHit
-			if err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear); err == nil {
+			if err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath); err == nil {
 				resp.Movies = append(resp.Movies, h)
 			}
 		}
@@ -146,7 +150,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	if scope == "all" || scope == "dialogues" {
 		rows, err := s.Store.DB.Query(`
-			SELECT d.id, d.movie_id, m.title, d.quote,
+			SELECT d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 			       COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, '')
 			FROM dialogues_fts
 			JOIN dialogues d ON d.id = dialogues_fts.rowid
@@ -161,7 +165,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			var h dialogueHit
-			if err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.Quote,
+			if err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote,
 				&h.Character, &h.Actor, &h.Timestamp); err == nil {
 				resp.Dialogues = append(resp.Dialogues, h)
 			}

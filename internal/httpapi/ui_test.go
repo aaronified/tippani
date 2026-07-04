@@ -390,6 +390,11 @@ func TestCoversRefetch(t *testing.T) {
 	// Movie without a poster_path in the payload -> skipped.
 	exec(`INSERT INTO movies (user_id, title, source_metadata) VALUES (1, 'N', '{"id":604,"poster_path":""}')`)
 
+	// No isbn/asin on these rows, so the metadata lookup yields nothing — stub it
+	// to keep the test off the network. Covers still come from the cached URL.
+	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil
+	}
 	var urls []string
 	srv.fetchImage = func(_ context.Context, rawURL, _ string) (string, error) {
 		urls = append(urls, rawURL)
@@ -433,6 +438,9 @@ func TestCoversRefetch(t *testing.T) {
 // (no network) and is reported as failed, not a 500.
 func TestCoversRefetchGuardFailure(t *testing.T) {
 	srv := newTestServer(t)
+	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil // keep the metadata lookup off the network
+	}
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
 	if _, err := srv.Store.DB.Exec(

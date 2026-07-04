@@ -15,8 +15,8 @@ import (
 	"tippani/internal/metadata"
 )
 
-// pngMagic is enough for http.DetectContentType to sniff image/png.
-var pngMagic = []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+// pngMagic sniffs as image/png and clears the minImageBytes floor (padded).
+var pngMagic = append([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}, make([]byte, 700)...)
 
 func createBook(t *testing.T, c *testClient, title string) int64 {
 	t.Helper()
@@ -149,6 +149,57 @@ func TestBookLookupQuota(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "Google Books") || !strings.Contains(rec.Body.String(), "Settings") {
 		t.Fatalf("quota message not helpful: %s", rec.Body)
+	}
+}
+
+// TestRefetchEnriches: refetch backfills empty metadata + a cover for a book
+// with a reliable identifier (ISBN), and never overwrites existing fields.
+func TestRefetchEnriches(t *testing.T) {
+	srv := newTestServer(t)
+	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+		return []metadata.BookCandidate{{
+			Source: "openlibrary", Title: "Dune", Author: "Frank Herbert",
+			Description: "Desert planet.", PublishedYear: 1965, Genres: []string{"sci-fi"},
+			CoverURL: "https://covers.openlibrary.org/b/id/1-L.jpg",
+		}}, nil
+	}
+	srv.fetchImage = func(context.Context, string, string) (string, error) {
+		return "aaaaaaaaaaaaaaaa.jpg", nil
+	}
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	// One book missing everything, one that already has an author (must be kept).
+	if _, err := srv.Store.DB.Exec(`INSERT INTO books (user_id, title, isbn) VALUES (1, 'Dune', '9780441172719')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(`INSERT INTO books (user_id, title, isbn, author) VALUES (1, 'Dune2', '9780593099322', 'Existing Author')`); err != nil {
+		t.Fatal(err)
+	}
+
+	res := decode[map[string]int](t, admin.mustDo("POST", "/covers/refetch", nil, 200))
+	if res["enriched"] < 1 || res["fetched"] < 1 {
+		t.Fatalf("counts: %v", res)
+	}
+	var author, desc, cover string
+	var year int
+	if err := srv.Store.DB.QueryRow(
+		`SELECT author, description, published_year, cover_path FROM books WHERE title = 'Dune'`).
+		Scan(&author, &desc, &year, &cover); err != nil {
+		t.Fatal(err)
+	}
+	if author != "Frank Herbert" || desc != "Desert planet." || year != 1965 || cover != "aaaaaaaaaaaaaaaa.jpg" {
+		t.Fatalf("backfill: author=%q desc=%q year=%d cover=%q", author, desc, year, cover)
+	}
+	var genres int
+	srv.Store.DB.QueryRow(`SELECT count(*) FROM book_genres bg JOIN books b ON b.id = bg.book_id WHERE b.title = 'Dune'`).Scan(&genres)
+	if genres != 1 {
+		t.Fatalf("genres backfilled = %d, want 1", genres)
+	}
+	// The pre-filled author is preserved, not overwritten.
+	var kept string
+	srv.Store.DB.QueryRow(`SELECT author FROM books WHERE title = 'Dune2'`).Scan(&kept)
+	if kept != "Existing Author" {
+		t.Fatalf("existing author overwritten: %q", kept)
 	}
 }
 

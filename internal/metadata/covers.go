@@ -35,6 +35,11 @@ var fetchAllowAny = false
 // maxImageBytes is the PLAN §6 cover/poster size cap.
 const maxImageBytes = 2 << 20
 
+// minImageBytes rejects tracking-pixel placeholders — notably Amazon's "no
+// image available" 1×1 GIF (~tens of bytes) served with HTTP 200 for an ASIN
+// that has no cover. Real covers are always kilobytes.
+const minImageBytes = 512
+
 // imageExt: only these sniffed types are accepted. The stored extension comes
 // from the sniff, never from the URL.
 var imageExt = map[string]string{
@@ -124,6 +129,9 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 func StoreImage(data []byte, destDir string) (string, error) {
 	if len(data) > maxImageBytes {
 		return "", fmt.Errorf("image exceeds %d bytes", maxImageBytes)
+	}
+	if len(data) < minImageBytes {
+		return "", errors.New("image too small (placeholder/blank)")
 	}
 	ext, ok := imageExt[http.DetectContentType(data)]
 	if !ok {

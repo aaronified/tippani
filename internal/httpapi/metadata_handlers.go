@@ -141,83 +141,172 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// handleCoversRefetch implements POST /covers/refetch (admin maintenance):
-// re-fetch missing covers/posters for ALL users' rows from the URL cached in
-// source_metadata at pick time. Serial and best-effort per row — a dead URL
-// just counts as failed; rows with no usable URL are skipped entirely.
+// handleCoversRefetch implements POST /covers/refetch (admin): for every book
+// (and movie) it re-derives whatever is still missing from the latest available
+// identifiers and fills empty fields only — never overwriting the user's data.
+//
+// Books are looked up by ISBN (reliable) and, with an Amazon cookie, by ASIN;
+// empty author/description/year/genres are backfilled, and a missing cover is
+// pulled from the candidate, Open Library (by ISBN), or Amazon (by ASIN) — every
+// path is keyless. A title-only book skips metadata backfill (a bare title match
+// is too loose to trust) but still tries a candidate cover. Movies reuse the
+// TMDB poster cached at add time. Serial + best-effort across ALL users.
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
-	type target struct {
-		table, column string
-		id            int64
-		url           string
-	}
-	var targets []target
+	ctx := r.Context()
+	gkey, _ := s.Store.GetSetting(settingGoogleBooksKey)
+	cookie, _ := s.Store.GetSetting(settingAmazonCookie)
+	domain, _ := s.Store.GetSetting(settingAmazonDomain)
 
-	collect := func(query string, urlOf func(raw string) string, table, column string) error {
-		rows, err := s.Store.DB.Query(query)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var id int64
-			var raw string
-			if rows.Scan(&id, &raw) != nil {
-				continue
-			}
-			if u := urlOf(raw); u != "" {
-				targets = append(targets, target{table, column, id, u})
-			}
-		}
-		return rows.Err()
+	type bookRow struct {
+		id, uid    int64
+		title      string
+		isbn, asin string
+		cover      string
+		cachedURL  string // cover_url captured in source_metadata at add time
+		genreCount int
 	}
-
-	// Books: source_metadata is the raw POST /books body -> its cover_url.
-	err := collect(`SELECT id, source_metadata FROM books
-		WHERE cover_path IS NULL AND source_metadata IS NOT NULL`,
-		func(raw string) string {
+	var books []bookRow
+	rows, err := s.Store.DB.Query(`SELECT id, user_id, title, COALESCE(isbn,''), COALESCE(asin,''),
+		COALESCE(cover_path,''), COALESCE(source_metadata,''),
+		(SELECT COUNT(*) FROM book_genres bg WHERE bg.book_id = books.id)
+		FROM books`)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	for rows.Next() {
+		var b bookRow
+		var raw string
+		if rows.Scan(&b.id, &b.uid, &b.title, &b.isbn, &b.asin, &b.cover, &raw, &b.genreCount) != nil {
+			continue
+		}
+		if raw != "" {
 			var meta struct {
 				CoverURL string `json:"cover_url"`
 			}
 			_ = json.Unmarshal([]byte(raw), &meta)
-			return meta.CoverURL
-		}, "books", "cover_path")
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
+			b.cachedURL = meta.CoverURL
+		}
+		books = append(books, b)
 	}
-	// Movies: source_metadata is the raw TMDB details payload -> poster_path.
-	err = collect(`SELECT id, source_metadata FROM movies
-		WHERE poster_path IS NULL AND source_metadata IS NOT NULL`,
-		func(raw string) string {
+	rows.Close() // done reading before any writes/network (SQLite single-writer)
+
+	enriched, fetched, failed := 0, 0, 0
+	for _, b := range books {
+		isbnN := metadata.NormalizeISBN(b.isbn)
+
+		// Best candidate from the keyless/keyed sources.
+		var cand *metadata.BookCandidate
+		if isbnN != "" || b.title != "" {
+			if cs, _ := s.searchBooks(ctx, isbnN, b.title, gkey); len(cs) > 0 {
+				cand = &cs[0]
+			}
+		}
+		if cand == nil && b.asin != "" && cookie != "" {
+			if a, aerr := metadata.FetchAmazonBook(ctx, b.asin, cookie, domain); aerr == nil {
+				cand = a
+			}
+		}
+
+		// Metadata backfill (fill-empty), only when the identity is trustworthy.
+		if cand != nil && (isbnN != "" || b.asin != "") {
+			res, uerr := s.Store.DB.Exec(`UPDATE books SET
+				author = COALESCE(author, ?),
+				description = COALESCE(description, ?),
+				published_year = COALESCE(published_year, ?)
+				WHERE id = ? AND (author IS NULL OR description IS NULL OR published_year IS NULL)`,
+				nullable(cand.Author), nullable(cand.Description), nullableInt(cand.PublishedYear), b.id)
+			if uerr == nil {
+				if n, _ := res.RowsAffected(); n > 0 {
+					enriched++
+				}
+			}
+			if b.genreCount == 0 && len(cand.Genres) > 0 {
+				if tx, terr := s.Store.DB.Begin(); terr == nil {
+					if setGenres(tx, "book", b.uid, b.id, cand.Genres) == nil {
+						_ = tx.Commit()
+					} else {
+						_ = tx.Rollback()
+					}
+				}
+			}
+		}
+
+		// Cover, if still missing: candidate URL, then OL-by-ISBN, then Amazon-by-ASIN.
+		if b.cover == "" {
+			var urls []string
+			if b.cachedURL != "" {
+				urls = append(urls, b.cachedURL) // the URL that was chosen at add time
+			}
+			if cand != nil {
+				urls = append(urls, cand.CoverURL)
+			}
+			if isbnN != "" {
+				urls = append(urls, "https://covers.openlibrary.org/b/isbn/"+isbnN+"-L.jpg?default=false")
+			}
+			if b.asin != "" {
+				urls = append(urls, metadata.AmazonCoverURL(b.asin))
+			}
+			name := ""
+			for _, u := range urls {
+				if u == "" {
+					continue
+				}
+				if n, ferr := s.fetchImage(ctx, u, s.coversDir()); ferr == nil {
+					name = n
+					break
+				}
+			}
+			if name != "" {
+				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, name, b.id); uerr == nil {
+					fetched++
+				} else {
+					s.removeCoverFile(name)
+				}
+			} else if len(urls) > 0 {
+				failed++
+			}
+		}
+	}
+
+	// Movies: fetch the TMDB poster cached at add time (keyless to fetch).
+	type movieTarget struct {
+		id  int64
+		url string
+	}
+	var movies []movieTarget
+	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(source_metadata, '') FROM movies
+		WHERE poster_path IS NULL AND source_metadata IS NOT NULL`)
+	if err == nil {
+		for mrows.Next() {
+			var id int64
+			var raw string
+			if mrows.Scan(&id, &raw) != nil {
+				continue
+			}
 			var meta struct {
 				PosterPath string `json:"poster_path"`
 			}
 			_ = json.Unmarshal([]byte(raw), &meta)
-			if meta.PosterPath == "" {
-				return ""
+			if meta.PosterPath != "" {
+				movies = append(movies, movieTarget{id, tmdbPosterBase + meta.PosterPath})
 			}
-			return tmdbPosterBase + meta.PosterPath
-		}, "movies", "poster_path")
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
+		}
+		mrows.Close()
 	}
-
-	fetched, failed := 0, 0
-	for _, tg := range targets {
-		name, err := s.fetchImage(r.Context(), tg.url, s.coversDir())
-		if err != nil {
+	for _, m := range movies {
+		name, ferr := s.fetchImage(ctx, m.url, s.coversDir())
+		if ferr != nil {
 			failed++
 			continue
 		}
-		if _, err := s.Store.DB.Exec(
-			`UPDATE `+tg.table+` SET `+tg.column+` = ? WHERE id = ?`, name, tg.id); err != nil {
+		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ? WHERE id = ?`, name, m.id); uerr == nil {
+			fetched++
+		} else {
 			s.removeCoverFile(name)
 			failed++
-			continue
 		}
-		fetched++
 	}
-	writeJSON(w, http.StatusOK, map[string]int{"fetched": fetched, "failed": failed})
+
+	writeJSON(w, http.StatusOK, map[string]int{"fetched": fetched, "failed": failed, "enriched": enriched})
 }

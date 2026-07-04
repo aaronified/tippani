@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
 import {
-  EdgeRow,
   EmptyState,
   ErrorText,
   GhostButton,
+  HandCard,
   HandNote,
   HighlightSpan,
   MonoLabel,
   Placeholder,
-  Sprockets,
-  frameCode,
-  useFrameBase,
 } from './ui.jsx'
 
 const SCOPES = [
@@ -22,27 +19,15 @@ const SCOPES = [
   ['dialogues', 'Dialogues'],
 ]
 
-// useAesthetic mirrors ui.jsx's useResolvedDark for the aesthetic axis —
-// local on purpose, ui.jsx is shared foundation (see task ownership note).
-function useAesthetic() {
-  const [aes, setAes] = useState(() => document.documentElement.dataset.aesthetic || 'paper')
-  useEffect(() => {
-    const fn = (e) => setAes(e.detail.aesthetic)
-    window.addEventListener('tippani:theme', fn)
-    return () => window.removeEventListener('tippani:theme', fn)
-  }, [])
-  return aes
-}
-
-// SearchPage (§8.9): one big Newsreader box, scope chips, grouped bm25 results.
-// 200 ms debounce with a stale-guard; GET /search?q=&scope=.
+// SearchPage (§8.9): one big Newsreader box + scope chips. Results are grouped
+// by their parent book / movie, each group headed by the cover / poster —
+// annotations sit under their book, dialogues under their movie. 200 ms debounce
+// with a stale-guard; GET /search?q=&scope=.
 export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const [q, setQ] = useState('')
   const [scope, setScope] = useState('all')
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
-  const film = useAesthetic() === 'film'
-  const base = useFrameBase()
 
   useEffect(() => {
     const query = q.trim()
@@ -68,11 +53,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
     }
   }, [q, scope])
 
-  const empty =
-    results &&
-    ['books', 'annotations', 'movies', 'dialogues'].every((k) => !results[k] || results[k].length === 0)
-
   const terms = queryTerms(q)
+  const bookGroups = results ? groupBooks(results) : []
+  const movieGroups = results ? groupMovies(results) : []
+  const empty = results && bookGroups.length === 0 && movieGroups.length === 0
 
   return (
     <section className="space-y-5 pt-4">
@@ -112,159 +96,177 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <GhostButton onClick={() => setQ('')}>Clear search</GhostButton>
-            {scope !== 'all' && (
-              <GhostButton onClick={() => setScope('all')}>Search everything</GhostButton>
-            )}
+            {scope !== 'all' && <GhostButton onClick={() => setScope('all')}>Search everything</GhostButton>}
           </div>
         </div>
       )}
 
-      {results?.books?.length > 0 && (
-        <ResultGroup label="Books" count={results.books.length} film={film} code={frameCode(base, 0)}>
-          {results.books.map((b, i) => (
-            <ResultCard key={b.id} index={i} onClick={() => onOpenBook(b.id)}>
-              <div className="flex items-center gap-4">
-                <Placeholder kind="" className="h-14 w-10 shrink-0" />
-                <p className="display-title min-w-0 flex-1 text-[16.5px] leading-snug">
-                  <Highlight text={b.title} terms={terms} />
-                  {b.author && (
-                    <span className="font-normal" style={{ color: 'var(--soft)' }}>
-                      {' — '}
-                      <Highlight text={b.author} terms={terms} />
-                    </span>
+      {bookGroups.length > 0 && (
+        <section className="space-y-3">
+          <MonoLabel className="block">Books · {bookGroups.length}</MonoLabel>
+          {bookGroups.map((g) => (
+            <MediaGroup
+              key={`b${g.id}`}
+              kind="COVER"
+              cover={g.cover_path}
+              title={g.title}
+              terms={terms}
+              subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
+              onOpen={() => onOpenBook(g.id)}
+            >
+              {g.annotations.map((a) => (
+                <ChildHit key={a.id} onClick={() => onOpenBook(g.id)}>
+                  {a.quote && (
+                    <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
+                      <Highlight text={a.quote} terms={terms} />
+                    </p>
                   )}
-                </p>
-                {b.genres?.length > 0 && (
-                  <MonoLabel className="hidden shrink-0 sm:block">
-                    {b.genres.slice(0, 3).join(' · ')}
-                  </MonoLabel>
-                )}
-              </div>
-            </ResultCard>
+                  {a.note && (
+                    <HandNote>
+                      <Highlight text={a.note} terms={terms} />
+                    </HandNote>
+                  )}
+                </ChildHit>
+              ))}
+            </MediaGroup>
           ))}
-        </ResultGroup>
+        </section>
       )}
 
-      {results?.annotations?.length > 0 && (
-        <ResultGroup
-          label="Annotations"
-          count={results.annotations.length}
-          film={film}
-          code={frameCode(base, 1)}
-        >
-          {results.annotations.map((a, i) => (
-            <ResultCard key={a.id} index={i + 1} onClick={() => onOpenBook(a.book_id)}>
-              {a.quote && (
-                <p
-                  className="mb-1.5"
-                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15.5, lineHeight: 1.5 }}
-                >
-                  <Highlight text={a.quote} terms={terms} />
-                </p>
-              )}
-              {a.note && (
-                <HandNote className="mb-1.5">
-                  <Highlight text={a.note} terms={terms} />
-                </HandNote>
-              )}
-              <MonoLabel className="block">{a.book_title}</MonoLabel>
-            </ResultCard>
-          ))}
-        </ResultGroup>
-      )}
-
-      {results?.movies?.length > 0 && (
-        <ResultGroup label="Movies" count={results.movies.length} film={film} code={frameCode(base, 2)}>
-          {results.movies.map((m, i) => (
-            <ResultCard key={m.id} index={i + 2} onClick={() => onOpenMovie(m.id)}>
-              <div className="flex items-center gap-4">
-                <Placeholder kind="" className="h-14 w-10 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="display-title text-[16.5px] leading-snug">
-                    <Highlight text={m.title} terms={terms} />
+      {movieGroups.length > 0 && (
+        <section className="space-y-3">
+          <MonoLabel className="block">Movies · {movieGroups.length}</MonoLabel>
+          {movieGroups.map((g) => (
+            <MediaGroup
+              key={`m${g.id}`}
+              kind="POSTER"
+              cover={g.poster_path}
+              title={g.title}
+              terms={terms}
+              subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
+              onOpen={() => onOpenMovie(g.id)}
+            >
+              {g.dialogues.map((d) => (
+                <ChildHit key={d.id} onClick={() => onOpenMovie(g.id)}>
+                  <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
+                    “<Highlight text={d.quote} terms={terms} />”
                   </p>
-                  <MonoLabel className="mt-0.5 block">
-                    <Highlight text={m.director} terms={terms} />
-                    {m.director && m.release_year ? ' · ' : ''}
-                    {m.release_year || ''}
+                  <MonoLabel className="mt-1 block">
+                    {d.character && <Highlight text={d.character} terms={terms} />}
+                    {d.character && d.actor ? ' · ' : ''}
+                    {d.actor && <Highlight text={d.actor} terms={terms} />}
+                    {d.timestamp ? `  ·  ${d.timestamp}` : ''}
                   </MonoLabel>
-                </div>
-              </div>
-            </ResultCard>
+                </ChildHit>
+              ))}
+            </MediaGroup>
           ))}
-        </ResultGroup>
-      )}
-
-      {results?.dialogues?.length > 0 && (
-        <ResultGroup
-          label="Dialogues"
-          count={results.dialogues.length}
-          film={film}
-          code={frameCode(base, 3)}
-        >
-          {results.dialogues.map((d, i) => (
-            <ResultCard key={d.id} index={i + 3} onClick={() => onOpenMovie(d.movie_id)}>
-              <p style={{ fontFamily: 'var(--font-display)', fontSize: 16, lineHeight: 1.5 }}>
-                “<Highlight text={d.quote} terms={terms} />”
-              </p>
-              <MonoLabel className="mt-1.5 block">
-                {d.character && <Highlight text={d.character} terms={terms} />}
-                {d.character && d.actor ? ' · ' : ''}
-                {d.actor && <Highlight text={d.actor} terms={terms} />}
-                {d.character || d.actor ? ' — ' : ''}
-                {d.movie_title}
-                {d.timestamp ? ` · ${d.timestamp}` : ''}
-              </MonoLabel>
-            </ResultCard>
-          ))}
-        </ResultGroup>
+        </section>
       )}
     </section>
   )
 }
 
-// ResultGroup: mono header + a stack of cards on paper; on film the stack sits
-// inside a film strip with sprocket rows and a runtime frame code (§6).
-function ResultGroup({ label, count, film, code, children }) {
+// MediaGroup: one book / movie as a card — cover or poster on the left, title +
+// subtitle, and its matching children (annotations / dialogues) stacked below.
+function MediaGroup({ kind, cover, title, subtitle, terms, onOpen, children }) {
+  const hasChildren = Array.isArray(children) ? children.some(Boolean) : Boolean(children)
   return (
-    <section className="space-y-2">
-      <MonoLabel className="block">
-        {label} · {count}
-      </MonoLabel>
-      {film ? (
-        <div className="film-strip">
-          <Sprockets />
-          <EdgeRow code={code} />
-          <div className="space-y-3 px-4 pb-2">{children}</div>
-          <Sprockets />
-        </div>
-      ) : (
-        <div className="space-y-3">{children}</div>
-      )}
-    </section>
+    <HandCard className="flex gap-4 p-4">
+      <button type="button" onClick={onOpen} className="shrink-0" title={title} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+        {cover ? (
+          <img
+            src={`/covers/${cover}`}
+            alt=""
+            className="block w-16 object-cover"
+            style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }}
+          />
+        ) : (
+          <Placeholder kind={kind} className="w-16" />
+        )}
+      </button>
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="block text-left"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          <p className="display-title text-[16.5px] leading-snug">
+            <Highlight text={title} terms={terms} />
+          </p>
+          {subtitle && <MonoLabel className="mt-0.5 block">{subtitle}</MonoLabel>}
+        </button>
+        {hasChildren && <div className="mt-2.5 space-y-2">{children}</div>}
+      </div>
+    </HandCard>
   )
 }
 
-const RADII = ['', 'hc-r1', 'hc-r2', 'hc-r3']
-
-// ResultCard: the whole hit is one click target; radius variant cycles so
-// neighbouring paper cards wobble differently (§6).
-function ResultCard({ index = 0, onClick, children }) {
+// ChildHit: an annotation / dialogue row inside a group, its own click target.
+function ChildHit({ onClick, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`hand-card ${RADII[index % RADII.length]} block w-full px-5 py-4 text-left transition hover:brightness-105`}
+      className="block w-full text-left"
+      style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer' }}
     >
       {children}
     </button>
   )
 }
 
+// groupBooks merges matched books and matched annotations into per-book groups,
+// preserving bm25 order (matched books first, then annotation-only books).
+function groupBooks(r) {
+  const order = []
+  const byId = new Map()
+  const ensure = (id, seed) => {
+    let g = byId.get(id)
+    if (!g) {
+      g = { id, title: '', author: '', cover_path: '', genres: [], annotations: [], ...seed }
+      byId.set(id, g)
+      order.push(g)
+    }
+    return g
+  }
+  for (const b of r.books || []) {
+    ensure(b.id, { title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres })
+  }
+  for (const a of r.annotations || []) {
+    const g = ensure(a.book_id, { title: a.book_title, cover_path: a.book_cover_path })
+    g.annotations.push(a)
+  }
+  return order
+}
+
+// groupMovies mirrors groupBooks for movies + dialogues.
+function groupMovies(r) {
+  const order = []
+  const byId = new Map()
+  const ensure = (id, seed) => {
+    let g = byId.get(id)
+    if (!g) {
+      g = { id, title: '', director: '', release_year: 0, poster_path: '', dialogues: [], ...seed }
+      byId.set(id, g)
+      order.push(g)
+    }
+    return g
+  }
+  for (const m of r.movies || []) {
+    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path })
+  }
+  for (const d of r.dialogues || []) {
+    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path })
+    g.dialogues.push(d)
+  }
+  return order
+}
+
 // Highlight wraps query terms in the §6 accent highlight span. Pure text
 // splitting — no HTML injection. Case-insensitive; FTS accent-folding
-// (Bronte→Brontë) is server-side only, so accented matches simply render
-// unhighlighted (graceful degradation).
+// (Bronte→Brontë) is server-side only, so accented matches render unhighlighted.
 function Highlight({ text, terms }) {
   if (!text || terms.length === 0) return text || null
   const pattern = new RegExp(
@@ -272,9 +274,7 @@ function Highlight({ text, terms }) {
     'gi'
   )
   const parts = String(text).split(pattern)
-  return parts.map((part, i) =>
-    i % 2 === 1 ? <HighlightSpan key={i}>{part}</HighlightSpan> : part
-  )
+  return parts.map((part, i) => (i % 2 === 1 ? <HighlightSpan key={i}>{part}</HighlightSpan> : part))
 }
 
 // queryTerms splits the search input into highlightable tokens.

@@ -121,6 +121,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /import/markdown", s.requireAuth(s.handleImportMarkdown))
 	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
 	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
+	mux.Handle("POST /import/goodreads-html", s.requireAuth(s.handleImportGoodreads))
 	mux.Handle("POST /import/kindle-clippings", s.requireAuth(notImplemented)) // deferred (PLAN §5c)
 	mux.Handle("GET /covers/{file}", s.requireAuth(s.handleCover))
 

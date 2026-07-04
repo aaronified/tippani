@@ -329,10 +329,15 @@ function Metadata({ user }) {
   async function saveKeys() {
     setSaving(true)
     setError('')
+    // Send a secret whenever its input is visible — it isn't set yet (and the
+    // key-state has loaded), or its Edit button was clicked. A masked field is
+    // omitted so it stays untouched. The `keys &&` guard matters: before the
+    // state loads, sending a blank field would clear an already-saved key.
+    const shown = (setFlag, editing) => editing || (keys && !setFlag)
     const body = { amazon_domain: amazonDomain.trim() }
-    if (edit.tmdb) body.tmdb_key = tmdbKey
-    if (edit.google) body.google_books_key = googleKey
-    if (edit.amazon) body.amazon_cookie = amazonCookie
+    if (shown(keys?.tmdb_key_set, edit.tmdb)) body.tmdb_key = tmdbKey
+    if (shown(keys?.google_books_key_set, edit.google)) body.google_books_key = googleKey
+    if (shown(keys?.amazon_cookie_set, edit.amazon)) body.amazon_cookie = amazonCookie
     const r = await json('PUT', '/admin/metadata-keys', body)
     setSaving(false)
     if (r.ok) {
@@ -485,14 +490,18 @@ function Metadata({ user }) {
       <div>
         <MonoLabel className="block">Covers</MonoLabel>
         <p className="mt-2" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
-          Covers live in MediaCover/, fetched once, served locally (arr-style).
+          Covers live in MediaCover/, fetched once, served locally (arr-style). Re-fetch tries every
+          cover-less book against Open Library (by ISBN) and Amazon (by ASIN) — no key needed — plus any
+          poster cached from a TMDB lookup.
         </p>
         {admin && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <GhostButton onClick={doRefetch} disabled={refetching}>Re-fetch missing</GhostButton>
+            <GhostButton onClick={doRefetch} disabled={refetching}>
+              {refetching ? 'Re-fetching…' : 'Re-fetch missing'}
+            </GhostButton>
             {refetch && (
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--soft)' }}>
-                {refetch.fetched} fetched · {refetch.failed} failed
+                {refetch.fetched} covers · {refetch.enriched || 0} enriched · {refetch.failed} failed
               </span>
             )}
           </div>

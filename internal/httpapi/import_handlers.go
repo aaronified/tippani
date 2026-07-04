@@ -27,6 +27,10 @@ func (s *Server) handleImportHardcover(w http.ResponseWriter, r *http.Request) {
 	s.handleImport(w, r, "hardcover_html", importer.HardcoverHTML) // PLAN §5e
 }
 
+func (s *Server) handleImportGoodreads(w http.ResponseWriter, r *http.Request) {
+	s.handleImport(w, r, "goodreads_html", importer.Goodreads)
+}
+
 // handleImport is the shared multipart import flow: cap -> parse -> one
 // transaction for the book upsert and every annotation insert (PLAN §5, §8).
 // dedupe_hash duplicates are counted as skipped, so re-imports are idempotent.
@@ -208,11 +212,14 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		}
 	}
 	if matched {
-		// OR IGNORE: skip the backfill rather than fail if another row already
-		// owns this isbn/asin (partial unique indexes on (user_id, isbn/asin)).
+		// Backfill every identifier/field the matched row is missing from this
+		// import (fill-empty-only, so existing data always wins). OR IGNORE skips
+		// rather than fails if another row already owns this isbn/asin (partial
+		// unique indexes on (user_id, isbn/asin)).
 		if _, err := tx.Exec(
-			`UPDATE OR IGNORE books SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?) WHERE id = ?`,
-			nullable(isbn), nullable(b.ASIN), id); err != nil {
+			`UPDATE OR IGNORE books SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?),
+			                            author = COALESCE(author, ?) WHERE id = ?`,
+			nullable(isbn), nullable(b.ASIN), nullable(b.Author), id); err != nil {
 			return 0, false, err
 		}
 		return id, false, nil

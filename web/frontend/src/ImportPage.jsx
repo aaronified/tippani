@@ -19,8 +19,12 @@ const SOURCES = [
     kind: 'markdown',
     ext: '.md',
     title: 'Markdown',
-    desc: 'Frontmatter or Readest export — shape auto-detected.',
+    desc: 'Frontmatter or a Readest export — the shape is auto-detected.',
     accept: '.md,.markdown,.txt',
+    steps: [
+      'Export highlights from Readest, or write your own with YAML frontmatter (title/author) + quotes.',
+      'Drop the .md file(s) here.',
+    ],
   },
   {
     kind: 'bookcision',
@@ -28,13 +32,34 @@ const SOURCES = [
     title: 'Bookcision',
     desc: 'Kindle highlights, exported from the browser.',
     accept: '.json',
+    steps: [
+      'Open bookcision.com and load your Kindle book.',
+      'Export → download the JSON, then drop it here.',
+    ],
   },
   {
     kind: 'hardcover-html',
     ext: '.html',
     title: 'Hardcover',
-    desc: 'A saved reading-journal page.',
+    desc: 'Your reading-journal page for one book.',
     accept: '.htm,.html',
+    steps: [
+      'Open your journal page, e.g. hardcover.app/books/<book>/journals/@you',
+      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
+      'Drop the saved .html here.',
+    ],
+  },
+  {
+    kind: 'goodreads-html',
+    ext: '.html',
+    title: 'Goodreads',
+    desc: "A book's public Quotes page — quote tags come across too.",
+    accept: '.htm,.html',
+    steps: [
+      'Open the book’s Quotes page, e.g. goodreads.com/work/quotes/<id>-<book>',
+      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
+      'Drop the saved .html here.',
+    ],
   },
 ]
 
@@ -121,7 +146,7 @@ function ExtBadge({ muted, children }) {
 
 // SourceCard accepts multi-select via the hidden input and drag-drop of many
 // files anywhere on the card.
-function SourceCard({ variant, ext, title, desc, accept, busy, onFiles }) {
+function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles }) {
   const [over, setOver] = useState(false)
   return (
     <HandCard
@@ -144,6 +169,16 @@ function SourceCard({ variant, ext, title, desc, accept, busy, onFiles }) {
       <p className="text-sm" style={{ color: 'var(--soft)' }}>
         {desc}
       </p>
+      {steps && steps.length > 0 && (
+        <ol
+          className="space-y-1"
+          style={{ fontSize: 12, color: 'var(--faint)', paddingLeft: 16, listStyle: 'decimal', lineHeight: 1.45 }}
+        >
+          {steps.map((s, i) => (
+            <li key={i}>{s}</li>
+          ))}
+        </ol>
+      )}
       <label
         className="tp-btn tp-btn-ghost mt-auto"
         style={busy ? { opacity: 0.55, cursor: 'default' } : { cursor: 'pointer' }}
