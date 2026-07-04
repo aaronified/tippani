@@ -256,12 +256,40 @@ function Appearance({ user }) {
 
 // ---- 2. Metadata sources (§2, mockup 27) ----
 
+// SecretField masks a stored write-only secret. When set and not being edited
+// it shows a "saved" chip + Edit button; there is no way to reveal the value.
+function SecretField({ set, editing, onEdit, value, onChange, placeholder }) {
+  if (set && !editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="tp-chip" title="stored — cannot be shown">•••••••••• saved</span>
+        <GhostButton type="button" onClick={onEdit}>Edit</GhostButton>
+      </div>
+    )
+  }
+  return (
+    <input
+      className="tp-input"
+      style={{ maxWidth: 320 }}
+      placeholder={placeholder}
+      value={value}
+      autoComplete="off"
+      onChange={onChange}
+    />
+  )
+}
+
 function Metadata({ user }) {
   const admin = user.is_admin
   const [status, setStatus] = useState(null)
   const [tmdbKey, setTmdbKey] = useState('')
   const [googleKey, setGoogleKey] = useState('')
-  const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set}
+  const [amazonCookie, setAmazonCookie] = useState('')
+  const [amazonDomain, setAmazonDomain] = useState('')
+  // Which secret fields are being edited (a saved secret is masked until then).
+  const [edit, setEdit] = useState({}) // {tmdb, google, amazon}
+  const [amazonHelp, setAmazonHelp] = useState(false)
+  const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [refetch, setRefetch] = useState(null) // {fetched, failed}
@@ -271,9 +299,16 @@ function Metadata({ user }) {
     const r = await json('GET', '/metadata/status')
     if (r.ok) setStatus(r.data)
   }
+  async function loadKeys() {
+    const r = await json('GET', '/admin/metadata-keys')
+    if (r.ok) {
+      setKeys(r.data)
+      setAmazonDomain(r.data.amazon_domain || '')
+    }
+  }
   useEffect(() => {
     loadStatus()
-    if (admin) json('GET', '/admin/metadata-keys').then((r) => r.ok && setKeys(r.data))
+    if (admin) loadKeys()
   }, [admin])
 
   const source = status?.tmdb?.source
@@ -287,18 +322,26 @@ function Metadata({ user }) {
         : source === 'env' ? 'Env key'
           : 'No key'
 
-  // Both keys persist together (PUT takes both; "" clears). Fields are
-  // write-only — GET reports only whether a key is stored.
+  // Secrets are write-only: GET reports only whether each is set, never the
+  // value. Only fields the admin actually edited are sent (the PUT leaves any
+  // omitted field untouched), so revealing one field to change it can't wipe
+  // the others. The Amazon domain is not secret, so it always rides along.
   async function saveKeys() {
     setSaving(true)
     setError('')
-    const r = await json('PUT', '/admin/metadata-keys', { tmdb_key: tmdbKey, google_books_key: googleKey })
+    const body = { amazon_domain: amazonDomain.trim() }
+    if (edit.tmdb) body.tmdb_key = tmdbKey
+    if (edit.google) body.google_books_key = googleKey
+    if (edit.amazon) body.amazon_cookie = amazonCookie
+    const r = await json('PUT', '/admin/metadata-keys', body)
     setSaving(false)
     if (r.ok) {
       setTmdbKey('')
       setGoogleKey('')
+      setAmazonCookie('')
+      setEdit({})
       loadStatus()
-      json('GET', '/admin/metadata-keys').then((rr) => rr.ok && setKeys(rr.data))
+      loadKeys()
     } else {
       setError(errText(r, 'could not save keys'))
     }
@@ -342,13 +385,13 @@ function Metadata({ user }) {
         )}
         {admin && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input
-              className="tp-input"
-              style={{ maxWidth: 300 }}
-              placeholder={keys?.google_books_key_set ? 'Google Books key saved — type to replace' : 'Google Books API key — optional'}
+            <SecretField
+              set={keys?.google_books_key_set}
+              editing={edit.google}
+              onEdit={() => setEdit((e) => ({ ...e, google: true }))}
               value={googleKey}
-              autoComplete="off"
               onChange={(e) => setGoogleKey(e.target.value)}
+              placeholder="Google Books API key — optional"
             />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--faint)' }}>~1,000/day free</span>
           </div>
@@ -369,23 +412,74 @@ function Metadata({ user }) {
         </p>
         {admin && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input
-              className="tp-input"
-              style={{ maxWidth: 300 }}
-              placeholder={keys?.tmdb_key_set ? 'Custom key saved — type to replace' : 'Custom v3 key or v4 token — overrides built-in'}
+            <SecretField
+              set={keys?.tmdb_key_set}
+              editing={edit.tmdb}
+              onEdit={() => setEdit((e) => ({ ...e, tmdb: true }))}
               value={tmdbKey}
-              autoComplete="off"
               onChange={(e) => setTmdbKey(e.target.value)}
+              placeholder="Custom v3 key or v4 token — overrides built-in"
             />
-            <StickerButton onClick={saveKeys} disabled={saving}>Save</StickerButton>
           </div>
         )}
-        {admin && (
-          <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.04em', color: 'var(--faint)' }}>
-            saving stores both keys; leave a field blank to clear it
-          </p>
-        )}
       </div>
+
+      {/* Amazon (advanced): cover-by-ASIN needs nothing; the optional cookie
+          adds description/genres by scraping the product page. */}
+      {admin && (
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <MonoLabel>Amazon</MonoLabel>
+            <span style={{ fontWeight: 600 }}>Kindle / ASIN</span>
+            <StatusChip tone={keys?.amazon_cookie_set ? 'ok' : 'muted'}>
+              {keys?.amazon_cookie_set ? 'Cookie saved' : 'Covers only'}
+            </StatusChip>
+          </div>
+          <p className="mt-2.5" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
+            Book <b>covers</b> are fetched from an ASIN with no setup. A session cookie is optional and only
+            adds description + genres by reading the product page — it's fragile, against Amazon's terms, and
+            grants access to your account, so it's stored write-only and never shown.{' '}
+            <button type="button" className="tp-link" onClick={() => setAmazonHelp((v) => !v)}>
+              {amazonHelp ? 'hide' : 'how to get the cookie'}
+            </button>
+          </p>
+          {amazonHelp && (
+            <ol className="mt-2 space-y-1" style={{ fontSize: 12.5, color: 'var(--soft)', paddingLeft: 18, listStyle: 'decimal' }}>
+              <li>Sign in to Amazon in your browser, on the marketplace your books live on.</li>
+              <li>Open DevTools (F12) → <b>Application</b> (Chrome) or <b>Storage</b> (Firefox) → Cookies → the amazon domain.</li>
+              <li>Copy the <b>Cookie header</b>: easiest is the Network tab → click any amazon request → Request Headers → copy the whole <code>cookie:</code> value.</li>
+              <li>Paste it below and set the domain (e.g. <code>www.amazon.com</code> or <code>www.amazon.de</code>).</li>
+            </ol>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <SecretField
+              set={keys?.amazon_cookie_set}
+              editing={edit.amazon}
+              onEdit={() => setEdit((e) => ({ ...e, amazon: true }))}
+              value={amazonCookie}
+              onChange={(e) => setAmazonCookie(e.target.value)}
+              placeholder="Amazon session cookie — optional"
+            />
+            <input
+              className="tp-input"
+              style={{ maxWidth: 200 }}
+              placeholder="www.amazon.com"
+              value={amazonDomain}
+              autoComplete="off"
+              onChange={(e) => setAmazonDomain(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {admin && (
+        <div className="mb-6">
+          <StickerButton onClick={saveKeys} disabled={saving}>{saving ? 'Saving…' : 'Save keys'}</StickerButton>
+          <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.04em', color: 'var(--faint)' }}>
+            secrets are write-only — saved keys show masked; Edit to replace, or save a blank field to clear
+          </p>
+        </div>
+      )}
 
       {/* Covers */}
       <div>

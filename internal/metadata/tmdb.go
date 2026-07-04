@@ -3,6 +3,7 @@ package metadata
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -69,11 +70,16 @@ func (t *TMDB) get(ctx context.Context, path string, q url.Values) ([]byte, erro
 	case http.StatusOK:
 		return body, nil
 	case http.StatusUnauthorized:
-		return nil, fmt.Errorf("tmdb: invalid API key (status 401)")
+		return nil, fmt.Errorf("tmdb: %w", ErrTMDBAuth)
 	default:
 		return nil, fmt.Errorf("tmdb: status %d", status)
 	}
 }
+
+// ErrTMDBAuth signals TMDB rejected the key (HTTP 401) — usually a v3 key
+// pasted where a v4 token was expected (or vice-versa), or a typo. The handler
+// turns it into a "TMDB rejected the key" hint rather than a generic failure.
+var ErrTMDBAuth = errors.New("tmdb rejected the API key (401)")
 
 func (t *TMDB) Search(ctx context.Context, query string, year int) ([]MovieCandidate, error) {
 	q := url.Values{"query": {query}}

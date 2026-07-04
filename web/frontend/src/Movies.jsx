@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { json, errText } from './api.js'
+import { CoverControls, MovieLookupPicker } from './CoverPicker.jsx'
 import {
   EdgeRow,
   EmptyState,
@@ -458,6 +459,9 @@ function EditMovie({ movie, onSaved, onCancel }) {
   const [year, setYear] = useState(movie.release_year ? String(movie.release_year) : '')
   const [genres, setGenres] = useState((movie.genres || []).join(', '))
   const [description, setDescription] = useState(movie.description || '')
+  const [posterPath, setPosterPath] = useState(movie.poster_path || '')
+  const [posterUrl, setPosterUrl] = useState('')
+  const [clearCover, setClearCover] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -472,14 +476,52 @@ function EditMovie({ movie, onSaved, onCancel }) {
       release_year: year ? Number(year) : undefined,
       genres: splitCommas(genres),
       description: description.trim(),
+      poster_url: posterUrl || undefined,
+      clear_cover: clearCover || undefined,
     })
     setBusy(false)
     if (r.ok) onSaved()
     else setError(errText(r, 'could not save'))
   }
 
+  // Picking a TMDB match re-syncs everything server-side (poster, cast, genres,
+  // details) — a full re-pull, so we just refresh afterwards.
+  async function resync(c) {
+    setBusy(true)
+    setError('')
+    const r = await json('PUT', `/movies/${movie.id}`, { tmdb_id: c.tmdb_id })
+    setBusy(false)
+    if (r.ok) onSaved()
+    else setError(errText(r, 'could not sync from TMDB'))
+  }
+
   return (
     <form onSubmit={submit} className="space-y-2.5">
+      <CoverControls
+        kind="movies"
+        id={movie.id}
+        currentPath={posterPath}
+        coverUrl={posterUrl}
+        clearCover={clearCover}
+        onSetUrl={(u) => {
+          setPosterUrl(u)
+          setClearCover(false)
+        }}
+        onClear={(reset) => {
+          if (reset === true) {
+            setPosterUrl('')
+            setClearCover(false)
+          } else {
+            setClearCover(true)
+            setPosterUrl('')
+          }
+        }}
+        onUploaded={(rec) => setPosterPath(rec.poster_path || '')}
+      />
+      <div>
+        <MonoLabel className="mb-1.5 block">Look up on TMDB (replaces details, cast &amp; poster)</MonoLabel>
+        <MovieLookupPicker title={title} year={year} onPick={resync} />
+      </div>
       <div className="grid gap-2.5 sm:grid-cols-2">
         <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input className="tp-input" placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />

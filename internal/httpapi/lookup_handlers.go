@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -13,14 +14,16 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ISBN  string `json:"isbn"`
 		Title string `json:"title"`
+		ASIN  string `json:"asin"` // Kindle/print ASIN — enables the Amazon source
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
 	req.Title = strings.TrimSpace(req.Title)
 	req.ISBN = strings.TrimSpace(req.ISBN)
-	if req.ISBN == "" && req.Title == "" {
-		writeErr(w, http.StatusBadRequest, "isbn or title is required")
+	req.ASIN = strings.TrimSpace(req.ASIN)
+	if req.ISBN == "" && req.Title == "" && req.ASIN == "" {
+		writeErr(w, http.StatusBadRequest, "isbn, title, or asin is required")
 		return
 	}
 	var isbn string
@@ -35,11 +38,48 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	cands, err := s.searchBooks(r.Context(), isbn, req.Title, gkey)
-	s.recordBooksLookup(err) // GET /metadata/status surfaces the latest outcome (§10)
-	if err != nil {
-		writeErr(w, http.StatusBadGateway, "book lookup failed")
-		return
+
+	// Google Books + Open Library, only when there's an isbn/title to query.
+	var cands []metadata.BookCandidate
+	var searchErr error
+	if isbn != "" || req.Title != "" {
+		cands, searchErr = s.searchBooks(r.Context(), isbn, req.Title, gkey)
+		s.recordBooksLookup(searchErr) // GET /metadata/status surfaces this (§10)
+	}
+
+	// Amazon (opt-in): an ASIN + a stored session cookie. Best-effort and
+	// prepended, since for Kindle books it's usually the best match; its errors
+	// are swallowed so Google/OL results still show.
+	if req.ASIN != "" {
+		if cookie, _ := s.Store.GetSetting(settingAmazonCookie); cookie != "" {
+			domain, _ := s.Store.GetSetting(settingAmazonDomain)
+			if a, aerr := metadata.FetchAmazonBook(r.Context(), req.ASIN, cookie, domain); aerr == nil {
+				if a.ISBN13 == "" {
+					a.ISBN13 = isbn
+				}
+				cands = append([]metadata.BookCandidate{*a}, cands...)
+			}
+		}
+	}
+
+	if len(cands) == 0 {
+		// Nothing found. The dominant keyless failure is Google's shared daily
+		// quota (429) — say so with the one-step remedy, not a generic error.
+		if errors.Is(searchErr, metadata.ErrQuota) {
+			msg := "Google Books' free shared quota is used up for today, and Open Library " +
+				"had no match. Add your own free Google Books API key in Settings → Metadata " +
+				"sources — it's instant and gives you a private quota."
+			if gkey != "" {
+				msg = "Your Google Books API key was rejected or is out of quota, and Open " +
+					"Library had no match. Check the key in Settings → Metadata sources."
+			}
+			writeErr(w, http.StatusBadGateway, msg)
+			return
+		}
+		if searchErr != nil {
+			writeErr(w, http.StatusBadGateway, "book lookup failed")
+			return
+		}
 	}
 	if cands == nil {
 		cands = []metadata.BookCandidate{}
@@ -67,6 +107,12 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	}
 	cands, err := tmdb.Search(r.Context(), req.Title, req.Year)
 	if err != nil {
+		if errors.Is(err, metadata.ErrTMDBAuth) {
+			writeErr(w, http.StatusBadGateway,
+				"TMDB rejected the key. A v4 token starts with 'ey' — paste the v3 API key "+
+					"(not the account username) in Settings → Metadata sources, or re-check the token.")
+			return
+		}
 		writeErr(w, http.StatusBadGateway, "movie lookup failed")
 		return
 	}

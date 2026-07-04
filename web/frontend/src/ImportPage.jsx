@@ -194,16 +194,24 @@ function BatchResults({ results, summary }) {
         </p>
       )}
       {results.map((r, i) => (
-        <p key={i} className="microcopy">
-          {r.name} →{' '}
-          {r.pending ? (
-            '…'
-          ) : r.ok ? (
-            `${r.added} added · ${r.skipped} skipped` + (r.enriched ? ` · ${r.enriched} enriched` : '')
-          ) : (
-            <span style={{ color: 'var(--error)' }}>{r.error}</span>
+        <div key={i}>
+          <p className="microcopy">
+            {r.name} →{' '}
+            {r.pending ? (
+              '…'
+            ) : r.ok ? (
+              `${r.added} added · ${r.skipped} skipped` + (r.enriched ? ` · ${r.enriched} enriched` : '')
+            ) : (
+              <span style={{ color: 'var(--error)' }}>{r.error}</span>
+            )}
+          </p>
+          {r.ok && r.possible_duplicates && r.possible_duplicates.length > 0 && (
+            <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>
+              ⚠ looks like a book you already have:{' '}
+              {r.possible_duplicates.map((d) => d.title).join(', ')} — open either book to merge or keep them separate
+            </p>
           )}
-        </p>
+        </div>
       ))}
     </div>
   )

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
+import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import {
   ColorSwatches,
   Cover,
@@ -481,11 +482,31 @@ function EditBook({ book, onSaved, onCancel }) {
   const [title, setTitle] = useState(book.title || '')
   const [author, setAuthor] = useState(book.author || '')
   const [isbn, setIsbn] = useState(book.isbn || '')
+  const [asin, setAsin] = useState(book.asin || '')
   const [year, setYear] = useState(book.published_year ? String(book.published_year) : '')
   const [genres, setGenres] = useState((book.genres || []).join(', '))
   const [description, setDescription] = useState(book.description || '')
+  // Cover: coverPath tracks the stored file (updated on immediate upload);
+  // coverUrl / clearCover are the pending change carried in the Save PUT.
+  const [coverPath, setCoverPath] = useState(book.cover_path || '')
+  const [coverUrl, setCoverUrl] = useState('')
+  const [clearCover, setClearCover] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Adopt an API candidate: fill blank-or-all fields and queue its cover.
+  function applyCandidate(c) {
+    if (c.title) setTitle(c.title)
+    if (c.author) setAuthor(c.author)
+    if (c.isbn13) setIsbn(c.isbn13)
+    if (c.published_year) setYear(String(c.published_year))
+    if (c.description) setDescription(c.description)
+    if (c.genres && c.genres.length) setGenres(c.genres.join(', '))
+    if (c.cover_url) {
+      setCoverUrl(c.cover_url)
+      setClearCover(false)
+    }
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -504,10 +525,12 @@ function EditBook({ book, onSaved, onCancel }) {
       title: title.trim(),
       author: author.trim(),
       isbn: isbn.trim(),
-      asin: book.asin || '', // not editable — preserve what the import set
+      asin: asin.trim(),
       published_year: publishedYear,
       genres: splitCommas(genres),
       description: description.trim(),
+      cover_url: coverUrl || undefined,
+      clear_cover: clearCover || undefined,
     })
     setBusy(false)
     if (r.ok) onSaved()
@@ -516,10 +539,34 @@ function EditBook({ book, onSaved, onCancel }) {
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      <CoverControls
+        kind="books"
+        id={book.id}
+        currentPath={coverPath}
+        asin={asin}
+        coverUrl={coverUrl}
+        clearCover={clearCover}
+        onSetUrl={(u) => {
+          setCoverUrl(u)
+          setClearCover(false)
+        }}
+        onClear={(reset) => {
+          if (reset === true) {
+            setCoverUrl('')
+            setClearCover(false)
+          } else {
+            setClearCover(true)
+            setCoverUrl('')
+          }
+        }}
+        onUploaded={(rec) => setCoverPath(rec.cover_path || '')}
+      />
+      <BookLookupPicker isbn={isbn} title={title} asin={asin} onPick={applyCandidate} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+        <Field label="ASIN" value={asin} onChange={(e) => setAsin(e.target.value)} />
         <Field label="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
       </div>
       <label className="block">

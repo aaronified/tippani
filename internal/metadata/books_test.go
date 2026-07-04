@@ -66,7 +66,7 @@ func TestSearchBooksMergesSources(t *testing.T) {
 			t.Errorf("ol path = %s", r.URL.Path)
 		}
 		q := r.URL.Query()
-		if q.Get("isbn") != "9780306406157" || q.Get("limit") != "3" {
+		if q.Get("isbn") != "9780306406157" || q.Get("limit") != "5" {
 			t.Errorf("ol query = %v", q)
 		}
 		_, _ = w.Write([]byte(openLibraryJSON))
@@ -143,12 +143,14 @@ func TestSearchBooksBestEffort(t *testing.T) {
 		t.Fatal("want error when both sources fail")
 	}
 
-	// Title-only search has a single source; its failure is an error.
+	// Title search queries both sources; when both are down it errors.
 	if _, err := SearchBooks(context.Background(), "", "whatever", ""); err == nil {
-		t.Fatal("want error for title search when google fails")
+		t.Fatal("want error for title search when both sources fail")
 	}
 }
 
+// Title-only searches now query Open Library by title too — a keyless fallback
+// that matters when Google is quota-blocked (PLAN §6).
 func TestSearchBooksTitleOnly(t *testing.T) {
 	gsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.URL.Query().Get("q"); got != "intitle:the black swan" {
@@ -157,9 +159,14 @@ func TestSearchBooksTitleOnly(t *testing.T) {
 		_, _ = w.Write([]byte(googleJSON))
 	}))
 	defer gsrv.Close()
-	olHit := false
 	osrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		olHit = true
+		if got := r.URL.Query().Get("title"); got != "the black swan" {
+			t.Errorf("ol title query = %q", got)
+		}
+		if _, has := r.URL.Query()["isbn"]; has {
+			t.Error("title-only search must not send an isbn param to open library")
+		}
+		_, _ = w.Write([]byte(openLibraryJSON))
 	}))
 	defer osrv.Close()
 	setBases(t, gsrv.URL, osrv.URL)
@@ -168,11 +175,11 @@ func TestSearchBooksTitleOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Source != "google" {
+	if len(got) != 2 || got[0].Source != "google" || got[1].Source != "openlibrary" {
 		t.Fatalf("got %+v", got)
 	}
-	if olHit {
-		t.Error("open library queried for title-only search")
+	if got[1].ISBN13 != "" {
+		t.Errorf("title-only OL candidate should carry no echoed isbn, got %q", got[1].ISBN13)
 	}
 }
 

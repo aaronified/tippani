@@ -20,6 +20,7 @@ type bookReq struct {
 	PublishedYear int      `json:"published_year"`
 	Genres        []string `json:"genres"`
 	CoverURL      string   `json:"cover_url"`
+	ClearCover    bool     `json:"clear_cover"` // update: drop the current cover
 	Source        string   `json:"source"`
 	SourceID      string   `json:"source_id"`
 }
@@ -280,9 +281,41 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "book already in your library")
 		return
 	}
+
+	// Cover: an explicit clear wins; otherwise a provided cover_url is fetched
+	// (user-typed, so any host — private IPs are still blocked) and replaces the
+	// stored file. With neither field the cover is left untouched. The old file
+	// is deleted only after the row commits to the new one.
+	var oldCover sql.NullString
+	if err := s.Store.DB.QueryRow(
+		`SELECT cover_path FROM books WHERE id = ? AND user_id = ?`, id, uid).Scan(&oldCover); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeErr(w, http.StatusNotFound, "book not found")
+		} else {
+			writeErr(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+	changeCover, newCover := false, ""
+	if req.ClearCover {
+		changeCover = true
+	} else if req.CoverURL != "" {
+		name, ferr := s.fetchUserImage(r.Context(), req.CoverURL, s.coversDir())
+		if ferr != nil {
+			writeErr(w, http.StatusBadGateway,
+				"couldn't fetch that cover image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
+			return
+		}
+		newCover, changeCover = name, true
+	}
+	fail := func(code int, msg string) { // roll back the just-fetched file too
+		s.removeCoverFile(newCover)
+		writeErr(w, code, msg)
+	}
+
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		fail(http.StatusInternalServerError, "internal error")
 		return
 	}
 	defer tx.Rollback()
@@ -292,20 +325,30 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear), id, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		fail(http.StatusInternalServerError, "internal error")
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		writeErr(w, http.StatusNotFound, "book not found")
+		fail(http.StatusNotFound, "book not found")
 		return
 	}
+	if changeCover {
+		if _, err := tx.Exec(`UPDATE books SET cover_path = ? WHERE id = ? AND user_id = ?`,
+			nullable(newCover), id, uid); err != nil {
+			fail(http.StatusInternalServerError, "internal error")
+			return
+		}
+	}
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		fail(http.StatusInternalServerError, "internal error")
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		fail(http.StatusInternalServerError, "internal error")
 		return
+	}
+	if changeCover && oldCover.String != newCover {
+		s.removeCoverFile(oldCover.String) // best-effort; new cover is committed
 	}
 	b, err := s.fetchBook(uid, id)
 	if err != nil {

@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -127,8 +128,8 @@ func TestTMDBErrors(t *testing.T) {
 	}))
 	defer srv401.Close()
 	_, err := (&TMDB{Key: "bad", BaseURL: srv401.URL}).Search(context.Background(), "x", 0)
-	if err == nil || !strings.Contains(err.Error(), "invalid API key") {
-		t.Fatalf("401 err = %v, want invalid API key mention", err)
+	if !errors.Is(err, ErrTMDBAuth) {
+		t.Fatalf("401 err = %v, want ErrTMDBAuth", err)
 	}
 
 	srv500 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

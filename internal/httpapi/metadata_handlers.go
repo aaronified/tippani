@@ -16,6 +16,8 @@ import (
 const (
 	settingTMDBKey        = "tmdb_key"
 	settingGoogleBooksKey = "google_books_key"
+	settingAmazonCookie   = "amazon_cookie" // secret: write-only, never echoed
+	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
 )
 
 // tmdbPosterBase rebuilds poster URLs from the poster_path cached in a
@@ -77,11 +79,15 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleGetMetadataKeys (admin): booleans only — stored keys are never echoed.
+// handleGetMetadataKeys (admin): booleans only for secrets — stored keys and
+// the Amazon cookie are never echoed. The Amazon domain is not secret, so it is
+// returned so the field can be pre-filled.
 func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	tkey, err1 := s.Store.GetSetting(settingTMDBKey)
 	gkey, err2 := s.Store.GetSetting(settingGoogleBooksKey)
-	if err1 != nil || err2 != nil {
+	acookie, err3 := s.Store.GetSetting(settingAmazonCookie)
+	adomain, err4 := s.Store.GetSetting(settingAmazonDomain)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -89,25 +95,46 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tmdb_key_set":         tkey != "",
 		"google_books_key_set": gkey != "",
+		"amazon_cookie_set":    acookie != "",
+		"amazon_domain":        adomain,
 		"tmdb_source":          source,
 	})
 }
 
-// handlePutMetadataKeys (admin) stores both keys; "" clears one. Takes effect
-// on the next lookup — resolveTMDB reads the settings table per request.
+// handlePutMetadataKeys (admin) stores the secrets and the Amazon domain. A
+// field is only written when present in the body so a partial save (e.g. just
+// the Amazon cookie) never clears the others; a present-but-empty string
+// clears that one. Secrets take effect on the next lookup.
 func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
+	// Pointers distinguish "field omitted" (leave as-is) from "" (clear).
 	var req struct {
-		TMDBKey        string `json:"tmdb_key"`
-		GoogleBooksKey string `json:"google_books_key"`
+		TMDBKey        *string `json:"tmdb_key"`
+		GoogleBooksKey *string `json:"google_books_key"`
+		AmazonCookie   *string `json:"amazon_cookie"`
+		AmazonDomain   *string `json:"amazon_domain"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	if err := s.Store.SetSetting(settingTMDBKey, strings.TrimSpace(req.TMDBKey)); err != nil {
+	set := func(key string, v *string) error {
+		if v == nil {
+			return nil
+		}
+		return s.Store.SetSetting(key, strings.TrimSpace(*v))
+	}
+	if err := set(settingTMDBKey, req.TMDBKey); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if err := s.Store.SetSetting(settingGoogleBooksKey, strings.TrimSpace(req.GoogleBooksKey)); err != nil {
+	if err := set(settingGoogleBooksKey, req.GoogleBooksKey); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if err := set(settingAmazonCookie, req.AmazonCookie); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if err := set(settingAmazonDomain, req.AmazonDomain); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}

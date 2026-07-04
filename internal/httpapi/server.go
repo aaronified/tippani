@@ -32,8 +32,9 @@ type Server struct {
 
 	// Outbound-call seams: production implementations set in New, stubbed in
 	// tests (same idea as metadata's TMDB.BaseURL).
-	fetchImage  func(ctx context.Context, rawURL, destDir string) (string, error)
-	searchBooks func(ctx context.Context, isbn, title, googleKey string) ([]metadata.BookCandidate, error)
+	fetchImage     func(ctx context.Context, rawURL, destDir string) (string, error)
+	fetchUserImage func(ctx context.Context, rawURL, destDir string) (string, error) // user-typed URL: no host allowlist
+	searchBooks    func(ctx context.Context, isbn, title, googleKey string) ([]metadata.BookCandidate, error)
 
 	// booksLookup remembers the most recent POST /books/lookup outcome for
 	// GET /metadata/status; nil = never tried. In-memory by design (§10).
@@ -42,16 +43,17 @@ type Server struct {
 
 func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, trustedProxy bool) *Server {
 	return &Server{
-		Store:        st,
-		Sessions:     auth.Sessions{DB: st.DB},
-		CookieSecure: cookieSecure,
-		TrustedProxy: trustedProxy,
-		Static:       static,
-		DataDir:      dataDir,
-		TMDB:         &metadata.TMDB{Key: tmdbKey},
-		loginLimiter: auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
-		fetchImage:   metadata.FetchImage,
-		searchBooks:  metadata.SearchBooks,
+		Store:          st,
+		Sessions:       auth.Sessions{DB: st.DB},
+		CookieSecure:   cookieSecure,
+		TrustedProxy:   trustedProxy,
+		Static:         static,
+		DataDir:        dataDir,
+		TMDB:           &metadata.TMDB{Key: tmdbKey},
+		loginLimiter:   auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
+		fetchImage:     metadata.FetchImage,
+		fetchUserImage: metadata.FetchUserImage,
+		searchBooks:    metadata.SearchBooks,
 	}
 }
 
@@ -89,6 +91,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /books", s.requireAuth(s.handleListBooks))
 	mux.Handle("GET /books/{id}", s.requireAuth(s.handleGetBook))
 	mux.Handle("PUT /books/{id}", s.requireAuth(s.handleUpdateBook))
+	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
 	mux.Handle("GET /annotations", s.requireAuth(s.handleListAnnotations))
@@ -101,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /movies", s.requireAuth(s.handleListMovies))
 	mux.Handle("GET /movies/{id}", s.requireAuth(s.handleGetMovie))
 	mux.Handle("PUT /movies/{id}", s.requireAuth(s.handleUpdateMovie))
+	mux.Handle("POST /movies/{id}/cover", s.requireAuth(s.handleUploadMoviePoster))
 	mux.Handle("DELETE /movies/{id}", s.requireAuth(s.handleDeleteMovie))
 	mux.Handle("POST /dialogues", s.requireAuth(s.handleCreateDialogue))
 	mux.Handle("GET /dialogues", s.requireAuth(s.handleListDialogues))
@@ -143,8 +147,15 @@ func (s *Server) Handler() http.Handler {
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		// img-src also allows the metadata cover CDNs so candidate thumbnails and
+		// the cover picker can preview remote images before they're fetched and
+		// stored locally (matches metadata.coverHosts).
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; img-src 'self' data:; frame-ancestors 'none'")
+			"default-src 'self'; img-src 'self' data: "+
+				"https://covers.openlibrary.org https://books.google.com "+
+				"https://books.googleusercontent.com https://image.tmdb.org "+
+				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com; "+
+				"frame-ancestors 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")

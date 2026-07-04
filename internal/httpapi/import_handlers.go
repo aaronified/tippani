@@ -53,10 +53,20 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 		return
 	}
 	defer tx.Rollback()
-	bookID, err := upsertImportBook(tx, uid, res.Book)
+	bookID, created, err := upsertImportBook(tx, uid, res.Book)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	// When a new book row was created, flag look-alikes already in the library
+	// so the review UI can offer to merge (PLAN §5): "Homo Deus" landing beside
+	// "Homo Deus: The million-copy bestseller…".
+	var dupes []dupHint
+	if created {
+		if dupes, err = findSimilarBooks(tx, uid, res.Book.Title, bookID); err != nil {
+			writeErr(w, http.StatusInternalServerError, "internal error")
+			return
+		}
 	}
 	added, enriched := 0, 0
 	for _, a := range res.Annotations {
@@ -144,11 +154,15 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	if dupes == nil {
+		dupes = []dupHint{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"book_id":  bookID,
-		"added":    added,
-		"skipped":  len(res.Annotations) - added,
-		"enriched": enriched,
+		"book_id":             bookID,
+		"added":               added,
+		"skipped":             len(res.Annotations) - added,
+		"enriched":            enriched,
+		"possible_duplicates": dupes,
 	})
 }
 
@@ -158,7 +172,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 // land in one row for cross-source quote dedupe to work (PLAN §3). A match via
 // a weaker identity backfills the row's missing identifiers so the next import
 // matches on the cheap key.
-func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
+func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, error) {
 	isbn := metadata.NormalizeISBN(b.ISBN) // "" when absent or implausible
 	var id int64
 	find := func(query string, args ...any) (bool, error) {
@@ -186,7 +200,7 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
 		}
 		ok, err := find(`SELECT id FROM books WHERE user_id = ? AND `+q.cond, append([]any{uid}, q.args...)...)
 		if err != nil {
-			return 0, err
+			return 0, false, err
 		}
 		if ok {
 			matched = true
@@ -199,15 +213,16 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
 		if _, err := tx.Exec(
 			`UPDATE OR IGNORE books SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?) WHERE id = ?`,
 			nullable(isbn), nullable(b.ASIN), id); err != nil {
-			return 0, err
+			return 0, false, err
 		}
-		return id, nil
+		return id, false, nil
 	}
 	res, err := tx.Exec(
 		`INSERT INTO books (user_id, title, author, isbn, asin) VALUES (?, ?, ?, ?, ?)`,
 		uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN))
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	return res.LastInsertId()
+	id, err = res.LastInsertId()
+	return id, true, err
 }

@@ -19,6 +19,12 @@ var (
 // candidate list (PLAN §6); more is noise.
 const maxBookCandidates = 8
 
+// ErrQuota signals Google Books answered 429 — the shared anonymous daily
+// quota is exhausted. Google gives every keyless caller one global quota, so
+// this is common. The handler turns it into a "add a free key in Settings"
+// hint rather than a generic failure.
+var ErrQuota = errors.New("google books daily quota exceeded (429)")
+
 type BookCandidate struct {
 	Source        string   `json:"source"` // "google" | "openlibrary"
 	SourceID      string   `json:"source_id"`
@@ -31,10 +37,11 @@ type BookCandidate struct {
 	CoverURL      string   `json:"cover_url"`
 }
 
-// SearchBooks queries Google Books (isbn: or intitle:) and, when an ISBN is
-// given, Open Library too. Best-effort merge: a source failing is only an
-// error if every queried source fails — one good candidate list beats none.
-// isbn should already be normalized (PLAN §3). googleKey is the optional
+// SearchBooks queries Google Books (isbn: or intitle:) and Open Library (by
+// ISBN or by title) and merges the candidates. Best-effort: results from any
+// source win. When no source returns a candidate, whichever error explains the
+// emptiness is surfaced — notably ErrQuota, so the UI can point at the key
+// field. isbn should already be normalized (PLAN §3). googleKey is the optional
 // settings-managed Google Books API key (PLAN §6); "" stays anonymous.
 func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCandidate, error) {
 	q := "intitle:" + title
@@ -43,14 +50,27 @@ func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCand
 	}
 
 	out, gErr := searchGoogle(ctx, q, googleKey)
+
+	// Open Library is a keyless fallback — vital when Google is quota-blocked.
+	// Query it by ISBN when we have one, otherwise by title.
+	var ol []BookCandidate
 	var olErr error
 	if isbn != "" {
-		var ol []BookCandidate
-		ol, olErr = searchOpenLibrary(ctx, isbn)
-		out = append(out, ol...)
+		ol, olErr = searchOpenLibrary(ctx, url.Values{"isbn": {isbn}}, isbn)
+	} else {
+		ol, olErr = searchOpenLibrary(ctx, url.Values{"title": {title}}, "")
 	}
-	if gErr != nil && (isbn == "" || olErr != nil) {
-		return nil, errors.Join(gErr, olErr)
+	out = append(out, ol...)
+
+	if len(out) == 0 {
+		// Nothing found. Surface an error so the handler can explain (the quota
+		// case especially); a clean empty result stays a non-error empty list.
+		if gErr != nil {
+			return nil, gErr
+		}
+		if olErr != nil {
+			return nil, olErr
+		}
 	}
 	if len(out) > maxBookCandidates {
 		out = out[:maxBookCandidates]
@@ -66,6 +86,9 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 	body, status, err := httpGet(ctx, u, "")
 	if err != nil {
 		return nil, fmt.Errorf("google books: %w", err)
+	}
+	if status == 429 { // shared anonymous quota blown — the common keyless failure
+		return nil, fmt.Errorf("google books: %w", ErrQuota)
 	}
 	if status != 200 {
 		return nil, fmt.Errorf("google books: status %d", status)
@@ -83,9 +106,8 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 					Type       string `json:"type"`
 					Identifier string `json:"identifier"`
 				} `json:"industryIdentifiers"`
-				ImageLinks struct {
-					Thumbnail string `json:"thumbnail"`
-				} `json:"imageLinks"`
+				// Google returns whichever sizes it has; prefer the largest.
+				ImageLinks googleImageLinks `json:"imageLinks"`
 			} `json:"volumeInfo"`
 		} `json:"items"`
 	}
@@ -116,15 +138,42 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 			Description:   vi.Description,
 			PublishedYear: leadingYear(vi.PublishedDate),
 			Genres:        vi.Categories,
-			CoverURL:      httpsURL(vi.ImageLinks.Thumbnail),
+			CoverURL:      bestGoogleCover(vi.ImageLinks),
 		})
 	}
 	return out, nil
 }
 
-func searchOpenLibrary(ctx context.Context, isbn string) ([]BookCandidate, error) {
-	u := openLibraryBase + "/search.json?isbn=" + url.QueryEscape(isbn) +
-		"&fields=key,title,author_name,first_publish_year,cover_i,subject&limit=3"
+// googleImageLinks is Google Books' imageLinks block; sizes present vary per
+// volume (search hits usually carry only smallThumbnail/thumbnail).
+type googleImageLinks struct {
+	SmallThumbnail string `json:"smallThumbnail"`
+	Thumbnail      string `json:"thumbnail"`
+	Small          string `json:"small"`
+	Medium         string `json:"medium"`
+	Large          string `json:"large"`
+	ExtraLarge     string `json:"extraLarge"`
+}
+
+// bestGoogleCover picks the largest image Google returned. Search results
+// usually carry only a thumbnail; the &edge=curl page-curl overlay is stripped
+// so the stored cover is a clean front cover.
+func bestGoogleCover(l googleImageLinks) string {
+	for _, u := range []string{l.ExtraLarge, l.Large, l.Medium, l.Small, l.Thumbnail, l.SmallThumbnail} {
+		if u != "" {
+			return httpsURL(strings.Replace(u, "&edge=curl", "", 1))
+		}
+	}
+	return ""
+}
+
+// searchOpenLibrary queries OL's search.json with the given params (isbn= or
+// title=). isbnEcho is stamped onto candidates when the query was by ISBN (OL
+// docs don't echo the queried ISBN back).
+func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) ([]BookCandidate, error) {
+	params.Set("fields", "key,title,author_name,first_publish_year,cover_i,subject")
+	params.Set("limit", "5")
+	u := openLibraryBase + "/search.json?" + params.Encode()
 	body, status, err := httpGet(ctx, u, "")
 	if err != nil {
 		return nil, fmt.Errorf("open library: %w", err)
@@ -160,7 +209,7 @@ func searchOpenLibrary(ctx context.Context, isbn string) ([]BookCandidate, error
 			SourceID:      d.Key,
 			Title:         d.Title,
 			Author:        strings.Join(d.AuthorName, ", "),
-			ISBN13:        isbn, // the lookup key; OL docs don't echo it back
+			ISBN13:        isbnEcho, // OL docs don't echo the queried ISBN back
 			PublishedYear: d.FirstPublishYear,
 			Genres:        genres,
 			CoverURL:      cover,
