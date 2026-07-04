@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
-import { inputClass, cardClass, chipClass, ErrorText, EmptyState, Chips } from './ui.jsx'
+import {
+  EdgeRow,
+  EmptyState,
+  ErrorText,
+  GhostButton,
+  HandNote,
+  HighlightSpan,
+  MonoLabel,
+  Placeholder,
+  Sprockets,
+  frameCode,
+  useFrameBase,
+} from './ui.jsx'
 
 const SCOPES = [
   ['all', 'All'],
@@ -10,13 +22,27 @@ const SCOPES = [
   ['dialogues', 'Dialogues'],
 ]
 
-// SearchPage: debounced (200ms) unified search over GET /search.
-// Book/annotation hits open the book detail; movie/dialogue hits the movie detail.
+// useAesthetic mirrors ui.jsx's useResolvedDark for the aesthetic axis —
+// local on purpose, ui.jsx is shared foundation (see task ownership note).
+function useAesthetic() {
+  const [aes, setAes] = useState(() => document.documentElement.dataset.aesthetic || 'paper')
+  useEffect(() => {
+    const fn = (e) => setAes(e.detail.aesthetic)
+    window.addEventListener('tippani:theme', fn)
+    return () => window.removeEventListener('tippani:theme', fn)
+  }, [])
+  return aes
+}
+
+// SearchPage (§8.9): one big Newsreader box, scope chips, grouped bm25 results.
+// 200 ms debounce with a stale-guard; GET /search?q=&scope=.
 export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const [q, setQ] = useState('')
   const [scope, setScope] = useState('all')
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
+  const film = useAesthetic() === 'film'
+  const base = useFrameBase()
 
   useEffect(() => {
     const query = q.trim()
@@ -46,87 +72,150 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
     results &&
     ['books', 'annotations', 'movies', 'dialogues'].every((k) => !results[k] || results[k].length === 0)
 
+  const terms = queryTerms(q)
+
   return (
-    <section className="space-y-4">
-      <div className="flex gap-2">
-        <input
-          className={inputClass}
-          placeholder="Search titles, authors, genres, quotes, notes…"
-          value={q}
-          autoFocus
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <select
-          className={inputClass + ' w-auto shrink-0'}
-          value={scope}
-          onChange={(e) => setScope(e.target.value)}
-        >
-          {SCOPES.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+    <section className="space-y-5 pt-4">
+      <input
+        className="tp-input"
+        style={{ fontFamily: 'var(--font-display)', fontSize: 19, padding: '13px 18px' }}
+        placeholder="Search titles, authors, genres, quotes, notes…"
+        value={q}
+        autoFocus
+        onChange={(e) => setQ(e.target.value)}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {SCOPES.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={'tp-filter-chip' + (scope === value ? ' active' : '')}
+            style={scope === value ? undefined : { borderColor: 'var(--line)', background: 'var(--card)' }}
+            aria-pressed={scope === value}
+            onClick={() => setScope(value)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
       <ErrorText>{error}</ErrorText>
 
       {!results && !error && (
-        <EmptyState>Type to search your books, annotations, movies, and dialogues.</EmptyState>
+        <EmptyState>type to search your books, annotations, movies, and dialogues</EmptyState>
       )}
-      {empty && <EmptyState>No results for “{q.trim()}”.</EmptyState>}
+      {empty && (
+        <div className="flex flex-col items-center gap-4 py-10">
+          <p className="tp-empty" style={{ padding: 0 }}>
+            no results for “{q.trim()}”{scope !== 'all' ? ` in ${scope}` : ''}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <GhostButton onClick={() => setQ('')}>Clear search</GhostButton>
+            {scope !== 'all' && (
+              <GhostButton onClick={() => setScope('all')}>Search everything</GhostButton>
+            )}
+          </div>
+        </div>
+      )}
 
       {results?.books?.length > 0 && (
-        <ResultGroup title="Books">
-          {results.books.map((b) => (
-            <ResultRow key={b.id} onClick={() => onOpenBook(b.id)}>
-              <p className="text-sm font-medium">{b.title}</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{b.author}</p>
-              <Chips items={b.genres} className="mt-1" />
-            </ResultRow>
+        <ResultGroup label="Books" count={results.books.length} film={film} code={frameCode(base, 0)}>
+          {results.books.map((b, i) => (
+            <ResultCard key={b.id} index={i} onClick={() => onOpenBook(b.id)}>
+              <div className="flex items-center gap-4">
+                <Placeholder kind="" className="h-14 w-10 shrink-0" />
+                <p className="display-title min-w-0 flex-1 text-[16.5px] leading-snug">
+                  <Highlight text={b.title} terms={terms} />
+                  {b.author && (
+                    <span className="font-normal" style={{ color: 'var(--soft)' }}>
+                      {' — '}
+                      <Highlight text={b.author} terms={terms} />
+                    </span>
+                  )}
+                </p>
+                {b.genres?.length > 0 && (
+                  <MonoLabel className="hidden shrink-0 sm:block">
+                    {b.genres.slice(0, 3).join(' · ')}
+                  </MonoLabel>
+                )}
+              </div>
+            </ResultCard>
           ))}
         </ResultGroup>
       )}
 
       {results?.annotations?.length > 0 && (
-        <ResultGroup title="Annotations">
-          {results.annotations.map((a) => (
-            <ResultRow key={a.id} onClick={() => onOpenBook(a.book_id)}>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{a.book_title}</p>
-              {a.quote && <p className="text-sm">{a.quote}</p>}
-              {a.note && <p className="text-sm text-neutral-500 dark:text-neutral-400">{a.note}</p>}
-            </ResultRow>
+        <ResultGroup
+          label="Annotations"
+          count={results.annotations.length}
+          film={film}
+          code={frameCode(base, 1)}
+        >
+          {results.annotations.map((a, i) => (
+            <ResultCard key={a.id} index={i + 1} onClick={() => onOpenBook(a.book_id)}>
+              {a.quote && (
+                <p
+                  className="mb-1.5"
+                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15.5, lineHeight: 1.5 }}
+                >
+                  <Highlight text={a.quote} terms={terms} />
+                </p>
+              )}
+              {a.note && (
+                <HandNote className="mb-1.5">
+                  <Highlight text={a.note} terms={terms} />
+                </HandNote>
+              )}
+              <MonoLabel className="block">{a.book_title}</MonoLabel>
+            </ResultCard>
           ))}
         </ResultGroup>
       )}
 
       {results?.movies?.length > 0 && (
-        <ResultGroup title="Movies">
-          {results.movies.map((m) => (
-            <ResultRow key={m.id} onClick={() => onOpenMovie(m.id)}>
-              <p className="text-sm font-medium">{m.title}</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {[m.director, m.release_year].filter(Boolean).join(' · ')}
-              </p>
-            </ResultRow>
+        <ResultGroup label="Movies" count={results.movies.length} film={film} code={frameCode(base, 2)}>
+          {results.movies.map((m, i) => (
+            <ResultCard key={m.id} index={i + 2} onClick={() => onOpenMovie(m.id)}>
+              <div className="flex items-center gap-4">
+                <Placeholder kind="" className="h-14 w-10 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="display-title text-[16.5px] leading-snug">
+                    <Highlight text={m.title} terms={terms} />
+                  </p>
+                  <MonoLabel className="mt-0.5 block">
+                    <Highlight text={m.director} terms={terms} />
+                    {m.director && m.release_year ? ' · ' : ''}
+                    {m.release_year || ''}
+                  </MonoLabel>
+                </div>
+              </div>
+            </ResultCard>
           ))}
         </ResultGroup>
       )}
 
       {results?.dialogues?.length > 0 && (
-        <ResultGroup title="Dialogues">
-          {results.dialogues.map((d) => (
-            <ResultRow key={d.id} onClick={() => onOpenMovie(d.movie_id)}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">{d.movie_title}</span>
-                {d.timestamp && <span className={chipClass + ' font-mono'}>{d.timestamp}</span>}
-                {(d.character || d.actor) && (
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {[d.character, d.actor].filter(Boolean).join(' — ')}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm">{d.quote}</p>
-            </ResultRow>
+        <ResultGroup
+          label="Dialogues"
+          count={results.dialogues.length}
+          film={film}
+          code={frameCode(base, 3)}
+        >
+          {results.dialogues.map((d, i) => (
+            <ResultCard key={d.id} index={i + 3} onClick={() => onOpenMovie(d.movie_id)}>
+              <p style={{ fontFamily: 'var(--font-display)', fontSize: 16, lineHeight: 1.5 }}>
+                “<Highlight text={d.quote} terms={terms} />”
+              </p>
+              <MonoLabel className="mt-1.5 block">
+                {d.character && <Highlight text={d.character} terms={terms} />}
+                {d.character && d.actor ? ' · ' : ''}
+                {d.actor && <Highlight text={d.actor} terms={terms} />}
+                {d.character || d.actor ? ' — ' : ''}
+                {d.movie_title}
+                {d.timestamp ? ` · ${d.timestamp}` : ''}
+              </MonoLabel>
+            </ResultCard>
           ))}
         </ResultGroup>
       )}
@@ -134,26 +223,61 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   )
 }
 
-function ResultGroup({ title, children }) {
+// ResultGroup: mono header + a stack of cards on paper; on film the stack sits
+// inside a film strip with sprocket rows and a runtime frame code (§6).
+function ResultGroup({ label, count, film, code, children }) {
   return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-        {title}
-      </h3>
-      <ul className={cardClass + ' divide-y divide-neutral-200 dark:divide-neutral-800'}>{children}</ul>
-    </div>
+    <section className="space-y-2">
+      <MonoLabel className="block">
+        {label} · {count}
+      </MonoLabel>
+      {film ? (
+        <div className="film-strip">
+          <Sprockets />
+          <EdgeRow code={code} />
+          <div className="space-y-3 px-4 pb-2">{children}</div>
+          <Sprockets />
+        </div>
+      ) : (
+        <div className="space-y-3">{children}</div>
+      )}
+    </section>
   )
 }
 
-function ResultRow({ onClick, children }) {
+const RADII = ['', 'hc-r1', 'hc-r2', 'hc-r3']
+
+// ResultCard: the whole hit is one click target; radius variant cycles so
+// neighbouring paper cards wobble differently (§6).
+function ResultCard({ index = 0, onClick, children }) {
   return (
-    <li>
-      <button
-        onClick={onClick}
-        className="w-full space-y-0.5 px-4 py-2.5 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
-      >
-        {children}
-      </button>
-    </li>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`hand-card ${RADII[index % RADII.length]} block w-full px-5 py-4 text-left transition hover:brightness-105`}
+    >
+      {children}
+    </button>
   )
+}
+
+// Highlight wraps query terms in the §6 accent highlight span. Pure text
+// splitting — no HTML injection. Case-insensitive; FTS accent-folding
+// (Bronte→Brontë) is server-side only, so accented matches simply render
+// unhighlighted (graceful degradation).
+function Highlight({ text, terms }) {
+  if (!text || terms.length === 0) return text || null
+  const pattern = new RegExp(
+    '(' + terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')',
+    'gi'
+  )
+  const parts = String(text).split(pattern)
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <HighlightSpan key={i}>{part}</HighlightSpan> : part
+  )
+}
+
+// queryTerms splits the search input into highlightable tokens.
+function queryTerms(q) {
+  return q.trim().split(/\s+/).filter(Boolean)
 }

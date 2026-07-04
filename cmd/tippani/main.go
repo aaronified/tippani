@@ -15,7 +15,8 @@
 //	TIPPANI_DATA           data directory        (default ./data)
 //	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0)
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
-//	TIPPANI_TMDB_API_KEY   TMDB v3 key or v4 read token; movie lookup answers 503 without it
+//	TIPPANI_TMDB_API_KEY   TMDB v3 key or v4 read token; overrides the Settings-saved
+//	                       and built-in keys (PLAN §6 resolution order)
 package main
 
 import (
@@ -103,15 +104,27 @@ func openStore() (*store.Store, string) {
 // and rate-limits per client IP, so a shared key never pools into one quota.
 // Register a free key at themoviedb.org (Settings → API) and paste it here;
 // until then movie lookup answers 503 and manual entry still works.
-// TIPPANI_TMDB_API_KEY always overrides.
+// Resolution order per request (PLAN §6): TIPPANI_TMDB_API_KEY env >
+// Settings-saved custom key > this built-in > none.
 const defaultTMDBKey = ""
 
 func serve() {
 	st, dataDir := openStore()
 	defer st.Close()
-	// Covers and posters are downloaded once and served locally (PLAN §6).
-	if err := os.MkdirAll(filepath.Join(dataDir, "covers"), 0o700); err != nil {
-		log.Fatalf("create covers dir: %v", err)
+	// Covers and posters are downloaded once and served locally from
+	// <DataDir>/MediaCover (PLAN §6; *arr-style, §9 of the UI instructions).
+	// Migrate the pre-rename covers/ directory in place, once.
+	mediaDir := filepath.Join(dataDir, "MediaCover")
+	if _, err := os.Stat(mediaDir); os.IsNotExist(err) {
+		if oldDir := filepath.Join(dataDir, "covers"); dirExists(oldDir) {
+			if err := os.Rename(oldDir, mediaDir); err != nil {
+				log.Fatalf("migrate covers dir: %v", err)
+			}
+			log.Printf("migrated cover store %s -> %s", oldDir, mediaDir)
+		}
+	}
+	if err := os.MkdirAll(mediaDir, 0o700); err != nil {
+		log.Fatalf("create MediaCover dir: %v", err)
 	}
 
 	dist, err := fs.Sub(web.Dist, "dist")
@@ -120,10 +133,11 @@ func serve() {
 	}
 	srv := httpapi.New(st, dist,
 		dataDir,
-		envOr("TIPPANI_TMDB_API_KEY", defaultTMDBKey),
+		os.Getenv("TIPPANI_TMDB_API_KEY"), // env slot; always wins (PLAN §6)
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1",
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
+	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503
 
 	bind := envOr("TIPPANI_BIND", "127.0.0.1:8080") // localhost-only by default (PLAN §2)
 	httpServer := &http.Server{
@@ -206,7 +220,7 @@ func userCmd(args []string) {
 			log.Fatalf("no such user %q", name)
 		}
 		for _, f := range covers {
-			_ = os.Remove(filepath.Join(dataDir, "covers", filepath.Base(f))) // best-effort
+			_ = os.Remove(filepath.Join(dataDir, "MediaCover", filepath.Base(f))) // best-effort
 		}
 		fmt.Printf("user %q deleted (books/annotations cascade)\n", name)
 	default:
@@ -241,4 +255,9 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }

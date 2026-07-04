@@ -315,30 +315,16 @@ func (s *Server) handleDeleteDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid dialogue id")
 		return
 	}
-	uid := userID(r)
-	tx, err := s.Store.DB.Begin()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	defer tx.Rollback()
-	res, err := tx.Exec(`
+	// Tag join rows cascade; the tags themselves persist (managed vocabulary, §10).
+	res, err := s.Store.DB.Exec(`
 		DELETE FROM dialogues WHERE id = ?
-		AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, id, uid)
+		AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, id, userID(r))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		writeErr(w, http.StatusNotFound, "dialogue not found")
-		return
-	}
-	if err := gcTags(tx, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

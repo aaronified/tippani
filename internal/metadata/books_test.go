@@ -52,6 +52,9 @@ func TestSearchBooksMergesSources(t *testing.T) {
 		if got := r.URL.Query().Get("q"); got != "isbn:9780306406157" {
 			t.Errorf("google q = %q", got)
 		}
+		if _, has := r.URL.Query()["key"]; has {
+			t.Error("anonymous search must not send a key param")
+		}
 		if ua := r.Header.Get("User-Agent"); ua != userAgent {
 			t.Errorf("user agent = %q", ua)
 		}
@@ -71,7 +74,7 @@ func TestSearchBooksMergesSources(t *testing.T) {
 	defer osrv.Close()
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "9780306406157", "")
+	got, err := SearchBooks(context.Background(), "9780306406157", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +129,7 @@ func TestSearchBooksBestEffort(t *testing.T) {
 
 	// Google down, Open Library up -> still get OL's candidates.
 	setBases(t, boom.URL, osrv.URL)
-	got, err := SearchBooks(context.Background(), "9780306406157", "")
+	got, err := SearchBooks(context.Background(), "9780306406157", "", "")
 	if err != nil {
 		t.Fatalf("one source up should not error: %v", err)
 	}
@@ -136,12 +139,12 @@ func TestSearchBooksBestEffort(t *testing.T) {
 
 	// Both down -> error.
 	setBases(t, boom.URL, boom.URL)
-	if _, err := SearchBooks(context.Background(), "9780306406157", ""); err == nil {
+	if _, err := SearchBooks(context.Background(), "9780306406157", "", ""); err == nil {
 		t.Fatal("want error when both sources fail")
 	}
 
 	// Title-only search has a single source; its failure is an error.
-	if _, err := SearchBooks(context.Background(), "", "whatever"); err == nil {
+	if _, err := SearchBooks(context.Background(), "", "whatever", ""); err == nil {
 		t.Fatal("want error for title search when google fails")
 	}
 }
@@ -161,7 +164,7 @@ func TestSearchBooksTitleOnly(t *testing.T) {
 	defer osrv.Close()
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "", "the black swan")
+	got, err := SearchBooks(context.Background(), "", "the black swan", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,6 +173,32 @@ func TestSearchBooksTitleOnly(t *testing.T) {
 	}
 	if olHit {
 		t.Error("open library queried for title-only search")
+	}
+}
+
+// The optional settings-managed Google Books key is appended to the volumes
+// query only — Open Library stays anonymous (PLAN §6).
+func TestSearchBooksGoogleKey(t *testing.T) {
+	gotKey := ""
+	gsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotKey = r.URL.Query().Get("key")
+		_, _ = w.Write([]byte(googleJSON))
+	}))
+	defer gsrv.Close()
+	osrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, has := r.URL.Query()["key"]; has {
+			t.Error("open library must not receive the google key")
+		}
+		_, _ = w.Write([]byte(openLibraryJSON))
+	}))
+	defer osrv.Close()
+	setBases(t, gsrv.URL, osrv.URL)
+
+	if _, err := SearchBooks(context.Background(), "9780306406157", "", "sekret&key"); err != nil {
+		t.Fatal(err)
+	}
+	if gotKey != "sekret&key" { // query-escaped on the wire, decoded back here
+		t.Fatalf("google key = %q", gotKey)
 	}
 }
 
@@ -182,7 +211,7 @@ func TestSearchBooksCap(t *testing.T) {
 	osrv := jsonServer(t, openLibraryJSON)
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "9780306406157", "")
+	got, err := SearchBooks(context.Background(), "9780306406157", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -56,6 +56,7 @@ CREATE TABLE users (
   id INTEGER PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  preferences TEXT NOT NULL DEFAULT '{}',  -- UI prefs JSON: aesthetic/theme/accent (0005, §10 note)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -74,7 +75,7 @@ CREATE TABLE books (
   author TEXT,
   isbn TEXT,                            -- always normalized to ISBN-13, no hyphens
   asin TEXT,
-  cover_path TEXT,                      -- local file under data/covers/ (see §6)
+  cover_path TEXT,                      -- local file under data/MediaCover/ (see §6)
   description TEXT,
   published_year INTEGER,
   google_id TEXT, openlibrary_id TEXT,
@@ -122,6 +123,10 @@ CREATE TABLE tags (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'yellow'    -- managed vocabulary (0005, §10 note)
+    CHECK (color IN ('yellow','blue','pink','orange')),
+  style TEXT NOT NULL DEFAULT 'sticker'
+    CHECK (style IN ('sticker','banner','flyout','tape','reel')),
   UNIQUE(user_id, name)
 );
 CREATE TABLE annotation_tags (
@@ -158,7 +163,7 @@ CREATE TABLE movies (
   director TEXT,
   release_year INTEGER,
   tmdb_id INTEGER,
-  poster_path TEXT,                      -- local file under data/covers/ (shared cover store, §6)
+  poster_path TEXT,                      -- local file under data/MediaCover/ (shared cover store, §6)
   description TEXT,
   genre_text TEXT NOT NULL DEFAULT '',   -- denormalized, space-joined (FTS input), like books
   cast_json TEXT NOT NULL DEFAULT '[]',  -- [{"character":"…","actor":"…"}] from TMDB credits
@@ -349,6 +354,13 @@ carries everything as JSON in the Inertia `data-page` attribute of `<div id="app
   name-ish field). Other events (progress updates, ratings, status changes) ignored.
 - Source value: `hardcover_html`. Endpoint: `POST /import/hardcover-html` (multipart, same 5 MB cap).
 
+**Duplicate enrichment (all importers):** a skipped duplicate (same dedupe hash in the same book)
+is not discarded — it **donates whatever the existing row lacks**: chapter/location/note fill when
+empty, color upgrades from the yellow default, favorite only ever turns on, rating fills only when
+unrated, tags union. Existing non-default values always win, so user edits and earlier imports are
+never overwritten; a re-import of identical data is a no-op (no writes). Responses report
+`added / skipped / enriched`.
+
 **Upload safety (all importers):** `r.Body = http.MaxBytesReader(w, r.Body, 5<<20)` *before* parsing; sniff content, ignore client Content-Type; nothing persisted raw.
 
 ---
@@ -363,7 +375,7 @@ carries everything as JSON in the Inertia `data-page` attribute of `<div id="app
 
 - Send a single descriptive `User-Agent` on **all** outbound calls (the code sends `tippani/1.0 (+https://github.com/aaronified/tippani)`).
 - **On-demand only** — `POST /books/lookup {isbn?|title?}` / `POST /movies/lookup {title, year?}` → candidate list → user picks → persist. No background fetching, ever. Raw payloads cached in `source_metadata`; API categories/subjects/genres pre-fill genres, user-editable. TMDB details use `append_to_response=credits` — **one call** for details + cast + crew (director).
-- **Covers & posters: download once → store in `data/covers/` → serve locally.** SSRF guard on the one fetch: host allowlist (`covers.openlibrary.org`, `books.google.com`, `books.googleusercontent.com`, `image.tmdb.org`), resolve + block private/link-local IPs, ≤2 redirects, 2 MB size cap, 10 s timeout, server-generated filename. *Primary downside vs hotlinking:* a few KB stored per book — in exchange: no third-party runtime dependence, no browser-IP leakage, CSP stays `'self'`-only.
+- **Covers & posters: download once → store in `data/MediaCover/` → serve locally** at `/covers/{file}` (*arr-style folder name; `serve` renames a legacy `data/covers/` in place on startup). SSRF guard on the one fetch: host allowlist (`covers.openlibrary.org`, `books.google.com`, `books.googleusercontent.com`, `image.tmdb.org`), resolve + block private/link-local IPs, ≤2 redirects, 2 MB size cap, 10 s timeout, server-generated filename. *Primary downside vs hotlinking:* a few KB stored per book — in exchange: no third-party runtime dependence, no browser-IP leakage, CSP stays `'self'`-only. `POST /covers/refetch` (admin) retries rows whose image is missing, across all users, from the URL cached in `source_metadata`.
 - Outbound hygiene: `http.Client{Timeout: 10s}`, `io.LimitReader` on bodies, TLS verification on, decode into typed structs tolerant of missing fields.
 
 ---
@@ -389,19 +401,22 @@ one is a dedupe no-op. (Movie exports are export-only; there is no movie markdow
 ```bash
 GET    /auth/status         POST /auth/signup    # onboarding (first user only)
 POST   /auth/login          POST /auth/logout
-POST   /auth/password       GET  /auth/me
+POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
+PUT    /auth/me/preferences          # {aesthetic, theme, accent} (§10 note below)
 GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin only
+GET    /admin/metadata-keys   PUT /admin/metadata-keys               # admin only (§10 note)
 POST   /books/lookup
 POST   /books    GET /books    GET/PUT/DELETE /books/{id}
 POST   /annotations
-GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=
+GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=      # tag= takes the NAME
 PUT    /annotations/{id}    DELETE /annotations/{id}
 POST   /movies/lookup                # TMDB search (title, optional year)
 POST   /movies   GET /movies   GET/PUT/DELETE /movies/{id}
 POST   /dialogues
 GET    /dialogues?movie_id=&tag=&favorite=&min_rating=
 PUT    /dialogues/{id}    DELETE /dialogues/{id}
-GET    /genres   GET /tags            # minimal management
+GET    /genres                       # minimal management (names only)
+GET    /tags     POST /tags    PUT/DELETE /tags/{id}   # managed vocabulary (§10 note)
 POST   /import/markdown              # multipart (frontmatter or Readest, auto-detected)
 POST   /import/bookcision            # multipart
 POST   /import/hardcover-html        # multipart (saved Hardcover journal page)
@@ -410,11 +425,36 @@ GET    /books/{id}/export            # markdown (§6b)
 GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
-GET    /covers/{file}                # local static (covers + posters)
+GET    /stats                        # user-scoped library counts + superlatives (§10 note)
+GET    /metadata/status              # TMDB key source, google key set?, last book-lookup outcome
+GET    /covers/{file}                # local static (covers + posters, data/MediaCover)
+POST   /covers/refetch               # admin: re-fetch missing covers/posters (all users)
 GET    /healthz                      # public liveness probe (container HEALTHCHECK)
 ```
 
-Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` additionally requires `is_admin`.
+Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` + `POST /covers/refetch` additionally require `is_admin`.
+
+### §10 UI surface (implemented 2026-07; from the UI instruction sheet §10)
+
+- **Tags are a managed vocabulary:** `color` (the 4 annotation colours) + `style`
+  (`sticker|banner|flyout|tape|reel`) columns (migration 0005), full CRUD with per-user ownership
+  and case-insensitive name dedupe (trim, 64-rune cap — unchanged rules). `setTags`/imports still
+  auto-create names with the defaults (yellow/sticker). **No auto-GC anymore:** a tag that drops to
+  zero usage keeps its colour/style until `DELETE /tags/{id}` (join rows cascade). `GET /tags`
+  returns objects with usage counts; list filters (`tag=`) still take the name.
+- **Preferences:** `users.preferences` JSON blob; `GET /auth/me` returns it with defaults applied
+  (theme `system`, accent `terracotta`, aesthetic per theme: dark→film else paper); `PUT` validates
+  all three enums.
+- **Stats:** `GET /stats` — six user-scoped counts (favorites spans annotations + dialogues) plus
+  most-annotated book, most-quoted movie, busiest month (`YYYY-MM`, annotations + dialogues by
+  `created_at`); each `null` when empty. Fixed set of aggregate queries.
+- **Settings table** (`key`/`value`, migration 0005) holds optional metadata keys. TMDB key
+  resolution per request: `TIPPANI_TMDB_API_KEY` env > settings `tmdb_key` > built-in
+  `defaultTMDBKey` const > none (503). Google Books key (settings `google_books_key`) is appended
+  to the volumes query when set. `GET /metadata/status` also reports the most recent
+  `POST /books/lookup` outcome (in-memory; `ok:null` = never tried) so the UI can chip
+  `LOOKUP FAILING`.
+- **MediaCover:** the cover store moved from `data/covers/` to `data/MediaCover/` (§6).
 
 ---
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"golang.org/x/time/rate"
 
@@ -23,10 +24,20 @@ type Server struct {
 	CookieSecure bool // set true when your reverse proxy terminates TLS
 	TrustedProxy bool // read client IP from X-Forwarded-For (only behind your own proxy)
 	Static       fs.FS
-	DataDir      string         // covers/posters live in <DataDir>/covers (PLAN §6)
-	TMDB         *metadata.TMDB // empty Key -> movie lookup answers 503
+	DataDir      string         // covers/posters live in <DataDir>/MediaCover (PLAN §6)
+	TMDB         *metadata.TMDB // Key = env-provided key; resolveTMDB falls through to settings/built-in
+	TMDBBuiltin  string         // built-in app key, the last fallback before 503 (defaultTMDBKey in cmd/tippani)
 
 	loginLimiter *auth.KeyedLimiter
+
+	// Outbound-call seams: production implementations set in New, stubbed in
+	// tests (same idea as metadata's TMDB.BaseURL).
+	fetchImage  func(ctx context.Context, rawURL, destDir string) (string, error)
+	searchBooks func(ctx context.Context, isbn, title, googleKey string) ([]metadata.BookCandidate, error)
+
+	// booksLookup remembers the most recent POST /books/lookup outcome for
+	// GET /metadata/status; nil = never tried. In-memory by design (§10).
+	booksLookup atomic.Pointer[lookupOutcome]
 }
 
 func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, trustedProxy bool) *Server {
@@ -39,6 +50,8 @@ func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, t
 		DataDir:      dataDir,
 		TMDB:         &metadata.TMDB{Key: tmdbKey},
 		loginLimiter: auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
+		fetchImage:   metadata.FetchImage,
+		searchBooks:  metadata.SearchBooks,
 	}
 }
 
@@ -54,12 +67,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
+	mux.Handle("PUT /auth/me/preferences", s.requireAuth(s.handleUpdatePreferences))
 	mux.Handle("POST /auth/password", s.requireAuth(s.handlePassword))
 
 	// User management — admin only (PLAN §2). The first user is the admin.
 	mux.Handle("GET /admin/users", s.requireAdmin(s.handleListUsers))
 	mux.Handle("POST /admin/users", s.requireAdmin(s.handleCreateUser))
 	mux.Handle("DELETE /admin/users/{id}", s.requireAdmin(s.handleDeleteUser))
+
+	// Settings-managed metadata keys + admin cover maintenance (§10).
+	mux.Handle("GET /admin/metadata-keys", s.requireAdmin(s.handleGetMetadataKeys))
+	mux.Handle("PUT /admin/metadata-keys", s.requireAdmin(s.handlePutMetadataKeys))
+	mux.Handle("POST /covers/refetch", s.requireAdmin(s.handleCoversRefetch))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
@@ -89,8 +108,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /dialogues/{id}", s.requireAuth(s.handleDeleteDialogue))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
+	// Tags are a managed vocabulary with colour + style (§10).
 	mux.Handle("GET /genres", s.requireAuth(s.handleListGenres))
 	mux.Handle("GET /tags", s.requireAuth(s.handleListTags))
+	mux.Handle("POST /tags", s.requireAuth(s.handleCreateTag))
+	mux.Handle("PUT /tags/{id}", s.requireAuth(s.handleUpdateTag))
+	mux.Handle("DELETE /tags/{id}", s.requireAuth(s.handleDeleteTag))
 	mux.Handle("POST /import/markdown", s.requireAuth(s.handleImportMarkdown))
 	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
 	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
@@ -101,6 +124,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /books/{id}/export", s.requireAuth(s.handleExportBook))
 	mux.Handle("GET /movies/{id}/export", s.requireAuth(s.handleExportMovie))
 	mux.Handle("GET /export", s.requireAuth(s.handleExportAll))
+
+	// Library stats + metadata source status (§10).
+	mux.Handle("GET /stats", s.requireAuth(s.handleStats))
+	mux.Handle("GET /metadata/status", s.requireAuth(s.handleMetadataStatus))
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

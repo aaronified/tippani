@@ -64,8 +64,9 @@ func TestAnnotationFavoriteRating(t *testing.T) {
 	}
 }
 
-// favorite + rating + tags on dialogues; tag GC must consider both join
-// tables (PLAN §3: one tag vocabulary spans books and movies).
+// favorite + rating + tags on dialogues; tag usage counts span both join
+// tables (PLAN §3: one tag vocabulary spans books and movies), and detached
+// tags persist in the managed vocabulary (§10 — no auto-GC).
 func TestDialogueFavoriteRatingTags(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -94,9 +95,14 @@ func TestDialogueFavoriteRatingTags(t *testing.T) {
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movie.ID, "quote": "x", "rating": 6}, http.StatusBadRequest)
 
-	// The shared vocabulary lists both kinds' tags.
-	if tg := decode[namesResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tg.Tags, []string{"bookish", "classic", "shared"}) {
-		t.Fatalf("tags: %v", tg.Tags)
+	// The shared vocabulary lists both kinds' tags; "shared" is counted once
+	// per join table.
+	tg := decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "shared"}) {
+		t.Fatalf("tags: %+v", tg.Tags)
+	}
+	if sh := tg.Tags[2]; sh.Annotations != 1 || sh.Dialogues != 1 {
+		t.Fatalf("shared tag usage: %+v", sh)
 	}
 
 	// Filters.
@@ -118,31 +124,43 @@ func TestDialogueFavoriteRatingTags(t *testing.T) {
 	}
 	c.mustDo("GET", "/dialogues?min_rating=9", nil, http.StatusBadRequest)
 
-	// Update replaces the tag set; the orphaned "classic" is GC'd, "shared"
-	// survives via the annotation.
+	// Update replaces the tag set; the detached "classic" stays in the
+	// vocabulary at zero usage, "shared" keeps its annotation use.
 	upd := decode[dialogueRow](t, c.mustDo("PUT", "/dialogues/"+itoa(d1.ID), map[string]any{
 		"quote": "Here's looking at you, kid.", "tags": []string{"farewell"},
 	}, 200))
 	if upd.Favorite || upd.Rating != 0 || !sameStrings(upd.Tags, []string{"farewell"}) {
 		t.Fatalf("update: %+v", upd)
 	}
-	if tg := decode[namesResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tg.Tags, []string{"bookish", "farewell", "shared"}) {
-		t.Fatalf("tags after update: %v", tg.Tags)
+	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "farewell", "shared"}) {
+		t.Fatalf("tags after update: %+v", tg.Tags)
+	}
+	if cl := tg.Tags[1]; cl.Annotations != 0 || cl.Dialogues != 0 {
+		t.Fatalf("classic should be unused: %+v", cl)
 	}
 
-	// Dialogue delete GCs its orphan tag.
+	// Dialogue delete drops usage, not the tag.
 	c.mustDo("DELETE", "/dialogues/"+itoa(d1.ID), nil, 200)
-	if tg := decode[namesResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tg.Tags, []string{"bookish", "shared"}) {
-		t.Fatalf("tags after dialogue delete: %v", tg.Tags)
+	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "farewell", "shared"}) {
+		t.Fatalf("tags after dialogue delete: %+v", tg.Tags)
 	}
 
-	// Movie delete cascades dialogues; annotation-held tags survive.
+	// Movie delete cascades dialogues and their join rows; the vocabulary —
+	// including the now-unused "movie-only" — persists.
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movie.ID, "quote": "Play it, Sam.", "tags": []string{"movie-only"},
 	}, http.StatusCreated)
 	c.mustDo("DELETE", "/movies/"+itoa(movie.ID), nil, 200)
-	if tg := decode[namesResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tg.Tags, []string{"bookish", "shared"}) {
-		t.Fatalf("tags after movie delete: %v", tg.Tags)
+	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"bookish", "classic", "farewell", "movie-only", "shared"}) {
+		t.Fatalf("tags after movie delete: %+v", tg.Tags)
+	}
+	for _, tag := range tg.Tags {
+		if tag.Dialogues != 0 {
+			t.Fatalf("dialogue usage should be gone: %+v", tag)
+		}
 	}
 }
 

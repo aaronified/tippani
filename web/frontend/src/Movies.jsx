@@ -1,33 +1,78 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import {
-  inputClass,
-  buttonClass,
-  ghostButtonClass,
-  cardClass,
-  chipClass,
-  linkButtonClass,
-  deleteButtonClass,
-  splitCommas,
-  filterChipClass,
-  ErrorText,
+  EdgeRow,
   EmptyState,
-  Chips,
-  Cover,
-  FavoriteStar,
-  RatingStars,
+  ErrorText,
+  FrameCode,
+  GhostButton,
+  HandCard,
+  HandNote,
+  Hearts,
   MinRatingSelect,
+  MonoLabel,
+  PageHeader,
+  Placeholder,
+  Sprockets,
+  TagChip,
+  TiltStars,
+  filterChipClass,
+  frameCode,
+  splitCommas,
+  useFrameBase,
+  useReveal,
 } from './ui.jsx'
 
-// Movies is the movies tab: list + add, or a single movie's detail view.
-// It mirrors Library — dialogues mirror annotations (PLAN §3b).
+// Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
+// filmstrip (§8.7 + §6 recipe, mockups 15–16). Dialogues mirror annotations
+// (PLAN §3b); tags are objects now — chips take color/style from GET /tags.
 export default function Movies({ openId, onOpen, onClose }) {
   if (openId) return <MovieDetail id={openId} onClose={onClose} />
   return <MovieList onOpen={onOpen} />
 }
 
+// Reveal — a div that mounts with its content, so useReveal's effect sees the
+// element (the grid/strip render only after data loads).
+function Reveal({ className = '', children, ...rest }) {
+  const ref = useReveal()
+  return (
+    <div ref={ref} className={'reveal ' + className} {...rest}>
+      {children}
+    </div>
+  )
+}
+
+// amberMono — the metadata voice of the film pages (counts, credit lines).
+const amberMono = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 11.5,
+  fontWeight: 500,
+  letterSpacing: '.12em',
+  textTransform: 'uppercase',
+  color: 'var(--amber)',
+}
+
+// Poster renders the locally-served poster (GET /covers/{file}) or the
+// striped POSTER placeholder (§6), always 2:3 and full-width.
+function Poster({ path, title, className = '' }) {
+  if (path) {
+    return (
+      <img
+        src={`/covers/${path}`}
+        alt={title ? `Poster of ${title}` : ''}
+        className={'block w-full object-cover ' + className}
+        style={{ aspectRatio: '2 / 3', border: '1px solid var(--line)', borderRadius: 8 }}
+      />
+    )
+  }
+  return <Placeholder kind="POSTER" className={'w-full ' + className} />
+}
+
+// ---- movie list: poster grid mirroring Library (§8.6) ----
+
 function MovieList({ onOpen }) {
   const [movies, setMovies] = useState(null)
+  const [status, setStatus] = useState(null) // GET /metadata/status → Add-movie is status-aware
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
 
@@ -38,80 +83,133 @@ function MovieList({ onOpen }) {
   }
   useEffect(() => {
     load()
+    json('GET', '/metadata/status').then((r) => {
+      if (r.ok) setStatus(r.data)
+    })
   }, [])
 
+  const tmdbSource = status?.tmdb?.source
+  const films = movies ? movies.length : 0
+  const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
+  const counts = movies
+    ? `${films} film${films === 1 ? '' : 's'} · ${lines} dialogue${lines === 1 ? '' : 's'}`
+    : null
+
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold">Movies</h2>
-        <button className={buttonClass + ' ml-auto'} onClick={() => setAdding(!adding)}>
-          {adding ? 'Close' : 'Add movie'}
-        </button>
-      </div>
+    <section>
+      <PageHeader
+        title="Movies"
+        counts={counts}
+        right={
+          <>
+            <MonoLabel className="hidden sm:inline">
+              {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'TMDB lookup: title + year'}
+            </MonoLabel>
+            <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
+              ＋ Add movie
+            </button>
+          </>
+        }
+      />
       <ErrorText>{error}</ErrorText>
+      {movies && movies.length === 0 && (
+        <EmptyState>No movies yet — look one up on TMDB or add it manually.</EmptyState>
+      )}
+      {movies && movies.length > 0 && (
+        <Reveal className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+          {movies.map((m) => (
+            <PosterCard key={m.id} movie={m} onOpen={onOpen} />
+          ))}
+        </Reveal>
+      )}
       {adding && (
-        <AddMovie
+        <AddMovieModal
+          tmdbSource={tmdbSource}
+          onClose={() => setAdding(false)}
           onAdded={() => {
             setAdding(false)
             load()
           }}
         />
       )}
-      {movies && movies.length === 0 && (
-        <EmptyState>No movies yet — look one up or add it manually.</EmptyState>
-      )}
-      {movies && movies.length > 0 && (
-        <ul className={cardClass + ' divide-y divide-neutral-200 dark:divide-neutral-800'}>
-          {movies.map((m) => (
-            <li key={m.id}>
-              <button
-                onClick={() => onOpen(m.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
-              >
-                <Cover path={m.poster_path} title={m.title} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{m.title}</span>
-                  <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
-                    {[m.director, m.release_year].filter(Boolean).join(' · ')}
-                  </span>
-                  <Chips items={m.genres} className="mt-1" />
-                </span>
-                <span className="shrink-0 text-xs text-neutral-400 dark:text-neutral-500">
-                  {m.dialogue_count} dialogue{m.dialogue_count === 1 ? '' : 's'}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   )
 }
 
-function AddMovie({ onAdded }) {
-  const [mode, setMode] = useState('lookup')
-  const [lookupError, setLookupError] = useState('') // 503: shown above manual form
-  const tabClass = (active) =>
-    'rounded px-3 py-1.5 text-sm ' +
-    (active
-      ? 'bg-neutral-100 dark:bg-neutral-800 font-medium'
-      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100')
+function PosterCard({ movie: m, onOpen }) {
+  const n = m.dialogue_count || 0
+  return (
+    <button type="button" className="block w-full text-left" title={m.title} onClick={() => onOpen(m.id)}>
+      <Poster path={m.poster_path} title={m.title} />
+      <span
+        className="mt-2.5 block truncate"
+        style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}
+      >
+        {m.title}
+      </span>
+      <span className="block truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+        {[m.director, m.release_year].filter(Boolean).join(' · ') || ' '}
+      </span>
+      <span className="mt-0.5 block" style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
+        {n} dialogue{n === 1 ? '' : 's'}
+      </span>
+    </button>
+  )
+}
+
+// ---- add movie (§8.4): modal, tabs Look up | Manual, status-aware ----
+
+function Modal({ label, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto px-4 py-10"
+      style={{ background: 'rgba(21,16,12,.55)' }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div role="dialog" aria-modal="true" aria-label={label} className="hand-card hc-r2 mx-auto w-full max-w-xl px-6 py-6">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function AddMovieModal({ tmdbSource, onClose, onAdded }) {
+  const noKey = tmdbSource === 'none' // §2: no key → 503; Manual stays first-class
+  const [mode, setMode] = useState(noKey ? 'manual' : 'lookup')
+  const [lookupError, setLookupError] = useState('') // runtime 503 message, shown above Manual
 
   return (
-    <div className={cardClass + ' space-y-4 p-4'}>
-      <div className="flex gap-1">
-        <button className={tabClass(mode === 'lookup')} onClick={() => setMode('lookup')}>
-          Lookup
+    <Modal label="Add movie" onClose={onClose}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <h2 className="display-title text-xl">Add movie</h2>
+        <GhostButton onClick={onClose}>Close</GhostButton>
+      </div>
+      <div className="mb-4 flex gap-1.5">
+        <button className={filterChipClass(mode === 'lookup')} onClick={() => setMode('lookup')}>
+          Look up
         </button>
-        <button className={tabClass(mode === 'manual')} onClick={() => setMode('manual')}>
+        <button className={filterChipClass(mode === 'manual')} onClick={() => setMode('manual')}>
           Manual
         </button>
       </div>
+      {noKey && (
+        <p className="tp-error mb-3" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+          no TMDB key configured — lookup returns 503. Add one in Settings (or set TIPPANI_TMDB_API_KEY);
+          manual entry always works.
+        </p>
+      )}
       {mode === 'lookup' ? (
         <LookupMovie
           onAdded={onAdded}
           onUnavailable={(msg) => {
-            // TMDB key not configured — surface the error and fall back to manual entry.
+            // TMDB key missing at request time — surface it and fall back to manual.
             setLookupError(msg)
             setMode('manual')
           }}
@@ -122,7 +220,7 @@ function AddMovie({ onAdded }) {
           <ManualMovie onAdded={onAdded} />
         </>
       )}
-    </div>
+    </Modal>
   )
 }
 
@@ -152,56 +250,55 @@ function LookupMovie({ onAdded, onUnavailable }) {
     setError('')
     const r = await json('POST', '/movies', { tmdb_id: c.tmdb_id })
     if (r.ok) onAdded()
-    else setError(errText(r, 'could not add movie'))
+    else setError(errText(r, 'could not add movie')) // duplicate tmdb_id → 409
   }
 
   return (
     <div className="space-y-3">
       <form onSubmit={search} className="flex gap-2">
+        <input className="tp-input" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input
-          className={inputClass}
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <input
-          className={inputClass + ' w-24 shrink-0'}
+          className="tp-input w-24 shrink-0"
           placeholder="Year"
           inputMode="numeric"
           value={year}
           onChange={(e) => setYear(e.target.value)}
         />
-        <button className={buttonClass + ' shrink-0'} disabled={busy}>
+        <button className="tp-btn tp-btn-primary shrink-0" disabled={busy}>
           {busy ? 'Searching…' : 'Search'}
         </button>
       </form>
       <ErrorText>{error}</ErrorText>
-      {candidates && candidates.length === 0 && (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">No matches found.</p>
-      )}
+      {candidates && candidates.length === 0 && <EmptyState>No matches found.</EmptyState>}
       {candidates && candidates.length > 0 && (
-        <ul className="divide-y divide-neutral-200 dark:divide-neutral-800 rounded border border-neutral-200 dark:border-neutral-800">
-          {candidates.map((c) => (
-            <li key={c.tmdb_id} className="flex items-start gap-3 px-3 py-2">
+        <ul style={{ border: '1px solid var(--line)', borderRadius: 10 }}>
+          {candidates.map((c, i) => (
+            <li
+              key={c.tmdb_id}
+              className="flex items-center gap-3 px-4 py-3"
+              style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
+            >
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">
-                  {c.title}
+                <p className="truncate">
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15 }}>{c.title}</span>
                   {c.release_year ? (
-                    <span className="ml-2 text-xs font-normal text-neutral-500 dark:text-neutral-400">
+                    <span className="ml-2 text-[12.5px]" style={{ color: 'var(--soft)' }}>
                       {c.release_year}
                     </span>
                   ) : null}
-                  <span className="ml-2 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-normal text-neutral-500 dark:text-neutral-400">
-                    TMDB
-                  </span>
                 </p>
                 {c.overview && (
-                  <p className="mt-1 line-clamp-2 text-xs text-neutral-400 dark:text-neutral-500">{c.overview}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs" style={{ color: 'var(--faint)' }}>
+                    {c.overview}
+                  </p>
                 )}
               </div>
-              <button className={ghostButtonClass + ' shrink-0'} onClick={() => add(c)}>
+              <span className="tp-chip shrink-0" style={{ color: 'var(--amber)' }}>
+                TMDB #{c.tmdb_id}
+              </span>
+              <GhostButton className="shrink-0" onClick={() => add(c)}>
                 Add
-              </button>
+              </GhostButton>
             </li>
           ))}
         </ul>
@@ -237,26 +334,27 @@ function ManualMovie({ onAdded }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input className={inputClass} placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className={inputClass} placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />
-        <input className={inputClass} placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
-        <input className={inputClass} placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
+    <form onSubmit={submit} className="space-y-2.5">
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input className="tp-input" placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />
+        <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
+        <input className="tp-input" placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
       </div>
-      <textarea className={inputClass} rows="3" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <textarea className="tp-input" rows="3" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
-      <button className={buttonClass} disabled={busy}>
+      <button className="tp-btn tp-btn-primary" disabled={busy}>
         Add movie
       </button>
     </form>
   )
 }
 
+// ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
+
 function MovieDetail({ id, onClose }) {
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
-  const [showCast, setShowCast] = useState(false)
   const [error, setError] = useState('')
 
   async function load() {
@@ -267,7 +365,6 @@ function MovieDetail({ id, onClose }) {
   useEffect(() => {
     setMovie(null)
     setEditing(false)
-    setShowCast(false)
     load()
   }, [id])
 
@@ -278,17 +375,33 @@ function MovieDetail({ id, onClose }) {
     else setError(errText(r))
   }
 
-  const cast = movie?.cast || []
+  // "DIR. X · YEAR · TMDB #id" — the mono credit line (mockup 15).
+  const metaLine = movie
+    ? [movie.director && `DIR. ${movie.director}`, movie.release_year, movie.tmdb_id && `TMDB #${movie.tmdb_id}`]
+        .filter(Boolean)
+        .join(' · ')
+    : ''
 
   return (
-    <section className="space-y-4">
-      <button onClick={onClose} className={linkButtonClass}>
+    <section className="space-y-6 pt-5" data-screen-label="movie-detail">
+      <button
+        onClick={onClose}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: '2px 0',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 12,
+          letterSpacing: '.1em',
+          color: 'var(--soft)',
+        }}
+      >
         ← Movies
       </button>
       <ErrorText>{error}</ErrorText>
-      {movie && (
-        <div className={cardClass + ' p-4'}>
-          {editing ? (
+      {movie &&
+        (editing ? (
+          <HandCard variant={1} className="p-5">
             <EditMovie
               movie={movie}
               onSaved={() => {
@@ -297,56 +410,44 @@ function MovieDetail({ id, onClose }) {
               }}
               onCancel={() => setEditing(false)}
             />
-          ) : (
-            <div className="flex items-start gap-4">
-              <Cover path={movie.poster_path} title={movie.title} large />
-              <div className="min-w-0 flex-1 space-y-1">
-                <h2 className="text-lg font-semibold">{movie.title}</h2>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {[movie.director, movie.release_year].filter(Boolean).join(' · ')}
-                </p>
-                <Chips items={movie.genres} className="pt-1" />
-                {movie.description && (
-                  <p className="pt-2 text-sm text-neutral-600 dark:text-neutral-300 whitespace-pre-wrap">
-                    {movie.description}
-                  </p>
-                )}
-                {cast.length > 0 && (
-                  <div className="pt-2">
-                    <button className={linkButtonClass} onClick={() => setShowCast(!showCast)}>
-                      {showCast ? 'hide cast' : `cast (${cast.length})`}
-                    </button>
-                    {showCast && (
-                      <ul className="mt-2 space-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                        {cast.map((c, i) => (
-                          <li key={i}>
-                            {[c.character, c.actor].filter(Boolean).join(' — ')}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-                <div className="flex gap-3 pt-2">
-                  <button className={linkButtonClass} onClick={() => setEditing(true)}>
-                    edit
-                  </button>
-                  <button
-                    className={linkButtonClass}
-                    onClick={() => (window.location.href = `/movies/${movie.id}/export`)}
-                  >
-                    export .md
-                  </button>
-                  <button className={deleteButtonClass} onClick={remove}>
-                    delete
-                  </button>
-                </div>
-              </div>
+          </HandCard>
+        ) : (
+          <Reveal className="flex flex-wrap items-start gap-6">
+            <div className="w-24 shrink-0 sm:w-28">
+              <Poster path={movie.poster_path} title={movie.title} />
             </div>
-          )}
-        </div>
-      )}
-      {movie && <Dialogues movieId={movie.id} cast={cast} />}
+            <div className="min-w-0 flex-1 space-y-2.5">
+              <h1 className="display-title" style={{ fontSize: 27 }}>
+                {movie.title}
+              </h1>
+              {metaLine && <p style={amberMono}>{metaLine}</p>}
+              {movie.genres?.length > 0 && (
+                <p className="flex flex-wrap gap-1.5">
+                  {movie.genres.map((g) => (
+                    <span key={g} className="tp-chip">
+                      {g}
+                    </span>
+                  ))}
+                </p>
+              )}
+              {movie.description && (
+                <p className="max-w-prose whitespace-pre-wrap text-sm" style={{ color: 'var(--soft)' }}>
+                  {movie.description}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <GhostButton onClick={() => (window.location.href = `/movies/${movie.id}/export`)}>
+                Export .md
+              </GhostButton>
+              <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+              <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
+                Delete
+              </GhostButton>
+            </div>
+          </Reveal>
+        ))}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} />}
     </section>
   )
 }
@@ -378,22 +479,22 @@ function EditMovie({ movie, onSaved, onCancel }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input className={inputClass} placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className={inputClass} placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />
-        <input className={inputClass} placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
-        <input className={inputClass} placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
+    <form onSubmit={submit} className="space-y-2.5">
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input className="tp-input" placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />
+        <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
+        <input className="tp-input" placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
       </div>
-      <textarea className={inputClass} rows="4" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <textarea className="tp-input" rows="4" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       <div className="flex gap-2">
-        <button className={buttonClass} disabled={busy}>
+        <button className="tp-btn tp-btn-primary" disabled={busy}>
           Save
         </button>
-        <button type="button" className={ghostButtonClass} onClick={onCancel}>
+        <GhostButton type="button" onClick={onCancel}>
           Cancel
-        </button>
+        </GhostButton>
       </div>
     </form>
   )
@@ -414,20 +515,25 @@ function dialogueState(d) {
   }
 }
 
-// Dialogues is the per-movie dialogue section: filters, add form, list.
+// Dialogues — the FILM STRIP (§6 recipe): strip container → sprocket row →
+// edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
+// separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
 function Dialogues({ movieId, cast }) {
   const [items, setItems] = useState(null)
-  const [tags, setTags] = useState([])
-  const [tag, setTag] = useState('') // filter, '' = all
-  const [fav, setFav] = useState(false) // filter: favorites only
-  const [minRating, setMinRating] = useState('') // filter, '' = any
+  const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
+  const [tag, setTag] = useState('') // filter by NAME, '' = all
+  const [fav, setFav] = useState(false)
+  const [minRating, setMinRating] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const reqSeq = useRef(0)
+  const base = useFrameBase() // frame codes regenerate per mount (§6)
 
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
+  const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -476,7 +582,7 @@ function Dialogues({ movieId, cast }) {
     else setError(errText(r))
   }
 
-  // patch PUTs a row's full current state with one field changed (star clicks).
+  // patch PUTs a row's full current state with one field changed (♥/★ clicks).
   async function patch(d, fields) {
     const r = await json('PUT', `/dialogues/${d.id}`, { ...dialogueState(d), ...fields })
     if (!r.ok) return setError(errText(r, 'could not save dialogue'))
@@ -487,30 +593,25 @@ function Dialogues({ movieId, cast }) {
   const filtering = tag || fav || minRating
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-          Dialogues
-        </h3>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setFav(!fav)}
-            className={filterChipClass(fav)}
-            title="Only favorites"
-          >
-            ★ Favorites
+          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+            ♥ Favourites
           </button>
           <MinRatingSelect value={minRating} onChange={setMinRating} />
           {tags.length > 0 && (
             <select
-              className={inputClass + ' w-auto py-1'}
+              className="tp-input w-auto"
+              title="Filter by tag"
               value={tag}
               onChange={(e) => setTag(e.target.value)}
             >
               <option value="">All tags</option>
               {tags.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+                <option key={t.id} value={t.name}>
+                  {t.name}
                 </option>
               ))}
             </select>
@@ -525,66 +626,125 @@ function Dialogues({ movieId, cast }) {
         </datalist>
       )}
 
-      <div className={cardClass + ' p-4'}>
-        <DialogueForm onSubmit={add} submitLabel="Add dialogue" castListId={castListId} />
-      </div>
-
       <ErrorText>{error}</ErrorText>
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — capture your first line above.'}
+          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — capture the first line below.'}
         </EmptyState>
       )}
       {items && items.length > 0 && (
-        <ul className={cardClass + ' divide-y divide-neutral-200 dark:divide-neutral-800'}>
-          {items.map((d) => (
-            <li key={d.id} className="px-4 py-3">
-              {editingId === d.id ? (
-                <DialogueForm
-                  initial={d}
-                  onSubmit={(fields) => save(d.id, fields)}
-                  onCancel={() => setEditingId(null)}
-                  submitLabel="Save"
-                  castListId={castListId}
-                />
-              ) : (
-                <div className="flex items-start gap-2.5">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {d.timestamp && <span className={chipClass + ' font-mono'}>{d.timestamp}</span>}
-                      {(d.character || d.actor) && (
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                          {[d.character, d.actor].filter(Boolean).join(' — ')}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap">{d.quote}</p>
-                    {d.note && (
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400 whitespace-pre-wrap">{d.note}</p>
-                    )}
-                    <Chips items={d.tags} />
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <FavoriteStar value={!!d.favorite} onChange={(v) => patch(d, { favorite: v })} />
-                      <RatingStars value={d.rating || 0} onChange={(v) => patch(d, { rating: v })} />
-                    </div>
-                    <div className="flex gap-2">
-                      <button className={linkButtonClass} onClick={() => setEditingId(d.id)}>
-                        edit
-                      </button>
-                      <button className={deleteButtonClass} onClick={() => remove(d)}>
-                        delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </li>
+        <Reveal className="film-strip">
+          <Sprockets count={15} />
+          <EdgeRow code={frameCode(base)} />
+          {items.map((d, i) => (
+            <Fragment key={d.id}>
+              {i > 0 && <FrameDivider code={frameCode(base, i)} />}
+              <Frame
+                d={d}
+                tagMap={tagMap}
+                editing={editingId === d.id}
+                castListId={castListId}
+                onEdit={() => setEditingId(d.id)}
+                onCancelEdit={() => setEditingId(null)}
+                onSave={(fields) => save(d.id, fields)}
+                onPatch={(fields) => patch(d, fields)}
+                onDelete={() => remove(d)}
+              />
+            </Fragment>
           ))}
-        </ul>
+          <Sprockets count={15} />
+        </Reveal>
+      )}
+
+      {adding ? (
+        <HandCard variant={2} className="p-5">
+          <DialogueForm
+            onSubmit={add}
+            onCancel={() => setAdding(false)}
+            submitLabel="Add dialogue"
+            castListId={castListId}
+          />
+        </HandCard>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3"
+          style={{ background: 'transparent', border: '1.6px dashed var(--ink-border)', borderRadius: 12, minHeight: 56 }}
+        >
+          <span style={{ color: 'var(--accent-ui)', fontWeight: 600, fontSize: 14.5 }}>＋ Add dialogue</span>
+          <span className="microcopy">character picker from cast · actor auto-fills · timestamp HH:MM:SS</span>
+        </button>
       )}
     </div>
+  )
+}
+
+// FrameDivider — the row between frames, carrying the next frame code (§6).
+function FrameDivider({ code }) {
+  const rule = { borderTop: '1px solid color-mix(in srgb, var(--amber) 22%, transparent)' }
+  return (
+    <div className="mx-4 flex items-center gap-3 py-1.5" aria-hidden="true">
+      <span className="flex-1" style={rule} />
+      <FrameCode>{code}</FrameCode>
+      <span className="flex-1" style={rule} />
+    </div>
+  )
+}
+
+// Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
+// line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
+function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete }) {
+  const frameStyle = {
+    background: 'linear-gradient(180deg, var(--card-top), var(--card-bottom))',
+    border: '1px solid var(--frame-border)',
+    borderRadius: 10,
+  }
+  if (editing) {
+    return (
+      <article className="mx-4 my-1.5 px-5 py-4" style={frameStyle}>
+        <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} />
+      </article>
+    )
+  }
+  const credit = [d.character, d.actor && `PLAYED BY ${d.actor}`, d.timestamp].filter(Boolean).join(' · ')
+  return (
+    <article className="mx-4 my-1.5 px-5 py-4" style={frameStyle}>
+      <div className="flex items-start justify-between gap-3">
+        <blockquote
+          className="whitespace-pre-wrap"
+          style={{ fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }}
+        >
+          &ldquo;{d.quote}&rdquo;
+        </blockquote>
+        <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span style={amberMono}>{credit}</span>
+        <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />
+      </div>
+      {d.tags?.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {d.tags.map((name) => {
+            const t = tagMap[name] // tag objects carry the user's colour + style
+            return (
+              <TagChip key={name} color={t?.color} style={t?.style}>
+                {name}
+              </TagChip>
+            )
+          })}
+        </div>
+      )}
+      {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
+      <div className="mt-1 flex justify-end gap-2.5">
+        <button className="tp-link" onClick={onEdit}>
+          edit
+        </button>
+        <button className="tp-link tp-link-danger" onClick={onDelete}>
+          delete
+        </button>
+      </div>
+    </article>
   )
 }
 
@@ -612,7 +772,7 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId }) 
       actor: actor.trim(),
       timestamp: timestamp.trim(),
       tags: splitCommas(tags),
-      // favorite/rating are edited on the row, not in the form — but PUT is
+      // favorite/rating are edited on the frame, not in the form — but PUT is
       // full-state, so carry the existing values through.
       favorite: !!initial?.favorite,
       rating: initial?.rating || 0,
@@ -630,57 +790,52 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId }) 
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2">
+    <form onSubmit={submit} className="space-y-2.5">
       <textarea
-        className={inputClass}
+        className="tp-input"
         rows="3"
         placeholder="Quote (required)"
         value={quote}
         onChange={(e) => setQuote(e.target.value)}
       />
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-3">
         <input
-          className={inputClass}
+          className="tp-input"
           placeholder="Character"
+          title="Character — picks from the stored cast"
           list={castListId}
           value={character}
           onChange={(e) => setCharacter(e.target.value)}
         />
         <input
-          className={inputClass}
-          placeholder="auto-filled from cast"
-          title="Actor"
+          className="tp-input"
+          placeholder="Actor (auto-fills from cast)"
+          title="Actor — left blank, fills from the movie's cast"
           value={actor}
           onChange={(e) => setActor(e.target.value)}
         />
         <input
-          className={inputClass}
+          className="tp-input"
           placeholder="HH:MM:SS"
           title="Timestamp"
           value={timestamp}
           onChange={(e) => setTimestamp(e.target.value)}
         />
       </div>
-      <textarea
-        className={inputClass}
-        rows="2"
-        placeholder="Note"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
+      <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <input
-        className={inputClass}
+        className="tp-input"
         placeholder="Tags (comma-separated)"
         value={tags}
         onChange={(e) => setTags(e.target.value)}
       />
       <div className="flex items-center justify-end gap-2">
         {onCancel && (
-          <button type="button" className={ghostButtonClass} onClick={onCancel}>
+          <GhostButton type="button" onClick={onCancel}>
             Cancel
-          </button>
+          </GhostButton>
         )}
-        <button className={buttonClass} disabled={busy}>
+        <button className="tp-btn tp-btn-primary" disabled={busy}>
           {submitLabel}
         </button>
       </div>

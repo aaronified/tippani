@@ -34,14 +34,15 @@ type BookCandidate struct {
 // SearchBooks queries Google Books (isbn: or intitle:) and, when an ISBN is
 // given, Open Library too. Best-effort merge: a source failing is only an
 // error if every queried source fails — one good candidate list beats none.
-// isbn should already be normalized (PLAN §3).
-func SearchBooks(ctx context.Context, isbn, title string) ([]BookCandidate, error) {
+// isbn should already be normalized (PLAN §3). googleKey is the optional
+// settings-managed Google Books API key (PLAN §6); "" stays anonymous.
+func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCandidate, error) {
 	q := "intitle:" + title
 	if isbn != "" {
 		q = "isbn:" + isbn
 	}
 
-	out, gErr := searchGoogle(ctx, q)
+	out, gErr := searchGoogle(ctx, q, googleKey)
 	var olErr error
 	if isbn != "" {
 		var ol []BookCandidate
@@ -57,8 +58,12 @@ func SearchBooks(ctx context.Context, isbn, title string) ([]BookCandidate, erro
 	return out, nil
 }
 
-func searchGoogle(ctx context.Context, q string) ([]BookCandidate, error) {
-	body, status, err := httpGet(ctx, googleBase+"/books/v1/volumes?q="+url.QueryEscape(q), "")
+func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
+	u := googleBase + "/books/v1/volumes?q=" + url.QueryEscape(q)
+	if key != "" { // optional API key raises the ~1,000/day courtesy quota
+		u += "&key=" + url.QueryEscape(key)
+	}
+	body, status, err := httpGet(ctx, u, "")
 	if err != nil {
 		return nil, fmt.Errorf("google books: %w", err)
 	}

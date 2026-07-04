@@ -30,7 +30,13 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	cands, err := metadata.SearchBooks(r.Context(), isbn, req.Title)
+	gkey, err := s.Store.GetSetting(settingGoogleBooksKey)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	cands, err := s.searchBooks(r.Context(), isbn, req.Title, gkey)
+	s.recordBooksLookup(err) // GET /metadata/status surfaces the latest outcome (§10)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "book lookup failed")
 		return
@@ -54,11 +60,12 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "title is required")
 		return
 	}
-	if s.TMDB.Key == "" {
+	tmdb, _ := s.resolveTMDB()
+	if tmdb == nil {
 		writeErr(w, http.StatusServiceUnavailable, tmdbKeyMissing)
 		return
 	}
-	cands, err := s.TMDB.Search(r.Context(), req.Title, req.Year)
+	cands, err := tmdb.Search(r.Context(), req.Title, req.Year)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "movie lookup failed")
 		return

@@ -1,34 +1,241 @@
-// Shared visual primitives — plain constants + tiny helpers, one place (KISS).
-// Neutral palette with dark: variants everywhere, small text, rounded borders.
+// Shared visual primitives for the tippani UI (instructions §5–§6), plus thin
+// compatibility exports the pre-redesign pages still import — the page pass
+// replaces those call sites, then the compat block can shrink.
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-export const inputClass =
-  'w-full rounded border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500'
-
-export const buttonClass =
-  'rounded bg-neutral-900 dark:bg-neutral-100 px-3 py-2 text-sm font-medium text-white dark:text-neutral-900 disabled:opacity-50'
-
-export const ghostButtonClass =
-  'rounded border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50'
-
-export const cardClass =
-  'rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900'
-
-export const chipClass =
-  'inline-block rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs text-neutral-600 dark:text-neutral-300'
-
-export const linkButtonClass =
-  'text-xs text-neutral-500 dark:text-neutral-400 underline hover:text-neutral-900 dark:hover:text-neutral-100'
-
-export const deleteButtonClass = 'text-xs text-red-600 underline'
-
-// The four annotation colors the API accepts (default yellow).
+// The four fixed annotation colours (§4, Kindle default yellow).
 export const ANNOTATION_COLORS = ['yellow', 'blue', 'pink', 'orange']
-export const colorDotClass = {
-  yellow: 'bg-yellow-400',
-  blue: 'bg-blue-400',
-  pink: 'bg-pink-400',
-  orange: 'bg-orange-400',
+export const ANNOTATION_HEX = { yellow: '#E5C355', blue: '#7FA6C9', pink: '#D98CA6', orange: '#DF9A5B' }
+export const TAG_STYLES = ['sticker', 'banner', 'flyout', 'tape', 'reel']
+
+// useReveal — reveal-on-scroll (§5). Attach the ref to an element with
+// className="reveal"; IO with a scroll fallback, reduced-motion honoured.
+export function useReveal() {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.classList.add('is-in')
+      return
+    }
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => entries.forEach((e) => {
+          if (e.isIntersecting) {
+            el.classList.add('is-in')
+            io.disconnect()
+          }
+        }),
+        { rootMargin: '0px 0px -8% 0px' },
+      )
+      io.observe(el)
+      return () => io.disconnect()
+    }
+    const check = () => {
+      if (el.getBoundingClientRect().top < window.innerHeight - 40) {
+        el.classList.add('is-in')
+        window.removeEventListener('scroll', check)
+      }
+    }
+    window.addEventListener('scroll', check, { passive: true })
+    check()
+    return () => window.removeEventListener('scroll', check)
+  }, [])
+  return ref
 }
+
+// useResolvedDark — true when theme.js resolved the theme to dark (topbar
+// picks the mark variant with this).
+export function useResolvedDark() {
+  const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark')
+  useEffect(() => {
+    const fn = (e) => setDark(e.detail.dark)
+    window.addEventListener('tippani:theme', fn)
+    return () => window.removeEventListener('tippani:theme', fn)
+  }, [])
+  return dark
+}
+
+// ---- cards & buttons (§6) ----
+
+const HAND_RADII = ['', 'hc-r1', 'hc-r2', 'hc-r3']
+
+// HandCard — sheen bg, ink border, offset shadow; vary `variant` (0–3) per
+// instance for uneven radii; `colorBar` adds the annotation-colour left bar.
+export function HandCard({ variant = 0, colorBar, className = '', style, children, ...rest }) {
+  const bar = colorBar ? { borderLeft: `4px solid ${ANNOTATION_HEX[colorBar] || colorBar}` } : undefined
+  return (
+    <div
+      className={`hand-card ${HAND_RADII[variant % HAND_RADII.length]} ${className}`}
+      style={bar ? { ...bar, ...style } : style}
+      {...rest}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function StickerButton({ className = '', ...rest }) {
+  return <button className={'tp-btn btn-sticker ' + className} {...rest} />
+}
+export function FilmButton({ className = '', ...rest }) {
+  return <button className={'tp-btn btn-film ' + className} {...rest} />
+}
+export function GhostButton({ className = '', ...rest }) {
+  return <button className={'tp-btn tp-btn-ghost ' + className} {...rest} />
+}
+
+// ---- type bits (§3) ----
+
+export function MonoLabel({ className = '', children, ...rest }) {
+  return <span className={'mono-label ' + className} {...rest}>{children}</span>
+}
+export function Kicker({ className = '', children, ...rest }) {
+  return <span className={'kicker ' + className} {...rest}>{children}</span>
+}
+
+// PageHeader — Newsreader 24 title + mono counts + right-side actions (§7).
+export function PageHeader({ title, counts, right }) {
+  return (
+    <header className="page-header">
+      <div className="ph-left">
+        <h1>{title}</h1>
+        {counts && <MonoLabel>{counts}</MonoLabel>}
+      </div>
+      {right && <div className="flex items-center gap-3">{right}</div>}
+    </header>
+  )
+}
+
+// Field — mono label above a themed input (§8 form pattern).
+export function Field({ label, className = '', ...rest }) {
+  return (
+    <label className={'tp-field ' + className}>
+      <MonoLabel>{label}</MonoLabel>
+      <input className="tp-input" {...rest} />
+    </label>
+  )
+}
+
+// ---- tags (§6): five CSS-only styles × four colours ----
+// `style` here is the tag style name (sticker|banner|flyout|tape|reel), not a
+// React style object — it is consumed, never forwarded to the DOM.
+export function TagChip({ color = 'yellow', style = 'sticker', className = '', children, ...rest }) {
+  return (
+    <span className={`tag-chip tc-${color} ts-${style} ${className}`} {...rest}>
+      {children}
+    </span>
+  )
+}
+
+export function HighlightSpan({ children }) {
+  return <mark className="hl">{children}</mark>
+}
+
+// HandNote — Caveat + accent tick on paper; Newsreader italic on film (§3/§6).
+export function HandNote({ className = '', children }) {
+  return (
+    <p className={'hand-note ' + className}>
+      <span className="tick" aria-hidden="true">▍</span>
+      {children}
+    </p>
+  )
+}
+
+// ---- ♥ favourite + tilted ★ rating (§6: hearts for favourites, never stars) ----
+
+export function Hearts({ value, onChange }) {
+  return (
+    <button
+      type="button"
+      className={'heart' + (value ? ' on' : '')}
+      title={value ? 'Unfavourite' : 'Favourite'}
+      aria-pressed={!!value}
+      onClick={onChange ? () => onChange(!value) : undefined}
+    >
+      {value ? '♥' : '♡'}
+    </button>
+  )
+}
+
+const STAR_TILTS = [-9, 7, -4, 9, -6] // §6 per-glyph rotations
+
+export function TiltStars({ value = 0, onChange }) {
+  return (
+    <span className="tilt-stars" aria-label={`rated ${value} of 5`}>
+      {STAR_TILTS.map((deg, i) => {
+        const n = i + 1
+        const on = n <= value
+        const cls = on ? 'on' : ''
+        const tilt = { '--tilt': `${deg}deg` }
+        if (!onChange) return <span key={n} className={cls} style={tilt}>{on ? '★' : '☆'}</span>
+        return (
+          <button
+            key={n}
+            type="button"
+            className={cls}
+            style={tilt}
+            title={n === value ? 'Clear rating' : `Rate ${n}`}
+            onClick={() => onChange(n === value ? 0 : n)}
+          >
+            {on ? '★' : '☆'}
+          </button>
+        )
+      })}
+    </span>
+  )
+}
+
+// ---- placeholders & film-strip pieces (§6) ----
+
+// Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.
+export function Placeholder({ kind = 'COVER', className = '' }) {
+  return (
+    <span className={'ph ' + className} aria-hidden="true">
+      <span className="mono-label ph-label">{kind}</span>
+    </span>
+  )
+}
+
+export function Sprockets({ count = 9 }) {
+  return (
+    <div className="sprockets" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => <i key={i} />)}
+    </div>
+  )
+}
+
+export function EdgeRow({ left = 'TIPPANI · SAFETY FILM', code }) {
+  return (
+    <div className="edge-row" aria-hidden="true">
+      <span>{left}</span>
+      {code != null && <span>{code} ▸</span>}
+    </div>
+  )
+}
+
+export function FrameCode({ children }) {
+  return <span className="frame-code" aria-hidden="true">{children}</span>
+}
+
+// Frame codes are runtime-random, memoised per mount (§6):
+// base = 11 + floor(random()*28); frames render `${base+i}A`.
+export function useFrameBase() {
+  return useMemo(() => 11 + Math.floor(Math.random() * 28), [])
+}
+export const frameCode = (base, i = 0) => `${base + i}A`
+
+// ---- compatibility exports (pre-redesign pages; removed in the page pass) ----
+
+export const inputClass = 'tp-input'
+export const buttonClass = 'tp-btn tp-btn-primary'
+export const ghostButtonClass = 'tp-btn tp-btn-ghost'
+export const cardClass = 'hand-card hc-r1'
+export const chipClass = 'tp-chip'
+export const linkButtonClass = 'tp-link'
+export const deleteButtonClass = 'tp-link tp-link-danger'
+export const colorDotClass = { yellow: 'dot-yellow', blue: 'dot-blue', pink: 'dot-pink', orange: 'dot-orange' }
 
 // splitCommas turns a comma-separated input value into a trimmed string array.
 export function splitCommas(s) {
@@ -40,13 +247,11 @@ export function splitCommas(s) {
 
 export function ErrorText({ children }) {
   if (!children) return null
-  return <p className="text-sm text-red-600">{children}</p>
+  return <p className="tp-error">{children}</p>
 }
 
 export function EmptyState({ children }) {
-  return (
-    <p className="py-10 text-center text-sm text-neutral-500 dark:text-neutral-400">{children}</p>
-  )
+  return <p className="tp-empty">{children}</p>
 }
 
 export function Chips({ items, className = '' }) {
@@ -62,86 +267,44 @@ export function Chips({ items, className = '' }) {
   )
 }
 
-// Cover renders a locally-served cover/poster image (GET /covers/{file}), or a
-// placeholder block with the title initial. Remote candidate images are never
-// hotlinked — the CSP is 'self'-only (PLAN §6).
+// Cover renders a locally-served cover/poster image (GET /covers/{file}), or
+// the striped placeholder. Remote images are never hotlinked (CSP 'self').
 export function Cover({ path, title, large = false }) {
-  const size = large ? 'h-36 w-24 text-2xl' : 'h-14 w-10 text-sm'
+  const size = large ? 'h-36 w-24' : 'h-14 w-10'
   if (path) {
     return (
       <img
         src={`/covers/${path}`}
-        alt=""
-        className={size + ' shrink-0 rounded border border-neutral-200 dark:border-neutral-800 object-cover'}
+        alt={title ? `Cover of ${title}` : ''}
+        className={size + ' shrink-0 rounded-md object-cover'}
+        style={{ border: '1px solid var(--ink-border)' }}
       />
     )
   }
   return (
-    <span
-      className={
-        size +
-        ' flex shrink-0 items-center justify-center rounded bg-neutral-200 dark:bg-neutral-800 font-semibold text-neutral-500 dark:text-neutral-400'
-      }
-    >
-      {(title || '?').trim().charAt(0).toUpperCase()}
-    </span>
+    <Placeholder kind={large ? 'COVER' : ''} className={size + ' shrink-0'} />
   )
 }
 
 // filterChipClass styles the small toggle buttons in list filter rows.
 export function filterChipClass(active) {
-  return (
-    'rounded px-2 py-0.5 text-xs ' +
-    (active
-      ? 'bg-neutral-200 dark:bg-neutral-700 font-medium'
-      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100')
-  )
+  return 'tp-filter-chip' + (active ? ' active' : '')
 }
 
-// FavoriteStar is a row's favorite toggle — filled when on, outline when off.
+// FavoriteStar kept its name for compat but renders hearts now (§6).
 export function FavoriteStar({ value, onChange }) {
-  return (
-    <button
-      type="button"
-      title={value ? 'Unfavorite' : 'Favorite'}
-      onClick={() => onChange(!value)}
-      className={
-        'text-base leading-none ' +
-        (value ? 'text-amber-500' : 'text-neutral-300 dark:text-neutral-600 hover:text-amber-500')
-      }
-    >
-      {value ? '★' : '☆'}
-    </button>
-  )
+  return <Hearts value={value} onChange={onChange} />
 }
 
-// RatingStars is a 1–5 rating picker; clicking the current value clears to 0.
 export function RatingStars({ value, onChange }) {
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          title={n === value ? 'Clear rating' : `Rate ${n}`}
-          onClick={() => onChange(n === value ? 0 : n)}
-          className={
-            'text-sm leading-none ' +
-            (n <= value ? 'text-amber-500' : 'text-neutral-300 dark:text-neutral-600 hover:text-amber-400')
-          }
-        >
-          {n <= value ? '★' : '☆'}
-        </button>
-      ))}
-    </span>
-  )
+  return <TiltStars value={value} onChange={onChange} />
 }
 
 // MinRatingSelect filters a list by minimum rating; '' means any.
 export function MinRatingSelect({ value, onChange }) {
   return (
     <select
-      className={inputClass + ' w-auto py-1'}
+      className="tp-input w-auto"
       title="Minimum rating"
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -157,8 +320,7 @@ export function MinRatingSelect({ value, onChange }) {
   )
 }
 
-// ColorSwatches renders the four color circles; value '' means none selected
-// (used by the filter row alongside an explicit "All" button).
+// ColorSwatches renders the four annotation-colour dots; '' = none selected.
 export function ColorSwatches({ value, onChange }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -168,13 +330,7 @@ export function ColorSwatches({ value, onChange }) {
           type="button"
           title={c}
           onClick={() => onChange(c)}
-          className={
-            'h-5 w-5 rounded-full ' +
-            colorDotClass[c] +
-            (value === c
-              ? ' ring-2 ring-neutral-900 dark:ring-neutral-100 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900'
-              : ' opacity-60 hover:opacity-100')
-          }
+          className={'color-dot ' + colorDotClass[c] + (value === c ? ' active' : '')}
         />
       ))}
     </span>

@@ -12,6 +12,11 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/hanken-grotesk": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/newsreader": "^5.2.10",
+    "@fontsource/noto-serif-bengali": "^5.2.10",
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "tailwindcss": "^4.0.0",

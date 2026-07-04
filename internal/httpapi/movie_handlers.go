@@ -11,7 +11,7 @@ import (
 )
 
 // tmdbKeyMissing: manual movie entry still works without a key (PLAN §6).
-const tmdbKeyMissing = "TMDB API key not configured (set TIPPANI_TMDB_API_KEY)"
+const tmdbKeyMissing = "TMDB API key not configured (set TIPPANI_TMDB_API_KEY or save a key in Settings)"
 
 type movieReq struct {
 	TMDBID      int64    `json:"tmdb_id"`
@@ -132,11 +132,12 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createMovieFromTMDB(w http.ResponseWriter, r *http.Request, tmdbID int64) {
-	if s.TMDB.Key == "" {
+	tmdb, _ := s.resolveTMDB() // env > settings custom > built-in (PLAN §6)
+	if tmdb == nil {
 		writeErr(w, http.StatusServiceUnavailable, tmdbKeyMissing)
 		return
 	}
-	d, err := s.TMDB.Details(r.Context(), tmdbID)
+	d, err := tmdb.Details(r.Context(), tmdbID)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "TMDB lookup failed")
 		return
@@ -144,7 +145,7 @@ func (s *Server) createMovieFromTMDB(w http.ResponseWriter, r *http.Request, tmd
 	// Poster fetch is non-fatal, same rule as book covers.
 	var posterPath string
 	if d.PosterURL != "" {
-		if name, err := metadata.FetchImage(r.Context(), d.PosterURL, s.coversDir()); err == nil {
+		if name, err := s.fetchImage(r.Context(), d.PosterURL, s.coversDir()); err == nil {
 			posterPath = name
 		}
 	}
@@ -332,15 +333,12 @@ func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	// Dialogues cascade with the movie; GC the genres it held (tags persist, §10).
 	if _, err := tx.Exec(`DELETE FROM movies WHERE id = ? AND user_id = ?`, id, uid); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if err := gcGenres(tx, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if err := gcTags(tx, uid); err != nil { // dialogues cascade with the movie
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}

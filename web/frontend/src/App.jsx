@@ -1,11 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import ImportPage from './ImportPage.jsx'
 import Library from './Library.jsx'
 import Movies from './Movies.jsx'
+import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import Settings from './Settings.jsx'
-import { cardClass, inputClass, buttonClass, ErrorText } from './ui.jsx'
+import { applyTheme } from './theme.js'
+import {
+  ErrorText,
+  Field,
+  FilmButton,
+  GhostButton,
+  Sprockets,
+  EdgeRow,
+  StickerButton,
+  frameCode,
+  useFrameBase,
+  useResolvedDark,
+} from './ui.jsx'
 
 // App is the auth gate: first-run onboarding, login, then the logged-in shell.
+// The grain overlay (§5) sits above every screen, auth included.
 export default function App() {
   const [user, setUser] = useState(null)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
@@ -23,20 +38,34 @@ export default function App() {
       .finally(() => setChecking(false))
   }, [])
 
-  if (checking) return null
-  if (user) return <Shell user={user} onLogout={() => setUser(null)} />
-  if (needsOnboarding) return <Onboarding onDone={setUser} />
-  return <Login onLogin={setUser} />
+  // Per-user appearance preferences apply on login and reset on logout (§4).
+  useEffect(() => {
+    if (user) applyTheme(user.preferences || {})
+  }, [user])
+
+  let screen = null
+  if (!checking) {
+    if (user) screen = <Shell user={user} onLogout={() => setUser(null)} />
+    else if (needsOnboarding) screen = <Onboarding onDone={setUser} />
+    else screen = <Login onLogin={setUser} />
+  }
+  return (
+    <>
+      {screen}
+      <div className="grain-overlay" aria-hidden="true" />
+    </>
+  )
 }
 
-// refreshMe loads the full session user (including is_admin) after auth.
+// refreshMe loads the full session user (including is_admin + preferences).
 async function refreshMe() {
   const r = await fetch('/auth/me')
   return r.ok ? r.json() : null
 }
 
-// CredentialForm is the shared username/password form for login and onboarding.
-function CredentialForm({ title, subtitle, action, cta, onSuccess }) {
+// CredentialForm is the shared username/password form for login and
+// onboarding; `film` picks the film-dark primary button (§6).
+function CredentialForm({ header, action, cta, microcopy, film = false, onSuccess }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -62,65 +91,128 @@ function CredentialForm({ title, subtitle, action, cta, onSuccess }) {
     }
   }
 
+  const Primary = film ? FilmButton : StickerButton
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-      <form onSubmit={submit} className={cardClass + ' w-80 space-y-4 p-6'}>
-        <div>
-          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
-        </div>
-        <input
-          className={inputClass}
-          placeholder="Username"
-          value={username}
-          autoComplete="username"
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          className={inputClass}
-          placeholder="Password"
-          type="password"
-          value={password}
-          autoComplete={action === '/auth/login' ? 'current-password' : 'new-password'}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+    <form onSubmit={submit} className="hand-card w-full max-w-sm px-8 py-9">
+      <div className="mb-7 text-center">{header}</div>
+      <Field
+        label="Username"
+        placeholder="username"
+        value={username}
+        autoComplete="username"
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <Field
+        label="Password"
+        placeholder="password"
+        type="password"
+        value={password}
+        autoComplete={action === '/auth/login' ? 'current-password' : 'new-password'}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <div className="mt-3">
         <ErrorText>{error}</ErrorText>
-        <button className={buttonClass + ' w-full'} disabled={busy}>
-          {cta}
-        </button>
-      </form>
+      </div>
+      <Primary className="mt-4 w-full" disabled={busy}>
+        {cta}
+      </Primary>
+      {microcopy && <p className="microcopy mt-5 text-center">{microcopy}</p>}
+    </form>
+  )
+}
+
+// Onboarding — paper-light centered card; first account becomes admin (§8.1).
+function Onboarding({ onDone }) {
+  useEffect(() => {
+    applyTheme({ aesthetic: 'paper', theme: 'light' })
+  }, [])
+  return (
+    <main
+      className="flex min-h-screen items-center justify-center px-4 py-10"
+      data-screen-label="onboarding"
+    >
+      <CredentialForm
+        header={
+          <>
+            <img src="/mark.svg" alt="" width="46" height="46" className="mx-auto mb-3" />
+            <h1 className="display-title text-2xl">Welcome to tippani</h1>
+            <p className="mt-1 text-sm" style={{ color: 'var(--soft)' }}>
+              This first account becomes the admin.
+            </p>
+          </>
+        }
+        action="/auth/signup"
+        cta="Create admin account"
+        microcopy="onboarding closes once a user exists"
+        onSuccess={onDone}
+      />
     </main>
   )
 }
 
+// Login — film-dark strip with sprockets + frame code + Bengali subtitle (§8.2).
 function Login({ onLogin }) {
-  return <CredentialForm title="Tippani" action="/auth/login" cta="Log in" onSuccess={onLogin} />
-}
-
-function Onboarding({ onDone }) {
+  useEffect(() => {
+    applyTheme({ aesthetic: 'film', theme: 'dark' })
+  }, [])
+  const base = useFrameBase()
   return (
-    <CredentialForm
-      title="Welcome to Tippani"
-      subtitle="Create the admin account to get started."
-      action="/auth/signup"
-      cta="Create admin account"
-      onSuccess={onDone}
-    />
+    <main
+      className="flex min-h-screen items-center justify-center px-4 py-10"
+      data-screen-label="login"
+    >
+      <div className="film-strip w-full max-w-2xl">
+        <Sprockets />
+        <EdgeRow left="" code={frameCode(base)} />
+        <div className="flex justify-center px-6 py-8">
+          <CredentialForm
+            film
+            header={
+              <>
+                <img src="/mark-dark.svg" alt="" width="44" height="44" className="mx-auto mb-3" />
+                <div className="wordmark" style={{ fontSize: 22 }}>tippani</div>
+                <p className="bengali text-sm" aria-hidden="true">টিপ্পনী</p>
+              </>
+            }
+            action="/auth/login"
+            cta="Sign in"
+            microcopy="locked out? an admin can reset your password"
+            onSuccess={onLogin}
+          />
+        </div>
+        <Sprockets />
+      </div>
+    </main>
   )
 }
 
 const TABS = [
   ['library', 'Library'],
   ['movies', 'Movies'],
+  ['import', 'Import'],
   ['search', 'Search'],
+  ['tags', 'Tags'],
   ['settings', 'Settings'],
 ]
 
-// Shell is the logged-in frame: header with tab nav + logout, and a
-// {type, id} detail state so lists and search can open detail views (no router).
+// Shell is the logged-in frame (§7): topbar with mark + wordmark + tabs +
+// user-initial chip, and a {type, id} detail state so lists and search can
+// open detail views (no router).
 function Shell({ user, onLogout }) {
   const [tab, setTab] = useState('library')
   const [detail, setDetail] = useState(null) // {type: 'book' | 'movie', id}
+  const [menuOpen, setMenuOpen] = useState(false)
+  const dark = useResolvedDark()
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menuOpen])
 
   function selectTab(t) {
     setTab(t)
@@ -141,51 +233,88 @@ function Shell({ user, onLogout }) {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
-      <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <h1 className="text-base font-semibold">Tippani</h1>
-          <nav className="flex gap-1 text-sm">
+    <div className="min-h-screen">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <span className="brand">
+            <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="22" height="22" />
+            <span className="wordmark">tippani</span>
+          </span>
+          <nav className="tabs" aria-label="Primary">
             {TABS.map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => selectTab(key)}
-                className={
-                  'rounded px-3 py-1.5 ' +
-                  (tab === key
-                    ? 'bg-neutral-100 dark:bg-neutral-800 font-medium'
-                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100')
-                }
+                className={'tab' + (tab === key ? ' active' : '')}
+                aria-current={tab === key ? 'page' : undefined}
               >
                 {label}
               </button>
             ))}
           </nav>
-          <button
-            onClick={logout}
-            className="ml-auto text-sm text-neutral-500 dark:text-neutral-400 underline hover:text-neutral-900 dark:hover:text-neutral-100"
-          >
-            Log out ({user.username})
-          </button>
+          <div className="relative ml-auto" ref={menuRef}>
+            <button
+              className="user-chip"
+              title={user.username}
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((m) => !m)}
+            >
+              {(user.username || '?').trim().charAt(0).toLowerCase()}
+            </button>
+            {menuOpen && (
+              <div className="hand-card hc-r2 absolute right-0 z-40 mt-2 min-w-44 px-4 py-3 text-left">
+                <p className="mono-label mb-2">
+                  {user.username}
+                  {user.is_admin ? ' · admin' : ''}
+                </p>
+                <GhostButton className="w-full" onClick={logout}>
+                  Log out
+                </GhostButton>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-6">
+      <main className="container-tp">
         {tab === 'library' && (
-          <Library
-            openId={detail?.type === 'book' ? detail.id : null}
-            onOpen={openBook}
-            onClose={() => setDetail(null)}
-          />
+          <div data-screen-label="library">
+            <Library
+              openId={detail?.type === 'book' ? detail.id : null}
+              onOpen={openBook}
+              onClose={() => setDetail(null)}
+            />
+          </div>
         )}
         {tab === 'movies' && (
-          <Movies
-            openId={detail?.type === 'movie' ? detail.id : null}
-            onOpen={openMovie}
-            onClose={() => setDetail(null)}
-          />
+          <div data-screen-label="movies">
+            <Movies
+              openId={detail?.type === 'movie' ? detail.id : null}
+              onOpen={openMovie}
+              onClose={() => setDetail(null)}
+            />
+          </div>
         )}
-        {tab === 'search' && <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} />}
-        {tab === 'settings' && <Settings user={user} />}
+        {tab === 'import' && (
+          <div data-screen-label="import">
+            <ImportPage />
+          </div>
+        )}
+        {tab === 'search' && (
+          <div data-screen-label="search">
+            <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} />
+          </div>
+        )}
+        {tab === 'tags' && (
+          <div data-screen-label="tags">
+            <TagsPage />
+          </div>
+        )}
+        {tab === 'settings' && (
+          <div data-screen-label="settings">
+            <Settings user={user} />
+          </div>
+        )}
       </main>
     </div>
   )

@@ -143,11 +143,89 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
+	p, err := s.loadPrefs(userID(r))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"id":       userID(r),
-		"username": username(r),
-		"is_admin": isAdmin(r),
+		"id":          userID(r),
+		"username":    username(r),
+		"is_admin":    isAdmin(r),
+		"preferences": p,
 	})
+}
+
+// ---- UI preferences (§10; enums from the UI instructions §4) ----
+
+var (
+	prefAesthetics = map[string]bool{"paper": true, "film": true}
+	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
+	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
+)
+
+type prefs struct {
+	Aesthetic string `json:"aesthetic"`
+	Theme     string `json:"theme"`
+	Accent    string `json:"accent"`
+}
+
+// loadPrefs reads users.preferences and applies defaults for anything unset:
+// theme "system", accent "terracotta", and aesthetic per theme — dark defaults
+// to film, everything else to paper (instructions §4).
+func (s *Server) loadPrefs(uid int64) (prefs, error) {
+	var raw string
+	if err := s.Store.DB.QueryRow(
+		`SELECT preferences FROM users WHERE id = ?`, uid).Scan(&raw); err != nil {
+		return prefs{}, err
+	}
+	var p prefs
+	_ = json.Unmarshal([]byte(raw), &p) // bad stored JSON -> all defaults
+	if !prefThemes[p.Theme] {
+		p.Theme = "system"
+	}
+	if !prefAccents[p.Accent] {
+		p.Accent = "terracotta"
+	}
+	if !prefAesthetics[p.Aesthetic] {
+		if p.Theme == "dark" {
+			p.Aesthetic = "film"
+		} else {
+			p.Aesthetic = "paper"
+		}
+	}
+	return p, nil
+}
+
+// handleUpdatePreferences stores the full preference set (all three fields
+// required, validated enums) as JSON in users.preferences.
+func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	var p prefs
+	if !decodeBody(w, r, &p) {
+		return
+	}
+	switch {
+	case !prefAesthetics[p.Aesthetic]:
+		writeErr(w, http.StatusBadRequest, "aesthetic must be paper or film")
+		return
+	case !prefThemes[p.Theme]:
+		writeErr(w, http.StatusBadRequest, "theme must be light, dark or system")
+		return
+	case !prefAccents[p.Accent]:
+		writeErr(w, http.StatusBadRequest, "accent must be terracotta, ochre, olive or slate")
+		return
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if _, err := s.Store.DB.Exec(
+		`UPDATE users SET preferences = ? WHERE id = ?`, string(raw), userID(r)); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {

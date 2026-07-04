@@ -127,6 +127,63 @@ func TestMigrateAndFTS(t *testing.T) {
 	); err == nil {
 		t.Fatal("expected UNIQUE violation for duplicate dialogue dedupe_hash")
 	}
+
+	// 0005: users carry a preferences blob, tags carry colour/style (with
+	// CHECKed enums), and the settings table exists.
+	var prefs string
+	if err := st.DB.QueryRow(`SELECT preferences FROM users WHERE id = 1`).Scan(&prefs); err != nil || prefs != "{}" {
+		t.Fatalf("preferences default: %q, %v", prefs, err)
+	}
+	mustExec(`INSERT INTO tags (user_id, name, color, style) VALUES (1, 'styled', 'pink', 'banner')`)
+	var color, style string
+	if err := st.DB.QueryRow(`SELECT color, style FROM tags WHERE name = 'epic'`).Scan(&color, &style); err != nil ||
+		color != "yellow" || style != "sticker" {
+		t.Fatalf("tag defaults: %q/%q, %v", color, style, err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO tags (user_id, name, color) VALUES (1, 'bad', 'chartreuse')`); err == nil {
+		t.Fatal("expected CHECK violation for bad tag color")
+	}
+	if _, err := st.DB.Exec(`INSERT INTO tags (user_id, name, style) VALUES (1, 'bad', 'hologram')`); err == nil {
+		t.Fatal("expected CHECK violation for bad tag style")
+	}
+	mustExec(`INSERT INTO settings (key, value) VALUES ('k', 'v')`)
+}
+
+// TestSettings exercises the settings-table helpers: missing key reads "",
+// SetSetting upserts, and "" clears the row (migration 0005).
+func TestSettings(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+
+	get := func(want string) {
+		t.Helper()
+		if v, err := st.GetSetting("tmdb_key"); err != nil || v != want {
+			t.Fatalf("GetSetting = %q, %v; want %q", v, err, want)
+		}
+	}
+	get("")
+	if err := st.SetSetting("tmdb_key", "abc"); err != nil {
+		t.Fatal(err)
+	}
+	get("abc")
+	if err := st.SetSetting("tmdb_key", "def"); err != nil { // upsert
+		t.Fatal(err)
+	}
+	get("def")
+	if err := st.SetSetting("tmdb_key", ""); err != nil { // "" clears
+		t.Fatal(err)
+	}
+	get("")
+	var n int
+	if err := st.DB.QueryRow(`SELECT count(*) FROM settings`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("cleared key should delete the row: %d, %v", n, err)
+	}
 }
 
 // TestDedupeHash pins the normalization rule: casefold + whitespace collapse +

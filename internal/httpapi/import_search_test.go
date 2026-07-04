@@ -10,9 +10,10 @@ import (
 )
 
 type importResult struct {
-	BookID  int64 `json:"book_id"`
-	Added   int   `json:"added"`
-	Skipped int   `json:"skipped"`
+	BookID   int64 `json:"book_id"`
+	Added    int   `json:"added"`
+	Skipped  int   `json:"skipped"`
+	Enriched int   `json:"enriched"`
 }
 
 func TestImportMarkdown(t *testing.T) {
@@ -262,6 +263,72 @@ func TestImportBackfillAcrossIdentities(t *testing.T) {
 	r3 := decode[importResult](t, c.importFile("/import/markdown", "n.md", []byte(md)))
 	if r3.BookID != r1.BookID {
 		t.Fatalf("book split on ISBN-only import: landed in %d, want %d", r3.BookID, r1.BookID)
+	}
+}
+
+// A skipped duplicate enriches the existing row: empty fields fill from the
+// incoming copy, tags union, and already-set values are never overwritten
+// (PLAN §5 duplicate enrichment).
+func TestImportDuplicateEnrichment(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Import 1: bare quote — no chapter/location/note/tags, default color.
+	bare := "---\ntitle: Enrich Me\nauthor: A\n---\n\n> The same passage, twice imported.\n"
+	r1 := decode[importResult](t, c.importFile("/import/markdown", "bare.md", []byte(bare)))
+	if r1.Added != 1 || r1.Enriched != 0 {
+		t.Fatalf("first import: %+v", r1)
+	}
+
+	// Import 2: same text (typographic variant exercises the fold) + rich metadata.
+	rich := strings.Join([]string{
+		"---", "title: Enrich Me", "author: A", "---", "",
+		"## Chapter 9", "",
+		"> The same passage — twice imported.", // curly dash folds to the same hash? (— vs ,) no: text must hash equal
+		"- note: filled by the second import",
+		"- loc: p.42",
+		"- colour: blue",
+		"- tags: alpha, beta",
+		"- favorite: true",
+		"- rating: 4",
+		"",
+	}, "\n")
+	// Keep the quote text hash-identical to import 1 (comma version).
+	rich = strings.Replace(rich, "The same passage — twice imported.", "The same passage, twice imported.", 1)
+	r2 := decode[importResult](t, c.importFile("/import/markdown", "rich.md", []byte(rich)))
+	if r2.BookID != r1.BookID || r2.Added != 0 || r2.Skipped != 1 || r2.Enriched != 1 {
+		t.Fatalf("enriching import: %+v", r2)
+	}
+	anns := decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(r1.BookID), nil, 200))
+	if len(anns.Annotations) != 1 {
+		t.Fatalf("want 1 annotation, got %d", len(anns.Annotations))
+	}
+	a := anns.Annotations[0]
+	if a.Chapter != "Chapter 9" || a.Location != "p.42" || a.Note != "filled by the second import" ||
+		a.Color != "blue" || !a.Favorite || a.Rating != 4 || !sameStrings(a.Tags, []string{"alpha", "beta"}) {
+		t.Fatalf("not enriched: %+v", a)
+	}
+
+	// Import 3: same text again with DIFFERENT metadata — must not overwrite,
+	// only union the new tag; identical re-import counts as skipped, not enriched.
+	clobber := "---\ntitle: Enrich Me\nauthor: A\n---\n\n## Chapter 1\n\n> The same passage, twice imported.\n- note: should NOT replace\n- loc: p.999\n- colour: pink\n- rating: 1\n- tags: gamma\n"
+	r3 := decode[importResult](t, c.importFile("/import/markdown", "clobber.md", []byte(clobber)))
+	if r3.Added != 0 || r3.Skipped != 1 || r3.Enriched != 0 {
+		t.Fatalf("clobber import: %+v", r3)
+	}
+	anns = decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(r1.BookID), nil, 200))
+	a = anns.Annotations[0]
+	if a.Chapter != "Chapter 9" || a.Location != "p.42" || a.Note != "filled by the second import" ||
+		a.Color != "blue" || a.Rating != 4 {
+		t.Fatalf("existing values were clobbered: %+v", a)
+	}
+	if !sameStrings(a.Tags, []string{"alpha", "beta", "gamma"}) { // union
+		t.Fatalf("tags not unioned: %v", a.Tags)
 	}
 }
 

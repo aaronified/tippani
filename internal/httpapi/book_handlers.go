@@ -109,7 +109,7 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	// non-fatal: on failure the book is saved without a cover.
 	var coverPath string
 	if req.CoverURL != "" {
-		if name, err := metadata.FetchImage(r.Context(), req.CoverURL, s.coversDir()); err == nil {
+		if name, err := s.fetchImage(r.Context(), req.CoverURL, s.coversDir()); err == nil {
 			coverPath = name
 		}
 	}
@@ -339,16 +339,13 @@ func (s *Server) handleDeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-	// Annotations cascade with the book; GC the genres and tags they held.
+	// Annotations cascade with the book; GC the genres they held. Tags persist
+	// (managed vocabulary, §10) — only their join rows cascade away.
 	if _, err := tx.Exec(`DELETE FROM books WHERE id = ? AND user_id = ?`, id, uid); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if err := gcGenres(tx, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if err := gcTags(tx, uid); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}

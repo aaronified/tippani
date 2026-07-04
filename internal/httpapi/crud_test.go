@@ -30,7 +30,7 @@ func newTestServer(t *testing.T) *Server {
 	if err := st.Migrate(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "covers"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "MediaCover"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	return New(st, fstest.MapFS{}, dir, "", false, false)
@@ -150,7 +150,19 @@ func sameStrings(a, b []string) bool {
 
 type namesResp struct {
 	Genres []string `json:"genres"`
-	Tags   []string `json:"tags"`
+}
+
+// tagsResp is the §10 GET /tags shape (objects with colour/style + usage).
+type tagsResp struct {
+	Tags []tagRow `json:"tags"`
+}
+
+func tagNames(tags []tagRow) []string {
+	names := make([]string, len(tags))
+	for i, t := range tags {
+		names[i] = t.Name
+	}
+	return names
 }
 
 // ---- books ----
@@ -296,7 +308,8 @@ func TestAnnotationCRUD(t *testing.T) {
 		t.Fatalf("annotation_count: %+v", count.Books)
 	}
 
-	// Update is full state: tags replaced, orphan "worms" GC'd.
+	// Update is full state: tags replaced. The detached "worms" persists in
+	// the managed vocabulary with zero usage (§10 — no auto-GC).
 	upd := decode[annotationRow](t, c.mustDo("PUT", "/annotations/"+itoa(a2.ID), map[string]any{
 		"quote": "He who controls the spice controls the universe.",
 		"note":  "", "color": "pink", "tags": []string{"dune"},
@@ -304,8 +317,8 @@ func TestAnnotationCRUD(t *testing.T) {
 	if upd.Color != "pink" || !sameStrings(upd.Tags, []string{"dune"}) {
 		t.Fatalf("update: %+v", upd)
 	}
-	if tg := decode[namesResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tg.Tags, []string{"dune", "fear", "philosophy"}) {
-		t.Fatalf("tags after update: %v", tg.Tags)
+	if tg := decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tagNames(tg.Tags), []string{"dune", "fear", "philosophy", "worms"}) {
+		t.Fatalf("tags after update: %+v", tg.Tags)
 	}
 
 	// An edit colliding with a sibling's dedupe hash -> 409.
@@ -313,11 +326,21 @@ func TestAnnotationCRUD(t *testing.T) {
 		"quote": "FEAR IS THE MIND-KILLER.", "color": "pink", "tags": []string{},
 	}, http.StatusConflict)
 
-	// Delete; its tags are GC'd.
+	// Delete; the vocabulary keeps every name, usage counts drop instead.
 	c.mustDo("DELETE", "/annotations/"+itoa(a1.ID), nil, 200)
 	c.mustDo("DELETE", "/annotations/"+itoa(a1.ID), nil, http.StatusNotFound)
-	if tg := decode[namesResp](t, c.mustDo("GET", "/tags", nil, 200)); !sameStrings(tg.Tags, []string{"dune"}) {
-		t.Fatalf("tags after delete: %v", tg.Tags)
+	tg := decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
+	if !sameStrings(tagNames(tg.Tags), []string{"dune", "fear", "philosophy", "worms"}) {
+		t.Fatalf("tags after delete: %+v", tg.Tags)
+	}
+	for _, tag := range tg.Tags {
+		want := 0
+		if tag.Name == "dune" {
+			want = 1
+		}
+		if tag.Annotations != want || tag.Dialogues != 0 {
+			t.Fatalf("tag usage after delete: %+v", tag)
+		}
 	}
 }
 
