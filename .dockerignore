@@ -1,0 +1,14 @@
+# Keep the image build context to what the build actually needs.
+# (The final distroless stage only ever receives the compiled binary —
+# no source or test files ship regardless.)
+.git
+.github
+.claude
+.vscode
+bin
+data
+deploy
+docs
+web/frontend/node_modules
+internal/importer/testdata
+*.md

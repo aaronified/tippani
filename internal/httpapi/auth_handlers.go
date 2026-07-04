@@ -91,8 +91,12 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uname, ok := normalizeUsername(req.Username)
-	if !ok || len(req.Password) < 8 {
-		writeErr(w, http.StatusBadRequest, "username required and password must be at least 8 characters")
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "username required")
+		return
+	}
+	if msg := passwordProblem(req.Password); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	// Cheap check before the expensive hash: once any user exists onboarding is
@@ -152,8 +156,12 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 		Current string `json:"current"`
 		New     string `json:"new"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.New) < 8 {
-		writeErr(w, http.StatusBadRequest, "new password must be at least 8 characters")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if msg := passwordProblem(req.New); msg != "" {
+		writeErr(w, http.StatusBadRequest, "new "+msg)
 		return
 	}
 	var hash string
@@ -178,7 +186,34 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	// Revoke every existing session for this user (a leaked cookie must not
+	// survive a password change), then re-issue one for the current caller so
+	// changing your own password doesn't log you out.
+	if err := s.Sessions.DeleteAllForUser(userID(r)); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	token, err := s.Sessions.Create(userID(r))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	http.SetCookie(w, s.sessionCookie(token, int(auth.SessionLifetime.Seconds())))
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// bcrypt rejects inputs longer than 72 bytes; validate up front so we return a
+// clean 400 instead of a 500 out of HashPassword.
+const maxPasswordBytes = 72
+
+func passwordProblem(pw string) string {
+	switch {
+	case len(pw) < 8:
+		return "password must be at least 8 characters"
+	case len(pw) > maxPasswordBytes:
+		return "password must be at most 72 bytes"
+	}
+	return ""
 }
 
 func (s *Server) sessionCookie(value string, maxAge int) *http.Cookie {

@@ -7,11 +7,13 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"golang.org/x/time/rate"
 
 	"tippani/internal/auth"
+	"tippani/internal/metadata"
 	"tippani/internal/store"
 )
 
@@ -21,17 +23,21 @@ type Server struct {
 	CookieSecure bool // set true when your reverse proxy terminates TLS
 	TrustedProxy bool // read client IP from X-Forwarded-For (only behind your own proxy)
 	Static       fs.FS
+	DataDir      string         // covers/posters live in <DataDir>/covers (PLAN §6)
+	TMDB         *metadata.TMDB // empty Key -> movie lookup answers 503
 
 	loginLimiter *auth.KeyedLimiter
 }
 
-func New(st *store.Store, static fs.FS, cookieSecure, trustedProxy bool) *Server {
+func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, trustedProxy bool) *Server {
 	return &Server{
 		Store:        st,
 		Sessions:     auth.Sessions{DB: st.DB},
 		CookieSecure: cookieSecure,
 		TrustedProxy: trustedProxy,
 		Static:       static,
+		DataDir:      dataDir,
+		TMDB:         &metadata.TMDB{Key: tmdbKey},
 		loginLimiter: auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
 	}
 }
@@ -58,17 +64,43 @@ func (s *Server) Handler() http.Handler {
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
 
-	// Not yet implemented (PLAN §5–§7 build order).
-	for _, pattern := range []string{
-		"POST /books/lookup",
-		"POST /books", "GET /books", "GET /books/{id}", "PUT /books/{id}", "DELETE /books/{id}",
-		"POST /annotations", "GET /annotations", "PUT /annotations/{id}", "DELETE /annotations/{id}",
-		"GET /genres", "GET /tags",
-		"POST /import/markdown", "POST /import/kindle-clippings", "POST /import/bookcision",
-		"GET /covers/{file}",
-	} {
-		mux.Handle(pattern, s.requireAuth(notImplemented))
-	}
+	// Books + annotations (PLAN §3, §5a, §6).
+	mux.Handle("POST /books/lookup", s.requireAuth(s.handleBookLookup))
+	mux.Handle("POST /books", s.requireAuth(s.handleCreateBook))
+	mux.Handle("GET /books", s.requireAuth(s.handleListBooks))
+	mux.Handle("GET /books/{id}", s.requireAuth(s.handleGetBook))
+	mux.Handle("PUT /books/{id}", s.requireAuth(s.handleUpdateBook))
+	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
+	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
+	mux.Handle("GET /annotations", s.requireAuth(s.handleListAnnotations))
+	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))
+	mux.Handle("DELETE /annotations/{id}", s.requireAuth(s.handleDeleteAnnotation))
+
+	// Movies + dialogues (PLAN §3b, §6).
+	mux.Handle("POST /movies/lookup", s.requireAuth(s.handleMovieLookup))
+	mux.Handle("POST /movies", s.requireAuth(s.handleCreateMovie))
+	mux.Handle("GET /movies", s.requireAuth(s.handleListMovies))
+	mux.Handle("GET /movies/{id}", s.requireAuth(s.handleGetMovie))
+	mux.Handle("PUT /movies/{id}", s.requireAuth(s.handleUpdateMovie))
+	mux.Handle("DELETE /movies/{id}", s.requireAuth(s.handleDeleteMovie))
+	mux.Handle("POST /dialogues", s.requireAuth(s.handleCreateDialogue))
+	mux.Handle("GET /dialogues", s.requireAuth(s.handleListDialogues))
+	mux.Handle("PUT /dialogues/{id}", s.requireAuth(s.handleUpdateDialogue))
+	mux.Handle("DELETE /dialogues/{id}", s.requireAuth(s.handleDeleteDialogue))
+
+	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
+	mux.Handle("GET /genres", s.requireAuth(s.handleListGenres))
+	mux.Handle("GET /tags", s.requireAuth(s.handleListTags))
+	mux.Handle("POST /import/markdown", s.requireAuth(s.handleImportMarkdown))
+	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
+	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
+	mux.Handle("POST /import/kindle-clippings", s.requireAuth(notImplemented)) // deferred (PLAN §5c)
+	mux.Handle("GET /covers/{file}", s.requireAuth(s.handleCover))
+
+	// Export (PLAN §6b): single-item markdown + whole-library zip.
+	mux.Handle("GET /books/{id}/export", s.requireAuth(s.handleExportBook))
+	mux.Handle("GET /movies/{id}/export", s.requireAuth(s.handleExportMovie))
+	mux.Handle("GET /export", s.requireAuth(s.handleExportAll))
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -142,8 +174,14 @@ func isAdmin(r *http.Request) bool    { v, _ := r.Context().Value(ctxIsAdmin).(b
 func (s *Server) clientIP(r *http.Request) string {
 	if s.TrustedProxy {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			if i := strings.IndexByte(xff, ','); i >= 0 {
-				return strings.TrimSpace(xff[:i])
+			// Trust only the RIGHTMOST entry: a single reverse proxy appends the
+			// real client IP to whatever the client already sent, so everything
+			// left of the last comma is client-forgeable. Reading the leftmost
+			// entry let an attacker rotate a fake IP per request and mint a fresh
+			// rate-limiter bucket each time, defeating the login brute-force /
+			// bcrypt-DoS protection (PLAN §2).
+			if i := strings.LastIndexByte(xff, ','); i >= 0 {
+				return strings.TrimSpace(xff[i+1:])
 			}
 			return strings.TrimSpace(xff)
 		}
@@ -156,6 +194,52 @@ func (s *Server) clientIP(r *http.Request) string {
 }
 
 // ---- helpers ----
+
+// maxCRUDBody caps JSON request bodies; imports have their own 5 MB cap.
+const maxCRUDBody = 64 << 10
+
+// decodeBody reads a JSON body (capped at maxCRUDBody) into v.
+// On failure it writes a 400 and returns false.
+func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxCRUDBody)
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return false
+	}
+	return true
+}
+
+// pathID parses the {id} wildcard.
+func pathID(r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	return id, err == nil && id > 0
+}
+
+// nullable maps "" to NULL so the partial unique indexes (isbn/asin/tmdb_id)
+// and COALESCE reads behave — an absent value is not an identity.
+func nullable(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+func nullableInt(n int) any {
+	if n == 0 {
+		return nil
+	}
+	return n
+}
+
+// validYear: 0 means absent; anything else must be a plausible year.
+func validYear(y int) bool { return y == 0 || (y >= 1000 && y <= 3000) }
+
+// trimCap trims s and enforces the rune cap on short free-text fields
+// (chapter/location/timestamp/character/actor).
+func trimCap(s string, max int) (string, bool) {
+	s = strings.TrimSpace(s)
+	return s, len([]rune(s)) <= max
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

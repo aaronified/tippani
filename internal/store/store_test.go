@@ -74,11 +74,77 @@ func TestMigrateAndFTS(t *testing.T) {
 		t.Fatal("expected CHECK violation for all-NULL annotation")
 	}
 
+	// 0004 dropped the source CHECK (importer list keeps growing) and the
+	// rebuild must keep FTS triggers + annotation_tags joins working.
+	mustExec(`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (1, 'hardcover keeps the page', 'hardcover_html', 'h4')`)
+	if n := count(`SELECT count(*) FROM annotations_fts WHERE annotations_fts MATCH ?`, `"hardcover"`); n != 1 {
+		t.Fatalf("annotations_fts after 0004 rebuild: got %d", n)
+	}
+	mustExec(`INSERT INTO tags (user_id, name) VALUES (1, 'epic')`)
+	mustExec(`INSERT INTO annotation_tags (annotation_id, tag_id)
+	          SELECT a.id, t.id FROM annotations a, tags t WHERE a.dedupe_hash = 'h4' AND t.name = 'epic'`)
+	if n := count(`SELECT count(*) FROM annotation_tags`); n != 1 {
+		t.Fatalf("annotation_tags join after rebuild: got %d", n)
+	}
+
 	// Dedupe: same (book_id, dedupe_hash) rejected.
 	mustExec(`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (1, 'q', 'md', 'h3')`)
 	if _, err := st.DB.Exec(
 		`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (1, 'q', 'md', 'h3')`,
 	); err == nil {
 		t.Fatal("expected UNIQUE violation for duplicate dedupe_hash")
+	}
+
+	// Movies + dialogues (migration 0003) mirror the same FTS behaviour.
+	mustExec(`INSERT INTO movies (user_id, title, director, genre_text) VALUES (1, 'Casablanca', 'Michael Curtiz', 'drama romance')`)
+	mustExec(`INSERT INTO dialogues (movie_id, quote, character, actor, timestamp, dedupe_hash)
+	          VALUES (1, 'Here''s looking at you, kid.', 'Rick Blaine', 'Humphrey Bogart', '01:16:05', 'd1')`)
+	if n := count(`SELECT count(*) FROM movies_fts WHERE movies_fts MATCH ?`, `"curtiz"`); n != 1 {
+		t.Fatalf("movies_fts director: got %d", n)
+	}
+	// Dialogue search matches quote, character, and actor columns.
+	for _, q := range []string{`"looking"`, `"blaine"`, `"bogart"`} {
+		if n := count(`SELECT count(*) FROM dialogues_fts WHERE dialogues_fts MATCH ?`, q); n != 1 {
+			t.Fatalf("dialogues_fts %s: got %d", q, n)
+		}
+	}
+	mustExec(`UPDATE dialogues SET quote = 'Round up the usual suspects.', character = 'Louis Renault', actor = 'Claude Rains' WHERE id = 1`)
+	if n := count(`SELECT count(*) FROM dialogues_fts WHERE dialogues_fts MATCH ?`, `"bogart"`); n != 0 {
+		t.Fatalf("stale dialogues_fts row after update: got %d", n)
+	}
+	mustExec(`DELETE FROM movies WHERE id = 1`) // cascades to dialogues
+	if n := count(`SELECT count(*) FROM dialogues_fts WHERE dialogues_fts MATCH ?`, `"suspects"`); n != 0 {
+		t.Fatalf("stale dialogues_fts row after cascade delete: got %d", n)
+	}
+
+	// Dialogue dedupe: same (movie_id, dedupe_hash) rejected.
+	mustExec(`INSERT INTO movies (user_id, title) VALUES (1, 'Heat')`)
+	mustExec(`INSERT INTO dialogues (movie_id, quote, dedupe_hash)
+	          SELECT id, 'q', 'd2' FROM movies WHERE title = 'Heat'`)
+	if _, err := st.DB.Exec(
+		`INSERT INTO dialogues (movie_id, quote, dedupe_hash)
+		 SELECT id, 'q', 'd2' FROM movies WHERE title = 'Heat'`,
+	); err == nil {
+		t.Fatal("expected UNIQUE violation for duplicate dialogue dedupe_hash")
+	}
+}
+
+// TestDedupeHash pins the normalization rule: casefold + whitespace collapse +
+// typographic folding, so the same passage synced from different sources (with
+// different quote/dash styles) hashes identically.
+func TestDedupeHash(t *testing.T) {
+	a := DedupeHash("Reader,  I married\nhim.")
+	b := DedupeHash("reader, i married him.")
+	if a != b {
+		t.Fatalf("normalization mismatch: %s vs %s", a, b)
+	}
+	if a == DedupeHash("something else") {
+		t.Fatal("distinct texts must not collide")
+	}
+	// Bookcision-style smart punctuation vs plain-ASCII markdown export.
+	curly := DedupeHash("it’s easier – “to get used to it”…")
+	plain := DedupeHash(`it's easier - "to get used to it"...`)
+	if curly != plain {
+		t.Fatalf("typographic fold mismatch: %s vs %s", curly, plain)
 	}
 }

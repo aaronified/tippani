@@ -1,8 +1,17 @@
-# Self-Hosted Book Annotations App — Plan v2
+# Self-Hosted Book Annotations App — Plan v3
 
 Multi-user, localhost-bound annotation store: paste or bulk-import quotes, attach notes/colours/tags,
 fetch cover + metadata, and search author / title / genre / annotation text near-instantly.
 Target host: a low-powered NAS also running ~100 other services → **CPU frugality is a first-class requirement.**
+
+**Changes from v2:**
+
+- **Added: movie dialogues** (§3b). Movies mirror books; dialogues mirror annotations but carry
+  `timestamp`, `character`, `actor` instead of chapter/location, and have **no colour/tags/importers**
+  (not needed — YAGNI). Metadata comes from **TMDB** (§6): one lookup call returns details + credits;
+  posters reuse the local cover store. When a dialogue's `character` matches the stored cast list,
+  the server auto-fills `actor`.
+- No new Go deps: TMDB is another plain-HTTP JSON client behind the same outbound hygiene rules.
 
 **Changes from v1:**
 
@@ -30,12 +39,12 @@ Driver tradeoff: `modernc` costs ~1.5–2× the per-query CPU of CGo `mattn/go-s
 
 **Model: per-user isolated libraries.** Every book, annotation, tag, and genre row belongs to one user; nothing is shared. (Assumption — confirm, see §11. Duplicate book rows across users cost kilobytes; strongest isolation, simplest queries.)
 
-- **Login:** SPA form → `POST /auth/login` → server-side session stored in SQLite. Token = 256-bit random; **only its SHA-256 is stored**. Cookie: `HttpOnly; SameSite=Lax; Path=/`; `Secure` flag via config (enable when your proxy terminates TLS). Absolute expiry 30 d with sliding refresh; expired rows deleted lazily on next login — no cleanup cron.
+- **Login:** SPA form → `POST /auth/login` → server-side session stored in SQLite. Token = 256-bit random; **only its SHA-256 is stored**. Cookie: `HttpOnly; SameSite=Lax; Path=/`; `Secure` flag via config (enable when your proxy terminates TLS). **30 d sliding idle window** (each use past the halfway mark bumps expiry forward) capped by a **90 d absolute limit from creation** (`created_at + SessionMaxLifetime`), so a token can't renew indefinitely; a password change revokes all of the user's sessions. Expired rows deleted lazily on next login — no cleanup cron.
 - **Passwords:** **bcrypt, cost 10** (tunable). ~60–100 ms per login on weak ARM — a rare event, acceptable. *Primary downside:* not memory-hard. Argon2id rejected deliberately: its ~64 MB per hash is exactly wrong on a RAM-shared NAS.
 - **CSRF:** Go 1.25 **`http.CrossOriginProtection`** (Sec-Fetch-Site / Origin check) wrapping all non-GET routes — stdlib, zero tokens, zero deps. *Primary downside:* requires Go 1.25+ and evergreen browsers (both fine here).
 - **Brute force:** `golang.org/x/time/rate` limiter keyed on (client IP, username), e.g. 5/min burst 5. Client IP read from `X-Forwarded-For` **only when** `TRUSTED_PROXY` is configured.
 - **User management:** the **first user is the admin** — created by first-run onboarding (`GET /auth/status` → `POST /auth/signup`, which only succeeds while the users table is empty) or by the CLI when the DB is empty. The admin adds/removes other users from an in-app panel (`GET/POST /admin/users`, `DELETE /admin/users/{id}`); onboarding closes once any user exists. CLI subcommands (`app user add|passwd|del`) remain for bootstrapping/scripting, plus an in-app change-password form. Roles are a single `is_admin` flag — no finer-grained permissions (YAGNI).
-- **Binding:** default `127.0.0.1:8080`, overridable via `BIND`. Docker note: inside a container bind `0.0.0.0` and publish host-locally: `-p 127.0.0.1:8080:8080`.
+- **Binding:** the binary defaults to `127.0.0.1:8080` (overridable via `TIPPANI_BIND`). The Docker image binds `0.0.0.0:8080` and the shipped compose publishes `8080:8080`, so a NAS deployment is reachable on the LAN by default — that's the point of a NAS app. Trade-off to accept/document: first-run onboarding is unauthenticated (first caller claims admin), so onboard promptly or bind host-local (`-p 127.0.0.1:8080:8080`) behind a proxy until you have. After onboarding, every route requires a session.
 - **Headers:** CSP `default-src 'self'` (+ nothing external — covers are served locally, §6), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`. **No CORS** — same-origin SPA; none needed.
 
 ---
@@ -97,7 +106,10 @@ CREATE TABLE annotations (
     CHECK (color IN ('yellow','blue','pink','orange')),
   chapter TEXT,
   location TEXT,                        -- free text page/loc/%; NOT part of dedupe
-  source TEXT NOT NULL CHECK (source IN ('manual','md','kindle_clippings','bookcision')),
+  source TEXT NOT NULL,                 -- 'manual'|'md'|'bookcision'|'hardcover_html'|… validated in app code (the source list grows; SQLite can't alter a CHECK, so migration 0004 dropped it)
+  favorite INTEGER NOT NULL DEFAULT 0,  -- star flag (added in migration 0004)
+  rating INTEGER NOT NULL DEFAULT 0     -- 0 = unrated, else 1-5 (migration 0004)
+    CHECK (rating BETWEEN 0 AND 5),
   dedupe_hash TEXT NOT NULL,            -- sha256(lower(collapse_ws(coalesce(quote, note))))
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -124,9 +136,79 @@ Rules:
 
 - **ISBN:** convert ISBN-10 → ISBN-13, strip hyphens, before store/lookup/dedupe, so cross-source matches align.
 - **Colours fixed at 4**; Kindle sources carry no colour → default `yellow`; recolour in-app.
-- **Dedupe:** `location` deliberately excluded from the hash — Kindle locations shift across devices/editions and would break idempotent re-imports of an ever-growing `My Clippings.txt`. Tradeoff accepted: the same passage highlighted twice collapses to one row (usually desirable). Quote text normalized (trim, collapse internal whitespace, casefold) before hashing.
+- **Dedupe:** `location` deliberately excluded from the hash — Kindle locations shift across devices/editions and would break idempotent re-imports of an ever-growing `My Clippings.txt`. Tradeoff accepted: the same passage highlighted twice collapses to one row (usually desirable). Quote text normalized (trim, collapse internal whitespace, casefold, **fold typographic punctuation** — curly quotes/dashes/ellipsis → ASCII) before hashing, so the same passage synced through differently-formatted sources (Bookcision’s `’`/`–` vs a markdown export’s `'`/`-`) still dedupes.
+- **Favorite + rating:** annotations and dialogues carry a `favorite` flag and a `rating` (0 = unrated, 1–5), both owner-requested. UI: star toggle + rating picker per row; list filters `favorite=1` and `min_rating=N` alongside tag/color. Other candidate params (page-as-number, language, …) rejected as YAGNI.
+- **Tags are shared by annotations and dialogues** (`annotation_tags` / `dialogue_tags` join the same per-user `tags` table), so one tag vocabulary spans books and movies.
 - **Hard delete everywhere.** No external sync → no tombstones/soft-delete needed.
 - **`genre_text`** is maintained by app code whenever a book's genres change (denormalization so book FTS can match genre words; `book_genres` remains the source of truth for exact filtering).
+
+---
+
+## 3b. Movies & Dialogues
+
+Movies mirror books; dialogues mirror annotations. Same per-user isolation, same hard-delete,
+same dedupe rule. The `genres` table is shared between books and movies (it is already per-user
+and name-keyed; a second genre table would be pure duplication).
+
+```sql
+CREATE TABLE movies (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  director TEXT,
+  release_year INTEGER,
+  tmdb_id INTEGER,
+  poster_path TEXT,                      -- local file under data/covers/ (shared cover store, §6)
+  description TEXT,
+  genre_text TEXT NOT NULL DEFAULT '',   -- denormalized, space-joined (FTS input), like books
+  cast_json TEXT NOT NULL DEFAULT '[]',  -- [{"character":"…","actor":"…"}] from TMDB credits
+  source_metadata TEXT,                  -- raw TMDB payload (json)
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX idx_movies_user_tmdb ON movies(user_id, tmdb_id) WHERE tmdb_id IS NOT NULL;
+
+CREATE TABLE movie_genres (
+  movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  genre_id INTEGER NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+  PRIMARY KEY (movie_id, genre_id)
+);
+CREATE INDEX idx_mg_genre ON movie_genres(genre_id, movie_id);
+
+CREATE TABLE dialogues (
+  id INTEGER PRIMARY KEY,
+  movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  quote TEXT NOT NULL,
+  note TEXT,
+  character TEXT,                        -- who says it
+  actor TEXT,                            -- who plays them (auto-filled from cast_json on match)
+  timestamp TEXT,                        -- free text, like annotations.location; use HH:MM:SS
+                                         --   for clean lexical ordering (no normalization — KISS)
+  favorite INTEGER NOT NULL DEFAULT 0,   -- star flag, same as annotations
+  rating INTEGER NOT NULL DEFAULT 0      -- 0 = unrated, else 1-5, same as annotations
+    CHECK (rating BETWEEN 0 AND 5),
+  dedupe_hash TEXT NOT NULL,             -- sha256(lower(collapse_ws(quote))), same fn as annotations
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (movie_id, dedupe_hash)
+);
+CREATE INDEX idx_dlg_movie ON dialogues(movie_id);
+
+CREATE TABLE dialogue_tags (                 -- same per-user tags table as annotations
+  dialogue_id INTEGER NOT NULL REFERENCES dialogues(id) ON DELETE CASCADE,
+  tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (dialogue_id, tag_id)
+);
+CREATE INDEX idx_dt_tag ON dialogue_tags(tag_id, dialogue_id);
+```
+
+Rules:
+
+- **`cast_json`** is the trimmed top-billed cast (≤20 entries) captured at TMDB lookup time. It powers
+  the character picker in the UI and server-side actor auto-fill (case-insensitive match on
+  `character` when `actor` is empty). Manual movies simply have an empty cast list.
+- **No colours, tags, or importers for dialogues** — not requested, easy to add later (YAGNI).
+- Dialogue lists order by `(timestamp IS NULL), timestamp, id` — lexical, correct when timestamps
+  are consistently formatted; deliberate KISS over parsing/normalizing time formats.
 
 ---
 
@@ -147,9 +229,13 @@ CREATE VIRTUAL TABLE annotations_fts USING fts5(
   tokenize='unicode61 remove_diacritics 2',
   prefix='2 3'
 );
+-- movies/dialogues mirror the same pattern (§3b); dialogues index character +
+-- actor too, so "find that Rick Blaine line" / "everything Bogart says" works:
+CREATE VIRTUAL TABLE movies_fts    USING fts5(title, director, genre_text, content='movies', ...);
+CREATE VIRTUAL TABLE dialogues_fts USING fts5(quote, note, character, actor, content='dialogues', ...);
 ```
 
-- **One endpoint:** `GET /search?q=&scope=all|books|annotations&genre=&author=&book_id=&tag=&color=&limit=&offset=`. Free text → `MATCH`; structured filters (genre/author/book/tag/color) → indexed joins, not FTS. `scope=all` returns two bm25-ranked groups (matching books, matching annotations) in one response; annotation hits join `books` for title/author display. All queries scoped to the session user.
+- **One endpoint:** `GET /search?q=&scope=all|books|annotations|movies|dialogues&limit=`. Free text → `MATCH`. `scope=all` returns bm25-ranked groups (books, annotations, movies, dialogues) in one response; annotation/dialogue hits join their parent for title display. All queries scoped to the session user. Structured filters (tag/color/book_id/movie_id) live on the list endpoints (`GET /annotations`, `GET /dialogues`) where the UI actually uses them — not duplicated onto /search (KISS).
 - **FTS5 injection / syntax safety (mandatory):** user input is parsed as FTS5 *query syntax* even when parameter-bound (`AND OR NOT NEAR`, `col:`, `-`, `*`, `^`, quotes) — malformed input errors, crafted input changes semantics. Never pass raw. Escape per-token (implicit AND), then bind:
 
 ```go
@@ -175,9 +261,26 @@ Semantic search remains **deferred** (`sqlite-vec` later, if ever).
 
 `POST /annotations` with `book_id`, `quote`, optional `note/color/tags/chapter/location`.
 
-### 5b. Markdown upload (fixed format — unchanged from v1)
+### 5b. Markdown upload — two shapes, auto-detected
 
+**(a) Tippani frontmatter format** (fixed format — unchanged from v1).
 Frontmatter = book; `##` heading = chapter; blockquote = quote; `- key: value` lines bind to the quote above; consecutive `>` lines join; missing `color` → `yellow`.
+
+**Every binding is optional** — a bare blockquote with no `- key:` lines at all is a valid import.
+Accepted keys (aliases tolerate files produced by other tools): `note`, `color`/`colour`,
+`tags`, `loc`/`location`/`page` → location, `favorite` (`true`/`yes`/`1`), `rating` (0–5).
+Unknown keys ignored. Fixture: `internal/importer/testdata/markdown_frontmatter.md`.
+
+**(b) Readest "Highlights & Annotations" export** (verified against a real export, 2026-07-04;
+fixture: `internal/importer/testdata/markdown_real.md`): first `# ` heading = title;
+`**Author**: name` line = author; `### heading` = chapter (`##` section headers and `---`
+rules ignored); consecutive `>` lines = one quote; the trailing
+`*[Page: N](readest://…) · Time: …*` line → location `p.N` (deep link + timestamp discarded).
+Carries no notes/colours/tags — every extra field must be optional.
+
+Detection: first non-blank line `---` → (a); first non-blank line `# ` → (b); anything else → 400.
+After an import the UI offers a **review pass** over annotations missing chapter/location:
+fill them in one at a time, skip one, or skip all — no server round-trip beyond normal `PUT`s.
 
 ```markdown
 ---
@@ -196,7 +299,11 @@ isbn: 9780000000000
 - loc: p.142
 ```
 
-### 5c. Kindle — `My Clippings.txt` (verified handling)
+### 5c. Kindle — `My Clippings.txt` (verified handling) — **deferred**
+
+> Deferred by owner decision (2026-07-04): Bookcision covers the Kindle path for now. The route
+> stays registered as 501 so the API surface is honest; the notes below remain the spec for
+> whenever it lands.
 
 - Strip UTF-8 BOM at file start; normalize CRLF → LF.
 - Split on the exact separator `==========` (ten `=`).
@@ -222,27 +329,62 @@ isbn: 9780000000000
 }
 ```
 
-Map `text→quote`, `location.value→location` (keep `url` optionally), `isNoteOnly:true → quote NULL`. Parse `authors` defensively (string **or** array across versions — confirm against one real export, §12). Exports can also be clipping-limit-truncated.
+Map `text→quote`, `location.value→location` (keep `url` optionally), `isNoteOnly:true → quote NULL`. Parse `authors` defensively (string **or** array across versions — confirmed string in the real export, §12). Exports can also be clipping-limit-truncated.
 
-**Upload safety (all three importers):** `r.Body = http.MaxBytesReader(w, r.Body, 5<<20)` *before* parsing; sniff content, ignore client Content-Type; nothing persisted raw.
+### 5e. Hardcover — saved journal page (verified against a real page)
+
+Hardcover.app has no quote export; a saved "reading journal" HTML page (`…/books/<slug>/journals/@user`)
+carries everything as JSON in the Inertia `data-page` attribute of `<div id="app">`
+(HTML-escaped; fixture: `internal/importer/testdata/hardcover_html_real.htm`):
+
+- Extract the `data-page="…"` attribute value (scan between markers — no HTML parser dep),
+  `html.UnescapeString`, then decode typed JSON.
+- Book: `props.book.title`; author = `props.book.contributions[]` names whose `contribution`
+  is null/empty (filters out narrators), joined `", "` — fall back to the first name if the
+  filter empties. ISBN/ASIN: book-level `isbn13` is often empty — take the first quote entry's
+  `edition.isbn13`/`isbn10`/`asin`.
+- Quotes: `props.journals[]` entries with `event == "quote"`; quote text = `entry` (string);
+  `metadata.position` `{type:"pages", value:N}` → location `p.N` (other position types dropped
+  — YAGNI); entry `tags[]` mapped defensively when present (strings, or objects with a
+  name-ish field). Other events (progress updates, ratings, status changes) ignored.
+- Source value: `hardcover_html`. Endpoint: `POST /import/hardcover-html` (multipart, same 5 MB cap).
+
+**Upload safety (all importers):** `r.Body = http.MaxBytesReader(w, r.Body, 5<<20)` *before* parsing; sniff content, ignore client Content-Type; nothing persisted raw.
 
 ---
 
-## 6. Metadata — Google Books + Open Library only
+## 6. Metadata — Google Books + Open Library (books), TMDB (movies)
 
 | Source | Lookup key | Gives | Limits (verified) |
 | :--- | :--- | :--- | :--- |
 | **Google Books** | ISBN / title | cover, description, year, `categories` → genres | ~1,000 req/day courtesy; add an API key if ever exceeded |
 | **Open Library** | ISBN | cover, author, `subjects` → genres | 1 req/s anonymous → **3 req/s with a descriptive User-Agent**; covers 100/IP per 5 min |
+| **TMDB** | title (+year) | poster, overview, year, genres, director, **credits → character/actor pairs** | ~50 req/s **per client IP** — which is why a single app key shared by every install works (the Jellyfin/Kodi pattern; TMDB permits embedded open-source app keys, attribution required). Tippani ships a built-in app key (`defaultTMDBKey` in `cmd/tippani/main.go`, registered by the project owner); `TIPPANI_TMDB_API_KEY` (v3 key or v4 read token, auto-detected) overrides. With neither, movie lookup returns 503 with a clear message and manual movie entry still works |
 
-- Send `User-Agent: bookannot/1.0 (contact@example)` on **all** outbound calls.
-- **On-demand only** — `POST /books/lookup {isbn?|title?}` → candidate list → user picks → persist. No background fetching, ever. Raw payloads cached in `books.source_metadata`; API categories/subjects pre-fill genres, user-editable.
-- **Covers: download once → store in `data/covers/` → serve locally.** SSRF guard on the one fetch: host allowlist (`covers.openlibrary.org`, `books.google.com`, `books.googleusercontent.com`), resolve + block private/link-local IPs, ≤2 redirects, 2 MB size cap, 10 s timeout, server-generated filename. *Primary downside vs hotlinking:* a few KB stored per book — in exchange: no third-party runtime dependence, no browser-IP leakage, CSP stays `'self'`-only.
+- Send a single descriptive `User-Agent` on **all** outbound calls (the code sends `tippani/1.0 (+https://github.com/aaronified/tippani)`).
+- **On-demand only** — `POST /books/lookup {isbn?|title?}` / `POST /movies/lookup {title, year?}` → candidate list → user picks → persist. No background fetching, ever. Raw payloads cached in `source_metadata`; API categories/subjects/genres pre-fill genres, user-editable. TMDB details use `append_to_response=credits` — **one call** for details + cast + crew (director).
+- **Covers & posters: download once → store in `data/covers/` → serve locally.** SSRF guard on the one fetch: host allowlist (`covers.openlibrary.org`, `books.google.com`, `books.googleusercontent.com`, `image.tmdb.org`), resolve + block private/link-local IPs, ≤2 redirects, 2 MB size cap, 10 s timeout, server-generated filename. *Primary downside vs hotlinking:* a few KB stored per book — in exchange: no third-party runtime dependence, no browser-IP leakage, CSP stays `'self'`-only.
 - Outbound hygiene: `http.Client{Timeout: 10s}`, `io.LimitReader` on bodies, TLS verification on, decode into typed structs tolerant of missing fields.
 
 ---
 
-## 7. API Surface
+## 6b. Export — Obsidian-friendly markdown
+
+One renderer, three endpoints (all session-scoped):
+
+- `GET /books/{id}/export`, `GET /movies/{id}/export` → a single `.md` (`text/markdown`,
+  `Content-Disposition: attachment`).
+- `GET /export` → `tippani-export.zip` with `books/<title>.md` + `movies/<title>.md`
+  (stdlib `archive/zip`; filenames sanitized `[/\:*?"<>|]` → `-`, collisions get ` (2)` suffixes).
+
+Format: YAML frontmatter (Obsidian Properties) with the item's metadata (title, author/director,
+isbn/year, genres); body = the §5b format **(a)** shape — `##` chapter headings (books), one
+blockquote per quote (multi-line quotes get `> ` per line), then `- key: value` lines for
+**non-default metadata only**: note, color (≠ yellow), tags, loc / timestamp, character, actor,
+favorite (true), rating (>0). Books order by insertion (id), dialogues by timestamp — reading order.
+
+Property: a book export is valid §5b(a) importer input, so **exports round-trip** — re-importing
+one is a dedupe no-op. (Movie exports are export-only; there is no movie markdown importer — YAGNI.)
 
 ```bash
 GET    /auth/status         POST /auth/signup    # onboarding (first user only)
@@ -252,17 +394,27 @@ GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin onl
 POST   /books/lookup
 POST   /books    GET /books    GET/PUT/DELETE /books/{id}
 POST   /annotations
-GET    /annotations?book_id=&tag=&color=&q=
+GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=
 PUT    /annotations/{id}    DELETE /annotations/{id}
+POST   /movies/lookup                # TMDB search (title, optional year)
+POST   /movies   GET /movies   GET/PUT/DELETE /movies/{id}
+POST   /dialogues
+GET    /dialogues?movie_id=&tag=&favorite=&min_rating=
+PUT    /dialogues/{id}    DELETE /dialogues/{id}
 GET    /genres   GET /tags            # minimal management
-POST   /import/markdown              # multipart
-POST   /import/kindle-clippings      # multipart
+POST   /import/markdown              # multipart (frontmatter or Readest, auto-detected)
 POST   /import/bookcision            # multipart
-GET    /search?q=&scope=&genre=&author=&book_id=&tag=&color=
-GET    /covers/{file}                # local static
+POST   /import/hardcover-html        # multipart (saved Hardcover journal page)
+POST   /import/kindle-clippings      # 501 — deferred (§5c)
+GET    /books/{id}/export            # markdown (§6b)
+GET    /movies/{id}/export           # markdown (§6b)
+GET    /export                       # zip of the whole library (§6b)
+GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
+GET    /covers/{file}                # local static (covers + posters)
+GET    /healthz                      # public liveness probe (container HEALTHCHECK)
 ```
 
-Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` additionally requires `is_admin`.
+Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` additionally requires `is_admin`.
 
 ---
 
@@ -285,10 +437,10 @@ Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, a
 
 | Phase | Scope | Uncertainty |
 | :--- | :--- | :--- |
-| **1 — MVP (everything)** | Schema + FTS5 + triggers, auth/multi-user/CSRF, manual + MD + Clippings + Bookcision import, Google + OL metadata + genres, local covers, colours/tags, unified search, React UI (dark/light) | Low |
-| **Deferred** | Semantic search (`sqlite-vec`); admin UI; shared/household libraries | Optional |
+| **1 — MVP (everything)** | Schema + FTS5 + triggers, auth/multi-user/CSRF, manual + MD + Bookcision import, Google + OL metadata + genres, movies + dialogues + TMDB, local covers/posters, colours/tags, unified search, React UI (dark/light) | Low |
+| **Deferred** | Kindle `My Clippings.txt` importer (§5c); semantic search (`sqlite-vec`); shared/household libraries | Optional |
 
-**Build order:** schema + migrations → auth/sessions/CSRF (first, not last) → annotation CRUD + search + escaping → MD importer → Clippings importer (test on your real sample) → Bookcision importer (test on your real export) → metadata + covers → UI → systemd/Docker + backup docs.
+**Build order:** schema + migrations → auth/sessions/CSRF (first, not last) → annotation CRUD + search + escaping → MD importer → Bookcision importer (test on your real export) → metadata + covers → movies/dialogues + TMDB → UI → systemd/Docker + backup docs.
 
 ---
 
@@ -314,14 +466,15 @@ Frontend runtime deps: `react`, `react-dom` (**2**); `vite` + `tailwindcss` dev-
 | Go 1.25+ toolchain available at build time (CSRF dep) | High |
 | FTS5 search ≤ ~5 ms at 5k books / 250k annotations on weak ARM | High (design inference; validate against a generated fixture) |
 | `modernc.org/sqlite` ships FTS5 with no build tag; `CGO_ENABLED=0` static builds | High (verified) |
-| Clippings gotchas — locale line, `==========`, BOM, clipping-limit sentinel | High (verified) |
-| Bookcision shape incl. `location:{url,value}` | High (verified; `authors` string-vs-array needs one real export) |
+| Clippings gotchas — locale line, `==========`, BOM, clipping-limit sentinel | High (verified; importer deferred, §5c) |
+| Bookcision shape incl. `location:{url,value}` | **Verified against a real export** (2026-07-04): `authors` is a string, `note` can be JSON `null`; parser still accepts the array variant defensively |
 | Google ~1,000/day; OL 1→3 req/s with UA, covers 100/5 min | High (official docs) |
+| TMDB: free API key required; `append_to_response=credits` gives details+cast+crew in one call | High (official docs) |
 
 ---
 
 ## 12. Open Items (needed from you, none blocking start)
 
-1. **One real Bookcision export** — lock the `authors` field type in the §5d parser.
-2. **One `My Clippings.txt` sample in your Kindle's UI language** — validate §5c structural parsing.
+1. ~~One real Bookcision export — lock the `authors` field type in the §5d parser.~~ **Resolved 2026-07-04:** real export received (string `authors`, nullable `note`); it lives at `internal/importer/testdata/bookcision_real.json`.
+2. **One `My Clippings.txt` sample in your Kindle's UI language** — only needed if/when the deferred §5c importer is picked up.
 3. **Confirm the per-user-isolated library assumption** (§2/§11).

@@ -51,8 +51,12 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uname, ok := normalizeUsername(req.Username)
-	if !ok || len(req.Password) < 8 {
-		writeErr(w, http.StatusBadRequest, "username required and password must be at least 8 characters")
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "username required")
+		return
+	}
+	if msg := passwordProblem(req.Password); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)
@@ -89,6 +93,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "cannot delete your own account")
 		return
 	}
+	// Collect the user's cover/poster filenames before the DB rows cascade away,
+	// so we can remove the now-orphaned files afterwards (the cascade only frees
+	// rows, not on-disk images).
+	covers := s.userCoverFiles(id)
 	// Delete unless it would remove the last admin. The guard is in SQL so the
 	// count and delete are one atomic statement.
 	res, err := s.Store.DB.Exec(
@@ -111,7 +119,31 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	for _, name := range covers {
+		s.removeCoverFile(name) // best-effort
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// userCoverFiles returns the stored cover/poster filenames owned by a user
+// (book covers + movie posters), for cleanup when the user is deleted.
+func (s *Server) userCoverFiles(id int64) []string {
+	rows, err := s.Store.DB.Query(`
+		SELECT cover_path FROM books  WHERE user_id = ? AND cover_path  IS NOT NULL
+		UNION ALL
+		SELECT poster_path FROM movies WHERE user_id = ? AND poster_path IS NOT NULL`, id, id)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err == nil && n != "" {
+			names = append(names, n)
+		}
+	}
+	return names
 }
 
 // normalizeUsername trims surrounding space and validates: 1–64 characters,

@@ -1,0 +1,167 @@
+package httpapi
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+
+	"tippani/internal/importer"
+	"tippani/internal/metadata"
+	"tippani/internal/store"
+)
+
+// maxImportBody caps uploads before any parsing happens (PLAN §5).
+const maxImportBody = 5 << 20
+
+func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
+	s.handleImport(w, r, "md", importer.Markdown)
+}
+
+func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
+	s.handleImport(w, r, "bookcision", importer.Bookcision)
+}
+
+func (s *Server) handleImportHardcover(w http.ResponseWriter, r *http.Request) {
+	s.handleImport(w, r, "hardcover_html", importer.HardcoverHTML) // PLAN §5e
+}
+
+// handleImport is the shared multipart import flow: cap -> parse -> one
+// transaction for the book upsert and every annotation insert (PLAN §5, §8).
+// dedupe_hash duplicates are counted as skipped, so re-imports are idempotent.
+func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source string,
+	parse func(io.Reader) (*importer.Result, error)) {
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportBody) // before parsing
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, `multipart "file" field required (max 5 MB)`)
+		return
+	}
+	defer f.Close()
+	res, err := parse(f)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	uid := userID(r)
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	defer tx.Rollback()
+	bookID, err := upsertImportBook(tx, uid, res.Book)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	added := 0
+	for _, a := range res.Annotations {
+		color := a.Color
+		if color == "" {
+			color = "yellow" // Kindle sources carry no colour (PLAN §3)
+		}
+		if !validColor(color) {
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid color %q", a.Color))
+			return
+		}
+		text := a.Quote
+		if text == "" {
+			text = a.Note
+		}
+		ins, err := tx.Exec(`
+			INSERT OR IGNORE INTO annotations
+			  (book_id, quote, note, color, chapter, location, favorite, rating, source, dedupe_hash)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			bookID, nullable(a.Quote), nullable(a.Note), color,
+			nullable(a.Chapter), nullable(a.Location), a.Favorite, a.Rating,
+			source, store.DedupeHash(text))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if n, _ := ins.RowsAffected(); n == 0 {
+			continue // dedupe_hash already present -> skipped
+		}
+		added++
+		if len(a.Tags) > 0 {
+			annID, _ := ins.LastInsertId()
+			if err := setTags(tx, "annotation", uid, annID, a.Tags); err != nil {
+				writeErr(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"book_id": bookID,
+		"added":   added,
+		"skipped": len(res.Annotations) - added,
+	})
+}
+
+// upsertImportBook finds or creates the import target. Identity falls through
+// normalized ISBN → ASIN → lower(title)+lower(author): the same book arrives
+// with an ISBN from one tool and bare title/author from another, and both must
+// land in one row for cross-source quote dedupe to work (PLAN §3). A match via
+// a weaker identity backfills the row's missing identifiers so the next import
+// matches on the cheap key.
+func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
+	isbn := metadata.NormalizeISBN(b.ISBN) // "" when absent or implausible
+	var id int64
+	find := func(query string, args ...any) (bool, error) {
+		err := tx.QueryRow(query, args...).Scan(&id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return err == nil, err
+	}
+	// Try each identity in turn; a match on ANY of them backfills the row's
+	// missing identifiers so the next import (which may carry only one of them,
+	// with a differently-formatted title) still matches on the cheap key.
+	matched := false
+	for _, q := range []struct {
+		cond string
+		args []any
+	}{
+		{`isbn = ?`, []any{isbn}},
+		{`asin = ?`, []any{b.ASIN}},
+		{`lower(title) = lower(?) AND lower(COALESCE(author, '')) = lower(?)`, []any{b.Title, b.Author}},
+	} {
+		// Skip identity keys we don't have (empty isbn/asin would match the wrong row).
+		if q.args[0] == "" {
+			continue
+		}
+		ok, err := find(`SELECT id FROM books WHERE user_id = ? AND `+q.cond, append([]any{uid}, q.args...)...)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			matched = true
+			break
+		}
+	}
+	if matched {
+		// OR IGNORE: skip the backfill rather than fail if another row already
+		// owns this isbn/asin (partial unique indexes on (user_id, isbn/asin)).
+		if _, err := tx.Exec(
+			`UPDATE OR IGNORE books SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?) WHERE id = ?`,
+			nullable(isbn), nullable(b.ASIN), id); err != nil {
+			return 0, err
+		}
+		return id, nil
+	}
+	res, err := tx.Exec(
+		`INSERT INTO books (user_id, title, author, isbn, asin) VALUES (?, ?, ?, ?, ?)`,
+		uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN))
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}

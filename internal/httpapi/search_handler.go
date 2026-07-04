@@ -8,10 +8,10 @@ import (
 )
 
 type bookHit struct {
-	ID     int64  `json:"id"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
-	Genres string `json:"genres"`
+	ID     int64    `json:"id"`
+	Title  string   `json:"title"`
+	Author string   `json:"author"`
+	Genres []string `json:"genres"` // array, matching GET /books (the UI maps over it)
 }
 
 type annotationHit struct {
@@ -22,9 +22,27 @@ type annotationHit struct {
 	Note      string `json:"note"`
 }
 
-// handleSearch implements GET /search?q=&scope=all|books|annotations&limit=
-// (PLAN §4). Structured filters (genre/author/tag/color) arrive with the
-// annotations CRUD milestone.
+type movieHit struct {
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Director    string `json:"director"`
+	ReleaseYear int    `json:"release_year"`
+}
+
+type dialogueHit struct {
+	ID         int64  `json:"id"`
+	MovieID    int64  `json:"movie_id"`
+	MovieTitle string `json:"movie_title"`
+	Quote      string `json:"quote"`
+	Character  string `json:"character"`
+	Actor      string `json:"actor"`
+	Timestamp  string `json:"timestamp"`
+}
+
+// handleSearch implements
+// GET /search?q=&scope=all|books|annotations|movies|dialogues&limit=
+// (PLAN §4). Structured filters (tag/color/book_id/movie_id) live on the
+// list endpoints instead — not duplicated here (KISS).
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
@@ -45,11 +63,16 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	resp := struct {
 		Books       []bookHit       `json:"books"`
 		Annotations []annotationHit `json:"annotations"`
-	}{Books: []bookHit{}, Annotations: []annotationHit{}}
+		Movies      []movieHit      `json:"movies"`
+		Dialogues   []dialogueHit   `json:"dialogues"`
+	}{
+		Books: []bookHit{}, Annotations: []annotationHit{},
+		Movies: []movieHit{}, Dialogues: []dialogueHit{},
+	}
 
 	if scope == "all" || scope == "books" {
 		rows, err := s.Store.DB.Query(`
-			SELECT b.id, b.title, COALESCE(b.author, ''), b.genre_text
+			SELECT b.id, b.title, COALESCE(b.author, '')
 			FROM books_fts
 			JOIN books b ON b.id = books_fts.rowid
 			WHERE books_fts MATCH ? AND b.user_id = ?
@@ -61,9 +84,19 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var h bookHit
-			if err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.Genres); err == nil {
+			h := bookHit{Genres: []string{}}
+			if err := rows.Scan(&h.ID, &h.Title, &h.Author); err == nil {
 				resp.Books = append(resp.Books, h)
+			}
+		}
+		rows.Close()
+		// Genre names as an array (genre_text is space-joined and can't be split
+		// safely — names contain spaces). Reuse the list-endpoint helper.
+		if byBook, err := s.genreNames(uid, "book"); err == nil {
+			for i := range resp.Books {
+				if gs := byBook[resp.Books[i].ID]; gs != nil {
+					resp.Books[i].Genres = gs
+				}
 			}
 		}
 	}
@@ -86,6 +119,51 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			var h annotationHit
 			if err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.Quote, &h.Note); err == nil {
 				resp.Annotations = append(resp.Annotations, h)
+			}
+		}
+	}
+
+	if scope == "all" || scope == "movies" {
+		rows, err := s.Store.DB.Query(`
+			SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0)
+			FROM movies_fts
+			JOIN movies m ON m.id = movies_fts.rowid
+			WHERE movies_fts MATCH ? AND m.user_id = ?
+			ORDER BY bm25(movies_fts)
+			LIMIT ?`, match, uid, limit)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "search failed")
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var h movieHit
+			if err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear); err == nil {
+				resp.Movies = append(resp.Movies, h)
+			}
+		}
+	}
+
+	if scope == "all" || scope == "dialogues" {
+		rows, err := s.Store.DB.Query(`
+			SELECT d.id, d.movie_id, m.title, d.quote,
+			       COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, '')
+			FROM dialogues_fts
+			JOIN dialogues d ON d.id = dialogues_fts.rowid
+			JOIN movies m ON m.id = d.movie_id
+			WHERE dialogues_fts MATCH ? AND m.user_id = ?
+			ORDER BY bm25(dialogues_fts)
+			LIMIT ?`, match, uid, limit)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "search failed")
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var h dialogueHit
+			if err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.Quote,
+				&h.Character, &h.Actor, &h.Timestamp); err == nil {
+				resp.Dialogues = append(resp.Dialogues, h)
 			}
 		}
 	}

@@ -3,3 +3,9 @@
 web/frontend/node_modules/
 *.tar.gz
 .vscode/
+.claude/
+
+# Real personal exports used as local test fixtures (privacy: they contain
+# reading history / account details). Tests skip when these are absent;
+# committed synthetic fixtures cover the same formats in CI.
+internal/importer/testdata/*_real.*

@@ -19,8 +19,9 @@ import (
 const BcryptCost = 10
 
 const (
-	SessionLifetime  = 30 * 24 * time.Hour
-	sessionRefreshAt = 15 * 24 * time.Hour // sliding: bump when less than this remains
+	SessionLifetime    = 30 * 24 * time.Hour // sliding idle window
+	SessionMaxLifetime = 90 * 24 * time.Hour // absolute cap from creation (PLAN §2)
+	sessionRefreshAt   = 15 * 24 * time.Hour // sliding: bump when less than this remains
 )
 
 var ErrInvalidSession = errors.New("invalid or expired session")
@@ -71,7 +72,7 @@ func (s Sessions) Create(userID int64) (token string, err error) {
 	}
 	_, err = s.DB.Exec(
 		`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, datetime('now', ?))`,
-		th, userID, lifetimeModifier(),
+		th, userID, lifetimeModifier(SessionLifetime),
 	)
 	return token, err
 }
@@ -91,9 +92,18 @@ func (s Sessions) Validate(token string) (userID int64, username string, isAdmin
 	}
 	if t, perr := time.Parse("2006-01-02 15:04:05", expires); perr == nil {
 		if time.Until(t) < sessionRefreshAt {
+			// Slide the idle window forward, but never past the absolute cap
+			// created_at + SessionMaxLifetime — so a token can't renew forever
+			// (a stolen cookie stops working 90 d after login regardless of use).
+			// The `expires_at <> …` guard skips no-op writes once expiry is
+			// pinned at the cap, so a long-lived session doesn't turn every
+			// request into a redundant write on the single writer (PLAN §8).
 			_, _ = s.DB.Exec(
-				`UPDATE sessions SET expires_at = datetime('now', ?) WHERE token_hash = ?`,
-				lifetimeModifier(), th,
+				`UPDATE sessions SET expires_at = min(datetime('now', ?), datetime(created_at, ?))
+				 WHERE token_hash = ?
+				   AND expires_at <> min(datetime('now', ?), datetime(created_at, ?))`,
+				lifetimeModifier(SessionLifetime), lifetimeModifier(SessionMaxLifetime), th,
+				lifetimeModifier(SessionLifetime), lifetimeModifier(SessionMaxLifetime),
 			)
 		}
 	}
@@ -105,8 +115,15 @@ func (s Sessions) Delete(token string) error {
 	return err
 }
 
-func lifetimeModifier() string {
-	return fmt.Sprintf("+%d hours", int(SessionLifetime.Hours())) // SQLite datetime modifier, e.g. "+720 hours"
+// DeleteAllForUser revokes every session a user has — called on password change
+// so a leaked cookie can't outlive the password that (should have) protected it.
+func (s Sessions) DeleteAllForUser(userID int64) error {
+	_, err := s.DB.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
+	return err
+}
+
+func lifetimeModifier(d time.Duration) string {
+	return fmt.Sprintf("+%d hours", int(d.Hours())) // SQLite datetime modifier, e.g. "+720 hours"
 }
 
 // ConstantTimeEqual is used for any future fixed-token comparisons.

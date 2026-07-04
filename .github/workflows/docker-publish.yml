@@ -49,6 +49,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          # Multi-arch: amd64 is the tested arch; arm64 is published too (pure Go,
+          # CGO-free, so it cross-compiles cleanly) but is UNTESTED — shipped so
+          # arm64 NAS owners (Synology/QNAP/Pi) can try it and report back.
           platforms: linux/amd64,linux/arm64
           push: true
           provenance: false

@@ -1,4 +1,4 @@
-# Tippani — self-hosted book annotations. Bring it up with:
+# Tippani — self-hosted store for book highlights & movie dialogues. Bring it up with:
 #
 #   docker compose up -d
 #
@@ -14,15 +14,25 @@ services:
     container_name: tippani
     restart: unless-stopped
     ports:
+      # Reachable on your LAN (the point of a NAS app). NOTE: first-run onboarding
+      # is unauthenticated — the first visitor claims admin — so bring the stack
+      # up and create your admin promptly, or restrict access (see the security
+      # note in the README). Prefix with 127.0.0.1: to bind host-local only.
       - "8080:8080"
     volumes:
+      # /data holds the SQLite DB + downloaded covers. Use the named volume
+      # below, OR bind-mount any host folder you already back up, e.g.:
+      #   - /srv/tippani:/data
       - tippani-data:/data
     # environment:
     #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
     #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
+    #   TIPPANI_TMDB_API_KEY: ""     # free key from themoviedb.org — enables movie lookup
     #   GOMAXPROCS: "1"              # NAS-friendly runtime caps (see PLAN §8)
     #   GOMEMLIMIT: "64MiB"
     #   GOGC: "200"
 
+# Only needed for the named volume above — delete this block if you bind-mount
+# a host folder into /data instead.
 volumes:
   tippani-data:

@@ -9,7 +9,7 @@ export default defineConfig({
   build: { outDir: '../dist', emptyOutDir: true },
   server: {
     proxy: Object.fromEntries(
-      ['/auth', '/books', '/annotations', '/import', '/search', '/genres', '/tags', '/covers']
+      ['/auth', '/admin', '/books', '/annotations', '/movies', '/dialogues', '/import', '/export', '/search', '/genres', '/tags', '/covers']
         .map((p) => [p, 'http://127.0.0.1:8080'])
     ),
   },

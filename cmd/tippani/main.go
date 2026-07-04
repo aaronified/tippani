@@ -15,6 +15,7 @@
 //	TIPPANI_DATA           data directory        (default ./data)
 //	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0)
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
+//	TIPPANI_TMDB_API_KEY   TMDB v3 key or v4 read token; movie lookup answers 503 without it
 package main
 
 import (
@@ -81,7 +82,7 @@ func healthcheck() {
 	}
 }
 
-func openStore() *store.Store {
+func openStore() (*store.Store, string) {
 	dataDir := envOr("TIPPANI_DATA", "data")
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		log.Fatalf("create data dir: %v", err)
@@ -93,18 +94,33 @@ func openStore() *store.Store {
 	if err := st.Migrate(); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
-	return st
+	return st, dataDir
 }
 
+// defaultTMDBKey is Tippani's registered TMDB application key, embedded
+// Jellyfin-style so installs work without configuration: TMDB permits
+// open-source apps shipping their app key (attribution required, see README)
+// and rate-limits per client IP, so a shared key never pools into one quota.
+// Register a free key at themoviedb.org (Settings → API) and paste it here;
+// until then movie lookup answers 503 and manual entry still works.
+// TIPPANI_TMDB_API_KEY always overrides.
+const defaultTMDBKey = ""
+
 func serve() {
-	st := openStore()
+	st, dataDir := openStore()
 	defer st.Close()
+	// Covers and posters are downloaded once and served locally (PLAN §6).
+	if err := os.MkdirAll(filepath.Join(dataDir, "covers"), 0o700); err != nil {
+		log.Fatalf("create covers dir: %v", err)
+	}
 
 	dist, err := fs.Sub(web.Dist, "dist")
 	if err != nil {
 		log.Fatalf("embedded frontend: %v", err)
 	}
 	srv := httpapi.New(st, dist,
+		dataDir,
+		envOr("TIPPANI_TMDB_API_KEY", defaultTMDBKey),
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1",
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
@@ -130,7 +146,7 @@ func userCmd(args []string) {
 		os.Exit(2)
 	}
 	action, name := args[0], args[1]
-	st := openStore()
+	st, dataDir := openStore()
 	defer st.Close()
 
 	switch action {
@@ -165,12 +181,32 @@ func userCmd(args []string) {
 		}
 		fmt.Printf("password updated for %q\n", name)
 	case "del":
+		// Collect the user's cover/poster filenames before the cascade removes
+		// their rows, so we can delete the now-orphaned files (mirrors the in-app
+		// admin delete). Names are server-generated; filepath.Base guards anyway.
+		var covers []string
+		if rows, err := st.DB.Query(
+			`SELECT cover_path FROM books WHERE user_id = (SELECT id FROM users WHERE username = ?) AND cover_path IS NOT NULL
+			 UNION ALL
+			 SELECT poster_path FROM movies WHERE user_id = (SELECT id FROM users WHERE username = ?) AND poster_path IS NOT NULL`,
+			name, name); err == nil {
+			for rows.Next() {
+				var f string
+				if rows.Scan(&f) == nil && f != "" {
+					covers = append(covers, f)
+				}
+			}
+			rows.Close()
+		}
 		res, err := st.DB.Exec(`DELETE FROM users WHERE username = ?`, name)
 		if err != nil {
 			log.Fatalf("del: %v", err)
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
 			log.Fatalf("no such user %q", name)
+		}
+		for _, f := range covers {
+			_ = os.Remove(filepath.Join(dataDir, "covers", filepath.Base(f))) // best-effort
 		}
 		fmt.Printf("user %q deleted (books/annotations cascade)\n", name)
 	default:
