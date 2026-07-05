@@ -30,11 +30,12 @@ const SOURCES = [
     kind: 'bookcision',
     ext: '.json',
     title: 'Bookcision',
-    desc: 'Kindle highlights, exported from the browser.',
+    desc: 'Kindle highlights via the Bookcision bookmarklet.',
     accept: '.json',
     steps: [
-      'Open bookcision.com and load your Kindle book.',
-      'Export → download the JSON, then drop it here.',
+      'On read.amazon.com/notebook, open the book’s Notes & Highlights.',
+      'Run the Bookcision bookmarklet, then Download → JSON, and drop it here.',
+      'Prefer to skip the bookmarklet? Use the Kindle notebook card to import the saved page directly (keeps colours).',
     ],
   },
   {
