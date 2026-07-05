@@ -86,11 +86,15 @@ export function StickerTag({ name, color = 'yellow' }) {
 // `stickerKey` is a stable identity for the layout effect (the node itself
 // changes each render). `quoteStyle` sets the font the text is measured/painted
 // in. radius is the sticker radius in px.
-export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius = 42, gap = 12, className = '' }) {
+export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius = 42, gap = 12, maxLines = 0, className = '' }) {
   const ref = useRef(null)
   const [state, setState] = useState(null) // { lines, lh, r } | null (=> fallback)
+  const [open, setOpen] = useState(false) // show-more expansion (when maxLines set)
   const reduce = usePrefersReducedMotion()
   const hasSticker = !!sticker
+
+  // A different annotation (new text/sticker) collapses back to the clamp.
+  useEffect(() => setOpen(false), [text, stickerKey])
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -121,6 +125,10 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   }, [text, stickerKey, hasSticker, reduce, radius, gap])
 
   const size = state ? state.r * 2 : radius * 2
+  const allLines = state ? state.lines : []
+  const clamped = maxLines > 0 && !open && allLines.length > maxLines
+  const shown = clamped ? allLines.slice(0, maxLines) : allLines
+  const canToggle = !!state && maxLines > 0 && (allLines.length > maxLines || open)
   return (
     <div ref={ref} className={`flow ${className}`} style={{ position: 'relative', ...quoteStyle }}>
       {state ? (
@@ -128,13 +136,29 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
           <span className="flow-sticker" style={{ position: 'absolute', top: 0, right: 0, width: size, height: size }}>
             {sticker}
           </span>
-          <div style={{ height: state.lines.length * state.lh }}>
-            {state.lines.map((ln, i) => (
+          <div style={{ height: shown.length * state.lh }}>
+            {shown.map((ln, i) => (
               <div key={i} className="flow-line" style={{ width: Math.max(0, ln.w), height: state.lh, lineHeight: `${state.lh}px` }}>
                 {ln.text || ' '}
               </div>
             ))}
           </div>
+          {canToggle && (
+            <span
+              role="button"
+              tabIndex={0}
+              className="show-toggle"
+              onClick={() => setOpen((o) => !o)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setOpen((o) => !o)
+                }
+              }}
+            >
+              {open ? 'show less' : 'show more'}
+            </span>
+          )}
         </>
       ) : (
         <p className="flow-fallback" style={{ margin: 0 }}>

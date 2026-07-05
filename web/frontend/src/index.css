@@ -293,8 +293,22 @@
   }
   .tp-input::placeholder { color: var(--faint); }
   .tp-field { display: block; }
-  .tp-field + .tp-field { margin-top: 14px; }
+  .tp-field + .tp-field { margin-top: 14px; } /* vertical rhythm for STACKED fields */
+  /* In a grid the container gap already spaces fields; the stacked-field margin
+     would shove later columns down and misalign the row — cancel it there. */
+  .grid > .tp-field + .tp-field { margin-top: 0; }
   .tp-field > .mono-label { display: block; margin-bottom: 6px; }
+
+  /* The annotation edit form renders inside a variable-width masonry tile, so a
+     viewport breakpoint (sm:) is wrong — a narrow tile on a wide screen still
+     forces two cramped columns. Make the form a container and split the
+     Chapter/Location row only when the TILE itself is wide enough. */
+  .ann-form { container-type: inline-size; }
+  .cl-grid { display: grid; gap: 12px; }
+  @container (min-width: 400px) {
+    .cl-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .cl-grid > .tp-field + .tp-field { margin-top: 0; }
 
   /* ---- type bits (§3) ---- */
   .mono-label {
@@ -591,6 +605,61 @@
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
   }
+
+  /* Inline WhatsApp-style show more/less — coloured text, not a button. Forced
+     back to the UI font so it doesn't inherit a quote's italic display face. */
+  .show-toggle {
+    display: inline-block;
+    margin-top: 3px;
+    color: var(--accent-ui);
+    font-family: var(--font-ui);
+    font-style: normal;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+  .show-toggle:hover { text-decoration: underline; }
+
+  /* ---- annotation views (v3): resizable tiles board · table ---- */
+  .ann-board { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+  .ann-tile {
+    flex: 0 0 auto;
+    resize: horizontal;      /* native drag handle at the bottom-right corner */
+    overflow: hidden;        /* required for resize; height stays content-driven */
+    min-width: 240px;
+    max-width: 100%;
+  }
+  .ann-tile::-webkit-resizer { border-radius: 2px; }
+
+  .vt-opt { display: inline-flex; align-items: center; gap: 6px; }
+
+  .ann-table-wrap { overflow-x: auto; }
+  .ann-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .ann-table th, .ann-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .ann-table th {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--soft);
+    white-space: nowrap;
+  }
+  .ann-table th.sortable { cursor: pointer; user-select: none; }
+  .ann-table th.sortable:hover { color: var(--ink); }
+  .ann-table tbody tr:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .ann-table .editing-row:hover { background: transparent; }
+  .ann-table .col-quote { min-width: 260px; }
+  .ann-table .col-mono { font-family: var(--font-mono); font-size: 12px; color: var(--soft); white-space: nowrap; }
+  .ann-table .col-center { text-align: center; color: var(--accent-ui); white-space: nowrap; }
+  .ann-table .col-actions { white-space: nowrap; text-align: right; }
+  .ann-table .col-actions .tp-link { margin-left: 10px; }
 
   /* ---- shell (§7): topbar, tabs, user chip, container, page header ---- */
   .topbar {

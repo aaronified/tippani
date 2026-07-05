@@ -11,6 +11,7 @@ import {
   Field,
   GhostButton,
   ExpandableDescription,
+  ExpandableText,
   HandCard,
   HandNote,
   Hearts,
@@ -25,6 +26,7 @@ import {
   seriesLabel,
   splitCommas,
   useCoverSize,
+  usePersistedState,
   useReveal,
 } from './ui.jsx'
 
@@ -795,6 +797,234 @@ function annotationState(a) {
   }
 }
 
+// ---- annotation views (v3): tiles (resizable board) · list · table ----
+
+// annDate prefers the source/original date (noted_at, set on import or manual
+// add) and falls back to the row's created_at.
+function annDate(a) {
+  return a.noted_at || a.created_at || ''
+}
+function fmtDate(s) {
+  if (!s) return ''
+  const d = new Date(String(s).replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+// locSortVal pulls the first number out of a location ("p.142" -> 142) so the
+// table sorts locations numerically; missing locations sink to the bottom.
+function locSortVal(a) {
+  const m = String(a.location || '').match(/\d+/)
+  return m ? parseInt(m[0], 10) : -1
+}
+// defaultTileWidth seeds a tile's width from its content length, so the board
+// starts with natural width variety before the reader drags to taste.
+function defaultTileWidth(a) {
+  const len = (a.quote || '').length + (a.note || '').length
+  if (len < 90) return 280
+  if (len < 220) return 360
+  return 460
+}
+
+function ViewIcon({ kind }) {
+  const p = {
+    width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none',
+    stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round',
+  }
+  if (kind === 'tiles')
+    return (
+      <svg {...p} aria-hidden="true">
+        <rect x="1.5" y="1.5" width="5.5" height="7" /><rect x="9" y="1.5" width="5.5" height="4.5" />
+        <rect x="1.5" y="10" width="5.5" height="4.5" /><rect x="9" y="7.5" width="5.5" height="7" />
+      </svg>
+    )
+  if (kind === 'list')
+    return (
+      <svg {...p} aria-hidden="true">
+        <line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" />
+      </svg>
+    )
+  return (
+    <svg {...p} aria-hidden="true">
+      <rect x="1.5" y="2.5" width="13" height="11" /><line x1="1.5" y1="6.5" x2="14.5" y2="6.5" /><line x1="6" y1="2.5" x2="6" y2="13.5" />
+    </svg>
+  )
+}
+
+function ViewToggle({ value, onChange }) {
+  return (
+    <Segmented
+      value={value}
+      onChange={onChange}
+      options={[
+        ['tiles', <span key="t" className="vt-opt"><ViewIcon kind="tiles" /> Tiles</span>],
+        ['list', <span key="l" className="vt-opt"><ViewIcon kind="list" /> List</span>],
+        ['table', <span key="b" className="vt-opt"><ViewIcon kind="table" /> Table</span>],
+      ]}
+    />
+  )
+}
+
+function ActionRow({ a, patch, setEditingId, remove }) {
+  return (
+    <div className="mt-1 flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+      <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
+      <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
+      <span className="ml-auto flex gap-3">
+        <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
+        <button className="tp-link tp-link-danger" onClick={() => remove(a)}>delete</button>
+      </span>
+    </div>
+  )
+}
+
+// AnnotationCard is the shared card body for the tiles + list views. The first
+// tag becomes the corner sticker the quote flows around (pretext); the quote
+// clamps to `quoteLines` with an inline show-more.
+function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch, remove, quoteLines = 6 }) {
+  const primary = a.tags && a.tags.length > 0 ? tagMap[a.tags[0]] : null
+  const d = fmtDate(annDate(a))
+  return (
+    <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
+      {editing ? (
+        <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" />
+      ) : (
+        <div className="space-y-2">
+          {a.quote &&
+            (primary ? (
+              <FlowQuote
+                text={a.quote}
+                quoteStyle={QUOTE_STYLE}
+                stickerKey={a.tags[0]}
+                maxLines={quoteLines}
+                sticker={<StickerTag name={a.tags[0]} color={primary.color} />}
+              />
+            ) : (
+              <ExpandableText text={a.quote} lines={quoteLines} style={QUOTE_STYLE} />
+            ))}
+          {(a.chapter || a.location || d) && (
+            <MonoLabel className="block">
+              {[a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')}
+            </MonoLabel>
+          )}
+          {a.note && <HandNote>{a.note}</HandNote>}
+          {a.tags && a.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {a.tags.map((name) => {
+                const t = tagMap[name]
+                return (
+                  <TagChip key={name} color={t?.color} style={t?.style}>
+                    {name}
+                  </TagChip>
+                )
+              })}
+            </div>
+          )}
+          <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} />
+        </div>
+      )}
+    </HandCard>
+  )
+}
+
+// ResizableTile wraps a card in a CSS-`resize` box (native drag handle). A
+// ResizeObserver persists the dragged width so the board layout sticks; the
+// FlowQuote inside re-flows to the new width on its own.
+function ResizableTile({ width, defaultWidth, onResize, children }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let raf = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const w = Math.round(el.getBoundingClientRect().width)
+        if (w) onResize(w)
+      })
+    })
+    ro.observe(el)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
+    // Observe once; onResize uses a functional setState so the first closure is fine.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <div ref={ref} className="ann-tile" style={{ width: width || defaultWidth }}>
+      {children}
+    </div>
+  )
+}
+
+const TABLE_COLS = [
+  { key: 'quote', label: 'Quote' },
+  { key: 'chapter', label: 'Chapter' },
+  { key: 'location', label: 'Location' },
+  { key: 'date', label: 'Date' },
+  { key: 'rating', label: '★' },
+  { key: 'favorite', label: '♥' },
+]
+
+function AnnotationTable({ rows, tagMap, sort, onSort, editingId, setEditingId, save, remove }) {
+  const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
+  return (
+    <div className="ann-table-wrap">
+      <table className="ann-table">
+        <thead>
+          <tr>
+            {TABLE_COLS.map((c) => (
+              <th key={c.key} className="sortable" onClick={() => onSort(c.key)} aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                {c.label}
+                {arrow(c.key)}
+              </th>
+            ))}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((a) =>
+            editingId === a.id ? (
+              <tr key={a.id} className="editing-row">
+                <td colSpan={TABLE_COLS.length + 1}>
+                  <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" />
+                </td>
+              </tr>
+            ) : (
+              <tr key={a.id}>
+                <td className="col-quote">
+                  <ExpandableText text={a.quote || a.note} lines={2} style={QUOTE_STYLE} />
+                  {a.tags && a.tags.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {a.tags.map((name) => {
+                        const t = tagMap[name]
+                        return (
+                          <TagChip key={name} color={t?.color} style={t?.style}>
+                            {name}
+                          </TagChip>
+                        )
+                      })}
+                    </div>
+                  )}
+                </td>
+                <td className="col-mono">{a.chapter || '—'}</td>
+                <td className="col-mono">{a.location || '—'}</td>
+                <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
+                <td className="col-center">{a.rating ? '★'.repeat(a.rating) : '—'}</td>
+                <td className="col-center">{a.favorite ? '♥' : '—'}</td>
+                <td className="col-actions">
+                  <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
+                  <button className="tp-link tp-link-danger" onClick={() => remove(a)}>del</button>
+                </td>
+              </tr>
+            ),
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // Annotations is the per-book annotation section: filter row, hand-drawn
 // cards, and the dashed ＋ Add annotation tile (§8.5).
 function Annotations({ bookId }) {
@@ -808,11 +1038,42 @@ function Annotations({ bookId }) {
   const [addOpen, setAddOpen] = useState(false)
   const [total, setTotal] = useState(null) // unfiltered count for "N quotes · M shown"
   const [error, setError] = useState('')
+  const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
+  const [sort, setSort] = useState({ col: 'default', dir: 'asc' }) // table only; default = server (recent)
+  const [tileW, setTileW] = usePersistedState(`tippani:tilew:${bookId}`, {}) // {annId: px}, per book/device
   const reqSeq = useRef(0)
 
   const filtering = Boolean(color || tag || fav || minRating)
   // Chips take colour + style from the tag object (name-keyed map).
   const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+
+  function toggleSort(col) {
+    setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
+  }
+  // Client-side sort for the table view only; list/tiles keep server (recent) order.
+  const sortedRows = useMemo(() => {
+    const arr = items ? [...items] : []
+    if (view !== 'table' || sort.col === 'default') return arr
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const val = (a) => {
+      switch (sort.col) {
+        case 'quote': return (a.quote || a.note || '').toLowerCase()
+        case 'chapter': return (a.chapter || '').toLowerCase()
+        case 'location': return locSortVal(a)
+        case 'date': return annDate(a)
+        case 'rating': return a.rating || 0
+        case 'favorite': return a.favorite ? 1 : 0
+        default: return 0
+      }
+    }
+    arr.sort((a, b) => {
+      const x = val(a), y = val(b)
+      if (x < y) return -dir
+      if (x > y) return dir
+      return a.id - b.id
+    })
+    return arr
+  }, [items, view, sort])
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -918,8 +1179,9 @@ function Annotations({ bookId }) {
             </option>
           ))}
         </select>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-3">
           <MonoLabel>{countsLabel}</MonoLabel>
+          <ViewToggle value={view} onChange={setView} />
         </span>
       </div>
 
@@ -929,78 +1191,62 @@ function Annotations({ bookId }) {
           {filtering ? 'no annotations match the filters' : 'no annotations yet — add your first below'}
         </EmptyState>
       )}
-      {items && items.length > 0 && (
-        // Masonry board (v3): cards pack by height into balanced columns instead
-        // of one uniform stack, so the sticker quotes read as a collage.
-        <ul className="columns-1 gap-4 sm:columns-2 xl:columns-3">
-          {items.map((a, i) => {
-            // The first tag becomes the corner sticker the quote flows around;
-            // the rest stay as chips below.
-            const primary = a.tags && a.tags.length > 0 ? tagMap[a.tags[0]] : null
-            return (
-              <li key={a.id} className="mb-4 break-inside-avoid">
-                <HandCard variant={i % 4} colorBar={a.color} className="px-5 py-4">
-                  {editingId === a.id ? (
-                    <AnnotationForm
-                      initial={a}
-                      onSubmit={(fields) => save(a.id, fields)}
-                      onCancel={() => setEditingId(null)}
-                      submitLabel="Save"
-                    />
-                  ) : (
-                    <div className="space-y-2">
-                      {a.quote &&
-                        (primary ? (
-                          <FlowQuote
-                            text={a.quote}
-                            quoteStyle={QUOTE_STYLE}
-                            stickerKey={a.tags[0]}
-                            sticker={<StickerTag name={a.tags[0]} color={primary.color} />}
-                          />
-                        ) : (
-                          <p className="whitespace-pre-wrap" style={QUOTE_STYLE}>
-                            {a.quote}
-                          </p>
-                        ))}
-                      {(a.chapter || a.location) && (
-                        <MonoLabel className="block">
-                          {[a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </MonoLabel>
-                      )}
-                      {a.note && <HandNote>{a.note}</HandNote>}
-                      {a.tags && a.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {a.tags.map((name) => {
-                            const t = tagMap[name]
-                            return (
-                              <TagChip key={name} color={t?.color} style={t?.style}>
-                                {name}
-                              </TagChip>
-                            )
-                          })}
-                        </div>
-                      )}
-                      <div className="mt-1 flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-                        <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-                        <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
-                        <span className="ml-auto flex gap-3">
-                          <button className="tp-link" onClick={() => setEditingId(a.id)}>
-                            edit
-                          </button>
-                          <button className="tp-link tp-link-danger" onClick={() => remove(a)}>
-                            delete
-                          </button>
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </HandCard>
-              </li>
-            )
-          })}
-        </ul>
+      {items && items.length > 0 && view === 'table' && (
+        <AnnotationTable
+          rows={sortedRows}
+          tagMap={tagMap}
+          sort={sort}
+          onSort={toggleSort}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          save={save}
+          remove={remove}
+        />
+      )}
+      {items && items.length > 0 && view === 'list' && (
+        <div className="space-y-4">
+          {items.map((a, i) => (
+            <AnnotationCard
+              key={a.id}
+              a={a}
+              variant={i % 4}
+              tagMap={tagMap}
+              editing={editingId === a.id}
+              setEditingId={setEditingId}
+              save={save}
+              patch={patch}
+              remove={remove}
+              quoteLines={5}
+            />
+          ))}
+        </div>
+      )}
+      {items && items.length > 0 && view === 'tiles' && (
+        // Resizable board (v3): each tile has a native drag handle + a
+        // content-seeded starting width, so quotes read as a variable collage;
+        // pretext re-flows the sticker quote to whatever width you drag to.
+        <div className="ann-board">
+          {items.map((a, i) => (
+            <ResizableTile
+              key={a.id}
+              width={tileW[a.id]}
+              defaultWidth={defaultTileWidth(a)}
+              onResize={(w) => setTileW((prev) => (prev[a.id] === w ? prev : { ...prev, [a.id]: w }))}
+            >
+              <AnnotationCard
+                a={a}
+                variant={i % 4}
+                tagMap={tagMap}
+                editing={editingId === a.id}
+                setEditingId={setEditingId}
+                save={save}
+                patch={patch}
+                remove={remove}
+                quoteLines={6}
+              />
+            </ResizableTile>
+          ))}
+        </div>
       )}
 
       {addOpen ? (
@@ -1073,7 +1319,7 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} className="ann-form space-y-3">
       <label className="block">
         <MonoLabel className="mb-1.5 block">Quote</MonoLabel>
         <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
@@ -1082,7 +1328,7 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel }) {
         <MonoLabel className="mb-1.5 block">Note</MonoLabel>
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="cl-grid">
         <Field label="Chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} />
         <Field label="Location" placeholder="e.g. 1042" value={location} onChange={(e) => setLocation(e.target.value)} />
       </div>

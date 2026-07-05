@@ -320,6 +320,75 @@ export function ExpandableDescription({ text, style }) {
   )
 }
 
+// usePersistedState mirrors a JSON-serialisable value in localStorage (per
+// device) — used for view mode and per-tile sizing, which are viewport prefs
+// rather than identity prefs (unlike theme/accent, which live server-side).
+export function usePersistedState(key, def) {
+  const [v, setV] = useState(() => {
+    try {
+      const s = localStorage.getItem(key)
+      return s == null ? def : JSON.parse(s)
+    } catch {
+      return def
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(v))
+    } catch {
+      /* private mode / disabled storage — just won't persist */
+    }
+  }, [key, v])
+  return [v, setV]
+}
+
+// ExpandableText clamps `text` to `lines` and reveals a WhatsApp-style inline
+// colour toggle ("show more"/"show less") only when the text actually overflows.
+// The clamp is width-adaptive (CSS line-clamp), so a wider tile shows more text
+// before clamping — the "define dynamically based on width available" ask; a
+// ResizeObserver re-checks when a resizable tile changes width.
+export function ExpandableText({ text, lines = 5, style, className = '' }) {
+  const [open, setOpen] = useState(false)
+  const [overflows, setOverflows] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 2)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [text, open, lines])
+  if (!text) return null
+  const clamp = open
+    ? null
+    : { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+  return (
+    <div className={className}>
+      <p ref={ref} style={{ whiteSpace: 'pre-wrap', margin: 0, ...style, ...clamp }}>
+        {text}
+      </p>
+      {(overflows || open) && (
+        <span
+          role="button"
+          tabIndex={0}
+          className="show-toggle"
+          onClick={() => setOpen((o) => !o)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setOpen((o) => !o)
+            }
+          }}
+        >
+          {open ? 'show less' : 'show more'}
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.
