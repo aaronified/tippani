@@ -8,6 +8,7 @@ import {
   ErrorText,
   FavBadge,
   FrameCode,
+  GenreFilter,
   GhostButton,
   HandCard,
   HandNote,
@@ -174,10 +175,11 @@ function MovieList({ onOpen }) {
       <ErrorText>{error}</ErrorText>
 
       {movies && movies.length > 0 && (
-        <div className="mb-5 flex flex-wrap items-center gap-1.5">
-          {hasShows && (
-            <>
-              {[
+        <div className="filter-row mb-5">
+          <GenreFilter genres={genres} value={genre} onChange={setGenre} />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {hasShows &&
+              [
                 ['', 'All'],
                 ['movie', 'Movies'],
                 ['show', 'Shows'],
@@ -186,17 +188,6 @@ function MovieList({ onOpen }) {
                   {label}
                 </button>
               ))}
-            </>
-          )}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {genres.length > 0 && (
-              <Select
-                ariaLabel="Filter by genre"
-                value={genre}
-                onChange={setGenre}
-                options={[['', 'all genres'], ...genres.map((g) => [g, g])]}
-              />
-            )}
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>

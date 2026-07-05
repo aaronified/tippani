@@ -662,7 +662,39 @@ export function Cover({ path, title, large = false, hero = false }) {
 
 // filterChipClass styles the small toggle buttons in list filter rows.
 export function filterChipClass(active) {
-  return 'tp-filter-chip' + (active ? ' active' : '')
+  return 'tp-filter-chip tactile' + (active ? ' active' : '')
+}
+
+// GenreFilter — the shared genre picker used by Library + Catalogue so both
+// toolbars read identically: visible tactile chips (All + the most common
+// genres) with the tail tucked into a "More…" tactile dropdown. Returns a
+// fragment: a scrollable chip strip + the overflow Select (kept outside the
+// scroll box so its panel isn't clipped).
+export function GenreFilter({ genres, value, onChange, budget = 8 }) {
+  if (!genres || genres.length === 0) return null
+  const top = genres.slice(0, budget)
+  const more = genres.slice(budget)
+  const activeInMore = value && more.includes(value)
+  return (
+    <>
+      <div className="genre-chips">
+        <button className={filterChipClass(value === '')} onClick={() => onChange('')}>All</button>
+        {top.map((g) => (
+          <button key={g} className={filterChipClass(value === g)} onClick={() => onChange(value === g ? '' : g)}>
+            {g}
+          </button>
+        ))}
+      </div>
+      {more.length > 0 && (
+        <Select
+          ariaLabel="More genres"
+          value={activeInMore ? value : ''}
+          onChange={onChange}
+          options={[['', 'More…'], ...more.map((g) => [g, g])]}
+        />
+      )}
+    </>
+  )
 }
 
 // seriesLabel renders a book/movie's series as "Name #1.5" (or just "Name").

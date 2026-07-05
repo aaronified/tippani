@@ -933,22 +933,35 @@
   .tp-link-danger { color: var(--error); }
   .tp-link-danger:hover { color: var(--error); }
   .tp-filter-chip {
-    min-height: 32px;
-    padding: 3px 12px;
+    min-height: 34px;
+    padding: 5px 13px;
+    font-family: var(--font-ui);
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--soft);
     background: none;
-    border: 1.2px solid transparent;
+    border: 1.3px solid var(--line);
     border-radius: 9px 6px 8px 7px / 7px 9px 6px 8px;
+    white-space: nowrap;
   }
-  .tp-filter-chip:hover { color: var(--ink); }
+  .tp-filter-chip:hover:not(.active) { color: var(--ink); border-color: var(--ink-border); }
+  /* Active chip wears the toggle's accent fill (homogeneous with Toggle/Select). */
   .tp-filter-chip.active {
-    color: var(--accent-ui);
-    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
-    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    color: #FFF9EC;
+    border-color: transparent;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  html[data-theme="dark"] .tp-filter-chip.active {
+    color: #15100C;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
   html[data-aesthetic="film"] .tp-filter-chip { border-radius: 8px; }
+  /* One-line filter row: the genre chips scroll horizontally if they overflow,
+     keeping the whole row on a single line; the scrollbar is hidden. */
+  .filter-row { display: flex; align-items: center; gap: 10px; }
+  .genre-chips { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .genre-chips::-webkit-scrollbar { height: 0; }
   .dot-yellow { background: #E5C355; }
   .dot-blue { background: #7FA6C9; }
   .dot-pink { background: #D98CA6; }

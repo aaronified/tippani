@@ -9,6 +9,7 @@ import {
   ErrorText,
   FavBadge,
   Field,
+  GenreFilter,
   GhostButton,
   ExpandableDescription,
   ExpandableText,
@@ -152,12 +153,6 @@ function BookList({ onOpen }) {
     return list
   }, [books, genre, series, fav, minRating, sort])
 
-  // Promote the busiest genres to chips; the tail (plus any active pick that
-  // fell past the budget) lives in the "More…" dropdown so it stays reachable.
-  const topGenres = genres.slice(0, chipBudget)
-  const moreGenres = genres.slice(chipBudget)
-  const activeInMore = genre && moreGenres.includes(genre)
-
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
   return (
@@ -178,28 +173,9 @@ function BookList({ onOpen }) {
       <ErrorText>{error}</ErrorText>
 
       {books && books.length > 0 && (
-        <div className="mb-5 flex flex-wrap items-center gap-1.5">
-          {genres.length > 0 && (
-            <>
-              <button className={filterChipClass(genre === '')} onClick={() => setGenre('')}>
-                All
-              </button>
-              {topGenres.map((g) => (
-                <button key={g} className={filterChipClass(genre === g)} onClick={() => setGenre(genre === g ? '' : g)}>
-                  {g}
-                </button>
-              ))}
-              {moreGenres.length > 0 && (
-                <Select
-                  ariaLabel="More genres"
-                  value={activeInMore ? genre : ''}
-                  onChange={setGenre}
-                  options={[['', 'More…'], ...moreGenres.map((g) => [g, g])]}
-                />
-              )}
-            </>
-          )}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="filter-row mb-5">
+          <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>
