@@ -803,8 +803,9 @@
 
   /* ---- shell (§7): topbar, tabs, user chip, container, page header ---- */
   .topbar {
-    position: relative;
-    z-index: 10;
+    position: sticky; /* stays visible on scroll */
+    top: 0;
+    z-index: 40;
     background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
     border-bottom: 1px solid var(--line);
     box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
@@ -857,6 +858,25 @@
     border-radius: 8px;
   }
   .tab svg { flex: none; }
+  /* user-chip menu rows (utility tabs live here now) */
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .menu-item:hover { background: color-mix(in oklab, var(--ink) 7%, transparent); }
+  .menu-item.active { color: var(--accent-ui); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+  .menu-item svg { flex: none; }
   .user-chip {
     width: 34px;
     height: 34px;
@@ -875,6 +895,14 @@
     color: #15100C;
   }
   .container-tp { max-width: 1180px; margin: 0 auto; padding: 4px 20px 64px; }
+  /* One entrance for every tab (keyed on the active tab so it replays on switch):
+     a quick "roll down" — fade + slight drop into place. Consistent across tabs. */
+  .tab-panel { animation: tab-roll .34s cubic-bezier(.22,.7,.2,1); }
+  @keyframes tab-roll {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .tab-panel { animation: none; } }
   .page-header {
     display: flex;
     align-items: baseline;

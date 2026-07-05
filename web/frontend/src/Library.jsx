@@ -110,7 +110,6 @@ function BookList({ onOpen }) {
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
-  const reveal = useReveal()
   const chipBudget = useChipBudget()
 
   async function load() {
@@ -162,7 +161,7 @@ function BookList({ onOpen }) {
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
   return (
-    <section ref={reveal} className="reveal">
+    <section>
       <PageHeader
         title="Library"
         counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}

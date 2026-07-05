@@ -198,13 +198,17 @@ function Login({ onLogin }) {
   )
 }
 
-const TABS = [
+// Primary nav lives in the shell; the utility screens move under the user-chip
+// menu so the nav stays focused on the four content areas.
+const PRIMARY_TABS = [
   ['library', 'Library'],
   ['movies', 'Catalogue'],
-  ['metadata', 'Metadata'],
-  ['import', 'Import'],
   ['search', 'Search'],
   ['tags', 'Tags'],
+]
+const MENU_TABS = [
+  ['import', 'Import'],
+  ['metadata', 'Metadata'],
   ['settings', 'Settings'],
 ]
 
@@ -327,7 +331,7 @@ function Shell({ user, onLogout, onPreferences }) {
             <span className="wordmark">tippani</span>
           </span>
           <nav className="tabs" aria-label="Primary">
-            {TABS.map(([key, label]) => (
+            {PRIMARY_TABS.map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => selectTab(key)}
@@ -350,11 +354,24 @@ function Shell({ user, onLogout, onPreferences }) {
               {(user.username || '?').trim().charAt(0).toLowerCase()}
             </button>
             {menuOpen && (
-              <div className="hand-card hc-r2 absolute right-0 z-40 mt-2 min-w-44 px-4 py-3 text-left">
-                <p className="mono-label mb-2">
+              <div className="hand-card hc-r2 absolute right-0 z-50 mt-2 min-w-48 px-3 py-3 text-left">
+                <p className="mono-label mb-2 px-1">
                   {user.username}
                   {user.is_admin ? ' · admin' : ''}
                 </p>
+                <div className="mb-2 flex flex-col gap-0.5">
+                  {MENU_TABS.map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => { selectTab(key); setMenuOpen(false) }}
+                      className={'menu-item' + (tab === key ? ' active' : '')}
+                      aria-current={tab === key ? 'page' : undefined}
+                    >
+                      <TabIcon name={key} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <GhostButton className="w-full" onClick={logout}>
                   Log out
                 </GhostButton>
@@ -364,6 +381,7 @@ function Shell({ user, onLogout, onPreferences }) {
         </div>
       </header>
       <main className="container-tp">
+        <div className="tab-panel" key={tab}>
         {tab === 'library' && (
           <div data-screen-label="library">
             <Library
@@ -407,6 +425,7 @@ function Shell({ user, onLogout, onPreferences }) {
             <Settings user={user} onPreferences={onPreferences} />
           </div>
         )}
+        </div>
       </main>
     </div>
   )
