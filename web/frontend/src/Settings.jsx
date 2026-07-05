@@ -4,6 +4,7 @@ import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
   ErrorText,
   GhostButton,
+  InfoDot,
   MonoLabel,
   PageHeader,
   StickerButton,
@@ -42,36 +43,6 @@ export default function Settings({ user, onPreferences }) {
 
 function Card({ className = '', children }) {
   return <div className={'hand-card p-6 ' + className}>{children}</div>
-}
-
-// InfoDot keeps the setting cards short: a small circled "i" whose tooltip
-// carries the detail (§ settings — minimise instructions to points + tooltips).
-function InfoDot({ text }) {
-  return (
-    <span
-      title={text}
-      tabIndex={0}
-      aria-label={text}
-      className="cursor-help"
-      style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 10.5,
-        fontWeight: 600,
-        color: 'var(--faint)',
-        border: '1px solid var(--line)',
-        borderRadius: 999,
-        width: 16,
-        height: 16,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        lineHeight: 1,
-        flexShrink: 0,
-      }}
-    >
-      i
-    </span>
-  )
 }
 
 function SectionTitle({ children, right }) {

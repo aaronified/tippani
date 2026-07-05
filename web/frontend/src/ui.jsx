@@ -546,6 +546,29 @@ export function Select({ value, onChange, options, ariaLabel, placeholder = 'Sel
   )
 }
 
+// Tooltip — an on-brand hover/focus bubble that replaces native title= tooltips.
+// Visibility is pure CSS (hover + focus-within) so it works for pointer and
+// keyboard focus; the label wraps in an inverse chip. Wrap any trigger.
+export function Tooltip({ label, side = 'top', className = '', children }) {
+  if (!label) return children
+  return (
+    <span className={`tp-tip-wrap ${className}`}>
+      {children}
+      <span className="tp-tip" role="tooltip" data-side={side}>{label}</span>
+    </span>
+  )
+}
+
+// InfoDot — a small circled "i" carrying a Tooltip; keeps dense help off the
+// page until hovered/focused (replaces the old title= version).
+export function InfoDot({ text, side = 'top' }) {
+  return (
+    <Tooltip label={text} side={side}>
+      <span tabIndex={0} className="info-dot" aria-label={text}>i</span>
+    </Tooltip>
+  )
+}
+
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip } from './ui.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -57,13 +57,14 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
         counts="stats · filters · bulk actions"
         right={
           user?.is_admin && (
-            <GhostButton
-              disabled={busy}
-              title="Admin maintenance: fetches missing covers/posters and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive)."
-              onClick={fetchMissingCovers}
+            <Tooltip
+              side="bottom"
+              label="Admin maintenance: fetches missing covers/posters and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
             >
-              Fetch missing covers &amp; metadata
-            </GhostButton>
+              <GhostButton disabled={busy} onClick={fetchMissingCovers}>
+                Fetch missing covers &amp; metadata
+              </GhostButton>
+            </Tooltip>
           )
         }
       />

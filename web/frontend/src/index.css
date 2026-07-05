@@ -767,6 +767,54 @@
   /* ---- annotation views (v3): tiles (packed masonry) · list · table ---- */
   .vt-opt { display: inline-flex; align-items: center; gap: 6px; }
 
+  /* ---- Tooltip (§ design): on-brand hover/focus bubble, replaces title= ---- */
+  .tp-tip-wrap { position: relative; display: inline-flex; align-items: center; }
+  .tp-tip {
+    position: absolute;
+    z-index: 70;
+    left: 50%;
+    bottom: calc(100% + 9px);
+    transform: translateX(-50%) translateY(4px);
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 11px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 9px;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    box-shadow: 0 10px 24px -8px rgba(0,0,0,.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+  }
+  .tp-tip[data-side="bottom"] { bottom: auto; top: calc(100% + 9px); transform: translateX(-50%) translateY(-4px); }
+  .tp-tip-wrap:hover > .tp-tip,
+  .tp-tip-wrap:focus-within > .tp-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .tp-tip { transition: opacity .16s ease; } }
+  .info-dot {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
+    cursor: help;
+  }
+  .info-dot:hover, .info-dot:focus-visible { color: var(--accent-ui); border-color: var(--accent-ui); }
+
   .ann-table-wrap { overflow-x: auto; }
   .ann-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .ann-table th, .ann-table td {
