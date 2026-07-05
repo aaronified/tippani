@@ -77,6 +77,9 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := res.LastInsertId()
+	if s.SeedNewUsers {
+		seedDefaultTags(s.Store.DB, id) // starter tag/sticker vocabulary (v3)
+	}
 	writeJSON(w, http.StatusCreated, userRow{ID: id, Username: uname, IsAdmin: false})
 }
 

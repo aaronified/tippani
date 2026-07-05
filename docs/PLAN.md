@@ -481,6 +481,7 @@ Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `
 | Search | Inverted-index MATCH (ms-scale), prefix indexes, 200 ms client debounce |
 | Auth | bcrypt cost 10 ≈ 60–100 ms, rare event, rate-limited |
 | Backup | Nightly `VACUUM INTO 'data/backup.db'` from NAS cron, off-peak — short burst, consistent snapshot. *Primary downside:* daily granularity. Litestream (continuous WAL streaming) rejected: constant background CPU on a box that can't spare it |
+| v3 sticker flow | **Client-side only → zero NAS cost.** pretext measures each quote once and reflows with pure arithmetic (no DOM reflow), runs only on annotation detail views, is lazy-loaded (~17 KB gzip), and falls back to plain text under `prefers-reduced-motion`. Seeding a new user's starter tags is a handful of one-time `INSERT`s |
 
 ---
 
@@ -505,7 +506,11 @@ Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `
 | `golang.org/x/time` | login rate limit | quasi-stdlib |
 
 Everything else is stdlib: routing (Go 1.22+ method+wildcard patterns), CSRF (Go 1.25 `http.CrossOriginProtection`), multipart, `crypto/sha256`, plain-HTTP JSON clients, `embed`. **Go direct deps: 4.**
-Frontend runtime deps: `react`, `react-dom` (**2**); `vite` + `tailwindcss` dev-only. No react-query/Redux/component kits — `fetch` + `useState` suffices at this scale.
+Frontend runtime deps: `react`, `react-dom`, and **`@chenglou/pretext`** (**3**). pretext
+is the v3 sticker text-flow engine (measures a quote and lays it out line-by-line around
+the round sticker); it is **code-split and lazy-loaded** (~17 KB gzip, fetched only the
+first time a flowed quote renders), so the main bundle is effectively unchanged. `vite` +
+`tailwindcss` dev-only. No react-query/Redux/component kits — `fetch` + `useState` suffices.
 
 ---
 

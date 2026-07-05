@@ -33,7 +33,9 @@ func newTestServer(t *testing.T) *Server {
 	if err := os.MkdirAll(filepath.Join(dir, "MediaCover"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return New(st, fstest.MapFS{}, dir, "", false, false)
+	srv := New(st, fstest.MapFS{}, dir, "", false, false)
+	srv.SeedNewUsers = false // keep tag assertions deterministic; TestSeedDefaultTags flips this on
+	return srv
 }
 
 // testClient sends requests through the full handler chain as one user.

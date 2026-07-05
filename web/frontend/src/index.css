@@ -556,6 +556,42 @@
     color: color-mix(in srgb, var(--amber) 55%, transparent);
   }
 
+  /* ---- v3 sticker layer (flow.jsx): a round seal pinned to a quote's corner,
+     the quote flowing around it (pretext computes the per-line widths). */
+  .flow-line { white-space: nowrap; overflow: hidden; }
+  .flow-sticker { display: inline-flex; }
+  .sticker-seal {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 7px;
+    transform: rotate(-8deg);
+    background: radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--seal) 65%, white), var(--seal) 74%);
+    color: color-mix(in srgb, var(--seal) 42%, #241c12);
+    box-shadow:
+      0 3px 6px -1px rgba(20, 16, 12, .4),
+      inset 0 0 0 2px color-mix(in srgb, #fff 55%, transparent),
+      inset 0 0 0 3.5px color-mix(in srgb, var(--seal) 55%, transparent);
+  }
+  .sticker-seal-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    word-break: break-word;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+
   /* ---- shell (§7): topbar, tabs, user chip, container, page header ---- */
   .topbar {
     position: relative;

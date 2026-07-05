@@ -8,6 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

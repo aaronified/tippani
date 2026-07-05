@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
+import { FlowQuote, StickerTag } from './flow.jsx'
 import {
   ColorSwatches,
   Cover,
@@ -929,25 +930,38 @@ function Annotations({ bookId }) {
         </EmptyState>
       )}
       {items && items.length > 0 && (
-        <ul className="space-y-4">
-          {items.map((a, i) => (
-            <li key={a.id}>
-              <HandCard variant={i % 4} colorBar={a.color} className="px-5 py-4">
-                {editingId === a.id ? (
-                  <AnnotationForm
-                    initial={a}
-                    onSubmit={(fields) => save(a.id, fields)}
-                    onCancel={() => setEditingId(null)}
-                    submitLabel="Save"
-                  />
-                ) : (
-                  <div className="flex items-start gap-4">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      {a.quote && (
-                        <p className="whitespace-pre-wrap" style={QUOTE_STYLE}>
-                          {a.quote}
-                        </p>
-                      )}
+        // Masonry board (v3): cards pack by height into balanced columns instead
+        // of one uniform stack, so the sticker quotes read as a collage.
+        <ul className="columns-1 gap-4 sm:columns-2 xl:columns-3">
+          {items.map((a, i) => {
+            // The first tag becomes the corner sticker the quote flows around;
+            // the rest stay as chips below.
+            const primary = a.tags && a.tags.length > 0 ? tagMap[a.tags[0]] : null
+            return (
+              <li key={a.id} className="mb-4 break-inside-avoid">
+                <HandCard variant={i % 4} colorBar={a.color} className="px-5 py-4">
+                  {editingId === a.id ? (
+                    <AnnotationForm
+                      initial={a}
+                      onSubmit={(fields) => save(a.id, fields)}
+                      onCancel={() => setEditingId(null)}
+                      submitLabel="Save"
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      {a.quote &&
+                        (primary ? (
+                          <FlowQuote
+                            text={a.quote}
+                            quoteStyle={QUOTE_STYLE}
+                            stickerKey={a.tags[0]}
+                            sticker={<StickerTag name={a.tags[0]} color={primary.color} />}
+                          />
+                        ) : (
+                          <p className="whitespace-pre-wrap" style={QUOTE_STYLE}>
+                            {a.quote}
+                          </p>
+                        ))}
                       {(a.chapter || a.location) && (
                         <MonoLabel className="block">
                           {[a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`]
@@ -968,24 +982,24 @@ function Annotations({ bookId }) {
                           })}
                         </div>
                       )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-                      <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
-                      <div className="mt-1 flex gap-2">
-                        <button className="tp-link" onClick={() => setEditingId(a.id)}>
-                          edit
-                        </button>
-                        <button className="tp-link tp-link-danger" onClick={() => remove(a)}>
-                          delete
-                        </button>
+                      <div className="mt-1 flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+                        <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
+                        <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
+                        <span className="ml-auto flex gap-3">
+                          <button className="tp-link" onClick={() => setEditingId(a.id)}>
+                            edit
+                          </button>
+                          <button className="tp-link tp-link-danger" onClick={() => remove(a)}>
+                            delete
+                          </button>
+                        </span>
                       </div>
                     </div>
-                  </div>
-                )}
-              </HandCard>
-            </li>
-          ))}
+                  )}
+                </HandCard>
+              </li>
+            )
+          })}
         </ul>
       )}
 

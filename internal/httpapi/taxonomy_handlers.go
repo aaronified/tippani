@@ -2,9 +2,40 @@ package httpapi
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strings"
 )
+
+// defaultSeedTags is the starter tag vocabulary every new user receives, so the
+// tag palette — and the sticker styles it drives — isn't empty on day one
+// (v3 "default seed tags/stickers"). Names span the four colours and all five
+// styles. Unique per (user_id, name); the ON CONFLICT keeps seeding idempotent.
+var defaultSeedTags = []struct{ Name, Color, Style string }{
+	{"favourite", "pink", "sticker"},
+	{"insight", "yellow", "flyout"},
+	{"beautiful", "orange", "tape"},
+	{"reference", "blue", "banner"},
+	{"funny", "yellow", "sticker"},
+	{"heartbreak", "pink", "reel"},
+	{"craft", "blue", "tape"},
+	{"wisdom", "orange", "sticker"},
+}
+
+// seedDefaultTags inserts the starter vocabulary for a freshly-created user.
+// Best-effort: a failure is logged, never fatal — the account is already made
+// and the user can create tags by hand.
+func seedDefaultTags(db *sql.DB, userID int64) {
+	for _, t := range defaultSeedTags {
+		if _, err := db.Exec(
+			`INSERT INTO tags (user_id, name, color, style) VALUES (?, ?, ?, ?)
+			 ON CONFLICT DO NOTHING`,
+			userID, t.Name, t.Color, t.Style); err != nil {
+			log.Printf("seed tags for user %d: %v", userID, err)
+			return
+		}
+	}
+}
 
 func (s *Server) handleListGenres(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(

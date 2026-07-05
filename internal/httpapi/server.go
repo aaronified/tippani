@@ -25,6 +25,7 @@ type Server struct {
 	Sessions     auth.Sessions
 	CookieSecure bool // set true when your reverse proxy terminates TLS
 	TrustedProxy bool // read client IP from X-Forwarded-For (only behind your own proxy)
+	SeedNewUsers bool // seed the starter tag/sticker vocabulary on user creation (v3); off in tests
 	Static       fs.FS
 	DataDir      string         // covers/posters live in <DataDir>/MediaCover (PLAN §6)
 	TMDB         *metadata.TMDB // Key = env-provided key; resolveTMDB falls through to settings/built-in
@@ -50,6 +51,7 @@ func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, t
 		Sessions:       auth.Sessions{DB: st.DB},
 		CookieSecure:   cookieSecure,
 		TrustedProxy:   trustedProxy,
+		SeedNewUsers:   true,
 		Static:         static,
 		DataDir:        dataDir,
 		TMDB:           &metadata.TMDB{Key: tmdbKey},

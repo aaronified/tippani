@@ -131,6 +131,9 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := res.LastInsertId()
+	if s.SeedNewUsers {
+		seedDefaultTags(s.Store.DB, id) // starter tag/sticker vocabulary (v3)
+	}
 	s.startSession(w, id, uname)
 }
 
