@@ -199,7 +199,8 @@ const TABS = [
 // user-initial chip, and a {type, id} detail state so lists and search can
 // open detail views (no router).
 function Shell({ user, onLogout }) {
-  const [tab, setTab] = useState('library')
+  // The landing tab follows the user's start-page preference (§4, Settings).
+  const [tab, setTab] = useState(user.preferences?.home === 'movies' ? 'movies' : 'library')
   const [detail, setDetail] = useState(null) // {type: 'book' | 'movie', id}
   const [menuOpen, setMenuOpen] = useState(false)
   const dark = useResolvedDark()
@@ -297,7 +298,7 @@ function Shell({ user, onLogout }) {
         )}
         {tab === 'import' && (
           <div data-screen-label="import">
-            <ImportPage />
+            <ImportPage onOpenMovie={openMovie} />
           </div>
         )}
         {tab === 'search' && (

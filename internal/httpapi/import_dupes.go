@@ -77,3 +77,55 @@ func findSimilarBooks(tx *sql.Tx, uid int64, title string, excludeID int64) ([]d
 	}
 	return out, rows.Err()
 }
+
+// rowQuerier is the read subset shared by *sql.DB and *sql.Tx, so the movie
+// look-alike scan works both inside an import transaction and on the bare DB.
+type rowQuerier interface {
+	Query(query string, args ...any) (*sql.Rows, error)
+}
+
+// movieDupHint is a same-title film/show already in the library, surfaced when
+// an import or an add-from-source would otherwise create a second copy. It
+// carries enough for the UI to describe the row (year, poster, dialogue count)
+// and to enrich it in place (its id + which supplier id it already holds).
+type movieDupHint struct {
+	ID            int64  `json:"id"`
+	Title         string `json:"title"`
+	ReleaseYear   int    `json:"release_year"`
+	MediaType     string `json:"media_type"`
+	HasPoster     bool   `json:"has_poster"`
+	DialogueCount int    `json:"dialogue_count"`
+	TMDBID        int64  `json:"tmdb_id"`
+	TVDBID        int64  `json:"tvdb_id"`
+}
+
+// findSimilarMovies returns the user's existing films/shows whose title looks
+// like the given one and share its media_type (a movie and a show of the same
+// name are never the same entry), excluding excludeID. Used to anchor imported
+// dialogues onto a pre-existing title, and to warn before a lookup would create
+// a duplicate. Same fuzzy title rule as books (subtitle dropped, case-folded).
+func findSimilarMovies(q rowQuerier, uid int64, title, mediaType string, excludeID int64) ([]movieDupHint, error) {
+	rows, err := q.Query(`
+		SELECT m.id, m.title, COALESCE(m.release_year, 0), m.media_type,
+		       m.poster_path IS NOT NULL, COALESCE(m.tmdb_id, 0), COALESCE(m.tvdb_id, 0),
+		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
+		FROM movies m
+		WHERE m.user_id = ? AND m.id <> ? AND m.media_type = ?
+		ORDER BY m.id DESC`, uid, excludeID, mediaType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []movieDupHint
+	for rows.Next() {
+		var h movieDupHint
+		if err := rows.Scan(&h.ID, &h.Title, &h.ReleaseYear, &h.MediaType,
+			&h.HasPoster, &h.TMDBID, &h.TVDBID, &h.DialogueCount); err != nil {
+			return nil, err
+		}
+		if titlesSimilar(title, h.Title) {
+			out = append(out, h)
+		}
+	}
+	return out, rows.Err()
+}

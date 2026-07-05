@@ -78,20 +78,46 @@
   .reveal.is-in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }
 
-  /* ---- hand-drawn card (§6): four uneven-radius variants; film goes geometric ---- */
+  /* ---- hand-drawn card (§6): four uneven-radius variants; film goes geometric.
+     Nothing flat (§1): sheen gradient + a hard offset shadow, a soft ambient
+     shadow for lift, and a top inset highlight so light reads from above. ---- */
   .hand-card {
     background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
     border: 1.6px solid var(--ink-border);
     border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
-    box-shadow: 3px 4px 0 rgba(41,38,29,.07);
+    box-shadow:
+      3px 4px 0 rgba(41,38,29,.08),
+      0 8px 20px -14px rgba(41,38,29,.5),
+      inset 0 1px 0 rgba(255,255,255,.5);
   }
   .hc-r1 { border-radius: 9px 15px 10px 14px / 14px 9px 15px 10px; }
   .hc-r2 { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
   .hc-r3 { border-radius: 11px 14px 9px 15px / 15px 10px 14px 9px; }
-  html[data-theme="dark"] .hand-card { box-shadow: 3px 4px 0 rgba(0,0,0,.28); }
+  html[data-theme="dark"] .hand-card {
+    box-shadow:
+      3px 4px 0 rgba(0,0,0,.3),
+      0 8px 22px -14px rgba(0,0,0,.6),
+      inset 0 1px 0 rgba(255,255,255,.05);
+  }
   html[data-aesthetic="film"] .hand-card {
     border: 1px solid var(--frame-border);
     border-radius: 12px;
+  }
+
+  /* ---- film frame (§6): one dialogue/quote card in the strip. Sheened and
+     lifted so the strip reads as stacked frames, not flat rectangles. ---- */
+  .film-frame {
+    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
+    border: 1px solid var(--frame-border);
+    border-radius: 10px;
+    box-shadow:
+      0 5px 14px -10px rgba(41,38,29,.55),
+      inset 0 1px 0 rgba(255,255,255,.42);
+  }
+  html[data-theme="dark"] .film-frame {
+    box-shadow:
+      0 6px 16px -10px rgba(0,0,0,.6),
+      inset 0 1px 0 rgba(255,255,255,.055);
   }
 
   /* ---- buttons (§6): sticker (paper primary) / film (dark primary) / ghost ---- */
@@ -129,7 +155,13 @@
   .btn-film:hover:not(:disabled) {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 24%), color-mix(in oklab, var(--accent-dark), white 8%));
   }
-  .tp-btn-ghost { border-color: var(--ink-border); color: var(--ink); background: transparent; }
+  .tp-btn-ghost {
+    border-color: var(--ink-border);
+    color: var(--ink);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--card-top), white 2%), transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  html[data-theme="dark"] .tp-btn-ghost { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
   .tp-btn-ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--ink) 6%, transparent); }
   html[data-aesthetic="paper"] .tp-btn-ghost { border-radius: 10px 7px 9px 8px / 8px 10px 7px 9px; }
   /* .tp-btn-primary maps to sticker on paper, film-style on film (compat + shell) */
@@ -218,13 +250,14 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--tc), white 22%), var(--tc));
     border: 1.2px solid rgba(41,38,29,.55);
     border-radius: 8px 5px 7px 6px / 6px 8px 5px 7px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
     transform: rotate(var(--tilt, -0.9deg));
   }
   .tc-yellow { --tc: #E5C355; }
   .tc-blue { --tc: #7FA6C9; }
   .tc-pink { --tc: #D98CA6; }
   .tc-orange { --tc: #DF9A5B; }
-  .ts-sticker { box-shadow: 1.5px 1.5px 0 rgba(41,38,29,.25); }
+  .ts-sticker { box-shadow: 1.5px 1.5px 0 rgba(41,38,29,.25), inset 0 1px 0 rgba(255,255,255,.4); }
   .ts-banner {
     --tilt: .7deg;
     border: none;
@@ -285,29 +318,82 @@
   }
   @media (prefers-reduced-motion: reduce) { .hand-note { transform: none; } }
 
-  /* ---- ♥ favourite + tilted ★ rating (§6) ---- */
+  /* ---- ♥ favourite + tilted ★ rating (§6): hand-inked, never machine-perfect.
+     Each glyph's resting jitter (random rotation/scale/nudge) rides the *individual*
+     transform properties (rotate/scale/translate, set inline by randWobble) so the
+     interaction animations below — which drive the `transform` matrix — compose on
+     top of it instead of fighting it. "on" marks get an inked lift so they read
+     pressed. --grot/--gscale/--gdy come from the inline style. ---- */
   .heart {
     background: none;
     border: none;
     padding: 6px;
-    font-size: 18px;
+    font-size: 18.5px;
     line-height: 1;
     color: var(--faint);
+    rotate: var(--grot, 0deg);
+    scale: var(--gscale, 1);
+    translate: 0 var(--gdy, 0px);
+    transition: color .15s ease, filter .15s ease;
   }
-  .heart:hover, .heart.on { color: var(--accent-ui); }
+  .heart:hover { color: var(--accent-ui); }
+  .heart.on {
+    color: var(--accent-ui);
+    filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--accent) 45%, transparent));
+  }
   .tilt-stars { display: inline-flex; align-items: center; gap: 2px; }
   .tilt-stars > * {
     display: inline-block;
     background: none;
     border: none;
     padding: 2px;
-    font-size: 15px;
+    font-size: 15.5px;
     line-height: 1;
     color: var(--faint);
-    transform: rotate(var(--tilt, 0deg));
+    rotate: var(--grot, 0deg);
+    scale: var(--gscale, 1);
+    translate: 0 var(--gdy, 0px);
+    transition: color .12s ease;
   }
-  .tilt-stars > .on { color: var(--rating); }
-  @media (prefers-reduced-motion: reduce) { .tilt-stars > * { transform: none; } }
+  .tilt-stars > .on {
+    color: var(--rating);
+    filter: drop-shadow(0 1px 0.5px color-mix(in srgb, var(--ink) 28%, transparent));
+  }
+
+  /* ---- interaction carousels (§6): each mark/button owns 2–3 tiny animations;
+     usePlayful adds one at random on interaction, cleared on animationend. They
+     animate the `transform` matrix (composing over the resting jitter above) so a
+     tap feels alive without ever being canned. Subtle by contract (§1). ---- */
+  @keyframes hp-1 { 0%{transform:scale(1)} 32%{transform:scale(1.42)} 58%{transform:scale(.84)} 100%{transform:scale(1)} }        /* pop */
+  @keyframes hp-2 { 0%,100%{transform:scale(1)} 22%{transform:scale(1.26)} 48%{transform:scale(1)} 72%{transform:scale(1.15)} }  /* double-throb */
+  @keyframes hp-3 { 0%{transform:scale(1) rotate(0)} 42%{transform:scale(1.34) rotate(11deg)} 70%{transform:scale(1.04) rotate(-7deg)} 100%{transform:scale(1) rotate(0)} } /* pop-twist */
+  .anim-heart-1 { animation: hp-1 .42s cubic-bezier(.34,1.56,.64,1); }
+  .anim-heart-2 { animation: hp-2 .5s ease-in-out; }
+  .anim-heart-3 { animation: hp-3 .5s cubic-bezier(.34,1.56,.64,1); }
+
+  @keyframes st-1 { 0%,100%{opacity:1;transform:scale(1)} 45%{opacity:.35;transform:scale(1.28)} }                                /* blink */
+  @keyframes st-2 { 0%{filter:brightness(1)} 40%{filter:brightness(1.75) drop-shadow(0 0 5px color-mix(in srgb,var(--rating) 70%,transparent))} 100%{filter:brightness(1)} } /* shine */
+  @keyframes st-3 { 0%{transform:rotate(0) scale(1)} 50%{transform:rotate(22deg) scale(1.32)} 100%{transform:rotate(0) scale(1)} } /* twinkle-spin */
+  .anim-star-1 { animation: st-1 .4s ease; }
+  .anim-star-2 { animation: st-2 .55s ease; }
+  .anim-star-3 { animation: st-3 .46s cubic-bezier(.34,1.56,.64,1); }
+
+  @keyframes bt-1 { 0%{transform:scale(1)} 45%{transform:scale(.955)} 100%{transform:scale(1)} }                                  /* press */
+  @keyframes bt-2 { 0%,100%{transform:rotate(0)} 25%{transform:rotate(1.4deg)} 75%{transform:rotate(-1.4deg)} }                   /* wiggle */
+  @keyframes bt-3 { 0%,100%{transform:scale(1,1)} 32%{transform:scale(1.045,.955)} 64%{transform:scale(.98,1.02)} }              /* jelly */
+  .anim-btn-1 { animation: bt-1 .28s ease; }
+  .anim-btn-2 { animation: bt-2 .4s ease-in-out; }
+  .anim-btn-3 { animation: bt-3 .4s ease-out; }
+
+  /* Baseline: every button dips slightly while held, even those without a carousel. */
+  .tp-btn { transition: filter .12s ease, background .15s ease, scale .09s ease; }
+  .tp-btn:active:not(:disabled) { scale: .97; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .heart, .tilt-stars > * { rotate: 0deg; scale: 1; translate: none; }
+    [class*="anim-heart-"], [class*="anim-star-"], [class*="anim-btn-"] { animation: none !important; }
+    .tp-btn:active:not(:disabled) { scale: 1; }
+  }
 
   /* ---- cover/poster placeholder (§6): diagonal stripes + mono label, 2:3 ---- */
   .ph {

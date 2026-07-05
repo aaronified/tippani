@@ -11,7 +11,7 @@ import (
 )
 
 const tmdbSearchJSON = `{"results":[
-  {"id":603,"title":"The Matrix","release_date":"1999-03-30","overview":"Neo."},
+  {"id":603,"title":"The Matrix","release_date":"1999-03-30","overview":"Neo.","poster_path":"/matrix.jpg"},
   {"id":604,"title":"The Matrix Reloaded","release_date":"2003-05-15","overview":"More Neo."}]}`
 
 func tmdbDetailsBody() string {
@@ -57,6 +57,7 @@ func TestTMDBSearch(t *testing.T) {
 	want := MovieCandidate{
 		Source: "tmdb", SourceID: "603", MediaType: "movie",
 		TMDBID: 603, Title: "The Matrix", ReleaseYear: 1999, Overview: "Neo.",
+		PosterURL: "https://image.tmdb.org/t/p/w342/matrix.jpg",
 	}
 	if got[0] != want {
 		t.Errorf("candidate = %+v, want %+v", got[0], want)

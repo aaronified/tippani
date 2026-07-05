@@ -189,15 +189,18 @@ function Appearance({ user }) {
   const [aesthetic, setAesthetic] = useState(p.aesthetic || 'paper')
   const [theme, setTheme] = useState(p.theme || 'system')
   const [accent, setAccent] = useState(p.accent || 'terracotta')
+  const [home, setHome] = useState(p.home || 'library')
   const base = useFrameBase()
 
   // update applies the change to the live DOM immediately (§4) and persists it;
-  // the persisted set is the source of truth on the next login.
+  // the persisted set is the source of truth on the next login. Every field
+  // rides along so changing one (e.g. accent) never resets another (e.g. home).
   function update(next) {
-    const merged = { aesthetic, theme, accent, ...next }
+    const merged = { aesthetic, theme, accent, home, ...next }
     setAesthetic(merged.aesthetic)
     setTheme(merged.theme)
     setAccent(merged.accent)
+    setHome(merged.home)
     applyTheme(merged)
     json('PUT', '/auth/me/preferences', merged)
   }
@@ -217,6 +220,12 @@ function Appearance({ user }) {
           value={theme}
           onChange={(v) => update({ theme: v })}
           options={[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']]}
+        />
+        <Segmented
+          label="Start page"
+          value={home}
+          onChange={(v) => update({ home: v })}
+          options={[['library', 'Library'], ['movies', 'Movies']]}
         />
         <div>
           <MonoLabel className="mb-2 block">Accent</MonoLabel>

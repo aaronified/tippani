@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -29,9 +30,10 @@ type movieReq struct {
 	Series      string   `json:"series"`
 	SeriesIndex float64  `json:"series_index"`
 	Favorite    bool     `json:"favorite"`
-	Rating      int      `json:"rating"`      // 0 = unrated, else 1-5 (PLAN §3)
-	PosterURL   string   `json:"poster_url"`  // update: set/replace the poster
-	ClearCover  bool     `json:"clear_cover"` // update: drop the current poster
+	Rating      int      `json:"rating"`       // 0 = unrated, else 1-5 (PLAN §3)
+	PosterURL   string   `json:"poster_url"`   // update: set/replace the poster
+	ClearCover  bool     `json:"clear_cover"`  // update: drop the current poster
+	ConfirmNew  bool     `json:"confirm_new"`  // create-from-source: add a separate title despite a same-name look-alike
 }
 
 func (m *movieReq) validate() string {
@@ -133,11 +135,11 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Source != "" && req.SourceID != "" {
-		s.createMovieFromSource(w, r, req.Source, req.SourceID, req.MediaType)
+		s.createMovieFromSource(w, r, req.Source, req.SourceID, req.MediaType, req.ConfirmNew)
 		return
 	}
 	if req.TMDBID != 0 { // legacy clients / tests: tmdb_id implies a TMDB movie
-		s.createMovieFromSource(w, r, "tmdb", strconv.FormatInt(req.TMDBID, 10), "movie")
+		s.createMovieFromSource(w, r, "tmdb", strconv.FormatInt(req.TMDBID, 10), "movie", req.ConfirmNew)
 		return
 	}
 	if msg := req.validate(); msg != "" {
@@ -182,11 +184,35 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 // createMovieFromSource pulls details+credits from the given supplier (TMDB or
 // TheTVDB, movie or show) and inserts the row. The tmdb_id/tvdb_id column is set
 // from whichever id the details carry, so both partial unique indexes dedupe.
-func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, source, sourceID, mediaType string) {
+//
+// Before inserting it guards against silently duplicating a title the user
+// already has under a different (or no) supplier id — e.g. a poster-less row an
+// IMDb import created. Unless confirmNew is set, a same-name look-alike is
+// reported (409 + needs_confirm + the existing rows) so the UI can offer to
+// enrich the existing entry instead of adding a second one.
+func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, source, sourceID, mediaType string, confirmNew bool) {
 	d, msg, code := s.fetchSourceDetails(r.Context(), source, sourceID, mediaType)
 	if d == nil {
 		writeErr(w, code, msg)
 		return
+	}
+	uid := userID(r)
+	if !confirmNew {
+		existing, err := s.similarMoviesForSource(uid, d)
+		if err != nil {
+			internalError(w, r, "create movie: scan look-alikes", err)
+			return
+		}
+		if len(existing) > 0 {
+			log.Printf("[movies] add %q from %s#%s needs confirm: %d same-name look-alike(s)",
+				d.Title, source, sourceID, len(existing))
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":         "you already have a title with this name",
+				"needs_confirm": true,
+				"existing":      existing,
+			})
+			return
+		}
 	}
 	// Poster fetch is non-fatal, same rule as book covers.
 	var posterPath string
@@ -202,11 +228,10 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		}
 	}
 
-	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		s.removeCoverFile(posterPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -219,7 +244,7 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw))
 	if err != nil {
 		s.removeCoverFile(posterPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: insert", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // (user_id, tmdb_id/tvdb_id) collision
@@ -230,20 +255,40 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	id, _ := res.LastInsertId()
 	if err := setGenres(tx, "movie", uid, id, d.Genres); err != nil {
 		s.removeCoverFile(posterPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: set genres", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
 		s.removeCoverFile(posterPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: commit", err)
 		return
 	}
+	log.Printf("[movies] added %q (%s) from %s#%s -> movie %d", d.Title, d.MediaType, source, sourceID, id)
 	m, err := s.fetchMovie(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: fetch", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, m)
+}
+
+// similarMoviesForSource returns the user's same-name look-alikes for the given
+// fetched details, excluding any row that already holds this exact supplier id
+// (that's the identical entry — the unique index reports it as a plain 409, not
+// a "which one did you mean" ambiguity).
+func (s *Server) similarMoviesForSource(uid int64, d *metadata.MovieDetails) ([]movieDupHint, error) {
+	all, err := findSimilarMovies(s.Store.DB, uid, d.Title, d.MediaType, 0)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]movieDupHint, 0, len(all))
+	for _, h := range all {
+		if (d.TMDBID != 0 && h.TMDBID == d.TMDBID) || (d.TVDBID != 0 && h.TVDBID == d.TVDBID) {
+			continue
+		}
+		out = append(out, h)
+	}
+	return out, nil
 }
 
 // fetchSourceDetails dispatches a details lookup to the right supplier+media
@@ -557,9 +602,10 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	if newPoster != "" && oldPoster.String != newPoster {
 		s.removeCoverFile(oldPoster.String)
 	}
+	log.Printf("[movies] resynced movie %d from %s#%s (%q, %s)", id, source, sourceID, d.Title, d.MediaType)
 	m, err := s.fetchMovie(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "resync movie: fetch", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, m)

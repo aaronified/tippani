@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"io/fs"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/time/rate"
 
@@ -146,7 +148,59 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/", s.spaHandler())
 
 	csrf := http.NewCrossOriginProtection()
-	return securityHeaders(csrf.Handler(mux))
+	return logRequests(securityHeaders(csrf.Handler(mux)))
+}
+
+// statusRecorder captures the response status + byte count for request logging.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+	bytes  int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	n, err := r.ResponseWriter.Write(b)
+	r.bytes += n
+	return n, err
+}
+
+// logRequests logs one line per request (method, path, status, duration, size,
+// client) to stdout — visible in `docker logs`. /healthz is skipped so the
+// container's periodic probe doesn't drown the log. This is the baseline
+// visibility; handlers add [error]/[import]/[movies] lines for detail.
+func logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/healthz" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		rec := &statusRecorder{ResponseWriter: w}
+		start := time.Now()
+		next.ServeHTTP(rec, r)
+		if rec.status == 0 {
+			rec.status = http.StatusOK
+		}
+		log.Printf("%s %s %d %s %dB %s",
+			r.Method, r.URL.RequestURI(), rec.status,
+			time.Since(start).Round(time.Millisecond), rec.bytes, r.RemoteAddr)
+	})
+}
+
+// internalError logs the real cause of a 500 (method, path, context, error)
+// server-side, then returns the opaque "internal error" to the client. Use it
+// wherever a DB/tx/marshal failure would otherwise vanish into a bland 500 —
+// the log line is what makes such failures debuggable.
+func internalError(w http.ResponseWriter, r *http.Request, context string, err error) {
+	log.Printf("[error] %s %s: %s: %v", r.Method, r.URL.Path, context, err)
+	writeErr(w, http.StatusInternalServerError, "internal error")
 }
 
 func securityHeaders(next http.Handler) http.Handler {

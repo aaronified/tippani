@@ -35,6 +35,7 @@ type MovieCandidate struct {
 	Title       string `json:"title"`
 	ReleaseYear int    `json:"release_year"`
 	Overview    string `json:"overview"`
+	PosterURL   string `json:"poster_url"` // thumbnail for the lookup picker; "" when the hit has no art
 }
 
 type MovieDetails struct {
@@ -107,6 +108,7 @@ func (t *TMDB) Search(ctx context.Context, query string, year int) ([]MovieCandi
 			Title       string `json:"title"`
 			ReleaseDate string `json:"release_date"`
 			Overview    string `json:"overview"`
+			PosterPath  string `json:"poster_path"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -122,12 +124,22 @@ func (t *TMDB) Search(ctx context.Context, query string, year int) ([]MovieCandi
 			Title:       m.Title,
 			ReleaseYear: leadingYear(m.ReleaseDate),
 			Overview:    m.Overview,
+			PosterURL:   tmdbPoster(m.PosterPath),
 		})
 		if len(out) == maxMovieCandidates {
 			break
 		}
 	}
 	return out, nil
+}
+
+// tmdbPoster builds a poster thumbnail URL from a TMDB poster_path, or "" when
+// the hit carries no art.
+func tmdbPoster(path string) string {
+	if path == "" {
+		return ""
+	}
+	return tmdbImageBase + path
 }
 
 // SearchTV mirrors Search for television (/search/tv). TMDB TV uses name +
@@ -147,6 +159,7 @@ func (t *TMDB) SearchTV(ctx context.Context, query string, year int) ([]MovieCan
 			Name         string `json:"name"`
 			FirstAirDate string `json:"first_air_date"`
 			Overview     string `json:"overview"`
+			PosterPath   string `json:"poster_path"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -162,6 +175,7 @@ func (t *TMDB) SearchTV(ctx context.Context, query string, year int) ([]MovieCan
 			Title:       m.Name,
 			ReleaseYear: leadingYear(m.FirstAirDate),
 			Overview:    m.Overview,
+			PosterURL:   tmdbPoster(m.PosterPath),
 		})
 		if len(out) == maxMovieCandidates {
 			break

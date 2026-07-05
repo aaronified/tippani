@@ -26,9 +26,9 @@ func TestPreferences(t *testing.T) {
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
+	// Fresh user: defaults (theme system -> paper aesthetic, terracotta, library home).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta"}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", Home: "library"}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -37,27 +37,36 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta"}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", Home: "library"}) {
 		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
 	}
 
-	// Roundtrip.
+	// Roundtrip, including the home start-page preference.
 	c.mustDo("PUT", "/auth/me/preferences",
-		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
+		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", Home: "movies"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", Home: "movies"}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
-	// Validation: every field is a required enum.
+	// An appearance-only PUT (no home field) keeps the stored home, not resets it.
+	c.mustDo("PUT", "/auth/me/preferences",
+		prefs{Aesthetic: "paper", Theme: "light", Accent: "olive"}, 200)
+	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.Home != "movies" || me.Preferences.Accent != "olive" {
+		t.Fatalf("home reset by appearance-only PUT: %+v", me.Preferences)
+	}
+
+	// Validation: appearance fields are required enums; home is an optional enum.
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "vellum", Theme: "light", Accent: "ochre"}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "auto", Accent: "ochre"}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light", Accent: "mauve"}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light", Accent: "ochre", Home: "elsewhere"}, http.StatusBadRequest)
 
 	// A failed PUT never clobbers the stored set.
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences.Accent != "ochre" {
+	if me.Preferences.Home != "movies" {
 		t.Fatalf("preferences changed by rejected PUT: %+v", me.Preferences)
 	}
 }

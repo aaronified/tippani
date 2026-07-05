@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
-import { CoverControls, MovieLookupPicker } from './CoverPicker.jsx'
+import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import {
   EdgeRow,
   EmptyState,
@@ -387,6 +387,16 @@ function candSource(c) {
   return `${(c.source || 'tmdb').toUpperCase()} #${id}`
 }
 
+// sourceRef normalises a candidate to the {source, source_id, media_type} the
+// create/enrich endpoints expect.
+function sourceRef(c, fallbackMedia) {
+  return {
+    source: c.source || 'tmdb',
+    source_id: c.source === 'tvdb' ? c.source_id : String(c.tmdb_id || c.source_id),
+    media_type: c.media_type || fallbackMedia,
+  }
+}
+
 function LookupMovie({ onAdded, onUnavailable }) {
   const [title, setTitle] = useState('')
   const [year, setYear] = useState('')
@@ -394,12 +404,14 @@ function LookupMovie({ onAdded, onUnavailable }) {
   const [candidates, setCandidates] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [confirm, setConfirm] = useState(null) // {cand, existing:[…]} when a same-name title already exists
 
   async function search(e) {
     e.preventDefault()
     if (!title.trim()) return
     setBusy(true)
     setError('')
+    setConfirm(null)
     setCandidates(null)
     const body = { title: title.trim(), media_type: mediaType }
     if (year) body.year = Number(year)
@@ -410,15 +422,26 @@ function LookupMovie({ onAdded, onUnavailable }) {
     setError(errText(r, 'lookup failed'))
   }
 
-  async function add(c) {
+  // add posts the pick. A same-name title already in the library comes back as
+  // 409 + needs_confirm (with the existing rows) so the user chooses: enrich one
+  // of them, or add a distinct title (same-name films are legitimate).
+  async function add(c, confirmNew = false) {
     setError('')
-    const r = await json('POST', '/movies', {
-      source: c.source || 'tmdb',
-      source_id: c.source === 'tvdb' ? c.source_id : String(c.tmdb_id || c.source_id),
-      media_type: c.media_type || mediaType,
-    })
-    if (r.ok) onAdded()
-    else setError(errText(r, 'could not add title')) // duplicate id → 409
+    const r = await json('POST', '/movies', { ...sourceRef(c, mediaType), confirm_new: confirmNew })
+    if (r.ok) return onAdded()
+    if (r.status === 409 && r.data?.needs_confirm) return setConfirm({ cand: c, existing: r.data.existing || [] })
+    setError(errText(r, 'could not add title'))
+  }
+
+  // enrich re-syncs an existing row from the picked candidate's supplier — a
+  // full re-pull that keeps that row's dialogues/rating/favourite (PLAN §6).
+  async function enrich(existingId, c) {
+    setBusy(true)
+    setError('')
+    const r = await json('PUT', `/movies/${existingId}`, sourceRef(c, mediaType))
+    setBusy(false)
+    if (r.ok) return onAdded()
+    setError(errText(r, 'could not enrich that title'))
   }
 
   return (
@@ -438,8 +461,17 @@ function LookupMovie({ onAdded, onUnavailable }) {
         </button>
       </form>
       <ErrorText>{error}</ErrorText>
-      {candidates && candidates.length === 0 && <EmptyState>No matches found.</EmptyState>}
-      {candidates && candidates.length > 0 && (
+      {confirm && (
+        <DuplicateConfirm
+          confirm={confirm}
+          busy={busy}
+          onEnrich={(id) => enrich(id, confirm.cand)}
+          onAddSeparate={() => add(confirm.cand, true)}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+      {!confirm && candidates && candidates.length === 0 && <EmptyState>No matches found.</EmptyState>}
+      {!confirm && candidates && candidates.length > 0 && (
         <ul style={{ border: '1px solid var(--line)', borderRadius: 10 }}>
           {candidates.map((c, i) => (
             <li
@@ -447,6 +479,7 @@ function LookupMovie({ onAdded, onUnavailable }) {
               className="flex items-center gap-3 px-4 py-3"
               style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
             >
+              <CoverPreview url={c.poster_url} label="" />
               <div className="min-w-0 flex-1">
                 <p className="truncate">
                   <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15 }}>{c.title}</span>
@@ -472,6 +505,57 @@ function LookupMovie({ onAdded, onUnavailable }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+// DuplicateConfirm asks the user what to do when the picked title shares a name
+// with something already in their library: enrich one of the existing rows in
+// place (keeping its dialogues), or add a separate title.
+function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCancel }) {
+  return (
+    <div className="hand-card hc-r1 space-y-3 p-4" style={{ borderLeft: '4px solid var(--amber, var(--accent))' }}>
+      <p className="text-sm">
+        You already have a title named <b>“{confirm.cand.title}”</b>. Enrich it with this metadata (keeps its
+        dialogues), or add “{confirm.cand.title}” as a separate title.
+      </p>
+      <ul className="space-y-2">
+        {confirm.existing.map((e) => (
+          <li
+            key={e.id}
+            className="flex items-center gap-3 rounded-xl px-3 py-2"
+            style={{ border: '1px solid var(--line)' }}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">
+                {e.title}
+                {e.release_year ? (
+                  <span className="ml-2 font-normal" style={{ color: 'var(--soft)' }}>
+                    {e.release_year}
+                  </span>
+                ) : null}
+              </p>
+              <p className="truncate text-xs" style={{ color: 'var(--faint)' }}>
+                {[
+                  `${e.dialogue_count} dialogue${e.dialogue_count === 1 ? '' : 's'}`,
+                  e.has_poster ? 'has poster' : 'no poster',
+                ].join(' · ')}
+              </p>
+            </div>
+            <GhostButton type="button" className="shrink-0" disabled={busy} onClick={() => onEnrich(e.id)}>
+              Enrich this
+            </GhostButton>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="tp-btn tp-btn-primary" disabled={busy} onClick={onAddSeparate}>
+          Add as a separate title
+        </button>
+        <GhostButton type="button" disabled={busy} onClick={onCancel}>
+          Cancel
+        </GhostButton>
+      </div>
     </div>
   )
 }
@@ -989,21 +1073,16 @@ function FrameDivider({ code }) {
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
 function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete }) {
-  const frameStyle = {
-    background: 'linear-gradient(180deg, var(--card-top), var(--card-bottom))',
-    border: '1px solid var(--frame-border)',
-    borderRadius: 10,
-  }
   if (editing) {
     return (
-      <article className="mx-4 my-1.5 px-5 py-4" style={frameStyle}>
+      <article className="film-frame mx-4 my-1.5 px-5 py-4">
         <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} />
       </article>
     )
   }
   const credit = [d.character, d.actor && `PLAYED BY ${d.actor}`, d.timestamp].filter(Boolean).join(' · ')
   return (
-    <article className="mx-4 my-1.5 px-5 py-4" style={frameStyle}>
+    <article className="film-frame mx-4 my-1.5 px-5 py-4">
       <div className="flex items-start justify-between gap-3">
         <blockquote
           className="whitespace-pre-wrap"

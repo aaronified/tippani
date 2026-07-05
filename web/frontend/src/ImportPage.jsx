@@ -88,7 +88,7 @@ const SOURCES = [
   },
 ]
 
-export default function ImportPage() {
+export default function ImportPage({ onOpenMovie }) {
   const [results, setResults] = useState(null) // per-file rows, in batch order
   const [summary, setSummary] = useState('')
   const [queue, setQueue] = useState(null) // review pass: [{bookId, ann}]
@@ -147,9 +147,32 @@ export default function ImportPage() {
         ))}
         <DisabledCard />
       </div>
-      {results && <BatchResults results={results} summary={summary} />}
+      {results && <BatchResults results={results} summary={summary} onOpenMovie={onOpenMovie} />}
       {queue && <ReviewPanel queue={queue} onDone={() => setQueue(null)} />}
+      <SaveDontPasteNote />
     </section>
+  )
+}
+
+// SaveDontPasteNote records why imports are save-the-page-and-upload rather than
+// "paste a URL and we'll fetch it" (a natural question, so the answer lives
+// here). Documented decision, not a TODO — see the discussion in-thread.
+function SaveDontPasteNote() {
+  return (
+    <div
+      className="p-4"
+      style={{ border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--soft)', fontSize: 13, lineHeight: 1.55 }}
+    >
+      <MonoLabel className="mb-1.5 block">Why upload the saved page, not paste a URL?</MonoLabel>
+      <p>
+        Fetching the page from a URL in your browser is blocked by cross-origin rules (CORS) — sites like Amazon,
+        IMDb and Goodreads don’t allow it, which is exactly why a bookmarklet such as Bookcision has to run{' '}
+        <i>on their page</i>. Fetching server-side would dodge CORS but needs your logged-in session for private
+        pages (Kindle), and scraping from a server trips anti-bot defences and site terms — fragile and easy to
+        break silently. Saving the page in your own signed-in browser and uploading it is the robust path that
+        keeps working, so that’s what we do.
+      </p>
+    </div>
   )
 }
 
@@ -246,7 +269,10 @@ function DisabledCard() {
 }
 
 // BatchResults — accent-barred card: summary line + one mono row per file.
-function BatchResults({ results, summary }) {
+// Book imports show added/skipped/enriched + a look-alike hint; movie/show
+// imports (IMDb → dialogues) show where the dialogues landed and, when the
+// import anchored to an existing title or was ambiguous, a review notice.
+function BatchResults({ results, summary, onOpenMovie }) {
   return (
     <div className="hand-card hc-r2 space-y-1.5 p-4" style={{ borderLeft: '4px solid var(--accent)' }}>
       {summary && (
@@ -272,8 +298,46 @@ function BatchResults({ results, summary }) {
               {r.possible_duplicates.map((d) => d.title).join(', ')} — open either book to merge or keep them separate
             </p>
           )}
+          {r.ok && r.movie_id && <MovieImportNotice row={r} onOpenMovie={onOpenMovie} />}
         </div>
       ))}
+    </div>
+  )
+}
+
+// MovieImportNotice explains where an IMDb import's dialogues landed: a new
+// entry, or anchored onto an existing same-name title (flagging a year mismatch
+// or an ambiguous match so the user can confirm). Links to the movie to review.
+function MovieImportNotice({ row, onOpenMovie }) {
+  const yearMismatch =
+    row.anchored && row.year_imported && row.matched_year && row.year_imported !== row.matched_year
+  return (
+    <div className="microcopy" style={{ color: 'var(--soft)' }}>
+      <span>
+        {row.created
+          ? `added a new title “${row.title}”`
+          : `attached to your existing “${row.title}”${row.matched_year ? ` (${row.matched_year})` : ''}`}
+      </span>
+      {onOpenMovie && (
+        <>
+          {' — '}
+          <button type="button" className="tp-link" onClick={() => onOpenMovie(row.movie_id)}>
+            open{row.media_type === 'show' ? ' show' : ' movie'}
+          </button>
+        </>
+      )}
+      {yearMismatch && (
+        <p style={{ color: 'var(--amber, var(--accent-ui))' }}>
+          ⚠ the imported page said {row.year_imported} but your title is {row.matched_year} — confirm they’re the
+          same title.
+        </p>
+      )}
+      {row.ambiguous && (
+        <p style={{ color: 'var(--amber, var(--accent-ui))' }}>
+          ⚠ you have {row.alternatives + 1} titles named “{row.title}”; the dialogues went to the most likely one —
+          open it to check.
+        </p>
+      )}
     </div>
   )
 }

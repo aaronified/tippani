@@ -133,6 +133,7 @@ func (t *TVDB) Search(ctx context.Context, query string, year int, mediaType str
 			Year     string `json:"year"`
 			Type     string `json:"type"` // "movie" | "series"
 			Overview string `json:"overview"`
+			ImageURL string `json:"image_url"` // full artworks.thetvdb.com URL, or ""
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -150,6 +151,7 @@ func (t *TVDB) Search(ctx context.Context, query string, year int, mediaType str
 			Title:       m.Name,
 			ReleaseYear: atoiSafe(m.Year),
 			Overview:    m.Overview,
+			PosterURL:   m.ImageURL,
 		})
 		if len(out) == maxMovieCandidates {
 			break

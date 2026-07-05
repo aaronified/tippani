@@ -18,7 +18,7 @@ export function amazonCoverURL(asin) {
 
 // CoverPreview renders a pending remote URL or the locally-stored file at 2:3.
 // Remote hosts outside the CSP allowlist can't paint — onError swaps to a note.
-function CoverPreview({ url, label }) {
+export function CoverPreview({ url, label }) {
   const [broke, setBroke] = useState(false)
   if (url && !broke) {
     return (
@@ -204,8 +204,11 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  async function look(e) {
-    e.preventDefault()
+  // NB: this picker lives inside the movie edit <form>, so it must NOT render a
+  // nested <form> of its own — a nested form's submit escapes to the outer form
+  // and reloads the page (the "search bounces to the homepage" bug). Search is a
+  // plain button + Enter handler instead.
+  async function look() {
     if (!q.trim()) return
     setBusy(true)
     setErr('')
@@ -217,16 +220,22 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) 
     if (r.ok) setCands(r.data.candidates)
     else setErr(errText(r, 'lookup failed'))
   }
+  const onEnter = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      look()
+    }
+  }
 
   return (
     <div className="space-y-2">
-      <form onSubmit={look} className="flex gap-2">
-        <input className="tp-input" placeholder="Title" value={q} onChange={(e) => setQ(e.target.value)} />
-        <input className="tp-input w-24 shrink-0" placeholder="Year" inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} />
-        <GhostButton type="submit" className="shrink-0" disabled={busy}>
+      <div className="flex gap-2">
+        <input className="tp-input" placeholder="Title" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnter} />
+        <input className="tp-input w-24 shrink-0" placeholder="Year" inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} onKeyDown={onEnter} />
+        <GhostButton type="button" className="shrink-0" onClick={look} disabled={busy}>
           {busy ? 'Searching…' : 'Search'}
         </GhostButton>
-      </form>
+      </div>
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches found</p>}
       {cands && cands.length > 0 && (
@@ -237,6 +246,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) 
               className="flex items-center gap-3 px-3 py-2.5"
               style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
             >
+              <CoverPreview url={c.poster_url} label="" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">
                   {c.title}

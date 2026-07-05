@@ -76,14 +76,32 @@ export function HandCard({ variant = 0, colorBar, className = '', style, childre
   )
 }
 
-export function StickerButton({ className = '', ...rest }) {
-  return <button className={'tp-btn btn-sticker ' + className} {...rest} />
+// PlayfulButton is the shared base: it plays a random button animation on click
+// (its own carousel) then calls through to the caller's onClick. `base` is the
+// style class (btn-sticker / btn-film / tp-btn-ghost).
+function PlayfulButton({ base, className = '', onClick, ...rest }) {
+  const { play, animClass, onAnimationEnd } = usePlayful('anim-btn', 3)
+  return (
+    <button
+      {...rest}
+      className={`tp-btn ${base} ${animClass} ${className}`}
+      onClick={(e) => {
+        play()
+        onClick?.(e)
+      }}
+      onAnimationEnd={onAnimationEnd}
+    />
+  )
 }
-export function FilmButton({ className = '', ...rest }) {
-  return <button className={'tp-btn btn-film ' + className} {...rest} />
+
+export function StickerButton(props) {
+  return <PlayfulButton base="btn-sticker" {...props} />
 }
-export function GhostButton({ className = '', ...rest }) {
-  return <button className={'tp-btn tp-btn-ghost ' + className} {...rest} />
+export function FilmButton(props) {
+  return <PlayfulButton base="btn-film" {...props} />
+}
+export function GhostButton(props) {
+  return <PlayfulButton base="tp-btn-ghost" {...props} />
 }
 
 // ---- type bits (§3) ----
@@ -145,15 +163,52 @@ export function HandNote({ className = '', children }) {
 
 // ---- ♥ favourite + tilted ★ rating (§6: hearts for favourites, never stars) ----
 
+// randWobble is the ink-mark jitter (§1: user marks are "hand-drawn: tilted,
+// uneven, inked" — never machine-perfect). It returns CSS vars for a random
+// rotation, scale and vertical nudge so no two hearts or stars sit quite alike;
+// memoise it per glyph so the jitter holds still for the life of the mount, the
+// way frame codes do. The CSS composes --grot/--gscale/--gdy into one transform
+// and reduced-motion neutralises it.
+export function randWobble(rotDeg = 11, dyPx = 1.3) {
+  const rot = (Math.random() * 2 - 1) * rotDeg
+  const scale = 0.85 + Math.random() * 0.32
+  const dy = (Math.random() * 2 - 1) * dyPx
+  return { '--grot': `${rot.toFixed(1)}deg`, '--gscale': scale.toFixed(3), '--gdy': `${dy.toFixed(1)}px` }
+}
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// usePlayful gives an element a small animation "carousel" (§6): play() picks one
+// of `count` CSS variants at random (`${prefix}-1..N`) so repeated taps never feel
+// canned, and clears it on animationend so it can re-fire. No-ops under
+// reduced-motion. Spread the returned className + onAnimationEnd onto the element.
+export function usePlayful(prefix, count = 3) {
+  const [cls, setCls] = useState('')
+  const play = () => {
+    if (prefersReducedMotion()) return
+    setCls(`${prefix}-${1 + Math.floor(Math.random() * count)}`)
+  }
+  return { play, animClass: cls, onAnimationEnd: () => setCls('') }
+}
+
 // FavBadge — a non-interactive ♥ overlay for the corner of a favourited
 // cover/poster (the card itself is the clickable element, so this can't be a
-// button). Drop-shadowed so it reads over any artwork.
+// button). Drop-shadowed so it reads over any artwork, and hand-tilted.
 export function FavBadge() {
+  const wob = useMemo(() => randWobble(13, 0), [])
   return (
     <span
       aria-label="Favourite"
       className="absolute right-1.5 top-1.5"
-      style={{ color: '#ef5a5a', fontSize: 18, lineHeight: 1, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.55))' }}
+      style={{
+        ...wob,
+        color: '#ef5a5a',
+        fontSize: 18,
+        lineHeight: 1,
+        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.55))',
+        transform: 'rotate(var(--grot)) scale(var(--gscale))',
+      }}
     >
       ♥
     </span>
@@ -161,38 +216,53 @@ export function FavBadge() {
 }
 
 export function Hearts({ value, onChange }) {
+  const wob = useMemo(() => randWobble(9, 1), [])
+  const { play, animClass, onAnimationEnd } = usePlayful('anim-heart', 3)
   return (
     <button
       type="button"
-      className={'heart' + (value ? ' on' : '')}
+      className={`heart ${animClass}${value ? ' on' : ''}`}
+      style={wob}
       title={value ? 'Unfavourite' : 'Favourite'}
       aria-pressed={!!value}
-      onClick={onChange ? () => onChange(!value) : undefined}
+      onAnimationEnd={onAnimationEnd}
+      onClick={
+        onChange
+          ? () => {
+              play()
+              onChange(!value)
+            }
+          : undefined
+      }
     >
       {value ? '♥' : '♡'}
     </button>
   )
 }
 
-const STAR_TILTS = [-9, 7, -4, 9, -6] // §6 per-glyph rotations
-
 export function TiltStars({ value = 0, onChange }) {
+  // A fresh jitter per glyph, per mount — every rating row is individually inked.
+  const wobbles = useMemo(() => Array.from({ length: 5 }, () => randWobble(12, 1.4)), [])
+  // One animating star at a time: {i, cls} = which glyph plays which variant.
+  const [anim, setAnim] = useState({ i: -1, cls: '' })
   return (
     <span className="tilt-stars" aria-label={`rated ${value} of 5`}>
-      {STAR_TILTS.map((deg, i) => {
+      {wobbles.map((wob, i) => {
         const n = i + 1
         const on = n <= value
-        const cls = on ? 'on' : ''
-        const tilt = { '--tilt': `${deg}deg` }
-        if (!onChange) return <span key={n} className={cls} style={tilt}>{on ? '★' : '☆'}</span>
+        if (!onChange) return <span key={n} className={on ? 'on' : ''} style={wob}>{on ? '★' : '☆'}</span>
         return (
           <button
             key={n}
             type="button"
-            className={cls}
-            style={tilt}
+            className={`${on ? 'on ' : ''}${anim.i === i ? anim.cls : ''}`}
+            style={wob}
             title={n === value ? 'Clear rating' : `Rate ${n}`}
-            onClick={() => onChange(n === value ? 0 : n)}
+            onAnimationEnd={() => setAnim({ i: -1, cls: '' })}
+            onClick={() => {
+              if (!prefersReducedMotion()) setAnim({ i, cls: `anim-star-${1 + Math.floor(Math.random() * 3)}` })
+              onChange(n === value ? 0 : n)
+            }}
           >
             {on ? '★' : '☆'}
           </button>

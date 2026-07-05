@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -142,6 +143,8 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 			cands = append(cands, c...)
 		}
 	}
+	log.Printf("[lookup] movie %q year=%d media=%s: tmdb=%t tvdb=%t -> %d candidate(s), err=%v",
+		req.Title, req.Year, mediaType, tmdb != nil, tvdb != nil, len(cands), firstErr)
 
 	// Only surface an error when nothing came back at all — a partial failure
 	// (one source down, the other returning hits) still yields useful results.
