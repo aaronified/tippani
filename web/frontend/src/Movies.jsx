@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import {
-  CoverSizeSlider,
   EdgeRow,
   EmptyState,
   ExpandableDescription,
@@ -105,7 +104,7 @@ function MovieList({ onOpen }) {
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
-  const [coverSize, setCoverSize] = useCoverSize('tippani:size:movies', 150)
+  const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -188,7 +187,6 @@ function MovieList({ onOpen }) {
             </>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <CoverSizeSlider value={coverSize} onChange={setCoverSize} />
             {genres.length > 0 && (
               <select
                 className="tp-input w-auto"
@@ -258,7 +256,10 @@ function MovieList({ onOpen }) {
       )}
       {movies && movies.length > 0 && shown.length === 0 && <EmptyState>no titles match these filters</EmptyState>}
       {shown.length > 0 && (
-        <Reveal className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
+        <Reveal
+          className="grid gap-x-5 gap-y-8"
+          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
+        >
           {shown.map((m) => (
             <PosterCard key={m.id} movie={m} onOpen={onOpen} />
           ))}

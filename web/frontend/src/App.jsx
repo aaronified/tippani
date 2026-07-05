@@ -193,13 +193,85 @@ function Login({ onLogin }) {
 
 const TABS = [
   ['library', 'Library'],
-  ['movies', 'Movies'],
+  ['movies', 'Catalogue'],
   ['metadata', 'Metadata'],
   ['import', 'Import'],
   ['search', 'Search'],
   ['tags', 'Tags'],
   ['settings', 'Settings'],
 ]
+
+// TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
+// active-tab accent tint flows through it. Keyed by the tab key in TABS; the
+// Catalogue reel reuses the drawing salvaged from the retired cover-size slider.
+function TabIcon({ name }) {
+  const p = {
+    width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+  }
+  switch (name) {
+    case 'library': // open book
+      return (
+        <svg {...p}>
+          <path d="M12 6c-1.5-1-4-1.6-6.5-1.6V17c2.5 0 5 .6 6.5 1.6 1.5-1 4-1.6 6.5-1.6V4.4C16 4.4 13.5 5 12 6Z" />
+          <path d="M12 6v12.6" />
+        </svg>
+      )
+    case 'movies': // film reel
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="8.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="12" cy="6.4" r="1" />
+          <circle cx="17.6" cy="12" r="1" />
+          <circle cx="12" cy="17.6" r="1" />
+          <circle cx="6.4" cy="12" r="1" />
+        </svg>
+      )
+    case 'metadata': // stacked records
+      return (
+        <svg {...p}>
+          <rect x="4.5" y="8.5" width="11.5" height="10" rx="2" />
+          <path d="M7.5 6.2h8A2.5 2.5 0 0 1 18 8.7v7.8" />
+        </svg>
+      )
+    case 'import': // tray + down arrow
+      return (
+        <svg {...p}>
+          <path d="M5 13.5V17a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 17v-3.5" />
+          <path d="M12 4v9" />
+          <path d="m8.5 9.5 3.5 3.5 3.5-3.5" />
+        </svg>
+      )
+    case 'search': // magnifier
+      return (
+        <svg {...p}>
+          <circle cx="11" cy="11" r="6" />
+          <path d="m20 20-4.7-4.7" />
+        </svg>
+      )
+    case 'tags': // tag
+      return (
+        <svg {...p}>
+          <path d="M4 12.7V5.5A1.5 1.5 0 0 1 5.5 4h7.2a2 2 0 0 1 1.4.6l6 6a1.8 1.8 0 0 1 0 2.5l-6.4 6.4a1.8 1.8 0 0 1-2.5 0l-6-6a2 2 0 0 1-.6-1.4Z" />
+          <circle cx="8.8" cy="8.8" r="1.2" />
+        </svg>
+      )
+    case 'settings': // sliders
+      return (
+        <svg {...p}>
+          <path d="M4 8h9" />
+          <path d="M17 8h3" />
+          <circle cx="15" cy="8" r="2" />
+          <path d="M4 16h3" />
+          <path d="M11 16h9" />
+          <circle cx="9" cy="16" r="2" />
+        </svg>
+      )
+    default:
+      return null
+  }
+}
 
 // Shell is the logged-in frame (§7): topbar with mark + wordmark + tabs +
 // user-initial chip, and a {type, id} detail state so lists and search can
@@ -255,6 +327,7 @@ function Shell({ user, onLogout }) {
                 className={'tab' + (tab === key ? ' active' : '')}
                 aria-current={tab === key ? 'page' : undefined}
               >
+                <TabIcon name={key} />
                 {label}
               </button>
             ))}

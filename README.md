@@ -14,11 +14,13 @@
   <a href="go.mod"><img alt="Go" src="https://img.shields.io/github/go-mod/go-version/aaronified/tippani"></a>
   <a href="https://github.com/aaronified/tippani/pkgs/container/tippani"><img alt="Container" src="https://img.shields.io/badge/ghcr.io-aaronified%2Ftippani-2496ED?logo=docker&logoColor=white"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-amd64%20%C2%B7%20arm64%20(untested)-informational">
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/aaronified/tippani?color=blue"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/aaronified/tippani?color=blue&cacheSeconds=86400"></a>
 </p>
 
-<!-- The CI / Release / Go / License badges are dynamic and resolve once the repo is
-     public and pushed; until then GitHub renders them as "repo not found". -->
+<!-- Release / Go / License are dynamic shields badges reading the public GitHub API.
+     If one renders "repo not found" it's a stale GitHub camo image cache from before
+     the repo went public — it clears on its own; a query-param bump (e.g. cacheSeconds
+     on the license badge) forces GitHub to re-fetch the correct SVG immediately. -->
 
 
 ---
@@ -36,16 +38,20 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 
 ## Screenshots
 
-<!--
-Screenshots coming soon. Drop PNGs in docs/img/ and reference them here, e.g.:
+> ⚠️ Under active development — these screenshots may lag behind the current UI.
 
-<p align="center">
-  <img src="docs/img/library.png" width="49%" alt="Library">
-  <img src="docs/img/movie-detail.png" width="49%" alt="Movie dialogues">
-</p>
--->
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/library-paper-light.jpg" alt="Library — paper / light theme: a grid of book covers with genre filters"></td>
+    <td width="50%"><img src="docs/img/library-film-dark.jpg" alt="Library — film / dark theme: the same cover grid in the dark film aesthetic"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/img/import.jpg" alt="Import — cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
+    <td width="50%"><img src="docs/img/search.jpg" alt="Search — instant FTS5 results across books, annotations, movies and dialogues"></td>
+  </tr>
+</table>
 
-_Coming soon._
+<p align="center"><sub>Library (paper · light) &amp; (film · dark) · Import · Search</sub></p>
 
 ## Features
 

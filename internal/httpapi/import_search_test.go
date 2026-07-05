@@ -382,6 +382,18 @@ func TestSearchScopes(t *testing.T) {
 		res.Dialogues[0].Timestamp != "01:15:00" {
 		t.Fatalf("q=bogart: %+v", res)
 	}
+	// Prefix search (typeahead): the final token matches by prefix, so a partial
+	// word still finds the row. Regression for the handler using exact-token
+	// Query — "shaws" never found "shawshank"; here "herb"→Herbert, "casab"→Casablanca.
+	res = decode[searchResp](t, c.mustDo("GET", "/search?q=herb", nil, 200))
+	if len(res.Books) != 1 || res.Books[0].ID != book.ID {
+		t.Fatalf("prefix q=herb: %+v", res)
+	}
+	res = decode[searchResp](t, c.mustDo("GET", "/search?q=casab&scope=movies", nil, 200))
+	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID {
+		t.Fatalf("prefix q=casab: %+v", res)
+	}
+
 	// Scopes not requested come back as empty arrays.
 	res = decode[searchResp](t, c.mustDo("GET", "/search?q=fear&scope=books", nil, 200))
 	if len(res.Books)+len(res.Annotations)+len(res.Movies)+len(res.Dialogues) != 0 {

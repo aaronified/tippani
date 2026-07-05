@@ -9,7 +9,6 @@ import {
   FavBadge,
   Field,
   GhostButton,
-  CoverSizeSlider,
   ExpandableDescription,
   HandCard,
   HandNote,
@@ -105,7 +104,7 @@ function BookList({ onOpen }) {
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
-  const [coverSize, setCoverSize] = useCoverSize('tippani:size:books', 165)
+  const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
   const reveal = useReveal()
   const chipBudget = useChipBudget()
 
@@ -204,7 +203,6 @@ function BookList({ onOpen }) {
             </>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <CoverSizeSlider value={coverSize} onChange={setCoverSize} />
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>

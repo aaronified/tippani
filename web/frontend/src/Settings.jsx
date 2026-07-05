@@ -8,6 +8,7 @@ import {
   PageHeader,
   StickerButton,
   frameCode,
+  useCoverSize,
   useFrameBase,
 } from './ui.jsx'
 
@@ -160,6 +161,34 @@ function Segmented({ label, value, options, onChange }) {
   )
 }
 
+// SizeSlider — a plain range that sets a catalogue grid's cell size, persisted
+// per screen in localStorage via useCoverSize. The Library and Catalogue grids
+// read the same key on mount, so changing it here resizes their posters/covers.
+// (Replaces the old reel "roll" slider that sat in the toolbars — and never even
+// drove the movie grid.)
+function SizeSlider({ label, storageKey, def }) {
+  const [size, setSize] = useCoverSize(storageKey, def)
+  return (
+    <div>
+      <MonoLabel className="mb-2 block">{label}</MonoLabel>
+      <div className="flex items-center gap-3" style={{ minHeight: 36 }}>
+        <input
+          type="range"
+          min={96}
+          max={240}
+          value={size}
+          aria-label={label}
+          onChange={(e) => setSize(Number(e.target.value))}
+          style={{ width: 190, accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
+        />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--faint)', minWidth: 42 }}>
+          {size}px
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // Four static palette previews rendered with hardcoded §4 palette colours; the
 // live accent is threaded through so all four update when the accent changes.
 const PREVIEWS = [
@@ -260,7 +289,7 @@ function Appearance({ user }) {
           label="Start page"
           value={home}
           onChange={(v) => update({ home: v })}
-          options={[['library', 'Library'], ['movies', 'Movies']]}
+          options={[['library', 'Library'], ['movies', 'Catalogue']]}
         />
         <div>
           <MonoLabel className="mb-2 block">Accent</MonoLabel>
@@ -287,6 +316,11 @@ function Appearance({ user }) {
             })}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-x-10 gap-y-5">
+        <SizeSlider label="Library cover size" storageKey="tippani:size:books" def={165} />
+        <SizeSlider label="Catalogue poster size" storageKey="tippani:size:movies" def={150} />
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

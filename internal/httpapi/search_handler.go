@@ -62,7 +62,10 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		limit = n
 	}
 
-	match := search.Query(q) // never pass raw input to MATCH
+	// PrefixQuery (not Query) so the final token matches as a prefix — this is a
+	// typeahead search box, so "shaws" must find "shawshank" (PLAN §4). Still
+	// escaped/quoted per-token; raw input never reaches MATCH.
+	match := search.PrefixQuery(q)
 	uid := userID(r)
 	resp := struct {
 		Books       []bookHit       `json:"books"`
