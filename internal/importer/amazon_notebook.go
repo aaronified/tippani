@@ -19,7 +19,10 @@ import (
 var (
 	anTitle     = regexp.MustCompile(`(?s)id="annotationBookTitle"[^>]*>(.*?)</`)
 	anTitleH3   = regexp.MustCompile(`(?s)<h3[^>]*kp-notebook-metadata[^>]*>(.*?)</h3>`)
-	anAuthor    = regexp.MustCompile(`(?s)<p[^>]*kp-notebook-metadata[^>]*>(.*?)</p>`)
+	// The page has two <p ... kp-notebook-metadata>: a bold "Your Kindle Notes
+	// For:" label and the author. Capture attrs+inner so we can pick the author,
+	// which is the a-color-secondary one (the label is a-color-base / bold-caps).
+	anAuthor    = regexp.MustCompile(`(?s)<p([^>]*kp-notebook-metadata[^>]*)>(.*?)</p>`)
 	anAsinA     = regexp.MustCompile(`id="kp-notebook-annotations-asin"[^>]*value="([^"]+)"`)
 	anAsinB     = regexp.MustCompile(`value="([^"]+)"[^>]*id="kp-notebook-annotations-asin"`)
 	anHeader    = regexp.MustCompile(`(?s)id="annotationHighlightHeader"[^>]*>(.*?)</span>`)
@@ -52,8 +55,11 @@ func AmazonNotebook(r io.Reader) (*Result, error) {
 	if res.Book.Title == "" {
 		return nil, errors.New("kindle notebook: no book title found (not a saved read.amazon.com/notebook page?)")
 	}
-	if m := anAuthor.FindStringSubmatch(doc); m != nil {
-		res.Book.Author = anByPrefix.ReplaceAllString(cleanHTMLText(m[1]), "")
+	for _, m := range anAuthor.FindAllStringSubmatch(doc, -1) {
+		if strings.Contains(m[1], "a-color-secondary") { // the author line, not the bold label
+			res.Book.Author = anByPrefix.ReplaceAllString(cleanHTMLText(m[2]), "")
+			break
+		}
 	}
 	if m := anAsinA.FindStringSubmatch(doc); m != nil {
 		res.Book.ASIN = strings.TrimSpace(m[1])

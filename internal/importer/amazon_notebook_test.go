@@ -46,6 +46,47 @@ func TestAmazonNotebookSynth(t *testing.T) {
 	}
 }
 
+// TestAmazonNotebookReal runs against a real saved read.amazon.com/notebook page
+// (gitignored for privacy). Skips in CI where the fixture is absent.
+func TestAmazonNotebookReal(t *testing.T) {
+	f, err := os.Open("testdata/amazon_notebook_real.htm")
+	if err != nil {
+		t.Skip("real Kindle notebook fixture not present (gitignored — owner privacy)")
+	}
+	defer f.Close()
+	res, err := AmazonNotebook(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(res.Book.Title) == "" {
+		t.Fatal("no title parsed from real page")
+	}
+	// The author must be the a-color-secondary line, never the bold
+	// "Your Kindle Notes For:" label.
+	if res.Book.Author == "" || strings.Contains(strings.ToLower(res.Book.Author), "kindle notes for") {
+		t.Fatalf("author = %q (grabbed the label instead of the author?)", res.Book.Author)
+	}
+	if len(res.Annotations) == 0 {
+		t.Fatal("no highlights parsed from real page")
+	}
+	for i, a := range res.Annotations {
+		if strings.TrimSpace(a.Quote) == "" {
+			t.Fatalf("annotation[%d] has empty quote", i)
+		}
+		if !validColorName(a.Color) {
+			t.Fatalf("annotation[%d] bad colour %q", i, a.Color)
+		}
+	}
+}
+
+func validColorName(c string) bool {
+	switch c {
+	case "yellow", "blue", "pink", "orange":
+		return true
+	}
+	return false
+}
+
 func TestAmazonNotebookNotAPage(t *testing.T) {
 	if _, err := AmazonNotebook(strings.NewReader("<html>nope</html>")); err == nil {
 		t.Fatal("expected an error for a non-notebook page")
