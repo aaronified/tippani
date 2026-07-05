@@ -20,6 +20,8 @@ import '@fontsource/noto-serif-bengali/400.css'
 import './index.css'
 import App from './App.jsx'
 import { applyTheme } from './theme.js'
+import { initTactile } from './ui.jsx'
 
 applyTheme({}) // defaults until /auth/me preferences load (§4)
+initTactile() // "press where you clicked" for .tactile toggles + buttons
 createRoot(document.getElementById('root')).render(<App />)

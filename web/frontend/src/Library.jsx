@@ -21,6 +21,7 @@ import {
   Placeholder,
   TagChip,
   TiltStars,
+  Toggle,
   bySeries,
   filterChipClass,
   seriesLabel,
@@ -315,31 +316,6 @@ function BookList({ onOpen }) {
 
 // ---- add-book modal (§8.4, mockups 10–11) ----
 
-// Segmented is the Look up | Manual tab switch in the modal header.
-function Segmented({ value, onChange, options }) {
-  return (
-    <div
-      className="inline-flex overflow-hidden"
-      style={{ border: '1.4px solid var(--ink-border)', borderRadius: 10 }}
-      role="tablist"
-    >
-      {options.map(([k, label]) => (
-        <button
-          key={k}
-          type="button"
-          role="tab"
-          aria-selected={value === k}
-          onClick={() => onChange(k)}
-          className={'px-4 text-sm font-semibold ' + (value === k ? 'sheen-accent' : '')}
-          style={{ minHeight: 40, border: 'none', ...(value === k ? {} : { color: 'var(--soft)', background: 'transparent' }) }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 function AddBookModal({ onClose, onAdded }) {
   const [mode, setMode] = useState('lookup')
 
@@ -365,7 +341,7 @@ function AddBookModal({ onClose, onAdded }) {
       <HandCard variant={2} className="w-full max-w-xl px-7 py-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <h2 className="display-title text-xl">Add book</h2>
-          <Segmented value={mode} onChange={setMode} options={[['lookup', 'Look up'], ['manual', 'Manual']]} />
+          <Toggle ariaLabel="Add mode" value={mode} onChange={setMode} options={[['lookup', 'Look up'], ['manual', 'Manual']]} />
         </div>
         {mode === 'lookup' ? <LookupTab onAdded={onAdded} /> : <ManualTab onAdded={onAdded} />}
       </HandCard>
@@ -843,13 +819,14 @@ function ViewIcon({ kind }) {
 
 function ViewToggle({ value, onChange }) {
   return (
-    <Segmented
+    <Toggle
+      ariaLabel="View"
       value={value}
       onChange={onChange}
       options={[
-        ['tiles', <span key="t" className="vt-opt"><ViewIcon kind="tiles" /> Tiles</span>],
-        ['list', <span key="l" className="vt-opt"><ViewIcon kind="list" /> List</span>],
-        ['table', <span key="b" className="vt-opt"><ViewIcon kind="table" /> Table</span>],
+        ['tiles', <><ViewIcon kind="tiles" /> Tiles</>],
+        ['list', <><ViewIcon kind="list" /> List</>],
+        ['table', <><ViewIcon kind="table" /> Table</>],
       ]}
     />
   )

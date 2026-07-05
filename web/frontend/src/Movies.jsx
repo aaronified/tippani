@@ -19,6 +19,7 @@ import {
   Sprockets,
   TagChip,
   TiltStars,
+  Toggle,
   bySeries,
   filterChipClass,
   frameCode,
@@ -358,13 +359,8 @@ function AddMovieModal({ tmdbSource, onClose, onAdded }) {
         <h2 className="display-title text-xl">Add title</h2>
         <GhostButton onClick={onClose}>Close</GhostButton>
       </div>
-      <div className="mb-4 flex gap-1.5">
-        <button className={filterChipClass(mode === 'lookup')} onClick={() => setMode('lookup')}>
-          Look up
-        </button>
-        <button className={filterChipClass(mode === 'manual')} onClick={() => setMode('manual')}>
-          Manual
-        </button>
+      <div className="mb-4">
+        <Toggle ariaLabel="Add mode" value={mode} onChange={setMode} options={[['lookup', 'Look up'], ['manual', 'Manual']]} />
       </div>
       {noKey && (
         <p className="tp-error mb-3" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
@@ -634,21 +630,10 @@ function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
   )
 }
 
-// MediaTypeToggle — the Movie | Show segmented switch, reused by the add + edit
-// forms (TV is folded into movies via media_type).
+// MediaTypeToggle — the Movie | Show switch, reused by the add + edit forms
+// (TV is folded into movies via media_type).
 function MediaTypeToggle({ value, onChange }) {
-  return (
-    <div className="flex gap-1.5">
-      {[
-        ['movie', 'Movie'],
-        ['show', 'Show'],
-      ].map(([k, label]) => (
-        <button key={k} type="button" className={filterChipClass(value === k)} onClick={() => onChange(k)}>
-          {label}
-        </button>
-      ))}
-    </div>
-  )
+  return <Toggle ariaLabel="Media type" value={value} onChange={onChange} options={[['movie', 'Movie'], ['show', 'Show']]} />
 }
 
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----

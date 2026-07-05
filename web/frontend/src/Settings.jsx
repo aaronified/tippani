@@ -7,6 +7,7 @@ import {
   MonoLabel,
   PageHeader,
   StickerButton,
+  Toggle,
   frameCode,
   useCoverSize,
   useFrameBase,
@@ -115,51 +116,6 @@ function StatusChip({ tone = 'muted', children }) {
 }
 
 // ---- 1. Appearance (§4, mockup 26) ----
-
-function Segmented({ label, value, options, onChange }) {
-  return (
-    <div>
-      <MonoLabel className="mb-2 block">{label}</MonoLabel>
-      <div
-        role="group"
-        style={{
-          display: 'inline-flex',
-          gap: 3,
-          padding: 4,
-          background: 'var(--card)',
-          border: '1.4px solid var(--line)',
-          borderRadius: 11,
-        }}
-      >
-        {options.map(([val, lbl]) => {
-          const on = value === val
-          return (
-            <button
-              key={val}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onChange(val)}
-              className={on ? 'sheen-accent' : ''}
-              style={{
-                minHeight: 36,
-                padding: '6px 15px',
-                fontFamily: 'var(--font-ui)',
-                fontSize: 14,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: 'none',
-                background: on ? undefined : 'transparent',
-                color: on ? undefined : 'var(--soft)',
-              }}
-            >
-              {lbl}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 // SizeSlider — a plain range that sets a catalogue grid's cell size, persisted
 // per screen in localStorage via useCoverSize. The Library and Catalogue grids
@@ -280,19 +236,19 @@ function Appearance({ user, onPreferences }) {
     <Card>
       <SectionTitle>Appearance</SectionTitle>
       <div className="flex flex-wrap gap-x-10 gap-y-5">
-        <Segmented
+        <Toggle
           label="Aesthetic"
           value={aesthetic}
           onChange={(v) => update({ aesthetic: v })}
           options={[['paper', 'Paper'], ['film', 'Film']]}
         />
-        <Segmented
+        <Toggle
           label="Theme"
           value={theme}
           onChange={(v) => update({ theme: v })}
           options={[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']]}
         />
-        <Segmented
+        <Toggle
           label="Start page"
           value={home}
           onChange={(v) => update({ home: v })}

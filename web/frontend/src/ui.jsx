@@ -1,7 +1,7 @@
 // Shared visual primitives for the tippani UI (instructions §5–§6), plus thin
 // compatibility exports the pre-redesign pages still import — the page pass
 // replaces those call sites, then the compat block can shrink.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 // The four fixed annotation colours (§4, Kindle default yellow).
 export const ANNOTATION_COLORS = ['yellow', 'blue', 'pink', 'orange']
@@ -385,6 +385,88 @@ export function ExpandableText({ text, lines = 5, style, className = '' }) {
           {open ? 'show less' : 'show more'}
         </span>
       )}
+    </div>
+  )
+}
+
+// initTactile wires a "press where you clicked" feel for any element carrying
+// the .tactile class (toggles + primary buttons): on pointerdown it records the
+// pointer position into --px/--py on that element and flags data-pressing, so
+// CSS can bloom a small depression at exactly that spot. One delegated listener
+// — no per-component wiring. Off under prefers-reduced-motion. Call once at boot.
+let tactileWired = false
+export function initTactile() {
+  if (tactileWired || typeof document === 'undefined') return
+  tactileWired = true
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      const el = e.target.closest && e.target.closest('.tactile')
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      el.style.setProperty('--px', `${e.clientX - r.left}px`)
+      el.style.setProperty('--py', `${e.clientY - r.top}px`)
+      el.dataset.pressing = '1'
+      const release = () => {
+        el.dataset.pressing = '0'
+        window.removeEventListener('pointerup', release)
+        window.removeEventListener('pointercancel', release)
+      }
+      window.addEventListener('pointerup', release)
+      window.addEventListener('pointercancel', release)
+    },
+    true,
+  )
+}
+
+// Toggle — the one segmented switch used everywhere (2- or 3-option). The active
+// "thumb" slides between options with a rubbery spring, and a press depression
+// blooms where you click (initTactile). The thumb is measured off the live DOM,
+// so it tracks any label widths (incl. icon labels). Optional MonoLabel above.
+export function Toggle({ value, onChange, options, label, ariaLabel, className = '' }) {
+  const ref = useRef(null)
+  const thumbRef = useRef(null)
+  const idx = Math.max(0, options.findIndex(([k]) => k === value))
+  useLayoutEffect(() => {
+    const el = ref.current
+    const thumb = thumbRef.current
+    if (!el || !thumb) return
+    const place = () => {
+      const btns = el.querySelectorAll('.tp-toggle-opt')
+      const a = btns[idx]
+      if (!a) return
+      thumb.style.width = `${a.offsetWidth}px`
+      thumb.style.transform = `translateX(${a.offsetLeft}px)`
+    }
+    place()
+    const ro = new ResizeObserver(place)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [idx, options.length])
+  const control = (
+    <div ref={ref} role="tablist" aria-label={ariaLabel || label} className={`tp-toggle tactile ${className}`}>
+      <span ref={thumbRef} className="tp-toggle-thumb" aria-hidden="true" />
+      {options.map(([k, lbl]) => (
+        <button
+          key={k}
+          type="button"
+          role="tab"
+          aria-selected={value === k}
+          aria-pressed={value === k}
+          className={'tp-toggle-opt' + (value === k ? ' is-on' : '')}
+          onClick={() => onChange(k)}
+        >
+          {lbl}
+        </button>
+      ))}
+    </div>
+  )
+  if (!label) return control
+  return (
+    <div>
+      <MonoLabel className="mb-2 block">{label}</MonoLabel>
+      {control}
     </div>
   )
 }
