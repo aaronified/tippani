@@ -252,8 +252,15 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if b.genreCount == 0 && len(cand.Genres) > 0 {
+				// Cap fetched genres at 5 per item — suppliers can return a long
+				// tail of low-signal tags, and manual entry (which doesn't come
+				// through here) is left untouched.
+				genres := cand.Genres
+				if len(genres) > 5 {
+					genres = genres[:5]
+				}
 				if tx, terr := s.Store.DB.Begin(); terr == nil {
-					if setGenres(tx, "book", b.uid, b.id, cand.Genres) == nil {
+					if setGenres(tx, "book", b.uid, b.id, genres) == nil {
 						_ = tx.Commit()
 					} else {
 						_ = tx.Rollback()
