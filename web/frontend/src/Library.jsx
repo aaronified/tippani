@@ -19,6 +19,7 @@ import {
   MonoLabel,
   PageHeader,
   Placeholder,
+  Select,
   TagChip,
   TiltStars,
   Toggle,
@@ -190,19 +191,12 @@ function BookList({ onOpen }) {
                 </button>
               ))}
               {moreGenres.length > 0 && (
-                <select
-                  className={filterChipClass(activeInMore) + ' cursor-pointer'}
-                  title="More genres"
+                <Select
+                  ariaLabel="More genres"
                   value={activeInMore ? genre : ''}
-                  onChange={(e) => setGenre(e.target.value)}
-                >
-                  <option value="">More…</option>
-                  {moreGenres.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setGenre}
+                  options={[['', 'More…'], ...moreGenres.map((g) => [g, g])]}
+                />
               )}
             </>
           )}
@@ -212,45 +206,21 @@ function BookList({ onOpen }) {
             </button>
             <MinRatingSelect value={minRating} onChange={setMinRating} />
             {seriesNames.length > 0 && (
-              <select
-                className="tp-input w-auto"
-                title="Filter by series"
+              <Select
+                ariaLabel="Filter by series"
                 value={series}
-                onChange={(e) => setSeries(e.target.value)}
-              >
-                <option value="">all series</option>
-                {seriesNames.map((sname) => (
-                  <option key={sname} value={sname}>
-                    {sname}
-                  </option>
-                ))}
-              </select>
+                onChange={setSeries}
+                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+              />
             )}
             <label className="flex items-center gap-2">
               <MonoLabel>sort</MonoLabel>
-              <select
-                className="cursor-pointer"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px 2px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--faint)',
-                }}
-                title="Sort"
+              <Select
+                ariaLabel="Sort"
                 value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="recent">recent</option>
-                <option value="title">title</option>
-                <option value="author">author</option>
-                <option value="rating">rating</option>
-                <option value="series">series</option>
-              </select>
+                onChange={setSort}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['rating', 'Rating'], ['series', 'Series']]}
+              />
             </label>
           </div>
         </div>
@@ -1085,36 +1055,22 @@ function Annotations({ bookId }) {
         <MonoLabel>filter</MonoLabel>
         <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
         {tags.length > 0 && (
-          <select
-            className="tp-input w-auto"
-            title="Filter by tag"
+          <Select
+            ariaLabel="Filter by tag"
             value={tag}
-            onChange={(e) => setTag(e.target.value)}
-          >
-            <option value="">all tags</option>
-            {tags.map((t) => (
-              <option key={t.id} value={t.name}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+            onChange={setTag}
+            options={[['', 'all tags'], ...tags.map((t) => [t.name, t.name])]}
+          />
         )}
         <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
           ♥ favourites
         </button>
-        <select
-          className="tp-input w-auto"
-          title="Minimum rating"
-          value={minRating}
-          onChange={(e) => setMinRating(e.target.value)}
-        >
-          <option value="">any rating</option>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <option key={n} value={n}>
-              rating ≥ {n}
-            </option>
-          ))}
-        </select>
+        <Select
+          ariaLabel="Minimum rating"
+          value={String(minRating)}
+          onChange={setMinRating}
+          options={[['', 'any rating'], ['1', 'rating ≥ 1'], ['2', 'rating ≥ 2'], ['3', 'rating ≥ 3'], ['4', 'rating ≥ 4'], ['5', 'rating ≥ 5']]}
+        />
         <span className="ml-auto flex items-center gap-3">
           <MonoLabel>{countsLabel}</MonoLabel>
           <ViewToggle value={view} onChange={setView} />

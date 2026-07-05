@@ -186,6 +186,85 @@
     .tactile::after { display: none; }
   }
 
+  /* ---- the one Select (§ design): tactile trigger + a panel that dips open,
+     carrying Toggle's sliding accent thumb (vertical) for a homogeneous feel ---- */
+  .tp-select { position: relative; display: inline-block; }
+  .tp-select-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--card);
+    border: 1.4px solid var(--ink-border);
+    border-radius: 10px 8px 11px 8px / 8px 11px 8px 10px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.09);
+  }
+  html[data-aesthetic="film"] .tp-select-trigger { border-radius: 8px; border-color: var(--frame-border); }
+  .tp-select-ph { color: var(--faint); }
+  .tp-select-chev { color: var(--soft); transition: transform .22s ease; flex: none; }
+  .tp-select-trigger[aria-expanded="true"] .tp-select-chev { transform: rotate(180deg); }
+  .tp-select-panel {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 5px);
+    left: 0;
+    min-width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 5px;
+    background: var(--raised);
+    border: 1.4px solid var(--ink-border);
+    border-radius: 11px;
+    box-shadow: 0 12px 28px -8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.18);
+    isolation: isolate;
+    animation: tp-dip .16s ease;
+  }
+  @keyframes tp-dip { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .tp-select-thumb {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    top: 0;
+    height: 0;
+    z-index: 0;
+    opacity: 0;
+    border-radius: 8px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    box-shadow: 0 1px 2px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.3);
+    transition: transform .34s cubic-bezier(.34,1.4,.5,1), height .34s cubic-bezier(.34,1.4,.5,1);
+  }
+  html[data-theme="dark"] .tp-select-thumb {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+  }
+  .tp-select-opt {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--ink);
+    white-space: nowrap;
+    transition: color .2s ease;
+  }
+  .tp-select-opt.is-hi { color: #FFF9EC; }
+  html[data-theme="dark"] .tp-select-opt.is-hi { color: #15100C; }
+  @media (prefers-reduced-motion: reduce) {
+    .tp-select-panel, .tp-select-thumb { animation: none; transition: none; }
+  }
+
   /* ---- reveal-on-scroll (§5): pair with the useReveal hook ---- */
   .reveal {
     opacity: 0;

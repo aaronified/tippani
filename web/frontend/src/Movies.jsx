@@ -16,6 +16,7 @@ import {
   MonoLabel,
   PageHeader,
   Placeholder,
+  Select,
   Sprockets,
   TagChip,
   TiltStars,
@@ -189,64 +190,33 @@ function MovieList({ onOpen }) {
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {genres.length > 0 && (
-              <select
-                className="tp-input w-auto"
-                title="Filter by genre"
+              <Select
+                ariaLabel="Filter by genre"
                 value={genre}
-                onChange={(e) => setGenre(e.target.value)}
-              >
-                <option value="">all genres</option>
-                {genres.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
+                onChange={setGenre}
+                options={[['', 'all genres'], ...genres.map((g) => [g, g])]}
+              />
             )}
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>
             <MinRatingSelect value={minRating} onChange={setMinRating} />
             {seriesNames.length > 0 && (
-              <select
-                className="tp-input w-auto"
-                title="Filter by series"
+              <Select
+                ariaLabel="Filter by series"
                 value={series}
-                onChange={(e) => setSeries(e.target.value)}
-              >
-                <option value="">all series</option>
-                {seriesNames.map((sname) => (
-                  <option key={sname} value={sname}>
-                    {sname}
-                  </option>
-                ))}
-              </select>
+                onChange={setSeries}
+                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+              />
             )}
             <label className="flex items-center gap-2">
               <MonoLabel>sort</MonoLabel>
-              <select
-                className="cursor-pointer"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '8px 2px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: '.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--faint)',
-                }}
-                title="Sort"
+              <Select
+                ariaLabel="Sort"
                 value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="recent">recent</option>
-                <option value="title">title</option>
-                <option value="year">year</option>
-                <option value="rating">rating</option>
-                <option value="series">series</option>
-              </select>
+                onChange={setSort}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['rating', 'Rating'], ['series', 'Series']]}
+              />
             </label>
           </div>
         </div>
@@ -973,19 +943,12 @@ function Dialogues({ movieId, cast }) {
           </button>
           <MinRatingSelect value={minRating} onChange={setMinRating} />
           {tags.length > 0 && (
-            <select
-              className="tp-input w-auto"
-              title="Filter by tag"
+            <Select
+              ariaLabel="Filter by tag"
               value={tag}
-              onChange={(e) => setTag(e.target.value)}
-            >
-              <option value="">All tags</option>
-              {tags.map((t) => (
-                <option key={t.id} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              onChange={setTag}
+              options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
+            />
           )}
         </div>
       </div>

@@ -471,6 +471,81 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
   )
 }
 
+// Select — the on-brand dropdown that replaces native <select> (which renders
+// the OS list). The trigger is a tactile field; the panel dips open below it and
+// carries the SAME sliding accent thumb as Toggle (just vertical) so the
+// highlight animates identically. Hover or arrow keys move the highlight; click
+// or Enter commits. Closes on outside-click / Escape.
+export function Select({ value, onChange, options, ariaLabel, placeholder = 'Select…', className = '', width }) {
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(0) // highlighted row (hover / keyboard)
+  const ref = useRef(null)
+  const panelRef = useRef(null)
+  const thumbRef = useRef(null)
+  const idx = options.findIndex(([v]) => v === value)
+  const label = idx >= 0 ? options[idx][1] : placeholder
+  useEffect(() => { if (open) setHi(idx >= 0 ? idx : 0) }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    const thumb = thumbRef.current
+    if (!panel || !thumb) return
+    const el = panel.querySelectorAll('.tp-select-opt')[hi]
+    if (!el) return
+    thumb.style.height = `${el.offsetHeight}px`
+    thumb.style.transform = `translateY(${el.offsetTop}px)`
+    thumb.style.opacity = '1'
+  }, [open, hi, options.length])
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => {
+      if (e.key === 'Escape') return setOpen(false)
+      if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(options.length - 1, h + 1)) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(0, h - 1)) }
+      else if (e.key === 'Enter' && options[hi]) { e.preventDefault(); onChange(options[hi][0]); setOpen(false) }
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open, hi, options, onChange])
+  return (
+    <div className={`tp-select ${className}`} ref={ref} style={width ? { width } : undefined}>
+      <button
+        type="button"
+        className="tp-select-trigger tactile"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className={idx >= 0 ? '' : 'tp-select-ph'}>{label}</span>
+        <svg className="tp-select-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m4 6 4 4 4-4" />
+        </svg>
+      </button>
+      {open && (
+        <div className="tp-select-panel" role="listbox" ref={panelRef}>
+          <span className="tp-select-thumb" ref={thumbRef} aria-hidden="true" />
+          {options.map(([v, lbl], i) => (
+            <button
+              key={v}
+              type="button"
+              role="option"
+              aria-selected={v === value}
+              className={'tp-select-opt tactile' + (i === hi ? ' is-hi' : '')}
+              onMouseEnter={() => setHi(i)}
+              onClick={() => { onChange(v); setOpen(false) }}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.
@@ -620,20 +695,12 @@ export function RatingStars({ value, onChange }) {
 // MinRatingSelect filters a list by minimum rating; '' means any.
 export function MinRatingSelect({ value, onChange }) {
   return (
-    <select
-      className="tp-input w-auto"
-      title="Minimum rating"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">Any rating</option>
-      {[1, 2, 3, 4].map((n) => (
-        <option key={n} value={n}>
-          {n}+
-        </option>
-      ))}
-      <option value="5">5</option>
-    </select>
+    <Select
+      ariaLabel="Minimum rating"
+      value={String(value)}
+      onChange={(v) => onChange(v)}
+      options={[['', 'Any rating'], ['1', '1+'], ['2', '2+'], ['3', '3+'], ['4', '4+'], ['5', '5']]}
+    />
   )
 }
 
