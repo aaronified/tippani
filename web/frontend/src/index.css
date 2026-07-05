@@ -428,6 +428,58 @@
   }
   .tp-btn-primary:hover:not(:disabled) { filter: brightness(1.05); }
 
+  /* ---- materials (§ design): tactile faces from the uploaded textures.
+     Cards get paper (paper) / brushed metal (film); accent buttons + toggle
+     thumbs get leather (paper) / rubber (film). Each is a grayscale tile blended
+     over the surface, behind the content — subtle, legibility preserved. ---- */
+  .hand-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;               /* hand-card is already isolated: sits above its bg, below content */
+    border-radius: inherit;
+    pointer-events: none;
+    background-repeat: repeat;
+    opacity: .06;
+    mix-blend-mode: multiply;
+  }
+  html[data-theme="dark"] .hand-card::before { mix-blend-mode: screen; opacity: .05; }
+  html[data-aesthetic="paper"] .hand-card::before { background-image: url("./textures/paper.webp"); background-size: 300px; }
+  html[data-aesthetic="film"] .hand-card::before { background-image: url("./textures/metal.webp"); background-size: 300px; }
+
+  .btn-sticker, .btn-film, .tp-btn-primary { isolation: isolate; }
+  .btn-sticker::before, .btn-film::before, .tp-btn-primary::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-repeat: repeat;
+    background-size: 150px;
+    opacity: .5;
+    mix-blend-mode: overlay;
+  }
+  .btn-sticker::before,
+  html[data-aesthetic="paper"] .tp-btn-primary::before { background-image: url("./textures/fabric.webp"); }
+  .btn-film::before,
+  html[data-aesthetic="film"] .tp-btn-primary::before { background-image: url("./textures/rubber.webp"); }
+
+  /* Filter toggle + select thumbs get the same leather/rubber grain (the nav
+     toggle overrides with wood/metal so the shell stays distinct). */
+  html[data-aesthetic="paper"] .tp-toggle-thumb,
+  html[data-aesthetic="paper"] .tp-select-thumb {
+    background-image: url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: 130px, auto;
+    background-blend-mode: overlay, normal;
+  }
+  html[data-aesthetic="film"] .tp-toggle-thumb,
+  html[data-aesthetic="film"] .tp-select-thumb {
+    background-image: url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-size: 130px, auto;
+    background-blend-mode: overlay, normal;
+  }
+
   /* ---- inputs (§6/§8): mono labels above, wobbly borders on paper ---- */
   .tp-input {
     width: 100%;
