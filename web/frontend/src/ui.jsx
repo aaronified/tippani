@@ -84,7 +84,7 @@ function PlayfulButton({ base, className = '', onClick, ...rest }) {
   return (
     <button
       {...rest}
-      className={`tp-btn ${base} ${animClass} ${className}`}
+      className={`tp-btn tactile ${base} ${animClass} ${className}`}
       onClick={(e) => {
         play()
         onClick?.(e)
@@ -402,7 +402,7 @@ export function initTactile() {
   document.addEventListener(
     'pointerdown',
     (e) => {
-      const el = e.target.closest && e.target.closest('.tactile')
+      const el = e.target.closest && e.target.closest('.tactile, .tp-btn')
       if (!el) return
       const r = el.getBoundingClientRect()
       el.style.setProperty('--px', `${e.clientX - r.left}px`)
