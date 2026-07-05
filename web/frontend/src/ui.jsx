@@ -546,6 +546,35 @@ export function Select({ value, onChange, options, ariaLabel, placeholder = 'Sel
   )
 }
 
+// ConfirmDialog — an on-brand confirmation modal (replaces native confirm()):
+// title, optional body, and Cancel / confirm tactile buttons. Escape or a
+// backdrop click cancels. Render it conditionally with `open`.
+export function ConfirmDialog({ open, title, body, confirmLabel = 'Confirm', onConfirm, onCancel }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => e.key === 'Escape' && onCancel && onCancel()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onCancel])
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
+      style={{ background: 'rgba(21,16,12,.55)' }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget && onCancel) onCancel() }}
+    >
+      <div role="dialog" aria-modal="true" aria-label={title} className="hand-card hc-r2 w-full max-w-md px-6 py-6">
+        <h2 className="display-title mb-2" style={{ fontSize: 20 }}>{title}</h2>
+        {body && <div className="mb-5" style={{ color: 'var(--soft)', fontSize: 14, lineHeight: 1.55 }}>{body}</div>}
+        <div className="flex justify-end gap-2">
+          <GhostButton onClick={onCancel}>Cancel</GhostButton>
+          <StickerButton onClick={onConfirm}>{confirmLabel}</StickerButton>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Tooltip — an on-brand hover/focus bubble that replaces native title= tooltips.
 // Visibility is pure CSS (hover + focus-within) so it works for pointer and
 // keyboard focus; the label wraps in an inverse chip. Wrap any trigger.

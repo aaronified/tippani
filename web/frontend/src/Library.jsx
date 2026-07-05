@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { json, errText } from './api.js'
+import { json, errText, downloadPost } from './api.js'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote, StickerTag } from './flow.jsx'
 import {
   ColorSwatches,
+  ConfirmDialog,
   Cover,
   EmptyState,
   ErrorText,
@@ -109,6 +110,7 @@ function BookList({ onOpen }) {
   const [minRating, setMinRating] = useState('')
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
   const chipBudget = useChipBudget()
@@ -163,7 +165,7 @@ function BookList({ onOpen }) {
         right={
           <>
             <MonoLabel>lookup: ISBN or title</MonoLabel>
-            <GhostButton onClick={() => (window.location.href = '/export')}>Export all</GhostButton>
+            <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
             <button className={PRIMARY} onClick={() => setAdding(true)}>
               ＋ Add book
             </button>
@@ -255,6 +257,22 @@ function BookList({ onOpen }) {
           }}
         />
       )}
+      <ConfirmDialog
+        open={exporting}
+        title="Export library"
+        body={
+          <>
+            {plural(shown.length, 'book')} · {plural(shown.reduce((n, b) => n + (b.annotation_count || 0), 0), 'quote')} in view will
+            be exported as a single Markdown file (re-importable into Tippani).
+          </>
+        }
+        confirmLabel="Export"
+        onCancel={() => setExporting(false)}
+        onConfirm={async () => {
+          setExporting(false)
+          await downloadPost('/export/books', { ids: shown.map((b) => b.id) }, 'tippani-books.md')
+        }}
+      />
     </section>
   )
 }

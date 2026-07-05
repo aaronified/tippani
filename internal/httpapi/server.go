@@ -137,6 +137,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /books/{id}/export", s.requireAuth(s.handleExportBook))
 	mux.Handle("GET /movies/{id}/export", s.requireAuth(s.handleExportMovie))
 	mux.Handle("GET /export", s.requireAuth(s.handleExportAll))
+	// Export a chosen set (the in-view/filtered set the UI passes) as one
+	// multi-item markdown file; empty ids => everything of that kind.
+	mux.Handle("POST /export/books", s.requireAuth(s.handleExportBooks))
+	mux.Handle("POST /export/movies", s.requireAuth(s.handleExportMovies))
 
 	// Library stats + metadata source status (§10).
 	mux.Handle("GET /stats", s.requireAuth(s.handleStats))

@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { json, errText } from './api.js'
+import { json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import {
+  ConfirmDialog,
   EdgeRow,
   EmptyState,
   ExpandableDescription,
@@ -106,6 +107,7 @@ function MovieList({ onOpen }) {
   const [minRating, setMinRating] = useState('')
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
 
@@ -166,6 +168,7 @@ function MovieList({ onOpen }) {
             <MonoLabel className="hidden sm:inline">
               {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
             </MonoLabel>
+            <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
             <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
               ＋ Add title
             </button>
@@ -237,6 +240,22 @@ function MovieList({ onOpen }) {
           }}
         />
       )}
+      <ConfirmDialog
+        open={exporting}
+        title="Export catalogue"
+        body={(() => {
+          const shows = shown.filter((m) => (m.media_type || 'movie') === 'show').length
+          const films = shown.length - shows
+          const parts = [films > 0 && `${films} movie${films === 1 ? '' : 's'}`, shows > 0 && `${shows} show${shows === 1 ? '' : 's'}`].filter(Boolean)
+          return <>{parts.join(' · ') || '0 titles'} in view will be exported as a single Markdown file.</>
+        })()}
+        confirmLabel="Export"
+        onCancel={() => setExporting(false)}
+        onConfirm={async () => {
+          setExporting(false)
+          await downloadPost('/export/movies', { ids: shown.map((m) => m.id) }, 'tippani-titles.md')
+        }}
+      />
     </section>
   )
 }

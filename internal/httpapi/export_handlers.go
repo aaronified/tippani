@@ -113,6 +113,73 @@ func (s *Server) handleExportAll(w http.ResponseWriter, r *http.Request) {
 	_ = zw.Close()
 }
 
+// handleExportBooks renders a chosen set of books — the in-view/filtered set
+// the UI passes, or all when ids is empty — as ONE multi-book markdown file.
+// Each book keeps its own "---" frontmatter block, so the file re-imports as
+// many books (multi-book import). Missing/unowned ids are skipped.
+func (s *Server) handleExportBooks(w http.ResponseWriter, r *http.Request) {
+	s.exportSet(w, r, "books", "tippani-books.md")
+}
+
+// handleExportMovies is the movie/show counterpart (dialogue exports).
+func (s *Server) handleExportMovies(w http.ResponseWriter, r *http.Request) {
+	s.exportSet(w, r, "movies", "tippani-titles.md")
+}
+
+func (s *Server) exportSet(w http.ResponseWriter, r *http.Request, kind, filename string) {
+	uid := userID(r)
+	var body struct {
+		IDs []int64 `json:"ids"`
+	}
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	ids := body.IDs
+	if len(ids) == 0 {
+		var err error
+		if ids, err = s.ownedIDs(uid, kind); err != nil {
+			writeErr(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+	}
+	var sb strings.Builder
+	n := 0
+	for _, id := range ids {
+		var md string
+		if kind == "books" {
+			b, err := s.fetchBook(uid, id)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			if err == nil {
+				md, err = s.renderBookExport(b)
+			}
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+		} else {
+			m, err := s.fetchMovie(uid, id)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			if err == nil {
+				md, err = s.renderMovieExport(m)
+			}
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+		}
+		if n > 0 {
+			sb.WriteString("\n\n")
+		}
+		sb.WriteString(md)
+		n++
+	}
+	serveMarkdown(w, filename, sb.String())
+}
+
 func (s *Server) ownedIDs(uid int64, table string) ([]int64, error) {
 	rows, err := s.Store.DB.Query(
 		`SELECT id FROM `+table+` WHERE user_id = ? ORDER BY id`, uid)
