@@ -43,15 +43,15 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 <table>
   <tr>
     <td width="50%"><img src="docs/img/library-paper-light.jpg" alt="Library — paper / light theme: a grid of book covers with genre filters"></td>
-    <td width="50%"><img src="docs/img/library-film-dark.jpg" alt="Library — film / dark theme: the same cover grid in the dark film aesthetic"></td>
+    <td width="50%"><img src="docs/img/catalogue-film-dark.jpg" alt="Catalogue — film / dark theme: a grid of movie & show posters with dialogue counts"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/img/import.jpg" alt="Import — cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
-    <td width="50%"><img src="docs/img/search.jpg" alt="Search — instant FTS5 results across books, annotations, movies and dialogues"></td>
+    <td width="50%"><img src="docs/img/search-film-dark.jpg" alt="Search — film / dark theme: instant FTS5 results across books, annotations, movies and dialogues"></td>
+    <td width="50%"><img src="docs/img/import-paper-light.jpg" alt="Import — paper / light theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
   </tr>
 </table>
 
-<p align="center"><sub>Library (paper · light) &amp; (film · dark) · Import · Search</sub></p>
+<p align="center"><sub>Library (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light)</sub></p>
 
 ## Features
 
