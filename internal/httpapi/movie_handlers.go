@@ -595,6 +595,14 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		fail(http.StatusInternalServerError, "internal error")
 		return
 	}
+	// Correcting the movie's cast flows through to dialogues imported before it
+	// existed: backfill any empty actor whose character now matches the new cast.
+	filled, err := refillMovieActors(tx, id)
+	if err != nil {
+		log.Printf("[movies] resync %d: refill actors: %v", id, err)
+		fail(http.StatusInternalServerError, "internal error")
+		return
+	}
 	if err := tx.Commit(); err != nil {
 		fail(http.StatusInternalServerError, "internal error")
 		return
@@ -602,7 +610,8 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	if newPoster != "" && oldPoster.String != newPoster {
 		s.removeCoverFile(oldPoster.String)
 	}
-	log.Printf("[movies] resynced movie %d from %s#%s (%q, %s)", id, source, sourceID, d.Title, d.MediaType)
+	log.Printf("[movies] resynced movie %d from %s#%s (%q, %s); backfilled %d actor(s)",
+		id, source, sourceID, d.Title, d.MediaType, filled)
 	m, err := s.fetchMovie(uid, id)
 	if err != nil {
 		internalError(w, r, "resync movie: fetch", err)

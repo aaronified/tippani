@@ -65,6 +65,52 @@ func autofillActor(castJSON, character, actor string) string {
 	return actor
 }
 
+// refillMovieActors applies the auto-fill rule retroactively: for the movie's
+// dialogues whose actor is still empty, fill it from the (freshly updated) cast
+// by matching character. This is what lets correcting a movie's metadata flow
+// through to dialogues imported before the cast existed. Runs in the caller's tx;
+// returns how many rows were filled. Rows are collected before updating (SQLite
+// dislikes writing mid-iteration on the same connection).
+func refillMovieActors(tx *sql.Tx, movieID int64) (int, error) {
+	var castJSON string
+	if err := tx.QueryRow(`SELECT cast_json FROM movies WHERE id = ?`, movieID).Scan(&castJSON); err != nil {
+		return 0, err
+	}
+	rows, err := tx.Query(
+		`SELECT id, COALESCE(character, '') FROM dialogues WHERE movie_id = ? AND (actor IS NULL OR actor = '')`,
+		movieID)
+	if err != nil {
+		return 0, err
+	}
+	type fill struct {
+		id    int64
+		actor string
+	}
+	var fills []fill
+	for rows.Next() {
+		var id int64
+		var ch string
+		if err := rows.Scan(&id, &ch); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if a := autofillActor(castJSON, ch, ""); a != "" {
+			fills = append(fills, fill{id, a})
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	for _, f := range fills {
+		if _, err := tx.Exec(
+			`UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`, f.actor, f.id); err != nil {
+			return 0, err
+		}
+	}
+	return len(fills), nil
+}
+
 type dialogueRow struct {
 	ID        int64    `json:"id"`
 	MovieID   int64    `json:"movie_id"`

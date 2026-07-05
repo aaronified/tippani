@@ -139,6 +139,9 @@ func (s *Server) Handler() http.Handler {
 	// Library stats + metadata source status (§10).
 	mux.Handle("GET /stats", s.requireAuth(s.handleStats))
 	mux.Handle("GET /metadata/status", s.requireAuth(s.handleMetadataStatus))
+	// Metadata tab: review-and-fill overview + bulk dialogue speaker remap.
+	mux.Handle("GET /metadata/library", s.requireAuth(s.handleMetadataLibrary))
+	mux.Handle("POST /movies/{id}/remap-speakers", s.requireAuth(s.handleRemapSpeakers))
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

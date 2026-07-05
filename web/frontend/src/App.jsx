@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ImportPage from './ImportPage.jsx'
 import Library from './Library.jsx'
+import MetadataPage from './MetadataPage.jsx'
 import Movies from './Movies.jsx'
 import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
@@ -51,6 +52,10 @@ export default function App() {
   }
   return (
     <>
+      {/* Scenic backdrop: paper = book-spines on shelves, film = strips in a
+          studio (per aesthetic, in index.css). First in the tree + z-index -1 so
+          it sits behind everything; the grain overlay stays on top. */}
+      <div className="scene-bg" aria-hidden="true" />
       {screen}
       <div className="grain-overlay" aria-hidden="true" />
     </>
@@ -189,6 +194,7 @@ function Login({ onLogin }) {
 const TABS = [
   ['library', 'Library'],
   ['movies', 'Movies'],
+  ['metadata', 'Metadata'],
   ['import', 'Import'],
   ['search', 'Search'],
   ['tags', 'Tags'],
@@ -294,6 +300,11 @@ function Shell({ user, onLogout }) {
               onOpen={openMovie}
               onClose={() => setDetail(null)}
             />
+          </div>
+        )}
+        {tab === 'metadata' && (
+          <div data-screen-label="metadata">
+            <MetadataPage user={user} onOpenBook={openBook} onOpenMovie={openMovie} />
           </div>
         )}
         {tab === 'import' && (

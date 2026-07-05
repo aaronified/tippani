@@ -297,3 +297,29 @@ func TestMovieEnrichExisting(t *testing.T) {
 		t.Fatalf("post-enrich re-add should be a plain 409, got needs_confirm: %+v", confirm)
 	}
 }
+
+// TestMovieResyncBackfillsActors covers the reported bug: a dialogue captured
+// before the movie had a cast (empty actor) gets its actor filled retroactively
+// when the movie's metadata is corrected via a supplier re-sync.
+func TestMovieResyncBackfillsActors(t *testing.T) {
+	srv := newTestServer(t)
+	fake := newMatrixTMDB(t)
+	defer fake.Close()
+	srv.TMDB.Key = "testkey"
+	srv.TMDB.BaseURL = fake.URL
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "The Matrix"}, http.StatusCreated))
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": m.ID, "quote": "I know kung fu.", "character": "Neo"}, http.StatusCreated))
+	if d.Actor != "" {
+		t.Fatalf("actor should be empty before the movie has a cast: %+v", d)
+	}
+	// Correct the movie from TMDB (cast Neo -> Keanu Reeves): backfill should fire.
+	c.mustDo("PUT", "/movies/"+itoa(m.ID), map[string]any{"source": "tmdb", "source_id": "603"}, 200)
+	list := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200))
+	if len(list.Dialogues) != 1 || list.Dialogues[0].Actor != "Keanu Reeves" {
+		t.Fatalf("actor not backfilled after resync: %+v", list.Dialogues)
+	}
+}

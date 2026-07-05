@@ -19,13 +19,18 @@ export default function Settings({ user }) {
     <section className="space-y-6">
       <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       <Appearance user={user} />
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <Metadata user={user} />
-        <Stats />
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <PasswordForm />
-        {user.is_admin && <AdminUsers me={user} />}
+      {/* Freeflow masonry (§ settings): cards pack by height in balanced columns
+          instead of a rigid 2-col grid, so short tiles (Stats, password) tuck
+          beside the taller Metadata card rather than leaving a long gap. */}
+      <div className="gap-6 lg:columns-2">
+        <div className="mb-6 break-inside-avoid"><Metadata user={user} /></div>
+        <div className="mb-6 break-inside-avoid"><Stats /></div>
+        <div className="mb-6 break-inside-avoid"><PasswordForm /></div>
+        {user.is_admin && (
+          <div className="mb-6 break-inside-avoid">
+            <AdminUsers me={user} />
+          </div>
+        )}
       </div>
     </section>
   )
@@ -35,6 +40,36 @@ export default function Settings({ user }) {
 
 function Card({ className = '', children }) {
   return <div className={'hand-card p-6 ' + className}>{children}</div>
+}
+
+// InfoDot keeps the setting cards short: a small circled "i" whose tooltip
+// carries the detail (§ settings — minimise instructions to points + tooltips).
+function InfoDot({ text }) {
+  return (
+    <span
+      title={text}
+      tabIndex={0}
+      aria-label={text}
+      className="cursor-help"
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 10.5,
+        fontWeight: 600,
+        color: 'var(--faint)',
+        border: '1px solid var(--line)',
+        borderRadius: 999,
+        width: 16,
+        height: 16,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        lineHeight: 1,
+        flexShrink: 0,
+      }}
+    >
+      i
+    </span>
+  )
 }
 
 function SectionTitle({ children, right }) {
@@ -386,26 +421,20 @@ function Metadata({ user }) {
       <SectionTitle>Metadata sources</SectionTitle>
 
       {/* Books */}
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>Books</MonoLabel>
           <span style={{ fontWeight: 600 }}>Google Books + Open Library</span>
-          <StatusChip tone="muted">No key needed</StatusChip>
-        </div>
-        <div className="mt-2">
           <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
+          <InfoDot text="Merged best-effort, on demand — manual entry always works. Optional Google Books key only if you exceed ~1,000 lookups/day: console.cloud.google.com → enable Books API → paste it below." />
         </div>
-        <p className="mt-2.5" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
-          Merged best-effort, on demand. Manual entry always works. Optional key (only past ~1,000
-          lookups/day): console.cloud.google.com → enable Books API → paste below.
-        </p>
         {lookup?.ok === false && lookup.error && (
           <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
             last error: {lookup.error}
           </p>
         )}
         {admin && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-2.5">
             <SecretField
               set={keys?.google_books_key_set}
               editing={edit.google}
@@ -414,26 +443,20 @@ function Metadata({ user }) {
               onChange={(e) => setGoogleKey(e.target.value)}
               placeholder="Google Books API key — optional"
             />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--faint)' }}>~1,000/day free</span>
           </div>
         )}
       </div>
 
       {/* Movies & Shows */}
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>Movies &amp; Shows</MonoLabel>
           <span style={{ fontWeight: 600 }}>TMDB</span>
           <StatusChip tone={tmdbTone}>{tmdbLabel}</StatusChip>
           <span style={{ fontWeight: 600 }}>+ TheTVDB</span>
           <StatusChip tone={tvdbTone}>{tvdbLabel}</StatusChip>
+          <InfoDot text="Both cover movies and shows; lookup merges them. TMDB: themoviedb.org → Settings → API → free v3 key (or set TIPPANI_TMDB_API_KEY). TheTVDB optional: thetvdb.com → account → API key (or TIPPANI_TVDB_API_KEY). No key ⇒ lookup 503; manual entry still works." />
         </div>
-        <p className="mt-2.5" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
-          Both suppliers cover movies and shows; lookup merges their results. TMDB: themoviedb.org →
-          Settings → API → free v3 key (or set TIPPANI_TMDB_API_KEY). TheTVDB is optional: thetvdb.com →
-          account → API key (or set TIPPANI_TVDB_API_KEY). Without any key, lookup answers 503 — manual
-          entry keeps working.
-        </p>
         {admin && (
           <div className="mt-3 flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -471,10 +494,9 @@ function Metadata({ user }) {
               {keys?.amazon_cookie_set ? 'Cookie saved' : 'Covers only'}
             </StatusChip>
           </div>
-          <p className="mt-2.5" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
-            Book <b>covers</b> are fetched from an ASIN with no setup. A session cookie is optional and only
-            adds description + genres by reading the product page — it's fragile, against Amazon's terms, and
-            grants access to your account, so it's stored write-only and never shown.{' '}
+          <p className="mt-2" style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.5 }}>
+            Covers work from an ASIN with no setup. Optional cookie adds description + genres.{' '}
+            <InfoDot text="The cookie is fragile, against Amazon's terms, and grants access to your account — stored write-only and never shown." />{' '}
             <button type="button" className="tp-link" onClick={() => setAmazonHelp((v) => !v)}>
               {amazonHelp ? 'hide' : 'how to get the cookie'}
             </button>
@@ -519,12 +541,10 @@ function Metadata({ user }) {
 
       {/* Covers */}
       <div>
-        <MonoLabel className="block">Covers</MonoLabel>
-        <p className="mt-2" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
-          Covers live in MediaCover/, fetched once, served locally (arr-style). Re-fetch tries every
-          cover-less book against Open Library (by ISBN) and Amazon (by ASIN) — no key needed — plus any
-          poster cached from a TMDB lookup.
-        </p>
+        <div className="flex items-center gap-2">
+          <MonoLabel>Covers</MonoLabel>
+          <InfoDot text="Stored in MediaCover/ (arr-style), fetched once, served locally. Re-fetch tries every cover-less book against Open Library (ISBN) + Amazon (ASIN) — no key needed — plus any poster cached from a lookup." />
+        </div>
         {admin && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <GhostButton onClick={doRefetch} disabled={refetching}>

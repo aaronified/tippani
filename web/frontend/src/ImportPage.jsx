@@ -143,7 +143,14 @@ export default function ImportPage({ onOpenMovie }) {
       <PageHeader title="Import" counts="bring the highlights home" />
       <div ref={ref} className="reveal grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SOURCES.map((s, i) => (
-          <SourceCard key={s.kind} {...s} variant={i} busy={busy} onFiles={(fs) => runBatch(s.kind, fs)} />
+          <SourceCard
+            key={s.kind}
+            {...s}
+            variant={i}
+            color={CARD_COLORS[i % CARD_COLORS.length]}
+            busy={busy}
+            onFiles={(fs) => runBatch(s.kind, fs)}
+          />
         ))}
         <DisabledCard />
       </div>
@@ -155,16 +162,18 @@ export default function ImportPage({ onOpenMovie }) {
 }
 
 // SaveDontPasteNote records why imports are save-the-page-and-upload rather than
-// "paste a URL and we'll fetch it" (a natural question, so the answer lives
-// here). Documented decision, not a TODO — see the discussion in-thread.
+// "paste a URL and we'll fetch it" (a natural question). Collapsed by default —
+// an expand action for those interested — so it doesn't clutter the page.
 function SaveDontPasteNote() {
   return (
-    <div
-      className="p-4"
-      style={{ border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--soft)', fontSize: 13, lineHeight: 1.55 }}
+    <details
+      className="px-4 py-3"
+      style={{ border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--soft)' }}
     >
-      <MonoLabel className="mb-1.5 block">Why upload the saved page, not paste a URL?</MonoLabel>
-      <p>
+      <summary className="mono-label cursor-pointer" style={{ listStyle: 'revert' }}>
+        Why upload the saved page, not paste a URL?
+      </summary>
+      <p className="mt-2" style={{ fontSize: 13, lineHeight: 1.55 }}>
         Fetching the page from a URL in your browser is blocked by cross-origin rules (CORS) — sites like Amazon,
         IMDb and Goodreads don’t allow it, which is exactly why a bookmarklet such as Bookcision has to run{' '}
         <i>on their page</i>. Fetching server-side would dodge CORS but needs your logged-in session for private
@@ -172,18 +181,27 @@ function SaveDontPasteNote() {
         break silently. Saving the page in your own signed-in browser and uploading it is the robust path that
         keeps working, so that’s what we do.
       </p>
-    </div>
+    </details>
   )
 }
 
-// ExtBadge is the small mono file-extension chip on each source card.
-function ExtBadge({ muted, children }) {
+// Each import tile carries its own colour theme (a mix across the wall) — the
+// annotation quartet plus the two cooler accents. Tinted ext badge + left bar +
+// a slight paste-on tilt give the cards a hand-placed, "pasted note" feel.
+const CARD_COLORS = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B', '#3F7D5A', '#2F6D8F']
+
+// ExtBadge is the small mono file-extension chip on each source card, tinted to
+// the tile's colour (or muted for the disabled card).
+function ExtBadge({ muted, color, children }) {
+  const c = muted ? 'var(--faint)' : color || 'var(--accent-ui)'
+  const base = color || 'var(--accent)'
   return (
     <span
       className="mono-label self-start"
       style={{
-        color: muted ? 'var(--faint)' : 'var(--accent-ui)',
-        border: `1.2px solid ${muted ? 'var(--line)' : 'color-mix(in srgb, var(--accent) 45%, transparent)'}`,
+        color: c,
+        border: `1.2px solid ${muted ? 'var(--line)' : `color-mix(in srgb, ${base} 55%, transparent)`}`,
+        background: muted ? 'transparent' : `color-mix(in srgb, ${base} 13%, transparent)`,
         borderRadius: 7,
         padding: '3px 8px',
       }}
@@ -193,15 +211,17 @@ function ExtBadge({ muted, children }) {
   )
 }
 
-// SourceCard accepts multi-select via the hidden input and drag-drop of many
-// files anywhere on the card.
-function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles }) {
+// SourceCard accepts single or bulk file selection via the hidden input, and
+// drag-drop of one or many files anywhere on the card (a bonus, not the point).
+function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, color }) {
   const [over, setOver] = useState(false)
+  const tilt = variant % 2 ? 0.7 : -0.7 // paste-on wobble (§ playful, within ±2.2°)
   return (
     <HandCard
       variant={variant}
+      colorBar={color}
       className="flex flex-col gap-3 p-5"
-      style={over ? { borderColor: 'var(--accent-ui)' } : undefined}
+      style={{ rotate: `${tilt}deg`, ...(over ? { borderColor: color, background: `color-mix(in srgb, ${color} 8%, var(--card))` } : null) }}
       onDragOver={(e) => {
         e.preventDefault()
         setOver(true)
@@ -213,7 +233,7 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles })
         onFiles([...e.dataTransfer.files])
       }}
     >
-      <ExtBadge>{ext}</ExtBadge>
+      <ExtBadge color={color}>{ext}</ExtBadge>
       <h3 className="text-base font-semibold">{title}</h3>
       <p className="text-sm" style={{ color: 'var(--soft)' }}>
         {desc}
@@ -228,24 +248,27 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles })
           ))}
         </ol>
       )}
-      <label
-        className="tp-btn tp-btn-ghost mt-auto"
-        style={busy ? { opacity: 0.55, cursor: 'default' } : { cursor: 'pointer' }}
-      >
-        Choose files — or drop many
-        <input
-          type="file"
-          multiple
-          accept={accept}
-          className="hidden"
-          disabled={busy}
-          onChange={(e) => {
-            const fs = [...e.target.files]
-            e.target.value = ''
-            if (fs.length > 0) onFiles(fs)
-          }}
-        />
-      </label>
+      <div className="mt-auto">
+        <label
+          className="tp-btn tp-btn-ghost w-full"
+          style={busy ? { opacity: 0.55, cursor: 'default' } : { cursor: 'pointer' }}
+        >
+          Choose file — one or many
+          <input
+            type="file"
+            multiple
+            accept={accept}
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const fs = [...e.target.files]
+              e.target.value = ''
+              if (fs.length > 0) onFiles(fs)
+            }}
+          />
+        </label>
+        <p className="microcopy mt-1.5 text-center">or drag &amp; drop here</p>
+      </div>
     </HandCard>
   )
 }
