@@ -15,6 +15,7 @@ import {
   Sprockets,
   EdgeRow,
   StickerButton,
+  Toggle,
   frameCode,
   useFrameBase,
   useResolvedDark,
@@ -330,18 +331,14 @@ function Shell({ user, onLogout, onPreferences }) {
             <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="22" height="22" />
             <span className="wordmark">tippani</span>
           </span>
-          <nav className="tabs" aria-label="Primary">
-            {PRIMARY_TABS.map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => selectTab(key)}
-                className={'tab' + (tab === key ? ' active' : '')}
-                aria-current={tab === key ? 'page' : undefined}
-              >
-                <TabIcon name={key} />
-                {label}
-              </button>
-            ))}
+          <nav aria-label="Primary">
+            <Toggle
+              className="nav-toggle"
+              ariaLabel="Primary"
+              value={tab}
+              onChange={selectTab}
+              options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> {label}</>])}
+            />
           </nav>
           <div className="relative ml-auto" ref={menuRef}>
             <button

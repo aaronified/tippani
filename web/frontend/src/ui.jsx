@@ -427,15 +427,17 @@ export function initTactile() {
 export function Toggle({ value, onChange, options, label, ariaLabel, className = '' }) {
   const ref = useRef(null)
   const thumbRef = useRef(null)
-  const idx = Math.max(0, options.findIndex(([k]) => k === value))
+  const rawIdx = options.findIndex(([k]) => k === value)
   useLayoutEffect(() => {
     const el = ref.current
     const thumb = thumbRef.current
     if (!el || !thumb) return
     const place = () => {
-      const btns = el.querySelectorAll('.tp-toggle-opt')
-      const a = btns[idx]
+      // No match (e.g. the nav toggle while on a utility tab) → hide the thumb.
+      if (rawIdx < 0) { thumb.style.opacity = '0'; return }
+      const a = el.querySelectorAll('.tp-toggle-opt')[rawIdx]
       if (!a) return
+      thumb.style.opacity = '1'
       thumb.style.width = `${a.offsetWidth}px`
       thumb.style.transform = `translateX(${a.offsetLeft}px)`
     }
@@ -443,7 +445,7 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
     const ro = new ResizeObserver(place)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [idx, options.length])
+  }, [rawIdx, value, options.length])
   const control = (
     <div ref={ref} role="tablist" aria-label={ariaLabel || label} className={`tp-toggle tactile ${className}`}>
       <span ref={thumbRef} className="tp-toggle-thumb" aria-hidden="true" />

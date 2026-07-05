@@ -179,6 +179,22 @@
     .tactile::after { display: none; }
   }
 
+  /* The shell nav IS a toggle too (§ design): transparent in the topbar so it
+     reads as nav, with a DISTINCT textured thumb (wood on paper, metal on film)
+     to tell it apart from the filter toggles. */
+  .nav-toggle.tp-toggle { background: transparent; border-color: transparent; box-shadow: none; padding: 3px; }
+  .nav-toggle .tp-toggle-opt { padding: 6px 13px; font-size: 14.5px; color: var(--soft); }
+  html[data-aesthetic="paper"] .nav-toggle .tp-toggle-thumb {
+    background-image: url("./textures/wood.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: 180px, auto;
+    background-blend-mode: overlay, normal;
+  }
+  html[data-aesthetic="film"] .nav-toggle .tp-toggle-thumb {
+    background-image: url("./textures/metal.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-size: 180px, auto;
+    background-blend-mode: overlay, normal;
+  }
+
   /* ---- the one Select (§ design): tactile trigger + a panel that dips open,
      carrying Toggle's sliding accent thumb (vertical) for a homogeneous feel ---- */
   .tp-select { position: relative; display: inline-block; }
