@@ -145,6 +145,21 @@ export function HandNote({ className = '', children }) {
 
 // ---- ♥ favourite + tilted ★ rating (§6: hearts for favourites, never stars) ----
 
+// FavBadge — a non-interactive ♥ overlay for the corner of a favourited
+// cover/poster (the card itself is the clickable element, so this can't be a
+// button). Drop-shadowed so it reads over any artwork.
+export function FavBadge() {
+  return (
+    <span
+      aria-label="Favourite"
+      className="absolute right-1.5 top-1.5"
+      style={{ color: '#ef5a5a', fontSize: 18, lineHeight: 1, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.55))' }}
+    >
+      ♥
+    </span>
+  )
+}
+
 export function Hearts({ value, onChange }) {
   return (
     <button
@@ -289,6 +304,24 @@ export function Cover({ path, title, large = false }) {
 // filterChipClass styles the small toggle buttons in list filter rows.
 export function filterChipClass(active) {
   return 'tp-filter-chip' + (active ? ' active' : '')
+}
+
+// seriesLabel renders a book/movie's series as "Name #1.5" (or just "Name").
+export function seriesLabel(x) {
+  if (!x.series) return ''
+  return x.series_index ? `${x.series} #${x.series_index}` : x.series
+}
+
+// bySeries orders by series name (unseried last), then position, then title —
+// the "series" sort option shared by the Library and Movies lists.
+export function bySeries(a, b) {
+  const sa = a.series || '',
+    sb = b.series || ''
+  if (sa !== sb) return sa ? (sb ? sa.localeCompare(sb) : -1) : 1
+  const ia = a.series_index || 0,
+    ib = b.series_index || 0
+  if (ia !== ib) return ia - ib
+  return a.title.localeCompare(b.title)
 }
 
 // FavoriteStar kept its name for compat but renders hearts now (§6).

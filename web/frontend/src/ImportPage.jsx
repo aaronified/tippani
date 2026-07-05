@@ -61,6 +61,30 @@ const SOURCES = [
       'Drop the saved .html here.',
     ],
   },
+  {
+    kind: 'imdb-quotes',
+    ext: '.html',
+    title: 'IMDb quotes',
+    desc: 'A movie or show’s Quotes page → dialogues (into Movies & Shows).',
+    accept: '.htm,.html',
+    steps: [
+      'Open the title’s Quotes page, e.g. imdb.com/title/tt0434409/quotes',
+      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
+      'Drop the saved .html here.',
+    ],
+  },
+  {
+    kind: 'kindle-notebook',
+    ext: '.html',
+    title: 'Kindle notebook',
+    desc: 'Your Kindle Notes & Highlights page — colours + locations come across.',
+    accept: '.htm,.html',
+    steps: [
+      'Open read.amazon.com/notebook and pick the book.',
+      'Save it as a web page, HTML only (Ctrl+S / ⌘S).',
+      'Drop the saved .html here.',
+    ],
+  },
 ]
 
 export default function ImportPage() {
@@ -99,9 +123,10 @@ export default function ImportPage() {
         (t.enriched ? ` · ${t.enriched} enriched` : ''),
     )
     // Review pass: collect annotations missing chapter/location across the
-    // books this batch touched.
+    // books this batch touched. Movie/show imports (IMDb → dialogues) return no
+    // book_id, so the filter naturally skips them.
     const q = []
-    for (const bookId of [...new Set(ok.map((r) => r.book_id))]) {
+    for (const bookId of [...new Set(ok.map((r) => r.book_id).filter(Boolean))]) {
       const a = await json('GET', `/annotations?book_id=${bookId}`)
       if (!a.ok) continue
       for (const ann of a.data.annotations) {

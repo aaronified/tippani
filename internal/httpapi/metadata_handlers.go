@@ -15,6 +15,7 @@ import (
 // Settings-table keys (store.GetSetting/SetSetting).
 const (
 	settingTMDBKey        = "tmdb_key"
+	settingTVDBKey        = "tvdb_key"
 	settingGoogleBooksKey = "google_books_key"
 	settingAmazonCookie   = "amazon_cookie" // secret: write-only, never echoed
 	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
@@ -58,11 +59,30 @@ func (s *Server) resolveTMDB() (*metadata.TMDB, string) {
 	return nil, "none"
 }
 
+// resolveTVDB picks the effective TheTVDB client: env key (TIPPANI_TVDB_API_KEY,
+// the persistent client whose token is cached) > settings-table key (a fresh
+// client) > nil (no built-in — TVDB is opt-in). The second return is the source
+// enum for /metadata/status.
+func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
+	base := ""
+	if s.TVDB != nil {
+		if s.TVDB.Key != "" {
+			return s.TVDB, "env"
+		}
+		base = s.TVDB.BaseURL
+	}
+	if key, err := s.Store.GetSetting(settingTVDBKey); err == nil && key != "" {
+		return &metadata.TVDB{Key: key, BaseURL: base}, "custom"
+	}
+	return nil, "none"
+}
+
 // handleMetadataStatus implements GET /metadata/status: which TMDB key is in
 // effect, whether a Google Books key is saved, and how the last book lookup
 // went — the Settings page chips (LOOKUP FAILING etc.) hang off this.
 func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 	_, source := s.resolveTMDB()
+	_, tvdbSource := s.resolveTVDB()
 	gkey, err := s.Store.GetSetting(settingGoogleBooksKey)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
@@ -74,6 +94,7 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tmdb":         map[string]string{"source": source},
+		"tvdb":         map[string]string{"source": tvdbSource},
 		"google_books": map[string]bool{"key_set": gkey != ""},
 		"books_lookup": lookup,
 	})
@@ -87,17 +108,21 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	gkey, err2 := s.Store.GetSetting(settingGoogleBooksKey)
 	acookie, err3 := s.Store.GetSetting(settingAmazonCookie)
 	adomain, err4 := s.Store.GetSetting(settingAmazonDomain)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+	vkey, err5 := s.Store.GetSetting(settingTVDBKey)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	_, source := s.resolveTMDB()
+	_, tvdbSource := s.resolveTVDB()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tmdb_key_set":         tkey != "",
+		"tvdb_key_set":         vkey != "",
 		"google_books_key_set": gkey != "",
 		"amazon_cookie_set":    acookie != "",
 		"amazon_domain":        adomain,
 		"tmdb_source":          source,
+		"tvdb_source":          tvdbSource,
 	})
 }
 
@@ -109,6 +134,7 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	// Pointers distinguish "field omitted" (leave as-is) from "" (clear).
 	var req struct {
 		TMDBKey        *string `json:"tmdb_key"`
+		TVDBKey        *string `json:"tvdb_key"`
 		GoogleBooksKey *string `json:"google_books_key"`
 		AmazonCookie   *string `json:"amazon_cookie"`
 		AmazonDomain   *string `json:"amazon_domain"`
@@ -123,6 +149,10 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		return s.Store.SetSetting(key, strings.TrimSpace(*v))
 	}
 	if err := set(settingTMDBKey, req.TMDBKey); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if err := set(settingTVDBKey, req.TVDBKey); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}

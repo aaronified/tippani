@@ -17,6 +17,7 @@
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
 //	TIPPANI_TMDB_API_KEY   TMDB v3 key or v4 read token; overrides the Settings-saved
 //	                       and built-in keys (PLAN §6 resolution order)
+//	TIPPANI_TVDB_API_KEY   TheTVDB v4 API key; overrides the Settings-saved key (no built-in)
 package main
 
 import (
@@ -137,7 +138,8 @@ func serve() {
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1",
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
-	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503
+	srv.TMDBBuiltin = defaultTMDBKey                 // last fallback before 503
+	srv.TVDB.Key = os.Getenv("TIPPANI_TVDB_API_KEY") // TheTVDB env slot (PLAN §6); no built-in fallback
 
 	bind := envOr("TIPPANI_BIND", "127.0.0.1:8080") // localhost-only by default (PLAN §2)
 	httpServer := &http.Server{

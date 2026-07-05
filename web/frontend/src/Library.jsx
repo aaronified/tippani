@@ -6,17 +6,21 @@ import {
   Cover,
   EmptyState,
   ErrorText,
+  FavBadge,
   Field,
   GhostButton,
   HandCard,
   HandNote,
   Hearts,
+  MinRatingSelect,
   MonoLabel,
   PageHeader,
   Placeholder,
   TagChip,
   TiltStars,
+  bySeries,
   filterChipClass,
+  seriesLabel,
   splitCommas,
   useReveal,
 } from './ui.jsx'
@@ -35,15 +39,71 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
+// Title-case every word: "science FICTION" → "Science Fiction".
+function titleCase(s) {
+  return s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+}
+
+// bookGenres normalises a book's genres for filtering/display: split any
+// comma-joined value, trim, Title-Case, and dedupe — so casing and combined
+// strings don't spawn duplicate chips ("fantasy" vs "Fantasy").
+function bookGenres(b) {
+  const out = []
+  for (const raw of b.genres || [])
+    for (const part of String(raw).split(',')) {
+      const g = titleCase(part.trim())
+      if (g && !out.includes(g)) out.push(g)
+    }
+  return out
+}
+
+// bookState is the full PUT body for a book (PUT is full-state) — used by the
+// detail-header ♥/★ so a single-field change carries every other field intact.
+function bookState(b) {
+  return {
+    title: b.title,
+    author: b.author || '',
+    isbn: b.isbn || '',
+    asin: b.asin || '',
+    description: b.description || '',
+    published_year: b.published_year || 0,
+    genres: b.genres || [],
+    series: b.series || '',
+    series_index: b.series_index || 0,
+    favorite: !!b.favorite,
+    rating: b.rating || 0,
+  }
+}
+
+// How many genre quick-filter chips to show before the rest collapse into the
+// "More…" dropdown — scaled to viewport width so the row never wraps hard.
+function useChipBudget() {
+  const [n, setN] = useState(6)
+  useEffect(() => {
+    const calc = () => {
+      const w = window.innerWidth
+      setN(w < 480 ? 3 : w < 768 ? 4 : w < 1100 ? 6 : 9)
+    }
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [])
+  return n
+}
+
 // ---- book list (§8.3, mockups 06–07) ----
 
 function BookList({ onOpen }) {
   const [books, setBooks] = useState(null)
   const [genre, setGenre] = useState('') // '' = All
+  const [series, setSeries] = useState('') // '' = all series
+  const [fav, setFav] = useState(false)
+  const [minRating, setMinRating] = useState('')
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
   const reveal = useReveal()
+  const chipBudget = useChipBudget()
 
   async function load() {
     const r = await json('GET', '/books')
@@ -54,19 +114,42 @@ function BookList({ onOpen }) {
     load()
   }, [])
 
+  // Genres, most-used first (chips promote the common ones), tie-broken
+  // alphabetically. bookGenres normalises so "fantasy"/"Fantasy" and a
+  // comma-joined "Fiction, Fantasy" all collapse to the same chips.
   const genres = useMemo(() => {
+    const counts = new Map()
+    for (const b of books || []) for (const g of bookGenres(b)) counts.set(g, (counts.get(g) || 0) + 1)
+    return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b))
+  }, [books])
+
+  // Unique series names for the series filter dropdown.
+  const seriesNames = useMemo(() => {
     const s = new Set()
-    for (const b of books || []) for (const g of b.genres || []) s.add(g)
+    for (const b of books || []) if (b.series) s.add(b.series)
     return [...s].sort()
   }, [books])
 
   const shown = useMemo(() => {
     let list = books || []
-    if (genre) list = list.filter((b) => (b.genres || []).includes(genre))
-    if (sort === 'title') list = [...list].sort((a, b) => a.title.localeCompare(b.title))
-    else if (sort === 'author') list = [...list].sort((a, b) => (a.author || '').localeCompare(b.author || ''))
-    return list // 'recent' keeps the server order (created_at DESC)
-  }, [books, genre, sort])
+    if (genre) list = list.filter((b) => bookGenres(b).includes(genre))
+    if (series) list = list.filter((b) => (b.series || '') === series)
+    if (fav) list = list.filter((b) => b.favorite)
+    if (minRating) list = list.filter((b) => (b.rating || 0) >= Number(minRating))
+    if (sort === 'recent') return list // server order (created_at DESC)
+    list = [...list]
+    if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
+    else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
+    else if (sort === 'rating') list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    else if (sort === 'series') list.sort(bySeries)
+    return list
+  }, [books, genre, series, fav, minRating, sort])
+
+  // Promote the busiest genres to chips; the tail (plus any active pick that
+  // fell past the budget) lives in the "More…" dropdown so it stays reachable.
+  const topGenres = genres.slice(0, chipBudget)
+  const moreGenres = genres.slice(chipBudget)
+  const activeInMore = genre && moreGenres.includes(genre)
 
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
@@ -87,40 +170,95 @@ function BookList({ onOpen }) {
       />
       <ErrorText>{error}</ErrorText>
 
-      {genres.length > 0 && (
+      {books && books.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-1.5">
-          <button className={filterChipClass(genre === '')} onClick={() => setGenre('')}>
-            All
-          </button>
-          {genres.map((g) => (
-            <button key={g} className={filterChipClass(genre === g)} onClick={() => setGenre(genre === g ? '' : g)}>
-              {g}
+          {genres.length > 0 && (
+            <>
+              <button className={filterChipClass(genre === '')} onClick={() => setGenre('')}>
+                All
+              </button>
+              {topGenres.map((g) => (
+                <button key={g} className={filterChipClass(genre === g)} onClick={() => setGenre(genre === g ? '' : g)}>
+                  {g}
+                </button>
+              ))}
+              {moreGenres.length > 0 && (
+                <select
+                  className={filterChipClass(activeInMore) + ' cursor-pointer'}
+                  title="More genres"
+                  value={activeInMore ? genre : ''}
+                  onChange={(e) => setGenre(e.target.value)}
+                >
+                  <option value="">More…</option>
+                  {moreGenres.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+              ♥ favourites
             </button>
-          ))}
-          <select
-            className="mono-label ml-auto cursor-pointer"
-            style={{ background: 'none', border: 'none', padding: '8px 2px' }}
-            title="Sort"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            <option value="recent">recent</option>
-            <option value="title">title</option>
-            <option value="author">author</option>
-          </select>
+            <MinRatingSelect value={minRating} onChange={setMinRating} />
+            {seriesNames.length > 0 && (
+              <select
+                className="tp-input w-auto"
+                title="Filter by series"
+                value={series}
+                onChange={(e) => setSeries(e.target.value)}
+              >
+                <option value="">all series</option>
+                {seriesNames.map((sname) => (
+                  <option key={sname} value={sname}>
+                    {sname}
+                  </option>
+                ))}
+              </select>
+            )}
+            <label className="flex items-center gap-2">
+              <MonoLabel>sort</MonoLabel>
+              <select
+                className="cursor-pointer"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 2px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  color: 'var(--faint)',
+                }}
+                title="Sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              >
+                <option value="recent">recent</option>
+                <option value="title">title</option>
+                <option value="author">author</option>
+                <option value="rating">rating</option>
+                <option value="series">series</option>
+              </select>
+            </label>
+          </div>
         </div>
       )}
 
       {books && books.length === 0 && (
         <EmptyState>no books yet — add one, or bring highlights in from the Import tab</EmptyState>
       )}
-      {books && books.length > 0 && shown.length === 0 && <EmptyState>no books in this genre</EmptyState>}
+      {books && books.length > 0 && shown.length === 0 && <EmptyState>no books match these filters</EmptyState>}
       {shown.length > 0 && (
         <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))' }}>
           {shown.map((b, i) => (
             <li key={b.id}>
               <button onClick={() => onOpen(b.id)} className="block w-full text-left" title={b.title}>
-                <HandCard variant={i % 4} className="overflow-hidden">
+                <HandCard variant={i % 4} className="relative overflow-hidden">
                   {b.cover_path ? (
                     <img
                       src={`/covers/${b.cover_path}`}
@@ -130,6 +268,7 @@ function BookList({ onOpen }) {
                   ) : (
                     <Placeholder kind="COVER" className="w-full rounded-none border-0" />
                   )}
+                  {b.favorite && <FavBadge />}
                 </HandCard>
                 <p
                   className="mt-2.5 truncate font-semibold"
@@ -140,7 +279,15 @@ function BookList({ onOpen }) {
                 <p className="truncate text-[13px]" style={{ color: 'var(--soft)' }}>
                   {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
                 </p>
-                <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>
+                {b.series && (
+                  <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
+                    {seriesLabel(b)}
+                  </p>
+                )}
+                <div className="mt-0.5 flex items-center gap-2">
+                  <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>
+                  {b.rating > 0 && <TiltStars value={b.rating} />}
+                </div>
               </button>
             </li>
           ))}
@@ -404,9 +551,23 @@ function BookDetail({ id, onClose }) {
     else setError(errText(r))
   }
 
+  // patch PUTs the book's full current state with one field changed (♥/★ clicks
+  // in the header), mirroring the annotation-card pattern.
+  async function patch(fields) {
+    const r = await json('PUT', `/books/${id}`, { ...bookState(book), ...fields })
+    if (r.ok) setBook(r.data)
+    else setError(errText(r, 'could not save'))
+  }
+
   const metaLine =
     book &&
-    [book.author, book.published_year || null, book.isbn && `ISBN ${book.isbn}`, book.asin && `ASIN ${book.asin}`]
+    [
+      book.author,
+      book.published_year || null,
+      seriesLabel(book) || null,
+      book.isbn && `ISBN ${book.isbn}`,
+      book.asin && `ASIN ${book.asin}`,
+    ]
       .filter(Boolean)
       .join(' · ')
 
@@ -444,9 +605,13 @@ function BookDetail({ id, onClose }) {
                   {metaLine}
                 </MonoLabel>
               )}
-              {book.genres && book.genres.length > 0 && (
+              <div className="flex items-center gap-3">
+                <Hearts value={!!book.favorite} onChange={(v) => patch({ favorite: v })} />
+                <TiltStars value={book.rating || 0} onChange={(v) => patch({ rating: v })} />
+              </div>
+              {bookGenres(book).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {book.genres.map((g) => (
+                  {bookGenres(book).map((g) => (
                     <span key={g} className="tp-chip">
                       {g}
                     </span>
@@ -485,6 +650,8 @@ function EditBook({ book, onSaved, onCancel }) {
   const [asin, setAsin] = useState(book.asin || '')
   const [year, setYear] = useState(book.published_year ? String(book.published_year) : '')
   const [genres, setGenres] = useState((book.genres || []).join(', '))
+  const [series, setSeries] = useState(book.series || '')
+  const [seriesIndex, setSeriesIndex] = useState(book.series_index ? String(book.series_index) : '')
   const [description, setDescription] = useState(book.description || '')
   // Cover: coverPath tracks the stored file (updated on immediate upload);
   // coverUrl / clearCover are the pending change carried in the Save PUT.
@@ -531,7 +698,13 @@ function EditBook({ book, onSaved, onCancel }) {
       asin: asin.trim(),
       published_year: publishedYear,
       genres: splitCommas(genres),
+      series: series.trim(),
+      series_index: Number(seriesIndex) || 0,
       description: description.trim(),
+      // favorite/rating are edited on the detail header, not here — but PUT is
+      // full-state, so carry the current values through.
+      favorite: !!book.favorite,
+      rating: book.rating || 0,
       cover_url: coverUrl || undefined,
       clear_cover: clearCover || undefined,
     })
@@ -576,6 +749,16 @@ function EditBook({ book, onSaved, onCancel }) {
         <MonoLabel className="mb-1.5 block">Genres (comma-separated)</MonoLabel>
         <input className="tp-input" value={genres} onChange={(e) => setGenres(e.target.value)} />
       </label>
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <Field label="Series" placeholder="e.g. Discworld" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <Field
+          label="Series #"
+          inputMode="decimal"
+          placeholder="e.g. 5"
+          value={seriesIndex}
+          onChange={(e) => setSeriesIndex(e.target.value)}
+        />
+      </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">Description</MonoLabel>
         <textarea className="tp-input" rows="4" value={description} onChange={(e) => setDescription(e.target.value)} />

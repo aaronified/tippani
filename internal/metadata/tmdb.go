@@ -24,7 +24,13 @@ type CastMember struct {
 	Actor     string `json:"actor"`
 }
 
+// MovieCandidate is one search hit from any supplier. Source/SourceID/MediaType
+// identify it generically (both TMDB and TVDB, movies and shows); TMDBID is kept
+// populated for TMDB movie hits so older callers keep working.
 type MovieCandidate struct {
+	Source      string `json:"source"`     // "tmdb" | "tvdb"
+	SourceID    string `json:"source_id"`  // id within the source (TMDB int as string, TVDB id)
+	MediaType   string `json:"media_type"` // "movie" | "show"
 	TMDBID      int64  `json:"tmdb_id"`
 	Title       string `json:"title"`
 	ReleaseYear int    `json:"release_year"`
@@ -32,12 +38,17 @@ type MovieCandidate struct {
 }
 
 type MovieDetails struct {
+	Source      string // "tmdb" | "tvdb"
+	SourceID    string
+	MediaType   string // "movie" | "show"
 	TMDBID      int64
+	TVDBID      int64
 	Title       string
-	Director    string
+	Director    string // "creator" for shows; stored in the director column
 	ReleaseYear int
 	Overview    string
 	Genres      []string
+	Series      string       // franchise/collection name, where the source has it
 	Cast        []CastMember // top 20 in billing order
 	PosterURL   string
 	Raw         json.RawMessage // raw details payload, cached in movies.source_metadata
@@ -104,9 +115,52 @@ func (t *TMDB) Search(ctx context.Context, query string, year int) ([]MovieCandi
 	var out []MovieCandidate
 	for _, m := range r.Results {
 		out = append(out, MovieCandidate{
+			Source:      "tmdb",
+			SourceID:    strconv.FormatInt(m.ID, 10),
+			MediaType:   "movie",
 			TMDBID:      m.ID,
 			Title:       m.Title,
 			ReleaseYear: leadingYear(m.ReleaseDate),
+			Overview:    m.Overview,
+		})
+		if len(out) == maxMovieCandidates {
+			break
+		}
+	}
+	return out, nil
+}
+
+// SearchTV mirrors Search for television (/search/tv). TMDB TV uses name +
+// first_air_date instead of title + release_date.
+func (t *TMDB) SearchTV(ctx context.Context, query string, year int) ([]MovieCandidate, error) {
+	q := url.Values{"query": {query}}
+	if year > 0 {
+		q.Set("first_air_date_year", strconv.Itoa(year))
+	}
+	body, err := t.get(ctx, "/search/tv", q)
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		Results []struct {
+			ID           int64  `json:"id"`
+			Name         string `json:"name"`
+			FirstAirDate string `json:"first_air_date"`
+			Overview     string `json:"overview"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return nil, fmt.Errorf("tmdb: %w", err)
+	}
+	var out []MovieCandidate
+	for _, m := range r.Results {
+		out = append(out, MovieCandidate{
+			Source:      "tmdb",
+			SourceID:    strconv.FormatInt(m.ID, 10),
+			MediaType:   "show",
+			TMDBID:      m.ID,
+			Title:       m.Name,
+			ReleaseYear: leadingYear(m.FirstAirDate),
 			Overview:    m.Overview,
 		})
 		if len(out) == maxMovieCandidates {
@@ -130,7 +184,10 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		Overview    string `json:"overview"`
 		ReleaseDate string `json:"release_date"`
 		PosterPath  string `json:"poster_path"`
-		Genres      []struct {
+		Collection  *struct {
+			Name string `json:"name"`
+		} `json:"belongs_to_collection"`
+		Genres []struct {
 			Name string `json:"name"`
 		} `json:"genres"`
 		Credits struct {
@@ -148,11 +205,17 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		return nil, fmt.Errorf("tmdb: %w", err)
 	}
 	d := &MovieDetails{
+		Source:      "tmdb",
+		SourceID:    strconv.FormatInt(r.ID, 10),
+		MediaType:   "movie",
 		TMDBID:      r.ID,
 		Title:       r.Title,
 		Overview:    r.Overview,
 		ReleaseYear: leadingYear(r.ReleaseDate),
 		Raw:         body,
+	}
+	if r.Collection != nil {
+		d.Series = r.Collection.Name // e.g. "The Matrix Collection"
 	}
 	for _, g := range r.Genres {
 		d.Genres = append(d.Genres, g.Name)
@@ -166,6 +229,72 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 	for _, c := range r.Credits.Crew {
 		if c.Job == "Director" {
 			d.Director = c.Name
+			break
+		}
+	}
+	if r.PosterPath != "" {
+		d.PosterURL = tmdbImageBase + r.PosterPath
+	}
+	return d, nil
+}
+
+// DetailsTV fetches TV details + aggregate credits (/tv/{id}). TMDB TV uses
+// name/first_air_date and created_by for the "director" (creator) slot;
+// aggregate_credits groups an actor's episode roles, so we take the first role's
+// character. TMDB has no franchise/collection for TV, so Series is left empty.
+func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
+	body, err := t.get(ctx, "/tv/"+strconv.FormatInt(id, 10),
+		url.Values{"append_to_response": {"aggregate_credits"}})
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		ID           int64  `json:"id"`
+		Name         string `json:"name"`
+		Overview     string `json:"overview"`
+		FirstAirDate string `json:"first_air_date"`
+		PosterPath   string `json:"poster_path"`
+		CreatedBy    []struct {
+			Name string `json:"name"`
+		} `json:"created_by"`
+		Genres []struct {
+			Name string `json:"name"`
+		} `json:"genres"`
+		Credits struct {
+			Cast []struct {
+				Name  string `json:"name"`
+				Roles []struct {
+					Character string `json:"character"`
+				} `json:"roles"`
+			} `json:"cast"`
+		} `json:"aggregate_credits"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return nil, fmt.Errorf("tmdb: %w", err)
+	}
+	d := &MovieDetails{
+		Source:      "tmdb",
+		SourceID:    strconv.FormatInt(r.ID, 10),
+		MediaType:   "show",
+		TMDBID:      r.ID,
+		Title:       r.Name,
+		Overview:    r.Overview,
+		ReleaseYear: leadingYear(r.FirstAirDate),
+		Raw:         body,
+	}
+	if len(r.CreatedBy) > 0 {
+		d.Director = r.CreatedBy[0].Name
+	}
+	for _, g := range r.Genres {
+		d.Genres = append(d.Genres, g.Name)
+	}
+	for _, c := range r.Credits.Cast {
+		ch := ""
+		if len(c.Roles) > 0 {
+			ch = c.Roles[0].Character
+		}
+		d.Cast = append(d.Cast, CastMember{Character: ch, Actor: c.Name})
+		if len(d.Cast) == maxCast {
 			break
 		}
 	}

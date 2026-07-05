@@ -87,11 +87,16 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
 }
 
-// handleMovieLookup implements POST /movies/lookup via TMDB (PLAN §6).
+// handleMovieLookup implements POST /movies/lookup (PLAN §6). It queries every
+// configured supplier (TMDB and/or TheTVDB) for the requested media_type and
+// merges the candidates, each tagged with its source — mirroring how book
+// lookup blends Google Books + Open Library. A source with no key is skipped;
+// only when NO source is configured do we answer 503.
 func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Title string `json:"title"`
-		Year  int    `json:"year"`
+		Title     string `json:"title"`
+		Year      int    `json:"year"`
+		MediaType string `json:"media_type"` // "movie" (default) | "show"
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -100,24 +105,59 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "title is required")
 		return
 	}
+	mediaType := "movie"
+	if req.MediaType == "show" {
+		mediaType = "show"
+	}
+
 	tmdb, _ := s.resolveTMDB()
-	if tmdb == nil {
+	tvdb, _ := s.resolveTVDB()
+	if tmdb == nil && tvdb == nil {
 		writeErr(w, http.StatusServiceUnavailable, tmdbKeyMissing)
 		return
 	}
-	cands, err := tmdb.Search(r.Context(), req.Title, req.Year)
-	if err != nil {
-		if errors.Is(err, metadata.ErrTMDBAuth) {
+
+	cands := []metadata.MovieCandidate{}
+	var firstErr error
+	if tmdb != nil {
+		var c []metadata.MovieCandidate
+		var err error
+		if mediaType == "show" {
+			c, err = tmdb.SearchTV(r.Context(), req.Title, req.Year)
+		} else {
+			c, err = tmdb.Search(r.Context(), req.Title, req.Year)
+		}
+		if err != nil {
+			firstErr = err
+		} else {
+			cands = append(cands, c...)
+		}
+	}
+	if tvdb != nil {
+		if c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else {
+			cands = append(cands, c...)
+		}
+	}
+
+	// Only surface an error when nothing came back at all — a partial failure
+	// (one source down, the other returning hits) still yields useful results.
+	if len(cands) == 0 && firstErr != nil {
+		switch {
+		case errors.Is(firstErr, metadata.ErrTMDBAuth):
 			writeErr(w, http.StatusBadGateway,
 				"TMDB rejected the key. A v4 token starts with 'ey' — paste the v3 API key "+
 					"(not the account username) in Settings → Metadata sources, or re-check the token.")
-			return
+		case errors.Is(firstErr, metadata.ErrTVDBAuth):
+			writeErr(w, http.StatusBadGateway,
+				"TheTVDB rejected the key — re-check it in Settings → Metadata sources.")
+		default:
+			writeErr(w, http.StatusBadGateway, "movie lookup failed")
 		}
-		writeErr(w, http.StatusBadGateway, "movie lookup failed")
 		return
-	}
-	if cands == nil {
-		cands = []metadata.MovieCandidate{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
 }

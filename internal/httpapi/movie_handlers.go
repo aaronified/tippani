@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/metadata"
@@ -12,14 +14,22 @@ import (
 
 // tmdbKeyMissing: manual movie entry still works without a key (PLAN §6).
 const tmdbKeyMissing = "TMDB API key not configured (set TIPPANI_TMDB_API_KEY or save a key in Settings)"
+const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
 
 type movieReq struct {
 	TMDBID      int64    `json:"tmdb_id"`
+	Source      string   `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
+	SourceID    string   `json:"source_id"` // id within the source
 	Title       string   `json:"title"`
-	Director    string   `json:"director"`
+	Director    string   `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
 	ReleaseYear int      `json:"release_year"`
 	Description string   `json:"description"`
 	Genres      []string `json:"genres"`
+	MediaType   string   `json:"media_type"` // "movie" (default) | "show"
+	Series      string   `json:"series"`
+	SeriesIndex float64  `json:"series_index"`
+	Favorite    bool     `json:"favorite"`
+	Rating      int      `json:"rating"`      // 0 = unrated, else 1-5 (PLAN §3)
 	PosterURL   string   `json:"poster_url"`  // update: set/replace the poster
 	ClearCover  bool     `json:"clear_cover"` // update: drop the current poster
 }
@@ -28,11 +38,32 @@ func (m *movieReq) validate() string {
 	m.Title = strings.TrimSpace(m.Title)
 	m.Director = strings.TrimSpace(m.Director)
 	m.Description = strings.TrimSpace(m.Description)
+	m.Series = strings.TrimSpace(m.Series)
 	if m.Title == "" {
 		return "title is required"
 	}
 	if !validYear(m.ReleaseYear) {
 		return "release_year must be between 1000 and 3000"
+	}
+	if m.Rating < 0 || m.Rating > 5 {
+		return "rating must be between 0 and 5"
+	}
+	if msg := normalizeMediaType(&m.MediaType); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+// normalizeMediaType defaults an empty media_type to "movie" and rejects
+// anything outside the {movie, show} vocabulary (validated in app code — the
+// column has no CHECK, matching the 0004 convention).
+func normalizeMediaType(mt *string) string {
+	switch *mt {
+	case "", "movie":
+		*mt = "movie"
+	case "show":
+	default:
+		return "media_type must be 'movie' or 'show'"
 	}
 	return ""
 }
@@ -44,9 +75,15 @@ type movieDetail struct {
 	Director    string                `json:"director"`
 	ReleaseYear int                   `json:"release_year"`
 	TMDBID      int64                 `json:"tmdb_id"`
+	TVDBID      int64                 `json:"tvdb_id"`
+	MediaType   string                `json:"media_type"`
 	PosterPath  string                `json:"poster_path"`
 	Description string                `json:"description"`
 	Genres      []string              `json:"genres"`
+	Series      string                `json:"series"`
+	SeriesIndex float64               `json:"series_index"`
+	Favorite    bool                  `json:"favorite"`
+	Rating      int                   `json:"rating"`
 	Cast        []metadata.CastMember `json:"cast"`
 	CreatedAt   string                `json:"created_at"`
 }
@@ -56,10 +93,12 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	var castJSON string
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), COALESCE(tmdb_id, 0),
-		       COALESCE(poster_path, ''), COALESCE(description, ''), cast_json, created_at
+		       COALESCE(tvdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
+		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, rating, cast_json, created_at
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.TMDBID,
-			&m.PosterPath, &m.Description, &castJSON, &m.CreatedAt)
+			&m.TVDBID, &m.MediaType, &m.PosterPath, &m.Description,
+			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Rating, &castJSON, &m.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -85,15 +124,20 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	return &m, nil
 }
 
-// handleCreateMovie: with tmdb_id the server fetches details+credits itself
-// (PLAN §6, one call); otherwise it is a manual entry with an empty cast.
+// handleCreateMovie: with a source+source_id (or legacy tmdb_id) the server
+// fetches details+credits itself (PLAN §6); otherwise it is a manual entry with
+// an empty cast.
 func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	var req movieReq
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	if req.TMDBID != 0 {
-		s.createMovieFromTMDB(w, r, req.TMDBID)
+	if req.Source != "" && req.SourceID != "" {
+		s.createMovieFromSource(w, r, req.Source, req.SourceID, req.MediaType)
+		return
+	}
+	if req.TMDBID != 0 { // legacy clients / tests: tmdb_id implies a TMDB movie
+		s.createMovieFromSource(w, r, "tmdb", strconv.FormatInt(req.TMDBID, 10), "movie")
 		return
 	}
 	if msg := req.validate(); msg != "" {
@@ -108,10 +152,12 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO movies (user_id, title, director, release_year, description)
-		VALUES (?, ?, ?, ?, ?)`,
+		INSERT INTO movies (user_id, title, director, release_year, description,
+		                    media_type, series, series_index, favorite, rating)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
-		nullable(req.Description))
+		nullable(req.Description), req.MediaType, nullable(req.Series),
+		nullableFloat(req.SeriesIndex), req.Favorite, req.Rating)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
@@ -133,15 +179,13 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, m)
 }
 
-func (s *Server) createMovieFromTMDB(w http.ResponseWriter, r *http.Request, tmdbID int64) {
-	tmdb, _ := s.resolveTMDB() // env > settings custom > built-in (PLAN §6)
-	if tmdb == nil {
-		writeErr(w, http.StatusServiceUnavailable, tmdbKeyMissing)
-		return
-	}
-	d, err := tmdb.Details(r.Context(), tmdbID)
-	if err != nil {
-		writeErr(w, http.StatusBadGateway, "TMDB lookup failed")
+// createMovieFromSource pulls details+credits from the given supplier (TMDB or
+// TheTVDB, movie or show) and inserts the row. The tmdb_id/tvdb_id column is set
+// from whichever id the details carry, so both partial unique indexes dedupe.
+func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, source, sourceID, mediaType string) {
+	d, msg, code := s.fetchSourceDetails(r.Context(), source, sourceID, mediaType)
+	if d == nil {
+		writeErr(w, code, msg)
 		return
 	}
 	// Poster fetch is non-fatal, same rule as book covers.
@@ -167,19 +211,20 @@ func (s *Server) createMovieFromTMDB(w http.ResponseWriter, r *http.Request, tmd
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO movies (user_id, title, director, release_year, tmdb_id,
-		                    poster_path, description, cast_json, source_metadata)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear), tmdbID,
-		nullable(posterPath), nullable(d.Overview), castJSON, string(d.Raw))
+		INSERT INTO movies (user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
+		                    poster_path, description, series, cast_json, source_metadata)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
+		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
+		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw))
 	if err != nil {
 		s.removeCoverFile(posterPath)
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if n, _ := res.RowsAffected(); n == 0 { // (user_id, tmdb_id) collision
+	if n, _ := res.RowsAffected(); n == 0 { // (user_id, tmdb_id/tvdb_id) collision
 		s.removeCoverFile(posterPath)
-		writeErr(w, http.StatusConflict, "movie already in your library")
+		writeErr(w, http.StatusConflict, "title already in your library")
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -201,20 +246,73 @@ func (s *Server) createMovieFromTMDB(w http.ResponseWriter, r *http.Request, tmd
 	writeJSON(w, http.StatusCreated, m)
 }
 
+// fetchSourceDetails dispatches a details lookup to the right supplier+media
+// type. On failure it returns (nil, message, httpStatus) ready to write.
+func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, mediaType string) (*metadata.MovieDetails, string, int) {
+	show := mediaType == "show"
+	switch source {
+	case "tvdb":
+		tvdb, _ := s.resolveTVDB()
+		if tvdb == nil {
+			return nil, tvdbKeyMissing, http.StatusServiceUnavailable
+		}
+		var d *metadata.MovieDetails
+		var err error
+		if show {
+			d, err = tvdb.SeriesDetails(ctx, sourceID)
+		} else {
+			d, err = tvdb.MovieDetails(ctx, sourceID)
+		}
+		if err != nil {
+			if errors.Is(err, metadata.ErrTVDBAuth) {
+				return nil, "TheTVDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
+			}
+			return nil, "TheTVDB lookup failed", http.StatusBadGateway
+		}
+		return d, "", 0
+	default: // "tmdb"
+		tmdb, _ := s.resolveTMDB()
+		if tmdb == nil {
+			return nil, tmdbKeyMissing, http.StatusServiceUnavailable
+		}
+		id, _ := strconv.ParseInt(sourceID, 10, 64)
+		var d *metadata.MovieDetails
+		var err error
+		if show {
+			d, err = tmdb.DetailsTV(ctx, id)
+		} else {
+			d, err = tmdb.Details(ctx, id)
+		}
+		if err != nil {
+			if errors.Is(err, metadata.ErrTMDBAuth) {
+				return nil, "TMDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
+			}
+			return nil, "TMDB lookup failed", http.StatusBadGateway
+		}
+		return d, "", 0
+	}
+}
+
 func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	type item struct {
 		ID            int64    `json:"id"`
 		Title         string   `json:"title"`
 		Director      string   `json:"director"`
 		ReleaseYear   int      `json:"release_year"`
+		MediaType     string   `json:"media_type"`
 		PosterPath    string   `json:"poster_path"`
 		Genres        []string `json:"genres"`
+		Series        string   `json:"series"`
+		SeriesIndex   float64  `json:"series_index"`
+		Favorite      bool     `json:"favorite"`
+		Rating        int      `json:"rating"`
 		DialogueCount int      `json:"dialogue_count"`
 	}
 	uid := userID(r)
 	rows, err := s.Store.DB.Query(`
 		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
-		       COALESCE(m.poster_path, ''),
+		       m.media_type, COALESCE(m.poster_path, ''),
+		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite, m.rating,
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
@@ -227,7 +325,8 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear,
-			&it.PosterPath, &it.DialogueCount); err == nil {
+			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
+			&it.Favorite, &it.Rating, &it.DialogueCount); err == nil {
 			items = append(items, it)
 		}
 	}
@@ -271,10 +370,14 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	// A non-zero tmdb_id re-syncs everything (poster, cast, genres, details)
-	// from TMDB — the "look up on TMDB" action in the edit view.
+	// A source+source_id (or legacy tmdb_id) re-syncs everything (poster, cast,
+	// genres, details) from that supplier — the "look up" action in the edit view.
+	if req.Source != "" && req.SourceID != "" {
+		s.resyncMovieFromSource(w, r, id, req.Source, req.SourceID, req.MediaType)
+		return
+	}
 	if req.TMDBID != 0 {
-		s.resyncMovieFromTMDB(w, r, id, req.TMDBID)
+		s.resyncMovieFromSource(w, r, id, "tmdb", strconv.FormatInt(req.TMDBID, 10), "movie")
 		return
 	}
 	if msg := req.validate(); msg != "" {
@@ -319,10 +422,12 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		UPDATE movies SET title = ?, director = ?, release_year = ?, description = ?
+		UPDATE movies SET title = ?, director = ?, release_year = ?, description = ?,
+		                  media_type = ?, series = ?, series_index = ?, favorite = ?, rating = ?
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
-		nullable(req.Description), id, uid)
+		nullable(req.Description), req.MediaType, nullable(req.Series),
+		nullableFloat(req.SeriesIndex), req.Favorite, req.Rating, id, uid)
 	if err != nil {
 		fail(http.StatusInternalServerError, "internal error")
 		return
@@ -357,22 +462,14 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, m)
 }
 
-// resyncMovieFromTMDB re-pulls details+credits for an existing movie and
-// overwrites title/director/year/description/cast/genres and the poster. Used
-// by the edit view's "look up on TMDB" picker.
-func (s *Server) resyncMovieFromTMDB(w http.ResponseWriter, r *http.Request, id, tmdbID int64) {
-	tmdb, _ := s.resolveTMDB()
-	if tmdb == nil {
-		writeErr(w, http.StatusServiceUnavailable, tmdbKeyMissing)
-		return
-	}
-	d, err := tmdb.Details(r.Context(), tmdbID)
-	if err != nil {
-		if errors.Is(err, metadata.ErrTMDBAuth) {
-			writeErr(w, http.StatusBadGateway, "TMDB rejected the key — re-check it in Settings → Metadata sources")
-			return
-		}
-		writeErr(w, http.StatusBadGateway, "TMDB lookup failed")
+// resyncMovieFromSource re-pulls details+credits from a supplier and overwrites
+// title/director/year/description/cast/genres/series/poster + the source ids and
+// media_type. User-owned fields (favorite, rating, series_index) are deliberately
+// left untouched. Used by the edit view's "look up" picker.
+func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, id int64, source, sourceID, mediaType string) {
+	d, msg, code := s.fetchSourceDetails(r.Context(), source, sourceID, mediaType)
+	if d == nil {
+		writeErr(w, code, msg)
 		return
 	}
 	uid := userID(r)
@@ -386,16 +483,24 @@ func (s *Server) resyncMovieFromTMDB(w http.ResponseWriter, r *http.Request, id,
 		}
 		return
 	}
-	// Reject re-syncing to a tmdb_id another of the user's movies already holds.
+	// Reject re-syncing to a tmdb_id/tvdb_id another of the user's titles holds.
 	var clash bool
-	if err := s.Store.DB.QueryRow(
-		`SELECT EXISTS(SELECT 1 FROM movies WHERE user_id = ? AND id <> ? AND tmdb_id = ?)`,
-		uid, id, tmdbID).Scan(&clash); err != nil {
+	var clashErr error
+	if d.TVDBID != 0 {
+		clashErr = s.Store.DB.QueryRow(
+			`SELECT EXISTS(SELECT 1 FROM movies WHERE user_id = ? AND id <> ? AND tvdb_id = ?)`,
+			uid, id, d.TVDBID).Scan(&clash)
+	} else {
+		clashErr = s.Store.DB.QueryRow(
+			`SELECT EXISTS(SELECT 1 FROM movies WHERE user_id = ? AND id <> ? AND tmdb_id = ?)`,
+			uid, id, d.TMDBID).Scan(&clash)
+	}
+	if clashErr != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	if clash {
-		writeErr(w, http.StatusConflict, "another movie in your library is already that TMDB title")
+		writeErr(w, http.StatusConflict, "another title in your library is already that entry")
 		return
 	}
 	var newPoster string
@@ -420,17 +525,19 @@ func (s *Server) resyncMovieFromTMDB(w http.ResponseWriter, r *http.Request, id,
 		return
 	}
 	defer tx.Rollback()
-	// Keep the existing poster if TMDB had none this time.
+	// Keep the existing poster if the source had none this time.
 	poster := oldPoster.String
 	if newPoster != "" {
 		poster = newPoster
 	}
 	res, err := tx.Exec(`
-		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?,
-		                  poster_path = ?, description = ?, cast_json = ?, source_metadata = ?
+		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?, tvdb_id = ?,
+		                  media_type = ?, poster_path = ?, description = ?, series = ?,
+		                  cast_json = ?, source_metadata = ?
 		WHERE id = ? AND user_id = ?`,
-		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear), tmdbID,
-		nullable(poster), nullable(d.Overview), castJSON, string(d.Raw), id, uid)
+		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
+		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
+		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), id, uid)
 	if err != nil {
 		fail(http.StatusInternalServerError, "internal error")
 		return

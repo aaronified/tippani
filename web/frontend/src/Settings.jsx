@@ -283,6 +283,7 @@ function Metadata({ user }) {
   const admin = user.is_admin
   const [status, setStatus] = useState(null)
   const [tmdbKey, setTmdbKey] = useState('')
+  const [tvdbKey, setTvdbKey] = useState('')
   const [googleKey, setGoogleKey] = useState('')
   const [amazonCookie, setAmazonCookie] = useState('')
   const [amazonDomain, setAmazonDomain] = useState('')
@@ -321,6 +322,10 @@ function Metadata({ user }) {
       : source === 'custom' ? 'Custom key'
         : source === 'env' ? 'Env key'
           : 'No key'
+  const tvdbSource = status?.tvdb?.source
+  const tvdbTone = tvdbSource === 'none' || !tvdbSource ? 'muted' : 'active'
+  const tvdbLabel =
+    tvdbSource === 'custom' ? 'Custom key' : tvdbSource === 'env' ? 'Env key' : 'No key (optional)'
 
   // Secrets are write-only: GET reports only whether each is set, never the
   // value. Only fields the admin actually edited are sent (the PUT leaves any
@@ -336,12 +341,14 @@ function Metadata({ user }) {
     const shown = (setFlag, editing) => editing || (keys && !setFlag)
     const body = { amazon_domain: amazonDomain.trim() }
     if (shown(keys?.tmdb_key_set, edit.tmdb)) body.tmdb_key = tmdbKey
+    if (shown(keys?.tvdb_key_set, edit.tvdb)) body.tvdb_key = tvdbKey
     if (shown(keys?.google_books_key_set, edit.google)) body.google_books_key = googleKey
     if (shown(keys?.amazon_cookie_set, edit.amazon)) body.amazon_cookie = amazonCookie
     const r = await json('PUT', '/admin/metadata-keys', body)
     setSaving(false)
     if (r.ok) {
       setTmdbKey('')
+      setTvdbKey('')
       setGoogleKey('')
       setAmazonCookie('')
       setEdit({})
@@ -403,28 +410,43 @@ function Metadata({ user }) {
         )}
       </div>
 
-      {/* Movies */}
+      {/* Movies & Shows */}
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <MonoLabel>Movies</MonoLabel>
+          <MonoLabel>Movies &amp; Shows</MonoLabel>
           <span style={{ fontWeight: 600 }}>TMDB</span>
           <StatusChip tone={tmdbTone}>{tmdbLabel}</StatusChip>
+          <span style={{ fontWeight: 600 }}>+ TheTVDB</span>
+          <StatusChip tone={tvdbTone}>{tvdbLabel}</StatusChip>
         </div>
         <p className="mt-2.5" style={{ fontSize: 13.5, color: 'var(--soft)', lineHeight: 1.5 }}>
-          Working. Get your own key: themoviedb.org → Settings → API → request a free v3 key, paste
-          below (or set TIPPANI_TMDB_API_KEY). Without any key, lookup answers 503 — manual entry keeps
-          working.
+          Both suppliers cover movies and shows; lookup merges their results. TMDB: themoviedb.org →
+          Settings → API → free v3 key (or set TIPPANI_TMDB_API_KEY). TheTVDB is optional: thetvdb.com →
+          account → API key (or set TIPPANI_TVDB_API_KEY). Without any key, lookup answers 503 — manual
+          entry keeps working.
         </p>
         {admin && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <SecretField
-              set={keys?.tmdb_key_set}
-              editing={edit.tmdb}
-              onEdit={() => setEdit((e) => ({ ...e, tmdb: true }))}
-              value={tmdbKey}
-              onChange={(e) => setTmdbKey(e.target.value)}
-              placeholder="Custom v3 key or v4 token — overrides built-in"
-            />
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <SecretField
+                set={keys?.tmdb_key_set}
+                editing={edit.tmdb}
+                onEdit={() => setEdit((e) => ({ ...e, tmdb: true }))}
+                value={tmdbKey}
+                onChange={(e) => setTmdbKey(e.target.value)}
+                placeholder="TMDB v3 key or v4 token — overrides built-in"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <SecretField
+                set={keys?.tvdb_key_set}
+                editing={edit.tvdb}
+                onEdit={() => setEdit((e) => ({ ...e, tvdb: true }))}
+                value={tvdbKey}
+                onChange={(e) => setTvdbKey(e.target.value)}
+                placeholder="TheTVDB v4 API key — optional"
+              />
+            </div>
           </div>
         )}
       </div>

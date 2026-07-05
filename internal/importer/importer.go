@@ -30,3 +30,26 @@ type Result struct {
 	Book        Book
 	Annotations []Annotation
 }
+
+// ---- movie/show quote imports (IMDb) ----
+
+// MovieHeader is the film/show parsed from a quotes import file.
+type MovieHeader struct {
+	Title     string
+	Year      int
+	IMDbID    string // as found in the file (ttNNNNN); informational
+	MediaType string // "movie" | "show"
+}
+
+// Dialogue is one parsed quote/exchange. Character is set only when the whole
+// exchange is a single speaker (PLAN: one dialogue per exchange).
+type Dialogue struct {
+	Quote     string
+	Character string
+}
+
+// MovieResult groups the dialogues of one film/show (mirrors Result for books).
+type MovieResult struct {
+	Movie     MovieHeader
+	Dialogues []Dialogue
+}

@@ -27,6 +27,7 @@ type Server struct {
 	DataDir      string         // covers/posters live in <DataDir>/MediaCover (PLAN §6)
 	TMDB         *metadata.TMDB // Key = env-provided key; resolveTMDB falls through to settings/built-in
 	TMDBBuiltin  string         // built-in app key, the last fallback before 503 (defaultTMDBKey in cmd/tippani)
+	TVDB         *metadata.TVDB // Key = env-provided TheTVDB key; resolveTVDB falls through to settings (no built-in)
 
 	loginLimiter *auth.KeyedLimiter
 
@@ -50,6 +51,7 @@ func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, t
 		Static:         static,
 		DataDir:        dataDir,
 		TMDB:           &metadata.TMDB{Key: tmdbKey},
+		TVDB:           &metadata.TVDB{},                              // env key set by cmd/tippani after New (like TMDBBuiltin)
 		loginLimiter:   auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
 		fetchImage:     metadata.FetchImage,
 		fetchUserImage: metadata.FetchUserImage,
@@ -122,7 +124,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
 	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
 	mux.Handle("POST /import/goodreads-html", s.requireAuth(s.handleImportGoodreads))
-	mux.Handle("POST /import/kindle-clippings", s.requireAuth(notImplemented)) // deferred (PLAN §5c)
+	mux.Handle("POST /import/kindle-notebook", s.requireAuth(s.handleImportKindleNotebook)) // read.amazon.com/notebook
+	mux.Handle("POST /import/imdb-quotes", s.requireAuth(s.handleImportIMDb))               // movies/dialogues (PLAN §5)
+	mux.Handle("POST /import/kindle-clippings", s.requireAuth(notImplemented))              // deferred (PLAN §5c)
 	mux.Handle("GET /covers/{file}", s.requireAuth(s.handleCover))
 
 	// Export (PLAN §6b): single-item markdown + whole-library zip.
@@ -155,6 +159,7 @@ func securityHeaders(next http.Handler) http.Handler {
 			"default-src 'self'; img-src 'self' data: "+
 				"https://covers.openlibrary.org https://books.google.com "+
 				"https://books.googleusercontent.com https://image.tmdb.org "+
+				"https://artworks.thetvdb.com "+
 				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com; "+
 				"frame-ancestors 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -264,6 +269,23 @@ func nullable(s string) any {
 }
 
 func nullableInt(n int) any {
+	if n == 0 {
+		return nil
+	}
+	return n
+}
+
+// nullableFloat maps 0 to NULL — used for series_index, where "unset" and
+// "position 0" are not meaningfully distinct for a reading/watch order.
+func nullableFloat(f float64) any {
+	if f == 0 {
+		return nil
+	}
+	return f
+}
+
+// nullableInt64 maps 0 to NULL for the partial-unique id columns (tmdb_id/tvdb_id).
+func nullableInt64(n int64) any {
 	if n == 0 {
 		return nil
 	}

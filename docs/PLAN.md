@@ -81,6 +81,10 @@ CREATE TABLE books (
   google_id TEXT, openlibrary_id TEXT,
   genre_text TEXT NOT NULL DEFAULT '',  -- denormalized, space-joined genre names (FTS input)
   source_metadata TEXT,                 -- raw API payloads (json)
+  favorite INTEGER NOT NULL DEFAULT 0,  -- star flag (migration 0006, mirrors annotations)
+  rating INTEGER NOT NULL DEFAULT 0     -- 0 = unrated, else 1-5 (migration 0006)
+    CHECK (rating BETWEEN 0 AND 5),
+  series TEXT, series_index REAL,       -- series/collection name + fractional order (0006)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE UNIQUE INDEX idx_books_user_isbn ON books(user_id, isbn) WHERE isbn IS NOT NULL;
@@ -167,10 +171,17 @@ CREATE TABLE movies (
   description TEXT,
   genre_text TEXT NOT NULL DEFAULT '',   -- denormalized, space-joined (FTS input), like books
   cast_json TEXT NOT NULL DEFAULT '[]',  -- [{"character":"…","actor":"…"}] from TMDB credits
-  source_metadata TEXT,                  -- raw TMDB payload (json)
+  source_metadata TEXT,                  -- raw TMDB/TVDB payload (json)
+  favorite INTEGER NOT NULL DEFAULT 0,   -- star flag (migration 0006, mirrors dialogues)
+  rating INTEGER NOT NULL DEFAULT 0      -- 0 = unrated, else 1-5 (migration 0006)
+    CHECK (rating BETWEEN 0 AND 5),
+  series TEXT, series_index REAL,        -- franchise/collection name + order (0006)
+  media_type TEXT NOT NULL DEFAULT 'movie', -- 'movie'|'show'; TV folded into movies (0006), validated in app code
+  tvdb_id INTEGER,                       -- TheTVDB id (second supplier, 0006)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE UNIQUE INDEX idx_movies_user_tmdb ON movies(user_id, tmdb_id) WHERE tmdb_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_movies_user_tvdb ON movies(user_id, tvdb_id) WHERE tvdb_id IS NOT NULL;
 
 CREATE TABLE movie_genres (
   movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,

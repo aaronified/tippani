@@ -194,9 +194,10 @@ export function BookLookupPicker({ isbn, title, asin, onPick }) {
   )
 }
 
-// MovieLookupPicker searches TMDB (title + year) and, on pick, hands back the
-// tmdb_id so the caller can re-sync the movie (poster, cast, genres, details).
-export function MovieLookupPicker({ title, year, onPick }) {
+// MovieLookupPicker searches TMDB + TVDB (title + year, for the given
+// media_type) and, on pick, hands the whole candidate back so the caller can
+// re-sync from its source (poster, cast, genres, details).
+export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) {
   const [q, setQ] = useState(title || '')
   const [yr, setYr] = useState(year ? String(year) : '')
   const [cands, setCands] = useState(null)
@@ -209,7 +210,7 @@ export function MovieLookupPicker({ title, year, onPick }) {
     setBusy(true)
     setErr('')
     setCands(null)
-    const body = { title: q.trim() }
+    const body = { title: q.trim(), media_type: mediaType }
     if (yr) body.year = Number(yr)
     const r = await json('POST', '/movies/lookup', body)
     setBusy(false)
@@ -223,7 +224,7 @@ export function MovieLookupPicker({ title, year, onPick }) {
         <input className="tp-input" placeholder="Title" value={q} onChange={(e) => setQ(e.target.value)} />
         <input className="tp-input w-24 shrink-0" placeholder="Year" inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} />
         <GhostButton type="submit" className="shrink-0" disabled={busy}>
-          {busy ? 'Searching…' : 'Search TMDB'}
+          {busy ? 'Searching…' : 'Search'}
         </GhostButton>
       </form>
       <ErrorText>{err}</ErrorText>
@@ -232,7 +233,7 @@ export function MovieLookupPicker({ title, year, onPick }) {
         <ul style={{ border: '1px solid var(--line)', borderRadius: 10 }}>
           {cands.map((c, i) => (
             <li
-              key={c.tmdb_id}
+              key={`${c.source}-${c.source_id || c.tmdb_id}`}
               className="flex items-center gap-3 px-3 py-2.5"
               style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
             >
@@ -243,7 +244,9 @@ export function MovieLookupPicker({ title, year, onPick }) {
                 </p>
                 {c.overview && <p className="line-clamp-2 text-xs" style={{ color: 'var(--faint)' }}>{c.overview}</p>}
               </div>
-              <span className="tp-chip shrink-0" style={{ color: 'var(--amber)' }}>TMDB #{c.tmdb_id}</span>
+              <span className="tp-chip shrink-0" style={{ color: 'var(--amber)' }}>
+                {(c.source || 'tmdb').toUpperCase()} #{c.source === 'tvdb' ? c.source_id : c.tmdb_id || c.source_id}
+              </span>
               <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
                 Use
               </GhostButton>

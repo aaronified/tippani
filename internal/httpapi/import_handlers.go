@@ -31,6 +31,10 @@ func (s *Server) handleImportGoodreads(w http.ResponseWriter, r *http.Request) {
 	s.handleImport(w, r, "goodreads_html", importer.Goodreads)
 }
 
+func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Request) {
+	s.handleImport(w, r, "kindle_notebook", importer.AmazonNotebook) // read.amazon.com/notebook (PLAN §5)
+}
+
 // handleImport is the shared multipart import flow: cap -> parse -> one
 // transaction for the book upsert and every annotation insert (PLAN §5, §8).
 // dedupe_hash duplicates are counted as skipped, so re-imports are idempotent.

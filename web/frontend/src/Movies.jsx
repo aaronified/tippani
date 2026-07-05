@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { CoverControls, MovieLookupPicker } from './CoverPicker.jsx'
 import {
   EdgeRow,
   EmptyState,
   ErrorText,
+  FavBadge,
   FrameCode,
   GhostButton,
   HandCard,
@@ -17,8 +18,10 @@ import {
   Sprockets,
   TagChip,
   TiltStars,
+  bySeries,
   filterChipClass,
   frameCode,
+  seriesLabel,
   splitCommas,
   useFrameBase,
   useReveal,
@@ -69,11 +72,34 @@ function Poster({ path, title, className = '' }) {
   return <Placeholder kind="POSTER" className={'w-full ' + className} />
 }
 
+// movieState is the full PUT body for a movie (PUT is full-state, and omitting
+// tmdb_id keeps it on the manual-update path) — used by the detail-header ♥/★.
+function movieState(m) {
+  return {
+    title: m.title,
+    director: m.director || '',
+    release_year: m.release_year || 0,
+    description: m.description || '',
+    genres: m.genres || [],
+    media_type: m.media_type || 'movie',
+    series: m.series || '',
+    series_index: m.series_index || 0,
+    favorite: !!m.favorite,
+    rating: m.rating || 0,
+  }
+}
+
 // ---- movie list: poster grid mirroring Library (§8.6) ----
 
 function MovieList({ onOpen }) {
   const [movies, setMovies] = useState(null)
   const [status, setStatus] = useState(null) // GET /metadata/status → Add-movie is status-aware
+  const [mediaType, setMediaType] = useState('') // '' = all, 'movie', 'show'
+  const [genre, setGenre] = useState('')
+  const [series, setSeries] = useState('')
+  const [fav, setFav] = useState(false)
+  const [minRating, setMinRating] = useState('')
+  const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
 
@@ -90,35 +116,145 @@ function MovieList({ onOpen }) {
   }, [])
 
   const tmdbSource = status?.tmdb?.source
+  const hasShows = (movies || []).some((m) => (m.media_type || 'movie') === 'show')
+  const genres = useMemo(() => {
+    const s = new Set()
+    for (const m of movies || []) for (const g of m.genres || []) s.add(g)
+    return [...s].sort()
+  }, [movies])
+  const seriesNames = useMemo(() => {
+    const s = new Set()
+    for (const m of movies || []) if (m.series) s.add(m.series)
+    return [...s].sort()
+  }, [movies])
+
+  const shown = useMemo(() => {
+    let list = movies || []
+    if (mediaType) list = list.filter((m) => (m.media_type || 'movie') === mediaType)
+    if (genre) list = list.filter((m) => (m.genres || []).includes(genre))
+    if (series) list = list.filter((m) => (m.series || '') === series)
+    if (fav) list = list.filter((m) => m.favorite)
+    if (minRating) list = list.filter((m) => (m.rating || 0) >= Number(minRating))
+    if (sort === 'recent') return list
+    list = [...list]
+    if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
+    else if (sort === 'year') list.sort((a, b) => (b.release_year || 0) - (a.release_year || 0))
+    else if (sort === 'rating') list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    else if (sort === 'series') list.sort(bySeries)
+    return list
+  }, [movies, mediaType, genre, series, fav, minRating, sort])
+
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
   const counts = movies
-    ? `${films} film${films === 1 ? '' : 's'} · ${lines} dialogue${lines === 1 ? '' : 's'}`
+    ? `${films} title${films === 1 ? '' : 's'} · ${lines} dialogue${lines === 1 ? '' : 's'}`
     : null
 
   return (
     <section>
       <PageHeader
-        title="Movies"
+        title="Movies & Shows"
         counts={counts}
         right={
           <>
             <MonoLabel className="hidden sm:inline">
-              {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'TMDB lookup: title + year'}
+              {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
             </MonoLabel>
             <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
-              ＋ Add movie
+              ＋ Add title
             </button>
           </>
         }
       />
       <ErrorText>{error}</ErrorText>
-      {movies && movies.length === 0 && (
-        <EmptyState>No movies yet — look one up on TMDB or add it manually.</EmptyState>
-      )}
+
       {movies && movies.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-1.5">
+          {hasShows && (
+            <>
+              {[
+                ['', 'All'],
+                ['movie', 'Movies'],
+                ['show', 'Shows'],
+              ].map(([k, label]) => (
+                <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
+                  {label}
+                </button>
+              ))}
+            </>
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {genres.length > 0 && (
+              <select
+                className="tp-input w-auto"
+                title="Filter by genre"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+              >
+                <option value="">all genres</option>
+                {genres.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+              ♥ favourites
+            </button>
+            <MinRatingSelect value={minRating} onChange={setMinRating} />
+            {seriesNames.length > 0 && (
+              <select
+                className="tp-input w-auto"
+                title="Filter by series"
+                value={series}
+                onChange={(e) => setSeries(e.target.value)}
+              >
+                <option value="">all series</option>
+                {seriesNames.map((sname) => (
+                  <option key={sname} value={sname}>
+                    {sname}
+                  </option>
+                ))}
+              </select>
+            )}
+            <label className="flex items-center gap-2">
+              <MonoLabel>sort</MonoLabel>
+              <select
+                className="cursor-pointer"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px 2px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  color: 'var(--faint)',
+                }}
+                title="Sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              >
+                <option value="recent">recent</option>
+                <option value="title">title</option>
+                <option value="year">year</option>
+                <option value="rating">rating</option>
+                <option value="series">series</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {movies && movies.length === 0 && (
+        <EmptyState>No titles yet — look one up on TMDB/TVDB or add it manually.</EmptyState>
+      )}
+      {movies && movies.length > 0 && shown.length === 0 && <EmptyState>no titles match these filters</EmptyState>}
+      {shown.length > 0 && (
         <Reveal className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
-          {movies.map((m) => (
+          {shown.map((m) => (
             <PosterCard key={m.id} movie={m} onOpen={onOpen} />
           ))}
         </Reveal>
@@ -139,9 +275,21 @@ function MovieList({ onOpen }) {
 
 function PosterCard({ movie: m, onOpen }) {
   const n = m.dialogue_count || 0
+  const isShow = (m.media_type || 'movie') === 'show'
   return (
     <button type="button" className="block w-full text-left" title={m.title} onClick={() => onOpen(m.id)}>
-      <Poster path={m.poster_path} title={m.title} />
+      <div className="relative">
+        <Poster path={m.poster_path} title={m.title} />
+        {isShow && (
+          <span
+            className="tp-chip absolute left-1.5 top-1.5"
+            style={{ fontSize: 9.5, background: 'rgba(21,16,12,.72)', color: '#fff', borderColor: 'transparent' }}
+          >
+            SERIES
+          </span>
+        )}
+        {m.favorite && <FavBadge />}
+      </div>
       <span
         className="mt-2.5 block truncate"
         style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}
@@ -151,8 +299,16 @@ function PosterCard({ movie: m, onOpen }) {
       <span className="block truncate text-[13px]" style={{ color: 'var(--soft)' }}>
         {[m.director, m.release_year].filter(Boolean).join(' · ') || ' '}
       </span>
-      <span className="mt-0.5 block" style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
-        {n} dialogue{n === 1 ? '' : 's'}
+      {m.series && (
+        <span className="block truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
+          {seriesLabel(m)}
+        </span>
+      )}
+      <span className="mt-0.5 flex items-center gap-2">
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
+          {n} dialogue{n === 1 ? '' : 's'}
+        </span>
+        {m.rating > 0 && <TiltStars value={m.rating} />}
       </span>
     </button>
   )
@@ -225,9 +381,16 @@ function AddMovieModal({ tmdbSource, onClose, onAdded }) {
   )
 }
 
+// candSource labels a candidate's supplier + id (e.g. "TMDB #603", "TVDB #121361").
+function candSource(c) {
+  const id = c.source === 'tvdb' ? c.source_id : c.tmdb_id || c.source_id
+  return `${(c.source || 'tmdb').toUpperCase()} #${id}`
+}
+
 function LookupMovie({ onAdded, onUnavailable }) {
   const [title, setTitle] = useState('')
   const [year, setYear] = useState('')
+  const [mediaType, setMediaType] = useState('movie')
   const [candidates, setCandidates] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -238,24 +401,29 @@ function LookupMovie({ onAdded, onUnavailable }) {
     setBusy(true)
     setError('')
     setCandidates(null)
-    const body = { title: title.trim() }
+    const body = { title: title.trim(), media_type: mediaType }
     if (year) body.year = Number(year)
     const r = await json('POST', '/movies/lookup', body)
     setBusy(false)
     if (r.ok) return setCandidates(r.data.candidates)
-    if (r.status === 503) return onUnavailable(errText(r, 'movie lookup is unavailable'))
+    if (r.status === 503) return onUnavailable(errText(r, 'lookup is unavailable'))
     setError(errText(r, 'lookup failed'))
   }
 
   async function add(c) {
     setError('')
-    const r = await json('POST', '/movies', { tmdb_id: c.tmdb_id })
+    const r = await json('POST', '/movies', {
+      source: c.source || 'tmdb',
+      source_id: c.source === 'tvdb' ? c.source_id : String(c.tmdb_id || c.source_id),
+      media_type: c.media_type || mediaType,
+    })
     if (r.ok) onAdded()
-    else setError(errText(r, 'could not add movie')) // duplicate tmdb_id → 409
+    else setError(errText(r, 'could not add title')) // duplicate id → 409
   }
 
   return (
     <div className="space-y-3">
+      <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       <form onSubmit={search} className="flex gap-2">
         <input className="tp-input" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input
@@ -275,7 +443,7 @@ function LookupMovie({ onAdded, onUnavailable }) {
         <ul style={{ border: '1px solid var(--line)', borderRadius: 10 }}>
           {candidates.map((c, i) => (
             <li
-              key={c.tmdb_id}
+              key={`${c.source}-${c.source_id || c.tmdb_id}`}
               className="flex items-center gap-3 px-4 py-3"
               style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
             >
@@ -295,7 +463,7 @@ function LookupMovie({ onAdded, onUnavailable }) {
                 )}
               </div>
               <span className="tp-chip shrink-0" style={{ color: 'var(--amber)' }}>
-                TMDB #{c.tmdb_id}
+                {candSource(c)}
               </span>
               <GhostButton className="shrink-0" onClick={() => add(c)}>
                 Add
@@ -310,12 +478,16 @@ function LookupMovie({ onAdded, onUnavailable }) {
 
 function ManualMovie({ onAdded }) {
   const [title, setTitle] = useState('')
+  const [mediaType, setMediaType] = useState('movie')
   const [director, setDirector] = useState('')
   const [year, setYear] = useState('')
   const [genres, setGenres] = useState('')
+  const [series, setSeries] = useState('')
+  const [seriesIndex, setSeriesIndex] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const isShow = mediaType === 'show'
 
   async function submit(e) {
     e.preventDefault()
@@ -324,30 +496,64 @@ function ManualMovie({ onAdded }) {
     setError('')
     const r = await json('POST', '/movies', {
       title: title.trim(),
+      media_type: mediaType,
       director: director.trim() || undefined,
       release_year: year ? Number(year) : undefined,
       genres: splitCommas(genres),
+      series: series.trim() || undefined,
+      series_index: Number(seriesIndex) || 0,
       description: description.trim() || undefined,
     })
     setBusy(false)
     if (r.ok) onAdded()
-    else setError(errText(r, 'could not add movie'))
+    else setError(errText(r, 'could not add title'))
   }
 
   return (
     <form onSubmit={submit} className="space-y-2.5">
+      <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       <div className="grid gap-2.5 sm:grid-cols-2">
         <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className="tp-input" placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />
+        <input
+          className="tp-input"
+          placeholder={isShow ? 'Creator' : 'Director'}
+          value={director}
+          onChange={(e) => setDirector(e.target.value)}
+        />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
         <input className="tp-input" placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
+        <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input
+          className="tp-input"
+          placeholder="Series #"
+          inputMode="decimal"
+          value={seriesIndex}
+          onChange={(e) => setSeriesIndex(e.target.value)}
+        />
       </div>
       <textarea className="tp-input" rows="3" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       <button className="tp-btn tp-btn-primary" disabled={busy}>
-        Add movie
+        Add {isShow ? 'show' : 'movie'}
       </button>
     </form>
+  )
+}
+
+// MediaTypeToggle — the Movie | Show segmented switch, reused by the add + edit
+// forms (TV is folded into movies via media_type).
+function MediaTypeToggle({ value, onChange }) {
+  return (
+    <div className="flex gap-1.5">
+      {[
+        ['movie', 'Movie'],
+        ['show', 'Show'],
+      ].map(([k, label]) => (
+        <button key={k} type="button" className={filterChipClass(value === k)} onClick={() => onChange(k)}>
+          {label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -376,9 +582,23 @@ function MovieDetail({ id, onClose }) {
     else setError(errText(r))
   }
 
-  // "DIR. X · YEAR · TMDB #id" — the mono credit line (mockup 15).
+  // patch PUTs the movie's full current state with one field changed (♥/★).
+  async function patch(fields) {
+    const r = await json('PUT', `/movies/${id}`, { ...movieState(movie), ...fields })
+    if (r.ok) setMovie(r.data)
+    else setError(errText(r, 'could not save'))
+  }
+
+  const isShow = movie && (movie.media_type || 'movie') === 'show'
+  // "DIR./CREATED BY X · YEAR · Series #n · TMDB/TVDB #id" — the mono credit line.
   const metaLine = movie
-    ? [movie.director && `DIR. ${movie.director}`, movie.release_year, movie.tmdb_id && `TMDB #${movie.tmdb_id}`]
+    ? [
+        movie.director && `${isShow ? 'CREATED BY' : 'DIR.'} ${movie.director}`,
+        movie.release_year,
+        seriesLabel(movie) || null,
+        movie.tmdb_id && `TMDB #${movie.tmdb_id}`,
+        movie.tvdb_id && `TVDB #${movie.tvdb_id}`,
+      ]
         .filter(Boolean)
         .join(' · ')
     : ''
@@ -422,6 +642,10 @@ function MovieDetail({ id, onClose }) {
                 {movie.title}
               </h1>
               {metaLine && <p style={amberMono}>{metaLine}</p>}
+              <div className="flex items-center gap-3">
+                <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
+                <TiltStars value={movie.rating || 0} onChange={(v) => patch({ rating: v })} />
+              </div>
               {movie.genres?.length > 0 && (
                 <p className="flex flex-wrap gap-1.5">
                   {movie.genres.map((g) => (
@@ -455,15 +679,19 @@ function MovieDetail({ id, onClose }) {
 
 function EditMovie({ movie, onSaved, onCancel }) {
   const [title, setTitle] = useState(movie.title || '')
+  const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
   const [director, setDirector] = useState(movie.director || '')
   const [year, setYear] = useState(movie.release_year ? String(movie.release_year) : '')
   const [genres, setGenres] = useState((movie.genres || []).join(', '))
+  const [series, setSeries] = useState(movie.series || '')
+  const [seriesIndex, setSeriesIndex] = useState(movie.series_index ? String(movie.series_index) : '')
   const [description, setDescription] = useState(movie.description || '')
   const [posterPath, setPosterPath] = useState(movie.poster_path || '')
   const [posterUrl, setPosterUrl] = useState('')
   const [clearCover, setClearCover] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const isShow = mediaType === 'show'
 
   async function submit(e) {
     e.preventDefault()
@@ -472,10 +700,16 @@ function EditMovie({ movie, onSaved, onCancel }) {
     setError('')
     const r = await json('PUT', `/movies/${movie.id}`, {
       title: title.trim(),
+      media_type: mediaType,
       director: director.trim(),
       release_year: year ? Number(year) : undefined,
       genres: splitCommas(genres),
+      series: series.trim(),
+      series_index: Number(seriesIndex) || 0,
       description: description.trim(),
+      // favorite/rating are edited on the detail header — carry them (PUT is full-state).
+      favorite: !!movie.favorite,
+      rating: movie.rating || 0,
       poster_url: posterUrl || undefined,
       clear_cover: clearCover || undefined,
     })
@@ -484,15 +718,19 @@ function EditMovie({ movie, onSaved, onCancel }) {
     else setError(errText(r, 'could not save'))
   }
 
-  // Picking a TMDB match re-syncs everything server-side (poster, cast, genres,
-  // details) — a full re-pull, so we just refresh afterwards.
+  // Picking a match re-syncs everything server-side from that supplier (poster,
+  // cast, genres, details) — a full re-pull, so we just refresh afterwards.
   async function resync(c) {
     setBusy(true)
     setError('')
-    const r = await json('PUT', `/movies/${movie.id}`, { tmdb_id: c.tmdb_id })
+    const r = await json('PUT', `/movies/${movie.id}`, {
+      source: c.source || 'tmdb',
+      source_id: c.source === 'tvdb' ? c.source_id : String(c.tmdb_id || c.source_id),
+      media_type: c.media_type || mediaType,
+    })
     setBusy(false)
     if (r.ok) onSaved()
-    else setError(errText(r, 'could not sync from TMDB'))
+    else setError(errText(r, 'could not sync from the source'))
   }
 
   return (
@@ -518,15 +756,29 @@ function EditMovie({ movie, onSaved, onCancel }) {
         }}
         onUploaded={(rec) => setPosterPath(rec.poster_path || '')}
       />
+      <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       <div>
-        <MonoLabel className="mb-1.5 block">Look up on TMDB (replaces details, cast &amp; poster)</MonoLabel>
-        <MovieLookupPicker title={title} year={year} onPick={resync} />
+        <MonoLabel className="mb-1.5 block">Look up on TMDB / TVDB (replaces details, cast &amp; poster)</MonoLabel>
+        <MovieLookupPicker title={title} year={year} mediaType={mediaType} onPick={resync} />
       </div>
       <div className="grid gap-2.5 sm:grid-cols-2">
         <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className="tp-input" placeholder="Director" value={director} onChange={(e) => setDirector(e.target.value)} />
+        <input
+          className="tp-input"
+          placeholder={isShow ? 'Creator' : 'Director'}
+          value={director}
+          onChange={(e) => setDirector(e.target.value)}
+        />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
         <input className="tp-input" placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
+        <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input
+          className="tp-input"
+          placeholder="Series #"
+          inputMode="decimal"
+          value={seriesIndex}
+          onChange={(e) => setSeriesIndex(e.target.value)}
+        />
       </div>
       <textarea className="tp-input" rows="4" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>

@@ -54,7 +54,10 @@ func TestTMDBSearch(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got %d candidates, want 2", len(got))
 	}
-	want := MovieCandidate{TMDBID: 603, Title: "The Matrix", ReleaseYear: 1999, Overview: "Neo."}
+	want := MovieCandidate{
+		Source: "tmdb", SourceID: "603", MediaType: "movie",
+		TMDBID: 603, Title: "The Matrix", ReleaseYear: 1999, Overview: "Neo.",
+	}
 	if got[0] != want {
 		t.Errorf("candidate = %+v, want %+v", got[0], want)
 	}

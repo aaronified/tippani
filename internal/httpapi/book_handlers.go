@@ -19,6 +19,10 @@ type bookReq struct {
 	Description   string   `json:"description"`
 	PublishedYear int      `json:"published_year"`
 	Genres        []string `json:"genres"`
+	Series        string   `json:"series"`
+	SeriesIndex   float64  `json:"series_index"`
+	Favorite      bool     `json:"favorite"`
+	Rating        int      `json:"rating"` // 0 = unrated, else 1-5 (PLAN §3)
 	CoverURL      string   `json:"cover_url"`
 	ClearCover    bool     `json:"clear_cover"` // update: drop the current cover
 	Source        string   `json:"source"`
@@ -32,8 +36,12 @@ func (b *bookReq) validate() string {
 	b.Author = strings.TrimSpace(b.Author)
 	b.ASIN = strings.TrimSpace(b.ASIN)
 	b.Description = strings.TrimSpace(b.Description)
+	b.Series = strings.TrimSpace(b.Series)
 	if b.Title == "" {
 		return "title is required"
+	}
+	if b.Rating < 0 || b.Rating > 5 {
+		return "rating must be between 0 and 5"
 	}
 	if raw := strings.TrimSpace(b.ISBN); raw == "" {
 		b.ISBN = ""
@@ -57,6 +65,10 @@ type bookDetail struct {
 	PublishedYear int      `json:"published_year"`
 	CoverPath     string   `json:"cover_path"`
 	Genres        []string `json:"genres"`
+	Series        string   `json:"series"`
+	SeriesIndex   float64  `json:"series_index"`
+	Favorite      bool     `json:"favorite"`
+	Rating        int      `json:"rating"`
 	CreatedAt     string   `json:"created_at"`
 }
 
@@ -64,10 +76,12 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	var b bookDetail
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), COALESCE(isbn, ''), COALESCE(asin, ''),
-		       COALESCE(description, ''), COALESCE(published_year, 0), COALESCE(cover_path, ''), created_at
+		       COALESCE(description, ''), COALESCE(published_year, 0), COALESCE(cover_path, ''),
+		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, rating, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.ISBN, &b.ASIN,
-			&b.Description, &b.PublishedYear, &b.CoverPath, &b.CreatedAt)
+			&b.Description, &b.PublishedYear, &b.CoverPath,
+			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Rating, &b.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +149,13 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		INSERT INTO books (user_id, title, author, isbn, asin, cover_path,
-		                   description, published_year, google_id, openlibrary_id, source_metadata)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                   description, published_year, google_id, openlibrary_id, source_metadata,
+		                   series, series_index, favorite, rating)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear),
-		googleID, openlibraryID, sourceMeta)
+		googleID, openlibraryID, sourceMeta,
+		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.Rating)
 	if err != nil {
 		s.removeCoverFile(coverPath)
 		writeErr(w, http.StatusInternalServerError, "internal error")
@@ -178,12 +194,17 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		PublishedYear   int      `json:"published_year"`
 		CoverPath       string   `json:"cover_path"`
 		Genres          []string `json:"genres"`
+		Series          string   `json:"series"`
+		SeriesIndex     float64  `json:"series_index"`
+		Favorite        bool     `json:"favorite"`
+		Rating          int      `json:"rating"`
 		AnnotationCount int      `json:"annotation_count"`
 	}
 	uid := userID(r)
 	rows, err := s.Store.DB.Query(`
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
 		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
+		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite, b.rating,
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id)
 		FROM books b WHERE b.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`, uid)
@@ -196,7 +217,8 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
-			&it.PublishedYear, &it.CoverPath, &it.AnnotationCount); err == nil {
+			&it.PublishedYear, &it.CoverPath, &it.Series, &it.SeriesIndex,
+			&it.Favorite, &it.Rating, &it.AnnotationCount); err == nil {
 			items = append(items, it)
 		}
 	}
@@ -320,10 +342,12 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?
+		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?,
+		                 series = ?, series_index = ?, favorite = ?, rating = ?
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
-		nullable(req.Description), nullableInt(req.PublishedYear), id, uid)
+		nullable(req.Description), nullableInt(req.PublishedYear),
+		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.Rating, id, uid)
 	if err != nil {
 		fail(http.StatusInternalServerError, "internal error")
 		return

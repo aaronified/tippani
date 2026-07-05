@@ -147,6 +147,30 @@ func TestMigrateAndFTS(t *testing.T) {
 		t.Fatal("expected CHECK violation for bad tag style")
 	}
 	mustExec(`INSERT INTO settings (key, value) VALUES ('k', 'v')`)
+
+	// 0006: books + movies gain favorite/rating (like 0004) + series metadata;
+	// movies also gain media_type ('movie'|'show') and a tvdb_id with a per-user
+	// partial unique index mirroring tmdb_id.
+	var bfav, brating int
+	if err := st.DB.QueryRow(`SELECT favorite, rating FROM books WHERE id = 1`).Scan(&bfav, &brating); err != nil || bfav != 0 || brating != 0 {
+		t.Fatalf("book favorite/rating defaults: %d/%d, %v", bfav, brating, err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO books (user_id, title, rating) VALUES (1, 'over-rated', 9)`); err == nil {
+		t.Fatal("expected CHECK violation for book rating > 5")
+	}
+	mustExec(`UPDATE books SET favorite = 1, rating = 5, series = 'Discworld', series_index = 2 WHERE id = 1`)
+	// media_type defaults to 'movie'; a show + tvdb_id round-trips.
+	mustExec(`INSERT INTO movies (user_id, title, media_type, tvdb_id, series, series_index) VALUES (1, 'Andor', 'show', 12345, 'Star Wars', 1)`)
+	var mt string
+	if err := st.DB.QueryRow(`SELECT media_type FROM movies WHERE title = 'Andor'`).Scan(&mt); err != nil || mt != "show" {
+		t.Fatalf("movie media_type: %q, %v", mt, err)
+	}
+	if err := st.DB.QueryRow(`SELECT media_type FROM movies WHERE title = 'Heat'`).Scan(&mt); err != nil || mt != "movie" {
+		t.Fatalf("movie media_type default: %q, %v", mt, err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO movies (user_id, title, tvdb_id) VALUES (1, 'dup-tvdb', 12345)`); err == nil {
+		t.Fatal("expected UNIQUE violation for duplicate (user_id, tvdb_id)")
+	}
 }
 
 // TestSettings exercises the settings-table helpers: missing key reads "",
