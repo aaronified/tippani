@@ -9,6 +9,8 @@ import {
   FavBadge,
   Field,
   GhostButton,
+  CoverSizeSlider,
+  ExpandableDescription,
   HandCard,
   HandNote,
   Hearts,
@@ -22,6 +24,7 @@ import {
   filterChipClass,
   seriesLabel,
   splitCommas,
+  useCoverSize,
   useReveal,
 } from './ui.jsx'
 
@@ -102,6 +105,7 @@ function BookList({ onOpen }) {
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
+  const [coverSize, setCoverSize] = useCoverSize('tippani:size:books', 165)
   const reveal = useReveal()
   const chipBudget = useChipBudget()
 
@@ -200,6 +204,7 @@ function BookList({ onOpen }) {
             </>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            <CoverSizeSlider value={coverSize} onChange={setCoverSize} />
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>
@@ -254,7 +259,7 @@ function BookList({ onOpen }) {
       )}
       {books && books.length > 0 && shown.length === 0 && <EmptyState>no books match these filters</EmptyState>}
       {shown.length > 0 && (
-        <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))' }}>
+        <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
           {shown.map((b, i) => (
             <li key={b.id}>
               <button onClick={() => onOpen(b.id)} className="block w-full text-left" title={b.title}>
@@ -595,7 +600,9 @@ function BookDetail({ id, onClose }) {
           </HandCard>
         ) : (
           <div className="flex flex-wrap items-start gap-6">
-            <Cover path={book.cover_path} title={book.title} large />
+            <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.34))' }}>
+              <Cover path={book.cover_path} title={book.title} hero />
+            </div>
             <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
               <h1 className="display-title" style={{ fontSize: 28, lineHeight: 1.15 }}>
                 {book.title}
@@ -618,11 +625,9 @@ function BookDetail({ id, onClose }) {
                   ))}
                 </div>
               )}
-              {book.description && (
-                <p className="max-w-prose whitespace-pre-wrap pt-1 text-sm" style={{ color: 'var(--soft)' }}>
-                  {book.description}
-                </p>
-              )}
+              <div className="max-w-prose pt-1">
+                <ExpandableDescription text={book.description} />
+              </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <GhostButton onClick={() => (window.location.href = `/books/${book.id}/export`)}>

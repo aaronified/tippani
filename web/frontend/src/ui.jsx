@@ -272,6 +272,109 @@ export function TiltStars({ value = 0, onChange }) {
   )
 }
 
+// ---- cover/poster size widget: a roll you unroll (§ user request) ----
+
+// useCoverSize persists a grid cell min-width (px) in localStorage per screen.
+export function useCoverSize(key, def = 150, min = 96, max = 240) {
+  const [size, setSize] = useState(() => {
+    const v = Number(typeof localStorage !== 'undefined' && localStorage.getItem(key))
+    return v >= min && v <= max ? v : def
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, String(size))
+    } catch {
+      /* private mode / disabled storage — size just won't persist */
+    }
+  }, [key, size])
+  return [size, setSize]
+}
+
+// CoverSizeSlider — a range input disguised as a roll anchored at the left that
+// unrolls to the right as you drag: the hub spins with the travel and, while
+// dragging, jitters a little (no real anchor is perfectly tight). Paper aesthetic
+// draws a paper roll, film draws a film reel (CSS swaps the glyph + strip texture).
+export function CoverSizeSlider({ value, onChange, min = 96, max = 240 }) {
+  const [rolling, setRolling] = useState(false)
+  const frac = Math.min(1, Math.max(0, (value - min) / (max - min)))
+  const done = () => setRolling(false)
+  return (
+    <label className={'roll-slider' + (rolling ? ' rolling' : '')} title={`Cover size (${value}px)`}>
+      <span className="roll-hub" style={{ rotate: `${(frac * 540).toFixed(1)}deg` }} aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="26" height="26">
+          <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" strokeWidth="2" />
+          {/* film reel: hub + spokes + sprocket holes */}
+          <g className="rg-reel" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="20" cy="20" r="3.5" fill="currentColor" stroke="none" />
+            <line x1="20" y1="6" x2="20" y2="34" />
+            <line x1="6" y1="20" x2="34" y2="20" />
+            <line x1="10" y1="10" x2="30" y2="30" />
+            <line x1="30" y1="10" x2="10" y2="30" />
+            <circle cx="20" cy="10.5" r="1.7" fill="currentColor" stroke="none" />
+            <circle cx="29.5" cy="20" r="1.7" fill="currentColor" stroke="none" />
+            <circle cx="20" cy="29.5" r="1.7" fill="currentColor" stroke="none" />
+            <circle cx="10.5" cy="20" r="1.7" fill="currentColor" stroke="none" />
+          </g>
+          {/* paper roll: a coiled spiral (asymmetric so the spin reads) */}
+          <path
+            className="rg-scroll"
+            d="M20 6 A14 14 0 0 1 34 20 A11 11 0 0 1 23 31 A8 8 0 0 1 15 23 A5 5 0 0 1 20 18 A2.5 2.5 0 0 1 22.5 20.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+      <span className="roll-track" aria-hidden="true">
+        <span className="roll-strip" style={{ width: `${(frac * 100).toFixed(1)}%` }} />
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        aria-label="Cover size"
+        onChange={(e) => onChange(Number(e.target.value))}
+        onPointerDown={() => setRolling(true)}
+        onPointerUp={done}
+        onPointerCancel={done}
+        onBlur={done}
+      />
+    </label>
+  )
+}
+
+// ExpandableDescription clamps body text to 3 lines with a show-more/less toggle
+// (the toggle only appears when the text actually overflows). Used in the detail
+// hero so the poster beside it keeps a stable height.
+export function ExpandableDescription({ text, style }) {
+  const [open, setOpen] = useState(false)
+  const [overflows, setOverflows] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el) setOverflows(el.scrollHeight > el.clientHeight + 2)
+  }, [text])
+  if (!text) return null
+  return (
+    <div>
+      <p
+        ref={ref}
+        className={open ? '' : 'line-clamp-3'}
+        style={{ whiteSpace: 'pre-wrap', color: 'var(--soft)', fontSize: 14, lineHeight: 1.55, ...style }}
+      >
+        {text}
+      </p>
+      {(overflows || open) && (
+        <button className="tp-link" style={{ marginTop: 4 }} onClick={() => setOpen((o) => !o)}>
+          {open ? 'show less' : 'show more'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.
@@ -354,7 +457,22 @@ export function Chips({ items, className = '' }) {
 
 // Cover renders a locally-served cover/poster image (GET /covers/{file}), or
 // the striped placeholder. Remote images are never hotlinked (CSP 'self').
-export function Cover({ path, title, large = false }) {
+export function Cover({ path, title, large = false, hero = false }) {
+  // hero: fills its (sized) wrapper at 2:3 — used by the detail header, where the
+  // wrapper controls width and adds the drop shadow.
+  if (hero) {
+    if (path) {
+      return (
+        <img
+          src={`/covers/${path}`}
+          alt={title ? `Cover of ${title}` : ''}
+          className="block w-full rounded-md object-cover"
+          style={{ aspectRatio: '2 / 3', border: '1px solid var(--ink-border)' }}
+        />
+      )
+    }
+    return <Placeholder kind="COVER" className="w-full" />
+  }
   const size = large ? 'h-36 w-24' : 'h-14 w-10'
   if (path) {
     return (

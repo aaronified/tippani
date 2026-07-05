@@ -2,8 +2,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import {
+  CoverSizeSlider,
   EdgeRow,
   EmptyState,
+  ExpandableDescription,
   ErrorText,
   FavBadge,
   FrameCode,
@@ -23,6 +25,7 @@ import {
   frameCode,
   seriesLabel,
   splitCommas,
+  useCoverSize,
   useFrameBase,
   useReveal,
 } from './ui.jsx'
@@ -102,6 +105,7 @@ function MovieList({ onOpen }) {
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
+  const [coverSize, setCoverSize] = useCoverSize('tippani:size:movies', 150)
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -184,6 +188,7 @@ function MovieList({ onOpen }) {
             </>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
+            <CoverSizeSlider value={coverSize} onChange={setCoverSize} />
             {genres.length > 0 && (
               <select
                 className="tp-input w-auto"
@@ -718,7 +723,7 @@ function MovieDetail({ id, onClose }) {
           </HandCard>
         ) : (
           <Reveal className="flex flex-wrap items-start gap-6">
-            <div className="w-24 shrink-0 sm:w-28">
+            <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.4))' }}>
               <Poster path={movie.poster_path} title={movie.title} />
             </div>
             <div className="min-w-0 flex-1 space-y-2.5">
@@ -739,11 +744,9 @@ function MovieDetail({ id, onClose }) {
                   ))}
                 </p>
               )}
-              {movie.description && (
-                <p className="max-w-prose whitespace-pre-wrap text-sm" style={{ color: 'var(--soft)' }}>
-                  {movie.description}
-                </p>
-              )}
+              <div className="max-w-prose">
+                <ExpandableDescription text={movie.description} />
+              </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <GhostButton onClick={() => (window.location.href = `/movies/${movie.id}/export`)}>
