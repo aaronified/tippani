@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
-import { ACCENTS, applyTheme } from './theme.js'
+import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
   ErrorText,
   GhostButton,
@@ -15,11 +15,11 @@ import {
 // Settings (§8.11): Appearance, Metadata sources, Library stats, Change
 // password, and (admin only) Users. Appearance applies instantly via
 // applyTheme and persists via PUT /auth/me/preferences.
-export default function Settings({ user }) {
+export default function Settings({ user, onPreferences }) {
   return (
     <section className="space-y-6">
       <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
-      <Appearance user={user} />
+      <Appearance user={user} onPreferences={onPreferences} />
       {/* Freeflow masonry (§ settings): cards pack by height in balanced columns
           instead of a rigid 2-col grid, so short tiles (Stats, password) tuck
           beside the taller Metadata card rather than leaving a long gap. */}
@@ -248,17 +248,23 @@ function PalettePreview({ spec, accentHex, code }) {
   )
 }
 
-function Appearance({ user }) {
+function Appearance({ user, onPreferences }) {
   const p = user.preferences || {}
-  const [aesthetic, setAesthetic] = useState(p.aesthetic || 'paper')
-  const [theme, setTheme] = useState(p.theme || 'system')
-  const [accent, setAccent] = useState(p.accent || 'terracotta')
+  // Seed the toggles from the appearance actually applied (getResolvedTheme
+  // reads the concrete aesthetic off the DOM), so they always mirror what's on
+  // screen — not a stale/derived prop. Home isn't a theme token, so it comes
+  // from prefs.
+  const applied = getResolvedTheme()
+  const [aesthetic, setAesthetic] = useState(applied.aesthetic)
+  const [theme, setTheme] = useState(applied.theme)
+  const [accent, setAccent] = useState(applied.accent)
   const [home, setHome] = useState(p.home || 'library')
   const base = useFrameBase()
 
-  // update applies the change to the live DOM immediately (§4) and persists it;
-  // the persisted set is the source of truth on the next login. Every field
-  // rides along so changing one (e.g. accent) never resets another (e.g. home).
+  // update applies the change to the live DOM immediately (§4), persists it, and
+  // lifts it to App so the session user stays current (a re-mounted Settings
+  // then reads the live value). Every field rides along so changing one (e.g.
+  // accent) never resets another (e.g. home).
   function update(next) {
     const merged = { aesthetic, theme, accent, home, ...next }
     setAesthetic(merged.aesthetic)
@@ -266,6 +272,7 @@ function Appearance({ user }) {
     setAccent(merged.accent)
     setHome(merged.home)
     applyTheme(merged)
+    onPreferences?.(merged)
     json('PUT', '/auth/me/preferences', merged)
   }
 

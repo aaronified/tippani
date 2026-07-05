@@ -816,15 +816,6 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-// defaultTileWidth seeds a tile's width from its content length, so the board
-// starts with natural width variety before the reader drags to taste.
-function defaultTileWidth(a) {
-  const len = (a.quote || '').length + (a.note || '').length
-  if (len < 90) return 280
-  if (len < 220) return 360
-  return 460
-}
-
 function ViewIcon({ kind }) {
   const p = {
     width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none',
@@ -926,37 +917,6 @@ function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch
   )
 }
 
-// ResizableTile wraps a card in a CSS-`resize` box (native drag handle). A
-// ResizeObserver persists the dragged width so the board layout sticks; the
-// FlowQuote inside re-flows to the new width on its own.
-function ResizableTile({ width, defaultWidth, onResize, children }) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let raf = 0
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        const w = Math.round(el.getBoundingClientRect().width)
-        if (w) onResize(w)
-      })
-    })
-    ro.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-    }
-    // Observe once; onResize uses a functional setState so the first closure is fine.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  return (
-    <div ref={ref} className="ann-tile" style={{ width: width || defaultWidth }}>
-      {children}
-    </div>
-  )
-}
-
 const TABLE_COLS = [
   { key: 'quote', label: 'Quote' },
   { key: 'chapter', label: 'Chapter' },
@@ -1040,7 +1000,6 @@ function Annotations({ bookId }) {
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
   const [sort, setSort] = useState({ col: 'default', dir: 'asc' }) // table only; default = server (recent)
-  const [tileW, setTileW] = usePersistedState(`tippani:tilew:${bookId}`, {}) // {annId: px}, per book/device
   const reqSeq = useRef(0)
 
   const filtering = Boolean(color || tag || fav || minRating)
@@ -1222,17 +1181,13 @@ function Annotations({ bookId }) {
         </div>
       )}
       {items && items.length > 0 && view === 'tiles' && (
-        // Resizable board (v3): each tile has a native drag handle + a
-        // content-seeded starting width, so quotes read as a variable collage;
-        // pretext re-flows the sticker quote to whatever width you drag to.
-        <div className="ann-board">
+        // Packed masonry board: equal-width columns that pack by height, so the
+        // sticker quotes read as an uneven collage. Each card clamps to a
+        // per-card 3–5 lines (deterministic from its id) before show-more, so
+        // heights stay varied rather than uniform.
+        <ul className="columns-1 gap-4 sm:columns-2 xl:columns-3">
           {items.map((a, i) => (
-            <ResizableTile
-              key={a.id}
-              width={tileW[a.id]}
-              defaultWidth={defaultTileWidth(a)}
-              onResize={(w) => setTileW((prev) => (prev[a.id] === w ? prev : { ...prev, [a.id]: w }))}
-            >
+            <li key={a.id} className="mb-4 break-inside-avoid">
               <AnnotationCard
                 a={a}
                 variant={i % 4}
@@ -1242,11 +1197,11 @@ function Annotations({ bookId }) {
                 save={save}
                 patch={patch}
                 remove={remove}
-                quoteLines={6}
+                quoteLines={3 + (a.id % 3)}
               />
-            </ResizableTile>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       {addOpen ? (

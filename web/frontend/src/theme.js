@@ -66,6 +66,20 @@ export function applyTheme({ aesthetic, theme, accent } = {}) {
   apply()
 }
 
+// getResolvedTheme returns the appearance currently applied: the concrete
+// aesthetic (paper|film) read off the DOM — so it reflects the resolved value
+// even when the stored pref was unset/derived — plus the theme *preference*
+// (light|dark|system) and accent. Settings inits its toggles from this so they
+// always mirror what's on screen rather than a stale prop.
+export function getResolvedTheme() {
+  const root = document.documentElement
+  return {
+    aesthetic: root.dataset.aesthetic === 'film' ? 'film' : 'paper',
+    theme: current.theme || 'system',
+    accent: current.accent || 'terracotta',
+  }
+}
+
 function apply() {
   const dark = current.theme === 'dark' || (current.theme !== 'light' && media.matches)
   const aesthetic =

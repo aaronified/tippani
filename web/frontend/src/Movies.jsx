@@ -347,11 +347,15 @@ function AddMovieModal({ tmdbSource, onClose, onAdded }) {
   const noKey = tmdbSource === 'none' // §2: no key → 503; Manual stays first-class
   const [mode, setMode] = useState(noKey ? 'manual' : 'lookup')
   const [lookupError, setLookupError] = useState('') // runtime 503 message, shown above Manual
+  // Media type + title live here (not in the sub-forms) so switching Look up ↔
+  // Manual keeps your selection instead of snapping back to Movie / blank.
+  const [mediaType, setMediaType] = useState('movie')
+  const [title, setTitle] = useState('')
 
   return (
-    <Modal label="Add movie" onClose={onClose}>
+    <Modal label="Add title" onClose={onClose}>
       <div className="mb-4 flex items-start justify-between gap-3">
-        <h2 className="display-title text-xl">Add movie</h2>
+        <h2 className="display-title text-xl">Add title</h2>
         <GhostButton onClick={onClose}>Close</GhostButton>
       </div>
       <div className="mb-4 flex gap-1.5">
@@ -370,6 +374,10 @@ function AddMovieModal({ tmdbSource, onClose, onAdded }) {
       )}
       {mode === 'lookup' ? (
         <LookupMovie
+          mediaType={mediaType}
+          setMediaType={setMediaType}
+          title={title}
+          setTitle={setTitle}
           onAdded={onAdded}
           onUnavailable={(msg) => {
             // TMDB key missing at request time — surface it and fall back to manual.
@@ -380,7 +388,7 @@ function AddMovieModal({ tmdbSource, onClose, onAdded }) {
       ) : (
         <>
           <ErrorText>{lookupError}</ErrorText>
-          <ManualMovie onAdded={onAdded} />
+          <ManualMovie mediaType={mediaType} setMediaType={setMediaType} title={title} setTitle={setTitle} onAdded={onAdded} />
         </>
       )}
     </Modal>
@@ -403,10 +411,8 @@ function sourceRef(c, fallbackMedia) {
   }
 }
 
-function LookupMovie({ onAdded, onUnavailable }) {
-  const [title, setTitle] = useState('')
+function LookupMovie({ mediaType, setMediaType, title, setTitle, onAdded, onUnavailable }) {
   const [year, setYear] = useState('')
-  const [mediaType, setMediaType] = useState('movie')
   const [candidates, setCandidates] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -566,9 +572,7 @@ function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCancel }) 
   )
 }
 
-function ManualMovie({ onAdded }) {
-  const [title, setTitle] = useState('')
-  const [mediaType, setMediaType] = useState('movie')
+function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
   const [director, setDirector] = useState('')
   const [year, setYear] = useState('')
   const [genres, setGenres] = useState('')

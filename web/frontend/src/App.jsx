@@ -44,9 +44,16 @@ export default function App() {
     if (user) applyTheme(user.preferences || {})
   }, [user])
 
+  // Keep the session user's preferences current when Settings saves them, so a
+  // re-mounted Settings (and every other screen) reads the live value instead
+  // of the stale login-time snapshot — the cause of the aesthetic toggle
+  // "snapping back to paper" on navigation.
+  const onPreferences = (prefs) =>
+    setUser((u) => (u ? { ...u, preferences: { ...u.preferences, ...prefs } } : u))
+
   let screen = null
   if (!checking) {
-    if (user) screen = <Shell user={user} onLogout={() => setUser(null)} />
+    if (user) screen = <Shell user={user} onLogout={() => setUser(null)} onPreferences={onPreferences} />
     else if (needsOnboarding) screen = <Onboarding onDone={setUser} />
     else screen = <Login onLogin={setUser} />
   }
@@ -276,7 +283,7 @@ function TabIcon({ name }) {
 // Shell is the logged-in frame (§7): topbar with mark + wordmark + tabs +
 // user-initial chip, and a {type, id} detail state so lists and search can
 // open detail views (no router).
-function Shell({ user, onLogout }) {
+function Shell({ user, onLogout, onPreferences }) {
   // The landing tab follows the user's start-page preference (§4, Settings).
   const [tab, setTab] = useState(user.preferences?.home === 'movies' ? 'movies' : 'library')
   const [detail, setDetail] = useState(null) // {type: 'book' | 'movie', id}
@@ -397,7 +404,7 @@ function Shell({ user, onLogout }) {
         )}
         {tab === 'settings' && (
           <div data-screen-label="settings">
-            <Settings user={user} />
+            <Settings user={user} onPreferences={onPreferences} />
           </div>
         )}
       </main>

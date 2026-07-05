@@ -621,17 +621,7 @@
   }
   .show-toggle:hover { text-decoration: underline; }
 
-  /* ---- annotation views (v3): resizable tiles board · table ---- */
-  .ann-board { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
-  .ann-tile {
-    flex: 0 0 auto;
-    resize: horizontal;      /* native drag handle at the bottom-right corner */
-    overflow: hidden;        /* required for resize; height stays content-driven */
-    min-width: 240px;
-    max-width: 100%;
-  }
-  .ann-tile::-webkit-resizer { border-radius: 2px; }
-
+  /* ---- annotation views (v3): tiles (packed masonry) · list · table ---- */
   .vt-opt { display: inline-flex; align-items: center; gap: 6px; }
 
   .ann-table-wrap { overflow-x: auto; }
