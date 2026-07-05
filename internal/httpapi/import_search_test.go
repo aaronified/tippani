@@ -382,7 +382,7 @@ func TestSearchScopes(t *testing.T) {
 		res.Dialogues[0].Timestamp != "01:15:00" {
 		t.Fatalf("q=bogart: %+v", res)
 	}
-	// Prefix search (typeahead): the final token matches by prefix, so a partial
+	// Prefix search (typeahead): every token matches by prefix, so a partial
 	// word still finds the row. Regression for the handler using exact-token
 	// Query — "shaws" never found "shawshank"; here "herb"→Herbert, "casab"→Casablanca.
 	res = decode[searchResp](t, c.mustDo("GET", "/search?q=herb", nil, 200))
@@ -392,6 +392,13 @@ func TestSearchScopes(t *testing.T) {
 	res = decode[searchResp](t, c.mustDo("GET", "/search?q=casab&scope=movies", nil, 200))
 	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID {
 		t.Fatalf("prefix q=casab: %+v", res)
+	}
+	// Multi-word prefix: BOTH tokens are prefixes, so "casab mich" finds
+	// "Casablanca" (title) by "Michael" (director) — the "shaw red" ->
+	// "Shawshank Redemption" case that a final-token-only prefix missed.
+	res = decode[searchResp](t, c.mustDo("GET", "/search?q=casab+mich&scope=movies", nil, 200))
+	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID {
+		t.Fatalf("multi-word prefix q=casab mich: %+v", res)
 	}
 
 	// Scopes not requested come back as empty arrays.

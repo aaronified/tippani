@@ -17,7 +17,16 @@ func TestQuery(t *testing.T) {
 			t.Errorf("Query(%q) = %s, want %s", c.in, got, c.want)
 		}
 	}
-	if got := PrefixQuery("fo"); got != `"fo"*` {
-		t.Errorf("PrefixQuery = %s", got)
+	prefixCases := []struct{ in, want string }{
+		{"fo", `"fo"*`},
+		{"shaw red", `"shaw"* "red"*`}, // every token is a prefix -> matches "Shawshank Redemption"
+		{"  spaced   out  ", `"spaced"* "out"*`},
+		{"", `""`},
+		{`a"b`, `"a""b"*`},
+	}
+	for _, c := range prefixCases {
+		if got := PrefixQuery(c.in); got != c.want {
+			t.Errorf("PrefixQuery(%q) = %s, want %s", c.in, got, c.want)
+		}
 	}
 }

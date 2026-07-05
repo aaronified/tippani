@@ -22,11 +22,19 @@ func Query(q string) string {
 	return strings.Join(fields, " ")
 }
 
-// PrefixQuery is Query with a trailing * on the final token, for typeahead.
+// PrefixQuery makes every whitespace token a prefix match, for typeahead: each
+// token is double-quoted (embedded quotes doubled) with a trailing *, joined
+// with implicit AND. So "shaw red" -> `"shaw"* "red"*`, which matches
+// "Shawshank Redemption" as you type. Raw input never reaches MATCH.
+//
+//	`shaw red` -> `"shaw"* "red"*`
 func PrefixQuery(q string) string {
-	esc := Query(q)
-	if esc == `""` {
-		return esc
+	fields := strings.Fields(q)
+	if len(fields) == 0 {
+		return `""`
 	}
-	return esc + "*"
+	for i, tok := range fields {
+		fields[i] = `"` + strings.ReplaceAll(tok, `"`, `""`) + `"*`
+	}
+	return strings.Join(fields, " ")
 }
