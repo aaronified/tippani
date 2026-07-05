@@ -367,6 +367,24 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		fail(http.StatusInternalServerError, "internal error")
 		return
 	}
+	// Adopting a looked-up candidate links the book to its source, so the
+	// "no source" gap actually clears (the create path does this; update didn't).
+	switch req.Source {
+	case "google":
+		if req.SourceID != "" {
+			if _, err := tx.Exec(`UPDATE books SET google_id = ? WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
+				fail(http.StatusInternalServerError, "internal error")
+				return
+			}
+		}
+	case "openlibrary":
+		if req.SourceID != "" {
+			if _, err := tx.Exec(`UPDATE books SET openlibrary_id = ? WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
+				fail(http.StatusInternalServerError, "internal error")
+				return
+			}
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		fail(http.StatusInternalServerError, "internal error")
 		return

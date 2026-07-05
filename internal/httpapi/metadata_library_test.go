@@ -19,6 +19,10 @@ type metaLib struct {
 		HasSource     bool  `json:"has_source"`
 		DialogueCount int   `json:"dialogue_count"`
 	} `json:"movies"`
+	DialogueStats struct {
+		Total        int `json:"total"`
+		MissingActor int `json:"missing_actor"`
+	} `json:"dialogue_stats"`
 }
 
 // TestMetadataLibrary: the overview flags a bare manual book/movie as missing
@@ -31,14 +35,20 @@ func TestMetadataLibrary(t *testing.T) {
 	b := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "The Wide Margin"}, http.StatusCreated))
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": b.ID, "quote": "A margin is a promise."}, http.StatusCreated)
 	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Northline"}, http.StatusCreated))
+	// A speakerless line (no character) — unfillable, must NOT count toward missing_actor.
 	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m.ID, "quote": "Roll the reel."}, http.StatusCreated)
+	// A line with a character but no actor — fillable, counts toward missing_actor.
+	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m.ID, "quote": "You came back.", "character": "Mira"}, http.StatusCreated)
 
 	lib := decode[metaLib](t, c.mustDo("GET", "/metadata/library", nil, 200))
 	if len(lib.Books) != 1 || lib.Books[0].HasCover || lib.Books[0].HasIDs || lib.Books[0].AnnotationCount != 1 {
 		t.Fatalf("book flags: %+v", lib.Books)
 	}
-	if len(lib.Movies) != 1 || lib.Movies[0].HasPoster || lib.Movies[0].HasCast || lib.Movies[0].HasSource || lib.Movies[0].DialogueCount != 1 {
+	if len(lib.Movies) != 1 || lib.Movies[0].HasPoster || lib.Movies[0].HasCast || lib.Movies[0].HasSource || lib.Movies[0].DialogueCount != 2 {
 		t.Fatalf("movie flags: %+v", lib.Movies)
+	}
+	if lib.DialogueStats.Total != 2 || lib.DialogueStats.MissingActor != 1 {
+		t.Fatalf("dialogue stats should count only the fillable (char'd) line: %+v", lib.DialogueStats)
 	}
 }
 
@@ -76,6 +86,18 @@ func TestRemapSpeakers(t *testing.T) {
 	list := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200))
 	if len(list.Dialogues) != 1 || list.Dialogues[0].Character != "Evey" || list.Dialogues[0].Actor != "Natalie Portman" {
 		t.Fatalf("after remap: %+v", list.Dialogues)
+	}
+
+	// A mapping whose target character is empty must be SKIPPED, never blanking
+	// the label (silent data loss). The label stays "Evey".
+	blank := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "Evey", "character": "", "actor": ""}},
+	}, 200))
+	if blank.Remapped != 0 {
+		t.Fatalf("empty-character mapping should be skipped, got %+v", blank)
+	}
+	if l := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)); l.Dialogues[0].Character != "Evey" {
+		t.Fatalf("label must be unchanged by an empty-character mapping: %+v", l.Dialogues)
 	}
 
 	// A remap that leaves character unchanged but flips refill on backfills any

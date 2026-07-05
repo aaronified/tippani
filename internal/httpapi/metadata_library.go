@@ -2,10 +2,13 @@ package httpapi
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
 	"strings"
+
+	"tippani/internal/metadata"
 )
 
 // handleMetadataLibrary powers the Metadata tab's review lists: every book and
@@ -19,13 +22,15 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		ID              int64  `json:"id"`
 		Title           string `json:"title"`
 		Author          string `json:"author"`
+		ISBN            string `json:"isbn"` // passed to the look-up picker to seed a stronger match
+		ASIN            string `json:"asin"`
 		HasCover        bool   `json:"has_cover"`
 		HasIDs          bool   `json:"has_ids"` // linked to a source (isbn/asin/google/openlibrary)
 		AnnotationCount int    `json:"annotation_count"`
 	}
 	books := []bookItem{}
 	brows, err := s.Store.DB.Query(`
-		SELECT b.id, b.title, COALESCE(b.author, ''),
+		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''), COALESCE(b.asin, ''),
 		       b.cover_path IS NOT NULL,
 		       (b.isbn IS NOT NULL OR b.asin IS NOT NULL OR b.google_id IS NOT NULL OR b.openlibrary_id IS NOT NULL),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id)
@@ -38,7 +43,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	defer brows.Close()
 	for brows.Next() {
 		var it bookItem
-		if err := brows.Scan(&it.ID, &it.Title, &it.Author, &it.HasCover, &it.HasIDs, &it.AnnotationCount); err == nil {
+		if err := brows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN, &it.ASIN, &it.HasCover, &it.HasIDs, &it.AnnotationCount); err == nil {
 			books = append(books, it)
 		}
 	}
@@ -75,10 +80,15 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Dialogue coverage (for the stats strip): how many lines still lack an actor.
+	// Dialogue coverage (for the stats strip): missing_actor counts only lines
+	// that COULD be filled — i.e. those with a character to match against the cast.
+	// Speakerless lines (narration) are unfillable and would otherwise inflate the
+	// warning tile with work no action can clear.
 	var dlgTotal, dlgMissingActor int
 	if err := s.Store.DB.QueryRow(`
-		SELECT count(*), COALESCE(SUM(CASE WHEN d.actor IS NULL OR d.actor = '' THEN 1 ELSE 0 END), 0)
+		SELECT count(*),
+		       COALESCE(SUM(CASE WHEN (d.actor IS NULL OR d.actor = '')
+		                          AND d.character IS NOT NULL AND d.character <> '' THEN 1 ELSE 0 END), 0)
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?`, uid).
 		Scan(&dlgTotal, &dlgMissingActor); err != nil {
 		internalError(w, r, "metadata library: dialogue stats", err)
@@ -134,24 +144,43 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build the lowercased from -> {character, actor} lookup, validating lengths.
+	if len(req.Mappings) > 500 {
+		writeErr(w, http.StatusBadRequest, "too many mappings (max 500)")
+		return
+	}
+	// Parse the cast once (not per mapping), for actor auto-fill.
+	var cast []metadata.CastMember
+	_ = json.Unmarshal([]byte(castJSON), &cast)
+	findActor := func(character string) string {
+		for _, c := range cast {
+			if strings.EqualFold(strings.TrimSpace(c.Character), character) {
+				return strings.TrimSpace(c.Actor)
+			}
+		}
+		return ""
+	}
+	// Build the exact-from -> {character, actor} lookup. `from` is an exact stored
+	// label from the UI, so match exactly (case-folding would collapse "Evey" and
+	// "EVEY" into one, last-write-wins). Mappings whose target character is empty
+	// are SKIPPED — remap renames a speaker, it must never erase one (that would be
+	// silent, unrecoverable data loss).
 	type target struct{ character, actor string }
 	lookup := map[string]target{}
 	for _, m := range req.Mappings {
-		from := strings.TrimSpace(m.From)
-		if from == "" {
-			continue
-		}
+		from, okf := trimCap(m.From, 128)
 		ch, okc := trimCap(m.Character, 128)
 		actor, oka := trimCap(m.Actor, 128)
-		if !okc || !oka {
-			writeErr(w, http.StatusBadRequest, "character/actor too long (max 128 characters)")
+		if !okf || !okc || !oka {
+			writeErr(w, http.StatusBadRequest, "mapping field too long (max 128 characters)")
 			return
 		}
-		if actor == "" {
-			actor = autofillActor(castJSON, ch, "")
+		if from == "" || ch == "" {
+			continue
 		}
-		lookup[strings.ToLower(from)] = target{ch, actor}
+		if actor == "" {
+			actor = findActor(ch)
+		}
+		lookup[from] = target{ch, actor}
 	}
 
 	tx, err := s.Store.DB.Begin()
@@ -189,7 +218,7 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 
 	remapped := 0
 	for _, d := range dials {
-		t, ok := lookup[strings.ToLower(d.ch)]
+		t, ok := lookup[strings.TrimSpace(d.ch)]
 		if !ok {
 			continue
 		}

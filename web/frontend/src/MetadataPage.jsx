@@ -57,8 +57,12 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
         counts="stats · filters · bulk actions"
         right={
           user?.is_admin && (
-            <GhostButton disabled={busy} onClick={fetchMissingCovers}>
-              Fetch missing covers
+            <GhostButton
+              disabled={busy}
+              title="Admin maintenance: fetches missing covers/posters and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive)."
+              onClick={fetchMissingCovers}
+            >
+              Fetch missing covers &amp; metadata
             </GhostButton>
           )
         }
@@ -154,7 +158,24 @@ function GapChips({ gaps }) {
   )
 }
 
-// useSelection — a Set of ids constrained to what's currently shown.
+// runPooled runs fn over items with a small concurrency cap (SQLite is a single
+// writer), each call caught so one failure can't reject the batch. Returns the
+// results in order ({ok:false} for a thrown request).
+async function runPooled(items, limit, fn) {
+  const out = []
+  let i = 0
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++
+      out[idx] = await fn(items[idx]).catch(() => ({ ok: false }))
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
+
+// useSelection — a Set of ids; pruned to what's shown when filters change so the
+// visible checkbox state and the stored selection never diverge.
 function useSelection() {
   const [sel, setSel] = useState(() => new Set())
   return {
@@ -162,6 +183,7 @@ function useSelection() {
     has: (id) => sel.has(id),
     toggle: (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n }),
     setAll: (ids, on) => setSel(() => (on ? new Set(ids) : new Set())),
+    prune: (ids) => setSel((s) => new Set([...s].filter((id) => ids.includes(id)))),
     clear: () => setSel(new Set()),
   }
 }
@@ -238,17 +260,24 @@ function BooksConsole({ books, onOpen, onDone, onFlash }) {
   }, [books, filter, q])
   const ids = shown.map((b) => b.id)
   const selected = ids.filter((id) => sel.has(id))
+  useEffect(() => {
+    sel.prune(ids)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, q])
 
   async function del() {
     if (!confirm(`Delete ${selected.length} book(s) and all their annotations?`)) return
     setBusy(true)
     setErr('')
-    const rs = await Promise.all(selected.map((id) => json('DELETE', `/books/${id}`)))
-    setBusy(false)
-    sel.clear()
-    const fail = rs.filter((r) => !r.ok).length
-    onFlash(`deleted ${selected.length - fail} book(s)${fail ? `, ${fail} failed` : ''}`)
-    onDone()
+    try {
+      const rs = await runPooled(selected, 4, (id) => json('DELETE', `/books/${id}`))
+      const fail = rs.filter((r) => !r.ok).length
+      onFlash(`deleted ${selected.length - fail} book(s)${fail ? `, ${fail} failed` : ''}`)
+    } finally {
+      setBusy(false)
+      sel.clear()
+      onDone()
+    }
   }
 
   return (
@@ -314,7 +343,9 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
     const cur = await json('GET', `/books/${book.id}`)
     if (!cur.ok) return setErr(errText(cur))
     const b = cur.data
-    const r = await json('PUT', `/books/${book.id}`, {
+    // Base metadata (incl. source link so the "no source" gap clears). No cover
+    // here — a flaky candidate cover URL must not discard the metadata merge.
+    const base = {
       title: c.title || b.title,
       author: c.author || b.author || '',
       isbn: c.isbn13 || b.isbn || '',
@@ -326,10 +357,14 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
       series_index: b.series_index || 0,
       favorite: !!b.favorite,
       rating: b.rating || 0,
-      cover_url: c.cover_url || undefined,
-    })
-    if (r.ok) onDone()
-    else setErr(errText(r))
+      source: c.source || undefined,
+      source_id: c.source_id || undefined,
+    }
+    const r = await json('PUT', `/books/${book.id}`, base)
+    if (!r.ok) return setErr(errText(r))
+    // Cover as a separate PUT: if it fails, the metadata above is already saved.
+    if (c.cover_url) await json('PUT', `/books/${book.id}`, { ...base, cover_url: c.cover_url })
+    onDone()
   }
 
   return (
@@ -349,7 +384,7 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
       </div>
       {open && (
         <div className="mt-3">
-          <BookLookupPicker title={book.title} onPick={apply} />
+          <BookLookupPicker title={book.title} isbn={book.isbn} asin={book.asin} onPick={apply} />
           <ErrorText>{err}</ErrorText>
         </div>
       )}
@@ -381,28 +416,41 @@ function MoviesConsole({ movies, onOpen, onDone, onFlash }) {
   }, [movies, filter, mediaType, q])
   const ids = shown.map((m) => m.id)
   const selected = ids.filter((id) => sel.has(id))
+  // "Fill actors from cast" only does anything for titles that HAVE a cast.
+  const selectedWithCast = shown.filter((m) => sel.has(m.id) && m.has_cast).length
+  useEffect(() => {
+    sel.prune(ids)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, mediaType, q])
 
   async function fillActors() {
     setBusy(true)
     setErr('')
-    const rs = await Promise.all(selected.map((id) => json('POST', `/movies/${id}/remap-speakers`, { mappings: [], refill: true })))
-    setBusy(false)
-    sel.clear()
-    const filled = rs.reduce((n, r) => n + (r.ok ? r.data.refilled || 0 : 0), 0)
-    onFlash(`filled ${filled} actor(s) across ${selected.length} title(s) from their cast`)
-    onDone()
+    try {
+      const rs = await runPooled(selected, 4, (id) => json('POST', `/movies/${id}/remap-speakers`, { mappings: [], refill: true }))
+      const filled = rs.reduce((n, r) => n + (r.ok ? r.data.refilled || 0 : 0), 0)
+      const fail = rs.filter((r) => !r.ok).length
+      onFlash(`filled ${filled} actor(s) across ${selected.length} title(s)${fail ? `, ${fail} failed` : ''}`)
+    } finally {
+      setBusy(false)
+      sel.clear()
+      onDone()
+    }
   }
 
   async function del() {
     if (!confirm(`Delete ${selected.length} title(s) and all their dialogues?`)) return
     setBusy(true)
     setErr('')
-    const rs = await Promise.all(selected.map((id) => json('DELETE', `/movies/${id}`)))
-    setBusy(false)
-    sel.clear()
-    const fail = rs.filter((r) => !r.ok).length
-    onFlash(`deleted ${selected.length - fail} title(s)${fail ? `, ${fail} failed` : ''}`)
-    onDone()
+    try {
+      const rs = await runPooled(selected, 4, (id) => json('DELETE', `/movies/${id}`))
+      const fail = rs.filter((r) => !r.ok).length
+      onFlash(`deleted ${selected.length - fail} title(s)${fail ? `, ${fail} failed` : ''}`)
+    } finally {
+      setBusy(false)
+      sel.clear()
+      onDone()
+    }
   }
 
   return (
@@ -434,7 +482,11 @@ function MoviesConsole({ movies, onOpen, onDone, onFlash }) {
             <SelectAll ids={ids} sel={sel} />
           </div>
           <BulkBar n={selected.length} onClear={sel.clear}>
-            <GhostButton disabled={busy} onClick={fillActors}>
+            <GhostButton
+              disabled={busy || selectedWithCast === 0}
+              title={selectedWithCast === 0 ? 'none of the selected titles have a cast to fill from' : undefined}
+              onClick={fillActors}
+            >
               Fill actors from cast
             </GhostButton>
             <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
