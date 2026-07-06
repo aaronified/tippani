@@ -156,6 +156,11 @@ func (s *Server) Handler() http.Handler {
 	// Metadata tab: review-and-fill overview + bulk dialogue speaker remap.
 	mux.Handle("GET /metadata/library", s.requireAuth(s.handleMetadataLibrary))
 	mux.Handle("POST /movies/{id}/remap-speakers", s.requireAuth(s.handleRemapSpeakers))
+	// Bulk metadata management (Calibre-inspired): batch field correction,
+	// duplicate detection, and merge — books.
+	mux.Handle("POST /books/bulk", s.requireAuth(s.handleBulkUpdateBooks))
+	mux.Handle("POST /books/merge", s.requireAuth(s.handleMergeBooks))
+	mux.Handle("GET /metadata/duplicates", s.requireAuth(s.handleBookDuplicates))
 
 	// The mux above owns every JSON + covers route. Mount it under /api so the
 	// root path space belongs to the client-side router (the SPA); a thin outer

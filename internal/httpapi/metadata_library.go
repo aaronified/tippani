@@ -22,17 +22,28 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		ID              int64  `json:"id"`
 		Title           string `json:"title"`
 		Author          string `json:"author"`
+		Series          string `json:"series"`
 		ISBN            string `json:"isbn"` // passed to the look-up picker to seed a stronger match
 		ASIN            string `json:"asin"`
 		HasCover        bool   `json:"has_cover"`
 		HasIDs          bool   `json:"has_ids"` // linked to a source (isbn/asin/google/openlibrary)
+		HasAuthor       bool   `json:"has_author"`
+		HasSeries       bool   `json:"has_series"`
+		HasYear         bool   `json:"has_year"`
+		HasGenre        bool   `json:"has_genre"`
+		HasDescription  bool   `json:"has_description"`
 		AnnotationCount int    `json:"annotation_count"`
 	}
 	books := []bookItem{}
 	brows, err := s.Store.DB.Query(`
-		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''), COALESCE(b.asin, ''),
+		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.series, ''), COALESCE(b.isbn, ''), COALESCE(b.asin, ''),
 		       b.cover_path IS NOT NULL,
 		       (b.isbn IS NOT NULL OR b.asin IS NOT NULL OR b.google_id IS NOT NULL OR b.openlibrary_id IS NOT NULL),
+		       (b.author IS NOT NULL AND b.author <> ''),
+		       (b.series IS NOT NULL AND b.series <> ''),
+		       (b.published_year IS NOT NULL AND b.published_year > 0),
+		       EXISTS(SELECT 1 FROM book_genres bg WHERE bg.book_id = b.id),
+		       (b.description IS NOT NULL AND b.description <> ''),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id)
 		FROM books b WHERE b.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`, uid)
@@ -43,7 +54,9 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	defer brows.Close()
 	for brows.Next() {
 		var it bookItem
-		if err := brows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN, &it.ASIN, &it.HasCover, &it.HasIDs, &it.AnnotationCount); err == nil {
+		if err := brows.Scan(&it.ID, &it.Title, &it.Author, &it.Series, &it.ISBN, &it.ASIN,
+			&it.HasCover, &it.HasIDs, &it.HasAuthor, &it.HasSeries, &it.HasYear, &it.HasGenre,
+			&it.HasDescription, &it.AnnotationCount); err == nil {
 			books = append(books, it)
 		}
 	}
@@ -56,6 +69,9 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		HasPoster     bool   `json:"has_poster"`
 		HasCast       bool   `json:"has_cast"`
 		HasSource     bool   `json:"has_source"` // tmdb_id or tvdb_id
+		HasDirector   bool   `json:"has_director"`
+		HasYear       bool   `json:"has_year"`
+		HasGenre      bool   `json:"has_genre"`
 		DialogueCount int    `json:"dialogue_count"`
 	}
 	movies := []movieItem{}
@@ -64,6 +80,9 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		       m.poster_path IS NOT NULL,
 		       (m.cast_json IS NOT NULL AND m.cast_json <> '[]' AND m.cast_json <> ''),
 		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL),
+		       (m.director IS NOT NULL AND m.director <> ''),
+		       (m.release_year IS NOT NULL AND m.release_year > 0),
+		       EXISTS(SELECT 1 FROM movie_genres mg WHERE mg.movie_id = m.id),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
@@ -75,7 +94,8 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	for mrows.Next() {
 		var it movieItem
 		if err := mrows.Scan(&it.ID, &it.Title, &it.MediaType, &it.ReleaseYear,
-			&it.HasPoster, &it.HasCast, &it.HasSource, &it.DialogueCount); err == nil {
+			&it.HasPoster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
+			&it.DialogueCount); err == nil {
 			movies = append(movies, it)
 		}
 	}

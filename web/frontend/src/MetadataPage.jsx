@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip, splitCommas } from './ui.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -34,17 +34,32 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
     load()
   }
 
+  const [bookFilter, setBookFilter] = useState('flagged')
+  const [movieFilter, setMovieFilter] = useState('flagged')
+
   const stats = useMemo(() => {
     const b = lib?.books || []
     const m = lib?.movies || []
     const d = lib?.dialogue_stats || { total: 0, missing_actor: 0 }
+    const count = (list, pred) => list.filter(pred).length
     return {
-      books: { total: b.length, noCover: b.filter((x) => !x.has_cover).length, noSource: b.filter((x) => !x.has_ids).length },
+      books: {
+        total: b.length,
+        no_cover: count(b, (x) => !x.has_cover),
+        no_author: count(b, (x) => !x.has_author),
+        no_series: count(b, (x) => !x.has_series),
+        no_year: count(b, (x) => !x.has_year),
+        no_genre: count(b, (x) => !x.has_genre),
+        no_source: count(b, (x) => !x.has_ids),
+      },
       movies: {
         total: m.length,
-        noPoster: m.filter((x) => !x.has_poster).length,
-        noCast: m.filter((x) => !x.has_cast).length,
-        noSource: m.filter((x) => !x.has_source).length,
+        no_poster: count(m, (x) => !x.has_poster),
+        no_cast: count(m, (x) => !x.has_cast),
+        no_director: count(m, (x) => !x.has_director),
+        no_year: count(m, (x) => !x.has_year),
+        no_genre: count(m, (x) => !x.has_genre),
+        no_source: count(m, (x) => !x.has_source),
       },
       dialogues: d,
     }
@@ -78,9 +93,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
         <EmptyState>loading…</EmptyState>
       ) : (
         <>
-          <StatsStrip stats={stats} />
-          <BooksConsole books={lib.books} onOpen={onOpenBook} onDone={load} onFlash={setFlash} />
-          <MoviesConsole movies={lib.movies} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} />
+          <StatsStrip stats={stats} onPickBook={setBookFilter} onPickMovie={setMovieFilter} />
+          <BooksConsole books={lib.books} filter={bookFilter} setFilter={setBookFilter} onOpen={onOpenBook} onDone={load} onFlash={setFlash} />
+          <DuplicatesPanel onDone={load} onFlash={setFlash} />
+          <MoviesConsole movies={lib.movies} filter={movieFilter} setFilter={setMovieFilter} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
         </>
       )}
@@ -90,16 +106,25 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
 
 const H2 = { fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }
 
-function Stat({ n, label, warn }) {
+// Stat is a coverage tile. When onClick is set it's a filter button: clicking a
+// "missing X" tile filters the console below to exactly those rows.
+function Stat({ n, label, warn, onClick }) {
   const bad = warn && n > 0
+  const clickable = !!onClick && (n > 0 || !warn)
   return (
-    <div
+    <button
+      type="button"
+      onClick={clickable ? onClick : undefined}
+      disabled={!clickable}
+      title={clickable ? `Filter below to ${label}` : undefined}
       style={{
+        textAlign: 'left',
         background: 'var(--raised)',
         border: `1px solid ${bad ? 'color-mix(in srgb, var(--error) 40%, var(--line))' : 'var(--line)'}`,
         borderRadius: 9,
         padding: '8px 13px',
         minWidth: 74,
+        cursor: clickable ? 'pointer' : 'default',
       }}
     >
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, lineHeight: 1, color: bad ? 'var(--error)' : 'var(--ink)' }}>
@@ -108,30 +133,39 @@ function Stat({ n, label, warn }) {
       <div className="mono-label" style={{ marginTop: 4, color: bad ? 'var(--error)' : undefined }}>
         {label}
       </div>
-    </div>
+    </button>
   )
 }
 
-function StatsStrip({ stats }) {
+function StatsStrip({ stats, onPickBook, onPickMovie }) {
   const group = (label, tiles) => (
     <div>
       <MonoLabel className="mb-2 block">{label}</MonoLabel>
       <div className="flex flex-wrap gap-2">{tiles}</div>
     </div>
   )
+  const b = stats.books
+  const m = stats.movies
   return (
     <HandCard className="p-5">
       <div className="flex flex-wrap gap-x-8 gap-y-4">
         {group('Books', [
-          <Stat key="t" n={stats.books.total} label="total" />,
-          <Stat key="c" n={stats.books.noCover} label="no cover" warn />,
-          <Stat key="s" n={stats.books.noSource} label="no source" warn />,
+          <Stat key="t" n={b.total} label="total" onClick={() => onPickBook('all')} />,
+          <Stat key="c" n={b.no_cover} label="no cover" warn onClick={() => onPickBook('no_cover')} />,
+          <Stat key="au" n={b.no_author} label="no author" warn onClick={() => onPickBook('no_author')} />,
+          <Stat key="se" n={b.no_series} label="no series" warn onClick={() => onPickBook('no_series')} />,
+          <Stat key="y" n={b.no_year} label="no year" warn onClick={() => onPickBook('no_year')} />,
+          <Stat key="g" n={b.no_genre} label="no genre" warn onClick={() => onPickBook('no_genre')} />,
+          <Stat key="s" n={b.no_source} label="no source" warn onClick={() => onPickBook('no_source')} />,
         ])}
         {group('Films & shows', [
-          <Stat key="t" n={stats.movies.total} label="total" />,
-          <Stat key="p" n={stats.movies.noPoster} label="no poster" warn />,
-          <Stat key="c" n={stats.movies.noCast} label="no cast" warn />,
-          <Stat key="s" n={stats.movies.noSource} label="no source" warn />,
+          <Stat key="t" n={m.total} label="total" onClick={() => onPickMovie('all')} />,
+          <Stat key="p" n={m.no_poster} label="no poster" warn onClick={() => onPickMovie('no_poster')} />,
+          <Stat key="c" n={m.no_cast} label="no cast" warn onClick={() => onPickMovie('no_cast')} />,
+          <Stat key="d" n={m.no_director} label="no director" warn onClick={() => onPickMovie('no_director')} />,
+          <Stat key="y" n={m.no_year} label="no year" warn onClick={() => onPickMovie('no_year')} />,
+          <Stat key="g" n={m.no_genre} label="no genre" warn onClick={() => onPickMovie('no_genre')} />,
+          <Stat key="s" n={m.no_source} label="no source" warn onClick={() => onPickMovie('no_source')} />,
         ])}
         {group('Dialogues', [
           <Stat key="t" n={stats.dialogues.total} label="total" />,
@@ -242,19 +276,25 @@ function SelectAll({ ids, sel }) {
 
 // ---- books console ----
 
-function BooksConsole({ books, onOpen, onDone, onFlash }) {
-  const [filter, setFilter] = useState('flagged')
+function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash }) {
   const [q, setQ] = useState('')
   const [lookupId, setLookupId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [editing, setEditing] = useState(false) // bulk-edit form open
   const sel = useSelection()
 
   const shown = useMemo(() => {
-    let list = books
-    if (filter === 'flagged') list = list.filter((b) => !b.has_cover || !b.has_ids)
-    else if (filter === 'no_cover') list = list.filter((b) => !b.has_cover)
-    else if (filter === 'no_source') list = list.filter((b) => !b.has_ids)
+    const pred = {
+      flagged: (b) => !b.has_cover || !b.has_ids,
+      no_cover: (b) => !b.has_cover,
+      no_author: (b) => !b.has_author,
+      no_series: (b) => !b.has_series,
+      no_year: (b) => !b.has_year,
+      no_genre: (b) => !b.has_genre,
+      no_source: (b) => !b.has_ids,
+    }[filter]
+    let list = pred ? books.filter(pred) : books
     const s = q.trim().toLowerCase()
     if (s) list = list.filter((b) => b.title.toLowerCase().includes(s) || (b.author || '').toLowerCase().includes(s))
     return list
@@ -281,6 +321,19 @@ function BooksConsole({ books, onOpen, onDone, onFlash }) {
     }
   }
 
+  // bulkEdit sends one targeted PATCH for the whole selection (POST /books/bulk).
+  async function bulkEdit(fields) {
+    setBusy(true)
+    setErr('')
+    const r = await json('POST', '/books/bulk', { ids: selected, ...fields })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, 'bulk edit failed'))
+    onFlash(`updated ${r.data.updated} book(s)`)
+    setEditing(false)
+    sel.clear()
+    onDone()
+  }
+
   return (
     <HandCard className="space-y-3 p-5">
       <Toolbar
@@ -294,6 +347,10 @@ function BooksConsole({ books, onOpen, onDone, onFlash }) {
           options: [
             ['flagged', 'flagged'],
             ['no_cover', 'no cover'],
+            ['no_author', 'no author'],
+            ['no_series', 'no series'],
+            ['no_year', 'no year'],
+            ['no_genre', 'no genre'],
             ['no_source', 'no source'],
             ['all', 'all'],
           ],
@@ -307,10 +364,14 @@ function BooksConsole({ books, onOpen, onDone, onFlash }) {
             <SelectAll ids={ids} sel={sel} />
           </div>
           <BulkBar n={selected.length} onClear={sel.clear}>
+            <GhostButton disabled={busy} onClick={() => setEditing((v) => !v)}>
+              {editing ? 'Close bulk edit' : 'Bulk edit…'}
+            </GhostButton>
             <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
               Delete
             </GhostButton>
           </BulkBar>
+          {editing && selected.length > 0 && <BulkEditForm n={selected.length} busy={busy} onApply={bulkEdit} />}
           <ErrorText>{err}</ErrorText>
           <div>
             {shown.map((b) => (
@@ -337,7 +398,14 @@ function BooksConsole({ books, onOpen, onDone, onFlash }) {
 
 function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
-  const gaps = [!book.has_cover && 'no cover', !book.has_ids && 'no source'].filter(Boolean)
+  const gaps = [
+    !book.has_cover && 'no cover',
+    !book.has_author && 'no author',
+    !book.has_series && 'no series',
+    !book.has_year && 'no year',
+    !book.has_genre && 'no genre',
+    !book.has_ids && 'no source',
+  ].filter(Boolean)
 
   async function apply(c) {
     setErr('')
@@ -397,8 +465,7 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
 
 // ---- movies console ----
 
-function MoviesConsole({ movies, onOpen, onDone, onFlash }) {
-  const [filter, setFilter] = useState('flagged')
+function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
   const [mediaType, setMediaType] = useState('')
   const [q, setQ] = useState('')
   const [lookupId, setLookupId] = useState(null)
@@ -409,10 +476,16 @@ function MoviesConsole({ movies, onOpen, onDone, onFlash }) {
   const shown = useMemo(() => {
     let list = movies
     if (mediaType) list = list.filter((m) => (m.media_type || 'movie') === mediaType)
-    if (filter === 'flagged') list = list.filter((m) => !m.has_poster || !m.has_cast || !m.has_source)
-    else if (filter === 'no_poster') list = list.filter((m) => !m.has_poster)
-    else if (filter === 'no_cast') list = list.filter((m) => !m.has_cast)
-    else if (filter === 'no_source') list = list.filter((m) => !m.has_source)
+    const pred = {
+      flagged: (m) => !m.has_poster || !m.has_cast || !m.has_source,
+      no_poster: (m) => !m.has_poster,
+      no_cast: (m) => !m.has_cast,
+      no_director: (m) => !m.has_director,
+      no_year: (m) => !m.has_year,
+      no_genre: (m) => !m.has_genre,
+      no_source: (m) => !m.has_source,
+    }[filter]
+    if (pred) list = list.filter(pred)
     const s = q.trim().toLowerCase()
     if (s) list = list.filter((m) => m.title.toLowerCase().includes(s))
     return list
@@ -472,6 +545,9 @@ function MoviesConsole({ movies, onOpen, onDone, onFlash }) {
             ['flagged', 'flagged'],
             ['no_poster', 'no poster'],
             ['no_cast', 'no cast'],
+            ['no_director', 'no director'],
+            ['no_year', 'no year'],
+            ['no_genre', 'no genre'],
             ['no_source', 'no source'],
             ['all', 'all'],
           ],
@@ -556,6 +632,141 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
           <ErrorText>{err}</ErrorText>
         </div>
       )}
+    </div>
+  )
+}
+
+// BulkEditForm applies a correction to the whole selection at once (the "select
+// the wrong ones, replace with the right value" flow). Only the fields you fill
+// are sent — an empty field is left untouched (an empty author/series clears it,
+// which is why those are opt-in checkboxes, not blank = clear).
+function BulkEditForm({ n, busy, onApply }) {
+  const [setAuthor, setSetAuthor] = useState(false)
+  const [author, setAuthor2] = useState('')
+  const [setSeries, setSetSeries] = useState(false)
+  const [series, setSeries2] = useState('')
+  const [seriesIndex, setSeriesIndex] = useState('')
+  const [addGenres, setAddGenres] = useState('')
+
+  function apply() {
+    const fields = {}
+    if (setAuthor) fields.author = author.trim()
+    if (setSeries) {
+      fields.series = series.trim()
+      if (seriesIndex.trim()) fields.series_index = Number(seriesIndex) || 0
+    }
+    const genres = splitCommas(addGenres)
+    if (genres.length) fields.add_genres = genres
+    if (Object.keys(fields).length === 0) return
+    onApply(fields)
+  }
+
+  return (
+    <div className="space-y-2.5 rounded-xl p-3" style={{ border: '1px solid var(--line)', background: 'var(--raised)' }}>
+      <MonoLabel className="block">Bulk edit {n} selected</MonoLabel>
+      <label className="flex flex-wrap items-center gap-2">
+        <input type="checkbox" checked={setAuthor} onChange={(e) => setSetAuthor(e.target.checked)} />
+        <span className="microcopy" style={{ minWidth: 54 }}>author</span>
+        <input className="tp-input w-auto flex-1" placeholder="set author (blank = clear)" value={author} disabled={!setAuthor} onChange={(e) => setAuthor2(e.target.value)} />
+      </label>
+      <label className="flex flex-wrap items-center gap-2">
+        <input type="checkbox" checked={setSeries} onChange={(e) => setSetSeries(e.target.checked)} />
+        <span className="microcopy" style={{ minWidth: 54 }}>series</span>
+        <input className="tp-input w-auto flex-1" placeholder="set series (blank = clear)" value={series} disabled={!setSeries} onChange={(e) => setSeries2(e.target.value)} />
+        <input className="tp-input w-16 shrink-0" placeholder="#" inputMode="decimal" value={seriesIndex} disabled={!setSeries} onChange={(e) => setSeriesIndex(e.target.value)} />
+      </label>
+      <label className="flex flex-wrap items-center gap-2">
+        <span className="microcopy" style={{ minWidth: 72, marginLeft: 22 }}>add genres</span>
+        <input className="tp-input w-auto flex-1" placeholder="comma-separated — added, not replaced" value={addGenres} onChange={(e) => setAddGenres(e.target.value)} />
+      </label>
+      <button className="tp-btn tp-btn-primary" disabled={busy} onClick={apply}>
+        Apply to {n}
+      </button>
+    </div>
+  )
+}
+
+// ---- duplicate detection + merge ----
+
+// DuplicatesPanel loads fuzzy-title duplicate groups and lets you merge each
+// group into a chosen keeper (annotations move over, dupes drop, sources delete).
+function DuplicatesPanel({ onDone, onFlash }) {
+  const [groups, setGroups] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [open, setOpen] = useState(false)
+
+  async function scan() {
+    setBusy(true)
+    setErr('')
+    const r = await json('GET', '/metadata/duplicates')
+    setBusy(false)
+    setOpen(true)
+    if (r.ok) setGroups(r.data.groups)
+    else setErr(errText(r, 'could not scan for duplicates'))
+  }
+
+  async function merge(into, from) {
+    if (!confirm(`Merge ${from.length} book(s) into the keeper? Their annotations move over; the others are deleted.`)) return
+    setBusy(true)
+    setErr('')
+    const r = await json('POST', '/books/merge', { into, from })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, 'merge failed'))
+    onFlash(`merged ${r.data.merged} book(s)`)
+    scan()
+    onDone()
+  }
+
+  return (
+    <HandCard className="space-y-3 p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 style={H2}>Duplicate books</h2>
+        {groups && <MonoLabel>{groups.length} group{groups.length === 1 ? '' : 's'}</MonoLabel>}
+        <GhostButton className="ml-auto" disabled={busy} onClick={scan}>
+          {busy ? 'Scanning…' : open ? 'Rescan' : 'Scan for duplicates'}
+        </GhostButton>
+      </div>
+      <ErrorText>{err}</ErrorText>
+      {open && groups && groups.length === 0 && <p className="microcopy">no duplicate titles found ✓</p>}
+      {groups && groups.length > 0 && (
+        <div className="space-y-3">
+          {groups.map((g, i) => (
+            <DuplicateGroup key={i} group={g} busy={busy} onMerge={merge} />
+          ))}
+        </div>
+      )}
+    </HandCard>
+  )
+}
+
+function DuplicateGroup({ group, busy, onMerge }) {
+  // Default keeper = the copy with the most annotations (least to lose).
+  const [keep, setKeep] = useState(() => group.reduce((a, b) => (b.annotation_count > a.annotation_count ? b : a), group[0]).id)
+  return (
+    <div className="rounded-xl p-3" style={{ border: '1px solid var(--line)' }}>
+      <div className="space-y-1.5">
+        {group.map((b) => (
+          <label key={b.id} className="flex flex-wrap items-center gap-2">
+            <input type="radio" name={`keep-${group[0].id}`} checked={keep === b.id} onChange={() => setKeep(b.id)} />
+            <span className="min-w-0 flex-1 truncate text-sm">
+              <b>{b.title}</b>
+              {b.author && <span style={{ color: 'var(--soft)' }}> · {b.author}</span>}
+              {b.year ? <span className="microcopy"> · {b.year}</span> : null}
+              <span className="microcopy"> · {b.annotation_count} quotes</span>
+            </span>
+            {keep === b.id && <span className="tp-chip shrink-0" style={{ color: 'var(--accent-ui)' }}>keep</span>}
+          </label>
+        ))}
+      </div>
+      <div className="mt-2">
+        <GhostButton
+          disabled={busy}
+          onClick={() => onMerge(keep, group.filter((b) => b.id !== keep).map((b) => b.id))}
+        >
+          Merge into keeper
+        </GhostButton>
+      </div>
     </div>
   )
 }

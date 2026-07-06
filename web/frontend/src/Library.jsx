@@ -614,20 +614,26 @@ function EditBook({ book, onSaved, onCancel }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Adopt an API candidate: fill only the fields you haven't already filled
-  // (add missing info, never clobber your edits), and queue its cover if you
-  // don't already have one.
+  // Adopt an API candidate. Two modes:
+  //  - overwrite (explicit "Use" on a chosen match): take that match's value for
+  //    every field it provides, replacing what's there — that's the whole point
+  //    of browsing matches and picking a better one. Fields the match is silent
+  //    about are left as-is (never blanked).
+  //  - fill-only (one-click "Fetch metadata"): fill only the empty fields so it
+  //    can't clobber edits you already made.
   const keep = (v, next) => (String(v).trim() ? v : next || v)
-  function applyCandidate(c) {
-    setTitle((v) => keep(v, c.title))
-    setAuthor((v) => keep(v, c.author))
-    setIsbn((v) => keep(v, c.isbn13))
-    setYear((v) => keep(v, c.published_year ? String(c.published_year) : ''))
-    setDescription((v) => keep(v, c.description))
-    setGenres((v) => (v.length ? v : c.genres || []))
-    setSeries((v) => keep(v, c.series))
-    setSeriesIndex((v) => keep(v, c.series_index ? String(c.series_index) : ''))
-    if (c.cover_url && !coverPath && !coverUrl) {
+  function applyCandidate(c, overwrite = false) {
+    const has = (x) => x != null && String(x).trim() !== ''
+    const take = overwrite ? (v, next) => (has(next) ? next : v) : keep
+    setTitle((v) => take(v, c.title))
+    setAuthor((v) => take(v, c.author))
+    setIsbn((v) => take(v, c.isbn13))
+    setYear((v) => take(v, c.published_year ? String(c.published_year) : ''))
+    setDescription((v) => take(v, c.description))
+    setGenres((v) => (overwrite ? (c.genres && c.genres.length ? c.genres : v) : v.length ? v : c.genres || []))
+    setSeries((v) => take(v, c.series))
+    setSeriesIndex((v) => take(v, c.series_index ? String(c.series_index) : ''))
+    if (c.cover_url && (overwrite || (!coverPath && !coverUrl))) {
       setCoverUrl(c.cover_url)
       setClearCover(false)
     }
@@ -715,7 +721,7 @@ function EditBook({ book, onSaved, onCancel }) {
         onFetchMeta={fetchMeta}
         fetchingMeta={fetchingMeta}
       />
-      <BookLookupPicker isbn={isbn} title={title} asin={asin} onPick={applyCandidate} />
+      <BookLookupPicker isbn={isbn} title={title} asin={asin} onPick={(c) => applyCandidate(c, true)} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />

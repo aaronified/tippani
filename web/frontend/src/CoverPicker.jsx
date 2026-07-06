@@ -187,6 +187,12 @@ export function BookLookupPicker({ isbn, title, asin, onPick }) {
                 <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
                   {[c.author, c.published_year || null, c.isbn13].filter(Boolean).join(' · ')}
                 </p>
+                {c.series && (
+                  <p className="truncate text-xs" style={{ color: 'var(--accent-ui)' }}>
+                    series: {c.series}
+                    {c.series_index ? ` #${c.series_index}` : ''}
+                  </p>
+                )}
               </div>
               <span className="tp-chip shrink-0">{(c.source || '').toUpperCase()}</span>
               <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
