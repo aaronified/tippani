@@ -39,18 +39,22 @@ export const SHARE_FORMATS = [
 // Callers pass already-resolved strings (dates pre-formatted); these shape the
 // uniform payload the dialog assembles + renders. Empty values are dropped by
 // the dialog, so passing '' is fine.
-export function bookShare({ quote, note, author, title, chapter, location, date, rating, tags }) {
+export function bookShare({ quote, note, author, title, published, chapter, location, date, rating, tags }) {
   return {
     quote: quote || '',
-    // Author-first, work italic — the classic epigraph order ("— Author, *Title*").
+    // Author-first (bold), work italic, then the publication year — the classic
+    // epigraph order ("— **Author**, *Title*, 1965").
     attribution: [
-      { id: 'author', label: 'Author', value: author || '', italic: false },
-      { id: 'work', label: 'Book', value: title || '', italic: true },
+      { id: 'author', label: 'Author', value: author || '', emphasis: 'bold' },
+      { id: 'work', label: 'Book', value: title || '', emphasis: 'italic' },
+      { id: 'published', label: 'Published', value: published ? String(published) : '' },
     ],
+    // "Noted" is the date you saved/highlighted it (noted_at, else added_at) —
+    // distinct from the publication year above.
     meta: [
       { id: 'chapter', label: 'Chapter', value: chapter ? `Ch. ${chapter}` : '' },
       { id: 'location', label: 'Location', value: location ? `p.${location}` : '' },
-      { id: 'date', label: 'Date', value: date || '' },
+      { id: 'noted', label: 'Noted', value: date || '' },
     ],
     rating: rating || 0,
     tags: tags || [],
@@ -62,14 +66,15 @@ export function movieShare({ quote, note, title, year, character, actor, timesta
   return {
     quote: quote || '',
     attribution: [
-      { id: 'work', label: 'Title', value: title || '', italic: true },
-      { id: 'year', label: 'Year', value: year ? String(year) : '', italic: false },
-      { id: 'tmdb', label: 'TMDB', value: tmdbId ? `TMDB #${tmdbId}` : '', italic: false },
-      { id: 'tvdb', label: 'TVDB', value: tvdbId ? `TVDB #${tvdbId}` : '', italic: false },
+      { id: 'work', label: 'Title', value: title || '', emphasis: 'italic' },
+      { id: 'year', label: 'Released', value: year ? String(year) : '' },
+      { id: 'tmdb', label: 'TMDB', value: tmdbId ? `TMDB #${tmdbId}` : '' },
+      { id: 'tvdb', label: 'TVDB', value: tvdbId ? `TVDB #${tvdbId}` : '' },
     ],
+    // Actor name bold inside the "played by …" credit; character stays plain.
     meta: [
       { id: 'character', label: 'Character', value: character || '' },
-      { id: 'actor', label: 'Actor', value: actor ? `played by ${actor}` : '' },
+      { id: 'actor', label: 'Actor', value: actor || '', emphasis: 'bold', prefix: 'played by ' },
       { id: 'timestamp', label: 'Time', value: timestamp || '' },
     ],
     rating: rating || 0,
@@ -96,6 +101,18 @@ function italic(text, fmt) {
   if (fmt === 'whatsapp') return `_${text}_`
   return text // plaintext: no styling
 }
+function bold(text, fmt) {
+  if (fmt === 'markdown' || fmt === 'reddit') return `**${text}**`
+  if (fmt === 'whatsapp') return `*${text}*`
+  return text // plaintext: no styling
+}
+// emph applies a part's emphasis (bold for people — author/actor; italic for
+// works — book/film title) in the syntax of the chosen format.
+function emph(text, style, fmt) {
+  if (style === 'bold') return bold(text, fmt)
+  if (style === 'italic') return italic(text, fmt)
+  return text
+}
 
 function quoteBlock(quote, fmt) {
   if (fmt === 'plaintext') return `“${quote}”`
@@ -117,11 +134,12 @@ export function buildShareText(share, selected, fmt) {
 
   const attr = []
   for (const a of share.attribution || [])
-    if (selected[a.id] && a.value) attr.push(a.italic ? italic(a.value, fmt) : a.value)
+    if (selected[a.id] && a.value) attr.push(emph(a.value, a.emphasis, fmt))
   if (attr.length) blocks.push('— ' + attr.join(', '))
 
   const meta = []
-  for (const m of share.meta || []) if (selected[m.id] && m.value) meta.push(m.value)
+  for (const m of share.meta || [])
+    if (selected[m.id] && m.value) meta.push((m.prefix || '') + emph(m.value, m.emphasis, fmt))
   if (selected.rating && share.rating) meta.push('★'.repeat(share.rating))
   if (meta.length) blocks.push(meta.join(' · '))
 

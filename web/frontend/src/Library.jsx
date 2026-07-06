@@ -1150,6 +1150,7 @@ function Annotations({ bookId, book }) {
       note: a.note,
       author: book?.author,
       title: book?.title,
+      published: book?.published_year,
       chapter: a.chapter,
       location: a.location,
       date: fmtDate(annDate(a)),
