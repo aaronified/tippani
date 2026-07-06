@@ -265,8 +265,8 @@ function PosterCard({ movie: m, onOpen }) {
   const n = m.dialogue_count || 0
   const isShow = (m.media_type || 'movie') === 'show'
   return (
-    <button type="button" className="block w-full text-left" title={m.title} onClick={() => onOpen(m.id)}>
-      <div className="relative">
+    <button type="button" className="cover-tile block w-full text-left" title={m.title} onClick={() => onOpen(m.id)}>
+      <div className="relative cover-lift">
         <Poster path={m.poster_path} title={m.title} />
         {isShow && (
           <span

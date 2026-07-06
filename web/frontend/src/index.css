@@ -1020,6 +1020,27 @@
   .menu-item:hover { background: color-mix(in oklab, var(--ink) 7%, transparent); }
   .menu-item.active { color: var(--accent-ui); background: color-mix(in srgb, var(--accent) 13%, transparent); }
   .menu-item svg { flex: none; }
+  /* Cover/poster tiles lift a touch on hover — the card rises and grows a hair,
+     the shadow deepens, and the artwork brightens; a small press-down on click.
+     Motion is confined to the cover so the title/meta below stay put. */
+  .cover-lift {
+    transition: transform .3s cubic-bezier(.22,.7,.2,1), box-shadow .3s ease, filter .3s ease;
+    will-change: transform;
+  }
+  .cover-tile:hover .cover-lift { transform: translateY(-6px) scale(1.02); filter: brightness(1.04); }
+  .cover-tile:active .cover-lift { transform: translateY(-2px) scale(1.008); transition-duration: .12s; }
+  .cover-tile:focus-visible .cover-lift { transform: translateY(-6px) scale(1.02); }
+  html[data-aesthetic="paper"] .cover-tile:hover .hand-card.cover-lift {
+    box-shadow: 0 3px 6px rgba(41,38,29,.16), 0 16px 30px -10px rgba(41,38,29,.36), 0 34px 56px -22px rgba(41,38,29,.4);
+  }
+  html[data-theme="dark"] .cover-tile:hover .hand-card.cover-lift {
+    box-shadow: 0 3px 6px rgba(0,0,0,.5), 0 16px 32px -10px rgba(0,0,0,.62), 0 36px 60px -22px rgba(0,0,0,.7);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cover-lift { transition: none; }
+    .cover-tile:hover .cover-lift, .cover-tile:active .cover-lift, .cover-tile:focus-visible .cover-lift { transform: none; filter: none; }
+  }
+
   /* Settings preset cards: real material grain on the mini-callout (paper fibre /
      brushed metal), so each combo previews its own texture. */
   .preset-callout { position: relative; isolation: isolate; overflow: hidden; }

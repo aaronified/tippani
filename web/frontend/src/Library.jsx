@@ -211,8 +211,8 @@ function BookList({ onOpen }) {
         <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
           {shown.map((b, i) => (
             <li key={b.id}>
-              <button onClick={() => onOpen(b.id)} className="block w-full text-left" title={b.title}>
-                <HandCard variant={i % 4} className="relative overflow-hidden">
+              <button onClick={() => onOpen(b.id)} className="cover-tile block w-full text-left" title={b.title}>
+                <HandCard variant={i % 4} className="relative overflow-hidden cover-lift">
                   {b.cover_path ? (
                     <img
                       src={`/covers/${b.cover_path}`}
