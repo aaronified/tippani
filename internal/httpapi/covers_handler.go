@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"tippani/internal/metadata"
 )
@@ -16,10 +17,11 @@ import (
 // re-capped at 2 MB by metadata.StoreImage after decoding.
 const maxUploadBytes = 3 << 20
 
-// coverFile matches server-generated cover/poster names (metadata.FetchImage:
-// 16 lowercase hex chars + a sniffed image extension). Anything else 404s —
-// no path traversal, nothing served that we didn't store ourselves.
-var coverFile = regexp.MustCompile(`^[0-9a-f]{16}\.(jpg|png|webp|gif)$`)
+// coverFile matches server-generated cover/poster/sticker names
+// (metadata.FetchImage / StoreImage: 16 lowercase hex chars + a sniffed image
+// extension). Anything else 404s — no path traversal, nothing served that we
+// didn't store ourselves. svg is included for uploaded stickers.
+var coverFile = regexp.MustCompile(`^[0-9a-f]{16}\.(jpg|png|webp|gif|svg)$`)
 
 // coversDir: all downloaded metadata images (covers + posters) live in
 // <DataDir>/MediaCover — *arr-style (§9). serve() migrates a legacy covers/
@@ -39,6 +41,14 @@ func (s *Server) handleCover(w http.ResponseWriter, r *http.Request) {
 	}
 	// Names are random and never reused: cache forever (PLAN §6).
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	// Uploaded SVG stickers are served with a hard sandbox so that even a direct
+	// navigation to the file can't execute embedded script (upload also rejects
+	// <script>, but this is the authoritative barrier). Fix the type explicitly
+	// rather than trust the platform mime table.
+	if strings.HasSuffix(name, ".svg") {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	}
 	http.ServeFile(w, r, path)
 }
 

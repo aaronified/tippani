@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -41,12 +42,73 @@ const maxImageBytes = 2 << 20
 const minImageBytes = 512
 
 // imageExt: only these sniffed types are accepted. The stored extension comes
-// from the sniff, never from the URL.
+// from the sniff, never from the URL. SVG is included for uploaded stickers —
+// http.DetectContentType can't recognise it, so sniffImageType handles it
+// separately (and the serve path sandboxes SVG against script execution).
 var imageExt = map[string]string{
-	"image/jpeg": ".jpg",
-	"image/png":  ".png",
-	"image/webp": ".webp",
-	"image/gif":  ".gif",
+	"image/jpeg":    ".jpg",
+	"image/png":     ".png",
+	"image/webp":    ".webp",
+	"image/gif":     ".gif",
+	"image/svg+xml": ".svg",
+}
+
+// minSVGBytes floors SVG uploads well below minImageBytes: a legitimate vector
+// sticker (a single path) can be a few hundred bytes, so the raster
+// placeholder floor would wrongly reject it. This only rejects empty/blank files.
+const minSVGBytes = 48
+
+// sniffImageType classifies image bytes. It trusts http.DetectContentType for
+// the raster types, then falls back to a lightweight SVG probe: SVG documents
+// sniff as text/xml or text/plain, so DetectContentType never returns
+// image/svg+xml on its own. Returns "" if it looks like nothing we accept.
+func sniffImageType(data []byte) string {
+	switch ct := http.DetectContentType(data); ct {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+		return ct
+	}
+	if looksLikeSVG(data) {
+		return "image/svg+xml"
+	}
+	return ""
+}
+
+// looksLikeSVG reports whether data is an SVG document: after skipping leading
+// whitespace, a UTF-8 BOM, an XML prolog, a doctype, and comments, the first
+// element must be <svg. Anchoring to the document root (not just "contains
+// <svg") stops an HTML page with an inline <svg> from passing as an image.
+func looksLikeSVG(data []byte) bool {
+	if len(data) > 4096 {
+		data = data[:4096]
+	}
+	s := bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")) // strip a UTF-8 BOM
+	s = bytes.TrimLeft(s, " \t\r\n")
+	lower := bytes.ToLower(s)
+	// Skip any number of leading <?xml ...?>, <!doctype ...>, <!-- ... --> nodes.
+	for {
+		switch {
+		case bytes.HasPrefix(lower, []byte("<?xml")):
+			i := bytes.IndexByte(lower, '>')
+			if i < 0 {
+				return false
+			}
+			lower = bytes.TrimLeft(lower[i+1:], " \t\r\n")
+		case bytes.HasPrefix(lower, []byte("<!--")):
+			i := bytes.Index(lower, []byte("-->"))
+			if i < 0 {
+				return false
+			}
+			lower = bytes.TrimLeft(lower[i+3:], " \t\r\n")
+		case bytes.HasPrefix(lower, []byte("<!doctype")):
+			i := bytes.IndexByte(lower, '>')
+			if i < 0 {
+				return false
+			}
+			lower = bytes.TrimLeft(lower[i+1:], " \t\r\n")
+		default:
+			return bytes.HasPrefix(lower, []byte("<svg"))
+		}
+	}
 }
 
 // FetchImage downloads a cover/poster from an API-sourced URL: full PLAN §6
@@ -137,12 +199,23 @@ func StoreImageMax(data []byte, destDir string, max int) (string, error) {
 	if len(data) > max {
 		return "", fmt.Errorf("image exceeds %d bytes", max)
 	}
-	if len(data) < minImageBytes {
-		return "", errors.New("image too small (placeholder/blank)")
-	}
-	ext, ok := imageExt[http.DetectContentType(data)]
+	ct := sniffImageType(data)
+	ext, ok := imageExt[ct]
 	if !ok {
 		return "", errors.New("not an accepted image type")
+	}
+	if ct == "image/svg+xml" {
+		if len(data) < minSVGBytes {
+			return "", errors.New("image too small (placeholder/blank)")
+		}
+		// Defence in depth: refuse scripted SVG at rest. The serve path also
+		// sandboxes SVG (CSP), but a script-free file can't attack anything even
+		// if a future viewer renders it directly.
+		if bytes.Contains(bytes.ToLower(data), []byte("<script")) {
+			return "", errors.New("scripted SVG is not allowed")
+		}
+	} else if len(data) < minImageBytes {
+		return "", errors.New("image too small (placeholder/blank)")
 	}
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {

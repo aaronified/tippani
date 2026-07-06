@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText, downloadPost } from './api.js'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
-import { FlowQuote, StickerTag } from './flow.jsx'
+import { FlowQuote } from './flow.jsx'
+import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -765,8 +766,10 @@ function annotationState(a) {
     tags: a.tags || [],
     favorite: !!a.favorite,
     rating: a.rating || 0,
-    // carry the seal position through every full-state PUT so a favourite/rating
-    // patch never wipes it (null = unplaced → top-right default)
+    // carry the attached sticker + its seal position through every full-state
+    // PUT so a favourite/rating/drag patch never wipes them (nulls = no sticker /
+    // unplaced → top-right default)
+    sticker_id: a.sticker_id ?? null,
     sticker_x: a.sticker_x ?? null,
     sticker_y: a.sticker_y ?? null,
   }
@@ -804,30 +807,30 @@ function ActionRow({ a, patch, setEditingId, remove }) {
   )
 }
 
-// AnnotationCard is the shared card body for the tiles + list views. The first
-// tag becomes the corner sticker the quote flows around (pretext); the quote
-// clamps to `quoteLines` with an inline show-more.
-function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch, remove, quoteLines = 6, tagSuggestions = [] }) {
-  const primary = a.tags && a.tags.length > 0 ? tagMap[a.tags[0]] : null
+// AnnotationCard is the shared card body for the tiles + list views. An attached
+// uploaded sticker becomes the corner seal the quote flows around (pretext); the
+// quote clamps to `quoteLines` with an inline show-more.
+function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, quoteLines = 6, tagSuggestions = [] }) {
+  const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const d = fmtDate(annDate(a))
   return (
     <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
       <EditReveal open={editing}>
       {editing ? (
-        <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} />
+        <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
       ) : (
         <div className="space-y-2">
           {a.quote &&
-            (primary ? (
+            (sticker ? (
               <FlowQuote
                 text={a.quote}
                 quoteStyle={QUOTE_STYLE}
-                stickerKey={a.tags[0]}
+                stickerKey={`s${sticker.id}`}
                 maxLines={quoteLines} /* collapsed → small corner badge; expanded →
                                          full positioned/draggable seal (see flow.jsx) */
                 pos={a.sticker_x != null ? { x: a.sticker_x, y: a.sticker_y } : null}
                 onMove={(x, y) => patch(a, { sticker_x: x, sticker_y: y })}
-                sticker={<StickerTag name={a.tags[0]} color={primary.color} />}
+                sticker={<StickerImg sticker={sticker} />}
               />
             ) : (
               <ExpandableText text={a.quote} lines={quoteLines} style={QUOTE_STYLE} />
@@ -867,7 +870,7 @@ const TABLE_COLS = [
   { key: 'favorite', label: '♥' },
 ]
 
-function AnnotationTable({ rows, tagMap, sort, onSort, editingId, setEditingId, save, remove }) {
+function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   return (
     <div className="ann-table-wrap">
@@ -888,7 +891,7 @@ function AnnotationTable({ rows, tagMap, sort, onSort, editingId, setEditingId, 
             editingId === a.id ? (
               <tr key={a.id} className="editing-row">
                 <td colSpan={TABLE_COLS.length + 1}>
-                  <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={Object.keys(tagMap)} />
+                  <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
                 </td>
               </tr>
             ) : (
@@ -943,9 +946,12 @@ function Annotations({ bookId }) {
   const [sort, setSort] = useState({ col: 'default', dir: 'asc' }) // table only; default = server (recent)
   const reqSeq = useRef(0)
 
+  const { stickers, reload: reloadStickers } = useStickers()
   const filtering = Boolean(color || tag || fav || minRating)
   // Chips take colour + style from the tag object (name-keyed map).
   const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+  // Attached stickers resolve id → image for the card seal.
+  const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
   function toggleSort(col) {
     setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
@@ -1081,6 +1087,8 @@ function Annotations({ bookId }) {
         <AnnotationTable
           rows={sortedRows}
           tagMap={tagMap}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
           sort={sort}
           onSort={toggleSort}
           editingId={editingId}
@@ -1097,6 +1105,9 @@ function Annotations({ bookId }) {
               a={a}
               variant={i % 4}
               tagMap={tagMap}
+              stickerMap={stickerMap}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
               editing={editingId === a.id}
               setEditingId={setEditingId}
               save={save}
@@ -1120,6 +1131,9 @@ function Annotations({ bookId }) {
                 a={a}
                 variant={i % 4}
                 tagMap={tagMap}
+                stickerMap={stickerMap}
+                stickers={stickers}
+                reloadStickers={reloadStickers}
                 editing={editingId === a.id}
                 setEditingId={setEditingId}
                 save={save}
@@ -1144,6 +1158,8 @@ function Annotations({ bookId }) {
             onCancel={() => setAddOpen(false)}
             submitLabel="Add annotation"
             tagSuggestions={Object.keys(tagMap)}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
           />
         </HandCard>
       ) : (
@@ -1164,13 +1180,14 @@ function Annotations({ bookId }) {
 
 // AnnotationForm serves both add (no initial) and inline edit (initial set).
 // onSubmit receives the full field state and returns an error string or null.
-function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [] }) {
+function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')
   const [location, setLocation] = useState(initial?.location || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
+  const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -1190,6 +1207,11 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestio
       // full-state, so carry the existing values through.
       favorite: !!initial?.favorite,
       rating: initial?.rating || 0,
+      // sticker: id is chosen here; position is dragged on the card, so carry
+      // the existing coords through unchanged (full-state PUT).
+      sticker_id: stickerId,
+      sticker_x: initial?.sticker_x ?? null,
+      sticker_y: initial?.sticker_y ?? null,
     })
     setBusy(false)
     if (err) return setError(err)
@@ -1200,6 +1222,7 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestio
       setLocation('')
       setColor('yellow')
       setTags([])
+      setStickerId(null)
     }
   }
 
@@ -1221,6 +1244,10 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestio
         <MonoLabel className="mb-1.5 block">Tags</MonoLabel>
         <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
       </label>
+      <div className="block">
+        <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
+        <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />
+      </div>
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <MonoLabel>colour</MonoLabel>
         <ColorSwatches value={color} onChange={setColor} />

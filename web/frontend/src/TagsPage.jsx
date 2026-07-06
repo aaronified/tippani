@@ -11,6 +11,7 @@ import {
   TAG_STYLES,
   TagChip,
 } from './ui.jsx'
+import { StickerManager } from './stickers.jsx'
 
 // Tags page (§8.10, mockups 23–24): the per-user tag vocabulary manager —
 // each tag shown as a sample chip in its own style × colour with usage
@@ -47,6 +48,9 @@ export default function TagsPage() {
         </div>
       )}
       <NewTagCard onCreated={load} />
+
+      <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.5rem 0 0.25rem' }} />
+      <StickerManager />
     </section>
   )
 }

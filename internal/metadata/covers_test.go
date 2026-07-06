@@ -112,6 +112,45 @@ func TestFetchImageGuards(t *testing.T) {
 	}
 }
 
+// TestStoreImageSVG pins the uploaded-sticker SVG path: real SVG is accepted
+// (stored .svg), scripted SVG and HTML-with-inline-<svg> are refused, and a
+// tiny vector below the raster floor still stores.
+func TestStoreImageSVG(t *testing.T) {
+	dir := t.TempDir()
+
+	svg := []byte(`<?xml version="1.0"?>` + "\n" +
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>`)
+	name, err := StoreImage(svg, dir)
+	if err != nil {
+		t.Fatalf("plain SVG rejected: %v", err)
+	}
+	if !regexp.MustCompile(`^[0-9a-f]{16}\.svg$`).MatchString(name) {
+		t.Fatalf("name = %q, want 16 hex + .svg", name)
+	}
+
+	// A vector far below minImageBytes (but above minSVGBytes) must still store —
+	// the raster placeholder floor would wrongly reject a one-path icon.
+	tiny := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>`)
+	if len(tiny) >= minImageBytes {
+		t.Fatalf("test setup: tiny SVG should be below the raster floor (%d)", len(tiny))
+	}
+	if _, err := StoreImage(tiny, dir); err != nil {
+		t.Fatalf("tiny SVG rejected: %v", err)
+	}
+
+	// Scripted SVG is refused (defence in depth alongside the serve-side sandbox).
+	scripted := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)
+	if _, err := StoreImage(scripted, dir); err == nil {
+		t.Fatal("scripted SVG accepted")
+	}
+
+	// An HTML page that merely contains an inline <svg> is not an image.
+	page := []byte(`<!doctype html><html><body><svg><circle/></svg></body></html>`)
+	if _, err := StoreImage(page, dir); err == nil {
+		t.Fatal("HTML with inline <svg> accepted as an image")
+	}
+}
+
 func TestBlockPrivateAddr(t *testing.T) {
 	cases := []struct {
 		addr string

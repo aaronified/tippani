@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
-import { FlowQuote, StickerTag } from './flow.jsx'
+import { FlowQuote } from './flow.jsx'
+import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -880,7 +881,9 @@ function dialogueState(d) {
     tags: d.tags || [],
     favorite: !!d.favorite,
     rating: d.rating || 0,
-    // carry the draggable seal position through every full-state PUT
+    // carry the attached sticker + its draggable seal position through every
+    // full-state PUT (nulls = no sticker / unplaced → top-right default)
+    sticker_id: d.sticker_id ?? null,
     sticker_x: d.sticker_x ?? null,
     sticker_y: d.sticker_y ?? null,
   }
@@ -905,9 +908,11 @@ function Dialogues({ movieId, cast }) {
   const base = useFrameBase() // frame codes regenerate per mount (§6)
   const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
 
+  const { stickers, reload: reloadStickers } = useStickers()
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
   const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
+  const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -1010,6 +1015,9 @@ function Dialogues({ movieId, cast }) {
               <Frame
                 d={d}
                 tagMap={tagMap}
+                stickerMap={stickerMap}
+                stickers={stickers}
+                reloadStickers={reloadStickers}
                 editing={editingId === d.id}
                 castListId={castListId}
                 onEdit={() => setEditingId(d.id)}
@@ -1030,6 +1038,9 @@ function Dialogues({ movieId, cast }) {
               key={d.id}
               d={d}
               tagMap={tagMap}
+              stickerMap={stickerMap}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
               editing={editingId === d.id}
               castListId={castListId}
               onEdit={() => setEditingId(d.id)}
@@ -1045,6 +1056,8 @@ function Dialogues({ movieId, cast }) {
         <DialogueTable
           rows={sortDialogues(items, sort)}
           tagMap={tagMap}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
           sort={sort}
           onSort={toggleSort}
           editingId={editingId}
@@ -1063,6 +1076,8 @@ function Dialogues({ movieId, cast }) {
             submitLabel="Add dialogue"
             castListId={castListId}
             tagSuggestions={Object.keys(tagMap)}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
           />
         </HandCard>
       ) : (
@@ -1123,7 +1138,7 @@ function sortDialogues(rows, sort) {
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥/★ are shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, sort, onSort, editingId, setEditingId, save, remove, castListId }) {
+function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, castListId }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   return (
     <div className="ann-table-wrap">
@@ -1149,7 +1164,7 @@ function DialogueTable({ rows, tagMap, sort, onSort, editingId, setEditingId, sa
             editingId === d.id ? (
               <tr key={d.id} className="editing-row">
                 <td colSpan={DIALOGUE_COLS.length + 1}>
-                  <DialogueForm initial={d} onSubmit={(fields) => save(d.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} />
+                  <DialogueForm initial={d} onSubmit={(fields) => save(d.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
                 </td>
               </tr>
             ) : (
@@ -1188,31 +1203,31 @@ function DialogueTable({ rows, tagMap, sort, onSort, editingId, setEditingId, sa
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete }) {
+function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete }) {
   if (editing) {
     return (
       <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
-        <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} />
+        <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
       </article>
     )
   }
   const credit = [d.character, d.actor && `PLAYED BY ${d.actor}`, d.timestamp].filter(Boolean).join(' · ')
-  // First tag → corner seal the line flows around (same as book annotations).
-  // With a seal present the favourite heart moves down beside the rating so the
-  // top-right corner is free for the sticker.
-  const primary = d.tags && d.tags.length > 0 ? tagMap[d.tags[0]] : null
+  // Attached sticker → corner seal the line flows around (same as book
+  // annotations). With a seal present the favourite heart moves down beside the
+  // rating so the top-right corner is free for the sticker.
+  const sticker = d.sticker_id != null ? stickerMap[d.sticker_id] : null
   const quoteStyle = { fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }
   return (
     <article className="film-frame mx-4 my-1.5 px-5 py-4">
       {d.quote &&
-        (primary ? (
+        (sticker ? (
           <FlowQuote
             text={`“${d.quote}”`}
             quoteStyle={quoteStyle}
-            stickerKey={d.tags[0]}
+            stickerKey={`s${sticker.id}`}
             pos={d.sticker_x != null ? { x: d.sticker_x, y: d.sticker_y } : null}
             onMove={(x, y) => onPatch({ sticker_x: x, sticker_y: y })}
-            sticker={<StickerTag name={d.tags[0]} color={primary.color} />}
+            sticker={<StickerImg sticker={sticker} />}
           />
         ) : (
           <div className="flex items-start justify-between gap-3">
@@ -1225,7 +1240,7 @@ function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, o
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span style={amberMono}>{credit}</span>
         <div className="flex items-center gap-3">
-          {primary && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
+          {sticker && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
           <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />
         </div>
       </div>
@@ -1256,13 +1271,14 @@ function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, o
 
 // DialogueForm serves both add (no initial) and inline edit (initial set).
 // Leaving actor blank lets the server auto-fill it from the movie's cast.
-function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [] }) {
+function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [], stickers = [], reloadStickers }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [character, setCharacter] = useState(initial?.character || '')
   const [actor, setActor] = useState(initial?.actor || '')
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
   const [note, setNote] = useState(initial?.note || '')
   const [tags, setTags] = useState(initial?.tags || [])
+  const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -1282,6 +1298,10 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, ta
       // full-state, so carry the existing values through.
       favorite: !!initial?.favorite,
       rating: initial?.rating || 0,
+      // sticker: id chosen here; position is dragged on the frame, carry through.
+      sticker_id: stickerId,
+      sticker_x: initial?.sticker_x ?? null,
+      sticker_y: initial?.sticker_y ?? null,
     })
     setBusy(false)
     if (err) return setError(err)
@@ -1292,6 +1312,7 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, ta
       setTimestamp('')
       setNote('')
       setTags([])
+      setStickerId(null)
     }
   }
 
@@ -1330,6 +1351,10 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, ta
       </div>
       <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
+      <div>
+        <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
+        <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />
+      </div>
       <div className="flex items-center justify-end gap-2">
         {onCancel && (
           <GhostButton type="button" onClick={onCancel}>

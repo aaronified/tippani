@@ -128,13 +128,16 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// userCoverFiles returns the stored cover/poster filenames owned by a user
-// (book covers + movie posters), for cleanup when the user is deleted.
+// userCoverFiles returns the stored image filenames owned by a user (book
+// covers + movie posters + uploaded stickers), for cleanup when the user is
+// deleted — the row cascade frees DB rows, not the on-disk files.
 func (s *Server) userCoverFiles(id int64) []string {
 	rows, err := s.Store.DB.Query(`
 		SELECT cover_path FROM books  WHERE user_id = ? AND cover_path  IS NOT NULL
 		UNION ALL
-		SELECT poster_path FROM movies WHERE user_id = ? AND poster_path IS NOT NULL`, id, id)
+		SELECT poster_path FROM movies WHERE user_id = ? AND poster_path IS NOT NULL
+		UNION ALL
+		SELECT path FROM stickers WHERE user_id = ?`, id, id, id)
 	if err != nil {
 		return nil
 	}

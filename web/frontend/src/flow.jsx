@@ -13,7 +13,6 @@
 // import() (its own chunk); until it loads — and under prefers-reduced-motion, or
 // with no seal — we fall back to a plain paragraph with the seal floated.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ANNOTATION_HEX } from './ui.jsx'
 
 // How far a seal may spill past the quote block into the inter-card gutter —
 // roughly half the gap between cards, so it breathes without touching a neighbour.
@@ -100,16 +99,6 @@ function computeLines(mod, text, font, lh, W, circle, gap) {
     y += lh
   }
   return lines
-}
-
-// StickerTag — a round wax-seal sticker carrying the tag name, tinted by the
-// tag's colour. The quote's text flows around it; it can be dragged (see below).
-export function StickerTag({ name, color = 'yellow' }) {
-  return (
-    <span className="sticker-seal" style={{ '--seal': ANNOTATION_HEX[color] || color }} aria-hidden="true">
-      <span className="sticker-seal-label">{name}</span>
-    </span>
-  )
 }
 
 // FlowQuote flows `text` around a round sticker. `sticker` is the node to pin;

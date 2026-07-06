@@ -126,6 +126,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /tags", s.requireAuth(s.handleCreateTag))
 	mux.Handle("PUT /tags/{id}", s.requireAuth(s.handleUpdateTag))
 	mux.Handle("DELETE /tags/{id}", s.requireAuth(s.handleDeleteTag))
+	// Stickers: uploaded images managed on the Tags page, one attachable per
+	// annotation/dialogue (§ sticker feature).
+	mux.Handle("GET /stickers", s.requireAuth(s.handleListStickers))
+	mux.Handle("POST /stickers", s.requireAuth(s.handleUploadSticker))
+	mux.Handle("PUT /stickers/{id}", s.requireAuth(s.handleUpdateSticker))
+	mux.Handle("DELETE /stickers/{id}", s.requireAuth(s.handleDeleteSticker))
 	mux.Handle("POST /import/markdown", s.requireAuth(s.handleImportMarkdown))
 	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
 	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
