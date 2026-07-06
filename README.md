@@ -236,9 +236,11 @@ sed -i 's|^module tippani$|module github.com/YOU/tippani|' go.mod
 
 ## Attribution
 
-Book metadata comes from Google Books and Open Library. Movie metadata and posters: this product
-uses the TMDB API but is not endorsed or certified by [TMDB](https://www.themoviedb.org/), and
-TV data from [TheTVDB](https://thetvdb.com/).
+Book metadata comes from [Google Books](https://books.google.com/) and
+[Open Library](https://openlibrary.org/); book covers and author images from
+[Amazon](https://www.amazon.com/). All movie and show metadata and posters come from the
+[TMDB](https://www.themoviedb.org/) and [TheTVDB](https://thetvdb.com/) APIs — this product uses
+the TMDB and TheTVDB APIs but is not endorsed or certified by either.
 
 Standing on the shoulders of:
 
