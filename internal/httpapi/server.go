@@ -45,7 +45,7 @@ type Server struct {
 	booksLookup atomic.Pointer[lookupOutcome]
 }
 
-func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, trustedProxy bool) *Server {
+func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
 	return &Server{
 		Store:          st,
 		Sessions:       auth.Sessions{DB: st.DB},
@@ -54,7 +54,10 @@ func New(st *store.Store, static fs.FS, dataDir, tmdbKey string, cookieSecure, t
 		SeedNewUsers:   true,
 		Static:         static,
 		DataDir:        dataDir,
-		TMDB:           &metadata.TMDB{Key: tmdbKey},
+		// TMDB.Key is a direct/programmatic override (embedders/tests); it is no
+		// longer read from the environment — production keys come from Settings
+		// or the built-in slot (see resolveTMDB).
+		TMDB:           &metadata.TMDB{},
 		TVDB:           &metadata.TVDB{},                              // env key set by cmd/tippani after New (like TMDBBuiltin)
 		loginLimiter:   auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
 		fetchImage:     metadata.FetchImage,

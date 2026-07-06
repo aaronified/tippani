@@ -24,7 +24,7 @@ func TestOnboardingAndAdmin(t *testing.T) {
 	if err := st.Migrate(); err != nil {
 		t.Fatal(err)
 	}
-	srv := New(st, fstest.MapFS{}, t.TempDir(), "", false, false)
+	srv := New(st, fstest.MapFS{}, t.TempDir(), false, false)
 	h := srv.Handler()
 
 	// do sends a JSON request, optionally carrying a session cookie, and

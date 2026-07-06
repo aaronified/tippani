@@ -15,9 +15,10 @@
 //	TIPPANI_DATA           data directory        (default ./data)
 //	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0)
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
-//	TIPPANI_TMDB_API_KEY   TMDB v3 key or v4 read token; overrides the Settings-saved
-//	                       and built-in keys (PLAN §6 resolution order)
 //	TIPPANI_TVDB_API_KEY   TheTVDB v4 API key; overrides the Settings-saved key (no built-in)
+//
+// The TMDB key is configured in-app (Settings → metadata keys) or via the
+// built-in slot below — there is no TMDB env var.
 package main
 
 import (
@@ -105,8 +106,8 @@ func openStore() (*store.Store, string) {
 // and rate-limits per client IP, so a shared key never pools into one quota.
 // Register a free key at themoviedb.org (Settings → API) and paste it here;
 // until then movie lookup answers 503 and manual entry still works.
-// Resolution order per request (PLAN §6): TIPPANI_TMDB_API_KEY env >
-// Settings-saved custom key > this built-in > none.
+// Resolution order per request (PLAN §6): Settings-saved custom key >
+// this built-in > none. (No env slot — the key is managed in-app.)
 const defaultTMDBKey = ""
 
 func serve() {
@@ -134,17 +135,16 @@ func serve() {
 	}
 	srv := httpapi.New(st, dist,
 		dataDir,
-		os.Getenv("TIPPANI_TMDB_API_KEY"), // env slot; always wins (PLAN §6)
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1",
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
-	srv.TMDBBuiltin = defaultTMDBKey                 // last fallback before 503
+	srv.TMDBBuiltin = defaultTMDBKey                 // last fallback before 503 (key otherwise set in Settings)
 	srv.TVDB.Key = os.Getenv("TIPPANI_TVDB_API_KEY") // TheTVDB env slot (PLAN §6); no built-in fallback
 
 	// One-line config summary at boot so `docker logs` shows what's wired without
 	// leaking secrets (presence only). Per-request lines follow (logRequests).
-	log.Printf("config: data=%s tmdb(env=%t builtin=%t) tvdb(env=%t) cookie_secure=%t trusted_proxy=%t",
-		dataDir, os.Getenv("TIPPANI_TMDB_API_KEY") != "", defaultTMDBKey != "",
+	log.Printf("config: data=%s tmdb(builtin=%t) tvdb(env=%t) cookie_secure=%t trusted_proxy=%t",
+		dataDir, defaultTMDBKey != "",
 		os.Getenv("TIPPANI_TVDB_API_KEY") != "",
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1", os.Getenv("TIPPANI_TRUSTED_PROXY") == "1")
 

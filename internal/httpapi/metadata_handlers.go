@@ -43,12 +43,14 @@ func (s *Server) recordBooksLookup(err error) {
 }
 
 // resolveTMDB picks the effective TMDB client per request, in the PLAN §6
-// order: env var (TIPPANI_TMDB_API_KEY) > settings-table custom key >
-// built-in app key > none. Returns a nil client when no key is available,
-// plus the source enum for /metadata/status and /admin/metadata-keys.
+// order: direct programmatic key (embedders/tests, set on s.TMDB) >
+// settings-table custom key > built-in app key > none. There is no environment
+// slot — deployments configure the key in Settings. Returns a nil client when
+// no key is available, plus the source enum for /metadata/status and
+// /admin/metadata-keys.
 func (s *Server) resolveTMDB() (*metadata.TMDB, string) {
 	if s.TMDB.Key != "" {
-		return s.TMDB, "env"
+		return s.TMDB, "direct"
 	}
 	if key, err := s.Store.GetSetting(settingTMDBKey); err == nil && key != "" {
 		return &metadata.TMDB{Key: key, BaseURL: s.TMDB.BaseURL}, "custom"

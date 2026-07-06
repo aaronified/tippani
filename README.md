@@ -118,7 +118,6 @@ services:
     # environment:
     #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
     #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
-    #   TIPPANI_TMDB_API_KEY: ""     # your own key from themoviedb.org (enables movie lookup)
     #   GOMAXPROCS: "1"              # NAS-friendly runtime caps (see PLAN §8)
     #   GOMEMLIMIT: "64MiB"
     #   GOGC: "200"
@@ -185,7 +184,7 @@ make build       # re-embed
 | `TIPPANI_DATA` | `./data` | Data dir (SQLite DB + downloaded covers/posters) |
 | `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app |
 | `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` for login rate limiting |
-| `TIPPANI_TMDB_API_KEY` | *(none)* | Enables movie metadata lookup. Accepts a v3 key or v4 read token from [themoviedb.org](https://www.themoviedb.org/settings/api). There is also an optional built-in key slot (`defaultTMDBKey` in [`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently empty**, so until you set this env var (or fill that constant) movie lookup answers 503 and manual movie entry still works. Everything else works with no key |
+| *TMDB API key* | *(none)* | **Configured in-app**, not via env: sign in → Settings → metadata keys, and paste a v3 key or v4 read token from [themoviedb.org](https://www.themoviedb.org/settings/api). There is also an optional built-in key slot (`defaultTMDBKey` in [`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently empty**, so until a key is saved (or that constant is filled) movie lookup answers 503 and manual movie entry still works. Everything else works with no key |
 
 Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.service)):
 `GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200`.

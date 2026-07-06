@@ -50,7 +50,7 @@ func TestPasswordChangeInvalidatesOtherSessions(t *testing.T) {
 	if err := st.Migrate(); err != nil {
 		t.Fatal(err)
 	}
-	srv := New(st, fstest.MapFS{}, t.TempDir(), "", false, false)
+	srv := New(st, fstest.MapFS{}, t.TempDir(), false, false)
 	h := srv.Handler()
 
 	do := func(method, path string, body any, cookie *http.Cookie) *httptest.ResponseRecorder {
@@ -119,7 +119,7 @@ func TestPasswordLengthBounds(t *testing.T) {
 	if err := st.Migrate(); err != nil {
 		t.Fatal(err)
 	}
-	srv := New(st, fstest.MapFS{}, t.TempDir(), "", false, false)
+	srv := New(st, fstest.MapFS{}, t.TempDir(), false, false)
 	h := srv.Handler()
 
 	body := new(bytes.Buffer)

@@ -14,7 +14,7 @@ import (
 )
 
 // tmdbKeyMissing: manual movie entry still works without a key (PLAN §6).
-const tmdbKeyMissing = "TMDB API key not configured (set TIPPANI_TMDB_API_KEY or save a key in Settings)"
+const tmdbKeyMissing = "TMDB API key not configured (add one in Settings)"
 const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
 
 type movieReq struct {

@@ -133,7 +133,7 @@ func TestTMDBWithoutKey(t *testing.T) {
 		{"/movies", map[string]any{"tmdb_id": 949}},
 	} {
 		rec := c.mustDo("POST", req.path, req.body, http.StatusServiceUnavailable)
-		if !strings.Contains(rec.Body.String(), "TIPPANI_TMDB_API_KEY") {
+		if !strings.Contains(rec.Body.String(), "Settings") {
 			t.Fatalf("%s: %s", req.path, rec.Body)
 		}
 	}

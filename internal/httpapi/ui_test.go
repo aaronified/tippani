@@ -305,10 +305,10 @@ func TestMetadataKeysAndResolution(t *testing.T) {
 	// The custom key is picked up per request — the lookup now works.
 	admin.mustDo("POST", "/movies/lookup", map[string]any{"title": "Matrix"}, 200)
 
-	// Env key outranks custom; built-in is the last fallback; "" clears.
-	srv.TMDB.Key = "env-key"
-	if k := decode[keysResp](t, admin.mustDo("GET", "/admin/metadata-keys", nil, 200)); k.TMDBSource != "env" {
-		t.Fatalf("env should win: %+v", k)
+	// A direct/programmatic key outranks custom; built-in is the last fallback; "" clears.
+	srv.TMDB.Key = "direct-key"
+	if k := decode[keysResp](t, admin.mustDo("GET", "/admin/metadata-keys", nil, 200)); k.TMDBSource != "direct" {
+		t.Fatalf("direct key should win: %+v", k)
 	}
 	srv.TMDB.Key = ""
 	admin.mustDo("PUT", "/admin/metadata-keys", map[string]string{"tmdb_key": "", "google_books_key": ""}, 200)
