@@ -1020,6 +1020,23 @@
   .menu-item:hover { background: color-mix(in oklab, var(--ink) 7%, transparent); }
   .menu-item.active { color: var(--accent-ui); background: color-mix(in srgb, var(--accent) 13%, transparent); }
   .menu-item svg { flex: none; }
+  /* Settings preset cards: real material grain on the mini-callout (paper fibre /
+     brushed metal), so each combo previews its own texture. */
+  .preset-callout { position: relative; isolation: isolate; overflow: hidden; }
+  .preset-callout::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-repeat: repeat;
+    opacity: .16;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  .preset-callout.dark-combo::before { mix-blend-mode: screen; opacity: .13; }
+  .preset-callout.tex-paper::before { background-image: url("./textures/paper.webp"); background-size: 170px; }
+  .preset-callout.tex-film::before { background-image: url("./textures/metal.webp"); background-size: 170px; }
+
   .user-chip {
     width: 34px;
     height: 34px;

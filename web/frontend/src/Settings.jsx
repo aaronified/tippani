@@ -116,113 +116,188 @@ function SizeSlider({ label, storageKey, def }) {
   )
 }
 
-// Four static palette previews rendered with hardcoded §4 palette colours; the
-// live accent is threaded through so all four update when the accent changes.
-const PREVIEWS = [
-  { label: 'PAPER · LIGHT', def: true, film: false, dark: false, card: 'linear-gradient(180deg,#FFFFFC,#FCF8ED)', ink: '#221C16', border: 'rgba(41,38,29,.5)', line: '#E4DAC7' },
-  { label: 'PAPER · DARK', def: false, film: false, dark: true, card: 'linear-gradient(180deg,#352D23,#2C251E)', ink: '#EFE6D4', border: 'rgba(239,230,212,.32)', line: '#453B2D' },
-  { label: 'FILM · LIGHT', def: false, film: true, dark: false, card: 'linear-gradient(180deg,#FDFAF3,#F7F2E4)', ink: '#2A241C', border: 'rgba(185,138,68,.45)', line: '#DFD6C4', strip: '#E9E1CC', holes: '#F7F2E6', amber: '#B98A44' },
-  { label: 'FILM · DARK', def: true, film: true, dark: true, card: 'linear-gradient(180deg,#251E16,#1D1710)', ink: '#ECE3D1', border: 'rgba(214,162,92,.3)', line: '#322A20', strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', amber: '#D6A25C' },
+// The four presets ARE the theme selector: clicking one sets aesthetic + theme
+// together. Rendered with hardcoded §4 palette colours (each shows its own combo
+// regardless of the live theme); the live accent is threaded through so the
+// callout edge/dot + selection ring all follow the chosen accent.
+const PRESETS = [
+  { aesthetic: 'paper', theme: 'light', label: 'Paper · Light', card: 'linear-gradient(180deg,#FFFFFC,#FCF8ED)', ink: '#221C16', border: 'rgba(41,38,29,.5)', line: '#E4DAC7' },
+  { aesthetic: 'paper', theme: 'dark', label: 'Paper · Dark', card: 'linear-gradient(180deg,#352D23,#2C251E)', ink: '#EFE6D4', border: 'rgba(239,230,212,.32)', line: '#453B2D' },
+  { aesthetic: 'film', theme: 'light', label: 'Film · Light', card: 'linear-gradient(180deg,#FDFAF3,#F7F2E4)', ink: '#2A241C', border: 'rgba(185,138,68,.45)', line: '#DFD6C4', strip: '#E9E1CC', holes: '#F7F2E6', amber: '#B98A44' },
+  { aesthetic: 'film', theme: 'dark', label: 'Film · Dark', card: 'linear-gradient(180deg,#251E16,#1D1710)', ink: '#ECE3D1', border: 'rgba(214,162,92,.3)', line: '#322A20', strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', amber: '#D6A25C' },
 ]
 
-function PalettePreview({ spec, accentHex, code }) {
-  const accent = spec.dark ? `color-mix(in oklab, ${accentHex}, white 20%)` : accentHex
+// PresetCard — one clickable combo. Fixed height across all four (a reserved
+// header row keeps film's sprocket bar from making it taller), real material
+// texture on the callout, and a selection state: solid accent ring + ✓ when
+// chosen manually, dashed ring + ⟳ when it's the OS-matched card in sync mode.
+// Off-theme cards dim while syncing.
+function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) {
+  const film = spec.aesthetic === 'film'
+  const dark = spec.theme === 'dark'
+  const accent = dark ? `color-mix(in oklab, ${accentHex}, white 20%)` : accentHex
+  const texClass = (film ? 'tex-film' : 'tex-paper') + (dark ? ' dark-combo' : '')
   return (
-    <div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      aria-label={`${spec.label}${auto ? ' (matches system)' : ''}`}
+      style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', opacity: dimmed ? 0.45 : 1, transition: 'opacity .2s ease' }}
+    >
       <div
         style={{
-          background: spec.film ? spec.strip : 'transparent',
+          position: 'relative',
+          height: 120,
+          display: 'flex',
+          flexDirection: 'column',
+          background: film ? spec.strip : 'transparent',
           border: `1px solid ${spec.line}`,
-          borderRadius: spec.film ? 12 : '13px 10px 14px 9px / 9px 14px 10px 13px',
-          padding: spec.film ? 8 : 10,
+          borderRadius: film ? 12 : '13px 10px 14px 9px / 9px 14px 10px 13px',
+          padding: film ? 8 : 10,
+          boxShadow: selected && !auto ? `0 0 0 2px var(--card), 0 0 0 4px ${accent}` : 'none',
+          outline: auto ? `2px dashed ${accent}` : 'none',
+          outlineOffset: 2,
         }}
       >
-        {spec.film && (
-          <div className="mb-1.5 flex items-center justify-between px-0.5">
-            <span className="flex gap-1.5" aria-hidden="true">
-              {Array.from({ length: 5 }, (_, i) => (
-                <i key={i} style={{ width: 6, height: 6, borderRadius: 2, background: spec.holes, display: 'block' }} />
-              ))}
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7.5, letterSpacing: '.25em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
-              {code} ▸
-            </span>
-          </div>
-        )}
+        {/* reserved header row → uniform height whether or not sprockets show */}
+        <div className="flex items-center justify-between" style={{ height: 12, marginBottom: 6 }} aria-hidden="true">
+          {film && (
+            <>
+              <span className="flex gap-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <i key={i} style={{ width: 5, height: 5, borderRadius: 2, background: spec.holes, display: 'block' }} />
+                ))}
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, letterSpacing: '.2em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
+                {code} ▸
+              </span>
+            </>
+          )}
+        </div>
         <div
+          className={`preset-callout ${texClass}`}
           style={{
+            flex: 1,
             background: spec.card,
             border: `1px solid ${spec.border}`,
-            borderRadius: spec.film ? 8 : '10px 7px 11px 8px / 8px 11px 7px 10px',
             borderLeft: `3px solid ${accent}`,
-            padding: '12px 13px',
+            borderRadius: film ? 8 : '10px 7px 11px 8px / 8px 11px 7px 10px',
+            padding: '10px 11px',
           }}
         >
-          <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 12.5, lineHeight: 1.4, color: spec.ink }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.35, color: spec.ink }}>
             the margins, wider than the text…
           </p>
-          <div className="mt-2.5 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <span style={{ width: 7, height: 7, borderRadius: 999, background: accent, display: 'block' }} />
             <span style={{ flex: 1, height: 4, borderRadius: 2, background: `color-mix(in srgb, ${spec.ink} 22%, transparent)` }} />
           </div>
         </div>
+        {selected && (
+          <span
+            aria-hidden="true"
+            style={{ position: 'absolute', top: -9, right: -9, width: 22, height: 22, borderRadius: 999, background: accent, color: '#FFF9EC', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, boxShadow: '0 1px 3px rgba(0,0,0,.45)' }}
+          >
+            {auto ? '⟳' : '✓'}
+          </span>
+        )}
       </div>
-      <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)' }}>
+      <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
         {spec.label}
-        {spec.def && <span style={{ color: 'var(--accent-ui)' }}> — default</span>}
       </p>
-    </div>
+    </button>
   )
 }
 
+const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
+
 function Appearance({ user, onPreferences }) {
   const p = user.preferences || {}
-  // Seed the toggles from the appearance actually applied (getResolvedTheme
-  // reads the concrete aesthetic off the DOM), so they always mirror what's on
-  // screen — not a stale/derived prop. Home isn't a theme token, so it comes
-  // from prefs.
+  // Seed from the appearance actually applied (getResolvedTheme reads the
+  // concrete aesthetic off the DOM + the raw theme preference). The stored
+  // theme pref maps to this panel's model: 'system' ⇒ syncSystem; 'light'/'dark'
+  // ⇒ that manualTheme. Home isn't a theme token, so it comes from prefs.
   const applied = getResolvedTheme()
   const [aesthetic, setAesthetic] = useState(applied.aesthetic)
-  const [theme, setTheme] = useState(applied.theme)
+  const [syncSystem, setSyncSystem] = useState(applied.theme === 'system')
+  const [manualTheme, setManualTheme] = useState(applied.theme === 'system' ? (prefersDark() ? 'dark' : 'light') : applied.theme)
+  const [sysTheme, setSysTheme] = useState(prefersDark() ? 'dark' : 'light')
   const [accent, setAccent] = useState(applied.accent)
   const [home, setHome] = useState(p.home || 'library')
   const base = useFrameBase()
 
-  // update applies the change to the live DOM immediately (§4), persists it, and
-  // lifts it to App so the session user stays current (a re-mounted Settings
-  // then reads the live value). Every field rides along so changing one (e.g.
-  // accent) never resets another (e.g. home).
-  function update(next) {
-    const merged = { aesthetic, theme, accent, home, ...next }
-    setAesthetic(merged.aesthetic)
-    setTheme(merged.theme)
-    setAccent(merged.accent)
-    setHome(merged.home)
+  // Track the OS theme live so the auto-matched card follows it while syncing.
+  useEffect(() => {
+    if (typeof matchMedia === 'undefined') return
+    const m = matchMedia('(prefers-color-scheme: dark)')
+    const fn = () => setSysTheme(m.matches ? 'dark' : 'light')
+    m.addEventListener('change', fn)
+    return () => m.removeEventListener('change', fn)
+  }, [])
+
+  const effectiveTheme = syncSystem ? sysTheme : manualTheme
+
+  // persist applies the change to the live DOM immediately (§4), lifts it to App
+  // so the session user stays current, and PUTs it. The stored theme token is
+  // 'system' while syncing, else the explicit light/dark. Every field rides
+  // along so changing one never resets another.
+  function persist(next) {
+    const s = { aesthetic, syncSystem, manualTheme, accent, home, ...next }
+    setAesthetic(s.aesthetic)
+    setSyncSystem(s.syncSystem)
+    setManualTheme(s.manualTheme)
+    setAccent(s.accent)
+    setHome(s.home)
+    const merged = { aesthetic: s.aesthetic, theme: s.syncSystem ? 'system' : s.manualTheme, accent: s.accent, home: s.home }
     applyTheme(merged)
     onPreferences?.(merged)
     json('PUT', '/auth/me/preferences', merged)
   }
 
+  // Clicking a preset: in sync mode, a card whose theme matches the OS just
+  // switches aesthetic (stays auto); the opposite-theme card is an explicit
+  // choice that turns sync off and locks that theme. In manual mode it sets both.
+  function selectPreset(cardA, cardT) {
+    if (syncSystem && cardT === sysTheme) persist({ aesthetic: cardA })
+    else persist({ aesthetic: cardA, manualTheme: cardT, syncSystem: false })
+  }
+
   return (
     <Card>
       <SectionTitle>Appearance</SectionTitle>
-      <div className="flex flex-wrap gap-x-10 gap-y-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <MonoLabel>Theme</MonoLabel>
         <Toggle
-          label="Aesthetic"
-          value={aesthetic}
-          onChange={(v) => update({ aesthetic: v })}
-          options={[['paper', 'Paper'], ['film', 'Film']]}
+          ariaLabel="Match system theme"
+          value={syncSystem ? 'auto' : 'manual'}
+          onChange={(v) => persist({ syncSystem: v === 'auto' })}
+          options={[['manual', 'Manual'], ['auto', 'Match system']]}
         />
-        <Toggle
-          label="Theme"
-          value={theme}
-          onChange={(v) => update({ theme: v })}
-          options={[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']]}
-        />
+      </div>
+      <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+        {PRESETS.map((spec, i) => {
+          const selected = spec.aesthetic === aesthetic && spec.theme === effectiveTheme
+          return (
+            <PresetCard
+              key={spec.label}
+              spec={spec}
+              accentHex={ACCENTS[accent]}
+              code={frameCode(base, i)}
+              selected={selected}
+              auto={syncSystem && selected}
+              dimmed={syncSystem && spec.theme !== sysTheme}
+              onClick={() => selectPreset(spec.aesthetic, spec.theme)}
+            />
+          )
+        })}
+      </div>
+
+      <div className="mt-7 flex flex-wrap gap-x-10 gap-y-5">
         <Toggle
           label="Start page"
           value={home}
-          onChange={(v) => update({ home: v })}
+          onChange={(v) => persist({ home: v })}
           options={[['library', 'Library'], ['movies', 'Catalogue']]}
         />
         <div>
@@ -236,7 +311,7 @@ function Appearance({ user, onPreferences }) {
                   type="button"
                   title={name}
                   aria-pressed={on}
-                  onClick={() => update({ accent: name })}
+                  onClick={() => persist({ accent: name })}
                   style={{
                     width: 32,
                     height: 32,
@@ -255,12 +330,6 @@ function Appearance({ user, onPreferences }) {
       <div className="mt-6 flex flex-wrap gap-x-10 gap-y-5">
         <SizeSlider label="Library cover size" storageKey="tippani:size:books" def={165} />
         <SizeSlider label="Catalogue poster size" storageKey="tippani:size:movies" def={150} />
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {PREVIEWS.map((spec, i) => (
-          <PalettePreview key={spec.label} spec={spec} accentHex={ACCENTS[accent]} code={frameCode(base, i)} />
-        ))}
       </div>
     </Card>
   )
