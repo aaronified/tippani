@@ -9,11 +9,22 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
 	"tippani/internal/store"
 )
+
+// apiPath mirrors the frontend's apiURL: the whole API now lives under /api, so
+// tests that request bare paths ("/books") are routed to "/api/books". /healthz
+// and the SPA stay at the root, and already-prefixed paths pass through.
+func apiPath(p string) string {
+	if p == "/healthz" || p == "/" || strings.HasPrefix(p, "/api/") || !strings.HasPrefix(p, "/") {
+		return p
+	}
+	return "/api" + p
+}
 
 // ---- harness (extends the admin_test.go pattern for multi-request suites) ----
 
@@ -56,7 +67,7 @@ func (c *testClient) do(method, path string, body any) *httptest.ResponseRecorde
 
 func (c *testClient) doRaw(method, path string, body io.Reader, contentType string) *httptest.ResponseRecorder {
 	c.t.Helper()
-	req := httptest.NewRequest(method, path, body)
+	req := httptest.NewRequest(method, apiPath(path), body)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

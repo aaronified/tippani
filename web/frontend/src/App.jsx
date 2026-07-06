@@ -7,7 +7,7 @@ import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
-import { json, upload } from './api.js'
+import { apiURL, json, upload } from './api.js'
 import {
   ErrorText,
   Field,
@@ -30,11 +30,11 @@ export default function App() {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    fetch('/auth/me')
+    fetch(apiURL('/auth/me'))
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => {
         if (u) return setUser(u)
-        return fetch('/auth/status')
+        return fetch(apiURL('/auth/status'))
           .then((r) => r.json())
           .then((s) => setNeedsOnboarding(s.needs_onboarding))
       })
@@ -75,7 +75,7 @@ export default function App() {
 
 // refreshMe loads the full session user (including is_admin + preferences).
 async function refreshMe() {
-  const r = await fetch('/auth/me')
+  const r = await fetch(apiURL('/auth/me'))
   return r.ok ? r.json() : null
 }
 
@@ -92,7 +92,7 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
     setError('')
     setBusy(true)
     try {
-      const r = await fetch(action, {
+      const r = await fetch(apiURL(action), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -327,16 +327,56 @@ function AvatarControl({ user, onUser }) {
   )
 }
 
+// ---- client-side routing (History API) ----
+// Client routes own the root path space (the API lives under /api). A hard
+// refresh on /books/42 is served index.html by the server, then Shell restores
+// this state from the URL — and back/forward, including the mouse back button,
+// just work.
+const ROUTE_TABS = ['search', 'tags', 'import', 'metadata', 'settings']
+function parsePath(pathname, home) {
+  const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
+  if (!a) return { tab: home, detail: null }
+  if (a === 'books' && b) return { tab: 'library', detail: { type: 'book', id: Number(b) } }
+  if (a === 'movies' && b) return { tab: 'movies', detail: { type: 'movie', id: Number(b) } }
+  if (a === 'library') return { tab: 'library', detail: null }
+  if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
+  if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
+  return { tab: home, detail: null }
+}
+function statePath(tab, detail) {
+  if (detail?.type === 'book') return `/books/${detail.id}`
+  if (detail?.type === 'movie') return `/movies/${detail.id}`
+  if (tab === 'library') return '/library'
+  if (tab === 'movies') return '/movies'
+  return `/${tab}`
+}
+
 // Shell is the logged-in frame (§7): topbar with mark + wordmark + tabs +
-// user-initial chip, and a {type, id} detail state so lists and search can
-// open detail views (no router).
+// user-initial chip, and a {type, id} detail state so lists and search can open
+// detail views. Tab + detail are mirrored to the URL via the History API.
 function Shell({ user, onLogout, onPreferences, onUser }) {
-  // The landing tab follows the user's start-page preference (§4, Settings).
-  const [tab, setTab] = useState(user.preferences?.home === 'movies' ? 'movies' : 'library')
-  const [detail, setDetail] = useState(null) // {type: 'book' | 'movie', id}
+  // The landing tab follows the URL, falling back to the start-page pref (§4).
+  const home = user.preferences?.home === 'movies' ? 'movies' : 'library'
+  const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/', home)
+  const [tab, setTab] = useState(initial.tab)
+  const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   const [menuOpen, setMenuOpen] = useState(false)
   const dark = useResolvedDark()
   const menuRef = useRef(null)
+
+  // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
+  // path; landing on "/" rewrites the bar to the resolved start page.
+  useEffect(() => {
+    const onPop = () => {
+      const s = parsePath(window.location.pathname, home)
+      setTab(s.tab)
+      setDetail(s.detail)
+    }
+    window.addEventListener('popstate', onPop)
+    const want = statePath(initial.tab, initial.detail)
+    if (window.location.pathname !== want) window.history.replaceState({}, '', want)
+    return () => window.removeEventListener('popstate', onPop)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!menuOpen) return
@@ -347,21 +387,19 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     return () => document.removeEventListener('mousedown', close)
   }, [menuOpen])
 
-  function selectTab(t) {
-    setTab(t)
-    setDetail(null)
+  // go() updates state AND pushes a history entry so the URL + back/forward track.
+  function go(nextTab, nextDetail) {
+    setTab(nextTab)
+    setDetail(nextDetail)
+    const path = statePath(nextTab, nextDetail)
+    if (path !== window.location.pathname) window.history.pushState({}, '', path)
   }
-  function openBook(id) {
-    setTab('library')
-    setDetail({ type: 'book', id })
-  }
-  function openMovie(id) {
-    setTab('movies')
-    setDetail({ type: 'movie', id })
-  }
+  function selectTab(t) { go(t, null) }
+  function openBook(id) { go('library', { type: 'book', id }) }
+  function openMovie(id) { go('movies', { type: 'movie', id }) }
 
   async function logout() {
-    await fetch('/auth/logout', { method: 'POST' })
+    await fetch(apiURL('/auth/logout'), { method: 'POST' })
     onLogout()
   }
 
@@ -391,7 +429,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onClick={() => setMenuOpen((m) => !m)}
             >
               {user.avatar_path
-                ? <img src={`/covers/${user.avatar_path}`} alt="" />
+                ? <img src={`/api/covers/${user.avatar_path}`} alt="" />
                 : (user.username || '?').trim().charAt(0).toLowerCase()}
             </button>
             {menuOpen && (
@@ -429,7 +467,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <Library
               openId={detail?.type === 'book' ? detail.id : null}
               onOpen={openBook}
-              onClose={() => setDetail(null)}
+              onClose={() => go('library', null)}
             />
           </div>
         )}
@@ -438,7 +476,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <Movies
               openId={detail?.type === 'movie' ? detail.id : null}
               onOpen={openMovie}
-              onClose={() => setDetail(null)}
+              onClose={() => go('movies', null)}
             />
           </div>
         )}

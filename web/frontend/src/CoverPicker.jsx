@@ -61,7 +61,7 @@ export function CoverControls({
 
   // Preview precedence: a pending URL, else the cleared placeholder, else the
   // currently stored file.
-  const previewUrl = coverUrl || (!clearCover && currentPath ? `/covers/${currentPath}` : '')
+  const previewUrl = coverUrl || (!clearCover && currentPath ? `/api/covers/${currentPath}` : '')
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]

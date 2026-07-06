@@ -74,7 +74,7 @@ function Poster({ path, title, className = '' }) {
   if (path) {
     return (
       <img
-        src={`/covers/${path}`}
+        src={`/api/covers/${path}`}
         alt={title ? `Poster of ${title}` : ''}
         className={'block w-full object-cover ' + className}
         style={{ aspectRatio: '2 / 3', border: '1px solid var(--line)', borderRadius: 8 }}
@@ -732,7 +732,7 @@ function MovieDetail({ id, onClose }) {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
-              <GhostButton onClick={() => (window.location.href = `/movies/${movie.id}/export`)}>
+              <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
                 Export .md
               </GhostButton>
               <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>

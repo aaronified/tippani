@@ -218,7 +218,7 @@ function BookList({ onOpen }) {
                 <HandCard variant={i % 4} className="relative overflow-hidden cover-lift">
                   {b.cover_path ? (
                     <img
-                      src={`/covers/${b.cover_path}`}
+                      src={`/api/covers/${b.cover_path}`}
                       alt={`Cover of ${b.title}`}
                       className="block aspect-[2/3] w-full object-cover"
                     />
@@ -573,7 +573,7 @@ function BookDetail({ id, onClose }) {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
-              <GhostButton onClick={() => (window.location.href = `/books/${book.id}/export`)}>
+              <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
                 Export .md
               </GhostButton>
               <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>

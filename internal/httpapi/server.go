@@ -151,15 +151,20 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /metadata/library", s.requireAuth(s.handleMetadataLibrary))
 	mux.Handle("POST /movies/{id}/remap-speakers", s.requireAuth(s.handleRemapSpeakers))
 
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+	// The mux above owns every JSON + covers route. Mount it under /api so the
+	// root path space belongs to the client-side router (the SPA); a thin outer
+	// mux keeps /healthz at the root for ops and serves the SPA (index.html
+	// fallback) for everything else — so a hard refresh on /library or /books/42
+	// loads the app instead of hitting an API route.
+	root := http.NewServeMux()
+	root.Handle("/api/", http.StripPrefix("/api", mux))
+	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-
-	// Embedded SPA with index.html fallback.
-	mux.Handle("/", s.spaHandler())
+	root.Handle("/", s.spaHandler())
 
 	csrf := http.NewCrossOriginProtection()
-	return logRequests(securityHeaders(csrf.Handler(mux)))
+	return logRequests(securityHeaders(csrf.Handler(root)))
 }
 
 // statusRecorder captures the response status + byte count for request logging.
