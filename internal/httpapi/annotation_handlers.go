@@ -28,6 +28,11 @@ type annotationReq struct {
 	Tags     []string `json:"tags"`
 	Favorite bool     `json:"favorite"`
 	Rating   int      `json:"rating"` // 0 = unrated, else 1-5 (PLAN §3)
+	// Sticker (first-tag seal) centre, as a fraction of the quote block's width.
+	// nil ⇒ unplaced (UI defaults to top-right). PUT is full-state, so the client
+	// carries these through on every save (see annotationState).
+	StickerX *float64 `json:"sticker_x"`
+	StickerY *float64 `json:"sticker_y"`
 }
 
 func (a *annotationReq) validate() string {
@@ -99,6 +104,8 @@ type annotationRow struct {
 	Rating    int      `json:"rating"`
 	Tags      []string `json:"tags"`
 	NotedAt   string   `json:"noted_at"` // date of addition (original, or manual-add time); "" if unknown
+	StickerX  *float64 `json:"sticker_x"` // seal centre x as a fraction of block width; nil = top-right default
+	StickerY  *float64 `json:"sticker_y"` // seal centre y in the same width units
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at"`
 }
@@ -108,11 +115,11 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT a.id, a.book_id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
-		       COALESCE(a.noted_at, ''), a.created_at, a.updated_at
+		       COALESCE(a.noted_at, ''), a.sticker_x, a.sticker_y, a.created_at, a.updated_at
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
 		Scan(&a.ID, &a.BookID, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.CreatedAt, &a.UpdatedAt)
+			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -164,10 +171,10 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 	// set it from the source instead.
 	res, err := tx.Exec(`
 		INSERT INTO annotations (book_id, quote, note, color, chapter, location,
-		                         favorite, rating, source, dedupe_hash, noted_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, datetime('now')) ON CONFLICT DO NOTHING`,
+		                         favorite, rating, source, dedupe_hash, noted_at, sticker_x, sticker_y)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, datetime('now'), ?, ?) ON CONFLICT DO NOTHING`,
 		req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
-		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, req.hash())
+		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, req.hash(), req.StickerX, req.StickerY)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
@@ -198,7 +205,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	q := `
 		SELECT a.id, a.book_id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
-		       COALESCE(a.noted_at, ''), a.created_at, a.updated_at
+		       COALESCE(a.noted_at, ''), a.sticker_x, a.sticker_y, a.created_at, a.updated_at
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE b.user_id = ?`
 	args := []any{uid}
@@ -238,7 +245,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		a := annotationRow{Tags: []string{}}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.CreatedAt, &a.UpdatedAt); err == nil {
+			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt); err == nil {
 			items = append(items, a)
 		}
 	}
@@ -314,10 +321,10 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
 		UPDATE annotations SET quote = ?, note = ?, color = ?, chapter = ?, location = ?,
-		       favorite = ?, rating = ?, dedupe_hash = ?, updated_at = datetime('now')
+		       favorite = ?, rating = ?, dedupe_hash = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
 		nullable(req.Quote), nullable(req.Note), req.Color,
-		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, hash, id); err != nil {
+		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, hash, req.StickerX, req.StickerY, id); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}

@@ -22,6 +22,10 @@ type dialogueReq struct {
 	Tags      []string `json:"tags"`
 	Favorite  bool     `json:"favorite"`
 	Rating    int      `json:"rating"` // 0 = unrated, else 1-5 (PLAN §3)
+	// Sticker (first-tag seal) centre as a fraction of the quote block width;
+	// nil ⇒ top-right default. PUT is full-state, so the client carries it through.
+	StickerX *float64 `json:"sticker_x"`
+	StickerY *float64 `json:"sticker_y"`
 }
 
 func (d *dialogueReq) validate() string {
@@ -122,12 +126,14 @@ type dialogueRow struct {
 	Favorite  bool     `json:"favorite"`
 	Rating    int      `json:"rating"`
 	Tags      []string `json:"tags"`
+	StickerX  *float64 `json:"sticker_x"` // seal centre x as a fraction of block width; nil = top-right default
+	StickerY  *float64 `json:"sticker_y"`
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at"`
 }
 
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.rating, d.created_at, d.updated_at`
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.rating, d.sticker_x, d.sticker_y, d.created_at, d.updated_at`
 
 func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 	var d dialogueRow
@@ -136,7 +142,7 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.CreatedAt, &d.UpdatedAt)
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -188,11 +194,11 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		INSERT INTO dialogues (movie_id, quote, note, character, actor, timestamp,
-		                       favorite, rating, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                       favorite, rating, dedupe_hash, sticker_x, sticker_y)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		req.MovieID, req.Quote, nullable(req.Note), nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating,
-		store.DedupeHash(req.Quote))
+		store.DedupeHash(req.Quote), req.StickerX, req.StickerY)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
@@ -254,7 +260,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		d := dialogueRow{Tags: []string{}}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.CreatedAt, &d.UpdatedAt); err == nil {
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt); err == nil {
 			items = append(items, d)
 		}
 	}
@@ -332,10 +338,10 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
 		UPDATE dialogues SET quote = ?, note = ?, character = ?, actor = ?, timestamp = ?,
-		       favorite = ?, rating = ?, dedupe_hash = ?, updated_at = datetime('now')
+		       favorite = ?, rating = ?, dedupe_hash = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
 		req.Quote, nullable(req.Note), nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating, hash, id); err != nil {
+		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating, hash, req.StickerX, req.StickerY, id); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}

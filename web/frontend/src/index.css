@@ -42,7 +42,11 @@
     font-size: 15px;
     line-height: 1.55;
   }
-  ::selection { background: color-mix(in oklab, var(--accent) 30%, var(--bg)); }
+  /* Selection: a saturated accent ground with a light face reads clearly even
+     over textured/coloured quote surfaces (the old 30%-tint wash was too faint
+     on quote blocks). Dark theme flips to a dark face over the brighter accent. */
+  ::selection { background: color-mix(in oklab, var(--accent) 82%, var(--bg)); color: #FFF9EC; }
+  html[data-theme="dark"] ::selection { background: color-mix(in oklab, var(--accent-dark) 80%, white 4%); color: #16100A; }
   :focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 2px; } /* §11 */
   button { cursor: pointer; }
   @media (prefers-reduced-motion: reduce) { /* §11 — no reveals, tilts, glows */
@@ -109,6 +113,11 @@
   /* ---- tactile surfaces (§ design): a press "depression" blooms where you
      click, shared by toggles + primary buttons; initTactile feeds --px/--py. ---- */
   .tactile, .tp-btn { position: relative; }
+  /* Press depression, lit by one imaginary light at top-centre (§ design). A real
+     dimple isn't a flat dark blob: the light rakes across it, so the UPPER rim
+     falls into shadow and the LOWER rim catches a highlight. Two offset gradients
+     at the cursor (--px/--py) model exactly that — a shadow crescent above, a
+     highlight crescent below. --press-a scales it (0 on rigid wood/metal). */
   .tactile::after, .tp-btn::after {
     content: "";
     position: absolute;
@@ -117,12 +126,16 @@
     pointer-events: none;
     border-radius: inherit;
     opacity: 0;
-    background: radial-gradient(circle var(--press-r,46px) at var(--px, 50%) var(--py, 50%), rgba(20,14,8,var(--press-a,.34)), transparent 70%);
+    background:
+      radial-gradient(circle var(--press-r,42px) at var(--px,50%) calc(var(--py,50%) - 5px), rgba(20,14,8,var(--press-a,.34)), transparent 72%),
+      radial-gradient(circle calc(var(--press-r,42px) * .8) at var(--px,50%) calc(var(--py,50%) + 7px), rgba(255,250,236,calc(var(--press-a,.34) * .72)), transparent 64%);
     transition: opacity .22s ease;
   }
   html[data-theme="dark"] .tactile::after,
   html[data-theme="dark"] .tp-btn::after {
-    background: radial-gradient(circle var(--press-r,46px) at var(--px, 50%) var(--py, 50%), rgba(0,0,0,var(--press-a-dark,.5)), transparent 70%);
+    background:
+      radial-gradient(circle var(--press-r,42px) at var(--px,50%) calc(var(--py,50%) - 5px), rgba(0,0,0,var(--press-a-dark,.5)), transparent 72%),
+      radial-gradient(circle calc(var(--press-r,42px) * .8) at var(--px,50%) calc(var(--py,50%) + 7px), rgba(255,238,205,calc(var(--press-a-dark,.5) * .5)), transparent 64%);
   }
   .tactile[data-pressing="1"]::after,
   .tp-btn[data-pressing="1"]::after { opacity: 1; transition-duration: .05s; }
@@ -137,7 +150,8 @@
     border-radius: 11px;
     overflow: hidden;
     isolation: isolate;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,.09);
+    /* a recessed well (top-lit): sunk shadow up top, a lit lip along the bottom */
+    box-shadow: inset 0 2px 4px rgba(41,38,29,.14), inset 0 -1px 0 rgba(255,255,255,.5);
     /* draggable thumb: claim horizontal gestures + don't select labels mid-drag */
     touch-action: none;
     user-select: none;
@@ -157,7 +171,9 @@
     z-index: 0;
     border-radius: 8px;
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-    box-shadow: 0 1px 2px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.35);
+    /* a raised pill sitting proud of the well: lit top edge, shaded underside,
+       and a real cast shadow below (light from top-centre) */
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1.5px 2px rgba(0,0,0,.2), 0 1.5px 2px rgba(0,0,0,.3), 0 3px 6px -1px rgba(0,0,0,.32);
     transition: transform var(--thumb-dur,.42s) var(--thumb-ease,cubic-bezier(.34,1.4,.5,1)),
                 width var(--thumb-dur,.42s) var(--thumb-ease,cubic-bezier(.34,1.4,.5,1));
   }
@@ -214,8 +230,11 @@
     --lift-hi: 0 2px 4px rgba(41,38,29,.2), 0 10px 17px -7px rgba(41,38,29,.32), 0 20px 30px -16px rgba(41,38,29,.4); }
   html[data-aesthetic="paper"][data-theme="dark"] { --lift: 0 1px 2px rgba(0,0,0,.55), 0 6px 12px -6px rgba(0,0,0,.6), 0 15px 24px -14px rgba(0,0,0,.68);
     --lift-hi: 0 2px 5px rgba(0,0,0,.6), 0 11px 20px -7px rgba(0,0,0,.66), 0 24px 36px -16px rgba(0,0,0,.74); }
-  html[data-aesthetic="film"] { --lift: 0 2px 7px rgba(0,0,0,.4), 0 18px 44px -12px rgba(0,0,0,.48), 0 46px 90px -28px rgba(0,0,0,.6), 0 0 42px -4px color-mix(in srgb, var(--amber) 22%, transparent);
-    --lift-hi: 0 3px 9px rgba(0,0,0,.44), 0 26px 60px -12px rgba(0,0,0,.54), 0 60px 112px -30px rgba(0,0,0,.64), 0 0 56px -4px color-mix(in srgb, var(--amber) 30%, transparent); }
+  /* FILM edge light modelled as an LED strip (§ design): a crisp amber hairline
+     hugging the edge + a tight bloom, not a big soft halo. --lift-hi turns the
+     strip up on hover. */
+  html[data-aesthetic="film"] { --lift: 0 2px 7px rgba(0,0,0,.4), 0 18px 44px -12px rgba(0,0,0,.48), 0 46px 90px -28px rgba(0,0,0,.6), 0 0 0 1px color-mix(in srgb, var(--amber) 30%, transparent), 0 0 6px -1px color-mix(in srgb, var(--amber) 44%, transparent), 0 0 15px -3px color-mix(in srgb, var(--amber) 24%, transparent);
+    --lift-hi: 0 3px 9px rgba(0,0,0,.44), 0 26px 60px -12px rgba(0,0,0,.54), 0 60px 112px -30px rgba(0,0,0,.64), 0 0 0 1px color-mix(in srgb, var(--amber) 46%, transparent), 0 0 9px 0 color-mix(in srgb, var(--amber) 58%, transparent), 0 0 22px -3px color-mix(in srgb, var(--amber) 34%, transparent); }
 
   /* The shell nav IS a toggle too (§ design): transparent in the topbar so it
      reads as nav, with a DISTINCT textured thumb (wood on paper, metal on film)
@@ -388,23 +407,55 @@
     white-space: nowrap;
     border: 1.4px solid transparent;
     border-radius: 9px;
+    /* every button has real height + presses down (§ design: nothing flat) */
+    transition: transform .07s ease, box-shadow .13s ease, filter .15s ease, background .18s ease;
   }
   .tp-btn:disabled { opacity: .55; cursor: default; }
+  /* Raised, lit from the top-centre: bright top edge, shaded underside, and a
+     cast shadow beneath. On :active the whole face sinks (translateY) and the
+     lighting inverts to an inset — a genuine push, not a colour swap. */
+  .btn-sticker,
+  html[data-aesthetic="paper"] .tp-btn-primary {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.5),
+      inset 0 -2px 3px rgba(41,38,29,.14),
+      0 2px 2px rgba(41,38,29,.22),
+      0 5px 11px -3px rgba(41,38,29,.32);
+    transform: rotate(-0.5deg);
+  }
+  .btn-sticker:active:not(:disabled),
+  html[data-aesthetic="paper"] .tp-btn-primary:active:not(:disabled) {
+    transform: rotate(-0.5deg) translateY(2px);
+    box-shadow: inset 0 2px 4px rgba(41,38,29,.3), inset 0 -1px 1px rgba(255,255,255,.3), 0 1px 1px rgba(41,38,29,.2);
+  }
   .btn-sticker {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: #FFF9EC;
     border-color: var(--ink-border);
     border-radius: 11px 7px 10px 8px / 8px 11px 7px 10px;
-    box-shadow: 2px 2px 0 rgba(41,38,29,.3);
-    transform: rotate(-0.5deg);
   }
   .btn-sticker:hover:not(:disabled) {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 22%), color-mix(in oklab, var(--accent), white 6%));
   }
+  .btn-film,
+  html[data-aesthetic="film"] .tp-btn-primary {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.22),
+      inset 0 -2px 3px rgba(0,0,0,.3),
+      0 2px 3px rgba(0,0,0,.42),
+      0 6px 14px -4px rgba(0,0,0,.5);
+  }
+  .btn-film:active:not(:disabled),
+  html[data-aesthetic="film"] .tp-btn-primary:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.45), inset 0 -1px 1px rgba(255,255,255,.16), 0 1px 2px rgba(0,0,0,.4);
+  }
   .btn-film {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
     color: #15100C;
-    border-radius: 8px;
+    /* light material cue: rubber trimmed by hand — a faintly uneven edge, not a
+       machined 8px radius (SVG-displacement realism deferred). */
+    border-radius: 9px 7px 8px 6px / 7px 9px 6px 8px;
   }
   .btn-film:hover:not(:disabled) {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 24%), color-mix(in oklab, var(--accent-dark), white 8%));
@@ -413,19 +464,19 @@
     border-color: var(--ink-border);
     color: var(--ink);
     background: linear-gradient(180deg, color-mix(in oklab, var(--card-top), white 2%), transparent);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 1px rgba(41,38,29,.1), 0 3px 6px -3px rgba(41,38,29,.22);
   }
-  html[data-theme="dark"] .tp-btn-ghost { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+  html[data-theme="dark"] .tp-btn-ghost { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.4), 0 4px 8px -3px rgba(0,0,0,.5); }
   .tp-btn-ghost:hover:not(:disabled) { background: color-mix(in oklab, var(--ink) 6%, transparent); }
+  .tp-btn-ghost:active:not(:disabled) { transform: translateY(1.5px); box-shadow: inset 0 2px 4px rgba(41,38,29,.18); }
   html[data-aesthetic="paper"] .tp-btn-ghost { border-radius: 10px 7px 9px 8px / 8px 10px 7px 9px; }
   /* .tp-btn-primary maps to sticker on paper, film-style on film (compat + shell) */
   html[data-aesthetic="paper"] .tp-btn-primary {
     border-color: var(--ink-border);
     border-radius: 11px 7px 10px 8px / 8px 11px 7px 10px;
-    box-shadow: 2px 2px 0 rgba(41,38,29,.3);
     transform: rotate(-0.5deg);
   }
-  html[data-aesthetic="film"] .tp-btn-primary { border-radius: 8px; }
+  html[data-aesthetic="film"] .tp-btn-primary { border-radius: 9px 7px 8px 6px / 7px 9px 6px 8px; }
   html[data-theme="light"] .tp-btn-primary {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: #FFF9EC;
@@ -896,6 +947,12 @@
     cursor: help;
   }
   .info-dot:hover, .info-dot:focus-visible { color: var(--accent-ui); border-color: var(--accent-ui); }
+  /* Each .hand-card is an isolated stacking context, so a tooltip (z-index 70
+     inside its own card) is still painted UNDER an adjacent card that sits later
+     in the flow — the bubble gets clipped by the neighbour. While a tooltip is
+     open, lift its whole card above the siblings so the bubble wins. */
+  .hand-card:has(.tp-tip-wrap:hover),
+  .hand-card:has(.tp-tip-wrap:focus-within) { z-index: 30; }
 
   .ann-table-wrap { overflow-x: auto; }
   .ann-table { width: 100%; border-collapse: collapse; font-size: 14px; }

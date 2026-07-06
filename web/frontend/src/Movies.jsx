@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
+import { FlowQuote, StickerTag } from './flow.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -869,6 +870,9 @@ function dialogueState(d) {
     tags: d.tags || [],
     favorite: !!d.favorite,
     rating: d.rating || 0,
+    // carry the draggable seal position through every full-state PUT
+    sticker_x: d.sticker_x ?? null,
+    sticker_y: d.sticker_y ?? null,
   }
 }
 
@@ -1182,20 +1186,37 @@ function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, o
     )
   }
   const credit = [d.character, d.actor && `PLAYED BY ${d.actor}`, d.timestamp].filter(Boolean).join(' · ')
+  // First tag → corner seal the line flows around (same as book annotations).
+  // With a seal present the favourite heart moves down beside the rating so the
+  // top-right corner is free for the sticker.
+  const primary = d.tags && d.tags.length > 0 ? tagMap[d.tags[0]] : null
+  const quoteStyle = { fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }
   return (
     <article className="film-frame mx-4 my-1.5 px-5 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <blockquote
-          className="whitespace-pre-wrap"
-          style={{ fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }}
-        >
-          &ldquo;{d.quote}&rdquo;
-        </blockquote>
-        <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
-      </div>
+      {d.quote &&
+        (primary ? (
+          <FlowQuote
+            text={`“${d.quote}”`}
+            quoteStyle={quoteStyle}
+            stickerKey={d.tags[0]}
+            pos={d.sticker_x != null ? { x: d.sticker_x, y: d.sticker_y } : null}
+            onMove={(x, y) => onPatch({ sticker_x: x, sticker_y: y })}
+            sticker={<StickerTag name={d.tags[0]} color={primary.color} />}
+          />
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <blockquote className="whitespace-pre-wrap" style={quoteStyle}>
+              &ldquo;{d.quote}&rdquo;
+            </blockquote>
+            <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
+          </div>
+        ))}
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span style={amberMono}>{credit}</span>
-        <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />
+        <div className="flex items-center gap-3">
+          {primary && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
+          <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />
+        </div>
       </div>
       {d.tags?.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-2">

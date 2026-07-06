@@ -759,6 +759,10 @@ function annotationState(a) {
     tags: a.tags || [],
     favorite: !!a.favorite,
     rating: a.rating || 0,
+    // carry the seal position through every full-state PUT so a favourite/rating
+    // patch never wipes it (null = unplaced → top-right default)
+    sticker_x: a.sticker_x ?? null,
+    sticker_y: a.sticker_y ?? null,
   }
 }
 
@@ -813,6 +817,8 @@ function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch
                 quoteStyle={QUOTE_STYLE}
                 stickerKey={a.tags[0]}
                 maxLines={quoteLines}
+                pos={a.sticker_x != null ? { x: a.sticker_x, y: a.sticker_y } : null}
+                onMove={(x, y) => patch(a, { sticker_x: x, sticker_y: y })}
                 sticker={<StickerTag name={a.tags[0]} color={primary.color} />}
               />
             ) : (

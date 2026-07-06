@@ -17,23 +17,49 @@ import {
 // Settings (§8.11): Appearance, Metadata sources, Library stats, Change
 // password, and (admin only) Users. Appearance applies instantly via
 // applyTheme and persists via PUT /auth/me/preferences.
+// useColumnCount tracks how many masonry columns fit: 1 (mobile) / 2 / 3 (wide).
+function useColumnCount() {
+  const read = () => (typeof window === 'undefined' ? 2 : window.innerWidth >= 1280 ? 3 : window.innerWidth >= 768 ? 2 : 1)
+  const [n, setN] = useState(read)
+  useEffect(() => {
+    const fn = () => setN(read())
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+  return n
+}
+
 export default function Settings({ user, onPreferences }) {
+  // Masonry that minimises page height. The tall Metadata card is ~40% of the
+  // total, so any 2-column split leaves it dominating one column with a long
+  // empty gap (the CSS-multicol balancer and a naive round-robin both did this,
+  // or worse). Instead: on wide screens use 3 columns and hand-pack the cards
+  // greedily — tallest first into the currently-shortest column — so Metadata
+  // sits alone while the three short cards fill the other two. Weights are rough
+  // relative heights (Metadata collapses for non-admins, who also lack Users).
+  const ncols = useColumnCount()
+  const cards = [
+    { w: user.is_admin ? 5.5 : 1.6, node: <Metadata key="meta" user={user} /> },
+    { w: 3, node: <Stats key="stats" /> },
+    { w: 2.4, node: <PasswordForm key="pw" /> },
+    user.is_admin ? { w: 1.9, node: <AdminUsers key="users" me={user} /> } : null,
+  ].filter(Boolean)
+  const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
+  ;[...cards]
+    .sort((a, b) => b.w - a.w)
+    .forEach((c) => {
+      const target = cols.reduce((m, x) => (x.h < m.h ? x : m), cols[0])
+      target.nodes.push(c.node)
+      target.h += c.w
+    })
   return (
     <section className="space-y-6">
       <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       <Appearance user={user} onPreferences={onPreferences} />
-      {/* Freeflow masonry (§ settings): cards pack by height in balanced columns
-          instead of a rigid 2-col grid, so short tiles (Stats, password) tuck
-          beside the taller Metadata card rather than leaving a long gap. */}
-      <div className="gap-6 lg:columns-2">
-        <div className="mb-6 break-inside-avoid"><Metadata user={user} /></div>
-        <div className="mb-6 break-inside-avoid"><Stats /></div>
-        <div className="mb-6 break-inside-avoid"><PasswordForm /></div>
-        {user.is_admin && (
-          <div className="mb-6 break-inside-avoid">
-            <AdminUsers me={user} />
-          </div>
-        )}
+      <div className="grid items-start gap-6" style={{ gridTemplateColumns: `repeat(${ncols}, minmax(0, 1fr))` }}>
+        {cols.map((col, i) => (
+          <div key={i} className="space-y-6">{col.nodes}</div>
+        ))}
       </div>
     </section>
   )

@@ -479,7 +479,10 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
     const last = d.opts[d.opts.length - 1]
     const min = d.opts[0].left
     const max = last.left + last.width - d.thumbW
-    const left = Math.max(min, Math.min(max, px - d.thumbW / 2))
+    // Keep the grabbed point of the thumb under the cursor (d.grab is the offset
+    // from the thumb's left edge to where the pointer landed), instead of always
+    // centring the thumb on the cursor.
+    const left = Math.max(min, Math.min(max, px - d.grab))
     thumb.style.transform = `translateX(${left}px)`
     d.hover = nearest(d.opts, left + d.thumbW / 2)
     el.style.setProperty('--px', `${px}px`)
@@ -515,9 +518,13 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
     const nodes = [...el.querySelectorAll('.tp-toggle-opt')]
     if (!nodes[rawIdx]) return
     const rect = el.getBoundingClientRect()
+    const thumbW = nodes[rawIdx].offsetWidth
+    // Where inside the thumb did the pointer land? Clamp to the thumb so a grab
+    // that starts on another option still tracks sensibly (edge follows cursor).
+    const grab = Math.max(0, Math.min(thumbW, e.clientX - rect.left - nodes[rawIdx].offsetLeft))
     drag.current = {
-      startX: e.clientX, moved: false, hover: rawIdx,
-      left: rect.left, top: rect.top, thumbW: nodes[rawIdx].offsetWidth,
+      startX: e.clientX, moved: false, hover: rawIdx, grab,
+      left: rect.left, top: rect.top, thumbW,
       opts: nodes.map((o) => ({ left: o.offsetLeft, width: o.offsetWidth, center: o.offsetLeft + o.offsetWidth / 2 })),
     }
     window.addEventListener('pointermove', onPointerMove)
