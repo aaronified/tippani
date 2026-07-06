@@ -642,12 +642,56 @@ function formatMonth(ym) {
 
 function StatTile({ n, label, heart }) {
   return (
-    <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
-        {n}
-        {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 16 }}> ♥</span>}
+    <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
+      {/* inline-flex baseline group keeps the heart hugging the number and inside
+          the tile even in a narrow column (fixes the "favourites out of bounds"). */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+        {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 13, lineHeight: 1 }}>♥</span>}
       </div>
       <MonoLabel className="mt-2 block">{label}</MonoLabel>
+    </div>
+  )
+}
+
+// shortMonth turns "2026-02" into "Feb" for the activity dots.
+function shortMonth(ym) {
+  if (!ym) return ''
+  const m = MONTHS[Number(ym.split('-')[1]) - 1]
+  return m ? m.slice(0, 3) : ym
+}
+
+// ActivityPlot — a row of accent dots (not a grid), one per month for the last
+// six, each shaded by how much was saved that month (GitHub-contributions feel).
+function ActivityPlot({ data }) {
+  if (!data || data.length === 0) return null
+  const max = Math.max(1, ...data.map((d) => d.count))
+  return (
+    <div className="mt-5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+      <MonoLabel className="mb-3 block">Activity · last 6 months</MonoLabel>
+      <div className="flex items-end justify-between gap-2">
+        {data.map((d) => {
+          const frac = d.count / max // 0..1
+          // Shade of the accent: quiet months stay a faint ghost, busy months
+          // approach full accent. Size nudges up slightly with activity too.
+          const pct = d.count === 0 ? 10 : Math.round(28 + 62 * frac)
+          const size = d.count === 0 ? 16 : 18 + Math.round(12 * frac)
+          return (
+            <div key={d.month} className="flex flex-1 flex-col items-center gap-1.5" title={`${shortMonth(d.month)}: ${d.count} saved`}>
+              <span
+                style={{
+                  width: size,
+                  height: size,
+                  borderRadius: '50%',
+                  background: `color-mix(in oklab, var(--accent-ui) ${pct}%, transparent)`,
+                }}
+              />
+              <span className="mono-label" style={{ fontSize: 9.5 }}>{shortMonth(d.month)}</span>
+              <span className="mono-label" style={{ fontSize: 9.5, color: d.count ? 'var(--accent-ui)' : 'var(--faint)' }}>{d.count}</span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -699,6 +743,7 @@ function Stats() {
               amber
             />
           </div>
+          <ActivityPlot data={s.monthly_activity} />
         </>
       )}
     </Card>

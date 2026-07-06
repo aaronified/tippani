@@ -962,6 +962,42 @@ export function ViewToggle({ value, onChange }) {
   )
 }
 
+// useSort — shared table sort state (col + dir) with a comparator. apply(rows,
+// valueFns) returns a sorted copy using valueFns[col](row) as the sort key.
+// Reused by the tag/sticker manager tables and the search table view.
+export function useSort(defaultCol, defaultDir = 'asc') {
+  const [sort, setSort] = useState({ col: defaultCol, dir: defaultDir })
+  const toggle = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
+  const apply = (rows, valueFns) => {
+    const vf = valueFns[sort.col]
+    if (!vf) return rows
+    const dir = sort.dir === 'asc' ? 1 : -1
+    return [...rows].sort((a, b) => {
+      const x = vf(a)
+      const y = vf(b)
+      if (x < y) return -dir
+      if (x > y) return dir
+      return 0
+    })
+  }
+  return { sort, toggle, apply }
+}
+
+// SortableTh — a clickable table header that shows the active sort arrow.
+export function SortableTh({ col, label, sort, onSort, className = '' }) {
+  const arrow = sort.col === col ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''
+  return (
+    <th
+      className={'sortable ' + className}
+      onClick={() => onSort(col)}
+      aria-sort={sort.col === col ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      {label}
+      {arrow}
+    </th>
+  )
+}
+
 // filterChipClass styles the small toggle buttons in list filter rows.
 export function filterChipClass(active) {
   return 'tp-filter-chip tactile' + (active ? ' active' : '')

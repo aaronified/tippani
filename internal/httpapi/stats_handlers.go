@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"time"
 )
 
 // statsTop is a "most annotated/quoted" superlative (null when the user has
@@ -95,15 +96,52 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Monthly activity for the last 6 calendar months (annotations + dialogues
+	// bucketed by created_at month), oldest first, zero-filled for quiet months —
+	// drives the Settings activity dots. Counts are read once and bucketed in Go.
+	type monthCount struct {
+		Month string `json:"month"`
+		Count int    `json:"count"`
+	}
+	monthly := make([]monthCount, 6)
+	first := time.Now().UTC()
+	first = time.Date(first.Year(), first.Month(), 1, 0, 0, 0, 0, time.UTC)
+	byMonth := map[string]int{}
+	for i := 0; i < 6; i++ {
+		monthly[i] = monthCount{Month: first.AddDate(0, -(5 - i), 0).Format("2006-01")}
+	}
+	arows, err := s.Store.DB.Query(`
+		SELECT substr(created_at, 1, 7) AS month, count(*)
+		FROM (SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
+		      UNION ALL
+		      SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)
+		GROUP BY month`, uid, uid)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	for arows.Next() {
+		var m string
+		var n int
+		if err := arows.Scan(&m, &n); err == nil {
+			byMonth[m] = n
+		}
+	}
+	arows.Close()
+	for i := range monthly {
+		monthly[i].Count = byMonth[monthly[i].Month]
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"books":          books,
-		"annotations":    annotations,
-		"movies":         movies,
-		"dialogues":      dialogues,
-		"tags":           tags,
-		"favorites":      favorites,
-		"most_annotated": mostAnnotated,
-		"most_quoted":    mostQuoted,
-		"busiest_month":  busiest,
+		"books":            books,
+		"annotations":      annotations,
+		"movies":           movies,
+		"dialogues":        dialogues,
+		"tags":             tags,
+		"favorites":        favorites,
+		"most_annotated":   mostAnnotated,
+		"most_quoted":      mostQuoted,
+		"busiest_month":    busiest,
+		"monthly_activity": monthly,
 	})
 }

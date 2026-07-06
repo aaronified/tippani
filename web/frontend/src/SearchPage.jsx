@@ -10,6 +10,10 @@ import {
   HighlightSpan,
   MonoLabel,
   Placeholder,
+  SortableTh,
+  usePersistedState,
+  useSort,
+  ViewToggle,
 } from './ui.jsx'
 
 const SCOPES = [
@@ -29,6 +33,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const [scope, setScope] = useState('all')
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
+  const [view, setView] = usePersistedState('tippani:searchview', 'tiles') // tiles | list | table
 
   useEffect(() => {
     const query = q.trim()
@@ -84,6 +89,11 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
             {label}
           </button>
         ))}
+        {results && !empty && (
+          <span className="ml-auto">
+            <ViewToggle value={view} onChange={setView} />
+          </span>
+        )}
       </div>
 
       <ErrorText>{error}</ErrorText>
@@ -103,68 +113,185 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
         </div>
       )}
 
-      {bookGroups.length > 0 && (
-        <section className="space-y-3">
-          <MonoLabel className="block">Books · {bookGroups.length}</MonoLabel>
-          {bookGroups.map((g) => (
-            <MediaGroup
-              key={`b${g.id}`}
-              kind="COVER"
-              cover={g.cover_path}
-              title={g.title}
-              terms={terms}
-              subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
-              onOpen={() => onOpenBook(g.id)}
-            >
-              {g.annotations.map((a) => (
-                <ChildHit key={a.id} onClick={() => onOpenBook(g.id)}>
-                  {a.quote && (
-                    <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
-                      <Highlight text={a.quote} terms={terms} />
-                    </p>
-                  )}
-                  {a.note && (
-                    <HandNote>
-                      <Highlight text={a.note} terms={terms} />
-                    </HandNote>
-                  )}
-                </ChildHit>
-              ))}
-            </MediaGroup>
-          ))}
-        </section>
-      )}
+      {/* table view flattens the raw hits into sortable tables; tiles/list keep
+          the grouped media cards (masonry vs single column). Sort lives only in
+          the table view — tiles/list follow the server's bm25 relevance order. */}
+      {results && !empty && view === 'table' ? (
+        <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} />
+      ) : (
+        <>
+          {bookGroups.length > 0 && (
+            <section className="space-y-3">
+              <MonoLabel className="block">Books · {bookGroups.length}</MonoLabel>
+              <div className={view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'}>
+                {bookGroups.map((g) => (
+                  <div key={`b${g.id}`} className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
+                    <MediaGroup
+                      kind="COVER"
+                      cover={g.cover_path}
+                      title={g.title}
+                      terms={terms}
+                      subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
+                      onOpen={() => onOpenBook(g.id)}
+                    >
+                      {g.annotations.map((a) => (
+                        <ChildHit key={a.id} onClick={() => onOpenBook(g.id)}>
+                          {a.quote && (
+                            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
+                              <Highlight text={a.quote} terms={terms} />
+                            </p>
+                          )}
+                          {a.note && (
+                            <HandNote>
+                              <Highlight text={a.note} terms={terms} />
+                            </HandNote>
+                          )}
+                        </ChildHit>
+                      ))}
+                    </MediaGroup>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-      {movieGroups.length > 0 && (
-        <section className="space-y-3">
-          <MonoLabel className="block">Movies · {movieGroups.length}</MonoLabel>
-          {movieGroups.map((g) => (
-            <MediaGroup
-              key={`m${g.id}`}
-              kind="POSTER"
-              cover={g.poster_path}
-              title={g.title}
-              terms={terms}
-              subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
-              onOpen={() => onOpenMovie(g.id)}
-            >
-              {g.dialogues.map((d) => (
-                <ChildHit key={d.id} onClick={() => onOpenMovie(g.id)}>
-                  <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
-                    “<Highlight text={d.quote} terms={terms} />”
-                  </p>
-                  <MonoLabel className="mt-1 block">
-                    {d.character && <Highlight text={d.character} terms={terms} />}
-                    {d.character && d.actor ? ' · ' : ''}
-                    {d.actor && <Highlight text={d.actor} terms={terms} />}
-                    {d.timestamp ? `  ·  ${d.timestamp}` : ''}
-                  </MonoLabel>
-                </ChildHit>
-              ))}
-            </MediaGroup>
-          ))}
-        </section>
+          {movieGroups.length > 0 && (
+            <section className="space-y-3">
+              <MonoLabel className="block">Movies · {movieGroups.length}</MonoLabel>
+              <div className={view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'}>
+                {movieGroups.map((g) => (
+                  <div key={`m${g.id}`} className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
+                    <MediaGroup
+                      kind="POSTER"
+                      cover={g.poster_path}
+                      title={g.title}
+                      terms={terms}
+                      subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
+                      onOpen={() => onOpenMovie(g.id)}
+                    >
+                      {g.dialogues.map((d) => (
+                        <ChildHit key={d.id} onClick={() => onOpenMovie(g.id)}>
+                          <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
+                            “<Highlight text={d.quote} terms={terms} />”
+                          </p>
+                          <MonoLabel className="mt-1 block">
+                            {d.character && <Highlight text={d.character} terms={terms} />}
+                            {d.character && d.actor ? ' · ' : ''}
+                            {d.actor && <Highlight text={d.actor} terms={terms} />}
+                            {d.timestamp ? `  ·  ${d.timestamp}` : ''}
+                          </MonoLabel>
+                        </ChildHit>
+                      ))}
+                    </MediaGroup>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
+    </section>
+  )
+}
+
+// SearchTables — the table view: one sortable, flat table per result kind that
+// has hits. Rows open their parent book/movie. Sorting is table-only.
+function SearchTables({ results, terms, onOpenBook, onOpenMovie }) {
+  const r = results
+  return (
+    <div className="space-y-6">
+      {r.books?.length > 0 && (
+        <ResultTable
+          label={`Books · ${r.books.length}`}
+          rows={r.books}
+          terms={terms}
+          onOpen={(row) => onOpenBook(row.id)}
+          cols={[
+            { key: 'title', label: 'Title', val: (b) => b.title, highlight: true, main: true },
+            { key: 'author', label: 'Author', val: (b) => b.author || '', mono: true },
+            { key: 'genres', label: 'Genres', val: (b) => (b.genres || []).join(', '), mono: true, sort: false },
+          ]}
+        />
+      )}
+      {r.annotations?.length > 0 && (
+        <ResultTable
+          label={`Annotations · ${r.annotations.length}`}
+          rows={r.annotations}
+          terms={terms}
+          onOpen={(row) => onOpenBook(row.book_id)}
+          cols={[
+            { key: 'quote', label: 'Quote', val: (a) => a.quote || a.note || '', highlight: true, main: true },
+            { key: 'book', label: 'Book', val: (a) => a.book_title || '', mono: true },
+          ]}
+        />
+      )}
+      {r.movies?.length > 0 && (
+        <ResultTable
+          label={`Movies · ${r.movies.length}`}
+          rows={r.movies}
+          terms={terms}
+          onOpen={(row) => onOpenMovie(row.id)}
+          cols={[
+            { key: 'title', label: 'Title', val: (m) => m.title, highlight: true, main: true },
+            { key: 'director', label: 'Director', val: (m) => m.director || '', mono: true },
+            { key: 'year', label: 'Year', val: (m) => m.release_year || 0, mono: true },
+          ]}
+        />
+      )}
+      {r.dialogues?.length > 0 && (
+        <ResultTable
+          label={`Dialogues · ${r.dialogues.length}`}
+          rows={r.dialogues}
+          terms={terms}
+          onOpen={(row) => onOpenMovie(row.movie_id)}
+          cols={[
+            { key: 'quote', label: 'Quote', val: (d) => d.quote || '', highlight: true, main: true },
+            { key: 'character', label: 'Character', val: (d) => d.character || '', mono: true },
+            { key: 'timestamp', label: 'Time', val: (d) => d.timestamp || '', mono: true },
+            { key: 'movie', label: 'Film', val: (d) => d.movie_title || '', mono: true },
+          ]}
+        />
+      )}
+    </div>
+  )
+}
+
+function ResultTable({ label, rows, cols, terms, onOpen }) {
+  const { sort, toggle, apply } = useSort(cols[0].key, 'asc')
+  const valueFns = Object.fromEntries(cols.filter((c) => c.sort !== false).map((c) => [c.key, (row) => {
+    const v = c.val(row)
+    return typeof v === 'string' ? v.toLowerCase() : v
+  }]))
+  const sorted = apply(rows, valueFns)
+  return (
+    <section className="space-y-2">
+      <MonoLabel className="block">{label}</MonoLabel>
+      <div className="ann-table-wrap">
+        <table className="ann-table">
+          <thead>
+            <tr>
+              {cols.map((c) =>
+                c.sort === false ? (
+                  <th key={c.key}>{c.label}</th>
+                ) : (
+                  <SortableTh key={c.key} col={c.key} label={c.label} sort={sort} onSort={toggle} />
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((row) => (
+              <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(row)}>
+                {cols.map((c) => (
+                  <td key={c.key} className={c.main ? 'col-quote' : 'col-mono'}>
+                    {c.highlight ? <Highlight text={String(c.val(row))} terms={terms} /> : c.val(row) || '—'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }

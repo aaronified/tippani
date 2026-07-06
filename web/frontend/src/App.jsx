@@ -337,7 +337,9 @@ function parsePath(pathname, home) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   if (!a) return { tab: home, detail: null }
   if (a === 'books' && b) return { tab: 'library', detail: { type: 'book', id: Number(b) } }
-  if (a === 'movies' && b) return { tab: 'movies', detail: { type: 'movie', id: Number(b) } }
+  // The catalogue tab's canonical URL is /catalogue (matching its label); /movies
+  // is still accepted so old links/bookmarks keep working.
+  if ((a === 'catalogue' || a === 'movies') && b) return { tab: 'movies', detail: { type: 'movie', id: Number(b) } }
   if (a === 'library') return { tab: 'library', detail: null }
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
   if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
@@ -345,9 +347,9 @@ function parsePath(pathname, home) {
 }
 function statePath(tab, detail) {
   if (detail?.type === 'book') return `/books/${detail.id}`
-  if (detail?.type === 'movie') return `/movies/${detail.id}`
+  if (detail?.type === 'movie') return `/catalogue/${detail.id}`
   if (tab === 'library') return '/library'
-  if (tab === 'movies') return '/movies'
+  if (tab === 'movies') return '/catalogue'
   return `/${tab}`
 }
 

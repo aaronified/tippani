@@ -5,7 +5,7 @@
 // sticker_id column on annotations/dialogues (migrations 0011).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { json, upload, errText } from './api.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -106,12 +106,14 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
   )
 }
 
-// StickerManager is the Tags-page section: upload, preview on a transparency
-// checkerboard, rename inline, and delete. One sticker attaches per quote.
+// StickerManager is the Tags-page section: the latest 5 as a quick row, the rest
+// behind "more" as a sortable table (with miniature previews) that scrolls inside
+// its own box — so a big library can't bury this section.
 export function StickerManager() {
   const { stickers, reload } = useStickers()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showTable, setShowTable] = useState(false)
   const fileRef = useRef(null)
 
   async function onFile(e) {
@@ -125,6 +127,8 @@ export function StickerManager() {
     if (!r.ok) return setError(errText(r, 'could not upload sticker'))
     reload()
   }
+
+  const latest = stickers.slice(0, 5) // API returns newest-first
 
   return (
     <section className="space-y-4">
@@ -146,11 +150,19 @@ export function StickerManager() {
       {stickers.length === 0 ? (
         <EmptyState>no stickers yet — upload a transparent PNG or SVG above</EmptyState>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {stickers.map((s, i) => (
-            <StickerCard key={s.id} sticker={s} index={i} onChanged={reload} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {latest.map((s, i) => (
+              <StickerCard key={s.id} sticker={s} index={i} onChanged={reload} />
+            ))}
+          </div>
+          {stickers.length > 5 && (
+            <GhostButton type="button" onClick={() => setShowTable((v) => !v)}>
+              {showTable ? 'Hide table' : `More stickers (${stickers.length - 5})…`}
+            </GhostButton>
+          )}
+          {showTable && <StickerTable stickers={stickers} onChanged={reload} />}
+        </>
       )}
     </section>
   )
@@ -160,31 +172,31 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
-// StickerCard — one library sticker: preview, inline rename, usage counts, delete.
+async function renameSticker(sticker, name, onChanged, setError) {
+  const trimmed = name.trim()
+  if (trimmed === (sticker.name || '')) return
+  const r = await json('PUT', `/stickers/${sticker.id}`, { name: trimmed })
+  if (!r.ok) setError(errText(r, 'could not rename'))
+  else onChanged()
+}
+
+async function deleteSticker(sticker, onChanged, setError) {
+  const uses = sticker.annotations + sticker.dialogues
+  const detach = uses > 0 ? ` It will be detached from ${plural(uses, 'quote')} — they keep working, just without the seal.` : ''
+  if (!confirm(`Delete this sticker?${detach}`)) return
+  const r = await json('DELETE', `/stickers/${sticker.id}`)
+  if (r.ok) onChanged()
+  else setError(errText(r, 'could not delete sticker'))
+}
+
+// StickerCard — one of the latest-5 quick cards: preview, inline rename, delete.
 function StickerCard({ sticker, index, onChanged }) {
   const [name, setName] = useState(sticker.name || '')
   const [error, setError] = useState('')
-  const uses = sticker.annotations + sticker.dialogues
-
-  async function saveName() {
-    const trimmed = name.trim()
-    if (trimmed === (sticker.name || '')) return
-    const r = await json('PUT', `/stickers/${sticker.id}`, { name: trimmed })
-    if (!r.ok) setError(errText(r, 'could not rename'))
-    else onChanged()
-  }
-
-  async function remove() {
-    const detach = uses > 0 ? ` It will be detached from ${plural(uses, 'quote')} — they keep working, just without the seal.` : ''
-    if (!confirm(`Delete this sticker?${detach}`)) return
-    const r = await json('DELETE', `/stickers/${sticker.id}`)
-    if (r.ok) onChanged()
-    else setError(errText(r, 'could not delete sticker'))
-  }
 
   return (
-    <HandCard variant={index % 4} className="flex flex-col gap-2.5 p-5">
-      <div className="sticker-swatch">
+    <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
+      <div className="sticker-swatch" style={{ height: 72 }}>
         <img src={stickerURL(sticker.path)} alt={sticker.name || 'sticker'} />
       </div>
       <input
@@ -193,7 +205,7 @@ function StickerCard({ sticker, index, onChanged }) {
         maxLength={64}
         value={name}
         onChange={(e) => setName(e.target.value)}
-        onBlur={saveName}
+        onBlur={() => renameSticker(sticker, name, onChanged, setError)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
@@ -201,13 +213,76 @@ function StickerCard({ sticker, index, onChanged }) {
           }
         }}
       />
-      <MonoLabel>{plural(sticker.annotations, 'annotation')} · {plural(sticker.dialogues, 'dialogue')}</MonoLabel>
       <ErrorText>{error}</ErrorText>
-      <div className="mt-auto flex gap-3 pt-1">
-        <button className="tp-link tp-link-danger" onClick={remove}>
-          delete
-        </button>
-      </div>
+      <button className="tp-link tp-link-danger mt-auto self-start" onClick={() => deleteSticker(sticker, onChanged, setError)}>
+        delete
+      </button>
     </HandCard>
+  )
+}
+
+// StickerTable — the full library (behind "more"): mini preview, name (editable),
+// usage counts, delete. Sortable + scrolls in its own box.
+function StickerTable({ stickers, onChanged }) {
+  const { sort, toggle, apply } = useSort('name', 'asc')
+  const [error, setError] = useState('')
+  const rows = apply(stickers, {
+    name: (s) => (s.name || '').toLowerCase(),
+    uses: (s) => s.annotations + s.dialogues,
+  })
+  return (
+    <>
+      <ErrorText>{error}</ErrorText>
+      <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+        <table className="ann-table">
+          <thead>
+            <tr>
+              <th style={{ width: 52 }}></th>
+              <SortableTh col="name" label="Name" sort={sort} onSort={toggle} />
+              <SortableTh col="uses" label="Uses" sort={sort} onSort={toggle} />
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((s) => (
+              <StickerRow key={s.id} sticker={s} onChanged={onChanged} setError={setError} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+function StickerRow({ sticker, onChanged, setError }) {
+  const [name, setName] = useState(sticker.name || '')
+  return (
+    <tr>
+      <td>
+        <span className="sticker-swatch" style={{ height: 34, width: 34, padding: 3, display: 'inline-flex' }}>
+          <img src={stickerURL(sticker.path)} alt={sticker.name || 'sticker'} />
+        </span>
+      </td>
+      <td>
+        <input
+          className="tp-input"
+          placeholder="name…"
+          maxLength={64}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => renameSticker(sticker, name, onChanged, setError)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              e.currentTarget.blur()
+            }
+          }}
+        />
+      </td>
+      <td className="col-mono">{sticker.annotations + sticker.dialogues}</td>
+      <td className="col-actions">
+        <button className="tp-link tp-link-danger" onClick={() => deleteSticker(sticker, onChanged, setError)}>del</button>
+      </td>
+    </tr>
   )
 }

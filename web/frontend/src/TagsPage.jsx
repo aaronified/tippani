@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
 import {
   ColorSwatches,
@@ -8,8 +8,10 @@ import {
   HandCard,
   MonoLabel,
   PageHeader,
+  SortableTh,
   TAG_STYLES,
   TagChip,
+  useSort,
 } from './ui.jsx'
 import { StickerManager } from './stickers.jsx'
 
@@ -20,6 +22,7 @@ import { StickerManager } from './stickers.jsx'
 export default function TagsPage() {
   const [tags, setTags] = useState(null)
   const [error, setError] = useState('')
+  const [showTable, setShowTable] = useState(false)
 
   async function load() {
     const r = await json('GET', '/tags')
@@ -29,6 +32,14 @@ export default function TagsPage() {
   useEffect(() => {
     load()
   }, [])
+
+  // Most-used first, so the quick top-5 row surfaces the tags that matter; the
+  // long tail lives in the sortable table behind "more".
+  const byUses = useMemo(
+    () => (tags ? [...tags].sort((a, b) => b.annotations + b.dialogues - (a.annotations + a.dialogues) || a.name.localeCompare(b.name)) : []),
+    [tags],
+  )
+  const top = byUses.slice(0, 5)
 
   return (
     <section className="space-y-5">
@@ -41,11 +52,19 @@ export default function TagsPage() {
         <EmptyState>no tags yet — create one below, or tag an annotation</EmptyState>
       )}
       {tags && tags.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tags.map((t, i) => (
-            <TagCard key={t.id} tag={t} index={i} onChanged={load} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {top.map((t, i) => (
+              <CompactTagCard key={t.id} tag={t} index={i} onChanged={load} />
+            ))}
+          </div>
+          {tags.length > 5 && (
+            <GhostButton type="button" onClick={() => setShowTable((v) => !v)}>
+              {showTable ? 'Hide table' : `More tags (${tags.length - 5})…`}
+            </GhostButton>
+          )}
+          {showTable && <TagTable tags={byUses} onChanged={load} />}
+        </>
       )}
       <NewTagCard onCreated={load} />
 
@@ -59,23 +78,24 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`
 }
 
-// TagCard shows the sample chip + counts, or the inline edit form.
-function TagCard({ tag, index, onChanged }) {
+async function deleteTag(tag, onChanged, setError) {
+  const uses = tag.annotations + tag.dialogues
+  const detach = uses > 0 ? ` It will be detached from ${plural(uses, 'item')} — they keep working, just untagged.` : ''
+  if (!confirm(`Delete tag "${tag.name}"?${detach}`)) return
+  const r = await json('DELETE', `/tags/${tag.id}`)
+  if (r.ok) onChanged()
+  else setError(errText(r, 'could not delete tag'))
+}
+
+// CompactTagCard — the small top-row card: chip + counts + edit/delete, or the
+// inline edit form. Deliberately lighter than the old full card so ~5 fit a row.
+function CompactTagCard({ tag, index, onChanged }) {
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
   const uses = tag.annotations + tag.dialogues
 
-  async function remove() {
-    const detach =
-      uses > 0 ? ` It will be detached from ${plural(uses, 'item')} — they keep working, just untagged.` : ''
-    if (!confirm(`Delete tag "${tag.name}"?${detach}`)) return
-    const r = await json('DELETE', `/tags/${tag.id}`)
-    if (r.ok) onChanged()
-    else setError(errText(r, 'could not delete tag'))
-  }
-
   return (
-    <HandCard variant={index % 4} className="flex flex-col gap-2.5 p-5">
+    <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
       {editing ? (
         <TagForm
           initial={tag}
@@ -91,27 +111,83 @@ function TagCard({ tag, index, onChanged }) {
         />
       ) : (
         <>
-          <div className="py-1">
-            <TagChip color={tag.color} style={tag.style}>
-              {tag.name} · {uses}
-            </TagChip>
-          </div>
-          <MonoLabel>{tag.style}</MonoLabel>
-          <p className="text-xs" style={{ color: 'var(--soft)' }}>
-            {plural(tag.annotations, 'annotation')} · {plural(tag.dialogues, 'dialogue')}
-          </p>
+          <TagChip color={tag.color} style={tag.style}>
+            {tag.name} · {uses}
+          </TagChip>
           <ErrorText>{error}</ErrorText>
-          <div className="mt-auto flex gap-3 pt-1">
+          <div className="mt-auto flex gap-3 pt-0.5">
             <button className="tp-link" onClick={() => setEditing(true)}>
               edit
             </button>
-            <button className="tp-link tp-link-danger" onClick={remove}>
+            <button className="tp-link tp-link-danger" onClick={() => deleteTag(tag, onChanged, setError)}>
               delete
             </button>
           </div>
         </>
       )}
     </HandCard>
+  )
+}
+
+// TagTable — the full, sortable vocabulary (behind "more"). Scrolls inside its
+// own box so a huge tag list can't bury the sticker manager below it.
+function TagTable({ tags, onChanged }) {
+  const { sort, toggle, apply } = useSort('uses', 'desc')
+  const [editingId, setEditingId] = useState(null)
+  const [error, setError] = useState('')
+  const rows = apply(tags, {
+    name: (t) => t.name.toLowerCase(),
+    style: (t) => t.style,
+    uses: (t) => t.annotations + t.dialogues,
+  })
+  return (
+    <>
+      <ErrorText>{error}</ErrorText>
+      <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+        <table className="ann-table">
+          <thead>
+            <tr>
+              <SortableTh col="name" label="Tag" sort={sort} onSort={toggle} />
+              <SortableTh col="style" label="Style" sort={sort} onSort={toggle} />
+              <SortableTh col="uses" label="Uses" sort={sort} onSort={toggle} />
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((t) =>
+              editingId === t.id ? (
+                <tr key={t.id} className="editing-row">
+                  <td colSpan={4}>
+                    <TagForm
+                      initial={t}
+                      submitLabel="Save"
+                      onCancel={() => setEditingId(null)}
+                      onSubmit={async (fields) => {
+                        const r = await json('PUT', `/tags/${t.id}`, fields)
+                        if (!r.ok) return errText(r, 'could not save tag')
+                        setEditingId(null)
+                        onChanged()
+                        return null
+                      }}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                <tr key={t.id}>
+                  <td><TagChip color={t.color} style={t.style}>{t.name}</TagChip></td>
+                  <td className="col-mono">{t.style}</td>
+                  <td className="col-mono">{t.annotations + t.dialogues}</td>
+                  <td className="col-actions">
+                    <button className="tp-link" onClick={() => setEditingId(t.id)}>edit</button>
+                    <button className="tp-link tp-link-danger" onClick={() => deleteTag(t, onChanged, setError)}>del</button>
+                  </td>
+                </tr>
+              ),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
