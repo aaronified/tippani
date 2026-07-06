@@ -98,6 +98,7 @@ type annotationRow struct {
 	Favorite  bool     `json:"favorite"`
 	Rating    int      `json:"rating"`
 	Tags      []string `json:"tags"`
+	NotedAt   string   `json:"noted_at"` // date of addition (original, or manual-add time); "" if unknown
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at"`
 }
@@ -107,11 +108,11 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT a.id, a.book_id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
-		       a.created_at, a.updated_at
+		       COALESCE(a.noted_at, ''), a.created_at, a.updated_at
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
 		Scan(&a.ID, &a.BookID, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.CreatedAt, &a.UpdatedAt)
+			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -159,10 +160,12 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer tx.Rollback()
+	// noted_at defaults to now for a manual add (the "date of addition"); imports
+	// set it from the source instead.
 	res, err := tx.Exec(`
 		INSERT INTO annotations (book_id, quote, note, color, chapter, location,
-		                         favorite, rating, source, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?) ON CONFLICT DO NOTHING`,
+		                         favorite, rating, source, dedupe_hash, noted_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, datetime('now')) ON CONFLICT DO NOTHING`,
 		req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
 		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, req.hash())
 	if err != nil {
@@ -195,7 +198,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	q := `
 		SELECT a.id, a.book_id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
-		       a.created_at, a.updated_at
+		       COALESCE(a.noted_at, ''), a.created_at, a.updated_at
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE b.user_id = ?`
 	args := []any{uid}
@@ -235,7 +238,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		a := annotationRow{Tags: []string{}}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.CreatedAt, &a.UpdatedAt); err == nil {
+			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.CreatedAt, &a.UpdatedAt); err == nil {
 			items = append(items, a)
 		}
 	}

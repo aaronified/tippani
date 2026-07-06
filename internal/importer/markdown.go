@@ -195,6 +195,8 @@ func parseFrontmatter(lines []string) (*Result, error) {
 				cur.Color = val
 			case "loc", "location", "page":
 				cur.Location = val
+			case "date", "added", "noted":
+				cur.NotedAt = val
 			case "tags":
 				cur.Tags = nil
 				for _, t := range strings.Split(val, ",") {

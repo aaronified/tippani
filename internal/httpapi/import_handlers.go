@@ -172,11 +172,11 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (book_id, quote, note, color, chapter, location, favorite, rating, source, dedupe_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (book_id, quote, note, color, chapter, location, favorite, rating, source, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			bookID, nullable(a.Quote), nullable(a.Note), color,
 			nullable(a.Chapter), nullable(a.Location), a.Favorite, a.Rating,
-			source, store.DedupeHash(text))
+			source, store.DedupeHash(text), nullable(a.NotedAt))
 		if err != nil {
 			return 0, 0, 0, nil, err
 		}
@@ -193,6 +193,7 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 				  chapter    = COALESCE(chapter, ?),
 				  location   = COALESCE(location, ?),
 				  note       = COALESCE(note, ?),
+				  noted_at   = COALESCE(noted_at, ?),
 				  color      = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite   = MAX(favorite, ?),
 				  rating     = CASE WHEN rating = 0 THEN ? ELSE rating END,
@@ -201,13 +202,14 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 				  AND (   (chapter IS NULL AND ? IS NOT NULL)
 				       OR (location IS NULL AND ? IS NOT NULL)
 				       OR (note IS NULL AND ? IS NOT NULL)
+				       OR (noted_at IS NULL AND ? IS NOT NULL)
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?)
 				       OR (rating = 0 AND ? > 0))`,
-				nullable(a.Chapter), nullable(a.Location), nullable(a.Note),
+				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
 				color, color, a.Favorite, a.Rating,
 				bookID, store.DedupeHash(text),
-				nullable(a.Chapter), nullable(a.Location), nullable(a.Note),
+				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
 				color, a.Favorite, a.Rating)
 			if err != nil {
 				return 0, 0, 0, nil, err

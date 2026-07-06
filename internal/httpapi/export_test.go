@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // seedExportBook builds the golden-test library: one book, four annotations
@@ -31,6 +32,8 @@ func seedExportBook(t *testing.T, c *testClient) bookDetail {
 	return book
 }
 
+// __DATE__ stands in for today's date: manual annotations get noted_at = now,
+// so every quote block exports a "- date:" binding (the test substitutes it).
 const wantBookExport = `---
 title: Dune
 author: Frank Herbert
@@ -40,6 +43,7 @@ genres: Classics, Science Fiction
 ---
 
 > Chapterless quote.
+- date: __DATE__
 
 ## Book One
 
@@ -49,14 +53,17 @@ genres: Classics, Science Fiction
 - color: blue
 - tags: fear, philosophy
 - loc: p.12
+- date: __DATE__
 - favorite: true
 - rating: 5
 
 > A note-only thought.
+- date: __DATE__
 
 ## Book Two
 
 > Second chapter quote.
+- date: __DATE__
 `
 
 func TestBookExport(t *testing.T) {
@@ -72,8 +79,9 @@ func TestBookExport(t *testing.T) {
 	if cd := rec.Header().Get("Content-Disposition"); cd != `attachment; filename="Dune.md"` {
 		t.Fatalf("content disposition: %q", cd)
 	}
-	if got := rec.Body.String(); got != wantBookExport {
-		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, wantBookExport)
+	want := strings.ReplaceAll(wantBookExport, "__DATE__", time.Now().UTC().Format("2006-01-02"))
+	if got := rec.Body.String(); got != want {
+		t.Fatalf("export mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}
 	c.mustDo("GET", "/books/999/export", nil, http.StatusNotFound)
 	c.mustDo("GET", "/books/abc/export", nil, http.StatusBadRequest)
@@ -91,6 +99,29 @@ func TestBookExportRoundTrip(t *testing.T) {
 	res := decode[importResult](t, c.importFile("/import/markdown", "dune.md", exported))
 	if res.BookID != book.ID || res.Added != 0 || res.Skipped != 4 {
 		t.Fatalf("round trip: %+v", res)
+	}
+}
+
+// TestNotedAtRoundTrip: an imported "- date:" binding is stored as noted_at and
+// re-exported, so the date of addition survives export → re-import.
+func TestNotedAtRoundTrip(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	md := "---\ntitle: Dated Book\n---\n\n> A dated highlight.\n- date: 2020-01-15\n"
+	res := decode[importResult](t, c.importFile("/import/markdown", "d.md", []byte(md)))
+	if res.Added != 1 {
+		t.Fatalf("import: %+v", res)
+	}
+	anns := decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(res.BookID), nil, 200))
+	if len(anns.Annotations) != 1 || anns.Annotations[0].NotedAt != "2020-01-15" {
+		t.Fatalf("noted_at not stored: %+v", anns.Annotations)
+	}
+	if exp := c.mustDo("GET", "/books/"+itoa(res.BookID)+"/export", nil, 200).Body.String(); !strings.Contains(exp, "- date: 2020-01-15") {
+		t.Fatalf("export missing date:\n%s", exp)
 	}
 }
 

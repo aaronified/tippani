@@ -211,7 +211,7 @@ func serveMarkdown(w http.ResponseWriter, filename, body string) {
 func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), color, COALESCE(chapter, ''),
-		       COALESCE(location, ''), favorite, rating
+		       COALESCE(location, ''), favorite, rating, COALESCE(noted_at, '')
 		FROM annotations WHERE book_id = ? ORDER BY id`, b.ID)
 	if err != nil {
 		return "", err
@@ -221,7 +221,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	for rows.Next() {
 		var a annotationRow
 		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Color, &a.Chapter,
-			&a.Location, &a.Favorite, &a.Rating); err == nil {
+			&a.Location, &a.Favorite, &a.Rating, &a.NotedAt); err == nil {
 			anns = append(anns, a)
 		}
 	}
@@ -262,6 +262,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 				}
 				writeBinding(&sb, "tags", strings.Join(tags[a.ID], ", "))
 				writeBinding(&sb, "loc", a.Location)
+				writeBinding(&sb, "date", dateOnly(a.NotedAt))
 				writeFavoriteRating(&sb, a.Favorite, a.Rating)
 			})
 		}
@@ -393,6 +394,16 @@ func zeroBlank(n int) string {
 		return ""
 	}
 	return strconv.Itoa(n)
+}
+
+// dateOnly emits the YYYY-MM-DD prefix of a stored noted_at (annotations are
+// day-granular in the export, so a manual add's "…HH:MM:SS" drops its time and
+// re-imports stably); a value that isn't a leading ISO date passes through.
+func dateOnly(s string) string {
+	if len(s) >= 10 && s[4] == '-' && s[7] == '-' {
+		return s[:10]
+	}
+	return s
 }
 
 // sanitizeFilename makes a title safe as a download/zip member name:
