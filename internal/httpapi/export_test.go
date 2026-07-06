@@ -168,6 +168,47 @@ genres: Drama
 	c.mustDo("GET", "/movies/999/export", nil, http.StatusNotFound)
 }
 
+// TestImportMovieMarkdownRoundTrip: a catalogue export re-imports through the
+// same /import/markdown endpoint (auto-detected as movie), anchors to the
+// existing title (idempotent), and a show's media_type + director survive.
+func TestImportMovieMarkdownRoundTrip(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Casablanca", "director": "Michael Curtiz", "release_year": 1942, "genres": []string{"Drama"},
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Here's looking at you, kid.", "character": "Rick Blaine",
+		"actor": "Humphrey Bogart", "timestamp": "01:15:00", "favorite": true, "rating": 5,
+	}, http.StatusCreated)
+	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": movie.ID, "quote": "Round up the usual suspects."}, http.StatusCreated)
+
+	exported := c.mustDo("GET", "/movies/"+itoa(movie.ID)+"/export", nil, 200).Body.Bytes()
+	type movieImportRes struct {
+		MovieID int64 `json:"movie_id"`
+		Created bool  `json:"created"`
+		Added   int   `json:"added"`
+		Skipped int   `json:"skipped"`
+	}
+	res := decode[movieImportRes](t, c.importFile("/import/markdown", "casablanca.md", exported))
+	if res.MovieID != movie.ID || res.Created || res.Added != 0 || res.Skipped != 2 {
+		t.Fatalf("round trip: %+v (want anchored to movie %d, 0 added, 2 skipped)", res, movie.ID)
+	}
+
+	// A fresh show export creates the title with its media_type + director.
+	showMD := "---\ntitle: Andor\ntype: show\nyear: 2022\ndirector: Tony Gilroy\n---\n\n> One way out.\n- character: Kino\n"
+	sres := decode[movieImportRes](t, c.importFile("/import/markdown", "andor.md", []byte(showMD)))
+	if !sres.Created || sres.Added != 1 {
+		t.Fatalf("show import: %+v", sres)
+	}
+	sm := decode[movieDetail](t, c.mustDo("GET", "/movies/"+itoa(sres.MovieID), nil, 200))
+	if sm.MediaType != "show" || sm.Director != "Tony Gilroy" {
+		t.Fatalf("show media_type/director not applied: %+v", sm)
+	}
+}
+
 func TestExportZip(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

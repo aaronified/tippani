@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -16,8 +17,35 @@ import (
 const maxImportBody = 5 << 20
 
 func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
-	// Markdown may carry many books in one file (multi-book export round-trip).
-	s.handleImportN(w, r, "md", importer.MarkdownAll)
+	// Markdown is dual-format: a catalogue (movie/show) export or a book export,
+	// each possibly multi-item. Peek to route; both round-trip our own exports.
+	data, ok := readUpload(w, r)
+	if !ok {
+		return
+	}
+	if importer.LooksLikeMovieMarkdown(data) {
+		results, err := importer.MovieMarkdownAll(bytes.NewReader(data))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if len(results) == 0 {
+			writeErr(w, http.StatusBadRequest, "no titles found in file")
+			return
+		}
+		s.persistMovies(w, r, results)
+		return
+	}
+	results, err := importer.MarkdownAll(bytes.NewReader(data))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(results) == 0 {
+		writeErr(w, http.StatusBadRequest, "no books found in file")
+		return
+	}
+	s.persistBooks(w, r, "md", results)
 }
 
 func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
@@ -62,14 +90,11 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source string,
 	parseAll func(io.Reader) ([]*importer.Result, error)) {
 
-	r.Body = http.MaxBytesReader(w, r.Body, maxImportBody) // before parsing
-	f, _, err := r.FormFile("file")
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, `multipart "file" field required (max 5 MB)`)
+	data, ok := readUpload(w, r)
+	if !ok {
 		return
 	}
-	defer f.Close()
-	results, err := parseAll(f)
+	results, err := parseAll(bytes.NewReader(data))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -78,7 +103,31 @@ func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source st
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
+	s.persistBooks(w, r, source, results)
+}
 
+// readUpload pulls the multipart "file" field's bytes (capped) — shared by every
+// import handler; a peek-then-parse handler (markdown, which routes book vs
+// catalogue) needs the bytes in hand rather than a one-shot reader.
+func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportBody)
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, `multipart "file" field required (max 5 MB)`)
+		return nil, false
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "upload too large or malformed")
+		return nil, false
+	}
+	return data, true
+}
+
+// persistBooks writes a parsed batch of books (one or many) into the store in a
+// single transaction and answers with the aggregate + per-book breakdown.
+func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source string, results []*importer.Result) {
 	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {

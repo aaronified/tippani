@@ -303,7 +303,8 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		kv{"title", m.Title},
 		kv{"director", m.Director},
 		kv{"year", zeroBlank(m.ReleaseYear)},
-		kv{"genres", strings.Join(m.Genres, ", ")})
+		kv{"genres", strings.Join(m.Genres, ", ")},
+		kv{"type", typeIfShow(m.MediaType)}) // only shows carry a type line (round-trip)
 	for _, d := range dlgs {
 		sb.WriteString("\n")
 		writeQuoteBlock(&sb, d.Quote, d.Note, func(note string) {
@@ -394,6 +395,15 @@ func zeroBlank(n int) string {
 		return ""
 	}
 	return strconv.Itoa(n)
+}
+
+// typeIfShow emits "show" for a show and "" for a movie, so the export only
+// carries a "type:" line when it matters (shows re-import as shows).
+func typeIfShow(mediaType string) string {
+	if mediaType == "show" {
+		return "show"
+	}
+	return ""
 }
 
 // dateOnly emits the YYYY-MM-DD prefix of a stored noted_at (annotations are

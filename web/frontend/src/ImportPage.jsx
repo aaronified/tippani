@@ -19,11 +19,11 @@ const SOURCES = [
     kind: 'markdown',
     ext: '.md',
     title: 'Markdown',
-    desc: 'Frontmatter or a Readest export — the shape is auto-detected.',
+    desc: 'Tippani book or catalogue exports, or a Readest export — auto-detected.',
     accept: '.md,.markdown,.txt',
     steps: [
-      'Export highlights from Readest, or write your own with YAML frontmatter (title/author) + quotes.',
-      'Drop the .md file(s) here.',
+      'Re-import a Tippani export (books or the catalogue), a Readest export, or your own frontmatter + quotes.',
+      'A single .md may hold many books or titles — each is imported. Drop the file(s) here.',
     ],
   },
   {

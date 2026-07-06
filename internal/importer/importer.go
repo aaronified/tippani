@@ -34,19 +34,30 @@ type Result struct {
 
 // ---- movie/show quote imports (IMDb) ----
 
-// MovieHeader is the film/show parsed from a quotes import file.
+// MovieHeader is the film/show parsed from a quotes import file. Director and
+// Genres come from the Tippani catalogue export (renderMovieExport); the IMDb
+// importer leaves them empty.
 type MovieHeader struct {
 	Title     string
 	Year      int
 	IMDbID    string // as found in the file (ttNNNNN); informational
 	MediaType string // "movie" | "show"
+	Director  string
+	Genres    []string
 }
 
 // Dialogue is one parsed quote/exchange. Character is set only when the whole
-// exchange is a single speaker (PLAN: one dialogue per exchange).
+// exchange is a single speaker (PLAN: one dialogue per exchange). The remaining
+// fields are populated by the catalogue-export importer (round-trip).
 type Dialogue struct {
 	Quote     string
 	Character string
+	Actor     string
+	Timestamp string
+	Note      string
+	Tags      []string
+	Favorite  bool
+	Rating    int // 0 = unrated, else 1-5
 }
 
 // MovieResult groups the dialogues of one film/show (mirrors Result for books).
