@@ -25,6 +25,7 @@ import {
   TagChip,
   TiltStars,
   Toggle,
+  ViewToggle,
   bySeries,
   filterChipClass,
   seriesLabel,
@@ -780,46 +781,6 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-function ViewIcon({ kind }) {
-  const p = {
-    width: 15, height: 15, viewBox: '0 0 16 16', fill: 'none',
-    stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round',
-  }
-  if (kind === 'tiles')
-    return (
-      <svg {...p} aria-hidden="true">
-        <rect x="1.5" y="1.5" width="5.5" height="7" /><rect x="9" y="1.5" width="5.5" height="4.5" />
-        <rect x="1.5" y="10" width="5.5" height="4.5" /><rect x="9" y="7.5" width="5.5" height="7" />
-      </svg>
-    )
-  if (kind === 'list')
-    return (
-      <svg {...p} aria-hidden="true">
-        <line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" />
-      </svg>
-    )
-  return (
-    <svg {...p} aria-hidden="true">
-      <rect x="1.5" y="2.5" width="13" height="11" /><line x1="1.5" y1="6.5" x2="14.5" y2="6.5" /><line x1="6" y1="2.5" x2="6" y2="13.5" />
-    </svg>
-  )
-}
-
-function ViewToggle({ value, onChange }) {
-  return (
-    <Toggle
-      ariaLabel="View"
-      value={value}
-      onChange={onChange}
-      options={[
-        ['tiles', <><ViewIcon kind="tiles" /> Tiles</>],
-        ['list', <><ViewIcon kind="list" /> List</>],
-        ['table', <><ViewIcon kind="table" /> Table</>],
-      ]}
-    />
-  )
-}
-
 function ActionRow({ a, patch, setEditingId, remove }) {
   return (
     <div className="mt-1 flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>

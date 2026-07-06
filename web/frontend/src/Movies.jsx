@@ -23,6 +23,7 @@ import {
   TagChip,
   TiltStars,
   Toggle,
+  ViewToggle,
   bySeries,
   filterChipClass,
   frameCode,
@@ -30,7 +31,9 @@ import {
   splitCommas,
   useCoverSize,
   useFrameBase,
+  usePersistedState,
   useReveal,
+  ExpandableText,
 } from './ui.jsx'
 
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
@@ -882,8 +885,11 @@ function Dialogues({ movieId, cast }) {
   const [editingId, setEditingId] = useState(null)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState('')
+  const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
+  const [sort, setSort] = useState({ col: 'timestamp', dir: 'asc' })
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
+  const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
 
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
@@ -963,6 +969,7 @@ function Dialogues({ movieId, cast }) {
               options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
             />
           )}
+          <ViewToggle value={view} onChange={setView} />
         </div>
       </div>
       {characters.length > 0 && (
@@ -979,7 +986,7 @@ function Dialogues({ movieId, cast }) {
           {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — capture the first line below.'}
         </EmptyState>
       )}
-      {items && items.length > 0 && (
+      {items && items.length > 0 && view === 'tiles' && (
         <Reveal className="film-strip">
           <Sprockets count={15} />
           <EdgeRow code={frameCode(base)} />
@@ -1001,6 +1008,37 @@ function Dialogues({ movieId, cast }) {
           ))}
           <Sprockets count={15} />
         </Reveal>
+      )}
+      {items && items.length > 0 && view === 'list' && (
+        <div className="space-y-3">
+          {items.map((d) => (
+            <Frame
+              key={d.id}
+              d={d}
+              tagMap={tagMap}
+              editing={editingId === d.id}
+              castListId={castListId}
+              onEdit={() => setEditingId(d.id)}
+              onCancelEdit={() => setEditingId(null)}
+              onSave={(fields) => save(d.id, fields)}
+              onPatch={(fields) => patch(d, fields)}
+              onDelete={() => remove(d)}
+            />
+          ))}
+        </div>
+      )}
+      {items && items.length > 0 && view === 'table' && (
+        <DialogueTable
+          rows={sortDialogues(items, sort)}
+          tagMap={tagMap}
+          sort={sort}
+          onSort={toggleSort}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          save={save}
+          remove={remove}
+          castListId={castListId}
+        />
       )}
 
       {adding ? (
@@ -1035,6 +1073,100 @@ function FrameDivider({ code }) {
       <span className="flex-1" style={rule} />
       <FrameCode>{code}</FrameCode>
       <span className="flex-1" style={rule} />
+    </div>
+  )
+}
+
+const DIALOGUE_COLS = [
+  { key: 'quote', label: 'Quote' },
+  { key: 'character', label: 'Character' },
+  { key: 'timestamp', label: 'Time' },
+  { key: 'rating', label: '★' },
+  { key: 'favorite', label: '♥' },
+]
+
+// sortDialogues orders rows for the table view: text columns collate, rating and
+// favourite compare numerically, ascending/descending per the header click.
+function sortDialogues(rows, sort) {
+  const dir = sort.dir === 'asc' ? 1 : -1
+  return [...rows].sort((a, b) => {
+    switch (sort.col) {
+      case 'rating':
+        return ((a.rating || 0) - (b.rating || 0)) * dir
+      case 'favorite':
+        return ((a.favorite ? 1 : 0) - (b.favorite ? 1 : 0)) * dir
+      case 'character':
+        return (a.character || '').localeCompare(b.character || '') * dir
+      case 'timestamp':
+        return (a.timestamp || '').localeCompare(b.timestamp || '') * dir
+      default:
+        return (a.quote || '').localeCompare(b.quote || '') * dir
+    }
+  })
+}
+
+// DialogueTable — the sortable table view for dialogues, mirroring the Library
+// annotation table (shared .ann-table styles): sortable columns + inline edit;
+// ♥/★ are shown read-only here and toggled from the tiles/list views.
+function DialogueTable({ rows, tagMap, sort, onSort, editingId, setEditingId, save, remove, castListId }) {
+  const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
+  return (
+    <div className="ann-table-wrap">
+      <table className="ann-table">
+        <thead>
+          <tr>
+            {DIALOGUE_COLS.map((c) => (
+              <th
+                key={c.key}
+                className="sortable"
+                onClick={() => onSort(c.key)}
+                aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+              >
+                {c.label}
+                {arrow(c.key)}
+              </th>
+            ))}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((d) =>
+            editingId === d.id ? (
+              <tr key={d.id} className="editing-row">
+                <td colSpan={DIALOGUE_COLS.length + 1}>
+                  <DialogueForm initial={d} onSubmit={(fields) => save(d.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} />
+                </td>
+              </tr>
+            ) : (
+              <tr key={d.id}>
+                <td className="col-quote">
+                  <ExpandableText text={d.quote} lines={2} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }} />
+                  {d.tags?.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {d.tags.map((name) => {
+                        const t = tagMap[name]
+                        return (
+                          <TagChip key={name} color={t?.color} style={t?.style}>
+                            {name}
+                          </TagChip>
+                        )
+                      })}
+                    </div>
+                  )}
+                </td>
+                <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
+                <td className="col-mono">{d.timestamp || '—'}</td>
+                <td className="col-center">{d.rating ? '★'.repeat(d.rating) : '—'}</td>
+                <td className="col-center">{d.favorite ? '♥' : '—'}</td>
+                <td className="col-actions">
+                  <button className="tp-link" onClick={() => setEditingId(d.id)}>edit</button>
+                  <button className="tp-link tp-link-danger" onClick={() => remove(d)}>del</button>
+                </td>
+              </tr>
+            ),
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }
