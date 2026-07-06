@@ -402,6 +402,10 @@ func TestSearchScopes(t *testing.T) {
 	if len(res.Books) != 1 || res.Books[0].ID != book.ID || len(res.Annotations)+len(res.Movies)+len(res.Dialogues) != 0 {
 		t.Fatalf("q=herbert: %+v", res)
 	}
+	// Enriched grouping fields on book hits (search group-by needs these).
+	if b := res.Books[0]; len(b.Genres) != 1 || b.Genres[0] != "Science Fiction" {
+		t.Fatalf("book hit genres: %+v", b)
+	}
 	// Genre words match books via genre_text.
 	res = decode[searchResp](t, c.mustDo("GET", "/search?q=science+fiction", nil, 200))
 	if len(res.Books) != 1 {
@@ -410,6 +414,11 @@ func TestSearchScopes(t *testing.T) {
 	res = decode[searchResp](t, c.mustDo("GET", "/search?q=fear", nil, 200))
 	if len(res.Annotations) != 1 || res.Annotations[0].BookTitle != "Dune" {
 		t.Fatalf("q=fear: %+v", res)
+	}
+	// Parent-book fields carried on the annotation hit so an annotation-only
+	// group still buckets by author/genre.
+	if a := res.Annotations[0]; a.BookAuthor != "Frank Herbert" || len(a.BookGenres) != 1 || a.BookGenres[0] != "Science Fiction" {
+		t.Fatalf("annotation parent fields: %+v", a)
 	}
 	res = decode[searchResp](t, c.mustDo("GET", "/search?q=curtiz&scope=movies", nil, 200))
 	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID || res.Movies[0].ReleaseYear != 1942 {

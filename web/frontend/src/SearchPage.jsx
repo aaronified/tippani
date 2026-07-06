@@ -14,6 +14,7 @@ import {
   HighlightSpan,
   MonoLabel,
   Placeholder,
+  Select,
   SortableTh,
   splitCommas,
   usePersistedState,
@@ -41,6 +42,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:searchview', 'tiles') // tiles | list | table
+  const [group, setGroup] = usePersistedState('tippani:search:group', 'none') // none|series|author|decade|genre (tiles/list)
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
@@ -100,7 +102,18 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
           </button>
         ))}
         {results && !empty && (
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-3">
+            {view !== 'table' && (
+              <label className="flex items-center gap-2">
+                <MonoLabel>group</MonoLabel>
+                <Select
+                  ariaLabel="Group by"
+                  value={group}
+                  onChange={setGroup}
+                  options={[['none', 'None'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+                />
+              </label>
+            )}
             <ViewToggle value={view} onChange={setView} />
           </span>
         )}
@@ -131,72 +144,28 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
       ) : (
         <>
           {bookGroups.length > 0 && (
-            <section className="space-y-3">
-              <MonoLabel className="block">Books · {bookGroups.length}</MonoLabel>
-              <div className={view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'}>
-                {bookGroups.map((g) => (
-                  <div key={`b${g.id}`} className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
-                    <MediaGroup
-                      kind="COVER"
-                      cover={g.cover_path}
-                      title={g.title}
-                      terms={terms}
-                      subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
-                      onOpen={() => onOpenBook(g.id)}
-                    >
-                      {g.annotations.map((a) => (
-                        <ChildHit key={a.id} onClick={() => setQuote({ kind: 'book', hit: a })}>
-                          {a.quote && (
-                            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
-                              <Highlight text={a.quote} terms={terms} />
-                            </p>
-                          )}
-                          {a.note && (
-                            <HandNote>
-                              <Highlight text={a.note} terms={terms} />
-                            </HandNote>
-                          )}
-                        </ChildHit>
-                      ))}
-                    </MediaGroup>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <ResultSection
+              label="Books"
+              groups={bookGroups}
+              group={group}
+              view={view}
+              isMovie={false}
+              renderItem={(g) => (
+                <BookResult key={`b${g.id}`} g={g} view={view} terms={terms} onOpenBook={onOpenBook} onOpenQuote={setQuote} />
+              )}
+            />
           )}
-
           {movieGroups.length > 0 && (
-            <section className="space-y-3">
-              <MonoLabel className="block">Movies · {movieGroups.length}</MonoLabel>
-              <div className={view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'}>
-                {movieGroups.map((g) => (
-                  <div key={`m${g.id}`} className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
-                    <MediaGroup
-                      kind="POSTER"
-                      cover={g.poster_path}
-                      title={g.title}
-                      terms={terms}
-                      subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
-                      onOpen={() => onOpenMovie(g.id)}
-                    >
-                      {g.dialogues.map((d) => (
-                        <ChildHit key={d.id} onClick={() => setQuote({ kind: 'movie', hit: d })}>
-                          <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
-                            “<Highlight text={d.quote} terms={terms} />”
-                          </p>
-                          <MonoLabel className="mt-1 block">
-                            {d.character && <Highlight text={d.character} terms={terms} />}
-                            {d.character && d.actor ? ' · ' : ''}
-                            {d.actor && <Highlight text={d.actor} terms={terms} />}
-                            {d.timestamp ? `  ·  ${d.timestamp}` : ''}
-                          </MonoLabel>
-                        </ChildHit>
-                      ))}
-                    </MediaGroup>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <ResultSection
+              label="Movies"
+              groups={movieGroups}
+              group={group}
+              view={view}
+              isMovie
+              renderItem={(g) => (
+                <MovieResult key={`m${g.id}`} g={g} view={view} terms={terms} onOpenMovie={onOpenMovie} onOpenQuote={setQuote} />
+              )}
+            />
           )}
         </>
       )}
@@ -598,6 +567,144 @@ function ChildHit({ onClick, children }) {
   )
 }
 
+// BookResult / MovieResult: one grouped card + its matching children. Clicking a
+// child opens the quote modal; clicking the cover/title opens the parent detail.
+function BookResult({ g, view, terms, onOpenBook, onOpenQuote }) {
+  return (
+    <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
+      <MediaGroup
+        kind="COVER"
+        cover={g.cover_path}
+        title={g.title}
+        terms={terms}
+        subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
+        onOpen={() => onOpenBook(g.id)}
+      >
+        {g.annotations.map((a) => (
+          <ChildHit key={a.id} onClick={() => onOpenQuote({ kind: 'book', hit: a })}>
+            {a.quote && (
+              <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
+                <Highlight text={a.quote} terms={terms} />
+              </p>
+            )}
+            {a.note && (
+              <HandNote>
+                <Highlight text={a.note} terms={terms} />
+              </HandNote>
+            )}
+          </ChildHit>
+        ))}
+      </MediaGroup>
+    </div>
+  )
+}
+
+function MovieResult({ g, view, terms, onOpenMovie, onOpenQuote }) {
+  return (
+    <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
+      <MediaGroup
+        kind="POSTER"
+        cover={g.poster_path}
+        title={g.title}
+        terms={terms}
+        subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
+        onOpen={() => onOpenMovie(g.id)}
+      >
+        {g.dialogues.map((d) => (
+          <ChildHit key={d.id} onClick={() => onOpenQuote({ kind: 'movie', hit: d })}>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
+              “<Highlight text={d.quote} terms={terms} />”
+            </p>
+            <MonoLabel className="mt-1 block">
+              {d.character && <Highlight text={d.character} terms={terms} />}
+              {d.character && d.actor ? ' · ' : ''}
+              {d.actor && <Highlight text={d.actor} terms={terms} />}
+              {d.timestamp ? `  ·  ${d.timestamp}` : ''}
+            </MonoLabel>
+          </ChildHit>
+        ))}
+      </MediaGroup>
+    </div>
+  )
+}
+
+// decadeOf floors a year to its full 4-digit decade (1965 → 1960).
+function decadeOf(year) {
+  if (!year) return null
+  return Math.floor(year / 10) * 10
+}
+
+// bucketGroups buckets result groups (books or movies) by the chosen dimension,
+// mirroring the Library's group-by. Genre is multi-membership; the catch-all
+// bucket sinks last. Author maps to director for movies; decade uses
+// published_year for books, release_year for movies.
+function bucketGroups(groups, dim, isMovie) {
+  const map = new Map()
+  const add = (key, label, g, opts = {}) => {
+    let b = map.get(key)
+    if (!b) {
+      b = { key, label, groups: [], residual: !!opts.residual, order: opts.order }
+      map.set(key, b)
+    }
+    b.groups.push(g)
+  }
+  for (const g of groups) {
+    if (dim === 'series') {
+      if (g.series) add(g.series, g.series, g)
+      else add('~none', 'No series', g, { residual: true })
+    } else if (dim === 'author') {
+      const a = isMovie ? g.director : g.author
+      if (a) add(a, a, g)
+      else add('~none', isMovie ? 'Unknown director' : 'Unknown author', g, { residual: true })
+    } else if (dim === 'decade') {
+      const d = decadeOf(isMovie ? g.release_year : g.published_year)
+      if (d != null) add(String(d), `${d}s`, g, { order: d })
+      else add('~none', 'Unknown year', g, { residual: true })
+    } else if (dim === 'genre') {
+      const gs = g.genres || []
+      if (gs.length) gs.forEach((x) => add(x, x, g))
+      else add('~none', 'No genre', g, { residual: true })
+    }
+  }
+  const out = [...map.values()]
+  out.sort((a, b) => {
+    if (a.residual !== b.residual) return a.residual ? 1 : -1
+    if (dim === 'decade') return (b.order ?? 0) - (a.order ?? 0)
+    if (dim === 'genre') return b.groups.length - a.groups.length || a.label.localeCompare(b.label)
+    return a.label.localeCompare(b.label)
+  })
+  return out
+}
+
+// ResultSection renders one kind's groups — flat when group === 'none', else
+// bucketed into labelled sub-sections. renderItem(g) returns a keyed card.
+function ResultSection({ label, groups, group, view, isMovie, renderItem }) {
+  const cols = view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'
+  if (group === 'none') {
+    return (
+      <section className="space-y-3">
+        <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
+        <div className={cols}>{groups.map(renderItem)}</div>
+      </section>
+    )
+  }
+  return (
+    <section className="space-y-4">
+      <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
+      {bucketGroups(groups, group, isMovie).map((b) => (
+        <div key={b.key} className="space-y-2">
+          <div className="flex items-baseline gap-3">
+            <h3 className="display-title truncate" style={{ fontSize: 16.5 }}>{b.label}</h3>
+            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.groups.length}</MonoLabel>
+            <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+          </div>
+          <div className={cols}>{b.groups.map(renderItem)}</div>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 // groupBooks merges matched books and matched annotations into per-book groups,
 // preserving bm25 order (matched books first, then annotation-only books).
 function groupBooks(r) {
@@ -606,17 +713,19 @@ function groupBooks(r) {
   const ensure = (id, seed) => {
     let g = byId.get(id)
     if (!g) {
-      g = { id, title: '', author: '', cover_path: '', genres: [], annotations: [], ...seed }
+      g = { id, title: '', author: '', cover_path: '', genres: [], published_year: 0, series: '', series_index: 0, annotations: [], ...seed }
       byId.set(id, g)
       order.push(g)
     }
     return g
   }
   for (const b of r.books || []) {
-    ensure(b.id, { title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres })
+    ensure(b.id, { title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })
   }
   for (const a of r.annotations || []) {
-    const g = ensure(a.book_id, { title: a.book_title, cover_path: a.book_cover_path })
+    // Parent-book fields on the annotation hit so an annotation-only group still
+    // buckets by author/decade/series/genre.
+    const g = ensure(a.book_id, { title: a.book_title, cover_path: a.book_cover_path, author: a.book_author, genres: a.book_genres, published_year: a.book_published_year, series: a.book_series })
     g.annotations.push(a)
   }
   return order
@@ -629,17 +738,17 @@ function groupMovies(r) {
   const ensure = (id, seed) => {
     let g = byId.get(id)
     if (!g) {
-      g = { id, title: '', director: '', release_year: 0, poster_path: '', dialogues: [], ...seed }
+      g = { id, title: '', director: '', release_year: 0, poster_path: '', genres: [], series: '', series_index: 0, dialogues: [], ...seed }
       byId.set(id, g)
       order.push(g)
     }
     return g
   }
   for (const m of r.movies || []) {
-    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path })
+    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index })
   }
   for (const d of r.dialogues || []) {
-    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path })
+    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path, director: d.movie_director, release_year: d.movie_release_year, genres: d.movie_genres, series: d.movie_series })
     g.dialogues.push(d)
   }
   return order

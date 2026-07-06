@@ -8,11 +8,14 @@ import (
 )
 
 type bookHit struct {
-	ID        int64    `json:"id"`
-	Title     string   `json:"title"`
-	Author    string   `json:"author"`
-	CoverPath string   `json:"cover_path"`
-	Genres    []string `json:"genres"` // array, matching GET /books (the UI maps over it)
+	ID            int64    `json:"id"`
+	Title         string   `json:"title"`
+	Author        string   `json:"author"`
+	CoverPath     string   `json:"cover_path"`
+	Genres        []string `json:"genres"` // array, matching GET /books (the UI maps over it)
+	PublishedYear int      `json:"published_year"`
+	Series        string   `json:"series"`
+	SeriesIndex   float64  `json:"series_index"`
 }
 
 type annotationHit struct {
@@ -20,16 +23,25 @@ type annotationHit struct {
 	BookID        int64  `json:"book_id"`
 	BookTitle     string `json:"book_title"`
 	BookCoverPath string `json:"book_cover_path"` // group header art (§ search grouping)
-	Quote         string `json:"quote"`
-	Note          string `json:"note"`
+	// Parent-book fields, so an annotation-only group (a book matched purely via
+	// its annotations) can still be grouped by author/decade/series/genre.
+	BookAuthor string   `json:"book_author"`
+	BookYear   int      `json:"book_published_year"`
+	BookSeries string   `json:"book_series"`
+	BookGenres []string `json:"book_genres"`
+	Quote      string   `json:"quote"`
+	Note       string   `json:"note"`
 }
 
 type movieHit struct {
-	ID          int64  `json:"id"`
-	Title       string `json:"title"`
-	Director    string `json:"director"`
-	ReleaseYear int    `json:"release_year"`
-	PosterPath  string `json:"poster_path"`
+	ID          int64    `json:"id"`
+	Title       string   `json:"title"`
+	Director    string   `json:"director"`
+	ReleaseYear int      `json:"release_year"`
+	PosterPath  string   `json:"poster_path"`
+	Genres      []string `json:"genres"`
+	Series      string   `json:"series"`
+	SeriesIndex float64  `json:"series_index"`
 }
 
 type dialogueHit struct {
@@ -37,10 +49,16 @@ type dialogueHit struct {
 	MovieID         int64  `json:"movie_id"`
 	MovieTitle      string `json:"movie_title"`
 	MoviePosterPath string `json:"movie_poster_path"` // group header art
-	Quote           string `json:"quote"`
-	Character       string `json:"character"`
-	Actor           string `json:"actor"`
-	Timestamp       string `json:"timestamp"`
+	// Parent-movie fields, mirroring annotationHit — so a dialogue-only group
+	// still groups by director/decade/series/genre.
+	MovieDirector string   `json:"movie_director"`
+	MovieYear     int      `json:"movie_release_year"`
+	MovieSeries   string   `json:"movie_series"`
+	MovieGenres   []string `json:"movie_genres"`
+	Quote         string   `json:"quote"`
+	Character     string   `json:"character"`
+	Actor         string   `json:"actor"`
+	Timestamp     string   `json:"timestamp"`
 }
 
 // handleSearch implements
@@ -78,9 +96,15 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Movies: []movieHit{}, Dialogues: []dialogueHit{},
 	}
 
-	if scope == "all" || scope == "books" {
+	wantBooks := scope == "all" || scope == "books"
+	wantAnnotations := scope == "all" || scope == "annotations"
+	wantMovies := scope == "all" || scope == "movies"
+	wantDialogues := scope == "all" || scope == "dialogues"
+
+	if wantBooks {
 		rows, err := s.Store.DB.Query(`
-			SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, '')
+			SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
+			       COALESCE(b.published_year, 0), COALESCE(b.series, ''), COALESCE(b.series_index, 0)
 			FROM books_fts
 			JOIN books b ON b.id = books_fts.rowid
 			WHERE books_fts MATCH ? AND b.user_id = ?
@@ -93,25 +117,19 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			h := bookHit{Genres: []string{}}
-			if err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.CoverPath); err == nil {
+			if err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.CoverPath,
+				&h.PublishedYear, &h.Series, &h.SeriesIndex); err == nil {
 				resp.Books = append(resp.Books, h)
 			}
 		}
 		rows.Close()
-		// Genre names as an array (genre_text is space-joined and can't be split
-		// safely — names contain spaces). Reuse the list-endpoint helper.
-		if byBook, err := s.genreNames(uid, "book"); err == nil {
-			for i := range resp.Books {
-				if gs := byBook[resp.Books[i].ID]; gs != nil {
-					resp.Books[i].Genres = gs
-				}
-			}
-		}
 	}
 
-	if scope == "all" || scope == "annotations" {
+	if wantAnnotations {
 		rows, err := s.Store.DB.Query(`
-			SELECT a.id, a.book_id, b.title, COALESCE(b.cover_path, ''), COALESCE(a.quote, ''), COALESCE(a.note, '')
+			SELECT a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
+			       COALESCE(a.quote, ''), COALESCE(a.note, ''),
+			       COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, '')
 			FROM annotations_fts
 			JOIN annotations a ON a.id = annotations_fts.rowid
 			JOIN books b ON b.id = a.book_id
@@ -124,16 +142,19 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var h annotationHit
-			if err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note); err == nil {
+			h := annotationHit{BookGenres: []string{}}
+			if err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note,
+				&h.BookAuthor, &h.BookYear, &h.BookSeries); err == nil {
 				resp.Annotations = append(resp.Annotations, h)
 			}
 		}
+		rows.Close()
 	}
 
-	if scope == "all" || scope == "movies" {
+	if wantMovies {
 		rows, err := s.Store.DB.Query(`
-			SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.poster_path, '')
+			SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
+			       COALESCE(m.poster_path, ''), COALESCE(m.series, ''), COALESCE(m.series_index, 0)
 			FROM movies_fts
 			JOIN movies m ON m.id = movies_fts.rowid
 			WHERE movies_fts MATCH ? AND m.user_id = ?
@@ -145,17 +166,20 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var h movieHit
-			if err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath); err == nil {
+			h := movieHit{Genres: []string{}}
+			if err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath,
+				&h.Series, &h.SeriesIndex); err == nil {
 				resp.Movies = append(resp.Movies, h)
 			}
 		}
+		rows.Close()
 	}
 
-	if scope == "all" || scope == "dialogues" {
+	if wantDialogues {
 		rows, err := s.Store.DB.Query(`
 			SELECT d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
-			       COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, '')
+			       COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
+			       COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, '')
 			FROM dialogues_fts
 			JOIN dialogues d ON d.id = dialogues_fts.rowid
 			JOIN movies m ON m.id = d.movie_id
@@ -168,10 +192,44 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var h dialogueHit
+			h := dialogueHit{MovieGenres: []string{}}
 			if err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote,
-				&h.Character, &h.Actor, &h.Timestamp); err == nil {
+				&h.Character, &h.Actor, &h.Timestamp,
+				&h.MovieDirector, &h.MovieYear, &h.MovieSeries); err == nil {
 				resp.Dialogues = append(resp.Dialogues, h)
+			}
+		}
+		rows.Close()
+	}
+
+	// Genre names as arrays (genre_text is space-joined and can't be split
+	// safely — names contain spaces). One map per kind, applied to both the
+	// parent hits and the child hits so grouping-by-genre works on every group.
+	if wantBooks || wantAnnotations {
+		if byBook, err := s.genreNames(uid, "book"); err == nil {
+			for i := range resp.Books {
+				if gs := byBook[resp.Books[i].ID]; gs != nil {
+					resp.Books[i].Genres = gs
+				}
+			}
+			for i := range resp.Annotations {
+				if gs := byBook[resp.Annotations[i].BookID]; gs != nil {
+					resp.Annotations[i].BookGenres = gs
+				}
+			}
+		}
+	}
+	if wantMovies || wantDialogues {
+		if byMovie, err := s.genreNames(uid, "movie"); err == nil {
+			for i := range resp.Movies {
+				if gs := byMovie[resp.Movies[i].ID]; gs != nil {
+					resp.Movies[i].Genres = gs
+				}
+			}
+			for i := range resp.Dialogues {
+				if gs := byMovie[resp.Dialogues[i].MovieID]; gs != nil {
+					resp.Dialogues[i].MovieGenres = gs
+				}
 			}
 		}
 	}
