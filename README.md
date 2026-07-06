@@ -242,11 +242,11 @@ TV data from [TheTVDB](https://thetvdb.com/).
 
 Standing on the shoulders of:
 
-- **pretext** — the text-reflow calculation that lets a quote wrap naturally around a pinned
+- **[pretext](https://github.com/chenglou/pretext)** — the text-reflow calculation that lets a quote wrap naturally around a pinned
   sticker (the `FlowQuote` seal).
 - **[CC0 Textures](https://cc0-textures.com/)** — the public-domain (CC0) texture packs behind the
   paper·wood·metal·glass surfaces of the paper/film skins.
-- **Bookcision** and **Readest** — we read their highlight / Markdown exports directly as import
+- **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** — we read their highlight / Markdown exports directly as import
   sources; thanks to both apps for making Kindle and cross-device highlights portable.
 
 ## License
