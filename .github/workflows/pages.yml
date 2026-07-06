@@ -40,7 +40,11 @@ jobs:
         working-directory: web/frontend
         env:
           VITE_DEMO: "1"
+      # enablement: turn Pages on (source = GitHub Actions) the first time this
+      # runs, so no manual Settings toggle is needed.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
