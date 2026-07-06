@@ -79,12 +79,17 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
   fields to include (quote, author/title, chapter, date, rating, tags, note), tweak the text, and
   copy it — with a live, per-format preview that simulates how each app will render it.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, genres, **series**,
-  quotes, notes, and dialogue (find a line by its text, its character, or its actor). Results as
-  tiles, a list, or sortable tables.
+  quotes, notes, and dialogue (find a line by its text, its character, or its actor). View as
+  tiles, a list, or sortable tables; **group by** the same axes as the Library; **open any quote in
+  place** to share/edit/delete; **select results** for a bulk tag or field edit — and your last
+  search is remembered when you come back.
 - 🖼 **Metadata & covers** — Google Books + Open Library for books, [TMDB](https://www.themoviedb.org/)
   + TheTVDB for films/shows. Covers/posters are fetched once through an SSRF-guarded fetcher and
   served locally. A **Metadata console** shows per-field coverage, filters by what's missing,
   bulk-corrects a selection (rename an author, set a series, add genres), and merges duplicates.
+- 👤 **Author & actor pages** — click any author (book detail, or an author group heading) or actor
+  (dialogue) to view and edit their **bio, photo, born, and links**. Kept per name alongside the
+  free-text fields, and the portrait shows in group-by-author headings.
 - 🔐 **Multi-user** — per-user isolated libraries, first-run admin onboarding, in-app user
   management, bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
@@ -92,7 +97,8 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> Planned: Kindle `My Clippings.txt` importer (deferred — Bookcision already covers the Kindle path).
+> **Roadmap** — Kindle `My Clippings.txt` import, a mobile-polish pass, a spaced-repetition daily
+> review, and opt-in AI summaries (OpenAI-compatible + NTFY). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)
 
