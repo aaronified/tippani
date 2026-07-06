@@ -432,7 +432,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               ariaLabel="Primary"
               value={tab}
               onChange={selectTab}
-              options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> {label}</>])}
+              options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
             />
           </nav>
           <div className="relative ml-auto" ref={menuRef}>

@@ -121,7 +121,7 @@ export function PageHeader({ title, counts, right }) {
         <h1>{title}</h1>
         {counts && <MonoLabel>{counts}</MonoLabel>}
       </div>
-      {right && <div className="flex items-center gap-3">{right}</div>}
+      {right && <div className="flex flex-wrap items-center gap-3">{right}</div>}
     </header>
   )
 }

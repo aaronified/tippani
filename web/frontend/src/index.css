@@ -35,6 +35,12 @@
       radial-gradient(130% 110% at 50% 118%, color-mix(in srgb, var(--bg), black 12%), transparent 60%),
       var(--bg);
     background-attachment: fixed;
+    /* Belt-and-suspenders: nothing in this app relies on page-level horizontal
+       scroll (wide tables/nav strips scroll in their own contained wrapper —
+       see .ann-table-wrap, .topbar-inner nav). This backstops any stray element
+       (e.g. a centered tooltip near a screen edge) that still manages to widen
+       the root's scrollable area while invisible/inactive. */
+    overflow-x: hidden;
   }
   body {
     color: var(--ink);
@@ -349,6 +355,10 @@
   .hand-card {
     position: relative;
     isolation: isolate;        /* scope the ::before texture's z-index:-1 to the card, above its own bg */
+    /* grid/flex items default to min-width:auto (never shrink below content) —
+       cards sit in both contexts across pages, so this is needed for them to
+       actually respect a narrow column/row instead of forcing it wider. */
+    min-width: 0;
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
     border: 1.6px solid var(--ink-border);
     border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
@@ -565,6 +575,8 @@
   /* ---- inputs (§6/§8): mono labels above, wobbly borders on paper ---- */
   .tp-input {
     width: 100%;
+    max-width: 100%; /* backstop for the w-auto variant: a <select> sizes to its
+      widest <option> (e.g. a long book/movie title) and can outgrow its row */
     min-height: 44px;
     padding: 10px 12px;
     font-family: var(--font-ui);
@@ -645,7 +657,12 @@
     font-size: 11.5px;
     font-weight: 500;
     color: #221C16;
-    white-space: nowrap;
+    max-width: 100%;
+    /* Normal short tags stay single-line (nothing to wrap); this only kicks in
+       for a pathologically long, space-free tag name that would otherwise
+       force its row (and the page) wider than the viewport. */
+    white-space: normal;
+    overflow-wrap: anywhere;
     background: linear-gradient(180deg, color-mix(in oklab, var(--tc), white 22%), var(--tc));
     border: 1.2px solid rgba(41,38,29,.55);
     border-radius: 8px 5px 7px 6px / 6px 8px 5px 7px;
@@ -1101,13 +1118,31 @@
     min-height: 56px;
     padding: 8px 20px;
   }
-  .brand { display: flex; align-items: center; gap: 9px; }
+  .brand { display: flex; align-items: center; gap: 9px; flex: none; }
   .wordmark {
     font-family: var(--font-display);
     font-weight: 600;
     font-size: 17px;
     letter-spacing: -0.02em;
     color: var(--ink);
+  }
+  /* The primary nav is a flex item that must be allowed to shrink below its
+     content's natural width (the flexbox default min-width:auto refuses to,
+     which is what pushed the topbar — and the whole page — wider than the
+     viewport on phones). overflow-x is a contained-scroll backstop for the
+     rare case even the icon-only breakpoint below doesn't leave enough room. */
+  .topbar-inner nav[aria-label="Primary"] {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .topbar-inner nav[aria-label="Primary"]::-webkit-scrollbar { display: none; }
+  @media (max-width: 700px) {
+    .nav-toggle .tab-label { display: none; }
+    /* Tight enough that all 4 icon-only tabs fit at 320px without needing the
+       overflow-x:auto backstop above (which would otherwise leave the active
+       tab partly scrolled out of view). */
+    .nav-toggle .tp-toggle-opt { padding: 6px 8px; }
   }
   .tabs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .tab {
@@ -1299,6 +1334,16 @@
   /* Chips are measured to fit (GenreFilter), so the strip never scrolls; hidden
      is a hard backstop against a sub-pixel spill. */
   .genre-chips { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+  /* On phones the right-hand filter cluster (favourites/rating/series/group/
+     sort) is wider than the screen; let it wrap instead of forcing the page
+     wider. Scoped to .filter-row's own ml-auto cluster only. */
+  @media (max-width: 700px) {
+    .filter-row { flex-wrap: wrap; row-gap: 8px; }
+    /* flex:1 1 100% overrides the inline shrink-0: without it the cluster
+       keeps its unwrapped natural width even alone on its own wrapped line. */
+    .filter-row > .ml-auto { flex: 1 1 100%; flex-wrap: wrap; row-gap: 8px; margin-left: 0; }
+    .view-toggle-row { flex: 1 1 100%; flex-wrap: wrap; row-gap: 8px; margin-left: 0; }
+  }
   .dot-yellow { background: #E5C355; }
   .dot-blue { background: #7FA6C9; }
   .dot-pink { background: #D98CA6; }
@@ -1407,4 +1452,11 @@
     padding: 1px 5px;
   }
   .share-preview a.share-link { color: var(--accent-ui); text-decoration: underline; }
+}
+
+/* Mobile overflow fixes that must beat Tailwind utility classes (shrink-0 etc.
+   live in its "utilities" layer, which outranks our @layer components rules
+   above regardless of specificity) — left unlayered so they always win. */
+@media (max-width: 700px) {
+  .filter-row > .ml-auto { flex-shrink: 1; }
 }

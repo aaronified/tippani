@@ -293,7 +293,7 @@ function BookList({ onOpen }) {
         counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
         right={
           <>
-            <MonoLabel>lookup: ISBN or title</MonoLabel>
+            <MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>
             <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
             <button className={PRIMARY} onClick={() => setAdding(true)}>
               ＋ Add book
@@ -1220,7 +1220,7 @@ function Annotations({ bookId, book }) {
           onChange={setMinRating}
           options={[['', 'any rating'], ['1', 'rating ≥ 1'], ['2', 'rating ≥ 2'], ['3', 'rating ≥ 3'], ['4', 'rating ≥ 4'], ['5', 'rating ≥ 5']]}
         />
-        <span className="ml-auto flex items-center gap-3">
+        <span className="ml-auto flex items-center gap-3 view-toggle-row">
           <MonoLabel>{countsLabel}</MonoLabel>
           <ViewToggle value={view} onChange={setView} />
         </span>

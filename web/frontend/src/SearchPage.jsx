@@ -105,7 +105,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
           </button>
         ))}
         {results && !empty && (
-          <span className="ml-auto flex items-center gap-3">
+          <span className="ml-auto flex items-center gap-3 view-toggle-row">
             {view !== 'table' && (
               <label className="flex items-center gap-2">
                 <MonoLabel>group</MonoLabel>
