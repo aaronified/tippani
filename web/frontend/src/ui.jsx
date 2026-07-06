@@ -894,7 +894,7 @@ export function Cover({ path, title, large = false, hero = false }) {
     if (path) {
       return (
         <img
-          src={`/covers/${path}`}
+          src={`/api/covers/${path}`}
           alt={title ? `Cover of ${title}` : ''}
           className="block w-full rounded-md object-cover"
           style={{ aspectRatio: '2 / 3', border: '1px solid var(--ink-border)' }}

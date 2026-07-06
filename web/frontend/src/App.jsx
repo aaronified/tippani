@@ -7,7 +7,7 @@ import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
-import { json, upload } from './api.js'
+import { apiURL, json, upload } from './api.js'
 import {
   ErrorText,
   Field,
@@ -30,11 +30,11 @@ export default function App() {
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    fetch('/auth/me')
+    fetch(apiURL('/auth/me'))
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => {
         if (u) return setUser(u)
-        return fetch('/auth/status')
+        return fetch(apiURL('/auth/status'))
           .then((r) => r.json())
           .then((s) => setNeedsOnboarding(s.needs_onboarding))
       })
@@ -75,7 +75,7 @@ export default function App() {
 
 // refreshMe loads the full session user (including is_admin + preferences).
 async function refreshMe() {
-  const r = await fetch('/auth/me')
+  const r = await fetch(apiURL('/auth/me'))
   return r.ok ? r.json() : null
 }
 
@@ -92,7 +92,7 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
     setError('')
     setBusy(true)
     try {
-      const r = await fetch(action, {
+      const r = await fetch(apiURL(action), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -361,7 +361,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   }
 
   async function logout() {
-    await fetch('/auth/logout', { method: 'POST' })
+    await fetch(apiURL('/auth/logout'), { method: 'POST' })
     onLogout()
   }
 
