@@ -96,6 +96,12 @@ func (s *Server) Handler() http.Handler {
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
 
+	// People metadata (§ author/actor enrichment): per-name bio/photo/links,
+	// keyed by (kind, name) and matched to books/films by exact author/actor.
+	mux.Handle("GET /people", s.requireAuth(s.handlePeople))
+	mux.Handle("PUT /people", s.requireAuth(s.handleUpsertPerson))
+	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
+
 	// Books + annotations (PLAN §3, §5a, §6).
 	mux.Handle("POST /books/lookup", s.requireAuth(s.handleBookLookup))
 	mux.Handle("POST /books", s.requireAuth(s.handleCreateBook))
