@@ -171,6 +171,17 @@ func TestMigrateAndFTS(t *testing.T) {
 	if _, err := st.DB.Exec(`INSERT INTO movies (user_id, title, tvdb_id) VALUES (1, 'dup-tvdb', 12345)`); err == nil {
 		t.Fatal("expected UNIQUE violation for duplicate (user_id, tvdb_id)")
 	}
+
+	// 0010: series names are searchable. Book 1's series was set to 'Discworld'
+	// above (via UPDATE, exercising the rebuilt update trigger); 'Andor' was
+	// inserted with series 'Star Wars' (insert trigger). Neither word appears in
+	// any other indexed column, so a hit proves the series column is indexed.
+	if n := count(`SELECT count(*) FROM books_fts WHERE books_fts MATCH ?`, `"discworld"`); n != 1 {
+		t.Fatalf("books_fts series (discworld): got %d", n)
+	}
+	if n := count(`SELECT count(*) FROM movies_fts WHERE movies_fts MATCH ?`, `"star"`); n != 1 {
+		t.Fatalf("movies_fts series (star): got %d", n)
+	}
 }
 
 // TestSettings exercises the settings-table helpers: missing key reads "",
