@@ -4,6 +4,7 @@ import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.js
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
+import { PersonModal, PersonName } from './people.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -899,6 +900,7 @@ function Dialogues({ movieId, cast, movie }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
+  const [person, setPerson] = useState(null) // actor metadata panel ({ kind, name })
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
   const [minRating, setMinRating] = useState('')
@@ -1045,6 +1047,7 @@ function Dialogues({ movieId, cast, movie }) {
                 onPatch={(fields) => patch(d, fields)}
                 onDelete={() => remove(d)}
                 onShare={() => setShareTarget(d)}
+                onOpenPerson={setPerson}
               />
             </Fragment>
           ))}
@@ -1069,6 +1072,7 @@ function Dialogues({ movieId, cast, movie }) {
               onPatch={(fields) => patch(d, fields)}
               onDelete={() => remove(d)}
               onShare={() => setShareTarget(d)}
+              onOpenPerson={setPerson}
             />
           ))}
         </div>
@@ -1115,6 +1119,7 @@ function Dialogues({ movieId, cast, movie }) {
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}
+      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )
 }
@@ -1228,7 +1233,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson }) {
   if (editing) {
     return (
       <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
@@ -1236,7 +1241,28 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       </article>
     )
   }
-  const credit = [d.character, d.actor && `PLAYED BY ${d.actor}`, d.timestamp].filter(Boolean).join(' · ')
+  // Credit line; the actor name is clickable (opens the metadata panel) when an
+  // onOpenPerson handler is supplied — styled to inherit the amber mono voice.
+  const actorLink = (label) =>
+    onOpenPerson ? (
+      <PersonName
+        key="actor"
+        kind="actor"
+        name={d.actor}
+        onOpen={onOpenPerson}
+        className=""
+        style={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
+      >
+        {label}
+      </PersonName>
+    ) : (
+      label
+    )
+  const creditParts = [
+    d.character || null,
+    d.actor ? actorLink(`PLAYED BY ${d.actor}`) : null,
+    d.timestamp || null,
+  ].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
   // annotations). With a seal present the favourite heart moves down beside the
   // rating so the top-right corner is free for the sticker.
@@ -1263,7 +1289,14 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           </div>
         ))}
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span style={amberMono}>{credit}</span>
+        <span style={amberMono}>
+          {creditParts.map((p, i) => (
+            <span key={i}>
+              {i > 0 ? ' · ' : ''}
+              {p}
+            </span>
+          ))}
+        </span>
         <div className="flex items-center gap-3">
           {sticker && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
           <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />

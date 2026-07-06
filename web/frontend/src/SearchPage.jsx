@@ -3,6 +3,7 @@ import { json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
+import { PersonModal, PersonPortrait, usePeople } from './people.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   EmptyState,
@@ -46,6 +47,8 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
+  const authors = usePeople('author') // name→metadata for author-group portraits
+  const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
 
   useEffect(() => {
     const query = q.trim()
@@ -150,6 +153,8 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
               group={group}
               view={view}
               isMovie={false}
+              people={authors.map}
+              onOpenPerson={setPerson}
               renderItem={(g) => (
                 <BookResult key={`b${g.id}`} g={g} view={view} terms={terms} onOpenBook={onOpenBook} onOpenQuote={setQuote} />
               )}
@@ -179,6 +184,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
           onClose={() => setQuote(null)}
           onChanged={reload}
         />
+      )}
+      {person && (
+        <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
       )}
     </section>
   )
@@ -678,7 +686,9 @@ function bucketGroups(groups, dim, isMovie) {
 
 // ResultSection renders one kind's groups — flat when group === 'none', else
 // bucketed into labelled sub-sections. renderItem(g) returns a keyed card.
-function ResultSection({ label, groups, group, view, isMovie, renderItem }) {
+// For book author buckets, the heading shows the author portrait (people map)
+// and opens the metadata panel on click.
+function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson }) {
   const cols = view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'
   if (group === 'none') {
     return (
@@ -691,16 +701,33 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem }) {
   return (
     <section className="space-y-4">
       <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
-      {bucketGroups(groups, group, isMovie).map((b) => (
-        <div key={b.key} className="space-y-2">
-          <div className="flex items-baseline gap-3">
-            <h3 className="display-title truncate" style={{ fontSize: 16.5 }}>{b.label}</h3>
-            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.groups.length}</MonoLabel>
-            <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+      {bucketGroups(groups, group, isMovie).map((b) => {
+        const isAuthor = group === 'author' && !isMovie && !b.residual
+        const portrait = isAuthor && people ? people[b.label] : null
+        return (
+          <div key={b.key} className="space-y-2">
+            <div className="flex items-center gap-3">
+              {portrait && <PersonPortrait person={portrait} size={28} />}
+              {isAuthor && onOpenPerson ? (
+                <button
+                  type="button"
+                  className="display-title truncate"
+                  style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                  onClick={() => onOpenPerson({ kind: 'author', name: b.label })}
+                  title={`${b.label} — details`}
+                >
+                  {b.label}
+                </button>
+              ) : (
+                <h3 className="display-title truncate" style={{ fontSize: 16.5 }}>{b.label}</h3>
+              )}
+              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.groups.length}</MonoLabel>
+              <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+            </div>
+            <div className={cols}>{b.groups.map(renderItem)}</div>
           </div>
-          <div className={cols}>{b.groups.map(renderItem)}</div>
-        </div>
-      ))}
+        )
+      })}
     </section>
   )
 }

@@ -4,6 +4,7 @@ import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
+import { PersonModal, PersonName, PersonPortrait, usePeople } from './people.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -157,12 +158,25 @@ function groupBooks(list, mode) {
   return groups
 }
 
-function GroupHeading({ label, count }) {
+function GroupHeading({ label, count, person, onOpenPerson }) {
   return (
-    <div className="mb-4 flex items-baseline gap-3">
-      <h3 className="display-title truncate" style={{ fontSize: 19 }}>
-        {label}
-      </h3>
+    <div className="mb-4 flex items-center gap-3">
+      {person && <PersonPortrait person={person} size={34} />}
+      {onOpenPerson ? (
+        <button
+          type="button"
+          className="display-title truncate"
+          style={{ fontSize: 19, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+          onClick={onOpenPerson}
+          title={`${label} — details`}
+        >
+          {label}
+        </button>
+      ) : (
+        <h3 className="display-title truncate" style={{ fontSize: 19 }}>
+          {label}
+        </h3>
+      )}
       <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(count, 'book')}</MonoLabel>
       <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
     </div>
@@ -225,6 +239,8 @@ function BookList({ onOpen }) {
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
   const chipBudget = useChipBudget()
+  const authors = usePeople('author') // name→metadata, for author-group portraits
+  const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
 
   async function load() {
     const r = await json('GET', '/books')
@@ -332,12 +348,20 @@ function BookList({ onOpen }) {
       {shown.length > 0 &&
         (grouped ? (
           <div className="space-y-10">
-            {grouped.map((g) => (
-              <section key={g.key}>
-                <GroupHeading label={g.label} count={g.books.length} />
-                <BookGrid books={g.books} coverSize={coverSize} onOpen={onOpen} />
-              </section>
-            ))}
+            {grouped.map((g) => {
+              const isAuthor = groupBy === 'author' && !g.residual
+              return (
+                <section key={g.key}>
+                  <GroupHeading
+                    label={g.label}
+                    count={g.books.length}
+                    person={isAuthor ? authors.map[g.label] : null}
+                    onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
+                  />
+                  <BookGrid books={g.books} coverSize={coverSize} onOpen={onOpen} />
+                </section>
+              )
+            })}
           </div>
         ) : (
           <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} />
@@ -351,6 +375,9 @@ function BookList({ onOpen }) {
             load()
           }}
         />
+      )}
+      {person && (
+        <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
       )}
       <ConfirmDialog
         open={exporting}
@@ -571,6 +598,7 @@ function BookDetail({ id, onClose }) {
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
+  const [person, setPerson] = useState(null) // author metadata panel
   const reveal = useReveal()
 
   async function load() {
@@ -599,17 +627,17 @@ function BookDetail({ id, onClose }) {
     else setError(errText(r, 'could not save'))
   }
 
-  const metaLine =
-    book &&
-    [
-      book.author,
-      book.published_year || null,
-      seriesLabel(book) || null,
-      book.isbn && `ISBN ${book.isbn}`,
-      book.asin && `ASIN ${book.asin}`,
-    ]
-      .filter(Boolean)
-      .join(' · ')
+  // Meta parts: the author is a clickable PersonName (opens the metadata panel);
+  // the rest are plain, interleaved with " · ".
+  const metaParts = book
+    ? [
+        book.author ? <PersonName key="author" kind="author" name={book.author} onOpen={setPerson} /> : null,
+        book.published_year || null,
+        seriesLabel(book) || null,
+        book.isbn && `ISBN ${book.isbn}`,
+        book.asin && `ASIN ${book.asin}`,
+      ].filter(Boolean)
+    : []
 
   return (
     <section ref={reveal} className="reveal space-y-6 pt-4" data-screen-label="book-detail">
@@ -642,9 +670,14 @@ function BookDetail({ id, onClose }) {
               <h1 className="display-title" style={{ fontSize: 28, lineHeight: 1.15 }}>
                 {book.title}
               </h1>
-              {metaLine && (
+              {metaParts.length > 0 && (
                 <MonoLabel className="block" style={{ fontSize: 11.5 }}>
-                  {metaLine}
+                  {metaParts.map((p, i) => (
+                    <span key={i}>
+                      {i > 0 ? ' · ' : ''}
+                      {p}
+                    </span>
+                  ))}
                 </MonoLabel>
               )}
               <div className="flex items-center gap-3">
@@ -679,6 +712,7 @@ function BookDetail({ id, onClose }) {
           </div>
         ))}
       {book && <Annotations bookId={book.id} book={book} />}
+      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
   )
 }
