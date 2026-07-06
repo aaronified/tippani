@@ -3,6 +3,7 @@ import { json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
+import { ShareDialog, movieShare } from './share.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -744,7 +745,7 @@ function MovieDetail({ id, onClose }) {
             </div>
           </Reveal>
         ))}
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} />}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} />}
     </section>
   )
 }
@@ -894,9 +895,10 @@ function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast }) {
+function Dialogues({ movieId, cast, movie }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
+  const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
   const [minRating, setMinRating] = useState('')
@@ -972,6 +974,22 @@ function Dialogues({ movieId, cast }) {
 
   const filtering = tag || fav || minRating
 
+  // Build the normalised share payload from the chosen dialogue + its movie.
+  const sharePayload = (d) =>
+    movieShare({
+      quote: d.quote,
+      note: d.note,
+      title: movie?.title,
+      year: movie?.release_year,
+      character: d.character,
+      actor: d.actor,
+      timestamp: d.timestamp,
+      rating: d.rating,
+      tags: d.tags,
+      tmdbId: movie?.tmdb_id,
+      tvdbId: movie?.tvdb_id,
+    })
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -1026,6 +1044,7 @@ function Dialogues({ movieId, cast }) {
                 onSave={(fields) => save(d.id, fields)}
                 onPatch={(fields) => patch(d, fields)}
                 onDelete={() => remove(d)}
+                onShare={() => setShareTarget(d)}
               />
             </Fragment>
           ))}
@@ -1049,6 +1068,7 @@ function Dialogues({ movieId, cast }) {
               onSave={(fields) => save(d.id, fields)}
               onPatch={(fields) => patch(d, fields)}
               onDelete={() => remove(d)}
+              onShare={() => setShareTarget(d)}
             />
           ))}
         </div>
@@ -1066,6 +1086,7 @@ function Dialogues({ movieId, cast }) {
           save={save}
           remove={remove}
           castListId={castListId}
+          onShare={setShareTarget}
         />
       )}
 
@@ -1092,6 +1113,8 @@ function Dialogues({ movieId, cast }) {
           <span className="microcopy">character picker from cast · actor auto-fills · timestamp HH:MM:SS</span>
         </button>
       )}
+
+      {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}
     </div>
   )
 }
@@ -1139,7 +1162,7 @@ function sortDialogues(rows, sort) {
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥/★ are shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, castListId }) {
+function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, castListId, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   return (
     <div className="ann-table-wrap">
@@ -1190,6 +1213,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 <td className="col-center">{d.rating ? '★'.repeat(d.rating) : '—'}</td>
                 <td className="col-center">{d.favorite ? '♥' : '—'}</td>
                 <td className="col-actions">
+                  {onShare && <button className="tp-link" onClick={() => onShare(d)}>share</button>}
                   <button className="tp-link" onClick={() => setEditingId(d.id)}>edit</button>
                   <button className="tp-link tp-link-danger" onClick={() => remove(d)}>del</button>
                 </td>
@@ -1204,7 +1228,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete }) {
+function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare }) {
   if (editing) {
     return (
       <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
@@ -1259,6 +1283,11 @@ function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, edit
       )}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       <div className="mt-1 flex justify-end gap-2.5">
+        {onShare && (
+          <button className="tp-link" onClick={onShare}>
+            share
+          </button>
+        )}
         <button className="tp-link" onClick={onEdit}>
           edit
         </button>

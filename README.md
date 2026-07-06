@@ -62,7 +62,8 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 
 - 📚 **Books & annotations** — quotes and notes with 4 highlight colours, tags, chapter/location,
   a favourite ★, a 1–5 rating, and series/reading-order metadata. Browse as a packed masonry, a
-  list, or a sortable table; filter by any combination.
+  list, or a sortable table; filter by any combination, and **group by series, author, decade, or
+  genre**.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
 - 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
@@ -73,6 +74,10 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
   same passage synced from differently-formatted tools collapses to one row.
 - 📤 **Export** — any book or movie to Obsidian-friendly Markdown, a filtered set as one multi-item
   file, or the whole library as a zip. Book exports round-trip cleanly back through the importer.
+- 💬 **Share a quote** — one click on any highlight or dialogue opens a share sheet that formats it
+  for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit**. Choose which
+  fields to include (quote, author/title, chapter, date, rating, tags, note), tweak the text, and
+  copy it — with a live, per-format preview that simulates how each app will render it.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, genres, **series**,
   quotes, notes, and dialogue (find a line by its text, its character, or its actor). Results as
   tiles, a list, or sortable tables.
@@ -232,7 +237,17 @@ sed -i 's|^module tippani$|module github.com/YOU/tippani|' go.mod
 ## Attribution
 
 Book metadata comes from Google Books and Open Library. Movie metadata and posters: this product
-uses the TMDB API but is not endorsed or certified by [TMDB](https://www.themoviedb.org/).
+uses the TMDB API but is not endorsed or certified by [TMDB](https://www.themoviedb.org/), and
+TV data from [TheTVDB](https://thetvdb.com/).
+
+Standing on the shoulders of:
+
+- **pretext** — the text-reflow calculation that lets a quote wrap naturally around a pinned
+  sticker (the `FlowQuote` seal).
+- **[CC0 Textures](https://cc0-textures.com/)** — the public-domain (CC0) texture packs behind the
+  paper·wood·metal·glass surfaces of the paper/film skins.
+- **Bookcision** and **Readest** — we read their highlight / Markdown exports directly as import
+  sources; thanks to both apps for making Kindle and cross-device highlights portable.
 
 ## License
 

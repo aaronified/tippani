@@ -3,6 +3,7 @@ import { json, errText, downloadPost } from './api.js'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
+import { ShareDialog, bookShare } from './share.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -105,6 +106,110 @@ function useChipBudget() {
   return n
 }
 
+// decadeOf floors a year to its decade using the full 4-digit year, so old
+// books land in the right century (1850 → 1850s, distinct from 1950s).
+function decadeOf(year) {
+  if (!year) return null
+  return Math.floor(year / 10) * 10
+}
+
+// groupBooks buckets the (already filtered + sorted) list into labelled groups
+// for the "group by" view. Order: series/author alphabetical, decade newest
+// first, genre by size; the catch-all bucket (no series/author/year/genre)
+// always sinks to the end. A book with several genres appears in each. Members
+// keep the incoming sort order, except series groups sort by index (the natural
+// reading order within a series).
+function groupBooks(list, mode) {
+  const map = new Map()
+  const add = (key, label, b, opts = {}) => {
+    let g = map.get(key)
+    if (!g) {
+      g = { key, label, books: [], residual: !!opts.residual, order: opts.order }
+      map.set(key, g)
+    }
+    g.books.push(b)
+  }
+  for (const b of list) {
+    if (mode === 'series') {
+      if (b.series) add(b.series, b.series, b)
+      else add('~none', 'No series', b, { residual: true })
+    } else if (mode === 'author') {
+      if (b.author) add(b.author, b.author, b)
+      else add('~none', 'Unknown author', b, { residual: true })
+    } else if (mode === 'decade') {
+      const d = decadeOf(b.published_year)
+      if (d != null) add(String(d), `${d}s`, b, { order: d })
+      else add('~none', 'Unknown year', b, { residual: true })
+    } else if (mode === 'genre') {
+      const gs = bookGenres(b)
+      if (gs.length) gs.forEach((g) => add(g, g, b))
+      else add('~none', 'No genre', b, { residual: true })
+    }
+  }
+  const groups = [...map.values()]
+  groups.sort((a, b) => {
+    if (a.residual !== b.residual) return a.residual ? 1 : -1
+    if (mode === 'decade') return (b.order ?? 0) - (a.order ?? 0)
+    if (mode === 'genre') return b.books.length - a.books.length || a.label.localeCompare(b.label)
+    return a.label.localeCompare(b.label)
+  })
+  if (mode === 'series') for (const g of groups) if (!g.residual) g.books = [...g.books].sort(bySeries)
+  return groups
+}
+
+function GroupHeading({ label, count }) {
+  return (
+    <div className="mb-4 flex items-baseline gap-3">
+      <h3 className="display-title truncate" style={{ fontSize: 19 }}>
+        {label}
+      </h3>
+      <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(count, 'book')}</MonoLabel>
+      <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+    </div>
+  )
+}
+
+// BookGrid is the cover-tile board, shared by the flat list and each group.
+function BookGrid({ books, coverSize, onOpen }) {
+  return (
+    <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
+      {books.map((b, i) => (
+        <li key={b.id}>
+          <button onClick={() => onOpen(b.id)} className="cover-tile block w-full text-left" title={b.title}>
+            <HandCard variant={i % 4} className="relative overflow-hidden cover-lift">
+              {b.cover_path ? (
+                <img
+                  src={`/api/covers/${b.cover_path}`}
+                  alt={`Cover of ${b.title}`}
+                  className="block aspect-[2/3] w-full object-cover"
+                />
+              ) : (
+                <Placeholder kind="COVER" className="w-full rounded-none border-0" />
+              )}
+              {b.favorite && <FavBadge />}
+            </HandCard>
+            <p className="mt-2.5 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}>
+              {b.title}
+            </p>
+            <p className="truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+              {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
+            </p>
+            {b.series && (
+              <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
+                {seriesLabel(b)}
+              </p>
+            )}
+            <div className="mt-0.5 flex items-center gap-2">
+              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>
+              {b.rating > 0 && <TiltStars value={b.rating} />}
+            </div>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 // ---- book list (§8.3, mockups 06–07) ----
 
 function BookList({ onOpen }) {
@@ -114,6 +219,7 @@ function BookList({ onOpen }) {
   const [fav, setFav] = useState(false)
   const [minRating, setMinRating] = useState('')
   const [sort, setSort] = useState('recent')
+  const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
@@ -160,6 +266,8 @@ function BookList({ onOpen }) {
     return list
   }, [books, genre, series, fav, minRating, sort])
 
+  const grouped = useMemo(() => (groupBy === 'none' ? null : groupBooks(shown, groupBy)), [shown, groupBy])
+
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
   return (
@@ -196,6 +304,15 @@ function BookList({ onOpen }) {
               />
             )}
             <label className="flex items-center gap-2">
+              <MonoLabel>group</MonoLabel>
+              <Select
+                ariaLabel="Group by"
+                value={groupBy}
+                onChange={setGroupBy}
+                options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+              />
+            </label>
+            <label className="flex items-center gap-2">
               <MonoLabel>sort</MonoLabel>
               <Select
                 ariaLabel="Sort"
@@ -212,46 +329,19 @@ function BookList({ onOpen }) {
         <EmptyState>no books yet — add one, or bring highlights in from the Import tab</EmptyState>
       )}
       {books && books.length > 0 && shown.length === 0 && <EmptyState>no books match these filters</EmptyState>}
-      {shown.length > 0 && (
-        <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
-          {shown.map((b, i) => (
-            <li key={b.id}>
-              <button onClick={() => onOpen(b.id)} className="cover-tile block w-full text-left" title={b.title}>
-                <HandCard variant={i % 4} className="relative overflow-hidden cover-lift">
-                  {b.cover_path ? (
-                    <img
-                      src={`/api/covers/${b.cover_path}`}
-                      alt={`Cover of ${b.title}`}
-                      className="block aspect-[2/3] w-full object-cover"
-                    />
-                  ) : (
-                    <Placeholder kind="COVER" className="w-full rounded-none border-0" />
-                  )}
-                  {b.favorite && <FavBadge />}
-                </HandCard>
-                <p
-                  className="mt-2.5 truncate font-semibold"
-                  style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}
-                >
-                  {b.title}
-                </p>
-                <p className="truncate text-[13px]" style={{ color: 'var(--soft)' }}>
-                  {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
-                </p>
-                {b.series && (
-                  <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
-                    {seriesLabel(b)}
-                  </p>
-                )}
-                <div className="mt-0.5 flex items-center gap-2">
-                  <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>
-                  {b.rating > 0 && <TiltStars value={b.rating} />}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {shown.length > 0 &&
+        (grouped ? (
+          <div className="space-y-10">
+            {grouped.map((g) => (
+              <section key={g.key}>
+                <GroupHeading label={g.label} count={g.books.length} />
+                <BookGrid books={g.books} coverSize={coverSize} onOpen={onOpen} />
+              </section>
+            ))}
+          </div>
+        ) : (
+          <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} />
+        ))}
 
       {adding && (
         <AddBookModal
@@ -588,7 +678,7 @@ function BookDetail({ id, onClose }) {
             </div>
           </div>
         ))}
-      {book && <Annotations bookId={book.id} />}
+      {book && <Annotations bookId={book.id} book={book} />}
     </section>
   )
 }
@@ -801,12 +891,13 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-function ActionRow({ a, patch, setEditingId, remove }) {
+function ActionRow({ a, patch, setEditingId, remove, onShare }) {
   return (
     <div className="mt-1 flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
       <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
       <span className="ml-auto flex gap-3">
+        {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
         <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
         <button className="tp-link tp-link-danger" onClick={() => remove(a)}>delete</button>
       </span>
@@ -817,7 +908,7 @@ function ActionRow({ a, patch, setEditingId, remove }) {
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
 // quote clamps to `quoteLines` with an inline show-more.
-function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, quoteLines = 6, tagSuggestions = [] }) {
+function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [] }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const d = fmtDate(annDate(a))
   return (
@@ -860,7 +951,7 @@ function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], re
               })}
             </div>
           )}
-          <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} />
+          <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} />
         </div>
       )}
       </EditReveal>
@@ -877,7 +968,7 @@ const TABLE_COLS = [
   { key: 'favorite', label: '♥' },
 ]
 
-function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove }) {
+function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   return (
     <div className="ann-table-wrap">
@@ -924,6 +1015,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                 <td className="col-center">{a.rating ? '★'.repeat(a.rating) : '—'}</td>
                 <td className="col-center">{a.favorite ? '♥' : '—'}</td>
                 <td className="col-actions">
+                  {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
                   <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
                   <button className="tp-link tp-link-danger" onClick={() => remove(a)}>del</button>
                 </td>
@@ -938,9 +1030,10 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
 
 // Annotations is the per-book annotation section: filter row, hand-drawn
 // cards, and the dashed ＋ Add annotation tile (§8.5).
-function Annotations({ bookId }) {
+function Annotations({ bookId, book }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
+  const [shareTarget, setShareTarget] = useState(null) // annotation being shared
   const [color, setColor] = useState('') // filter, '' = all
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
@@ -1050,6 +1143,20 @@ function Annotations({ bookId }) {
     load()
   }
 
+  // Build the normalised share payload from the chosen annotation + its book.
+  const sharePayload = (a) =>
+    bookShare({
+      quote: a.quote,
+      note: a.note,
+      author: book?.author,
+      title: book?.title,
+      chapter: a.chapter,
+      location: a.location,
+      date: fmtDate(annDate(a)),
+      rating: a.rating,
+      tags: a.tags,
+    })
+
   const countsLabel = !items
     ? ''
     : filtering && total != null
@@ -1102,6 +1209,7 @@ function Annotations({ bookId }) {
           setEditingId={setEditingId}
           save={save}
           remove={remove}
+          onShare={setShareTarget}
         />
       )}
       {items && items.length > 0 && view === 'list' && (
@@ -1120,6 +1228,7 @@ function Annotations({ bookId }) {
               save={save}
               patch={patch}
               remove={remove}
+              onShare={setShareTarget}
               quoteLines={5}
               tagSuggestions={Object.keys(tagMap)}
             />
@@ -1146,6 +1255,7 @@ function Annotations({ bookId }) {
                 save={save}
                 patch={patch}
                 remove={remove}
+                onShare={setShareTarget}
                 quoteLines={3 + (a.id % 3)}
                 tagSuggestions={Object.keys(tagMap)}
               />
@@ -1181,6 +1291,8 @@ function Annotations({ bookId }) {
           <span className="microcopy ml-3">quote · note · colour · tags · chapter · location</span>
         </button>
       )}
+
+      {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}
     </div>
   )
 }

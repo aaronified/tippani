@@ -1333,3 +1333,58 @@
     box-shadow: 0 -2px 7px -5px rgba(41,38,29,.35);
   }
 }
+
+/* ---- share dialog: mono source + HTML-simulated preview ---- */
+@layer components {
+  .share-hint {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--soft);
+    background: color-mix(in oklab, var(--ink) 5%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 9px;
+    overflow-wrap: anywhere;
+  }
+  .share-source {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    resize: vertical;
+  }
+  .share-preview {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-height: 190px;
+    background: color-mix(in oklab, var(--ink) 3%, transparent);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .share-preview > :first-child { margin-top: 0; }
+  .share-preview > :last-child { margin-bottom: 0; }
+  .share-preview .share-p { margin: 0 0 .6em; line-height: 1.55; }
+  .share-preview .share-quote {
+    margin: 0 0 .6em;
+    padding-left: 12px;
+    border-left: 3px solid var(--accent-ui);
+    color: var(--soft);
+    font-style: italic;
+  }
+  .share-preview .share-h { margin: .2em 0 .5em; font-family: var(--font-display); line-height: 1.2; }
+  .share-preview .share-ul,
+  .share-preview .share-ol { margin: 0 0 .6em; padding-left: 1.4em; }
+  .share-preview .share-ul { list-style: disc; }
+  .share-preview .share-ol { list-style: decimal; }
+  .share-preview code.share-code {
+    font-family: var(--font-mono);
+    font-size: .9em;
+    background: color-mix(in oklab, var(--ink) 9%, transparent);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .share-preview a.share-link { color: var(--accent-ui); text-decoration: underline; }
+}
