@@ -897,6 +897,39 @@
   }
   .show-toggle:hover { text-decoration: underline; }
 
+  /* ---- TokenInput (tags / genres): pills + type-ahead suggestions ---- */
+  .token-input { position: relative; }
+  .token-field { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; cursor: text; min-height: 44px; padding: 7px 10px; }
+  .token-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1;
+    color: var(--accent-ui);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+    border-radius: 7px; padding: 4px 5px 4px 9px;
+  }
+  .token-x { border: none; background: none; color: inherit; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: .65; }
+  .token-x:hover { opacity: 1; }
+  .token-entry { flex: 1; min-width: 90px; border: none; background: none; outline: none; font-family: var(--font-ui); font-size: 15px; color: var(--ink); padding: 2px 0; }
+  .token-entry::placeholder { color: var(--faint); }
+  .token-menu {
+    position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; min-width: 220px; max-width: 100%;
+    max-height: 220px; overflow-y: auto; padding: 5px; margin: 0; list-style: none;
+    background: var(--raised); border: 1.4px solid var(--ink-border); border-radius: 11px;
+    box-shadow: 0 12px 28px -8px rgba(0,0,0,.5); animation: tp-dip .14s ease;
+  }
+  .token-opt {
+    display: block; width: 100%; text-align: left; padding: 7px 11px; border: none;
+    background: none; border-radius: 7px; font-family: var(--font-ui); font-size: 14px; color: var(--ink); cursor: pointer;
+  }
+  .token-opt.hi, .token-opt:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-ui); }
+
+  /* An inline editor fades + rises in when it replaces a read view (books/titles);
+     annotations use the JS height-morph (EditReveal) so the list glides too. */
+  @keyframes edit-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .edit-fade { animation: edit-fade .22s cubic-bezier(.2,.68,.28,1); }
+  @media (prefers-reduced-motion: reduce) { .edit-fade { animation: none; } }
+
   /* ---- annotation views (v3): tiles (packed masonry) · list · table ---- */
   .vt-opt { display: inline-flex; align-items: center; gap: 6px; }
 

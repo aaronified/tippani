@@ -24,6 +24,8 @@ import {
   TagChip,
   TiltStars,
   Toggle,
+  TokenInput,
+  EditReveal,
   ViewToggle,
   bySeries,
   filterChipClass,
@@ -559,7 +561,11 @@ function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCancel }) 
 function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
   const [director, setDirector] = useState('')
   const [year, setYear] = useState('')
-  const [genres, setGenres] = useState('')
+  const [genres, setGenres] = useState([])
+  const [genreSuggestions, setGenreSuggestions] = useState([])
+  useEffect(() => {
+    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
+  }, [])
   const [series, setSeries] = useState('')
   const [seriesIndex, setSeriesIndex] = useState('')
   const [description, setDescription] = useState('')
@@ -577,7 +583,7 @@ function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
       media_type: mediaType,
       director: director.trim() || undefined,
       release_year: year ? Number(year) : undefined,
-      genres: splitCommas(genres),
+      genres,
       series: series.trim() || undefined,
       series_index: Number(seriesIndex) || 0,
       description: description.trim() || undefined,
@@ -598,7 +604,7 @@ function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
           onChange={(e) => setDirector(e.target.value)}
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
-        <input className="tp-input" placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" />
         <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
@@ -688,7 +694,7 @@ function MovieDetail({ id, onClose }) {
       <ErrorText>{error}</ErrorText>
       {movie &&
         (editing ? (
-          <HandCard variant={1} className="p-5">
+          <HandCard variant={1} className="edit-fade p-5">
             <EditMovie
               movie={movie}
               onSaved={() => {
@@ -746,7 +752,11 @@ function EditMovie({ movie, onSaved, onCancel }) {
   const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
   const [director, setDirector] = useState(movie.director || '')
   const [year, setYear] = useState(movie.release_year ? String(movie.release_year) : '')
-  const [genres, setGenres] = useState((movie.genres || []).join(', '))
+  const [genres, setGenres] = useState(movie.genres || [])
+  const [genreSuggestions, setGenreSuggestions] = useState([])
+  useEffect(() => {
+    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
+  }, [])
   const [series, setSeries] = useState(movie.series || '')
   const [seriesIndex, setSeriesIndex] = useState(movie.series_index ? String(movie.series_index) : '')
   const [description, setDescription] = useState(movie.description || '')
@@ -767,7 +777,7 @@ function EditMovie({ movie, onSaved, onCancel }) {
       media_type: mediaType,
       director: director.trim(),
       release_year: year ? Number(year) : undefined,
-      genres: splitCommas(genres),
+      genres,
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
@@ -834,7 +844,7 @@ function EditMovie({ movie, onSaved, onCancel }) {
           onChange={(e) => setDirector(e.target.value)}
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
-        <input className="tp-input" placeholder="Genres (comma-separated)" value={genres} onChange={(e) => setGenres(e.target.value)} />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" />
         <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
@@ -1052,6 +1062,7 @@ function Dialogues({ movieId, cast }) {
             onCancel={() => setAdding(false)}
             submitLabel="Add dialogue"
             castListId={castListId}
+            tagSuggestions={Object.keys(tagMap)}
           />
         </HandCard>
       ) : (
@@ -1138,7 +1149,7 @@ function DialogueTable({ rows, tagMap, sort, onSort, editingId, setEditingId, sa
             editingId === d.id ? (
               <tr key={d.id} className="editing-row">
                 <td colSpan={DIALOGUE_COLS.length + 1}>
-                  <DialogueForm initial={d} onSubmit={(fields) => save(d.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} />
+                  <DialogueForm initial={d} onSubmit={(fields) => save(d.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} />
                 </td>
               </tr>
             ) : (
@@ -1180,8 +1191,8 @@ function DialogueTable({ rows, tagMap, sort, onSort, editingId, setEditingId, sa
 function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete }) {
   if (editing) {
     return (
-      <article className="film-frame mx-4 my-1.5 px-5 py-4">
-        <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} />
+      <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
+        <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} />
       </article>
     )
   }
@@ -1245,13 +1256,13 @@ function Frame({ d, tagMap, editing, castListId, onEdit, onCancelEdit, onSave, o
 
 // DialogueForm serves both add (no initial) and inline edit (initial set).
 // Leaving actor blank lets the server auto-fill it from the movie's cast.
-function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId }) {
+function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [] }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [character, setCharacter] = useState(initial?.character || '')
   const [actor, setActor] = useState(initial?.actor || '')
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
   const [note, setNote] = useState(initial?.note || '')
-  const [tags, setTags] = useState((initial?.tags || []).join(', '))
+  const [tags, setTags] = useState(initial?.tags || [])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -1266,7 +1277,7 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId }) 
       character: character.trim(),
       actor: actor.trim(),
       timestamp: timestamp.trim(),
-      tags: splitCommas(tags),
+      tags,
       // favorite/rating are edited on the frame, not in the form — but PUT is
       // full-state, so carry the existing values through.
       favorite: !!initial?.favorite,
@@ -1280,7 +1291,7 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId }) 
       setActor('')
       setTimestamp('')
       setNote('')
-      setTags('')
+      setTags([])
     }
   }
 
@@ -1318,12 +1329,7 @@ function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId }) 
         />
       </div>
       <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
-      <input
-        className="tp-input"
-        placeholder="Tags (comma-separated)"
-        value={tags}
-        onChange={(e) => setTags(e.target.value)}
-      />
+      <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
       <div className="flex items-center justify-end gap-2">
         {onCancel && (
           <GhostButton type="button" onClick={onCancel}>

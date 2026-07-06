@@ -25,6 +25,8 @@ import {
   TagChip,
   TiltStars,
   Toggle,
+  TokenInput,
+  EditReveal,
   ViewToggle,
   bySeries,
   filterChipClass,
@@ -529,7 +531,7 @@ function BookDetail({ id, onClose }) {
       <ErrorText>{error}</ErrorText>
       {book &&
         (editing ? (
-          <HandCard className="px-6 py-5">
+          <HandCard className="edit-fade px-6 py-5">
             <EditBook
               book={book}
               onSaved={() => {
@@ -595,7 +597,11 @@ function EditBook({ book, onSaved, onCancel }) {
   const [isbn, setIsbn] = useState(book.isbn || '')
   const [asin, setAsin] = useState(book.asin || '')
   const [year, setYear] = useState(book.published_year ? String(book.published_year) : '')
-  const [genres, setGenres] = useState((book.genres || []).join(', '))
+  const [genres, setGenres] = useState(book.genres || [])
+  const [genreSuggestions, setGenreSuggestions] = useState([])
+  useEffect(() => {
+    json('GET', '/genres').then((r) => { if (r.ok) setGenreSuggestions(r.data.genres || []) })
+  }, [])
   const [series, setSeries] = useState(book.series || '')
   const [seriesIndex, setSeriesIndex] = useState(book.series_index ? String(book.series_index) : '')
   const [description, setDescription] = useState(book.description || '')
@@ -617,7 +623,7 @@ function EditBook({ book, onSaved, onCancel }) {
     setIsbn((v) => keep(v, c.isbn13))
     setYear((v) => keep(v, c.published_year ? String(c.published_year) : ''))
     setDescription((v) => keep(v, c.description))
-    setGenres((v) => keep(v, c.genres && c.genres.length ? c.genres.join(', ') : ''))
+    setGenres((v) => (v.length ? v : c.genres || []))
     setSeries((v) => keep(v, c.series))
     setSeriesIndex((v) => keep(v, c.series_index ? String(c.series_index) : ''))
     if (c.cover_url && !coverPath && !coverUrl) {
@@ -666,7 +672,7 @@ function EditBook({ book, onSaved, onCancel }) {
       isbn: isbn.trim(),
       asin: asin.trim(),
       published_year: publishedYear,
-      genres: splitCommas(genres),
+      genres,
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
@@ -717,8 +723,8 @@ function EditBook({ book, onSaved, onCancel }) {
         <Field label="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
       </div>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Genres (comma-separated)</MonoLabel>
-        <input className="tp-input" value={genres} onChange={(e) => setGenres(e.target.value)} />
+        <MonoLabel className="mb-1.5 block">Genres</MonoLabel>
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" />
       </label>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
         <Field label="Series" placeholder="e.g. Discworld" value={series} onChange={(e) => setSeries(e.target.value)} />
@@ -801,13 +807,14 @@ function ActionRow({ a, patch, setEditingId, remove }) {
 // AnnotationCard is the shared card body for the tiles + list views. The first
 // tag becomes the corner sticker the quote flows around (pretext); the quote
 // clamps to `quoteLines` with an inline show-more.
-function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch, remove, quoteLines = 6 }) {
+function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch, remove, quoteLines = 6, tagSuggestions = [] }) {
   const primary = a.tags && a.tags.length > 0 ? tagMap[a.tags[0]] : null
   const d = fmtDate(annDate(a))
   return (
     <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
+      <EditReveal open={editing}>
       {editing ? (
-        <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" />
+        <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} />
       ) : (
         <div className="space-y-2">
           {a.quote &&
@@ -846,6 +853,7 @@ function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch
           <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} />
         </div>
       )}
+      </EditReveal>
     </HandCard>
   )
 }
@@ -880,7 +888,7 @@ function AnnotationTable({ rows, tagMap, sort, onSort, editingId, setEditingId, 
             editingId === a.id ? (
               <tr key={a.id} className="editing-row">
                 <td colSpan={TABLE_COLS.length + 1}>
-                  <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" />
+                  <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={Object.keys(tagMap)} />
                 </td>
               </tr>
             ) : (
@@ -1095,6 +1103,7 @@ function Annotations({ bookId }) {
               patch={patch}
               remove={remove}
               quoteLines={5}
+              tagSuggestions={Object.keys(tagMap)}
             />
           ))}
         </div>
@@ -1117,6 +1126,7 @@ function Annotations({ bookId }) {
                 patch={patch}
                 remove={remove}
                 quoteLines={3 + (a.id % 3)}
+                tagSuggestions={Object.keys(tagMap)}
               />
             </li>
           ))}
@@ -1133,6 +1143,7 @@ function Annotations({ bookId }) {
             }}
             onCancel={() => setAddOpen(false)}
             submitLabel="Add annotation"
+            tagSuggestions={Object.keys(tagMap)}
           />
         </HandCard>
       ) : (
@@ -1153,13 +1164,13 @@ function Annotations({ bookId }) {
 
 // AnnotationForm serves both add (no initial) and inline edit (initial set).
 // onSubmit receives the full field state and returns an error string or null.
-function AnnotationForm({ initial, onSubmit, onCancel, submitLabel }) {
+function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [] }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')
   const [location, setLocation] = useState(initial?.location || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
-  const [tags, setTags] = useState((initial?.tags || []).join(', '))
+  const [tags, setTags] = useState(initial?.tags || [])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -1174,7 +1185,7 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel }) {
       chapter: chapter.trim(),
       location: location.trim(),
       color,
-      tags: splitCommas(tags),
+      tags,
       // favorite/rating are edited on the card, not in the form — but PUT is
       // full-state, so carry the existing values through.
       favorite: !!initial?.favorite,
@@ -1188,7 +1199,7 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel }) {
       setChapter('')
       setLocation('')
       setColor('yellow')
-      setTags('')
+      setTags([])
     }
   }
 
@@ -1207,8 +1218,8 @@ function AnnotationForm({ initial, onSubmit, onCancel, submitLabel }) {
         <Field label="Location" placeholder="e.g. 1042" value={location} onChange={(e) => setLocation(e.target.value)} />
       </div>
       <label className="block">
-        <MonoLabel className="mb-1.5 block">Tags (comma-separated)</MonoLabel>
-        <input className="tp-input" value={tags} onChange={(e) => setTags(e.target.value)} />
+        <MonoLabel className="mb-1.5 block">Tags</MonoLabel>
+        <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
       </label>
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <MonoLabel>colour</MonoLabel>

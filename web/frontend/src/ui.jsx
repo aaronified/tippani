@@ -560,6 +560,124 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
   )
 }
 
+// TokenInput — a tags/genres field: existing values render as removable pills,
+// and typing filters `suggestions` into a dropdown (Enter/comma or click adds;
+// Backspace on an empty field removes the last). `value`/`onChange` are a string
+// array, so callers no longer juggle comma-joined strings.
+export function TokenInput({ value = [], onChange, suggestions = [], placeholder = 'add…', ariaLabel }) {
+  const [text, setText] = useState('')
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(0)
+  const boxRef = useRef(null)
+  const inputRef = useRef(null)
+  const q = text.trim().toLowerCase()
+  const matches = suggestions.filter((s) => !value.includes(s) && (!q || s.toLowerCase().includes(q))).slice(0, 8)
+  const add = (tok) => {
+    const t = (tok || '').trim()
+    if (t && !value.includes(t)) onChange([...value, t])
+    setText('')
+    setHi(0)
+    setOpen(false)
+  }
+  const removeAt = (i) => onChange(value.filter((_, j) => j !== i))
+  const onKey = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      add(open && matches[hi] ? matches[hi] : text)
+    } else if (e.key === 'Backspace' && !text && value.length) {
+      removeAt(value.length - 1)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setHi((h) => Math.min(h + 1, matches.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHi((h) => Math.max(h - 1, 0))
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+  useEffect(() => {
+    if (!open) return
+    const fn = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('pointerdown', fn)
+    return () => document.removeEventListener('pointerdown', fn)
+  }, [open])
+  return (
+    <div className="token-input" ref={boxRef}>
+      <div className="tp-input token-field" onClick={() => inputRef.current && inputRef.current.focus()}>
+        {value.map((t, i) => (
+          <span key={t} className="token-pill">
+            {t}
+            <button type="button" className="token-x" onClick={() => removeAt(i)} aria-label={`Remove ${t}`}>×</button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          className="token-entry"
+          value={text}
+          placeholder={value.length ? '' : placeholder}
+          aria-label={ariaLabel}
+          autoComplete="off"
+          onChange={(e) => { setText(e.target.value); setOpen(true); setHi(0) }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKey}
+        />
+      </div>
+      {open && matches.length > 0 && (
+        <ul className="token-menu">
+          {matches.map((s, i) => (
+            <li key={s}>
+              <button
+                type="button"
+                className={'token-opt' + (i === hi ? ' hi' : '')}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => add(s)}
+              >
+                {s}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// EditReveal animates its height when the content swaps (view ↔ edit form), so
+// opening/closing an inline editor glides the content below instead of snapping
+// it. Overflow is only clamped during the transition, so a sticker that spills
+// into the gutter isn't clipped at rest.
+export function EditReveal({ open, children }) {
+  const ref = useRef(null)
+  const prev = useRef(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const target = el.scrollHeight
+    if (prev.current != null && prev.current !== target) {
+      el.style.overflow = 'hidden'
+      el.style.height = prev.current + 'px'
+      void el.offsetHeight // force a reflow so the next height change transitions
+      el.style.transition = 'height .26s cubic-bezier(.2,.68,.28,1)'
+      el.style.height = target + 'px'
+      const done = (e) => {
+        if (e.propertyName !== 'height') return
+        el.style.height = 'auto'
+        el.style.transition = ''
+        el.style.overflow = ''
+        el.removeEventListener('transitionend', done)
+      }
+      el.addEventListener('transitionend', done)
+    } else {
+      el.style.height = 'auto'
+      el.style.overflow = ''
+    }
+    prev.current = target
+  }, [open])
+  return <div ref={ref}>{children}</div>
+}
+
 // Select — the on-brand dropdown that replaces native <select> (which renders
 // the OS list). The trigger is a tactile field; the panel dips open below it and
 // carries the SAME sliding accent thumb as Toggle (just vertical) so the
