@@ -506,6 +506,23 @@
   html[data-aesthetic="paper"] .hand-card::before { background-image: url("./textures/paper.webp"); background-size: 300px; }
   html[data-aesthetic="film"] .hand-card::before { background-image: url("./textures/metal.webp"); background-size: 300px; }
 
+  /* Fine noise dither — breaks up 8-bit banding in the card's low-contrast
+     vertical gradient (visible on tall dark cards). Overlay blend + very low
+     opacity: perturbs values across step boundaries without reading as grain. */
+  .hand-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23d)'/%3E%3C/svg%3E");
+    background-size: 120px;
+    opacity: .05;
+    mix-blend-mode: overlay;
+  }
+  @media (prefers-reduced-motion: reduce) { .hand-card::after { opacity: .04; } }
+
   .btn-sticker, .btn-film, .tp-btn-primary { isolation: isolate; }
   .btn-sticker::before, .btn-film::before, .tp-btn-primary::before {
     content: "";
