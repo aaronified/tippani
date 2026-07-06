@@ -127,8 +127,15 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 // sniffed extension — nothing caller-controlled touches the path). Used for
 // user file uploads, which never hit the network so skip the SSRF guards.
 func StoreImage(data []byte, destDir string) (string, error) {
-	if len(data) > maxImageBytes {
-		return "", fmt.Errorf("image exceeds %d bytes", maxImageBytes)
+	return StoreImageMax(data, destDir, maxImageBytes)
+}
+
+// StoreImageMax is StoreImage with a caller-chosen upper size cap — avatars
+// allow a larger upload than covers. destDir and the generated name are still
+// server-controlled, so nothing caller-supplied ever touches the path.
+func StoreImageMax(data []byte, destDir string, max int) (string, error) {
+	if len(data) > max {
+		return "", fmt.Errorf("image exceeds %d bytes", max)
 	}
 	if len(data) < minImageBytes {
 		return "", errors.New("image too small (placeholder/blank)")

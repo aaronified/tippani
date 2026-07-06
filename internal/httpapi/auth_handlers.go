@@ -151,11 +151,14 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	var avatar string
+	_ = s.Store.DB.QueryRow(`SELECT avatar_path FROM users WHERE id = ?`, userID(r)).Scan(&avatar)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":          userID(r),
 		"username":    username(r),
 		"is_admin":    isAdmin(r),
 		"preferences": p,
+		"avatar_path": avatar,
 	})
 }
 

@@ -76,6 +76,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
 	mux.Handle("PUT /auth/me/preferences", s.requireAuth(s.handleUpdatePreferences))
+	mux.Handle("POST /auth/me/avatar", s.requireAuth(s.handleUploadAvatar))
+	mux.Handle("DELETE /auth/me/avatar", s.requireAuth(s.handleDeleteAvatar))
 	mux.Handle("POST /auth/password", s.requireAuth(s.handlePassword))
 
 	// User management — admin only (PLAN §2). The first user is the admin.

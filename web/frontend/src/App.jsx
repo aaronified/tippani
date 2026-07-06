@@ -7,6 +7,7 @@ import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
+import { json, upload } from './api.js'
 import {
   ErrorText,
   Field,
@@ -51,10 +52,12 @@ export default function App() {
   // "snapping back to paper" on navigation.
   const onPreferences = (prefs) =>
     setUser((u) => (u ? { ...u, preferences: { ...u.preferences, ...prefs } } : u))
+  // Merge top-level user fields (e.g. avatar_path) so the chip updates live.
+  const onUser = (patch) => setUser((u) => (u ? { ...u, ...patch } : u))
 
   let screen = null
   if (!checking) {
-    if (user) screen = <Shell user={user} onLogout={() => setUser(null)} onPreferences={onPreferences} />
+    if (user) screen = <Shell user={user} onLogout={() => setUser(null)} onPreferences={onPreferences} onUser={onUser} />
     else if (needsOnboarding) screen = <Onboarding onDone={setUser} />
     else screen = <Login onLogin={setUser} />
   }
@@ -285,10 +288,49 @@ function TabIcon({ name }) {
   }
 }
 
+// AvatarControl uploads / clears the user's avatar image from the user-chip
+// menu. Upload is immediate (its own endpoint, ≤5 MB); on success the new path
+// is lifted to App so the chip re-renders. The image is served from /covers.
+function AvatarControl({ user, onUser }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0]
+    e.target.value = '' // allow re-picking the same file
+    if (!f) return
+    setBusy(true)
+    setErr('')
+    const r = await upload('/auth/me/avatar', f)
+    setBusy(false)
+    if (r.ok) onUser({ avatar_path: r.data.avatar_path })
+    else setErr(r.data?.error || 'upload failed')
+  }
+  async function remove() {
+    const r = await json('DELETE', '/auth/me/avatar')
+    if (r.ok) onUser({ avatar_path: '' })
+  }
+  return (
+    <div className="mb-2 flex flex-col gap-0.5">
+      <label className="menu-item" style={{ cursor: 'pointer' }}>
+        <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
+        <span aria-hidden="true">☺</span>
+        {busy ? 'Uploading…' : user.avatar_path ? 'Change photo' : 'Upload photo'}
+      </label>
+      {user.avatar_path && (
+        <button className="menu-item" onClick={remove}>
+          <span aria-hidden="true">⌫</span>
+          Remove photo
+        </button>
+      )}
+      {err && <p className="tp-error px-1" style={{ fontSize: 12 }}>{err}</p>}
+    </div>
+  )
+}
+
 // Shell is the logged-in frame (§7): topbar with mark + wordmark + tabs +
 // user-initial chip, and a {type, id} detail state so lists and search can
 // open detail views (no router).
-function Shell({ user, onLogout, onPreferences }) {
+function Shell({ user, onLogout, onPreferences, onUser }) {
   // The landing tab follows the user's start-page preference (§4, Settings).
   const [tab, setTab] = useState(user.preferences?.home === 'movies' ? 'movies' : 'library')
   const [detail, setDetail] = useState(null) // {type: 'book' | 'movie', id}
@@ -348,7 +390,9 @@ function Shell({ user, onLogout, onPreferences }) {
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((m) => !m)}
             >
-              {(user.username || '?').trim().charAt(0).toLowerCase()}
+              {user.avatar_path
+                ? <img src={`/covers/${user.avatar_path}`} alt="" />
+                : (user.username || '?').trim().charAt(0).toLowerCase()}
             </button>
             {menuOpen && (
               <div className="hand-card hc-r2 absolute right-0 z-50 mt-2 min-w-48 px-3 py-3 text-left">
@@ -356,6 +400,7 @@ function Shell({ user, onLogout, onPreferences }) {
                   {user.username}
                   {user.is_admin ? ' · admin' : ''}
                 </p>
+                <AvatarControl user={user} onUser={onUser} />
                 <div className="mb-2 flex flex-col gap-0.5">
                   {MENU_TABS.map(([key, label]) => (
                     <button
