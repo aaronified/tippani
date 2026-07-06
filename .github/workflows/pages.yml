@@ -1,0 +1,48 @@
+name: pages
+
+# Build the read-only demo (VITE_DEMO=1 → dummy-data fetch shim, relative base)
+# and publish it to GitHub Pages at https://<owner>.github.io/tippani/. Rebuilt
+# on every push to main so the demo never drifts from the current frontend.
+# Enable once in repo Settings → Pages → Source: "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/frontend/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer push supersedes an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: npm ci
+        working-directory: web/frontend
+      - name: Build demo
+        run: npm run build:demo
+        working-directory: web/frontend
+        env:
+          VITE_DEMO: "1"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,5 +1,6 @@
 /bin/
 /data/
+/_site/
 web/frontend/node_modules/
 *.tar.gz
 .vscode/
