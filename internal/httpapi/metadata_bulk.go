@@ -20,9 +20,10 @@ func inClause(n int) string {
 	return strings.Repeat("?,", n-1) + "?"
 }
 
-// ownedBookIDs filters ids down to the ones that are books owned by uid, so a
+// ownedIDs filters ids down to rows of `table` (books|movies) owned by uid, so a
 // bulk op can never touch another user's rows (foreign/unknown ids are dropped).
-func (s *Server) ownedBookIDs(uid int64, ids []int64) ([]int64, error) {
+// table is a package constant, never client input.
+func (s *Server) ownedRowIDs(table string, uid int64, ids []int64) ([]int64, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -32,7 +33,7 @@ func (s *Server) ownedBookIDs(uid int64, ids []int64) ([]int64, error) {
 	}
 	args = append(args, uid)
 	rows, err := s.Store.DB.Query(
-		`SELECT id FROM books WHERE id IN (`+inClause(len(ids))+`) AND user_id = ?`, args...)
+		`SELECT id FROM `+table+` WHERE id IN (`+inClause(len(ids))+`) AND user_id = ?`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
-	owned, err := s.ownedBookIDs(uid, req.IDs)
+	owned, err := s.ownedRowIDs("books", uid, req.IDs)
 	if err != nil {
 		internalError(w, r, "bulk books: ownership", err)
 		return
@@ -240,7 +241,7 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 	// Verify every id (target + sources) is the caller's, and the target isn't
 	// also a source.
 	all := append([]int64{req.Into}, req.From...)
-	owned, err := s.ownedBookIDs(uid, all)
+	owned, err := s.ownedRowIDs("books", uid, all)
 	if err != nil {
 		internalError(w, r, "merge: ownership", err)
 		return

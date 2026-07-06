@@ -161,6 +161,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /books/bulk", s.requireAuth(s.handleBulkUpdateBooks))
 	mux.Handle("POST /books/merge", s.requireAuth(s.handleMergeBooks))
 	mux.Handle("GET /metadata/duplicates", s.requireAuth(s.handleBookDuplicates))
+	// Bulk actions over a selection (e.g. from search results): tag a set of
+	// annotations/dialogues, field-correct a set of films/shows.
+	mux.Handle("POST /movies/bulk", s.requireAuth(s.handleBulkUpdateMovies))
+	mux.Handle("POST /annotations/bulk", s.requireAuth(s.handleBulkTagAnnotations))
+	mux.Handle("POST /dialogues/bulk", s.requireAuth(s.handleBulkTagDialogues))
 
 	// The mux above owns every JSON + covers route. Mount it under /api so the
 	// root path space belongs to the client-side router (the SPA); a thin outer
