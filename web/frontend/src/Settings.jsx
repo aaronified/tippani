@@ -275,7 +275,8 @@ function SecretField({ set, editing, onEdit, value, onChange, placeholder }) {
     return (
       <div className="flex items-center gap-2">
         <span className="tp-chip" title="stored — cannot be shown">•••••••••• saved</span>
-        <GhostButton type="button" onClick={onEdit}>Edit</GhostButton>
+        {/* Edit is a pill to sit in line with the "saved" chip (not a full button). */}
+        <button type="button" className="tp-chip tp-chip-btn" onClick={onEdit}>Edit</button>
       </div>
     )
   }

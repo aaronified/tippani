@@ -125,10 +125,11 @@ function MovieList({ onOpen }) {
 
   const tmdbSource = status?.tmdb?.source
   const hasShows = (movies || []).some((m) => (m.media_type || 'movie') === 'show')
+  // Most-common genres first (GenreFilter shows as many as fit, tail into More…).
   const genres = useMemo(() => {
-    const s = new Set()
-    for (const m of movies || []) for (const g of m.genres || []) s.add(g)
-    return [...s].sort()
+    const counts = new Map()
+    for (const m of movies || []) for (const g of m.genres || []) counts.set(g, (counts.get(g) || 0) + 1)
+    return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b))
   }, [movies])
   const seriesNames = useMemo(() => {
     const s = new Set()
@@ -339,8 +340,12 @@ function AddMovieModal({ tmdbSource, onClose, onAdded }) {
         <h2 className="display-title text-xl">Add title</h2>
         <GhostButton onClick={onClose}>Close</GhostButton>
       </div>
-      <div className="mb-4">
+      {/* Both switches live here (one line) and are independent: media type is no
+          longer inside the sub-forms, so switching Look up ↔ Manual doesn't
+          remount (and re-animate) it. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Toggle ariaLabel="Add mode" value={mode} onChange={setMode} options={[['lookup', 'Look up'], ['manual', 'Manual']]} />
+        <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       </div>
       {noKey && (
         <p className="tp-error mb-3" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
@@ -434,7 +439,6 @@ function LookupMovie({ mediaType, setMediaType, title, setTitle, onAdded, onUnav
 
   return (
     <div className="space-y-3">
-      <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       <form onSubmit={search} className="flex gap-2">
         <input className="tp-input" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input
@@ -581,7 +585,6 @@ function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
 
   return (
     <form onSubmit={submit} className="space-y-2.5">
-      <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       <div className="grid gap-2.5 sm:grid-cols-2">
         <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input

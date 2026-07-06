@@ -117,12 +117,12 @@
     pointer-events: none;
     border-radius: inherit;
     opacity: 0;
-    background: radial-gradient(circle 46px at var(--px, 50%) var(--py, 50%), rgba(20,14,8,.34), transparent 70%);
+    background: radial-gradient(circle var(--press-r,46px) at var(--px, 50%) var(--py, 50%), rgba(20,14,8,var(--press-a,.34)), transparent 70%);
     transition: opacity .22s ease;
   }
   html[data-theme="dark"] .tactile::after,
   html[data-theme="dark"] .tp-btn::after {
-    background: radial-gradient(circle 46px at var(--px, 50%) var(--py, 50%), rgba(0,0,0,.5), transparent 70%);
+    background: radial-gradient(circle var(--press-r,46px) at var(--px, 50%) var(--py, 50%), rgba(0,0,0,var(--press-a-dark,.5)), transparent 70%);
   }
   .tactile[data-pressing="1"]::after,
   .tp-btn[data-pressing="1"]::after { opacity: 1; transition-duration: .05s; }
@@ -138,7 +138,16 @@
     overflow: hidden;
     isolation: isolate;
     box-shadow: inset 0 1px 2px rgba(0,0,0,.09);
+    /* draggable thumb: claim horizontal gestures + don't select labels mid-drag */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grab;
   }
+  .tp-toggle[data-dragging="1"] { cursor: grabbing; }
+  /* while dragging, the thumb tracks the finger 1:1 (the material ease is for the
+     release snap, not the follow) */
+  .tp-toggle[data-dragging="1"] .tp-toggle-thumb { transition: none; }
   .tp-toggle-thumb {
     position: absolute;
     left: 0;
@@ -149,7 +158,8 @@
     border-radius: 8px;
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     box-shadow: 0 1px 2px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.35);
-    transition: transform .42s cubic-bezier(.34,1.4,.5,1), width .42s cubic-bezier(.34,1.4,.5,1);
+    transition: transform var(--thumb-dur,.42s) var(--thumb-ease,cubic-bezier(.34,1.4,.5,1)),
+                width var(--thumb-dur,.42s) var(--thumb-ease,cubic-bezier(.34,1.4,.5,1));
   }
   html[data-theme="dark"] .tp-toggle-thumb {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
@@ -172,27 +182,44 @@
     white-space: nowrap;
     transition: color .25s ease;
   }
-  .tp-toggle-opt.is-on { color: #FFF9EC; }
-  html[data-theme="dark"] .tp-toggle-opt.is-on { color: #15100C; }
+  /* Selected label always rides light over the textured accent thumb — a dark
+     label muddies against the grain (esp. in dark mode over --accent-dark). */
+  .tp-toggle-opt.is-on { color: #FFF9EC; text-shadow: 0 1px 1px rgba(0,0,0,.28); }
   @media (prefers-reduced-motion: reduce) {
     .tp-toggle-thumb { transition: none; }
     .tactile::after { display: none; }
   }
+
+  /* Material physics (§ design): the switches don't just LOOK leather vs rubber,
+     they MOVE and DEPRESS differently.
+       rubber (film filter/settings) — springs past + bounces; full soft depress.
+       leather (paper filter/settings) — firm settle, no overshoot; gentle give.
+       wood (paper shell nav) / metal (film shell nav) — rigid: a stiff, quick
+         snap and NO depression at all.
+     --thumb-ease/--thumb-dur drive the slide; --press-a(-dark)/--press-r drive
+     the press bloom (reduced-motion still zeroes both). */
+  html[data-aesthetic="paper"] { --thumb-ease: cubic-bezier(.2,.68,.28,1); --thumb-dur: .32s; --press-a: .2; --press-a-dark: .34; --press-r: 36px; }
+  html[data-aesthetic="film"]  { --thumb-ease: cubic-bezier(.34,1.62,.48,1); --thumb-dur: .48s; --press-a: .34; --press-a-dark: .5; --press-r: 46px; }
+  html[data-aesthetic="paper"] .nav-toggle { --thumb-ease: cubic-bezier(.4,.9,.36,1); --thumb-dur: .19s; --press-a: 0; --press-a-dark: 0; }
+  html[data-aesthetic="film"]  .nav-toggle { --thumb-ease: cubic-bezier(.42,.86,.4,1); --thumb-dur: .21s; --press-a: 0; --press-a-dark: 0; }
 
   /* The shell nav IS a toggle too (§ design): transparent in the topbar so it
      reads as nav, with a DISTINCT textured thumb (wood on paper, metal on film)
      to tell it apart from the filter toggles. */
   .nav-toggle.tp-toggle { background: transparent; border-color: transparent; box-shadow: none; padding: 3px; }
   .nav-toggle .tp-toggle-opt { padding: 6px 13px; font-size: 14.5px; color: var(--soft); }
+  /* The active tab label rides light over the wood/metal thumb (beats the soft
+     colour above; the generic .is-on rule is out-specificity'd by .nav-toggle). */
+  .nav-toggle .tp-toggle-opt.is-on { color: #FFF9EC; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
   html[data-aesthetic="paper"] .nav-toggle .tp-toggle-thumb {
-    background-image: url("./textures/wood.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-    background-size: 180px, auto;
-    background-blend-mode: overlay, normal;
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/wood.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: auto, 180px, auto;
+    background-blend-mode: normal, overlay, normal;
   }
   html[data-aesthetic="film"] .nav-toggle .tp-toggle-thumb {
-    background-image: url("./textures/metal.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    background-size: 180px, auto;
-    background-blend-mode: overlay, normal;
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/metal.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-size: auto, 180px, auto;
+    background-blend-mode: normal, overlay, normal;
   }
 
   /* ---- the one Select (§ design): tactile trigger + a panel that dips open,
@@ -247,7 +274,8 @@
     border-radius: 8px;
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     box-shadow: 0 1px 2px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.3);
-    transition: transform .34s cubic-bezier(.34,1.4,.5,1), height .34s cubic-bezier(.34,1.4,.5,1);
+    transition: transform var(--thumb-dur,.34s) var(--thumb-ease,cubic-bezier(.34,1.4,.5,1)),
+                height var(--thumb-dur,.34s) var(--thumb-ease,cubic-bezier(.34,1.4,.5,1));
   }
   html[data-theme="dark"] .tp-select-thumb {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
@@ -268,8 +296,7 @@
     white-space: nowrap;
     transition: color .2s ease;
   }
-  .tp-select-opt.is-hi { color: #FFF9EC; }
-  html[data-theme="dark"] .tp-select-opt.is-hi { color: #15100C; }
+  .tp-select-opt.is-hi { color: #FFF9EC; text-shadow: 0 1px 1px rgba(0,0,0,.28); }
   @media (prefers-reduced-motion: reduce) {
     .tp-select-panel, .tp-select-thumb { animation: none; transition: none; }
   }
@@ -288,6 +315,7 @@
      shadow for lift, and a top inset highlight so light reads from above. ---- */
   .hand-card {
     position: relative;
+    isolation: isolate;        /* scope the ::before texture's z-index:-1 to the card, above its own bg */
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
     border: 1.6px solid var(--ink-border);
     border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
@@ -440,10 +468,10 @@
     border-radius: inherit;
     pointer-events: none;
     background-repeat: repeat;
-    opacity: .06;
+    opacity: .16;
     mix-blend-mode: multiply;
   }
-  html[data-theme="dark"] .hand-card::before { mix-blend-mode: screen; opacity: .05; }
+  html[data-theme="dark"] .hand-card::before { mix-blend-mode: screen; opacity: .11; }
   html[data-aesthetic="paper"] .hand-card::before { background-image: url("./textures/paper.webp"); background-size: 300px; }
   html[data-aesthetic="film"] .hand-card::before { background-image: url("./textures/metal.webp"); background-size: 300px; }
 
@@ -465,19 +493,25 @@
   .btn-film::before,
   html[data-aesthetic="film"] .tp-btn-primary::before { background-image: url("./textures/rubber.webp"); }
 
+  /* A dark scrim over the textured accent surfaces: now the selected label rides
+     light, a slightly darker ground lifts it off the grain. Dark theme goes a
+     touch darker still. Applied to toggle/select thumbs + active filter chips. */
+  html { --sel-scrim: .12; }
+  html[data-theme="dark"] { --sel-scrim: .2; }
+
   /* Filter toggle + select thumbs get the same leather/rubber grain (the nav
      toggle overrides with wood/metal so the shell stays distinct). */
   html[data-aesthetic="paper"] .tp-toggle-thumb,
   html[data-aesthetic="paper"] .tp-select-thumb {
-    background-image: url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
-    background-size: 130px, auto;
-    background-blend-mode: overlay, normal;
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: auto, 130px, auto;
+    background-blend-mode: normal, overlay, normal;
   }
   html[data-aesthetic="film"] .tp-toggle-thumb,
   html[data-aesthetic="film"] .tp-select-thumb {
-    background-image: url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    background-size: 130px, auto;
-    background-blend-mode: overlay, normal;
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-size: auto, 130px, auto;
+    background-blend-mode: normal, overlay, normal;
   }
 
   /* ---- inputs (§6/§8): mono labels above, wobbly borders on paper ---- */
@@ -989,7 +1023,8 @@
   .user-chip {
     width: 34px;
     height: 34px;
-    border-radius: 999px;
+    border-radius: 32%;        /* squircle, not a circle */
+    overflow: hidden;          /* clip an uploaded avatar image to the squircle */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -998,11 +1033,13 @@
     border: 1.4px solid var(--ink-border);
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     color: #FFF9EC;
+    text-shadow: 0 1px 1px rgba(0,0,0,.28);
   }
+  html[data-aesthetic="film"] .user-chip { border-radius: 22%; }  /* film runs more geometric */
   html[data-theme="dark"] .user-chip {
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
-    color: #15100C;
   }
+  .user-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .container-tp { max-width: 1180px; margin: 0 auto; padding: 4px 20px 64px; }
   /* One entrance for every tab (keyed on the active tab so it replays on switch):
      a quick "roll down" — fade + slight drop into place. Consistent across tabs. */
@@ -1036,6 +1073,10 @@
     border-radius: 999px;
     white-space: nowrap;
   }
+  /* An actionable chip (e.g. "Edit" beside a masked "saved" pill): same pill
+     shape/size as .tp-chip, with a hover lift so it reads as clickable. */
+  .tp-chip-btn { cursor: pointer; color: var(--accent-ui); transition: color .18s ease, border-color .18s ease, background .18s ease; }
+  .tp-chip-btn:hover { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
   .tp-link {
     background: none;
     border: none;
@@ -1061,23 +1102,32 @@
     white-space: nowrap;
   }
   .tp-filter-chip:hover:not(.active) { color: var(--ink); border-color: var(--ink-border); }
-  /* Active chip wears the toggle's accent fill (homogeneous with Toggle/Select). */
+  /* Active chip wears the toggle thumb's accent fill + leather/rubber grain, so
+     the genre bar and search-scope filters read identically to Toggle/Select. */
   .tp-filter-chip.active {
     color: #FFF9EC;
+    text-shadow: 0 1px 1px rgba(0,0,0,.28);
     border-color: transparent;
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
     box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
   }
-  html[data-theme="dark"] .tp-filter-chip.active {
-    color: #15100C;
-    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+  html[data-aesthetic="paper"] .tp-filter-chip.active {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    background-size: auto, 120px, auto;
+    background-blend-mode: normal, overlay, normal;
+  }
+  html[data-aesthetic="film"] .tp-filter-chip.active {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+    background-size: auto, 120px, auto;
+    background-blend-mode: normal, overlay, normal;
   }
   html[data-aesthetic="film"] .tp-filter-chip { border-radius: 8px; }
   /* One-line filter row: the genre chips scroll horizontally if they overflow,
      keeping the whole row on a single line; the scrollbar is hidden. */
   .filter-row { display: flex; align-items: center; gap: 10px; }
-  .genre-chips { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-  .genre-chips::-webkit-scrollbar { height: 0; }
+  /* Chips are measured to fit (GenreFilter), so the strip never scrolls; hidden
+     is a hard backstop against a sub-pixel spill. */
+  .genre-chips { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
   .dot-yellow { background: #E5C355; }
   .dot-blue { background: #7FA6C9; }
   .dot-pink { background: #D98CA6; }

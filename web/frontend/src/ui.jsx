@@ -427,7 +427,12 @@ export function initTactile() {
 export function Toggle({ value, onChange, options, label, ariaLabel, className = '' }) {
   const ref = useRef(null)
   const thumbRef = useRef(null)
+  const drag = useRef(null) // live drag state (never triggers a re-render)
+  const suppressClick = useRef(false) // eat the click that trails a real drag
   const rawIdx = options.findIndex(([k]) => k === value)
+  // Place the thumb under the active option; this is also the snap target the
+  // thumb animates to after a drag (with the material's ease, since dragging
+  // clears first).
   useLayoutEffect(() => {
     const el = ref.current
     const thumb = thumbRef.current
@@ -446,8 +451,80 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
     ro.observe(el)
     return () => ro.disconnect()
   }, [rawIdx, value, options.length])
+
+  // A slider toggle can be dragged: the thumb tracks the pointer 1:1 and commits
+  // to the nearest option on release; the press bloom follows the finger (its
+  // intensity is the material's --press-a — full for rubber, gentle for leather,
+  // zero for wood/metal). A plain tap (no movement) falls through to the option
+  // button's onClick, so clicking still works.
+  const nearest = (opts, center) => {
+    let best = 0, bestD = Infinity
+    for (let i = 0; i < opts.length; i++) {
+      const d = Math.abs(center - opts[i].center)
+      if (d < bestD) { bestD = d; best = i }
+    }
+    return best
+  }
+  const onPointerMove = (e) => {
+    const d = drag.current
+    const el = ref.current
+    const thumb = thumbRef.current
+    if (!d || !el || !thumb) return
+    if (!d.moved) {
+      if (Math.abs(e.clientX - d.startX) < 5) return // below threshold → still a tap
+      d.moved = true
+      el.dataset.dragging = '1'
+    }
+    const px = e.clientX - d.left
+    const last = d.opts[d.opts.length - 1]
+    const min = d.opts[0].left
+    const max = last.left + last.width - d.thumbW
+    const left = Math.max(min, Math.min(max, px - d.thumbW / 2))
+    thumb.style.transform = `translateX(${left}px)`
+    d.hover = nearest(d.opts, left + d.thumbW / 2)
+    el.style.setProperty('--px', `${px}px`)
+    el.style.setProperty('--py', `${e.clientY - d.top}px`)
+    el.dataset.pressing = '1'
+  }
+  const onPointerUp = () => {
+    const d = drag.current
+    const el = ref.current
+    drag.current = null
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', onPointerUp)
+    if (!el) return
+    el.dataset.pressing = '0'
+    if (d && d.moved) {
+      el.dataset.dragging = '0'
+      suppressClick.current = true
+      // safety: never leave the flag stuck if no trailing click fires
+      setTimeout(() => { suppressClick.current = false }, 0)
+      const k = options[d.hover] && options[d.hover][0]
+      if (k != null && k !== value) onChange(k)
+      else {
+        const a = el.querySelectorAll('.tp-toggle-opt')[rawIdx]
+        const thumb = thumbRef.current
+        if (a && thumb) thumb.style.transform = `translateX(${a.offsetLeft}px)` // snap back
+      }
+    }
+  }
+  const onPointerDown = (e) => {
+    const el = ref.current
+    const thumb = thumbRef.current
+    if (!el || !thumb || rawIdx < 0 || (e.button != null && e.button !== 0)) return
+    const nodes = [...el.querySelectorAll('.tp-toggle-opt')]
+    if (!nodes[rawIdx]) return
+    const rect = el.getBoundingClientRect()
+    drag.current = {
+      startX: e.clientX, moved: false, hover: rawIdx,
+      left: rect.left, top: rect.top, thumbW: nodes[rawIdx].offsetWidth,
+      opts: nodes.map((o) => ({ left: o.offsetLeft, width: o.offsetWidth, center: o.offsetLeft + o.offsetWidth / 2 })),
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+  }
   const control = (
-    <div ref={ref} role="tablist" aria-label={ariaLabel || label} className={`tp-toggle tactile ${className}`}>
+    <div ref={ref} role="tablist" aria-label={ariaLabel || label} className={`tp-toggle tactile ${className}`} onPointerDown={onPointerDown}>
       <span ref={thumbRef} className="tp-toggle-thumb" aria-hidden="true" />
       {options.map(([k, lbl]) => (
         <button
@@ -457,7 +534,10 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
           aria-selected={value === k}
           aria-pressed={value === k}
           className={'tp-toggle-opt' + (value === k ? ' is-on' : '')}
-          onClick={() => onChange(k)}
+          onClick={() => {
+            if (suppressClick.current) { suppressClick.current = false; return }
+            onChange(k)
+          }}
         >
           {lbl}
         </button>
@@ -721,17 +801,61 @@ export function filterChipClass(active) {
 
 // GenreFilter — the shared genre picker used by Library + Catalogue so both
 // toolbars read identically: visible tactile chips (All + the most common
-// genres) with the tail tucked into a "More…" tactile dropdown. Returns a
-// fragment: a scrollable chip strip + the overflow Select (kept outside the
-// scroll box so its panel isn't clipped).
-export function GenreFilter({ genres, value, onChange, budget = 8 }) {
+// genres, which the caller sorts by frequency) with only the genuine overflow
+// tucked into a "More…" tactile dropdown. Rather than a fixed budget (which
+// clipped chips behind More on a narrow row), it MEASURES how many chips fit the
+// available width — each genre's rendered text width plus a fixed per-chip
+// allowance — and shows exactly that many. Recomputes on resize.
+export function GenreFilter({ genres, value, onChange }) {
+  const chipsRef = useRef(null)
+  const canvasRef = useRef(null)
+  const [count, setCount] = useState(genres ? genres.length : 0)
+  useLayoutEffect(() => {
+    const chips = chipsRef.current
+    if (!chips || !genres || genres.length === 0) return
+    const row = chips.closest('.filter-row') || chips.parentElement
+    if (!row) return
+    const measure = () => {
+      const canvas = canvasRef.current || (canvasRef.current = document.createElement('canvas'))
+      const ctx = canvas.getContext('2d')
+      const cs = getComputedStyle(chips)
+      const fam = cs.getPropertyValue('--font-ui').trim() || cs.fontFamily || 'sans-serif'
+      ctx.font = `600 13px ${fam}`
+      const EXTRA = 38 // per-chip: padding (13×2) + border + inter-chip gap, with slack
+      const w = (t) => Math.ceil(ctx.measureText(t).width) + EXTRA
+      // Available width = the row minus its other children (the right-hand
+      // controls); the More… select is reserved for separately when it's needed.
+      let others = 0
+      for (const c of row.children) {
+        if (c === chips || c.classList.contains('tp-select')) continue
+        others += c.getBoundingClientRect().width
+      }
+      const avail = row.clientWidth - others - 28 // ≈ inter-item gaps
+      const allW = w('All')
+      const totalW = allW + genres.reduce((s, g) => s + w(g), 0)
+      if (totalW <= avail) return setCount(genres.length) // all chips fit — no More…
+      const MORE = 112 // reserve for the More… select once we know it's needed
+      let used = allW
+      let n = 0
+      for (let i = 0; i < genres.length; i++) {
+        const cw = w(genres[i])
+        if (used + cw <= avail - MORE) { used += cw; n++ } else break
+      }
+      setCount(n)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(row)
+    return () => ro.disconnect()
+  }, [genres])
+
   if (!genres || genres.length === 0) return null
-  const top = genres.slice(0, budget)
-  const more = genres.slice(budget)
+  const top = genres.slice(0, count)
+  const more = genres.slice(count)
   const activeInMore = value && more.includes(value)
   return (
     <>
-      <div className="genre-chips">
+      <div className="genre-chips" ref={chipsRef}>
         <button className={filterChipClass(value === '')} onClick={() => onChange('')}>All</button>
         {top.map((g) => (
           <button key={g} className={filterChipClass(value === g)} onClick={() => onChange(value === g ? '' : g)}>

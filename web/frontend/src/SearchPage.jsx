@@ -3,6 +3,7 @@ import { json, errText } from './api.js'
 import {
   EmptyState,
   ErrorText,
+  filterChipClass,
   GhostButton,
   HandCard,
   HandNote,
@@ -62,7 +63,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
     <section className="space-y-5 pt-4">
       <input
         className="tp-input"
-        style={{ fontFamily: 'var(--font-display)', fontSize: 19, padding: '13px 18px' }}
+        // lineHeight:1 tightens the display serif's tall line box so the UA
+        // centres the glyphs in the field instead of seating them high.
+        style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px' }}
         placeholder="Search titles, authors, genres, quotes, notes…"
         value={q}
         autoFocus
@@ -74,8 +77,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
           <button
             key={value}
             type="button"
-            className={'tp-filter-chip' + (scope === value ? ' active' : '')}
-            style={scope === value ? undefined : { borderColor: 'var(--line)', background: 'var(--card)' }}
+            className={filterChipClass(scope === value)}
             aria-pressed={scope === value}
             onClick={() => setScope(value)}
           >
