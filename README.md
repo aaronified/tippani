@@ -17,6 +17,11 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/aaronified/tippani?color=blue&cacheSeconds=86400"></a>
 </p>
 
+<p align="center">
+  🎭 <a href="https://aaronified.github.io/tippani/">Interactive demo</a> — a read-only click-around with dummy data,
+  just to get a rough feel for the layout (not the real build).
+</p>
+
 <!-- Release / Go / License are dynamic shields badges reading the public GitHub API.
      If one renders "repo not found" it's a stale GitHub camo image cache from before
      the repo went public — it clears on its own; a query-param bump (e.g. cacheSeconds
@@ -56,20 +61,29 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 ## Features
 
 - 📚 **Books & annotations** — quotes and notes with 4 highlight colours, tags, chapter/location,
-  a favourite ★, and a 1–5 rating. Filter a book's annotations by any combination.
+  a favourite ★, a 1–5 rating, and series/reading-order metadata. Browse as a packed masonry, a
+  list, or a sortable table; filter by any combination.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
-  actor auto-fills from the film's cast. Same tags / favourite / rating / filters as books.
-- 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected),
-  Kindle **Bookcision** JSON, and saved **Hardcover** journal pages. Re-imports are idempotent,
-  and the same passage synced from differently-formatted tools collapses to one row.
-- 📤 **Export** — any book or movie to Obsidian-friendly Markdown, or the whole library as a zip.
-  Book exports round-trip cleanly back through the importer.
-- 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, genres, quotes,
-  notes, and dialogue (find a line by its text, its character, or its actor).
+  actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
+- 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
+  pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
+- 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected), Kindle
+  **Bookcision** JSON, saved **Hardcover** and **Goodreads** pages, your **Kindle notebook**
+  (read.amazon.com), and **IMDb** quote pages for film dialogue. Re-imports are idempotent, and the
+  same passage synced from differently-formatted tools collapses to one row.
+- 📤 **Export** — any book or movie to Obsidian-friendly Markdown, a filtered set as one multi-item
+  file, or the whole library as a zip. Book exports round-trip cleanly back through the importer.
+- 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, genres, **series**,
+  quotes, notes, and dialogue (find a line by its text, its character, or its actor). Results as
+  tiles, a list, or sortable tables.
 - 🖼 **Metadata & covers** — Google Books + Open Library for books, [TMDB](https://www.themoviedb.org/)
-  for movies. Covers/posters are fetched once through an SSRF-guarded fetcher and served locally.
+  + TheTVDB for films/shows. Covers/posters are fetched once through an SSRF-guarded fetcher and
+  served locally. A **Metadata console** shows per-field coverage, filters by what's missing,
+  bulk-corrects a selection (rename an author, set a series, add genres), and merges duplicates.
 - 🔐 **Multi-user** — per-user isolated libraries, first-run admin onboarding, in-app user
   management, bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
+- 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
+  back/forward work and a link deep-links straight to the view.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 

@@ -22,6 +22,12 @@ import {
   useResolvedDark,
 } from './ui.jsx'
 
+// DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
+// install.js) serves dummy data and blocks writes; here it just suppresses URL
+// history sync (the static site lives under a /tippani/ subpath, so pushing
+// "/library" would point off-site) and shows a banner.
+export const DEMO = import.meta.env.VITE_DEMO === '1'
+
 // App is the auth gate: first-run onboarding, login, then the logged-in shell.
 // The grain overlay (§5) sits above every screen, auth included.
 export default function App() {
@@ -67,6 +73,11 @@ export default function App() {
           studio (per aesthetic, in index.css). First in the tree + z-index -1 so
           it sits behind everything; the grain overlay stays on top. */}
       <div className="scene-bg" aria-hidden="true" />
+      {DEMO && (
+        <div className="demo-ribbon" role="note">
+          Demo · dummy data, read-only · <a href="https://github.com/aaronified/tippani">the real, self-hosted app →</a>
+        </div>
+      )}
       {screen}
       <div className="grain-overlay" aria-hidden="true" />
     </>
@@ -369,6 +380,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on "/" rewrites the bar to the resolved start page.
   useEffect(() => {
+    if (DEMO) return // no URL sync under the static subpath
     const onPop = () => {
       const s = parsePath(window.location.pathname, home)
       setTab(s.tab)
@@ -393,6 +405,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   function go(nextTab, nextDetail) {
     setTab(nextTab)
     setDetail(nextDetail)
+    if (DEMO) return
     const path = statePath(nextTab, nextDetail)
     if (path !== window.location.pathname) window.history.pushState({}, '', path)
   }

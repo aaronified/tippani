@@ -22,6 +22,20 @@ import App from './App.jsx'
 import { applyTheme } from './theme.js'
 import { initTactile } from './ui.jsx'
 
-applyTheme({}) // defaults until /auth/me preferences load (§4)
-initTactile() // "press where you clicked" for .tactile toggles + buttons
-createRoot(document.getElementById('root')).render(<App />)
+function boot() {
+  applyTheme({}) // defaults until /auth/me preferences load (§4)
+  initTactile() // "press where you clicked" for .tactile toggles + buttons
+  createRoot(document.getElementById('root')).render(<App />)
+}
+
+// Read-only demo build (VITE_DEMO=1): install the fetch shim BEFORE anything
+// renders, so the app's first /auth/me call already hits dummy data. Dead-code
+// eliminated from the normal build (the branch + its dynamic import drop out).
+if (import.meta.env.VITE_DEMO) {
+  import('./demo/install.js').then(({ installDemo }) => {
+    installDemo()
+    boot()
+  })
+} else {
+  boot()
+}
