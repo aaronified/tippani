@@ -617,10 +617,33 @@ function EditBook({ book, onSaved, onCancel }) {
     setYear((v) => keep(v, c.published_year ? String(c.published_year) : ''))
     setDescription((v) => keep(v, c.description))
     setGenres((v) => keep(v, c.genres && c.genres.length ? c.genres.join(', ') : ''))
+    setSeries((v) => keep(v, c.series))
+    setSeriesIndex((v) => keep(v, c.series_index ? String(c.series_index) : ''))
     if (c.cover_url && !coverPath && !coverUrl) {
       setCoverUrl(c.cover_url)
       setClearCover(false)
     }
+  }
+
+  // One-click metadata fetch (sits with the cover controls): look up by
+  // title/ISBN/ASIN and auto-fill the empty fields from the best match,
+  // preferring a candidate that carries series info. The candidate LIST is still
+  // available below (BookLookupPicker) when you'd rather choose among matches.
+  const [fetchingMeta, setFetchingMeta] = useState(false)
+  async function fetchMeta() {
+    const body = {}
+    if (isbn.trim()) body.isbn = isbn.trim()
+    if (title.trim()) body.title = title.trim()
+    if (asin.trim()) body.asin = asin.trim()
+    if (!body.isbn && !body.title && !body.asin) return setError('enter a title, ISBN, or ASIN first')
+    setFetchingMeta(true)
+    setError('')
+    const r = await json('POST', '/books/lookup', body)
+    setFetchingMeta(false)
+    if (!r.ok) return setError(errText(r, 'metadata lookup failed'))
+    const cands = r.data.candidates || []
+    if (cands.length === 0) return setError('no metadata match — try refining the title or ISBN')
+    applyCandidate(cands.find((c) => c.series) || cands[0])
   }
 
   async function submit(e) {
@@ -681,6 +704,8 @@ function EditBook({ book, onSaved, onCancel }) {
           }
         }}
         onUploaded={(rec) => setCoverPath(rec.cover_path || '')}
+        onFetchMeta={fetchMeta}
+        fetchingMeta={fetchingMeta}
       />
       <BookLookupPicker isbn={isbn} title={title} asin={asin} onPick={applyCandidate} />
       <div className="grid gap-3 sm:grid-cols-2">

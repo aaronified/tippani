@@ -26,7 +26,8 @@ const openLibraryJSON = `{"docs":[{
   "author_name":["Nassim Nicholas Taleb"],
   "first_publish_year":2001,
   "cover_i":240727,
-  "subject":["s1","s2","s3","s4","s5","s6","s7","s8"]}]}`
+  "subject":["s1","s2","s3","s4","s5","s6","s7","s8"],
+  "series":["Incerto #2"]}]}`
 
 func setBases(t *testing.T, google, openLibrary string) {
 	t.Helper()
@@ -114,6 +115,9 @@ func TestSearchBooksMergesSources(t *testing.T) {
 	}
 	if len(ol.Genres) != 6 {
 		t.Errorf("ol genres = %v, want capped at 6", ol.Genres)
+	}
+	if ol.Series != "Incerto" || ol.SeriesIndex != 2 {
+		t.Errorf("ol series = %q #%v, want Incerto #2", ol.Series, ol.SeriesIndex)
 	}
 	if ol.CoverURL != "https://covers.openlibrary.org/b/id/240727-L.jpg" {
 		t.Errorf("ol cover = %q", ol.CoverURL)

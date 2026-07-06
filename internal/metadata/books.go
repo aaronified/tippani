@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -35,6 +37,27 @@ type BookCandidate struct {
 	PublishedYear int      `json:"published_year"`
 	Genres        []string `json:"genres"`
 	CoverURL      string   `json:"cover_url"`
+	Series        string   `json:"series"`       // franchise/series name, where the source has it
+	SeriesIndex   float64  `json:"series_index"` // position within the series (0 = unknown)
+}
+
+// seriesRe splits a raw series string like "Discworld #5", "Discworld (5)" or
+// "The Malazan Book of the Fallen, Book 6" into its name and numeric position.
+var seriesRe = regexp.MustCompile(`^(.*?)[\s,]*(?:#|book|no\.?|vol\.?|\()?\s*(\d+(?:\.\d+)?)\)?\s*$`)
+
+// parseSeries pulls a name + position out of a provider's series label. When no
+// trailing number is present the whole string is the name (index 0).
+func parseSeries(raw string) (string, float64) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return "", 0
+	}
+	if m := seriesRe.FindStringSubmatch(s); m != nil && strings.TrimSpace(m[1]) != "" {
+		if idx, err := strconv.ParseFloat(m[2], 64); err == nil {
+			return strings.TrimSpace(strings.Trim(m[1], " ,-")), idx
+		}
+	}
+	return s, 0
 }
 
 // SearchBooks queries Google Books (isbn: or intitle:) and Open Library (by
@@ -171,7 +194,7 @@ func bestGoogleCover(l googleImageLinks) string {
 // title=). isbnEcho is stamped onto candidates when the query was by ISBN (OL
 // docs don't echo the queried ISBN back).
 func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) ([]BookCandidate, error) {
-	params.Set("fields", "key,title,author_name,first_publish_year,cover_i,subject")
+	params.Set("fields", "key,title,author_name,first_publish_year,cover_i,subject,series")
 	params.Set("limit", "5")
 	u := openLibraryBase + "/search.json?" + params.Encode()
 	body, status, err := httpGet(ctx, u, "")
@@ -189,6 +212,7 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 			FirstPublishYear int      `json:"first_publish_year"`
 			CoverI           int64    `json:"cover_i"`
 			Subject          []string `json:"subject"`
+			Series           []string `json:"series"`
 		} `json:"docs"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -204,6 +228,11 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 		if d.CoverI != 0 {
 			cover = fmt.Sprintf("https://covers.openlibrary.org/b/id/%d-L.jpg", d.CoverI)
 		}
+		var seriesName string
+		var seriesIdx float64
+		if len(d.Series) > 0 {
+			seriesName, seriesIdx = parseSeries(d.Series[0])
+		}
 		out = append(out, BookCandidate{
 			Source:        "openlibrary",
 			SourceID:      d.Key,
@@ -213,6 +242,8 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 			PublishedYear: d.FirstPublishYear,
 			Genres:        genres,
 			CoverURL:      cover,
+			Series:        seriesName,
+			SeriesIndex:   seriesIdx,
 		})
 	}
 	return out, nil

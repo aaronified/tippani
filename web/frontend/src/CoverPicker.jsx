@@ -51,6 +51,7 @@ export function CoverPreview({ url, label }) {
 export function CoverControls({
   kind, id, currentPath, asin,
   coverUrl, clearCover, onSetUrl, onClear, onUploaded,
+  onFetchMeta, fetchingMeta,
 }) {
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlText, setUrlText] = useState('')
@@ -88,6 +89,11 @@ export function CoverControls({
             {busy ? 'Uploading…' : 'Upload file'}
             <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
           </label>
+          {onFetchMeta && (
+            <GhostButton type="button" onClick={onFetchMeta} disabled={fetchingMeta} title="Fetch title, author, year, genres, series & cover from the metadata providers">
+              {fetchingMeta ? 'Fetching…' : 'Fetch metadata'}
+            </GhostButton>
+          )}
           <GhostButton type="button" onClick={() => setUrlOpen((v) => !v)}>
             Paste URL
           </GhostButton>
@@ -163,7 +169,7 @@ export function BookLookupPicker({ isbn, title, asin, onPick }) {
   return (
     <div className="space-y-2">
       <GhostButton type="button" onClick={look} disabled={busy}>
-        {busy ? 'Looking up…' : 'Look up metadata & cover'}
+        {busy ? 'Looking up…' : 'Browse other matches…'}
       </GhostButton>
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches — try editing the title or ISBN</p>}
