@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
+import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
+import { Frame, dialogueState } from './Movies.jsx'
+import { ShareDialog, bookShare, movieShare } from './share.jsx'
+import { useStickers } from './stickers.jsx'
 import {
   EmptyState,
   ErrorText,
@@ -30,13 +34,16 @@ const SCOPES = [
 // annotations sit under their book, dialogues under their movie. 200 ms debounce
 // with a stale-guard; GET /search?q=&scope=.
 export default function SearchPage({ onOpenBook, onOpenMovie }) {
-  const [q, setQ] = useState('')
-  const [scope, setScope] = useState('all')
+  // Persisted so leaving Search (into a book/film, another tab) and coming back
+  // restores the last query, scope, and view instead of resetting to empty.
+  const [q, setQ] = usePersistedState('tippani:search:q', '')
+  const [scope, setScope] = usePersistedState('tippani:search:scope', 'all')
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:searchview', 'tiles') // tiles | list | table
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
+  const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
 
   useEffect(() => {
     const query = q.trim()
@@ -138,7 +145,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
                       onOpen={() => onOpenBook(g.id)}
                     >
                       {g.annotations.map((a) => (
-                        <ChildHit key={a.id} onClick={() => onOpenBook(g.id)}>
+                        <ChildHit key={a.id} onClick={() => setQuote({ kind: 'book', hit: a })}>
                           {a.quote && (
                             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
                               <Highlight text={a.quote} terms={terms} />
@@ -173,7 +180,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
                       onOpen={() => onOpenMovie(g.id)}
                     >
                       {g.dialogues.map((d) => (
-                        <ChildHit key={d.id} onClick={() => onOpenMovie(g.id)}>
+                        <ChildHit key={d.id} onClick={() => setQuote({ kind: 'movie', hit: d })}>
                           <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
                             “<Highlight text={d.quote} terms={terms} />”
                           </p>
@@ -193,7 +200,153 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
           )}
         </>
       )}
+
+      {quote && (
+        <QuoteModal
+          kind={quote.kind}
+          hit={quote.hit}
+          onOpenBook={onOpenBook}
+          onOpenMovie={onOpenMovie}
+          onClose={() => setQuote(null)}
+          onChanged={reload}
+        />
+      )}
     </section>
+  )
+}
+
+// QuoteModal — opening a single annotation / dialogue from a search result. It
+// loads the full row (search hits are lean) + its parent (for share
+// attribution) + tags, then renders the SAME AnnotationCard / Frame used on the
+// detail pages, so share / edit / delete behave identically. Edits and deletes
+// re-run the search via onChanged.
+function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) {
+  const isBook = kind === 'book'
+  const parentId = isBook ? hit.book_id : hit.movie_id
+  const childPath = isBook ? `/annotations?book_id=${parentId}` : `/dialogues?movie_id=${parentId}`
+  const childKey = isBook ? 'annotations' : 'dialogues'
+  const itemPath = isBook ? '/annotations' : '/dialogues'
+  const parentPath = isBook ? `/books/${parentId}` : `/movies/${parentId}`
+  const stateFn = isBook ? annotationState : dialogueState
+
+  const [row, setRow] = useState(null)
+  const [parent, setParent] = useState(null)
+  const [tags, setTags] = useState([])
+  const [editing, setEditing] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [error, setError] = useState('')
+  const [gone, setGone] = useState(false)
+  const { stickers, reload: reloadStickers } = useStickers()
+
+  async function loadRow() {
+    const r = await json('GET', childPath)
+    if (!r.ok) return setError(errText(r))
+    const found = (r.data[childKey] || []).find((x) => x.id === hit.id)
+    if (!found) return setGone(true)
+    setRow(found)
+  }
+  useEffect(() => {
+    loadRow()
+    json('GET', parentPath).then((r) => { if (r.ok) setParent(r.data) })
+    json('GET', '/tags').then((r) => { if (r.ok) setTags(r.data.tags) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hit.id, kind])
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !shareOpen) onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose, shareOpen])
+
+  const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+  const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
+
+  async function save(id, fields) {
+    const r = await json('PUT', `${itemPath}/${id}`, fields)
+    if (!r.ok) return errText(r, 'could not save')
+    setEditing(false)
+    await loadRow()
+    onChanged && onChanged()
+    return null
+  }
+  async function patch(x, fields) {
+    const r = await json('PUT', `${itemPath}/${x.id}`, { ...stateFn(x), ...fields })
+    if (!r.ok) return setError(errText(r, 'could not save'))
+    setError('')
+    await loadRow()
+    onChanged && onChanged()
+  }
+  async function remove(x) {
+    if (!confirm(isBook ? 'Delete this annotation?' : 'Delete this dialogue?')) return
+    const r = await json('DELETE', `${itemPath}/${x.id}`)
+    if (r.ok) { onChanged && onChanged(); onClose() }
+    else setError(errText(r))
+  }
+
+  const title = isBook ? parent?.title || hit.book_title : parent?.title || hit.movie_title
+  const sharePayload = () =>
+    isBook
+      ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), rating: row.rating, tags: row.tags })
+      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, rating: row.rating, tags: row.tags, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id })
+
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto px-4 py-10"
+      style={{ background: 'rgba(21,16,12,.55)' }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div role="dialog" aria-modal="true" aria-label="Quote" className="mx-auto w-full max-w-2xl">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <MonoLabel className="block truncate" style={{ maxWidth: '60%' }}>{title || 'Quote'}</MonoLabel>
+          <div className="flex gap-2">
+            <GhostButton onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
+              Open {isBook ? 'book' : 'film'}
+            </GhostButton>
+            <GhostButton onClick={onClose}>Close</GhostButton>
+          </div>
+        </div>
+        <ErrorText>{error}</ErrorText>
+        {gone ? (
+          <HandCard className="p-5"><EmptyState>this quote no longer exists</EmptyState></HandCard>
+        ) : !row ? (
+          <HandCard className="p-5"><p className="microcopy">loading…</p></HandCard>
+        ) : isBook ? (
+          <AnnotationCard
+            a={row}
+            variant={0}
+            tagMap={tagMap}
+            stickerMap={stickerMap}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
+            editing={editing}
+            setEditingId={(id) => setEditing(id != null)}
+            save={save}
+            patch={patch}
+            remove={remove}
+            onShare={() => setShareOpen(true)}
+            quoteLines={40}
+            tagSuggestions={Object.keys(tagMap)}
+          />
+        ) : (
+          <Frame
+            d={row}
+            tagMap={tagMap}
+            stickerMap={stickerMap}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
+            editing={editing}
+            castListId={`quote-cast-${parentId}`}
+            onEdit={() => setEditing(true)}
+            onCancelEdit={() => setEditing(false)}
+            onSave={(fields) => save(row.id, fields)}
+            onPatch={(fields) => patch(row, fields)}
+            onDelete={() => remove(row)}
+            onShare={() => setShareOpen(true)}
+          />
+        )}
+      </div>
+      {shareOpen && row && <ShareDialog share={sharePayload()} onClose={() => setShareOpen(false)} />}
+    </div>
   )
 }
 

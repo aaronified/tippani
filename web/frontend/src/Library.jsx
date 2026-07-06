@@ -853,7 +853,7 @@ export function EditBook({ book, onSaved, onCancel }) {
 
 // annotationState builds the full PUT body from an annotation row — PUT is
 // full-state, so every field must be carried even when only one changes.
-function annotationState(a) {
+export function annotationState(a) {
   return {
     quote: a.quote || '',
     note: a.note || '',
@@ -876,10 +876,10 @@ function annotationState(a) {
 
 // annDate prefers the source/original date (noted_at, set on import or manual
 // add) and falls back to the row's created_at.
-function annDate(a) {
+export function annDate(a) {
   return a.noted_at || a.created_at || ''
 }
-function fmtDate(s) {
+export function fmtDate(s) {
   if (!s) return ''
   const d = new Date(String(s).replace(' ', 'T'))
   if (Number.isNaN(d.getTime())) return ''
@@ -908,7 +908,7 @@ function ActionRow({ a, patch, setEditingId, remove, onShare }) {
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
 // quote clamps to `quoteLines` with an inline show-more.
-function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [] }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [] }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const d = fmtDate(annDate(a))
   return (

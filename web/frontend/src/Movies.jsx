@@ -873,7 +873,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
 
 // dialogueState builds the full PUT body from a dialogue row — PUT is
 // full-state, so every field must be carried even when only one changes.
-function dialogueState(d) {
+export function dialogueState(d) {
   return {
     quote: d.quote || '',
     note: d.note || '',
@@ -1228,7 +1228,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare }) {
   if (editing) {
     return (
       <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
