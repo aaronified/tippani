@@ -35,7 +35,7 @@ func TestOnboardingAndAdmin(t *testing.T) {
 		if body != nil {
 			_ = json.NewEncoder(&buf).Encode(body)
 		}
-		req := httptest.NewRequest(method, path, &buf)
+		req := httptest.NewRequest(method, apiPath(path), &buf)
 		if cookie != nil {
 			req.AddCookie(cookie)
 		}

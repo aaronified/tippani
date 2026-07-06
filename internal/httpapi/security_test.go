@@ -59,7 +59,7 @@ func TestPasswordChangeInvalidatesOtherSessions(t *testing.T) {
 		if body != nil {
 			_ = json.NewEncoder(&buf).Encode(body)
 		}
-		req := httptest.NewRequest(method, path, &buf)
+		req := httptest.NewRequest(method, apiPath(path), &buf)
 		req.Header.Set("Origin", "http://example.test") // satisfy CrossOriginProtection on non-GET
 		req.Host = "example.test"
 		if cookie != nil {
@@ -128,7 +128,7 @@ func TestPasswordLengthBounds(t *testing.T) {
 		long[i] = 'a'
 	}
 	_ = json.NewEncoder(body).Encode(map[string]string{"username": "bob", "password": string(long)})
-	req := httptest.NewRequest("POST", "/auth/signup", body)
+	req := httptest.NewRequest("POST", "/api/auth/signup", body)
 	req.Header.Set("Origin", "http://example.test")
 	req.Host = "example.test"
 	rec := httptest.NewRecorder()
