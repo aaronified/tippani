@@ -353,9 +353,11 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
       asin: b.asin || '',
       description: c.description || b.description || '',
       published_year: c.published_year || b.published_year || 0,
-      genres: b.genres || [],
-      series: b.series || '',
-      series_index: b.series_index || 0,
+      // take genres/series from the candidate when it has them (the whole point
+      // of applying a match), else keep the book's existing values
+      genres: (c.genres && c.genres.length ? c.genres : b.genres) || [],
+      series: c.series || b.series || '',
+      series_index: c.series_index || b.series_index || 0,
       favorite: !!b.favorite,
       rating: b.rating || 0,
       source: c.source || undefined,

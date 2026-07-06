@@ -230,3 +230,28 @@ func TestSearchBooksCap(t *testing.T) {
 		t.Fatalf("got %d candidates, want cap of 8", len(got))
 	}
 }
+
+func TestDeriveSeriesFromTitle(t *testing.T) {
+	cases := []struct {
+		title, subtitle, wantName string
+		wantIdx                   float64
+	}{
+		// series in a parenthetical (the real Google/OL shape for Malazan)
+		{"Reaper's Gale (Malazan Book of Fallen 7) (Malazan Book of the Fallen)", "", "Malazan Book of Fallen", 7},
+		// series after a colon (subtitle folded into the title)
+		{"Reaper's Gale: The Malazan Book of the Fallen 7", "", "The Malazan Book of the Fallen", 7},
+		// series in a separate subtitle field (Google splits it out)
+		{"Reaper's Gale", "The Malazan Book of the Fallen 7", "The Malazan Book of the Fallen", 7},
+		// a descriptive subtitle with no trailing number is NOT a series
+		{"Sapiens: A Brief History of Humankind", "", "", 0},
+		// a plain title with nothing series-like
+		{"Dune", "", "", 0},
+	}
+	for _, c := range cases {
+		name, idx := deriveSeriesFromTitle(c.title, c.subtitle)
+		if name != c.wantName || idx != c.wantIdx {
+			t.Errorf("deriveSeriesFromTitle(%q, %q) = (%q, %v), want (%q, %v)",
+				c.title, c.subtitle, name, idx, c.wantName, c.wantIdx)
+		}
+	}
+}

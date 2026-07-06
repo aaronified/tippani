@@ -816,7 +816,8 @@ function AnnotationCard({ a, variant, tagMap, editing, setEditingId, save, patch
                 text={a.quote}
                 quoteStyle={QUOTE_STYLE}
                 stickerKey={a.tags[0]}
-                maxLines={quoteLines}
+                maxLines={quoteLines} /* collapsed → small corner badge; expanded →
+                                         full positioned/draggable seal (see flow.jsx) */
                 pos={a.sticker_x != null ? { x: a.sticker_x, y: a.sticker_y } : null}
                 onMove={(x, y) => patch(a, { sticker_x: x, sticker_y: y })}
                 sticker={<StickerTag name={a.tags[0]} color={primary.color} />}

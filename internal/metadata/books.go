@@ -45,6 +45,10 @@ type BookCandidate struct {
 // "The Malazan Book of the Fallen, Book 6" into its name and numeric position.
 var seriesRe = regexp.MustCompile(`^(.*?)[\s,]*(?:#|book|no\.?|vol\.?|\()?\s*(\d+(?:\.\d+)?)\)?\s*$`)
 
+// parenRe pulls parenthetical groups out of a title, e.g. the "(Malazan Book of
+// Fallen 7)" in "Reaper's Gale (Malazan Book of Fallen 7)".
+var parenRe = regexp.MustCompile(`\(([^)]+)\)`)
+
 // parseSeries pulls a name + position out of a provider's series label. When no
 // trailing number is present the whole string is the name (index 0).
 func parseSeries(raw string) (string, float64) {
@@ -58,6 +62,33 @@ func parseSeries(raw string) (string, float64) {
 		}
 	}
 	return s, 0
+}
+
+// deriveSeriesFromTitle recovers a "<Series> <N>" that rides in a book's
+// subtitle — either a separate subtitle field (Google) or the part after the
+// last ':' in the title (Open Library folds it in), e.g. "Reaper's Gale: The
+// Malazan Book of the Fallen 7". A trailing number is REQUIRED, so a plain
+// descriptive subtitle ("A Brief History of Humankind") is not mistaken for a
+// series. Returns ("", 0) when nothing series-like is found.
+func deriveSeriesFromTitle(title, subtitle string) (string, float64) {
+	cands := []string{subtitle}
+	// parenthetical groups, e.g. "Reaper's Gale (Malazan Book of Fallen 7)"
+	for _, m := range parenRe.FindAllStringSubmatch(title, -1) {
+		cands = append(cands, m[1])
+	}
+	// the part after the last colon, e.g. "Title: The Malazan Book of the Fallen 7"
+	if i := strings.LastIndex(title, ":"); i >= 0 {
+		cands = append(cands, title[i+1:])
+	}
+	for _, c := range cands {
+		if strings.TrimSpace(c) == "" {
+			continue
+		}
+		if name, idx := parseSeries(c); idx > 0 && name != "" {
+			return name, idx
+		}
+	}
+	return "", 0
 }
 
 // SearchBooks queries Google Books (isbn: or intitle:) and Open Library (by
@@ -95,6 +126,17 @@ func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCand
 			return nil, olErr
 		}
 	}
+	// Backfill series for any candidate a provider didn't tag directly — the name
+	// + index often ride in the title's subtitle ("Title: The Malazan Book of the
+	// Fallen 7"). Requires a trailing number, so descriptive subtitles are safe.
+	for i := range out {
+		if strings.TrimSpace(out[i].Series) == "" {
+			if name, idx := deriveSeriesFromTitle(out[i].Title, ""); name != "" {
+				out[i].Series = name
+				out[i].SeriesIndex = idx
+			}
+		}
+	}
 	if len(out) > maxBookCandidates {
 		out = out[:maxBookCandidates]
 	}
@@ -121,6 +163,7 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 			ID         string `json:"id"`
 			VolumeInfo struct {
 				Title               string   `json:"title"`
+				Subtitle            string   `json:"subtitle"`
 				Authors             []string `json:"authors"`
 				Description         string   `json:"description"`
 				PublishedDate       string   `json:"publishedDate"`
@@ -152,6 +195,7 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 		if isbn13 == "" {
 			isbn13 = NormalizeISBN(isbn10) // "" in, "" out
 		}
+		gName, gIdx := deriveSeriesFromTitle(vi.Title, vi.Subtitle)
 		out = append(out, BookCandidate{
 			Source:        "google",
 			SourceID:      it.ID,
@@ -162,6 +206,8 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 			PublishedYear: leadingYear(vi.PublishedDate),
 			Genres:        vi.Categories,
 			CoverURL:      bestGoogleCover(vi.ImageLinks),
+			Series:        gName,
+			SeriesIndex:   gIdx,
 		})
 	}
 	return out, nil

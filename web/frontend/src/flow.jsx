@@ -15,6 +15,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ANNOTATION_HEX } from './ui.jsx'
 
+// How far a seal may spill past the quote block into the inter-card gutter —
+// roughly half the gap between cards, so it breathes without touching a neighbour.
+const OVERFLOW = 10
+
 // usePrefersReducedMotion — flowed layout is an enhancement; respect the OS
 // setting and fall back to plain text (with a floated seal) when it's on.
 function usePrefersReducedMotion() {
@@ -150,19 +154,33 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
       if (cancelled) return
       const W = el.clientWidth
       if (!W) return
-      const r = Math.min(radius, Math.floor(W / 3)) // never eat more than a third
+      const full = Math.min(radius, Math.floor(W / 3)) // never eat more than a third
       const { font, lh } = fontOf(el)
-      // The text's natural (unobstructed) height bounds how far down the seal may
-      // sit — otherwise a low seal on a short quote floats off the bottom of the
-      // card. At least 2r so the seal always fits.
-      const naturalH = Math.max(computeLines(mod, text, font, lh, W, { cx: 0, cy: 0, r: 0 }, gap).length * lh, r * 2)
-      const p = posRef.current
-      let cx = p && typeof p.x === 'number' ? p.x * W : W - r // default: top-right
-      let cy = p && typeof p.y === 'number' ? p.y * W : r
-      cx = Math.max(r, Math.min(W - r, cx))
-      cy = Math.max(r, Math.min(naturalH - r, cy))
+      // natLines = height the text takes unobstructed; it bounds how far down the
+      // seal may sit and decides whether the quote is long enough to clamp.
+      const natLines = computeLines(mod, text, font, lh, W, { cx: 0, cy: 0, r: 0 }, gap).length
+      const naturalH = Math.max(natLines * lh, full * 2)
+      const clampable = maxLines > 0 && natLines > maxLines
+      // Collapsed = clampable and not expanded: the seal shrinks to a small badge
+      // in the top-right corner so a cut quote never strands it in dead space.
+      // Expanded (or a short quote): the full seal sits at its saved position,
+      // draggable, and may spill OVERFLOW px into the gutter.
+      const collapsed = clampable && !open
+      let r, cx, cy
+      if (collapsed) {
+        r = Math.max(15, Math.round(full * 0.5))
+        cx = W - r + Math.min(OVERFLOW, Math.round(r * 0.5))
+        cy = r - Math.min(OVERFLOW, Math.round(r * 0.5))
+      } else {
+        r = full
+        const p = posRef.current
+        cx = p && typeof p.x === 'number' ? p.x * W : W - r // default: top-right
+        cy = p && typeof p.y === 'number' ? p.y * W : r
+        cx = Math.max(r - OVERFLOW, Math.min(W - r + OVERFLOW, cx))
+        cy = Math.max(r - OVERFLOW, Math.min(naturalH - r + OVERFLOW, cy))
+      }
       const lines = computeLines(mod, text, font, lh, W, { cx, cy, r }, gap)
-      if (!cancelled) setState({ lines, lh, r, W, cx, cy, naturalH })
+      if (!cancelled) setState({ lines, lh, r, W, cx, cy, naturalH, collapsed, clampable })
     }
     relayoutRef.current = () => relayout().catch(() => {})
     relayout().catch(() => { if (!cancelled) setState(null) }) // any failure → plain fallback
@@ -171,7 +189,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
     // Web fonts change metrics — re-flow once they're ready.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!cancelled) relayout().catch(() => {}) })
     return () => { cancelled = true; ro.disconnect(); relayoutRef.current = null }
-  }, [text, stickerKey, hasSticker, reduce, radius, gap])
+  }, [text, stickerKey, hasSticker, reduce, radius, gap, open, maxLines])
 
   // ---- drag (stable identities via refs) ----
   const onSealMove = useCallback((e) => {
@@ -179,8 +197,8 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
     if (!d) return
     let cx = e.clientX - d.left - d.grabDx
     let cy = e.clientY - d.top - d.grabDy
-    cx = Math.max(d.r, Math.min(d.W - d.r, cx))
-    cy = Math.max(d.r, Math.min(Math.max(d.r, d.naturalH - d.r), cy))
+    cx = Math.max(d.r - OVERFLOW, Math.min(d.W - d.r + OVERFLOW, cx))
+    cy = Math.max(d.r - OVERFLOW, Math.min(Math.max(d.r, d.naturalH - d.r + OVERFLOW), cy))
     posRef.current = { x: cx / d.W, y: cy / d.W }
     if (relayoutRef.current) relayoutRef.current()
   }, [])
@@ -195,7 +213,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   }, [onSealMove])
   const onSealDown = useCallback((e) => {
     const st = stateRef.current
-    if (!onMoveRef.current || !st) return
+    if (!onMoveRef.current || !st || st.collapsed) return // no drag on the small badge
     e.preventDefault()
     e.stopPropagation() // don't let the card treat this as a click/navigation
     const el = ref.current
@@ -216,17 +234,17 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
 
   const size = state ? state.r * 2 : radius * 2
   const allLines = state ? state.lines : []
-  const clamped = maxLines > 0 && !open && allLines.length > maxLines
-  const shown = clamped ? allLines.slice(0, maxLines) : allLines
-  const canToggle = !!state && maxLines > 0 && (allLines.length > maxLines || open)
-  const draggable = !!onMove
+  const collapsed = !!(state && state.collapsed)
+  const shown = collapsed ? allLines.slice(0, maxLines) : allLines
+  const canToggle = !!state && state.clampable
+  const canDrag = !!onMove && !collapsed
   return (
     <div ref={ref} className={`flow ${className}`} style={{ position: 'relative', ...quoteStyle }}>
       {state ? (
         <>
           <span
             className="flow-sticker"
-            onPointerDown={draggable ? onSealDown : undefined}
+            onPointerDown={canDrag ? onSealDown : undefined}
             style={{
               position: 'absolute',
               left: state.cx - state.r,
@@ -234,14 +252,15 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
               width: size,
               height: size,
               zIndex: 2,
-              cursor: draggable ? 'grab' : 'default',
-              touchAction: draggable ? 'none' : undefined,
+              cursor: canDrag ? 'grab' : 'default',
+              touchAction: canDrag ? 'none' : undefined,
+              transition: 'left .18s ease, top .18s ease, width .18s ease, height .18s ease',
             }}
-            title={draggable ? 'Drag to reposition' : undefined}
+            title={canDrag ? 'Drag to reposition' : undefined}
           >
             {sticker}
           </span>
-          <div style={{ height: Math.max(shown.length * state.lh, state.cy + state.r) }}>
+          <div style={{ height: shown.length * state.lh }}>
             {shown.map((ln, i) => (
               <div key={i} style={{ position: 'relative', height: state.lh }}>
                 {ln.segs.map((s, j) => (
