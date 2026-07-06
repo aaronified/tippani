@@ -564,21 +564,38 @@ export function Toggle({ value, onChange, options, label, ariaLabel, className =
 // and typing filters `suggestions` into a dropdown (Enter/comma or click adds;
 // Backspace on an empty field removes the last). `value`/`onChange` are a string
 // array, so callers no longer juggle comma-joined strings.
-export function TokenInput({ value = [], onChange, suggestions = [], placeholder = 'add…', ariaLabel }) {
+export function TokenInput({ value = [], onChange, suggestions = [], placeholder = 'add…', ariaLabel, transform }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
   const boxRef = useRef(null)
   const inputRef = useRef(null)
+  const norm = (t) => (transform ? transform(t) : t)
   const q = text.trim().toLowerCase()
   const matches = suggestions.filter((s) => !value.includes(s) && (!q || s.toLowerCase().includes(q))).slice(0, 8)
+  // Adding always splits on commas — one "add" can enter several tokens — and
+  // each is run through the optional transform (e.g. Title-Case for genres).
   const add = (tok) => {
-    const t = (tok || '').trim()
-    if (t && !value.includes(t)) onChange([...value, t])
+    const pieces = splitCommas(String(tok || '')).map(norm).filter(Boolean)
+    if (pieces.length) {
+      const next = [...value]
+      for (const p of pieces) if (!next.includes(p)) next.push(p)
+      onChange(next)
+    }
     setText('')
     setHi(0)
     setOpen(false)
   }
+  // Normalize whatever arrives from the parent (a metadata candidate can hand in
+  // one comma-joined "Fiction, fantasy, general" string, or mixed casing): split
+  // on commas, transform, dedupe. Idempotent, so this settles after one pass.
+  useEffect(() => {
+    const cleaned = []
+    for (const v of value) for (const p of splitCommas(v).map(norm)) if (p && !cleaned.includes(p)) cleaned.push(p)
+    const same = cleaned.length === value.length && cleaned.every((t, i) => t === value[i])
+    if (!same) onChange(cleaned)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
   const removeAt = (i) => onChange(value.filter((_, j) => j !== i))
   const onKey = (e) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -857,10 +874,21 @@ export const colorDotClass = { yellow: 'dot-yellow', blue: 'dot-blue', pink: 'do
 
 // splitCommas turns a comma-separated input value into a trimmed string array.
 export function splitCommas(s) {
-  return s
+  return String(s)
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean)
+}
+
+// titleCaseGenre normalizes a genre's casing: Title Case each word, EXCEPT a
+// token that arrives all-caps (an acronym like "YA" / "SFF" / "LGBTQ"), which is
+// left untouched. "fantasy" -> "Fantasy", "science fiction" -> "Science Fiction",
+// "YA" -> "YA".
+export function titleCaseGenre(s) {
+  const str = String(s).trim()
+  const letters = str.replace(/[^\p{L}]/gu, '')
+  if (letters && letters === letters.toUpperCase()) return str // keep acronyms / all-caps
+  return str.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
 }
 
 export function ErrorText({ children }) {

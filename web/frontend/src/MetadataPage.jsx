@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
+import { EditBook } from './Library.jsx'
+import { EditMovie } from './Movies.jsx'
 import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip, splitCommas } from './ui.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
@@ -396,8 +398,29 @@ function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash }) {
   )
 }
 
+// InlineEdit fetches a book/movie detail and renders its full editor inline in a
+// console row, so metadata can be corrected without leaving the page. kind is
+// "books" | "movies".
+function InlineEdit({ kind, id, onDone, onCancel }) {
+  const [row, setRow] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    json('GET', `/${kind}/${id}`).then((r) => (r.ok ? setRow(r.data) : setErr(errText(r))))
+  }, [kind, id])
+  if (err) return <ErrorText>{err}</ErrorText>
+  if (!row) return <p className="microcopy mt-3">loading…</p>
+  return (
+    <div className="mt-3">
+      {kind === 'books'
+        ? <EditBook book={row} onSaved={onDone} onCancel={onCancel} />
+        : <EditMovie movie={row} onSaved={onDone} onCancel={onCancel} />}
+    </div>
+  )
+}
+
 function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
+  const [editing, setEditing] = useState(false)
   const gaps = [
     !book.has_cover && 'no cover',
     !book.has_author && 'no author',
@@ -450,9 +473,11 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
           </p>
           <GapChips gaps={gaps} />
         </div>
+        <GhostButton onClick={() => setEditing((v) => !v)}>{editing ? 'Close' : 'Edit'}</GhostButton>
         <GhostButton onClick={onToggleLookup}>{open ? 'Close' : 'Look up'}</GhostButton>
         {onOpen && <GhostButton onClick={() => onOpen(book.id)}>Open</GhostButton>}
       </div>
+      {editing && <InlineEdit kind="books" id={book.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
         <div className="mt-3">
           <BookLookupPicker title={book.title} isbn={book.isbn} asin={book.asin} onPick={apply} />
@@ -598,6 +623,7 @@ function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
 
 function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
+  const [editing, setEditing] = useState(false)
   const gaps = [!movie.has_poster && 'no poster', !movie.has_cast && 'no cast', !movie.has_source && 'no source'].filter(Boolean)
 
   async function resync(c) {
@@ -623,9 +649,11 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
           </p>
           <GapChips gaps={gaps} />
         </div>
+        <GhostButton onClick={() => setEditing((v) => !v)}>{editing ? 'Close' : 'Edit'}</GhostButton>
         <GhostButton onClick={onToggleLookup}>{open ? 'Close' : 'Look up'}</GhostButton>
         {onOpen && <GhostButton onClick={() => onOpen(movie.id)}>Open</GhostButton>}
       </div>
+      {editing && <InlineEdit kind="movies" id={movie.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
         <div className="mt-3">
           <MovieLookupPicker title={movie.title} year={movie.release_year} mediaType={movie.media_type || 'movie'} onPick={resync} />

@@ -60,16 +60,39 @@ func TestBulkUpdateBooks(t *testing.T) {
 			t.Fatalf("book %d not updated: author=%v series=%v", id, m["author"], m["series"])
 		}
 	}
-	// Genre union: 'a' had fantasy, now +epic; 'b' had none, now epic.
+	// Genre union: 'a' had fantasy, now +epic; 'b' had none, now epic. Genres are
+	// stored Title-Cased.
 	if g := bookGenres(t, c, a); len(g) != 2 {
-		t.Fatalf("book a genres = %v, want 2 (fantasy+epic)", g)
+		t.Fatalf("book a genres = %v, want 2 (Fantasy+Epic)", g)
 	}
-	if g := bookGenres(t, c, b); len(g) != 1 || g[0] != "epic" {
-		t.Fatalf("book b genres = %v, want [epic]", g)
+	if g := bookGenres(t, c, b); len(g) != 1 || g[0] != "Epic" {
+		t.Fatalf("book b genres = %v, want [Epic]", g)
 	}
 	// The unselected book is untouched (series unset serializes as "").
 	if m := get(other); m["author"] != "someone else" || (m["series"] != nil && m["series"] != "") {
 		t.Fatalf("unselected book changed: %v / %v", m["author"], m["series"])
+	}
+}
+
+// TestGenreNormalization pins the user's rule: a comma always divides a genre,
+// and genres are Title-Cased — except tokens that arrive all-caps (acronyms like
+// "YA"), which are kept as-is. "Fiction, fantasy, general" + "YA" must store as
+// four genres: Fiction, Fantasy, General, YA.
+func TestGenreNormalization(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	id := mkBook(t, c, map[string]any{"title": "Genre Test", "genres": []string{"Fiction, fantasy, general", "YA"}})
+
+	got := bookGenres(t, c, id)
+	want := map[string]bool{"Fiction": true, "Fantasy": true, "General": true, "YA": true}
+	if len(got) != 4 {
+		t.Fatalf("genres = %v, want 4 (split on comma + title-cased)", got)
+	}
+	for _, g := range got {
+		if !want[g] {
+			t.Fatalf("unexpected genre %q in %v (want %v)", g, got, want)
+		}
 	}
 }
 

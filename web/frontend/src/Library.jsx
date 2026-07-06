@@ -25,6 +25,7 @@ import {
   Select,
   TagChip,
   TiltStars,
+  titleCaseGenre,
   Toggle,
   TokenInput,
   EditReveal,
@@ -592,7 +593,7 @@ function BookDetail({ id, onClose }) {
   )
 }
 
-function EditBook({ book, onSaved, onCancel }) {
+export function EditBook({ book, onSaved, onCancel }) {
   const [title, setTitle] = useState(book.title || '')
   const [author, setAuthor] = useState(book.author || '')
   const [isbn, setIsbn] = useState(book.isbn || '')
@@ -731,7 +732,7 @@ function EditBook({ book, onSaved, onCancel }) {
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">Genres</MonoLabel>
-        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
       </label>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
         <Field label="Series" placeholder="e.g. Discworld" value={series} onChange={(e) => setSeries(e.target.value)} />

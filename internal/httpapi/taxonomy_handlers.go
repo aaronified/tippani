@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"unicode"
 )
 
 // defaultSeedTags is the starter tag vocabulary every new user receives, so the
@@ -255,20 +256,53 @@ func cleanTagName(n string) string {
 	return n
 }
 
-// cleanNames normalizes a genre/tag name list: trim, drop empties, cap 64
-// runes, dedupe case-insensitively keeping the first spelling.
+// cleanNames normalizes a genre/tag name list: a comma ALWAYS divides (so a
+// provider that hands back "Fiction, fantasy, general" as one string becomes
+// three names), then trim, drop empties, cap 64 runes, dedupe case-insensitively
+// keeping the first spelling.
 func cleanNames(names []string) []string {
 	seen := map[string]bool{}
 	out := []string{}
-	for _, n := range names {
-		n = cleanTagName(n)
-		if n == "" || seen[strings.ToLower(n)] {
-			continue
+	for _, raw := range names {
+		for _, part := range strings.Split(raw, ",") {
+			n := cleanTagName(part)
+			if n == "" || seen[strings.ToLower(n)] {
+				continue
+			}
+			seen[strings.ToLower(n)] = true
+			out = append(out, n)
 		}
-		seen[strings.ToLower(n)] = true
-		out = append(out, n)
 	}
 	return out
+}
+
+// titleCaseGenre Title-Cases a genre, leaving an all-caps token (an acronym like
+// "YA" / "SFF") untouched. Mirrors the frontend helper of the same name.
+func titleCaseGenre(s string) string {
+	s = strings.TrimSpace(s)
+	hasLetter, allUpper := false, true
+	for _, r := range s {
+		if unicode.IsLetter(r) {
+			hasLetter = true
+			if !unicode.IsUpper(r) {
+				allUpper = false
+			}
+		}
+	}
+	if hasLetter && allUpper {
+		return s // keep acronyms / all-caps as they came in
+	}
+	var b strings.Builder
+	prevSpace := true
+	for _, r := range s {
+		if prevSpace {
+			b.WriteRune(unicode.ToUpper(r))
+		} else {
+			b.WriteRune(unicode.ToLower(r))
+		}
+		prevSpace = unicode.IsSpace(r)
+	}
+	return b.String()
 }
 
 // setGenres replaces the genre set of one book or movie (kind: "book" or
@@ -278,6 +312,12 @@ func cleanNames(names []string) []string {
 // table is shared between books and movies (PLAN §3b).
 func setGenres(tx *sql.Tx, kind string, userID, ownerID int64, names []string) error {
 	names = cleanNames(names)
+	// Genres carry a consistent casing (Title Case, acronyms preserved); tags keep
+	// whatever the user typed. cleanNames already deduped case-insensitively, so
+	// title-casing can't introduce a new collision.
+	for i := range names {
+		names[i] = titleCaseGenre(names[i])
+	}
 	if _, err := tx.Exec(`DELETE FROM `+kind+`_genres WHERE `+kind+`_id = ?`, ownerID); err != nil {
 		return err
 	}

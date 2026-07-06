@@ -33,6 +33,7 @@ import {
   frameCode,
   seriesLabel,
   splitCommas,
+  titleCaseGenre,
   useCoverSize,
   useFrameBase,
   usePersistedState,
@@ -605,7 +606,7 @@ function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
           onChange={(e) => setDirector(e.target.value)}
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
-        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
         <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
@@ -748,7 +749,7 @@ function MovieDetail({ id, onClose }) {
   )
 }
 
-function EditMovie({ movie, onSaved, onCancel }) {
+export function EditMovie({ movie, onSaved, onCancel }) {
   const [title, setTitle] = useState(movie.title || '')
   const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
   const [director, setDirector] = useState(movie.director || '')
@@ -845,7 +846,7 @@ function EditMovie({ movie, onSaved, onCancel }) {
           onChange={(e) => setDirector(e.target.value)}
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
-        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" />
+        <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
         <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
