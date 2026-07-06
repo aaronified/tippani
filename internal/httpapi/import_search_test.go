@@ -10,10 +10,11 @@ import (
 )
 
 type importResult struct {
-	BookID   int64 `json:"book_id"`
-	Added    int   `json:"added"`
-	Skipped  int   `json:"skipped"`
-	Enriched int   `json:"enriched"`
+	BookID   int64   `json:"book_id"`
+	BookIDs  []int64 `json:"book_ids"`
+	Added    int     `json:"added"`
+	Skipped  int     `json:"skipped"`
+	Enriched int     `json:"enriched"`
 }
 
 func TestImportMarkdown(t *testing.T) {
@@ -84,6 +85,44 @@ func TestImportMarkdown(t *testing.T) {
 	// Missing file field / unparseable file -> 400.
 	if rec := c.doRaw("POST", "/import/markdown", strings.NewReader("nope"), "text/plain"); rec.Code != http.StatusBadRequest {
 		t.Fatalf("no multipart: %d", rec.Code)
+	}
+}
+
+// TestImportMarkdownMultiBook covers the export round-trip: one .md holding two
+// "---" frontmatter blocks imports as two distinct books, and the first must not
+// absorb the second's quotes.
+func TestImportMarkdownMultiBook(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	md := "---\ntitle: Alpha\nauthor: A. One\n---\n\n> First alpha quote.\n\n> Second alpha quote.\n\n" +
+		"---\ntitle: Beta\nauthor: B. Two\n---\n\n> Only beta quote.\n"
+
+	res := decode[importResult](t, c.importFile("/import/markdown", "both.md", []byte(md)))
+	if res.Added != 3 || res.Skipped != 0 {
+		t.Fatalf("multi-book import: %+v", res)
+	}
+	if len(res.BookIDs) != 2 {
+		t.Fatalf("want 2 book_ids, got %v", res.BookIDs)
+	}
+	// Alpha keeps its two quotes; Beta keeps its one (no leakage).
+	counts := map[string]int{}
+	for _, id := range res.BookIDs {
+		b := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(id), nil, 200))
+		anns := decode[struct {
+			Annotations []annotationRow `json:"annotations"`
+		}](t, c.mustDo("GET", "/annotations?book_id="+itoa(id), nil, 200))
+		counts[b.Title] = len(anns.Annotations)
+	}
+	if counts["Alpha"] != 2 || counts["Beta"] != 1 {
+		t.Fatalf("per-book annotation counts = %v (want Alpha:2 Beta:1)", counts)
+	}
+
+	// Idempotent: re-importing the same multi-book file adds nothing.
+	res2 := decode[importResult](t, c.importFile("/import/markdown", "both.md", []byte(md)))
+	if res2.Added != 0 || res2.Skipped != 3 {
+		t.Fatalf("re-import: %+v", res2)
 	}
 }
 

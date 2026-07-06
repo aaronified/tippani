@@ -16,7 +16,8 @@ import (
 const maxImportBody = 5 << 20
 
 func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
-	s.handleImport(w, r, "md", importer.Markdown)
+	// Markdown may carry many books in one file (multi-book export round-trip).
+	s.handleImportN(w, r, "md", importer.MarkdownAll)
 }
 
 func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
@@ -35,11 +36,31 @@ func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Reque
 	s.handleImport(w, r, "kindle_notebook", importer.AmazonNotebook) // read.amazon.com/notebook (PLAN §5)
 }
 
-// handleImport is the shared multipart import flow: cap -> parse -> one
-// transaction for the book upsert and every annotation insert (PLAN §5, §8).
-// dedupe_hash duplicates are counted as skipped, so re-imports are idempotent.
+// importClientError marks a parse-result problem that's the uploaded file's
+// fault (a 400), not a server fault (a 500) — e.g. an invalid annotation colour.
+type importClientError struct{ msg string }
+
+func (e importClientError) Error() string { return e.msg }
+
+// handleImport adapts a single-book parser to the multi-book flow so every
+// source funnels through one persistence path.
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source string,
 	parse func(io.Reader) (*importer.Result, error)) {
+	s.handleImportN(w, r, source, func(rd io.Reader) ([]*importer.Result, error) {
+		res, err := parse(rd)
+		if err != nil {
+			return nil, err
+		}
+		return []*importer.Result{res}, nil
+	})
+}
+
+// handleImportN is the shared multipart import flow: cap -> parse (one or many
+// books) -> one transaction for every book's upsert + annotation inserts (PLAN
+// §5, §8). dedupe_hash duplicates are counted as skipped, so re-imports are
+// idempotent; a multi-book file lands every book (export round-trip).
+func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source string,
+	parseAll func(io.Reader) ([]*importer.Result, error)) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBody) // before parsing
 	f, _, err := r.FormFile("file")
@@ -48,9 +69,13 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 		return
 	}
 	defer f.Close()
-	res, err := parse(f)
+	results, err := parseAll(f)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(results) == 0 {
+		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
 
@@ -61,10 +86,67 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 		return
 	}
 	defer tx.Rollback()
-	bookID, created, err := upsertImportBook(tx, uid, res.Book)
-	if err != nil {
+
+	type bookSummary struct {
+		BookID   int64  `json:"book_id"`
+		Title    string `json:"title"`
+		Added    int    `json:"added"`
+		Skipped  int    `json:"skipped"`
+		Enriched int    `json:"enriched"`
+	}
+	var (
+		books     []bookSummary
+		bookIDs   []int64
+		allDupes  []dupHint
+		tAdd, tEn int
+	)
+	for _, res := range results {
+		bookID, added, enriched, dupes, err := s.importOneBook(tx, uid, source, res)
+		if err != nil {
+			var ce importClientError
+			if errors.As(err, &ce) {
+				writeErr(w, http.StatusBadRequest, ce.msg)
+			} else {
+				writeErr(w, http.StatusInternalServerError, "internal error")
+			}
+			return
+		}
+		books = append(books, bookSummary{bookID, res.Book.Title, added, len(res.Annotations) - added, enriched})
+		bookIDs = append(bookIDs, bookID)
+		allDupes = append(allDupes, dupes...)
+		tAdd += added
+		tEn += enriched
+	}
+	if err := tx.Commit(); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	if allDupes == nil {
+		allDupes = []dupHint{}
+	}
+	total := 0
+	for _, res := range results {
+		total += len(res.Annotations)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"book_id":             bookIDs[0], // back-compat: the first (usually only) book
+		"book_ids":            bookIDs,
+		"books":               books,
+		"added":               tAdd,
+		"skipped":             total - tAdd,
+		"enriched":            tEn,
+		"possible_duplicates": allDupes,
+	})
+}
+
+// importOneBook upserts one parsed book and inserts/enriches its annotations
+// inside the caller's transaction. It returns the book id, how many annotations
+// were added and enriched, and any look-alike hints for a freshly-created book.
+// A bad annotation colour comes back as an importClientError (a 400).
+func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *importer.Result) (int64, int, int, []dupHint, error) {
+	bookID, created, err := upsertImportBook(tx, uid, res.Book)
+	if err != nil {
+		return 0, 0, 0, nil, err
 	}
 	// When a new book row was created, flag look-alikes already in the library
 	// so the review UI can offer to merge (PLAN §5): "Homo Deus" landing beside
@@ -72,8 +154,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 	var dupes []dupHint
 	if created {
 		if dupes, err = findSimilarBooks(tx, uid, res.Book.Title, bookID); err != nil {
-			writeErr(w, http.StatusInternalServerError, "internal error")
-			return
+			return 0, 0, 0, nil, err
 		}
 	}
 	added, enriched := 0, 0
@@ -83,8 +164,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 			color = "yellow" // Kindle sources carry no colour (PLAN §3)
 		}
 		if !validColor(color) {
-			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid color %q", a.Color))
-			return
+			return 0, 0, 0, nil, importClientError{fmt.Sprintf("invalid color %q", a.Color)}
 		}
 		text := a.Quote
 		if text == "" {
@@ -98,8 +178,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 			nullable(a.Chapter), nullable(a.Location), a.Favorite, a.Rating,
 			source, store.DedupeHash(text))
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "internal error")
-			return
+			return 0, 0, 0, nil, err
 		}
 		if n, _ := ins.RowsAffected(); n == 0 {
 			// Duplicate (same dedupe hash): enrich instead of discarding — the
@@ -131,8 +210,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 				nullable(a.Chapter), nullable(a.Location), nullable(a.Note),
 				color, a.Favorite, a.Rating)
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, "internal error")
-				return
+				return 0, 0, 0, nil, err
 			}
 			if n, _ := upd.RowsAffected(); n > 0 {
 				enriched++
@@ -142,8 +220,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 				if err := tx.QueryRow(`SELECT id FROM annotations WHERE book_id = ? AND dedupe_hash = ?`,
 					bookID, store.DedupeHash(text)).Scan(&annID); err == nil {
 					if err := addTags(tx, "annotation", uid, annID, a.Tags); err != nil {
-						writeErr(w, http.StatusInternalServerError, "internal error")
-						return
+						return 0, 0, 0, nil, err
 					}
 				}
 			}
@@ -153,25 +230,11 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 		if len(a.Tags) > 0 {
 			annID, _ := ins.LastInsertId()
 			if err := setTags(tx, "annotation", uid, annID, a.Tags); err != nil {
-				writeErr(w, http.StatusInternalServerError, "internal error")
-				return
+				return 0, 0, 0, nil, err
 			}
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	if dupes == nil {
-		dupes = []dupHint{}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"book_id":             bookID,
-		"added":               added,
-		"skipped":             len(res.Annotations) - added,
-		"enriched":            enriched,
-		"possible_duplicates": dupes,
-	})
+	return bookID, added, enriched, dupes, nil
 }
 
 // upsertImportBook finds or creates the import target. Identity falls through

@@ -34,6 +34,69 @@ func Markdown(r io.Reader) (*Result, error) {
 	return nil, errors.New(`markdown: unrecognized format (expected "---" frontmatter or a "# Title" heading)`)
 }
 
+// MarkdownAll parses an export that may hold MANY books — the multi-book ".md"
+// that the export endpoints produce, where each book keeps its own "---"
+// frontmatter block — returning one Result per book. A single-book file (one
+// frontmatter block, or a Readest "# Title" export) yields a one-element slice,
+// so callers can treat every markdown import uniformly. Book boundaries are the
+// frontmatter "---" delimiters; Tippani exports never emit a bare "---" in the
+// body, so the open+close pairs alone locate each book.
+func MarkdownAll(r io.Reader) ([]*Result, error) {
+	lines, err := readLines(r)
+	if err != nil {
+		return nil, err
+	}
+	first := -1
+	for i, l := range lines {
+		if strings.TrimSpace(l) != "" {
+			first = i
+			break
+		}
+	}
+	if first < 0 {
+		return nil, errors.New("markdown: empty file")
+	}
+	// Readest export → a single book (no frontmatter blocks to split on).
+	if strings.HasPrefix(lines[first], "# ") {
+		res, err := parseReadest(lines[first:])
+		if err != nil {
+			return nil, err
+		}
+		return []*Result{res}, nil
+	}
+	if lines[first] != "---" {
+		return nil, errors.New(`markdown: unrecognized format (expected "---" frontmatter or a "# Title" heading)`)
+	}
+	// Collect the opening "---" of each book. Each book contributes an open+close
+	// pair and its body has no bare "---", so the opens are every other "---".
+	var opens []int
+	inFM := false
+	for i := first; i < len(lines); i++ {
+		if lines[i] != "---" {
+			continue
+		}
+		if inFM {
+			inFM = false // closing this book's frontmatter
+		} else {
+			opens = append(opens, i) // opening the next book
+			inFM = true
+		}
+	}
+	var out []*Result
+	for k, start := range opens {
+		end := len(lines)
+		if k+1 < len(opens) {
+			end = opens[k+1]
+		}
+		res, err := parseFrontmatter(lines[start+1 : end])
+		if err != nil {
+			return nil, fmt.Errorf("book %d: %w", k+1, err)
+		}
+		out = append(out, res)
+	}
+	return out, nil
+}
+
 // readLines slurps the upload (callers cap the size, PLAN §5), normalizing
 // CRLF and stripping a UTF-8 BOM.
 func readLines(r io.Reader) ([]string, error) {

@@ -201,6 +201,50 @@ func TestMarkdownReadestSynth(t *testing.T) {
 	}
 }
 
+// A multi-book export (exportSet joins per-book frontmatter blocks with a blank
+// line) must round-trip as many books — the second book's quotes must NOT leak
+// into the first (the pre-fix bug).
+func TestMarkdownAllMultiBook(t *testing.T) {
+	multi := "---\ntitle: First Book\nauthor: A. One\n---\n\n" +
+		"## Chapter 1\n\n> Quote from the first book.\n- loc: p.10\n\n" +
+		"---\ntitle: Second Book\nauthor: B. Two\nisbn: 9780000000001\n---\n\n" +
+		"> Quote from the second book.\n- rating: 4\n> Another second-book quote.\n"
+	res, err := MarkdownAll(strings.NewReader(multi))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("got %d books, want 2", len(res))
+	}
+	if res[0].Book.Title != "First Book" || len(res[0].Annotations) != 1 {
+		t.Fatalf("book 0 = %+v / %d anns", res[0].Book, len(res[0].Annotations))
+	}
+	if a := res[0].Annotations[0]; a.Quote != "Quote from the first book." || a.Chapter != "Chapter 1" || a.Location != "p.10" {
+		t.Fatalf("book 0 ann leaked/wrong: %+v", a)
+	}
+	if res[1].Book.Title != "Second Book" || res[1].Book.ISBN != "9780000000001" {
+		t.Fatalf("book 1 = %+v", res[1].Book)
+	}
+	if len(res[1].Annotations) != 2 {
+		t.Fatalf("book 1 got %d annotations, want 2", len(res[1].Annotations))
+	}
+	if res[1].Annotations[0].Rating != 4 {
+		t.Errorf("book 1 ann0 rating = %d, want 4", res[1].Annotations[0].Rating)
+	}
+}
+
+// A single-book file (frontmatter or Readest) yields exactly one Result via
+// MarkdownAll, so the import handler can treat every markdown upload uniformly.
+func TestMarkdownAllSingle(t *testing.T) {
+	res, err := MarkdownAll(strings.NewReader(mdFull))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 || res[0].Book.Title != "The Book Title" || len(res[0].Annotations) != 1 {
+		t.Fatalf("single-book MarkdownAll = %d books", len(res))
+	}
+}
+
 func TestMarkdownReadestReal(t *testing.T) {
 	f, err := os.Open("testdata/markdown_real.md")
 	if err != nil {

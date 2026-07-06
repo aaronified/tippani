@@ -127,7 +127,10 @@ export default function ImportPage({ onOpenMovie }) {
     // books this batch touched. Movie/show imports (IMDb → dialogues) return no
     // book_id, so the filter naturally skips them.
     const q = []
-    for (const bookId of [...new Set(ok.map((r) => r.book_id).filter(Boolean))]) {
+    // A markdown file may import many books (multi-book export), so prefer the
+    // book_ids array; fall back to the single book_id for other sources.
+    const touched = ok.flatMap((r) => r.book_ids || (r.book_id ? [r.book_id] : []))
+    for (const bookId of [...new Set(touched.filter(Boolean))]) {
       const a = await json('GET', `/annotations?book_id=${bookId}`)
       if (!a.ok) continue
       for (const ann of a.data.annotations) {
