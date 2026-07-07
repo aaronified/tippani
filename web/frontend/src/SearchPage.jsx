@@ -18,6 +18,7 @@ import {
   Select,
   SortableTh,
   splitCommas,
+  useIsMobileScreen,
   usePersistedState,
   useSort,
   ViewToggle,
@@ -49,6 +50,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
   const authors = usePeople('author') // name→metadata for author-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+  const mobile = useIsMobileScreen()
 
   useEffect(() => {
     const query = q.trim()
@@ -80,17 +82,31 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const empty = results && bookGroups.length === 0 && movieGroups.length === 0
 
   return (
-    <section className="space-y-5 pt-4">
-      <input
-        className="tp-input"
-        // lineHeight:1 tightens the display serif's tall line box so the UA
-        // centres the glyphs in the field instead of seating them high.
-        style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px' }}
-        placeholder="Search titles, authors, genres, quotes, notes…"
-        value={q}
-        autoFocus
-        onChange={(e) => setQ(e.target.value)}
-      />
+    <section className="space-y-5">
+      {mobile && (
+        <div className="mobile-sticky-bar">
+          <input
+            className="tp-input"
+            style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }}
+            placeholder="Search titles, authors, genres, quotes, notes…"
+            value={q}
+            autoFocus
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+      )}
+      {!mobile && (
+        <input
+          className="tp-input"
+          // lineHeight:1 tightens the display serif's tall line box so the UA
+          // centres the glyphs in the field instead of seating them high.
+          style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px' }}
+          placeholder="Search titles, authors, genres, quotes, notes…"
+          value={q}
+          autoFocus
+          onChange={(e) => setQ(e.target.value)}
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {SCOPES.map(([value, label]) => (

@@ -424,17 +424,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         <div className="topbar-inner">
           <span className="brand">
             <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="22" height="22" />
-            <span className="wordmark">tippani</span>
+            <span className="wordmark-mobile-hidden">tippani</span>
           </span>
-          <nav aria-label="Primary">
-            <Toggle
-              className="nav-toggle"
-              ariaLabel="Primary"
-              value={tab}
-              onChange={selectTab}
-              options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
-            />
-          </nav>
           <div className="relative ml-auto" ref={menuRef}>
             <button
               className="user-chip"
@@ -475,6 +466,15 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           </div>
         </div>
       </header>
+      <nav className="bottom-nav" aria-label="Primary">
+        <Toggle
+          className="nav-toggle"
+          ariaLabel="Primary"
+          value={tab}
+          onChange={selectTab}
+          options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
+        />
+      </nav>
       <main className="container-tp">
         <div className="tab-panel" key={tab}>
         {tab === 'library' && (

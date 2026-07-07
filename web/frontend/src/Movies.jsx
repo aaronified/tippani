@@ -18,7 +18,14 @@ import {
   HandCard,
   HandNote,
   Hearts,
+  IconBack,
+  IconDelete,
+  IconEdit,
+  IconExport,
+  IconFilter,
+  IconPlus,
   MinRatingSelect,
+  MobileSheet,
   MonoLabel,
   PageHeader,
   Placeholder,
@@ -38,6 +45,7 @@ import {
   titleCaseGenre,
   useCoverSize,
   useFrameBase,
+  useIsMobileScreen,
   usePersistedState,
   useReveal,
   ExpandableText,
@@ -639,6 +647,8 @@ function MovieDetail({ id, onClose }) {
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
+  const [mobileFilter, setMobileFilter] = useState(false)
+  const mobile = useIsMobileScreen()
 
   async function load() {
     const r = await json('GET', `/movies/${id}`)
@@ -679,22 +689,47 @@ function MovieDetail({ id, onClose }) {
         .join(' · ')
     : ''
 
+  const detailTitle = movie ? (movie.title || 'Untitled') : ''
+  const detailMeta = movie ? (movie.director || movie.release_year || '') : ''
+
   return (
     <section className="space-y-6 pt-5" data-screen-label="movie-detail">
-      <button
-        onClick={onClose}
-        style={{
-          background: 'none',
-          border: 'none',
-          padding: '2px 0',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
-          letterSpacing: '.1em',
-          color: 'var(--soft)',
-        }}
-      >
-        ← Movies
-      </button>
+      {mobile && (
+        <div className="mobile-sticky-bar">
+          <div className="mobile-detail-bar">
+            <button type="button" className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full" style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }} onClick={onClose} aria-label="Back">
+              <IconBack />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="mobile-detail-title">{detailTitle}</div>
+              {detailMeta && <div className="mobile-detail-meta">{detailMeta}</div>}
+            </div>
+            <div className="mobile-detail-actions">
+              <IconButton icon={<IconFilter />} ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
+              <IconButton icon={<IconExport />} ariaLabel="Export" onClick={() => { if (movie) window.location.href = `/api/movies/${movie.id}/export` }} />
+              <IconButton icon={<IconEdit />} ariaLabel="Edit" onClick={() => setEditing(true)} />
+              <IconButton icon={<IconDelete />} ariaLabel="Delete" onClick={remove} style={{ color: 'var(--error)' }} />
+              <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => {}} />
+            </div>
+          </div>
+        </div>
+      )}
+      {!mobile && (
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '2px 0',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 12,
+            letterSpacing: '.1em',
+            color: 'var(--soft)',
+          }}
+        >
+          ← Movies
+        </button>
+      )}
       <ErrorText>{error}</ErrorText>
       {movie &&
         (editing ? (
@@ -746,7 +781,7 @@ function MovieDetail({ id, onClose }) {
             </div>
           </Reveal>
         ))}
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} />}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} />}
     </section>
   )
 }
@@ -896,7 +931,7 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie }) {
+function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
@@ -912,6 +947,7 @@ function Dialogues({ movieId, cast, movie }) {
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
   const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
+  const mobile = useIsMobileScreen()
 
   const { stickers, reload: reloadStickers } = useStickers()
   const castListId = `cast-characters-${movieId}`
@@ -994,24 +1030,60 @@ function Dialogues({ movieId, cast, movie }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-            ♥ Favourites
-          </button>
-          <MinRatingSelect value={minRating} onChange={setMinRating} />
-          {tags.length > 0 && (
-            <Select
-              ariaLabel="Filter by tag"
-              value={tag}
-              onChange={setTag}
-              options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
-            />
-          )}
-          <ViewToggle value={view} onChange={setView} />
+      {mobile && (
+        <MobileSheet open={mobileFilterOpen} onClose={() => onMobileFilterOpen?.(false)} title="Filter dialogues">
+          <div className="space-y-4">
+            <div>
+              <MonoLabel className="mb-2 block">character / tag</MonoLabel>
+              <input
+                className="tp-input"
+                list={characters.length > 0 ? castListId : undefined}
+                placeholder="character or tag…"
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+              />
+              {characters.length > 0 && (
+                <datalist id={castListId}>
+                  {characters.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              )}
+            </div>
+            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+              ♥ favourites
+            </button>
+            <div>
+              <MonoLabel className="mb-2 block">rating</MonoLabel>
+              <MinRatingSelect value={minRating} onChange={setMinRating} />
+            </div>
+            <div>
+              <MonoLabel className="mb-2 block">view</MonoLabel>
+              <ViewToggle value={view} onChange={setView} />
+            </div>
+          </div>
+        </MobileSheet>
+      )}
+      {!mobile && (
+        <div className="flex flex-wrap items-center gap-2">
+          <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+              ♥ Favourites
+            </button>
+            <MinRatingSelect value={minRating} onChange={setMinRating} />
+            {tags.length > 0 && (
+              <Select
+                ariaLabel="Filter by tag"
+                value={tag}
+                onChange={setTag}
+                options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
+              />
+            )}
+            <ViewToggle value={view} onChange={setView} />
+          </div>
         </div>
-      </div>
+      )}
       {characters.length > 0 && (
         <datalist id={castListId}>
           {characters.map((c) => (

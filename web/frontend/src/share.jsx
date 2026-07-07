@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MonoLabel, Toggle, GhostButton } from "./ui.jsx";
+import { GhostButton, MonoLabel, Toggle, useIsMobileScreen } from "./ui.jsx";
 
 const PRIMARY = "tp-btn tp-btn-primary";
 
@@ -391,6 +391,7 @@ export function ShareDialog({ share, onClose }) {
   );
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
+  const mobile = useIsMobileScreen()
 
   const active = SHARE_FORMATS.find((f) => f.id === format) || SHARE_FORMATS[0];
 
@@ -442,29 +443,29 @@ export function ShareDialog({ share, onClose }) {
         <div className="mb-4 space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <MonoLabel>format</MonoLabel>
-            {/* overflow-x:auto so all 4 options (incl. Reddit) stay reachable
-                on narrow phones without spilling outside the dialog card */}
-            <div className="share-format-toggle">
-              <Toggle
-                ariaLabel="Share format"
+            {mobile ? (
+              <select
+                className="tp-input"
+                aria-label="Share format"
                 value={format}
-                onChange={setFormat}
-                options={SHARE_FORMATS.map((f) => [f.id, f.name])}
-              />
-            </div>
-
-            <select
-              className="tp-input share-format-select"
-              aria-label="Share format"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-            >
-              {SHARE_FORMATS.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+                onChange={(e) => setFormat(e.target.value)}
+              >
+                {SHARE_FORMATS.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="share-format-toggle">
+                <Toggle
+                  ariaLabel="Share format"
+                  value={format}
+                  onChange={setFormat}
+                  options={SHARE_FORMATS.map((f) => [f.id, f.name])}
+                />
+              </div>
+            )}
           </div>
           <p className="microcopy" style={{ color: "var(--soft)" }}>
             {active.logic}
