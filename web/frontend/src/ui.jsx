@@ -275,10 +275,15 @@ export function TiltStars({ value = 0, onChange }) {
 // ---- cover/poster grid size (persisted per screen; controlled from Settings) ----
 
 // useCoverSize persists a grid cell min-width (px) in localStorage per screen.
+// On mobile (≤700px) the default shrinks to 100px so covers aren't oversized
+// on a narrow viewport. Any previously-saved preference always wins.
 export function useCoverSize(key, def = 150, min = 96, max = 240) {
   const [size, setSize] = useState(() => {
     const v = Number(typeof localStorage !== 'undefined' && localStorage.getItem(key))
-    return v >= min && v <= max ? v : def
+    if (v >= min && v <= max) return v
+    // No stored value — use a smaller default on narrow screens.
+    const mobile = typeof window !== 'undefined' && window.innerWidth <= 700
+    return mobile ? 100 : def
   })
   useEffect(() => {
     try {

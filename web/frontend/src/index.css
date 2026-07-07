@@ -1459,4 +1459,15 @@
    above regardless of specificity) — left unlayered so they always win. */
 @media (max-width: 700px) {
   .filter-row > .ml-auto { flex-shrink: 1; }
+
+  /* Share dialog: reduce the tall source/preview pane heights on phones so the
+     dialog doesn't require excessive scrolling to reach the Copy button. */
+  .share-source,
+  .share-preview { min-height: 10rem; }
 }
+
+/* Hide the scrollbar on the format-toggle overflow wrapper (touch-scrollable
+   but the bar looks out of place on a phone). Works alongside overflow-x:auto
+   set inline on the wrapper div in share.jsx. */
+.share-format-scroll { scrollbar-width: none; }
+.share-format-scroll::-webkit-scrollbar { display: none; }

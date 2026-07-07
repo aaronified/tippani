@@ -10,12 +10,6 @@ const PRIMARY = 'tp-btn tp-btn-primary'
 // formatting update) and Reddit markdown conventions.
 export const SHARE_FORMATS = [
   {
-    id: 'markdown',
-    name: 'Markdown',
-    logic: 'Rich Markdown — renders on GitHub, Obsidian, Notion and most editors.',
-    hint: '**bold**  *italic*  ~~strike~~  > quote  `code`  [text](url)',
-  },
-  {
     id: 'whatsapp',
     name: 'WhatsApp',
     logic: 'WhatsApp chat formatting — single-character wrappers; no headings or link syntax (raw URLs auto-link).',
@@ -26,6 +20,12 @@ export const SHARE_FORMATS = [
     name: 'Plain',
     logic: 'Plain text for Twitter/X, SMS — nothing renders, so: “curly quotes” around the quote and an — attribution line.',
     hint: 'no markup · “…” · — Author, Title · #tags',
+  },
+  {
+    id: 'markdown',
+    name: 'Markdown',
+    logic: 'Rich Markdown — renders on GitHub, Obsidian, Notion and most editors.',
+    hint: '**bold**  *italic*  ~~strike~~  > quote  `code`  [text](url)',
   },
   {
     id: 'reddit',
@@ -329,12 +329,16 @@ export function ShareDialog({ share, onClose }) {
         <div className="mb-4 space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <MonoLabel>format</MonoLabel>
-            <Toggle
-              ariaLabel="Share format"
-              value={format}
-              onChange={setFormat}
-              options={SHARE_FORMATS.map((f) => [f.id, f.name])}
-            />
+            {/* overflow-x:auto so all 4 options (incl. Reddit) stay reachable
+                on narrow phones without spilling outside the dialog card */}
+            <div className="share-format-scroll" style={{ overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
+              <Toggle
+                ariaLabel="Share format"
+                value={format}
+                onChange={setFormat}
+                options={SHARE_FORMATS.map((f) => [f.id, f.name])}
+              />
+            </div>
           </div>
           <p className="microcopy" style={{ color: 'var(--soft)' }}>{active.logic}</p>
           <code className="share-hint">{active.hint}</code>
