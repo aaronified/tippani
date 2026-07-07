@@ -1292,6 +1292,7 @@
   .bottom-nav .user-menu-panel {
     position: absolute;
     right: 0;
+    top: auto; /* clear the base rule's top — bottom is what positions this one */
     bottom: calc(100% + 8px); /* opens upward — the bar sits at the screen bottom */
     margin: 0;
   }

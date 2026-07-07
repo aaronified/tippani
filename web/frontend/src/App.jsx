@@ -220,11 +220,11 @@ const PRIMARY_TABS = [
   ['movies', 'Catalogue'],
   ['search', 'Search'],
   ['tags', 'Tags'],
-  ['settings', 'Settings'],
 ]
 const MENU_TABS = [
   ['import', 'Import'],
   ['metadata', 'Metadata'],
+  ['settings', 'Settings'],
 ]
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
