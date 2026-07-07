@@ -1144,8 +1144,6 @@
   @media (max-width: 768px) {
     .nav-toggle .tab-label { display: none; }
     .nav-toggle .tp-toggle-opt { padding: 6px 10px; }
-    .topbar-inner .topbar-nav { display: none; }
-    .bottom-nav { display: flex; }
   }
   .tabs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .tab {
@@ -1249,25 +1247,54 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
   .user-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .user-menu { flex: none; }
+  .user-menu-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    margin: 0;
+  }
+  .more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 50;
+    min-width: 168px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
   .container-tp { max-width: 1180px; margin: 0 auto; padding: 4px 20px 64px; }
-  /* bottom nav on mobile: mirrors the desktop topbar toggle */
+  /* bottom nav on mobile: carries brand + primary tabs + user-chip together
+     (the topbar is hidden below 768px — see the max-width query further down —
+     so this bar is the ENTIRE shell header on a phone, not just the tab strip). */
   .bottom-nav {
     display: none;
+    align-items: center;
+    gap: 10px;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 40;
-    background: transparent;
-    border-top: none;
-    box-shadow: none;
+    background: linear-gradient(0deg, var(--topbar-bottom), var(--topbar-top));
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -3px 14px -6px rgba(41,38,29,.22), inset 0 -1px 0 rgba(255,255,255,.4);
     padding: 6px 12px;
     padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
   html[data-theme="dark"] .bottom-nav {
-    box-shadow: none;
+    box-shadow: 0 -4px 16px -6px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.05);
   }
-  .bottom-nav .nav-toggle { width: 100%; justify-content: space-around; }
+  .bottom-nav-brand { flex: none; }
+  .bottom-nav .nav-toggle { flex: 1; min-width: 0; justify-content: space-around; }
+  .bottom-nav .user-menu-panel {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px); /* opens upward — the bar sits at the screen bottom */
+    margin: 0;
+  }
   @media (max-width: 768px) {
     .bottom-nav { display: flex; }
   }
@@ -1417,63 +1444,6 @@
     box-shadow: 0 -2px 7px -5px rgba(41,38,29,.35);
   }
 
-  /* mobile filter sheet (Library + detail filter pages) */
-  .mobile-filter-sheet {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-  }
-  /* sticky page headers on mobile (below topbar + above bottom nav) */
-  .mobile-sticky-header {
-    position: sticky;
-    top: 56px; /* topbar height */
-    z-index: 25;
-    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
-    border-bottom: 1px solid var(--line);
-    margin: 0 -12px;
-    padding: 10px 12px 6px;
-  }
-  html[data-theme="dark"] .mobile-sticky-header {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--card-top), black 8%), color-mix(in oklab, var(--card-bottom), black 12%));
-  }
-  /* detail sticky bars (book/movie detail on mobile) */
-  .mobile-detail-bar {
-    position: sticky;
-    top: 56px;
-    z-index: 25;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0;
-    background: linear-gradient(180deg, var(--card-top), var(--card-bottom));
-    border-bottom: 1px solid var(--line);
-    margin: 0 -12px;
-    padding: 10px 12px 8px;
-  }
-  html[data-theme="dark"] .mobile-detail-bar {
-    background: linear-gradient(180deg, color-mix(in oklab, var(--card-top), black 8%), color-mix(in oklab, var(--card-bottom), black 12%));
-  }
-  .mobile-detail-bar .detail-title {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 15px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .mobile-detail-bar .detail-subtitle {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: .08em;
-    color: var(--soft);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
 /* ---- share dialog: mono source + HTML-simulated preview ---- */
@@ -1543,14 +1513,13 @@
   .share-source,
   .share-preview { min-height: 10rem; }
 
-  .topbar .wordmark,
-  .topbar .wordmark-mobile-hidden { display: none; }
-  .topbar-inner { padding: 8px 14px; }
+  /* The topbar's whole job (brand + nav + user-chip) is taken over by
+     .bottom-nav on a phone, so the topbar itself goes away rather than
+     leaving a redundant strip pinned above it. */
+  .topbar { display: none; }
 
   .container-tp { padding: 4px 12px 80px; }
 
-  .topbar-inner nav[aria-label="Primary"] { display: none; }
-  .topbar-inner .topbar-nav { display: none; }
   .bottom-nav { display: flex; }
 }
 .nav-toggle .tp-toggle-opt svg,
@@ -1566,17 +1535,21 @@
 .share-format-scroll::-webkit-scrollbar { display: none; }
 
 /* ---- mobile sticky page bars (§7) ---- */
+/* With the topbar hidden on mobile, this bar IS the top of the page — it needs
+   a solid backing (not transparent) so scrolled-under content doesn't show
+   through the title/back/filter controls it carries. */
   .mobile-sticky-bar {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: transparent;
-    border-bottom: none;
-    box-shadow: none;
-    padding: 8px 14px;
+    background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
+    margin: 0 -12px;
+    padding: 8px 12px;
   }
   html[data-theme="dark"] .mobile-sticky-bar {
-    box-shadow: none;
+    box-shadow: 0 4px 16px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
   }
 .mobile-detail-bar {
   display: flex;

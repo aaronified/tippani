@@ -19,13 +19,16 @@ import {
   HandNote,
   Hearts,
   IconBack,
+  IconButton,
   IconDelete,
   IconEdit,
   IconExport,
   IconFilter,
+  IconMore,
   IconPlus,
   MinRatingSelect,
   MobileSheet,
+  MoreMenu,
   MonoLabel,
   PageHeader,
   Placeholder,
@@ -129,6 +132,7 @@ function MovieList({ onOpen }) {
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
   const mobile = useIsMobileScreen()
+  const [mobileFilter, setMobileFilter] = useState(false)
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -186,20 +190,27 @@ function MovieList({ onOpen }) {
           counts={counts}
           right={
             <>
-              <MonoLabel className="hidden sm:inline">
-                {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
-              </MonoLabel>
-              <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
-              <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
-                ＋ Add title
-              </button>
+              {mobile && (
+                <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+              )}
+              {!mobile && (
+                <MonoLabel className="hidden sm:inline">
+                  {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
+                </MonoLabel>
+              )}
+              {!mobile && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
+              {!mobile && (
+                <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
+                  ＋ Add title
+                </button>
+              )}
             </>
           }
         />
       </div>
       <ErrorText>{error}</ErrorText>
 
-      {movies && movies.length > 0 && (
+      {movies && movies.length > 0 && !mobile && (
         <div className="filter-row mb-5">
           <GenreFilter genres={genres} value={genre} onChange={setGenre} />
           <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -236,6 +247,59 @@ function MovieList({ onOpen }) {
             </label>
           </div>
         </div>
+      )}
+
+      {mobile && (
+        <MobileSheet open={mobileFilter} onClose={() => setMobileFilter(false)} title="Filters">
+          <div className="space-y-4">
+            <div>
+              <MonoLabel className="mb-2 block">genre</MonoLabel>
+              <GenreFilter genres={genres} value={genre} onChange={setGenre} />
+            </div>
+            {hasShows && (
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  ['', 'All'],
+                  ['movie', 'Movies'],
+                  ['show', 'Shows'],
+                ].map(([k, label]) => (
+                  <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                ♥ favourites
+              </button>
+              <MinRatingSelect value={minRating} onChange={setMinRating} />
+            </div>
+            {seriesNames.length > 0 && (
+              <Select
+                ariaLabel="Filter by series"
+                value={series}
+                onChange={setSeries}
+                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+              />
+            )}
+            <label className="flex items-center gap-2">
+              <MonoLabel>sort</MonoLabel>
+              <Select
+                ariaLabel="Sort"
+                value={sort}
+                onChange={setSort}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['rating', 'Rating'], ['series', 'Series']]}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+              <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
+              <button className="tp-btn tp-btn-primary" onClick={() => { setMobileFilter(false); setAdding(true) }}>
+                ＋ Add title
+              </button>
+            </div>
+          </div>
+        </MobileSheet>
       )}
 
       {movies && movies.length === 0 && (
@@ -651,6 +715,7 @@ function MovieDetail({ id, onClose }) {
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
   const [mobileFilter, setMobileFilter] = useState(false)
+  const [mobileAdd, setMobileAdd] = useState(false)
   const mobile = useIsMobileScreen()
 
   async function load() {
@@ -709,10 +774,14 @@ function MovieDetail({ id, onClose }) {
             </div>
             <div className="mobile-detail-actions">
               <IconButton icon={<IconFilter />} ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
-              <IconButton icon={<IconExport />} ariaLabel="Export" onClick={() => { if (movie) window.location.href = `/api/movies/${movie.id}/export` }} />
-              <IconButton icon={<IconEdit />} ariaLabel="Edit" onClick={() => setEditing(true)} />
-              <IconButton icon={<IconDelete />} ariaLabel="Delete" onClick={remove} style={{ color: 'var(--error)' }} />
-              <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => {}} />
+              <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => setMobileAdd(true)} />
+              <MoreMenu
+                items={[
+                  { icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } },
+                  { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
+                  { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -784,7 +853,7 @@ function MovieDetail({ id, onClose }) {
             </div>
           </Reveal>
         ))}
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} />}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
     </section>
   )
 }
@@ -934,7 +1003,7 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen }) {
+function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
@@ -944,6 +1013,10 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen 
   const [minRating, setMinRating] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [adding, setAdding] = useState(false)
+
+  useEffect(() => {
+    if (mobileAddOpen) { setAdding(true); onMobileAddOpen?.(false); }
+  }, [mobileAddOpen])
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
   const [sort, setSort] = useState({ col: 'timestamp', dir: 'asc' })

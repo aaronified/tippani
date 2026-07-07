@@ -1517,6 +1517,48 @@ export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="1
 export function IconGrid() { return <ViewIcon kind="tiles" /> }
 export function IconList() { return <ViewIcon kind="list" /> }
 export function IconTable() { return <ViewIcon kind="table" /> }
+export function IconMore() { return <svg {...iconStroke}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg> }
+
+// MoreMenu — a small overflow dropdown for actions that don't fit a mobile
+// detail bar (export/edit/delete). Opens below the "⋯" trigger; closes on
+// outside click or item pick. `items` is [{icon, label, onClick, danger}].
+export function MoreMenu({ items }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener("mousedown", close)
+    return () => document.removeEventListener("mousedown", close)
+  }, [open])
+  return (
+    <div className="relative" ref={ref}>
+      <IconButton icon={<IconMore />} ariaLabel="More actions" onClick={() => setOpen((o) => !o)} />
+      {open && (
+        <div className="hand-card hc-r2 more-menu" role="menu">
+          {items.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              role="menuitem"
+              className="menu-item"
+              style={it.danger ? { color: "var(--error)" } : undefined}
+              onClick={() => {
+                setOpen(false)
+                it.onClick()
+              }}
+            >
+              {it.icon}
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // MobileSheet — a full-screen overlay for mobile filter pages (§7).
 // On narrow screens it covers the entire viewport with a sticky header

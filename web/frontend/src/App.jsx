@@ -220,11 +220,11 @@ const PRIMARY_TABS = [
   ['movies', 'Catalogue'],
   ['search', 'Search'],
   ['tags', 'Tags'],
+  ['settings', 'Settings'],
 ]
 const MENU_TABS = [
   ['import', 'Import'],
   ['metadata', 'Metadata'],
-  ['settings', 'Settings'],
 ]
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
@@ -338,6 +338,65 @@ function AvatarControl({ user, onUser }) {
   )
 }
 
+// NavToggle/UserMenu render in both the topbar (desktop) and bottom-nav
+// (mobile) — CSS shows only one at a time, but both stay mounted, so these are
+// real components (not inline closures in Shell) to avoid remounting the
+// Toggle's measured DOM state and the avatar upload state on every render.
+function NavToggle({ tab, onChange }) {
+  return (
+    <Toggle
+      className="nav-toggle"
+      ariaLabel="Primary"
+      value={tab}
+      onChange={onChange}
+      options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
+    />
+  )
+}
+
+function UserMenu({ user, tab, menuOpen, setMenuOpen, selectTab, logout, onUser, menuRef }) {
+  return (
+    <div className="relative user-menu" ref={menuRef}>
+      <button
+        className="user-chip"
+        title={user.username}
+        aria-haspopup="true"
+        aria-expanded={menuOpen}
+        onClick={() => setMenuOpen((m) => !m)}
+      >
+        {user.avatar_path
+          ? <img src={`/api/covers/${user.avatar_path}`} alt="" />
+          : (user.username || '?').trim().charAt(0).toLowerCase()}
+      </button>
+      {menuOpen && (
+        <div className="hand-card hc-r2 user-menu-panel z-50 min-w-48 px-3 py-3 text-left">
+          <p className="mono-label mb-2 px-1">
+            {user.username}
+            {user.is_admin ? ' · admin' : ''}
+          </p>
+          <AvatarControl user={user} onUser={onUser} />
+          <div className="mb-2 flex flex-col gap-0.5">
+            {MENU_TABS.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => { selectTab(key); setMenuOpen(false) }}
+                className={'menu-item' + (tab === key ? ' active' : '')}
+                aria-current={tab === key ? 'page' : undefined}
+              >
+                <TabIcon name={key} />
+                {label}
+              </button>
+            ))}
+          </div>
+          <GhostButton className="w-full" onClick={logout}>
+            Log out
+          </GhostButton>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- client-side routing (History API) ----
 // Client routes own the root path space (the API lives under /api). A hard
 // refresh on /books/42 is served index.html by the server, then Shell restores
@@ -375,7 +434,11 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   const [menuOpen, setMenuOpen] = useState(false)
   const dark = useResolvedDark()
-  const menuRef = useRef(null)
+  // Two refs: the user-chip menu renders once in the topbar (desktop) and once
+  // in the bottom-nav (mobile) — both mounted at once (CSS just hides one), so
+  // a single shared ref would only ever point at whichever rendered last.
+  const topMenuRef = useRef(null)
+  const bottomMenuRef = useRef(null)
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on "/" rewrites the bar to the resolved start page.
@@ -395,7 +458,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   useEffect(() => {
     if (!menuOpen) return
     const close = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+      const inTop = topMenuRef.current && topMenuRef.current.contains(e.target)
+      const inBottom = bottomMenuRef.current && bottomMenuRef.current.contains(e.target)
+      if (!inTop && !inBottom) setMenuOpen(false)
     }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
@@ -427,62 +492,19 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="wordmark-mobile-hidden">tippani</span>
           </span>
           <nav aria-label="Primary" className="topbar-nav">
-            <Toggle
-              className="nav-toggle"
-              ariaLabel="Primary"
-              value={tab}
-              onChange={selectTab}
-              options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
-            />
+            <NavToggle tab={tab} onChange={selectTab} />
           </nav>
-          <div className="relative ml-auto" ref={menuRef}>
-            <button
-              className="user-chip"
-              title={user.username}
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((m) => !m)}
-            >
-              {user.avatar_path
-                ? <img src={`/api/covers/${user.avatar_path}`} alt="" />
-                : (user.username || '?').trim().charAt(0).toLowerCase()}
-            </button>
-            {menuOpen && (
-              <div className="hand-card hc-r2 absolute right-0 z-50 mt-2 min-w-48 px-3 py-3 text-left">
-                <p className="mono-label mb-2 px-1">
-                  {user.username}
-                  {user.is_admin ? ' · admin' : ''}
-                </p>
-                <AvatarControl user={user} onUser={onUser} />
-                <div className="mb-2 flex flex-col gap-0.5">
-                  {MENU_TABS.map(([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={() => { selectTab(key); setMenuOpen(false) }}
-                      className={'menu-item' + (tab === key ? ' active' : '')}
-                      aria-current={tab === key ? 'page' : undefined}
-                    >
-                      <TabIcon name={key} />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <GhostButton className="w-full" onClick={logout}>
-                  Log out
-                </GhostButton>
-              </div>
-            )}
+          <div className="ml-auto">
+            <UserMenu user={user} tab={tab} menuOpen={menuOpen} setMenuOpen={setMenuOpen} selectTab={selectTab} logout={logout} onUser={onUser} menuRef={topMenuRef} />
           </div>
         </div>
       </header>
       <nav className="bottom-nav" aria-label="Primary">
-        <Toggle
-          className="nav-toggle"
-          ariaLabel="Primary"
-          value={tab}
-          onChange={selectTab}
-          options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
-        />
+        <span className="brand bottom-nav-brand">
+          <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="22" height="22" />
+        </span>
+        <NavToggle tab={tab} onChange={selectTab} />
+        <UserMenu user={user} tab={tab} menuOpen={menuOpen} setMenuOpen={setMenuOpen} selectTab={selectTab} logout={logout} onUser={onUser} menuRef={bottomMenuRef} />
       </nav>
       <main className="container-tp">
         <div className="tab-panel" key={tab}>

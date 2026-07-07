@@ -28,6 +28,7 @@ import {
   IconFilter,
   IconPlus,
   MobileSheet,
+  MoreMenu,
   MinRatingSelect,
   MonoLabel,
   PageHeader,
@@ -721,10 +722,14 @@ function BookDetail({ id, onClose }) {
             </div>
             <div className="mobile-detail-actions">
               <IconButton icon={<IconFilter />} ariaLabel="Filter annotations" onClick={() => setMobileFilter(true)} />
-              <IconButton icon={<IconExport />} ariaLabel="Export" onClick={() => { if (book) window.location.href = `/api/books/${book.id}/export` }} />
-              <IconButton icon={<IconEdit />} ariaLabel="Edit" onClick={() => setEditing(true)} />
-              <IconButton icon={<IconDelete />} ariaLabel="Delete" onClick={remove} style={{ color: 'var(--error)' }} />
               <IconButton icon={<IconPlus />} ariaLabel="Add annotation" onClick={() => setMobileAdd(true)} />
+              <MoreMenu
+                items={[
+                  { icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } },
+                  { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
+                  { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
+                ]}
+              />
             </div>
           </div>
         </div>

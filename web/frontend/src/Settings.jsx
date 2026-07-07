@@ -36,6 +36,7 @@ function useColumnCount() {
 }
 
 export default function Settings({ user, onPreferences }) {
+  const mobile = useIsMobileScreen()
   // Masonry that minimises page height. The tall Metadata card is ~40% of the
   // total, so any 2-column split leaves it dominating one column with a long
   // empty gap (the CSS-multicol balancer and a naive round-robin both did this,
