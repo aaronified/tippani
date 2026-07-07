@@ -12,6 +12,7 @@ import {
   frameCode,
   useCoverSize,
   useFrameBase,
+  useIsMobileScreen,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, Library stats, Change
@@ -19,13 +20,18 @@ import {
 // applyTheme and persists via PUT /auth/me/preferences.
 // useColumnCount tracks how many masonry columns fit: 1 (mobile) / 2 / 3 (wide).
 function useColumnCount() {
-  const read = () => (typeof window === 'undefined' ? 2 : window.innerWidth >= 1280 ? 3 : window.innerWidth >= 768 ? 2 : 1)
+  const mobile = useIsMobileScreen()
+  const read = () => {
+    if (mobile) return 1
+    return typeof window === 'undefined' ? 2 : window.innerWidth >= 1280 ? 3 : window.innerWidth >= 768 ? 2 : 1
+  }
   const [n, setN] = useState(read)
   useEffect(() => {
     const fn = () => setN(read())
     window.addEventListener('resize', fn)
+    fn()
     return () => window.removeEventListener('resize', fn)
-  }, [])
+  }, [mobile])
   return n
 }
 

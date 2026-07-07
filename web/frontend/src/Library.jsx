@@ -37,6 +37,7 @@ import {
   seriesLabel,
   splitCommas,
   useCoverSize,
+  useIsMobileScreen,
   usePersistedState,
   useReveal,
 } from './ui.jsx'
@@ -94,16 +95,17 @@ function bookState(b) {
 // How many genre quick-filter chips to show before the rest collapse into the
 // "More…" dropdown — scaled to viewport width so the row never wraps hard.
 function useChipBudget() {
+  const mobile = useIsMobileScreen()
   const [n, setN] = useState(6)
   useEffect(() => {
     const calc = () => {
       const w = window.innerWidth
-      setN(w < 480 ? 3 : w < 768 ? 4 : w < 1100 ? 6 : 9)
+      setN(w < 480 ? 3 : mobile || w < 768 ? 4 : w < 1100 ? 6 : 9)
     }
     calc()
     window.addEventListener('resize', calc)
     return () => window.removeEventListener('resize', calc)
-  }, [])
+  }, [mobile])
   return n
 }
 
