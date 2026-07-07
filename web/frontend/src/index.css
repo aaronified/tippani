@@ -1131,15 +1131,21 @@
      which is what pushed the topbar — and the whole page — wider than the
      viewport on phones). overflow-x is a contained-scroll backstop for the
      rare case even the icon-only breakpoint below doesn't leave enough room. */
-  .topbar-inner nav[aria-label="Primary"] {
+  .topbar-inner nav[aria-label="Primary"],
+  .topbar-inner .topbar-nav {
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .topbar-inner nav[aria-label="Primary"]::-webkit-scrollbar { display: none; }
+  .topbar-inner nav[aria-label="Primary"]::-webkit-scrollbar,
+  .topbar-inner .topbar-nav::-webkit-scrollbar { display: none; }
+  .topbar-inner .topbar-nav { display: flex; }
+  .bottom-nav { display: none; }
   @media (max-width: 768px) {
     .nav-toggle .tab-label { display: none; }
     .nav-toggle .tp-toggle-opt { padding: 6px 10px; }
+    .topbar-inner .topbar-nav { display: none; }
+    .bottom-nav { display: flex; }
   }
   .tabs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
   .tab {
@@ -1252,14 +1258,14 @@
     left: 0;
     right: 0;
     z-index: 40;
-    background: linear-gradient(0deg, var(--topbar-bottom), var(--topbar-top));
-    border-top: 1px solid var(--line);
-    box-shadow: 0 -3px 14px -6px rgba(41,38,29,.22), inset 0 -1px 0 rgba(255,255,255,.4);
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
     padding: 6px 12px;
     padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
   html[data-theme="dark"] .bottom-nav {
-    box-shadow: 0 -4px 16px -6px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.05);
+    box-shadow: none;
   }
   .bottom-nav .nav-toggle { width: 100%; justify-content: space-around; }
   @media (max-width: 768px) {
@@ -1544,6 +1550,13 @@
   .container-tp { padding: 4px 12px 80px; }
 
   .topbar-inner nav[aria-label="Primary"] { display: none; }
+  .topbar-inner .topbar-nav { display: none; }
+  .bottom-nav { display: flex; }
+}
+.nav-toggle .tp-toggle-opt svg,
+.bottom-nav .nav-toggle .tp-toggle-opt svg {
+  width: 28px;
+  height: 28px;
 }
 
 /* Hide the scrollbar on the format-toggle overflow wrapper (touch-scrollable
@@ -1553,18 +1566,18 @@
 .share-format-scroll::-webkit-scrollbar { display: none; }
 
 /* ---- mobile sticky page bars (§7) ---- */
-.mobile-sticky-bar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
-  padding: 8px 14px;
-}
-html[data-theme="dark"] .mobile-sticky-bar {
-  box-shadow: 0 4px 16px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
-}
+  .mobile-sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: transparent;
+    border-bottom: none;
+    box-shadow: none;
+    padding: 8px 14px;
+  }
+  html[data-theme="dark"] .mobile-sticky-bar {
+    box-shadow: none;
+  }
 .mobile-detail-bar {
   display: flex;
   align-items: center;

@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip, splitCommas } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -38,6 +38,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
 
   const [bookFilter, setBookFilter] = useState('flagged')
   const [movieFilter, setMovieFilter] = useState('flagged')
+  const mobile = useIsMobileScreen()
 
   const stats = useMemo(() => {
     const b = lib?.books || []
@@ -69,14 +70,15 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        title="Metadata"
-        counts="stats · filters · bulk actions"
-        right={
-          user?.is_admin && (
-            <Tooltip
-              side="bottom"
-              label="Admin maintenance: fetches missing covers/posters and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
+      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        <PageHeader
+          title="Metadata"
+          counts="stats · filters · bulk actions"
+          right={
+            user?.is_admin && (
+              <Tooltip
+                side="bottom"
+                label="Admin maintenance: fetches missing covers/posters and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
             >
               <GhostButton disabled={busy} onClick={fetchMissingCovers}>
                 Fetch missing covers &amp; metadata
@@ -85,6 +87,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
           )
         }
       />
+      </div>
       <ErrorText>{error}</ErrorText>
       {flash && (
         <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>

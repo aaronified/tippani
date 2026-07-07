@@ -1488,7 +1488,7 @@ export function ColorSwatches({ value, onChange }) {
 
 // ---- mobile primitives (§7) ----
 
-const ICON_SIZE = 20
+const ICON_SIZE = 24
 
 export function IconButton({ icon, ariaLabel, className = "", onClick, ...rest }) {
   return (

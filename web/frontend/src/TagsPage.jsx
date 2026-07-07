@@ -11,6 +11,7 @@ import {
   SortableTh,
   TAG_STYLES,
   TagChip,
+  useIsMobileScreen,
   useSort,
 } from './ui.jsx'
 import { StickerManager } from './stickers.jsx'
@@ -23,6 +24,7 @@ export default function TagsPage() {
   const [tags, setTags] = useState(null)
   const [error, setError] = useState('')
   const [showTable, setShowTable] = useState(false)
+  const mobile = useIsMobileScreen()
 
   async function load() {
     const r = await json('GET', '/tags')
@@ -43,10 +45,12 @@ export default function TagsPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader
-        title="Tags"
-        counts={tags ? `${tags.length} tag${tags.length === 1 ? '' : 's'} · shared by books & films` : undefined}
-      />
+      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        <PageHeader
+          title="Tags"
+          counts={tags ? `${tags.length} tag${tags.length === 1 ? '' : 's'} · shared by books & films` : undefined}
+        />
+      </div>
       <ErrorText>{error}</ErrorText>
       {tags && tags.length === 0 && (
         <EmptyState>no tags yet — create one below, or tag an annotation</EmptyState>

@@ -60,7 +60,9 @@ export default function Settings({ user, onPreferences }) {
     })
   return (
     <section className="space-y-6">
-      <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
+      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
+      </div>
       <Appearance user={user} onPreferences={onPreferences} />
       <div className="grid items-start gap-6" style={{ gridTemplateColumns: `repeat(${ncols}, minmax(0, 1fr))` }}>
         {cols.map((col, i) => (

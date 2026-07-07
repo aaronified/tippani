@@ -128,6 +128,7 @@ function MovieList({ onOpen }) {
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
+  const mobile = useIsMobileScreen()
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -179,21 +180,23 @@ function MovieList({ onOpen }) {
 
   return (
     <section>
-      <PageHeader
-        title="Movies & Shows"
-        counts={counts}
-        right={
-          <>
-            <MonoLabel className="hidden sm:inline">
-              {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
-            </MonoLabel>
-            <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
-            <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
-              ＋ Add title
-            </button>
-          </>
-        }
-      />
+      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        <PageHeader
+          title="Movies & Shows"
+          counts={counts}
+          right={
+            <>
+              <MonoLabel className="hidden sm:inline">
+                {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
+              </MonoLabel>
+              <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
+              <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
+                ＋ Add title
+              </button>
+            </>
+          }
+        />
+      </div>
       <ErrorText>{error}</ErrorText>
 
       {movies && movies.length > 0 && (

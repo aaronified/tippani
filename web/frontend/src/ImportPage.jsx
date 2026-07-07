@@ -7,6 +7,7 @@ import {
   HandCard,
   MonoLabel,
   PageHeader,
+  useIsMobileScreen,
   useReveal,
 } from './ui.jsx'
 
@@ -94,6 +95,7 @@ export default function ImportPage({ onOpenMovie }) {
   const [queue, setQueue] = useState(null) // review pass: [{bookId, ann}]
   const [busy, setBusy] = useState(false)
   const ref = useReveal()
+  const mobile = useIsMobileScreen()
 
   // One request per file (§10 bulk contract); rows fill in as the loop runs.
   async function runBatch(kind, files) {
@@ -143,7 +145,9 @@ export default function ImportPage({ onOpenMovie }) {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Import" counts="bring the highlights home" />
+      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        <PageHeader title="Import" counts="bring the highlights home" />
+      </div>
       <div ref={ref} className="reveal grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SOURCES.map((s, i) => (
           <SourceCard

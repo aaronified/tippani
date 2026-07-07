@@ -403,46 +403,6 @@ function BookList({ onOpen }) {
         </MobileSheet>
       )}
 
-      {mobile && mobileFilter && (
-        <div className="mobile-filter-sheet hand-card hc-r2 mb-5 p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <MonoLabel className="block">Filters</MonoLabel>
-            <IconButton icon={<IconFilter />} ariaLabel="Close filters" onClick={() => setMobileFilter(false)} />
-          </div>
-          <GenreFilter genres={genres} value={genre} onChange={setGenre} />
-          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-            ♥ favourites
-          </button>
-          <MinRatingSelect value={minRating} onChange={setMinRating} />
-          {seriesNames.length > 0 && (
-            <Select
-              ariaLabel="Filter by series"
-              value={series}
-              onChange={setSeries}
-              options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
-            />
-          )}
-          <label className="block">
-            <MonoLabel className="mb-1.5 block">group</MonoLabel>
-            <Select
-              ariaLabel="Group by"
-              value={groupBy}
-              onChange={setGroupBy}
-              options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
-            />
-          </label>
-          <label className="block">
-            <MonoLabel className="mb-1.5 block">sort</MonoLabel>
-            <Select
-              ariaLabel="Sort"
-              value={sort}
-              onChange={setSort}
-              options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['rating', 'Rating'], ['series', 'Series']]}
-            />
-          </label>
-        </div>
-      )}
-
       {books && books.length === 0 && (
         <EmptyState>no books yet — add one, or bring highlights in from the Import tab</EmptyState>
       )}

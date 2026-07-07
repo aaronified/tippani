@@ -232,8 +232,8 @@ const MENU_TABS = [
 // Catalogue reel reuses the drawing salvaged from the retired cover-size slider.
 function TabIcon({ name }) {
   const p = {
-    width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-    strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+    width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    strokeWidth: 2.0, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
   }
   switch (name) {
     case 'library': // open book
@@ -423,9 +423,18 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       <header className="topbar">
         <div className="topbar-inner">
           <span className="brand">
-            <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="22" height="22" />
+            <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="24" height="24" />
             <span className="wordmark-mobile-hidden">tippani</span>
           </span>
+          <nav aria-label="Primary" className="topbar-nav">
+            <Toggle
+              className="nav-toggle"
+              ariaLabel="Primary"
+              value={tab}
+              onChange={selectTab}
+              options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
+            />
+          </nav>
           <div className="relative ml-auto" ref={menuRef}>
             <button
               className="user-chip"
