@@ -437,6 +437,8 @@ GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
+GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status
+POST   /people/lookup                # {kind,name} → {links:{imdb,tmdb,tvdb,wikipedia,openlibrary}}
 GET    /metadata/status              # TMDB key source, google key set?, last book-lookup outcome
 GET    /covers/{file}                # local static (covers + posters, data/MediaCover)
 POST   /covers/refetch               # admin: re-fetch missing covers/posters (all users); chunked:

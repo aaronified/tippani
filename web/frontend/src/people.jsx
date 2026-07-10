@@ -1,11 +1,70 @@
-import { useEffect, useState } from 'react'
-import { json, errText } from './api.js'
+import { useEffect, useRef, useState } from 'react'
+import { coverImgURL, json, errText } from './api.js'
 import { ErrorText, Field, GhostButton, MonoLabel, Placeholder } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
 export function personImgURL(path) {
-  return path ? `/api/covers/${path}` : ''
+  return coverImgURL(path)
+}
+
+// The external references a person can link out to, in display order. A saved
+// link is recognised by hostname; everything else renders as a plain URL row.
+export const PROVIDERS = [
+  ['imdb', 'IMDb', /(^|\.)imdb\.com$/i],
+  ['tmdb', 'TMDB', /(^|\.)themoviedb\.org$/i],
+  ['tvdb', 'TheTVDB', /(^|\.)thetvdb\.com$/i],
+  ['wikipedia', 'Wikipedia', /(^|\.)wikipedia\.org$/i],
+  ['openlibrary', 'Open Library', /(^|\.)openlibrary\.org$/i],
+]
+
+// parseLinks splits the stored free-text links field into recognised provider
+// pages (slug → url, first hit per provider wins) plus the unrecognised rest.
+export function parseLinks(text) {
+  const known = {}
+  const extra = []
+  for (const tok of String(text || '').split(/[\s\n]+/).filter(Boolean)) {
+    let host = ''
+    try {
+      host = new URL(tok).hostname
+    } catch {
+      extra.push(tok)
+      continue
+    }
+    const p = PROVIDERS.find(([, , re]) => re.test(host))
+    if (p && !known[p[0]]) known[p[0]] = tok
+    else extra.push(tok)
+  }
+  return { known, extra }
+}
+
+// mergeLinks folds freshly-fetched provider links into the stored free-text
+// field without disturbing anything the user added by hand: providers land in
+// canonical order, existing URLs win, extras keep their place at the end.
+export function mergeLinks(text, fetched) {
+  const { known, extra } = parseLinks(text)
+  const merged = { ...known }
+  for (const [slug, url] of Object.entries(fetched || {})) {
+    if (url && !merged[slug]) merged[slug] = url
+  }
+  return [...PROVIDERS.map(([slug]) => merged[slug]).filter(Boolean), ...extra].join('\n')
+}
+
+// ProviderChips — the compact inline form of the link set (Metadata console
+// cells): one small anchor chip per recognised provider.
+export function ProviderChips({ links }) {
+  const { known } = parseLinks(links)
+  const items = PROVIDERS.filter(([slug]) => known[slug])
+  if (items.length === 0) return <span className="microcopy">—</span>
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {items.map(([slug, label]) => (
+        <a key={slug} className="tp-chip tp-chip-btn" href={known[slug]} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+      ))}
+    </span>
+  )
 }
 
 // usePeople loads every saved metadata row for a kind ('author'|'actor') and
@@ -186,15 +245,42 @@ function PersonForm({ kind, name, initial, onCancel, onSaved }) {
   )
 }
 
-// PersonModal — the metadata panel for one author/actor, opened by clicking a
-// name. Loads the saved row (or drops straight into an empty edit form), lets
-// you view / edit / delete. Auto-fetch (Open Library / Amazon / TMDB / TheTVDB)
-// is layered on in the lookups stage.
+// PersonLinkRows — the redirect menu itself: one full-width row per saved
+// reference page, opening in a new tab. Unrecognised URLs trail as plain rows.
+function PersonLinkRows({ links }) {
+  const { known, extra } = parseLinks(links)
+  const items = PROVIDERS.filter(([slug]) => known[slug])
+  return (
+    <>
+      {items.map(([slug, label]) => (
+        <a key={slug} className="person-link-row" href={known[slug]} target="_blank" rel="noopener noreferrer">
+          <span>{label}</span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      ))}
+      {extra.map((url) => (
+        <a key={url} className="person-link-row" href={url} target="_blank" rel="noopener noreferrer">
+          <span className="truncate">{url.replace(/^https?:\/\/(www\.)?/, '')}</span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      ))}
+    </>
+  )
+}
+
+// PersonModal — opened by clicking any author/actor name. Primarily a redirect
+// menu: the person's saved reference pages (IMDb / TMDB / TheTVDB / Wikipedia /
+// Open Library), auto-fetched on first open when nothing is saved yet. The
+// bio/photo details live behind a secondary "Details" view.
 export function PersonModal({ kind, name, onClose, onSaved }) {
   const [person, setPerson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
+  const [details, setDetails] = useState(false) // secondary bio/photo view
+  const [fetching, setFetching] = useState(false)
+  const [fetchNote, setFetchNote] = useState('')
   const [error, setError] = useState('')
+  const autoFetched = useRef(false)
 
   useEffect(() => {
     let stale = false
@@ -203,18 +289,57 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
       if (stale) return
       setLoading(false)
       if (!r.ok) return setError(errText(r))
-      if (r.data.exists) {
-        setPerson(r.data.person)
-        setEditing(false)
-      } else {
-        setPerson(null)
-        setEditing(true) // nothing saved yet → straight to the form
-      }
+      setPerson(r.data.exists ? r.data.person : null)
+      setEditing(false)
     })
     return () => {
       stale = true
     }
   }, [kind, name])
+
+  // fetchLinks resolves the person's reference pages and saves the merged
+  // links (other saved fields carried over untouched).
+  async function fetchLinks(current) {
+    setFetching(true)
+    setFetchNote('')
+    const r = await json('POST', '/people/lookup', { kind, name })
+    if (!r.ok) {
+      setFetching(false)
+      return setFetchNote(errText(r, 'lookup failed'))
+    }
+    const merged = mergeLinks(current?.links, r.data.links)
+    if (!merged) {
+      setFetching(false)
+      return setFetchNote('no reference pages found for this name')
+    }
+    if (merged !== (current?.links || '')) {
+      const s = await json('PUT', '/people', {
+        kind,
+        name,
+        bio: current?.bio || '',
+        born: current?.born || '',
+        links: merged,
+        source: current?.source || 'lookup',
+        source_id: current?.source_id || '',
+      })
+      if (s.ok) {
+        setPerson(s.data)
+        onSaved && onSaved()
+      } else {
+        setFetchNote(errText(s, 'could not save links'))
+      }
+    }
+    setFetching(false)
+  }
+
+  // Autofetch wherever possible: first open with no provider links saved.
+  useEffect(() => {
+    if (loading || autoFetched.current) return
+    if (Object.keys(parseLinks(person?.links).known).length > 0) return
+    autoFetched.current = true
+    fetchLinks(person)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, person])
 
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && onClose()
@@ -239,11 +364,14 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div role="dialog" aria-modal="true" aria-label={name} className="hand-card hc-r2 mx-auto w-full max-w-lg px-6 py-6">
+      <div role="dialog" aria-modal="true" aria-label={name} className="hand-card hc-r2 mx-auto w-full max-w-md px-6 py-6">
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <MonoLabel>{kind}</MonoLabel>
-            <h2 className="display-title truncate text-xl">{name}</h2>
+          <div className="flex min-w-0 items-center gap-3">
+            <PersonPortrait person={person} size={40} />
+            <div className="min-w-0">
+              <MonoLabel>{kind}</MonoLabel>
+              <h2 className="display-title truncate text-xl">{name}</h2>
+            </div>
           </div>
           <GhostButton onClick={onClose}>Close</GhostButton>
         </div>
@@ -255,15 +383,42 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
             kind={kind}
             name={name}
             initial={person}
-            onCancel={person ? () => setEditing(false) : onClose}
+            onCancel={() => setEditing(false)}
             onSaved={(p) => {
               setPerson(p)
               setEditing(false)
               onSaved && onSaved()
             }}
           />
+        ) : details ? (
+          <div className="space-y-3">
+            {person ? (
+              <PersonView person={person} onEdit={() => setEditing(true)} onDelete={remove} />
+            ) : (
+              <>
+                <p className="microcopy">nothing saved yet</p>
+                <div className="flex justify-end">
+                  <button className={PRIMARY} onClick={() => setEditing(true)}>Add details</button>
+                </div>
+              </>
+            )}
+            <button className="tp-link" onClick={() => setDetails(false)}>← back to links</button>
+          </div>
         ) : (
-          <PersonView person={person} onEdit={() => setEditing(true)} onDelete={remove} />
+          <div className="space-y-2">
+            <PersonLinkRows links={person?.links} />
+            {fetching && <p className="microcopy">looking up reference pages…</p>}
+            {!fetching && fetchNote && <p className="microcopy">{fetchNote}</p>}
+            {!fetching && !fetchNote && Object.keys(parseLinks(person?.links).known).length === 0 && (
+              <p className="microcopy">no reference pages saved yet</p>
+            )}
+            <div className="flex items-center justify-between gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+              <button className="tp-link" onClick={() => setDetails(true)}>details…</button>
+              <button className="tp-link" disabled={fetching} onClick={() => fetchLinks(person)}>
+                refetch links
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -7,7 +7,25 @@ from one small binary on your own box.
 
 Have a request or a strong opinion on ordering? Open an issue.
 
-## Recently shipped (v0.3)
+## Recently shipped
+
+**v0.3.1 and after (July 2026)**
+
+- **Mobile overhaul** — bottom navigation bar, sticky page bars, full-screen
+  filter sheets with a Reset · count · Done footer, detail overflow menus,
+  44px touch targets, and no horizontal scroll; five tabs fit a 320px phone.
+- **People link out** — clicking any author/actor name opens a redirect menu of
+  their IMDb · TMDB · TheTVDB · Wikipedia · Open Library pages, auto-resolved
+  on first open; a People console under Metadata manages the links for the
+  whole library, with bulk fetch.
+- **Hi-res covers** — TMDB originals, full-size Amazon scans, hi-res Google
+  Books renders; OpenLibrary and TheTVDB art (previously failing silently)
+  now fetches correctly.
+- **Chunked metadata refetch** — "fetch missing covers & metadata" runs in
+  cursor chunks with a real progress bar and survives proxy timeouts.
+- **Import in the primary nav**, on desktop and in the mobile bottom bar.
+
+**v0.3.0**
 
 - **Quote sharing** to Rich Markdown · WhatsApp · plain text (Twitter/X) · Reddit, with a live per-format preview.
 - **Author & actor metadata** — bio · photo · links, viewed/edited by clicking a name, with portraits in group-by headings.
@@ -24,13 +42,7 @@ the raw `My Clippings.txt` straight off a Kindle — the locale header line, the
 the same idempotent, cross-source dedupe as the Markdown / Bookcision /
 Hardcover / Goodreads paths, so the same passage never doubles up.
 
-### 2 · Mobile polish
-A focused ergonomics pass for phones — ≥44px touch targets, no horizontal
-scroll, legible type, sensible input-type hints, and a Lighthouse audit — aimed
-at the daily paths (search, annotation detail, the share sheet). Fixing
-friction, not redesigning.
-
-### 3 · Spaced repetition — a daily review
+### 2 · Spaced repetition — a daily review
 Resurface your **own** highlights on a gentle decay curve. A "Daily Review" card
 on the home page shows a handful of quotes due for recall; *Got it* / *Forgot* /
 *Skip* nudge each one's schedule. ~2–3 minutes a day, no configuration, no
@@ -40,7 +52,7 @@ gamification.
 - `GET /annotations/daily-review` for the day's candidates; `POST /annotations/{id}/review` to record *got it* / *forgot*.
 - Handles empty pools and timezone-aware "daily".
 
-### 4 · AI summaries + notifications (opt-in)
+### 3 · AI summaries + notifications (opt-in)
 A passive digest: batch your recent highlights, summarise them with an
 **OpenAI-compatible** model (local or remote — your endpoint, your key), and
 optionally push the result via **NTFY**. Grouped by book, tag, or whole library;

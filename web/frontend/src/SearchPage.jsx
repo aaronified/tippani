@@ -550,7 +550,7 @@ function MediaGroup({ kind, cover, title, subtitle, terms, onOpen, children }) {
       <button type="button" onClick={onOpen} className="shrink-0" title={title} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
         {cover ? (
           <img
-            src={`/api/covers/${cover}`}
+            src={coverImgURL(cover)}
             alt=""
             className="block w-16 object-cover"
             style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }}

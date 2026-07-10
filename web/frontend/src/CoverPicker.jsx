@@ -3,7 +3,7 @@
 // match, paste an image URL, or upload a file. Amazon covers are derived from
 // the ASIN with no cookie needed.
 import { useState } from 'react'
-import { json, upload, errText } from './api.js'
+import { coverImgURL, json, upload, errText } from './api.js'
 import { GhostButton, MonoLabel, Placeholder, ErrorText } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
@@ -45,24 +45,77 @@ export function CoverPreview({ url, label }) {
   return <Placeholder kind={label} className="w-20 shrink-0" />
 }
 
+// hiResPoster upgrades a TMDB picker-thumbnail URL (w342) to the original so
+// what gets stored from a cover search is full quality, not the preview size.
+const hiResPoster = (u) => (u || '').replace('/t/p/w342/', '/t/p/original/')
+
 // CoverControls: preview + set/replace/clear. The parent owns the pending
 // {coverUrl, clearCover} that ride along in its Save PUT; file upload is
 // immediate (its own endpoint) and calls onUploaded with the refreshed record.
-// kind is the route segment: "books" | "movies".
+// kind is the route segment: "books" | "movies". `search` carries the live
+// form fields the cover search queries with ({isbn,title,asin} for books,
+// {title,year,mediaType} for movies).
 export function CoverControls({
   kind, id, currentPath, asin,
   coverUrl, clearCover, onSetUrl, onClear, onUploaded,
-  onFetchMeta, fetchingMeta,
+  onFetchMeta, fetchingMeta, search,
 }) {
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlText, setUrlText] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [covers, setCovers] = useState(null) // null = closed; [] = searched, none found
+  const [searching, setSearching] = useState(false)
   const label = kind === 'movies' ? 'POSTER' : 'COVER'
+
+  // searchCovers queries every metadata source for this item and collects the
+  // candidate covers at storage quality: Google Books (hi-res render) / Open
+  // Library (-L) / Amazon (full-size by ASIN) for books; TMDB (original) and
+  // TheTVDB art for films & shows. Picking one stages it like Paste URL does.
+  async function searchCovers() {
+    setSearching(true)
+    setErr('')
+    setCovers(null)
+    const found = []
+    const seen = new Set()
+    const add = (url, source) => {
+      if (url && !seen.has(url)) {
+        seen.add(url)
+        found.push({ url, source })
+      }
+    }
+    if (kind === 'movies') {
+      const r = await json('POST', '/movies/lookup', {
+        title: (search?.title || '').trim(),
+        year: search?.year ? Number(search.year) : undefined,
+        media_type: search?.mediaType || 'movie',
+      })
+      if (!r.ok) {
+        setSearching(false)
+        return setErr(errText(r, 'lookup failed'))
+      }
+      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), c.source === 'tvdb' ? 'TVDB' : 'TMDB')
+    } else {
+      const body = {}
+      if (search?.isbn?.trim()) body.isbn = search.isbn.trim()
+      if (search?.title?.trim()) body.title = search.title.trim()
+      if (search?.asin?.trim()) body.asin = search.asin.trim()
+      const r = await json('POST', '/books/lookup', body)
+      if (!r.ok) {
+        setSearching(false)
+        return setErr(errText(r, 'lookup failed'))
+      }
+      for (const c of r.data.candidates || [])
+        add(c.cover_url, c.source === 'openlibrary' ? 'OPEN LIBRARY' : c.source === 'amazon' ? 'AMAZON' : 'GOOGLE')
+      if (search?.asin?.trim()) add(amazonCoverURL(search.asin), 'AMAZON')
+    }
+    setSearching(false)
+    setCovers(found)
+  }
 
   // Preview precedence: a pending URL, else the cleared placeholder, else the
   // currently stored file.
-  const previewUrl = coverUrl || (!clearCover && currentPath ? `/api/covers/${currentPath}` : '')
+  const previewUrl = coverUrl || (!clearCover && currentPath ? coverImgURL(currentPath) : '')
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]
@@ -81,7 +134,7 @@ export function CoverControls({
   }
 
   return (
-    <div className="flex gap-4" style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
+    <div className="flex items-start gap-4" style={{ border: '1px solid var(--line)', borderRadius: 12, padding: 14 }}>
       <CoverPreview url={previewUrl} label={label} />
       <div className="min-w-0 flex-1 space-y-2">
         <MonoLabel className="block">{label}</MonoLabel>
@@ -98,11 +151,16 @@ export function CoverControls({
           <GhostButton type="button" onClick={() => setUrlOpen((v) => !v)}>
             Paste URL
           </GhostButton>
-          {asin && asin.trim() && (
-            <GhostButton type="button" onClick={() => onSetUrl(amazonCoverURL(asin))} title="Use Amazon's cover image for this ASIN">
-              Amazon cover
-            </GhostButton>
-          )}
+          <GhostButton
+            type="button"
+            onClick={searchCovers}
+            disabled={searching}
+            title={kind === 'movies'
+              ? 'Search TMDB and TheTVDB for high-quality posters to pick from'
+              : 'Search Google Books, Open Library and Amazon for high-quality covers to pick from'}
+          >
+            {searching ? 'Searching…' : 'Search covers'}
+          </GhostButton>
           {(currentPath || coverUrl) && !clearCover && (
             <GhostButton
               type="button"
@@ -131,6 +189,33 @@ export function CoverControls({
             >
               Set
             </GhostButton>
+          </div>
+        )}
+        {covers && (
+          <div className="space-y-1.5 pt-1">
+            <MonoLabel className="block">{covers.length ? `pick a ${label.toLowerCase()}` : `no ${label.toLowerCase()}s found`}</MonoLabel>
+            <div className="flex flex-wrap gap-2">
+              {covers.map((c) => (
+                <button
+                  key={c.url}
+                  type="button"
+                  className="cover-pick"
+                  title={`${c.source} — use this ${label.toLowerCase()}`}
+                  onClick={() => {
+                    onSetUrl(c.url)
+                    setCovers(null)
+                  }}
+                >
+                  <img
+                    src={c.url}
+                    alt=""
+                    loading="lazy"
+                    onError={(e) => { e.currentTarget.closest('button').style.display = 'none' }}
+                  />
+                  <span className="microcopy">{c.source}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {coverUrl && <p className="microcopy">new {label.toLowerCase()} — applies when you Save</p>}

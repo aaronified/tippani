@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { json, errText, downloadPost } from './api.js'
+import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -90,7 +90,7 @@ function Poster({ path, title, className = '' }) {
   if (path) {
     return (
       <img
-        src={`/api/covers/${path}`}
+        src={coverImgURL(path)}
         alt={title ? `Poster of ${title}` : ''}
         className={'block w-full object-cover ' + className}
         style={{ aspectRatio: '2 / 3', border: '1px solid var(--line)', borderRadius: 8 }}
@@ -195,7 +195,7 @@ function MovieList({ onOpen }) {
                 <div className="flex items-center gap-2">
                   <IconButton icon={<IconPlus />} ariaLabel="Add title" onClick={() => setAdding(true)} />
                   <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />
+                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />}
                 </div>
               )}
               {!mobile && (
@@ -203,7 +203,7 @@ function MovieList({ onOpen }) {
                   {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
                 </MonoLabel>
               )}
-              {!mobile && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
+              {!mobile && !DEMO && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
               {!mobile && (
                 <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
                   ＋ Add title
@@ -796,7 +796,7 @@ function MovieDetail({ id, onClose }) {
               <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => setMobileAdd(true)} />
               <MoreMenu
                 items={[
-                  { icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } },
+                  ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
                   { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
                 ]}
@@ -839,12 +839,12 @@ function MovieDetail({ id, onClose }) {
             <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.4))' }}>
               <Poster path={movie.poster_path} title={movie.title} />
             </div>
-            <div className="min-w-0 flex-1 space-y-2.5">
+            <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
               <h1 className="display-title" style={{ fontSize: 27 }}>
                 {movie.title}
               </h1>
               {metaLine && <p style={amberMono}>{metaLine}</p>}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
                 <TiltStars value={movie.rating || 0} onChange={(v) => patch({ rating: v })} />
               </div>
@@ -862,9 +862,11 @@ function MovieDetail({ id, onClose }) {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
-              <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
-                Export .md
-              </GhostButton>
+              {!DEMO && (
+                <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
+                  Export .md
+                </GhostButton>
+              )}
               <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
               <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
                 Delete
@@ -959,6 +961,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
           }
         }}
         onUploaded={(rec) => setPosterPath(rec.poster_path || '')}
+        search={{ title, year, mediaType }}
       />
       <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       <div>

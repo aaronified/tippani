@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { json, errText, downloadPost } from './api.js'
+import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -205,7 +205,7 @@ function BookGrid({ books, coverSize, onOpen }) {
             <HandCard variant={i % 4} className="relative overflow-hidden cover-lift">
               {b.cover_path ? (
                 <img
-                  src={`/api/covers/${b.cover_path}`}
+                  src={coverImgURL(b.cover_path)}
                   alt={`Cover of ${b.title}`}
                   className="block aspect-[2/3] w-full object-cover"
                 />
@@ -312,11 +312,11 @@ function BookList({ onOpen }) {
                 <div className="flex items-center gap-2">
                   <IconButton icon={<IconPlus />} ariaLabel="Add book" onClick={() => setAdding(true)} />
                   <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />
+                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />}
                 </div>
               )}
               {!mobile && <MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>}
-              {!mobile && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
+              {!mobile && !DEMO && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
               {!mobile && <button className={PRIMARY} onClick={() => setAdding(true)}>
                 ＋ Add book
               </button>}
@@ -745,7 +745,7 @@ function BookDetail({ id, onClose }) {
               <IconButton icon={<IconPlus />} ariaLabel="Add annotation" onClick={() => setMobileAdd(true)} />
               <MoreMenu
                 items={[
-                  { icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } },
+                  ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
                   { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
                 ]}
@@ -795,7 +795,7 @@ function BookDetail({ id, onClose }) {
                   ))}
                 </MonoLabel>
               )}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Hearts value={!!book.favorite} onChange={(v) => patch({ favorite: v })} />
                 <TiltStars value={book.rating || 0} onChange={(v) => patch({ rating: v })} />
               </div>
@@ -813,9 +813,11 @@ function BookDetail({ id, onClose }) {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
-              <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
-                Export .md
-              </GhostButton>
+              {!DEMO && (
+                <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
+                  Export .md
+                </GhostButton>
+              )}
               <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
               <GhostButton
                 style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
@@ -960,6 +962,7 @@ export function EditBook({ book, onSaved, onCancel }) {
         onUploaded={(rec) => setCoverPath(rec.cover_path || '')}
         onFetchMeta={fetchMeta}
         fetchingMeta={fetchingMeta}
+        search={{ isbn, title, asin }}
       />
       <BookLookupPicker isbn={isbn} title={title} asin={asin} onPick={(c) => applyCandidate(c, true)} />
       <div className="grid gap-3 sm:grid-cols-2">

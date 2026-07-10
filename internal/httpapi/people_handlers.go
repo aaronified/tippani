@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -145,6 +146,126 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
+}
+
+// handlePeopleNames: GET /people/names?kind=author|actor — every distinct name
+// of that kind referenced in the caller's library (books.author for authors,
+// dialogues.actor joined through the caller's movies for actors), merged with
+// saved people rows so the Metadata console can show link status per name.
+func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	kind := r.URL.Query().Get("kind")
+	if !validPersonKind(kind) {
+		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		return
+	}
+	q := `SELECT DISTINCT TRIM(author) FROM books
+		WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''`
+	if kind == "actor" {
+		q = `SELECT DISTINCT TRIM(d.actor) FROM dialogues d
+			JOIN movies m ON m.id = d.movie_id
+			WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) != ''`
+	}
+	rows, err := s.Store.DB.Query(q, uid)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	referenced := []string{}
+	for rows.Next() {
+		var n string
+		if rows.Scan(&n) == nil && n != "" {
+			referenced = append(referenced, n)
+		}
+	}
+	rows.Close()
+
+	type nameRow struct {
+		Name  string `json:"name"`
+		Saved bool   `json:"saved"`
+		ID    int64  `json:"id,omitempty"`
+		Links string `json:"links"`
+	}
+	byName := map[string]*nameRow{}
+	for _, n := range referenced {
+		byName[strings.ToLower(n)] = &nameRow{Name: n}
+	}
+	// Saved rows fold in (and appear even when no longer referenced, so stale
+	// metadata stays visible and deletable from the console).
+	prows, err := s.Store.DB.Query(
+		`SELECT id, name, links FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	for prows.Next() {
+		var id int64
+		var name, links string
+		if prows.Scan(&id, &name, &links) != nil {
+			continue
+		}
+		key := strings.ToLower(name)
+		if row, ok := byName[key]; ok {
+			row.Saved, row.ID, row.Links = true, id, links
+		} else {
+			byName[key] = &nameRow{Name: name, Saved: true, ID: id, Links: links}
+		}
+	}
+	prows.Close()
+
+	out := make([]nameRow, 0, len(byName))
+	for _, row := range byName {
+		out = append(out, *row)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"people": out})
+}
+
+// handlePersonLookup: POST /people/lookup {kind, name} — resolve the person's
+// external reference pages (Open Library + Wikipedia for authors; TMDB, IMDb,
+// TheTVDB + Wikipedia for actors). Read-only: the client merges the returned
+// links into the saved row via the existing PUT /people.
+func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	req.Kind = strings.TrimSpace(req.Kind)
+	req.Name = strings.TrimSpace(req.Name)
+	if !validPersonKind(req.Kind) {
+		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		return
+	}
+	if req.Name == "" {
+		writeErr(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	var links map[string]string
+	var err error
+	if req.Kind == "author" {
+		links, err = s.authorLinks(r.Context(), req.Name)
+	} else {
+		tmdb, _ := s.resolveTMDB()
+		if tmdb == nil {
+			writeErr(w, http.StatusServiceUnavailable,
+				"actor links come from TMDB — add a TMDB key in Settings first")
+			return
+		}
+		links, err = s.actorLinks(r.Context(), tmdb, req.Name)
+	}
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
+		return
+	}
+	if links == nil {
+		links = map[string]string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"links": links})
 }
 
 // handleDeletePerson: DELETE /people/{id} — clears the metadata (the free-text

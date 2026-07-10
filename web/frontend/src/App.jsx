@@ -7,7 +7,7 @@ import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
-import { apiURL, json, upload } from './api.js'
+import { DEMO, apiURL, coverImgURL, json, upload } from './api.js'
 import {
   ErrorText,
   Field,
@@ -26,7 +26,7 @@ import {
 // install.js) serves dummy data and blocks writes; here it just suppresses URL
 // history sync (the static site lives under a /tippani/ subpath, so pushing
 // "/library" would point off-site) and shows a banner.
-export const DEMO = import.meta.env.VITE_DEMO === '1'
+export { DEMO } from './api.js'
 
 // App is the auth gate: first-run onboarding, login, then the logged-in shell.
 // The grain overlay (§5) sits above every screen, auth included.
@@ -365,7 +365,7 @@ function UserMenu({ user, tab, menuOpen, setMenuOpen, selectTab, logout, onUser,
         onClick={() => setMenuOpen((m) => !m)}
       >
         {user.avatar_path
-          ? <img src={`/api/covers/${user.avatar_path}`} alt="" />
+          ? <img src={coverImgURL(user.avatar_path)} alt="" />
           : (user.username || '?').trim().charAt(0).toLowerCase()}
       </button>
       {menuOpen && (
@@ -490,7 +490,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           <span className="brand">
             {/* the mark matches the 28px nav tab icons so the row reads level */}
             <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
-            <span className="wordmark-mobile-hidden">tippani</span>
+            <span className="wordmark">tippani</span>
           </span>
           <nav aria-label="Primary" className="topbar-nav">
             <NavToggle tab={tab} onChange={selectTab} />

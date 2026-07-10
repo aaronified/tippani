@@ -4,12 +4,12 @@
 // it replaces the old tag-derived wax seal. Backend: /stickers CRUD + a
 // sticker_id column on annotations/dialogues (migrations 0011).
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { json, upload, errText } from './api.js'
+import { coverImgURL, json, upload, errText } from './api.js'
 import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
-export const stickerURL = (path) => `/api/covers/${path}`
+export const stickerURL = (path) => coverImgURL(path)
 
 // The file types the browser file-picker offers for a sticker (PNG/SVG first —
 // the transparent formats the feature is built around).

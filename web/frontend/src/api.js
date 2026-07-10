@@ -8,6 +8,17 @@
 export const API_BASE = '/api'
 export const apiURL = (url) => (url && url.startsWith('/') ? API_BASE + url : url)
 
+// DEMO — the read-only GitHub Pages build (VITE_DEMO=1). Lives here rather
+// than App.jsx so any module can gate demo-only behavior without an import
+// cycle through the app shell.
+export const DEMO = import.meta.env.VITE_DEMO === '1'
+
+// coverImgURL resolves a stored cover/poster/sticker/portrait path to its
+// served URL — the ONE builder every <img src> uses. Demo fixtures carry
+// data: URIs directly (a static host has no cover route); those pass through.
+export const coverImgURL = (path) =>
+  !path ? '' : String(path).startsWith('data:') ? path : `${API_BASE}/covers/${path}`
+
 async function parse(r) {
   let data = null
   try {

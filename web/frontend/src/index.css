@@ -1079,6 +1079,49 @@
   .hand-card:has(.tp-tip-wrap:hover),
   .hand-card:has(.tp-tip-wrap:focus-within) { z-index: 30; }
 
+  /* ---- person link menu (people.jsx): clicking a name opens a redirect menu
+     of external reference pages — full-width rows, provider label left, ↗
+     right. Rows are anchors, so they get real middle-click/new-tab behavior. ---- */
+  .person-link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 44px;
+    padding: 9px 13px;
+    border: 1.4px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .person-link-row:hover { border-color: var(--accent-ui); color: var(--accent-ui); }
+
+  /* ---- cover-search results (CoverControls): tappable 2:3 thumbs with a
+     source label; picking one stages it exactly like Paste URL. ---- */
+  .cover-pick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 76px;
+    padding: 4px;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    transition: border-color .15s ease;
+  }
+  .cover-pick img {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .cover-pick:hover { border-color: var(--accent-ui); }
+
   /* ---- determinate progress (ProgressBar): recessed track, accent fill ---- */
   .progress-track {
     height: 8px;
@@ -1592,6 +1635,33 @@
   html[data-theme="dark"] .mobile-sticky-bar {
     box-shadow: 0 4px 16px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
   }
+/* Inside the sticky bar the header is ONE row: title (+counts) truncate on the
+   left, the add/filter/⋯ action cluster pins to the top-right and never wraps
+   below the title. */
+.mobile-sticky-bar .page-header {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.mobile-sticky-bar .page-header > .ph-left {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+.mobile-sticky-bar .page-header h1 { white-space: nowrap; }
+.mobile-sticky-bar .page-header > .ph-left > .mono-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-sticky-bar .page-header > div:last-child {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
 .mobile-detail-bar {
   display: flex;
   align-items: center;

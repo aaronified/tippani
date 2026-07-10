@@ -1178,7 +1178,7 @@ export function Cover({ path, title, large = false, hero = false }) {
     if (path) {
       return (
         <img
-          src={`/api/covers/${path}`}
+          src={coverImgURL(path)}
           alt={title ? `Cover of ${title}` : ""}
           className="block w-full rounded-md object-cover"
           style={{
@@ -1194,7 +1194,7 @@ export function Cover({ path, title, large = false, hero = false }) {
   if (path) {
     return (
       <img
-        src={`/api/covers/${path}`}
+        src={coverImgURL(path)}
         alt={title ? `Cover of ${title}` : ""}
         className={size + " shrink-0 rounded-md object-cover"}
         style={{ border: "1px solid var(--ink-border)" }}

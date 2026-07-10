@@ -4,11 +4,16 @@ package httpapi
 // settings-managed metadata keys + status, and the admin cover re-fetch.
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -563,5 +568,86 @@ func TestCoversRefetchGuardFailure(t *testing.T) {
 	res := driveRefetch(t, admin)
 	if res.Fetched != 0 || res.Failed != 1 {
 		t.Fatalf("counts: %+v", res)
+	}
+}
+
+// Low-res replacement: a stored cover narrower than the threshold is
+// re-fetched; the new image sticks only when it is actually wider, and the
+// old file is cleaned up on replace.
+func TestCoversRefetchReplacesLowRes(t *testing.T) {
+	srv := newTestServer(t)
+	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil
+	}
+	dir := srv.coversDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG := func(name string, w int) {
+		t.Helper()
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, w, 10))); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const oldName = "00000000000000aa.png"
+	writePNG(oldName, 100) // low-res: below the 500px threshold
+
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	if _, err := srv.Store.DB.Exec(
+		`INSERT INTO books (user_id, title, cover_path, source_metadata)
+		 VALUES (1, 'A', ?, '{"cover_url":"https://covers.openlibrary.org/b/id/9-L.jpg"}')`, oldName); err != nil {
+		t.Fatal(err)
+	}
+
+	// First pass: the "fetched" image is 800px wide — replaces the 100px one.
+	n := 0
+	srv.fetchImage = func(_ context.Context, _, _ string) (string, error) {
+		n++
+		name := fmt.Sprintf("%016x", n) + ".png"
+		writePNG(name, 800)
+		return name, nil
+	}
+	res := driveRefetch(t, admin)
+	if res.Fetched != 1 || res.Failed != 0 {
+		t.Fatalf("first pass: %+v", res)
+	}
+	var cover string
+	if err := srv.Store.DB.QueryRow(`SELECT cover_path FROM books WHERE title = 'A'`).Scan(&cover); err != nil {
+		t.Fatal(err)
+	}
+	if cover == oldName {
+		t.Fatalf("low-res cover was not replaced")
+	}
+	if _, err := os.Stat(filepath.Join(dir, oldName)); !os.IsNotExist(err) {
+		t.Fatalf("old low-res file not cleaned up: %v", err)
+	}
+
+	// 800px is above the threshold now — a second pass must not touch it.
+	res = driveRefetch(t, admin)
+	if res.Fetched != 0 || res.Failed != 0 {
+		t.Fatalf("second pass touched a good cover: %+v", res)
+	}
+
+	// Force it low-res again (300px) and make the stub fetch a WORSE image
+	// (200px): the fetch happens but the downgrade is discarded.
+	writePNG(cover, 300)
+	prev := cover
+	srv.fetchImage = func(_ context.Context, _, _ string) (string, error) {
+		n++
+		name := fmt.Sprintf("%016x", n) + ".png"
+		writePNG(name, 200)
+		return name, nil
+	}
+	res = driveRefetch(t, admin)
+	if res.Fetched != 0 || res.Failed != 0 {
+		t.Fatalf("downgrade pass: %+v", res)
+	}
+	if err := srv.Store.DB.QueryRow(`SELECT cover_path FROM books WHERE title = 'A'`).Scan(&cover); err != nil || cover != prev {
+		t.Fatalf("cover changed to a worse image: %q (err %v)", cover, err)
 	}
 }

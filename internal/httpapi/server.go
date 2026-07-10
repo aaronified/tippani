@@ -39,6 +39,8 @@ type Server struct {
 	fetchImage     func(ctx context.Context, rawURL, destDir string) (string, error)
 	fetchUserImage func(ctx context.Context, rawURL, destDir string) (string, error) // user-typed URL: no host allowlist
 	searchBooks    func(ctx context.Context, isbn, title, googleKey string) ([]metadata.BookCandidate, error)
+	authorLinks    func(ctx context.Context, name string) (map[string]string, error)
+	actorLinks     func(ctx context.Context, t *metadata.TMDB, name string) (map[string]string, error)
 
 	// booksLookup remembers the most recent POST /books/lookup outcome for
 	// GET /metadata/status; nil = never tried. In-memory by design (§10).
@@ -63,6 +65,10 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 		fetchImage:     metadata.FetchImage,
 		fetchUserImage: metadata.FetchUserImage,
 		searchBooks:    metadata.SearchBooks,
+		authorLinks:    metadata.AuthorLinks,
+		actorLinks: func(ctx context.Context, t *metadata.TMDB, name string) (map[string]string, error) {
+			return t.PersonLinks(ctx, name)
+		},
 	}
 }
 
@@ -99,6 +105,8 @@ func (s *Server) Handler() http.Handler {
 	// People metadata (§ author/actor enrichment): per-name bio/photo/links,
 	// keyed by (kind, name) and matched to books/films by exact author/actor.
 	mux.Handle("GET /people", s.requireAuth(s.handlePeople))
+	mux.Handle("GET /people/names", s.requireAuth(s.handlePeopleNames))
+	mux.Handle("POST /people/lookup", s.requireAuth(s.handlePersonLookup))
 	mux.Handle("PUT /people", s.requireAuth(s.handleUpsertPerson))
 	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
 

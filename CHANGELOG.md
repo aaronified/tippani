@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **People link out** — clicking any author/actor name opens a redirect menu of their
+  IMDb · TMDB · TheTVDB · Wikipedia · Open Library pages, auto-resolved on first open
+  (`POST /people/lookup`, Wikipedia via Wikidata); a **People console** under Metadata
+  lists everyone referenced in the library with link status, per-row and bulk fetch
+  (`GET /people/names`)
+- **Fetch-metadata progress bar** — `POST /covers/refetch` is chunked (cursor/limit →
+  next_cursor/done/total/remaining); the Metadata page loops chunks and shows real progress
+- Import promoted into the primary nav (desktop topbar + mobile bottom bar)
+- Mobile filter sheets: labeled full-width controls with a shared Reset · count · Done footer;
+  Library gained its missing mobile add-book entry
+- Tags page: New-tag and New-sticker add-cards lead the page (2 columns on desktop)
+
+### Changed
+- **Hi-res covers** — TMDB stored posters use `original` (thumbnails stay w342), Google Books
+  covers upgraded via `fife` renders, Amazon size modifier dropped for full-size scans; cover
+  fetch cap raised to 5 MB (upload envelope 6 MB)
+- Library page header retitled "Books"; brand mark enlarged to match the nav icons
+- Add-annotation/dialogue box moved above the list on detail pages
+- The read-only demo now ships realistic fixtures (covers, stickers, people links) and honours
+  detail-page filters, search scopes, and search group-by
+
+### Fixed
+- OpenLibrary covers never stored (their `archive.org` redirect targets were rejected by the
+  SSRF allowlist); TheTVDB posters never stored (`artworks.thetvdb.com` missing from the allowlist)
+- Mobile annotation cards overflowing the viewport; sticky page bar floating below the top of
+  the screen; five nav tabs now fit a 320 px viewport
+
 ## [0.3.1] - 2026-07-07
 
 ### Changed

@@ -3,7 +3,8 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconExport, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -95,17 +96,25 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
           title="Metadata"
           counts="stats · filters · bulk actions"
           right={
-            user?.is_admin && (
+            user?.is_admin &&
+            (mobile ? (
+              <IconButton
+                icon={<IconExport />}
+                ariaLabel="Fetch missing covers & metadata"
+                onClick={fetchMissingCovers}
+                disabled={busy}
+              />
+            ) : (
               <Tooltip
                 side="bottom"
-                label="Admin maintenance: fetches missing covers/posters and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
-            >
-              <GhostButton disabled={busy} onClick={fetchMissingCovers}>
-                Fetch missing covers &amp; metadata
-              </GhostButton>
-            </Tooltip>
-          )
-        }
+                label="Admin maintenance: fetches missing covers/posters (and replaces low-res ones) and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
+              >
+                <GhostButton disabled={busy} onClick={fetchMissingCovers}>
+                  Fetch missing covers &amp; metadata
+                </GhostButton>
+              </Tooltip>
+            ))
+          }
       />
       </div>
       <ErrorText>{error}</ErrorText>
@@ -129,6 +138,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
           <BooksConsole books={lib.books} filter={bookFilter} setFilter={setBookFilter} onOpen={onOpenBook} onDone={load} onFlash={setFlash} />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
           <MoviesConsole movies={lib.movies} filter={movieFilter} setFilter={setMovieFilter} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} />
+          <PeopleConsole onFlash={setFlash} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
         </>
       )}
@@ -988,5 +998,149 @@ function RemapRow({ label, cast, value, onChange }) {
         </>
       )}
     </div>
+  )
+}
+
+// ---- people console ----
+
+// PeopleConsole — every author/actor referenced in the library, with their
+// external reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library).
+// This metadata governs the redirect menu that opens when a name is clicked
+// anywhere in the app. Links are fetched per row or in bulk for the ones
+// still missing; rows stay listed even when no longer referenced so stale
+// metadata remains manageable.
+export function PeopleConsole({ onFlash }) {
+  const [kind, setKind] = useState('author')
+  const [rows, setRows] = useState(null)
+  const [q, setQ] = useState('')
+  const [busyName, setBusyName] = useState('')
+  const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
+  const [err, setErr] = useState('')
+
+  async function load(k = kind) {
+    const r = await json('GET', `/people/names?kind=${k}`)
+    if (r.ok) setRows(r.data.people)
+    else setErr(errText(r))
+  }
+  useEffect(() => {
+    setRows(null)
+    setErr('')
+    load(kind)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind])
+
+  const shown = useMemo(() => {
+    const s = q.trim().toLowerCase()
+    return (rows || []).filter((p) => !s || p.name.toLowerCase().includes(s))
+  }, [rows, q])
+  const missing = shown.filter((p) => Object.keys(parseLinks(p.links).known).length === 0)
+
+  // fetchOne: lookup → merge into the saved row (bio/born untouched) → PUT.
+  // Returns an error string or null, like the form handlers do.
+  async function fetchOne(p) {
+    const r = await json('POST', '/people/lookup', { kind, name: p.name })
+    if (!r.ok) return errText(r)
+    let existing = null
+    if (p.saved) {
+      const g = await json('GET', `/people?${new URLSearchParams({ kind, name: p.name })}`)
+      if (g.ok && g.data.exists) existing = g.data.person
+    }
+    const merged = mergeLinks(existing?.links ?? p.links, r.data.links)
+    if (!merged) return 'no reference pages found'
+    const s = await json('PUT', '/people', {
+      kind,
+      name: p.name,
+      bio: existing?.bio || '',
+      born: existing?.born || '',
+      links: merged,
+      source: existing?.source || 'lookup',
+      source_id: existing?.source_id || '',
+    })
+    return s.ok ? null : errText(s)
+  }
+
+  async function fetchRow(p) {
+    setBusyName(p.name)
+    setErr('')
+    const e = await fetchOne(p)
+    setBusyName('')
+    if (e) setErr(`${p.name}: ${e}`)
+    load()
+  }
+
+  async function fetchMissing() {
+    setErr('')
+    setBulk({ done: 0, total: missing.length })
+    let done = 0
+    let failed = 0
+    let firstErr = ''
+    await runPooled(missing, 2, async (p) => {
+      const e = await fetchOne(p)
+      if (e) {
+        failed++
+        if (!firstErr) firstErr = e
+      }
+      done++
+      setBulk({ done, total: missing.length })
+    })
+    setBulk(null)
+    onFlash(`people links: ${missing.length - failed} fetched · ${failed} failed${firstErr ? ` (${firstErr})` : ''}`)
+    load()
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 style={H2}>People</h2>
+        <MonoLabel>{shown.length} shown</MonoLabel>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {[['author', 'Authors'], ['actor', 'Actors']].map(([k, label]) => (
+            <button key={k} className={'tp-filter-chip' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>
+              {label}
+            </button>
+          ))}
+          <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <GhostButton disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
+            Fetch missing links{missing.length > 0 ? ` (${missing.length})` : ''}
+          </GhostButton>
+        </div>
+      </div>
+      <p className="microcopy">
+        external reference pages — IMDb · TMDB · TheTVDB · Wikipedia · Open Library. This is the menu
+        behind every clickable name; actor lookups need a TMDB key (Settings).
+      </p>
+      <ErrorText>{err}</ErrorText>
+      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={`fetching links · ${bulk.done}/${bulk.total}`} />}
+      {!rows ? (
+        <EmptyState>loading…</EmptyState>
+      ) : shown.length === 0 ? (
+        <EmptyState>{kind === 'author' ? 'no authors in the library yet' : 'no actors on any dialogue yet'}</EmptyState>
+      ) : (
+        <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+          <table className="ann-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Links</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((p) => (
+                <tr key={p.name}>
+                  <td>{p.name}</td>
+                  <td><ProviderChips links={p.links} /></td>
+                  <td className="col-actions">
+                    <button className="tp-link" disabled={busyName === p.name || !!bulk} onClick={() => fetchRow(p)}>
+                      {busyName === p.name ? 'fetching…' : Object.keys(parseLinks(p.links).known).length > 0 ? 'refetch' : 'fetch links'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }

@@ -5,13 +5,39 @@ package httpapi
 
 import (
 	"encoding/json"
+	"image"
+	_ "image/gif"  // register decoders: coverWidth reads stored art headers
+	_ "image/jpeg" //
+	_ "image/png"  //
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"tippani/internal/metadata"
 )
+
+// lowResCoverWidth is the replace threshold for stored art: anything narrower
+// almost certainly came from the thumbnail-sized provider URLs used before the
+// hi-res fetch fix. Refetch re-pulls those and swaps only for a wider image.
+const lowResCoverWidth = 500
+
+// coverWidth reads the pixel width of a stored cover/poster; 0 = unknown
+// (missing file, or a format DecodeConfig can't read, e.g. webp/svg).
+func (s *Server) coverWidth(name string) int {
+	f, err := os.Open(filepath.Join(s.coversDir(), name))
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return 0
+	}
+	return cfg.Width
+}
 
 // Settings-table keys (store.GetSetting/SetSetting).
 const (
@@ -212,9 +238,9 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// total is the full workload at this instant (all books get a backfill
-	// pass; only poster-less sourced movies need work). The client captures it
-	// from the first response; remaining shrinks as the cursor advances.
-	const movieWhere = `poster_path IS NULL AND source_metadata IS NOT NULL`
+	// pass; sourced movies get a poster pass — missing or low-res). The client
+	// captures it from the first response; remaining shrinks with the cursor.
+	const movieWhere = `source_metadata IS NOT NULL`
 	var total int
 	if err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books) +
 		(SELECT COUNT(*) FROM movies WHERE ` + movieWhere + `)`).Scan(&total); err != nil {
@@ -310,11 +336,19 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Cover, if still missing: add-time URL, then candidate, then OL-by-ISBN,
-		// then Amazon-by-ASIN. The cached URL was saved verbatim at add time, so
-		// push it through the same hi-res upgrades the fresh builders now apply —
-		// otherwise refetch keeps resurrecting old low-res thumbnails.
-		if b.cover == "" {
+		// Cover: fetch when missing, or re-fetch when the stored file is
+		// low-res (the provider URLs used to be thumbnail-sized). URL order:
+		// add-time URL, then candidate, then OL-by-ISBN, then Amazon-by-ASIN.
+		// The cached URL was saved verbatim at add time, so push it through
+		// the same hi-res upgrades the fresh builders now apply — otherwise
+		// refetch keeps resurrecting old low-res thumbnails. A replacement
+		// only sticks when it is actually wider than what's stored.
+		oldW := 0
+		if b.cover != "" {
+			oldW = s.coverWidth(b.cover)
+		}
+		lowRes := b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
+		if b.cover == "" || lowRes {
 			var urls []string
 			if b.cachedURL != "" {
 				urls = append(urls, metadata.AmazonFullSizeImage(metadata.GoogleHiResCover(b.cachedURL)))
@@ -338,33 +372,44 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			if name != "" {
+			switch {
+			case name == "":
+				if len(urls) > 0 {
+					failed++
+				}
+			case lowRes && s.coverWidth(name) <= oldW:
+				s.removeCoverFile(name) // no better than what's stored — keep the old one
+			default:
 				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, name, b.id); uerr == nil {
 					fetched++
+					if b.cover != "" && b.cover != name {
+						s.removeCoverFile(b.cover)
+					}
 				} else {
 					s.removeCoverFile(name)
 				}
-			} else if len(urls) > 0 {
-				failed++
 			}
 		}
 	}
 
-	// Movies: fetch the TMDB poster cached at add time (keyless to fetch).
+	// Movies: fetch the TMDB poster cached at add time (keyless to fetch) —
+	// when it's missing, or stored low-res (same replace rule as books).
 	// Only runs in the movies phase; the cursor advances over movie ids.
 	type movieTarget struct {
-		id  int64
-		url string
+		id        int64
+		url       string
+		oldPoster string
+		oldW      int
 	}
 	var movies []movieTarget
 	mScanned := 0 // chunk fullness = rows scanned, not posters found
-	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(source_metadata, '') FROM movies
+	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(poster_path, ''), COALESCE(source_metadata, '') FROM movies
 		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
 	if err == nil {
 		for mrows.Next() {
 			var id int64
-			var raw string
-			if mrows.Scan(&id, &raw) != nil {
+			var poster, raw string
+			if mrows.Scan(&id, &poster, &raw) != nil {
 				continue
 			}
 			lastID = id
@@ -373,8 +418,15 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 				PosterPath string `json:"poster_path"`
 			}
 			_ = json.Unmarshal([]byte(raw), &meta)
-			if meta.PosterPath != "" {
-				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath)})
+			if meta.PosterPath == "" {
+				continue
+			}
+			oldW := 0
+			if poster != "" {
+				oldW = s.coverWidth(poster)
+			}
+			if poster == "" || (oldW > 0 && oldW < lowResCoverWidth) {
+				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath), poster, oldW})
 			}
 		}
 		mrows.Close()
@@ -385,8 +437,15 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			failed++
 			continue
 		}
+		if m.oldPoster != "" && s.coverWidth(name) <= m.oldW {
+			s.removeCoverFile(name) // no better than what's stored
+			continue
+		}
 		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ? WHERE id = ?`, name, m.id); uerr == nil {
 			fetched++
+			if m.oldPoster != "" && m.oldPoster != name {
+				s.removeCoverFile(m.oldPoster)
+			}
 		} else {
 			s.removeCoverFile(name)
 			failed++

@@ -1,6 +1,6 @@
 <h1 align="center">Tippani</h1>
 
-<p align="center"><em>ṭippaṇī · टिप्पणी · টিপ্পণী — a marginal annotation</em></p>
+<p align="center"><em>ṭippaṇī · टिप्पणी · টিপ্পনী — a marginal annotation</em></p>
 
 <p align="center">
   A self-hosted, multi-user home for your <strong>book highlights</strong> and <strong>movie dialogues</strong> —<br>
@@ -18,15 +18,10 @@
 </p>
 
 <p align="center">
-  🎭 <a href="https://aaronified.github.io/tippani/">Interactive demo</a> — a read-only click-around with dummy data,
-  just to get a rough feel for the layout (not the real build).
+  🎭 <a href="https://aaronified.github.io/tippani/">Interactive demo</a> — a read-only click-around with dummy data
+  that tracks the current frontend (it rebuilds whenever the UI changes). Writes are disabled; everything else is
+  the real interface.
 </p>
-
-<!-- Release / Go / License are dynamic shields badges reading the public GitHub API.
-     If one renders "repo not found" it's a stale GitHub camo image cache from before
-     the repo went public — it clears on its own; a query-param bump (e.g. cacheSeconds
-     on the license badge) forces GitHub to re-fetch the correct SVG immediately. -->
-
 
 ---
 
@@ -38,8 +33,8 @@ Tailscale / Netbird / Twingate when you want remote or encrypted access. No Node
 metadata lookups are on-demand and optional (nothing external is required to run); covers and
 posters are served from your own disk.
 
-The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recently is in
-[`docs/MILESTONE-3.md`](docs/MILESTONE-3.md).
+The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## Screenshots
 
@@ -47,7 +42,7 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/img/library-paper-light.jpg" alt="Library — paper / light theme: a grid of book covers with genre filters"></td>
+    <td width="50%"><img src="docs/img/library-paper-light.jpg" alt="Books — paper / light theme: a grid of book covers with genre filters"></td>
     <td width="50%"><img src="docs/img/catalogue-film-dark.jpg" alt="Catalogue — film / dark theme: a grid of movie & show posters with dialogue counts"></td>
   </tr>
   <tr>
@@ -56,7 +51,7 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
   </tr>
 </table>
 
-<p align="center"><sub>Library (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light)</sub></p>
+<p align="center"><sub>Books (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light)</sub></p>
 
 ## Features
 
@@ -66,6 +61,9 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
   genre**.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
+- 📱 **Phone-first ergonomics** — a bottom navigation bar, sticky page bars, full-screen filter
+  sheets with a Reset · count · Done footer, 44 px touch targets, and no horizontal scroll. The
+  same binary serves desktop and phone; nothing to install.
 - 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
   pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
 - 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected), Kindle
@@ -76,20 +74,21 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
   file, or the whole library as a zip. Book exports round-trip cleanly back through the importer.
 - 💬 **Share a quote** — one click on any highlight or dialogue opens a share sheet that formats it
   for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit**. Choose which
-  fields to include (quote, author/title, chapter, date, rating, tags, note), tweak the text, and
-  copy it — with a live, per-format preview that simulates how each app will render it.
-- 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, genres, **series**,
-  quotes, notes, and dialogue (find a line by its text, its character, or its actor). View as
-  tiles, a list, or sortable tables; **group by** the same axes as the Library; **open any quote in
-  place** to share/edit/delete; **select results** for a bulk tag or field edit — and your last
-  search is remembered when you come back.
+  fields to include, tweak the text, and copy it — with a live, per-format preview.
+- 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, directors, genres,
+  **series**, quotes, notes, and dialogue (find a line by its text, its character, or its actor).
+  View as tiles, a list, or sortable tables; **group by** the same axes as the Library; **open any
+  quote in place** to share/edit/delete; **select results** for a bulk tag or field edit — and your
+  last search is remembered when you come back.
 - 🖼 **Metadata & covers** — Google Books + Open Library for books, [TMDB](https://www.themoviedb.org/)
-  + TheTVDB for films/shows. Covers/posters are fetched once through an SSRF-guarded fetcher and
-  served locally. A **Metadata console** shows per-field coverage, filters by what's missing,
-  bulk-corrects a selection (rename an author, set a series, add genres), and merges duplicates.
-- 👤 **Author & actor pages** — click any author (book detail, or an author group heading) or actor
-  (dialogue) to view and edit their **bio, photo, born, and links**. Kept per name alongside the
-  free-text fields, and the portrait shows in group-by-author headings.
+  + TheTVDB for films/shows, fetched **at full resolution** (TMDB originals, full-size Amazon scans,
+  hi-res Google Books renders) through an SSRF-guarded fetcher and served locally. A **Metadata
+  console** shows per-field coverage, filters by what's missing, bulk-corrects a selection, merges
+  duplicates — and "fetch missing covers & metadata" runs chunked with a **real progress bar**.
+- 👤 **People link out** — click any author or actor name and a small menu opens with their
+  **IMDb · TMDB · TheTVDB · Wikipedia · Open Library** pages, resolved automatically on first
+  open. A People console under Metadata manages the links for everyone in your library (with bulk
+  fetch); optional per-person bio/photo lives one tap deeper and powers the group-by portraits.
 - 🔐 **Multi-user** — per-user isolated libraries, first-run admin onboarding, in-app user
   management, bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
@@ -97,8 +96,8 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); what shipped most recen
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — Kindle `My Clippings.txt` import, a mobile-polish pass, a spaced-repetition daily
-> review, and opt-in AI summaries (OpenAI-compatible + NTFY). See [`ROADMAP.md`](ROADMAP.md).
+> **Roadmap** — Kindle `My Clippings.txt` import, a spaced-repetition daily review, and opt-in AI
+> summaries (OpenAI-compatible + NTFY). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)
 
@@ -162,7 +161,7 @@ set `TIPPANI_COOKIE_SECURE=1`.
 
 ## Build from source
 
-Requires Go 1.25+ (Node only to rebuild the frontend, and only on your dev machine).
+Requires Go 1.26+ (Node only to rebuild the frontend, and only on your dev machine).
 
 ```sh
 make build                         # -> bin/tippani (CGO_ENABLED=0, static)
@@ -190,6 +189,7 @@ make build       # re-embed
 | `TIPPANI_DATA` | `./data` | Data dir (SQLite DB + downloaded covers/posters) |
 | `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app |
 | `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` for login rate limiting |
+| `TIPPANI_TVDB_API_KEY` | *(none)* | TheTVDB v4 key for show lookups; overrides a key saved in Settings. Optional — TMDB alone covers most catalogues |
 | *TMDB API key* | *(none)* | **Configured in-app**, not via env: sign in → Settings → metadata keys, and paste a v3 key or v4 read token from [themoviedb.org](https://www.themoviedb.org/settings/api). There is also an optional built-in key slot (`defaultTMDBKey` in [`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently empty**, so until a key is saved (or that constant is filled) movie lookup answers 503 and manual movie entry still works. Everything else works with no key |
 
 Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.service)):
@@ -221,13 +221,16 @@ internal/store/       SQLite open (WAL etc.), embedded migrations, dedupe hash, 
 internal/auth/        bcrypt, hashed-token sessions, login rate limiter
 internal/httpapi/     routes (Go 1.22 patterns), CSRF, security headers, all handlers + exports
 internal/search/      FTS5 MATCH escaping (never pass raw input to MATCH)
-internal/importer/    markdown (frontmatter + Readest), Bookcision, Hardcover HTML parsers
-internal/metadata/    Google Books / Open Library / TMDB clients, SSRF-guarded cover fetcher
-web/frontend/         Vite + React 19 + Tailwind v4 source
+internal/importer/    markdown (frontmatter + Readest), Bookcision, Hardcover, Goodreads,
+                      Kindle-notebook and IMDb-quotes parsers
+internal/metadata/    Google Books / Open Library / TMDB / TheTVDB clients, person-link
+                      resolution (incl. Wikipedia via Wikidata), SSRF-guarded cover fetcher
+web/frontend/         Vite + React 19 + Tailwind v4 source (+ the read-only demo shim)
 web/dist/             built SPA, embedded via go:embed
 deploy/               Caddyfile + systemd examples
 docs/PLAN.md          the design document this repo implements
-.github/workflows/    CI (go test/vet, frontend build) + GHCR image publish
+docs/ui-glossary.html visual glossary of every UI component
+.github/workflows/    CI (go test/vet, frontend build), GHCR image publish, Pages demo deploy
 ```
 
 ## Publishing note
@@ -245,7 +248,9 @@ Book metadata comes from [Google Books](https://books.google.com/) and
 [Open Library](https://openlibrary.org/); book covers and author images from
 [Amazon](https://www.amazon.com/). All movie and show metadata and posters come from the
 [TMDB](https://www.themoviedb.org/) and [TheTVDB](https://thetvdb.com/) APIs — this product uses
-the TMDB and TheTVDB APIs but is not endorsed or certified by either.
+the TMDB and TheTVDB APIs but is not endorsed or certified by either. Author/actor reference
+links resolve through Open Library, TMDB, and [Wikidata](https://www.wikidata.org/) (for the
+Wikipedia hop), and link out to IMDb, TMDB, TheTVDB, Wikipedia, and Open Library.
 
 Standing on the shoulders of:
 

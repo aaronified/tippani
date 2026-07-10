@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
@@ -86,4 +87,83 @@ func TestPeopleUserIsolation(t *testing.T) {
 	if len(list.People) != 0 {
 		t.Fatalf("bob should not see admin's people: %+v", list)
 	}
+}
+
+// /people/names merges referenced names (books.author / dialogues.actor via
+// the caller's movies) with saved rows, user-scoped, sorted by name.
+func TestPeopleNames(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+
+	admin.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"}, 201)
+	m := decode[struct {
+		ID int64 `json:"id"`
+	}](t, admin.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, 201))
+	admin.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m.ID, "quote": "Here's looking at you, kid.",
+		"character": "Rick", "actor": "Humphrey Bogart",
+	}, 201)
+	// A saved-but-unreferenced author must still appear (stale rows stay manageable).
+	admin.mustDo("PUT", "/people", map[string]any{
+		"kind": "author", "name": "Ursula K. Le Guin",
+		"links": "https://en.wikipedia.org/wiki/Ursula_K._Le_Guin",
+	}, 200)
+
+	type nameRow struct {
+		Name  string `json:"name"`
+		Saved bool   `json:"saved"`
+		Links string `json:"links"`
+	}
+	authors := decode[struct {
+		People []nameRow `json:"people"`
+	}](t, admin.mustDo("GET", "/people/names?kind=author", nil, 200))
+	if len(authors.People) != 2 || authors.People[0].Name != "Frank Herbert" || authors.People[1].Name != "Ursula K. Le Guin" {
+		t.Fatalf("authors = %+v", authors.People)
+	}
+	if authors.People[0].Saved || !authors.People[1].Saved || authors.People[1].Links == "" {
+		t.Fatalf("saved flags/links wrong: %+v", authors.People)
+	}
+	actors := decode[struct {
+		People []nameRow `json:"people"`
+	}](t, admin.mustDo("GET", "/people/names?kind=actor", nil, 200))
+	if len(actors.People) != 1 || actors.People[0].Name != "Humphrey Bogart" {
+		t.Fatalf("actors = %+v", actors.People)
+	}
+
+	// Isolation: bob sees none of admin's names; bad kind is a 400.
+	empty := decode[struct {
+		People []nameRow `json:"people"`
+	}](t, bob.mustDo("GET", "/people/names?kind=author", nil, 200))
+	if len(empty.People) != 0 {
+		t.Fatalf("bob should see nothing: %+v", empty.People)
+	}
+	admin.mustDo("GET", "/people/names?kind=publisher", nil, 400)
+}
+
+// /people/lookup validates input and returns provider links via the seams;
+// actor lookups without a TMDB key are a clear 503.
+func TestPersonLookup(t *testing.T) {
+	srv := newTestServer(t)
+	srv.authorLinks = func(_ context.Context, name string) (map[string]string, error) {
+		if name != "Frank Herbert" {
+			t.Errorf("name = %q", name)
+		}
+		return map[string]string{"openlibrary": "https://openlibrary.org/authors/OL79034A", "wikipedia": "https://en.wikipedia.org/wiki/Frank_Herbert"}, nil
+	}
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+
+	res := decode[struct {
+		Links map[string]string `json:"links"`
+	}](t, admin.mustDo("POST", "/people/lookup", map[string]any{"kind": "author", "name": "Frank Herbert"}, 200))
+	if res.Links["wikipedia"] != "https://en.wikipedia.org/wiki/Frank_Herbert" {
+		t.Fatalf("links = %v", res.Links)
+	}
+
+	admin.mustDo("POST", "/people/lookup", map[string]any{"kind": "author", "name": ""}, 400)
+	admin.mustDo("POST", "/people/lookup", map[string]any{"kind": "narrator", "name": "X"}, 400)
+	// No TMDB key resolvable in tests -> actor lookup is a labelled 503.
+	admin.mustDo("POST", "/people/lookup", map[string]any{"kind": "actor", "name": "Humphrey Bogart"}, 503)
 }
