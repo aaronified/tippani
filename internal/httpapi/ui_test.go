@@ -365,6 +365,46 @@ func TestMetadataStatusLookupTransitions(t *testing.T) {
 	}
 }
 
+// refetchResp is the chunked POST /covers/refetch response shape.
+type refetchResp struct {
+	Fetched    int    `json:"fetched"`
+	Failed     int    `json:"failed"`
+	Enriched   int    `json:"enriched"`
+	Total      int    `json:"total"`
+	Remaining  int    `json:"remaining"`
+	NextCursor string `json:"next_cursor"`
+	Done       bool   `json:"done"`
+}
+
+// driveRefetch walks the refetch cursor protocol to completion the way the UI
+// does — POST, follow next_cursor until done — and returns summed counters
+// (Total/Remaining are the last chunk's values).
+func driveRefetch(t *testing.T, c *testClient) refetchResp {
+	t.Helper()
+	var sum refetchResp
+	body := map[string]any{}
+	for i := 0; ; i++ {
+		if i > 50 {
+			t.Fatal("refetch did not finish within 50 chunks")
+		}
+		res := decode[refetchResp](t, c.mustDo("POST", "/covers/refetch", body, 200))
+		sum.Fetched += res.Fetched
+		sum.Failed += res.Failed
+		sum.Enriched += res.Enriched
+		sum.Total, sum.Remaining, sum.Done = res.Total, res.Remaining, res.Done
+		if res.Done {
+			if res.NextCursor != "" {
+				t.Fatalf("done with non-empty next_cursor %q", res.NextCursor)
+			}
+			return sum
+		}
+		if res.NextCursor == "" {
+			t.Fatal("not done but next_cursor is empty")
+		}
+		body = map[string]any{"cursor": res.NextCursor}
+	}
+}
+
 // POST /covers/refetch is admin-only and runs over ALL users' rows: books
 // re-fetch from the cover_url cached in source_metadata, movies rebuild the
 // TMDB poster URL from the cached payload; rows without a usable URL are
@@ -413,18 +453,31 @@ func TestCoversRefetch(t *testing.T) {
 		return fmt.Sprintf("%016x", len(urls)) + ".jpg", nil
 	}
 
-	res := decode[map[string]int](t, admin.mustDo("POST", "/covers/refetch", nil, 200))
-	if res["fetched"] != 2 || res["failed"] != 1 {
-		t.Fatalf("counts: %v (urls %v)", res, urls)
+	res := driveRefetch(t, admin)
+	if res.Fetched != 2 || res.Failed != 1 {
+		t.Fatalf("counts: %+v (urls %v)", res, urls)
 	}
-	want := "https://image.tmdb.org/t/p/w342/p.jpg"
-	found := false
-	for _, u := range urls {
-		if u == want {
-			found = true
+	// 5 books + 2 poster-less sourced movies were the workload; done leaves 0.
+	if res.Total != 7 || res.Remaining != 0 {
+		t.Fatalf("progress: %+v", res)
+	}
+	// The movie poster is rebuilt at storage size; cached Google covers are
+	// upgraded to the hi-res fife render before fetching.
+	for _, want := range []string{
+		"https://image.tmdb.org/t/p/original/p.jpg",
+		"https://books.google.com/a.jpg?fife=w800-h1200",
+	} {
+		found := false
+		for _, u := range urls {
+			if u == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("fetched urls missing %q: %v", want, urls)
 		}
 	}
-	if !found || len(urls) != 3 {
+	if len(urls) != 3 {
 		t.Fatalf("fetched urls: %v", urls)
 	}
 	// The successful rows were updated; the failed one stays NULL for retry.
@@ -437,10 +490,61 @@ func TestCoversRefetch(t *testing.T) {
 	}
 
 	// Second pass: only bob's still-missing cover is attempted, fails again.
-	res = decode[map[string]int](t, admin.mustDo("POST", "/covers/refetch", nil, 200))
-	if res["fetched"] != 0 || res["failed"] != 1 {
-		t.Fatalf("second pass: %v", res)
+	res = driveRefetch(t, admin)
+	if res.Fetched != 0 || res.Failed != 1 {
+		t.Fatalf("second pass: %+v", res)
 	}
+}
+
+// Chunking protocol: limit=1 walks one row per call, the cursor hands over
+// from books to movies, remaining counts down to zero, and a malformed cursor
+// is a 400.
+func TestCoversRefetchChunking(t *testing.T) {
+	srv := newTestServer(t)
+	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil
+	}
+	n := 0
+	srv.fetchImage = func(context.Context, string, string) (string, error) {
+		n++
+		return fmt.Sprintf("%016x", n) + ".jpg", nil
+	}
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(`INSERT INTO books (user_id, title, source_metadata) VALUES (1, 'A', '{"cover_url":"https://covers.openlibrary.org/b/id/1-L.jpg"}')`)
+	exec(`INSERT INTO books (user_id, title) VALUES (1, 'B')`) // nothing to do, still cursor-walked
+	exec(`INSERT INTO movies (user_id, title, source_metadata) VALUES (1, 'M', '{"id":603,"poster_path":"/p.jpg"}')`)
+
+	res := decode[refetchResp](t, admin.mustDo("POST", "/covers/refetch", map[string]any{"limit": 1}, 200))
+	if res.Fetched != 1 || res.Done || res.NextCursor != "books:1" || res.Total != 3 || res.Remaining != 2 {
+		t.Fatalf("first chunk: %+v", res)
+	}
+	calls := 1
+	for !res.Done {
+		if calls++; calls > 10 {
+			t.Fatal("cursor never finished")
+		}
+		res = decode[refetchResp](t, admin.mustDo("POST", "/covers/refetch",
+			map[string]any{"cursor": res.NextCursor, "limit": 1}, 200))
+	}
+	if res.Remaining != 0 {
+		t.Fatalf("done with remaining=%d", res.Remaining)
+	}
+	var covers, posters int
+	srv.Store.DB.QueryRow(`SELECT count(*) FROM books WHERE cover_path IS NOT NULL`).Scan(&covers)
+	srv.Store.DB.QueryRow(`SELECT count(*) FROM movies WHERE poster_path IS NOT NULL`).Scan(&posters)
+	if covers != 1 || posters != 1 {
+		t.Fatalf("stored: %d covers, %d posters", covers, posters)
+	}
+
+	admin.mustDo("POST", "/covers/refetch", map[string]any{"cursor": "bogus"}, http.StatusBadRequest)
+	admin.mustDo("POST", "/covers/refetch", map[string]any{"cursor": "books:x"}, http.StatusBadRequest)
 }
 
 // The default fetcher path: an off-allowlist URL fails the SSRF guard fast
@@ -456,8 +560,8 @@ func TestCoversRefetchGuardFailure(t *testing.T) {
 		`INSERT INTO books (user_id, title, source_metadata) VALUES (1, 'A', '{"cover_url":"https://not-allowlisted.example/x.jpg"}')`); err != nil {
 		t.Fatal(err)
 	}
-	res := decode[map[string]int](t, admin.mustDo("POST", "/covers/refetch", nil, 200))
-	if res["fetched"] != 0 || res["failed"] != 1 {
-		t.Fatalf("counts: %v", res)
+	res := driveRefetch(t, admin)
+	if res.Fetched != 0 || res.Failed != 1 {
+		t.Fatalf("counts: %+v", res)
 	}
 }

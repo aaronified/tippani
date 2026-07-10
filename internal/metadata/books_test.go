@@ -99,8 +99,9 @@ func TestSearchBooksMergesSources(t *testing.T) {
 	if len(g.Genres) != 2 || g.Genres[0] != "Business" {
 		t.Errorf("genres = %v", g.Genres)
 	}
-	if g.CoverURL != "https://books.google.com/thumb?id=vol1" {
-		t.Errorf("cover = %q, want https upgrade", g.CoverURL)
+	// https upgrade + the hi-res fife render (query is re-encoded alphabetically).
+	if g.CoverURL != "https://books.google.com/thumb?fife=w800-h1200&id=vol1" {
+		t.Errorf("cover = %q, want https + fife upgrade", g.CoverURL)
 	}
 
 	ol := got[1]

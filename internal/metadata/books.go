@@ -226,14 +226,36 @@ type googleImageLinks struct {
 
 // bestGoogleCover picks the largest image Google returned. Search results
 // usually carry only a thumbnail; the &edge=curl page-curl overlay is stripped
-// so the stored cover is a clean front cover.
+// so the stored cover is a clean front cover, and the URL is upgraded to a
+// hi-res render via GoogleHiResCover.
 func bestGoogleCover(l googleImageLinks) string {
 	for _, u := range []string{l.ExtraLarge, l.Large, l.Medium, l.Small, l.Thumbnail, l.SmallThumbnail} {
 		if u != "" {
-			return httpsURL(strings.Replace(u, "&edge=curl", "", 1))
+			return GoogleHiResCover(httpsURL(strings.Replace(u, "&edge=curl", "", 1)))
 		}
 	}
 	return ""
+}
+
+// GoogleHiResCover upgrades a Google Books content URL to a larger render: the
+// volumes *search* endpoint only ever hands out ~128px zoom=1 thumbnails, but
+// the image server honors a fife=WxH bounding box and returns the largest
+// available scan that fits it. Exported so covers-refetch can push cached
+// low-res URLs (saved verbatim at add time) through the same upgrade.
+// Non-Google-Books URLs pass through unchanged.
+func GoogleHiResCover(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	h := u.Hostname()
+	if h != "books.google.com" && h != "books.googleusercontent.com" {
+		return raw
+	}
+	q := u.Query()
+	q.Set("fife", "w800-h1200")
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // searchOpenLibrary queries OL's search.json with the given params (isbn= or

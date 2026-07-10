@@ -176,9 +176,9 @@ func TestRefetchEnriches(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res := decode[map[string]int](t, admin.mustDo("POST", "/covers/refetch", nil, 200))
-	if res["enriched"] < 1 || res["fetched"] < 1 {
-		t.Fatalf("counts: %v", res)
+	res := driveRefetch(t, admin)
+	if res.Enriched < 1 || res.Fetched < 1 {
+		t.Fatalf("counts: %+v", res)
 	}
 	var author, desc, cover string
 	var year int

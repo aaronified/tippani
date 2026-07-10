@@ -439,7 +439,9 @@ GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
 GET    /metadata/status              # TMDB key source, google key set?, last book-lookup outcome
 GET    /covers/{file}                # local static (covers + posters, data/MediaCover)
-POST   /covers/refetch               # admin: re-fetch missing covers/posters (all users)
+POST   /covers/refetch               # admin: re-fetch missing covers/posters (all users); chunked:
+                                     #   {cursor?, limit?} → {fetched, failed, enriched,
+                                     #   next_cursor, done, total, remaining}; client loops until done
 GET    /healthz                      # public liveness probe (container HEALTHCHECK)
 ```
 

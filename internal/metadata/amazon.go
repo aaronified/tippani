@@ -23,20 +23,35 @@ const maxHTMLBody = 3 << 20
 // AmazonCoverURL returns Amazon's public image-CDN URL for a book/Kindle cover
 // keyed by ASIN. No auth needed — this host serves cover art openly. A missing
 // image comes back as a tiny placeholder, so callers should let the user
-// visually confirm the cover before storing it.
+// visually confirm the cover before storing it. No size modifier = the
+// original full-size scan (mirrored by amazonCoverURL in CoverPicker.jsx;
+// keep the two in sync).
 func AmazonCoverURL(asin string) string {
 	asin = strings.TrimSpace(asin)
 	if asin == "" {
 		return ""
 	}
-	return "https://images-na.ssl-images-amazon.com/images/P/" + asin + ".01._SCLZZZZZZZ_.jpg"
+	return "https://images-na.ssl-images-amazon.com/images/P/" + asin + ".01.jpg"
 }
 
 var (
 	ogTitleRe = regexp.MustCompile(`<meta\s+property="og:title"\s+content="([^"]*)"`)
 	ogImageRe = regexp.MustCompile(`<meta\s+property="og:image"\s+content="([^"]*)"`)
 	ogDescRe  = regexp.MustCompile(`<meta\s+property="og:description"\s+content="([^"]*)"`)
+
+	// amazonSizeModRe matches the inline size modifier Amazon embeds in image
+	// URLs (e.g. "._SY300_.jpg", "._AC_SX466_.jpg") so it can be stripped —
+	// the modifier-less URL serves the original full-size scan.
+	amazonSizeModRe = regexp.MustCompile(`\._[A-Za-z0-9,_]+_(\.[a-zA-Z]+)$`)
 )
+
+// AmazonFullSizeImage strips the size modifier from an Amazon image URL so the
+// stored cover is the full-resolution original, not a ~300-500px variant.
+// URLs without a modifier (and non-Amazon URLs) pass through unchanged.
+// Exported so covers-refetch can upgrade cached add-time URLs too.
+func AmazonFullSizeImage(u string) string {
+	return amazonSizeModRe.ReplaceAllString(u, "$1")
+}
 
 // FetchAmazonBook scrapes an Amazon product page for a book/Kindle ASIN using
 // the user's own session cookie. It is deliberately minimal and fragile-proof:
@@ -86,7 +101,7 @@ func FetchAmazonBook(ctx context.Context, asin, cookie, domain string) (*BookCan
 		SourceID:    asin,
 		Title:       title,
 		Description: firstGroup(ogDescRe, page),
-		CoverURL:    firstGroup(ogImageRe, page),
+		CoverURL:    AmazonFullSizeImage(firstGroup(ogImageRe, page)),
 	}, nil
 }
 

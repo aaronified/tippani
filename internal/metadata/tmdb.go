@@ -12,12 +12,26 @@ import (
 )
 
 const (
-	tmdbBase      = "https://api.themoviedb.org/3"
-	tmdbImageBase = "https://image.tmdb.org/t/p/w342"
+	tmdbBase = "https://api.themoviedb.org/3"
+	// Two image sizes for two jobs: w342 thumbnails for the lookup picker,
+	// `original` for the poster that gets downloaded and stored (typically
+	// 2000×3000; the 5 MB fetch cap in covers.go accommodates it).
+	tmdbImageBase      = "https://image.tmdb.org/t/p/w342"
+	tmdbImageFetchBase = "https://image.tmdb.org/t/p/original"
 
 	maxMovieCandidates = 8
 	maxCast            = 20 // trimmed top-billed cast stored in cast_json (PLAN §3b)
 )
+
+// TMDBPosterURL builds the full-size poster URL for a TMDB poster_path — the
+// variant meant for download + storage, not the picker thumbnail. Shared with
+// httpapi's covers-refetch so the size lives in exactly one place.
+func TMDBPosterURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return tmdbImageFetchBase + path
+}
 
 type CastMember struct {
 	Character string `json:"character"`
@@ -247,7 +261,7 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		}
 	}
 	if r.PosterPath != "" {
-		d.PosterURL = tmdbImageBase + r.PosterPath
+		d.PosterURL = TMDBPosterURL(r.PosterPath)
 	}
 	return d, nil
 }
@@ -313,7 +327,7 @@ func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
 		}
 	}
 	if r.PosterPath != "" {
-		d.PosterURL = tmdbImageBase + r.PosterPath
+		d.PosterURL = TMDBPosterURL(r.PosterPath)
 	}
 	return d, nil
 }

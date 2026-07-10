@@ -14,7 +14,7 @@ import {
   useIsMobileScreen,
   useSort,
 } from './ui.jsx'
-import { StickerManager } from './stickers.jsx'
+import { NewStickerCard, StickerList, useStickers } from './stickers.jsx'
 
 // Tags page (§8.10, mockups 23–24): the per-user tag vocabulary manager —
 // each tag shown as a sample chip in its own style × colour with usage
@@ -25,6 +25,7 @@ export default function TagsPage() {
   const [error, setError] = useState('')
   const [showTable, setShowTable] = useState(false)
   const mobile = useIsMobileScreen()
+  const { stickers, reload } = useStickers()
 
   async function load() {
     const r = await json('GET', '/tags')
@@ -52,8 +53,13 @@ export default function TagsPage() {
         />
       </div>
       <ErrorText>{error}</ErrorText>
+      {/* Add-cards lead the page: side by side on desktop, stacked on a phone. */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <NewTagCard onCreated={load} />
+        <NewStickerCard onUploaded={reload} />
+      </div>
       {tags && tags.length === 0 && (
-        <EmptyState>no tags yet — create one below, or tag an annotation</EmptyState>
+        <EmptyState>no tags yet — create one above, or tag an annotation</EmptyState>
       )}
       {tags && tags.length > 0 && (
         <>
@@ -70,10 +76,9 @@ export default function TagsPage() {
           {showTable && <TagTable tags={byUses} onChanged={load} />}
         </>
       )}
-      <NewTagCard onCreated={load} />
 
       <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.5rem 0 0.25rem' }} />
-      <StickerManager />
+      <StickerList stickers={stickers} onChanged={reload} />
     </section>
   )
 }

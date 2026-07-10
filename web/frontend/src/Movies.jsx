@@ -33,6 +33,7 @@ import {
   PageHeader,
   Placeholder,
   Select,
+  SheetFooter,
   Sprockets,
   TagChip,
   TiltStars,
@@ -191,7 +192,11 @@ function MovieList({ onOpen }) {
           right={
             <>
               {mobile && (
-                <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+                <div className="flex items-center gap-2">
+                  <IconButton icon={<IconPlus />} ariaLabel="Add title" onClick={() => setAdding(true)} />
+                  <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+                  <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />
+                </div>
               )}
               {!mobile && (
                 <MonoLabel className="hidden sm:inline">
@@ -250,53 +255,67 @@ function MovieList({ onOpen }) {
       )}
 
       {mobile && (
-        <MobileSheet open={mobileFilter} onClose={() => setMobileFilter(false)} title="Filters">
-          <div className="space-y-4">
+        <MobileSheet
+          open={mobileFilter}
+          onClose={() => setMobileFilter(false)}
+          title="Filters"
+          footer={
+            <SheetFooter
+              count={movies ? `${shown.length} shown` : ''}
+              onReset={() => { setGenre(''); setMediaType(''); setFav(false); setMinRating(''); setSeries(''); setSort('recent') }}
+              onDone={() => setMobileFilter(false)}
+            />
+          }
+        >
+          <div className="space-y-5">
             <div>
               <MonoLabel className="mb-2 block">genre</MonoLabel>
               <GenreFilter genres={genres} value={genre} onChange={setGenre} />
             </div>
             {hasShows && (
-              <div className="flex flex-wrap items-center gap-2">
-                {[
-                  ['', 'All'],
-                  ['movie', 'Movies'],
-                  ['show', 'Shows'],
-                ].map(([k, label]) => (
-                  <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
-                    {label}
-                  </button>
-                ))}
+              <div>
+                <MonoLabel className="mb-2 block">type</MonoLabel>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    ['', 'All'],
+                    ['movie', 'Movies'],
+                    ['show', 'Shows'],
+                  ].map(([k, label]) => (
+                    <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-                ♥ favourites
-              </button>
-              <MinRatingSelect value={minRating} onChange={setMinRating} />
+            <div>
+              <MonoLabel className="mb-2 block">show only</MonoLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                  ♥ favourites
+                </button>
+                <MinRatingSelect value={minRating} onChange={setMinRating} />
+              </div>
             </div>
             {seriesNames.length > 0 && (
-              <Select
-                ariaLabel="Filter by series"
-                value={series}
-                onChange={setSeries}
-                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
-              />
+              <div>
+                <MonoLabel className="mb-2 block">series</MonoLabel>
+                <Select
+                  ariaLabel="Filter by series"
+                  value={series}
+                  onChange={setSeries}
+                  options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+                />
+              </div>
             )}
-            <label className="flex items-center gap-2">
-              <MonoLabel>sort</MonoLabel>
+            <div>
+              <MonoLabel className="mb-2 block">sort</MonoLabel>
               <Select
                 ariaLabel="Sort"
                 value={sort}
                 onChange={setSort}
                 options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['rating', 'Rating'], ['series', 'Series']]}
               />
-            </label>
-            <div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-              <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>
-              <button className="tp-btn tp-btn-primary" onClick={() => { setMobileFilter(false); setAdding(true) }}>
-                ＋ Add title
-              </button>
             </div>
           </div>
         </MobileSheet>
@@ -761,7 +780,7 @@ function MovieDetail({ id, onClose }) {
   const detailMeta = movie ? (movie.director || movie.release_year || '') : ''
 
   return (
-    <section className="space-y-6 pt-5" data-screen-label="movie-detail">
+    <section className="space-y-6 md:pt-5" data-screen-label="movie-detail">
       {mobile && (
         <div className="mobile-sticky-bar">
           <div className="mobile-detail-bar">
@@ -1017,6 +1036,13 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   useEffect(() => {
     if (mobileAddOpen) { setAdding(true); onMobileAddOpen?.(false); }
   }, [mobileAddOpen])
+
+  // The add form sits at the top of the section; when it opens while the strip
+  // is scrolled (the sticky-bar ＋ on mobile), bring it into view.
+  const addRef = useRef(null)
+  useEffect(() => {
+    if (adding && addRef.current) addRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [adding])
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
   const [sort, setSort] = useState({ col: 'timestamp', dir: 'asc' })
@@ -1107,8 +1133,19 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   return (
     <div className="space-y-4">
       {mobile && (
-        <MobileSheet open={mobileFilterOpen} onClose={() => onMobileFilterOpen?.(false)} title="Filter dialogues">
-          <div className="space-y-4">
+        <MobileSheet
+          open={mobileFilterOpen}
+          onClose={() => onMobileFilterOpen?.(false)}
+          title="Filter dialogues"
+          footer={
+            <SheetFooter
+              count={items ? `${items.length} shown` : ''}
+              onReset={() => { setTag(''); setFav(false); setMinRating('') }}
+              onDone={() => onMobileFilterOpen?.(false)}
+            />
+          }
+        >
+          <div className="space-y-5">
             <div>
               <MonoLabel className="mb-2 block">character / tag</MonoLabel>
               <input
@@ -1118,20 +1155,15 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
               />
-              {characters.length > 0 && (
-                <datalist id={castListId}>
-                  {characters.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              )}
             </div>
-            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-              ♥ favourites
-            </button>
             <div>
-              <MonoLabel className="mb-2 block">rating</MonoLabel>
-              <MinRatingSelect value={minRating} onChange={setMinRating} />
+              <MonoLabel className="mb-2 block">show only</MonoLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                  ♥ favourites
+                </button>
+                <MinRatingSelect value={minRating} onChange={setMinRating} />
+              </div>
             </div>
             <div>
               <MonoLabel className="mb-2 block">view</MonoLabel>
@@ -1169,9 +1201,38 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
       )}
 
       <ErrorText>{error}</ErrorText>
+
+      {/* Add-dialogue leads the section (collapsed to a slim dashed tile) so
+          capturing a line never requires scrolling past the whole strip. */}
+      <div ref={addRef}>
+        {adding ? (
+          <HandCard variant={2} className="p-5">
+            <DialogueForm
+              onSubmit={add}
+              onCancel={() => setAdding(false)}
+              submitLabel="Add dialogue"
+              castListId={castListId}
+              tagSuggestions={Object.keys(tagMap)}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
+            />
+          </HandCard>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3"
+            style={{ background: 'transparent', border: '1.6px dashed var(--ink-border)', borderRadius: 12, minHeight: 56 }}
+          >
+            <span style={{ color: 'var(--accent-ui)', fontWeight: 600, fontSize: 14.5 }}>＋ Add dialogue</span>
+            <span className="microcopy">character picker from cast · actor auto-fills · timestamp HH:MM:SS</span>
+          </button>
+        )}
+      </div>
+
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — capture the first line below.'}
+          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — capture the first line above.'}
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'tiles' && (
@@ -1240,30 +1301,6 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
           castListId={castListId}
           onShare={setShareTarget}
         />
-      )}
-
-      {adding ? (
-        <HandCard variant={2} className="p-5">
-          <DialogueForm
-            onSubmit={add}
-            onCancel={() => setAdding(false)}
-            submitLabel="Add dialogue"
-            castListId={castListId}
-            tagSuggestions={Object.keys(tagMap)}
-            stickers={stickers}
-            reloadStickers={reloadStickers}
-          />
-        </HandCard>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3"
-          style={{ background: 'transparent', border: '1.6px dashed var(--ink-border)', borderRadius: 12, minHeight: 56 }}
-        >
-          <span style={{ color: 'var(--accent-ui)', fontWeight: 600, fontSize: 14.5 }}>＋ Add dialogue</span>
-          <span className="microcopy">character picker from cast · actor auto-fills · timestamp HH:MM:SS</span>
-        </button>
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}
@@ -1430,7 +1467,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           />
         ) : (
           <div className="flex items-start justify-between gap-3">
-            <blockquote className="whitespace-pre-wrap" style={quoteStyle}>
+            <blockquote className="min-w-0 whitespace-pre-wrap" style={quoteStyle}>
               &ldquo;{d.quote}&rdquo;
             </blockquote>
             <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
@@ -1445,7 +1482,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             </span>
           ))}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {sticker && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
           <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />
         </div>

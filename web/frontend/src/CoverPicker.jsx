@@ -9,11 +9,12 @@ import { GhostButton, MonoLabel, Placeholder, ErrorText } from './ui.jsx'
 const PRIMARY = 'tp-btn tp-btn-primary'
 
 // amazonCoverURL builds Amazon's public image-CDN URL for a cover from an ASIN
-// (mirrors metadata.AmazonCoverURL). No auth required; the server fetches it on
-// save via the user-URL path.
+// (mirrors metadata.AmazonCoverURL — keep the two in sync). No size modifier =
+// the original full-size scan. No auth required; the server fetches it on save
+// via the user-URL path.
 export function amazonCoverURL(asin) {
   const a = (asin || '').trim()
-  return a ? `https://images-na.ssl-images-amazon.com/images/P/${a}.01._SCLZZZZZZZ_.jpg` : ''
+  return a ? `https://images-na.ssl-images-amazon.com/images/P/${a}.01.jpg` : ''
 }
 
 // CoverPreview renders a pending remote URL or the locally-stored file at 2:3.

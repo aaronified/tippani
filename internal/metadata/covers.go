@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"syscall"
 	"time"
 )
@@ -24,8 +25,22 @@ var coverHosts = map[string]bool{
 	"books.google.com":                true,
 	"books.googleusercontent.com":     true,
 	"image.tmdb.org":                  true,
+	"artworks.thetvdb.com":            true, // TVDB poster/series art
 	"images-na.ssl-images-amazon.com": true, // cover-by-ASIN CDN
 	"m.media-amazon.com":              true, // og:image host on product pages
+}
+
+// olArchiveHost matches the Internet Archive node hosts OpenLibrary's cover
+// service redirects to (covers.openlibrary.org → archive.org/download →
+// iaNNNNNN.us.archive.org). Without them every OL cover fetch dies on the
+// redirect hop with "host not allowed" — silently, since cover fetches are
+// best-effort.
+var olArchiveHost = regexp.MustCompile(`^ia\d+\.us\.archive\.org$`)
+
+// allowedCoverHost is the coverHosts lookup plus the archive.org redirect
+// targets OL covers resolve through.
+func allowedCoverHost(host string) bool {
+	return coverHosts[host] || host == "archive.org" || olArchiveHost.MatchString(host)
 }
 
 // fetchAllowAny disables the scheme/allowlist/private-IP guards so tests can
@@ -33,8 +48,10 @@ var coverHosts = map[string]bool{
 // outside tests.
 var fetchAllowAny = false
 
-// maxImageBytes is the PLAN §6 cover/poster size cap.
-const maxImageBytes = 2 << 20
+// maxImageBytes is the PLAN §6 cover/poster size cap. 5 MB fits full-size
+// provider art (TMDB `original` posters, Amazon unmodified scans) that the old
+// 2 MB cap rejected.
+const maxImageBytes = 5 << 20
 
 // minImageBytes rejects tracking-pixel placeholders — notably Amazon's "no
 // image available" 1×1 GIF (~tens of bytes) served with HTTP 200 for an ASIN
@@ -121,7 +138,7 @@ func FetchImage(ctx context.Context, rawURL, destDir string) (string, error) {
 // FetchUserImage downloads a cover/poster from a URL the user typed. It drops
 // the host allowlist (the user may paste any image host) but keeps every other
 // guard: private/loopback/link-local IPs are still refused at connect time
-// (so cloud-metadata and intranet URLs can't be reached), 2 MB cap, image
+// (so cloud-metadata and intranet URLs can't be reached), size cap, image
 // sniff, redirect limit. http is permitted here since the IP guard, not the
 // scheme, is what stops SSRF.
 func FetchUserImage(ctx context.Context, rawURL, destDir string) (string, error) {
@@ -171,8 +188,8 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 		return "", fmt.Errorf("cover fetch: status %d", resp.StatusCode)
 	}
 
-	// Read one byte past the cap so a too-big body is distinguishable from an
-	// exactly-2MB one.
+	// Read one byte past the cap so a too-big body is distinguishable from one
+	// that is exactly at the cap.
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("cover fetch: %w", err)
@@ -245,7 +262,7 @@ func checkCoverURL(u *url.URL, anyHost bool) error {
 	if u.Scheme != "https" {
 		return fmt.Errorf("cover fetch: %q: https required", u)
 	}
-	if !coverHosts[u.Hostname()] {
+	if !allowedCoverHost(u.Hostname()) {
 		return fmt.Errorf("cover fetch: host %q not allowed", u.Hostname())
 	}
 	return nil

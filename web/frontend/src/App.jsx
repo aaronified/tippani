@@ -220,9 +220,9 @@ const PRIMARY_TABS = [
   ['movies', 'Catalogue'],
   ['search', 'Search'],
   ['tags', 'Tags'],
+  ['import', 'Import'],
 ]
 const MENU_TABS = [
-  ['import', 'Import'],
   ['metadata', 'Metadata'],
   ['settings', 'Settings'],
 ]
@@ -488,7 +488,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       <header className="topbar">
         <div className="topbar-inner">
           <span className="brand">
-            <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="24" height="24" />
+            {/* the mark matches the 28px nav tab icons so the row reads level */}
+            <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
             <span className="wordmark-mobile-hidden">tippani</span>
           </span>
           <nav aria-label="Primary" className="topbar-nav">
@@ -501,7 +502,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       </header>
       <nav className="bottom-nav" aria-label="Primary">
         <span className="brand bottom-nav-brand">
-          <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="22" height="22" />
+          <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
         </span>
         <NavToggle tab={tab} onChange={selectTab} />
         <UserMenu user={user} tab={tab} menuOpen={menuOpen} setMenuOpen={setMenuOpen} selectTab={selectTab} logout={logout} onUser={onUser} menuRef={bottomMenuRef} />

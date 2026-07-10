@@ -6,6 +6,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,9 +22,6 @@ const (
 	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
 )
 
-// tmdbPosterBase rebuilds poster URLs from the poster_path cached in a
-// movie's raw TMDB payload (same size the pick-time fetch uses).
-const tmdbPosterBase = "https://image.tmdb.org/t/p/w342"
 
 // lookupOutcome is the in-memory record of the most recent POST /books/lookup
 // (surfaced by GET /metadata/status; a nil pointer = never tried). Not
@@ -183,8 +181,47 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 // path is keyless. A title-only book skips metadata backfill (a bare title match
 // is too loose to trust) but still tries a candidate cover. Movies reuse the
 // TMDB poster cached at add time. Serial + best-effort across ALL users.
+//
+// The work is CHUNKED so the client can render real progress: each call
+// processes up to `limit` rows starting after `cursor` and returns
+// {next_cursor, done, total, remaining} alongside the counters. An empty body
+// (or empty cursor) starts from the top; the client loops until done. Chunks
+// also keep each HTTP request short, so proxy timeouts and tab navigation
+// can no longer silently abort a long run.
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	var req struct {
+		Cursor string `json:"cursor"`
+		Limit  int    `json:"limit"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
+	_ = json.NewDecoder(r.Body).Decode(&req) // absent/empty body = defaults
+	if req.Limit <= 0 || req.Limit > 100 {
+		req.Limit = 20
+	}
+	phase, after := "books", int64(0)
+	if c := strings.TrimSpace(req.Cursor); c != "" {
+		p, aStr, ok := strings.Cut(c, ":")
+		a, perr := strconv.ParseInt(aStr, 10, 64)
+		if !ok || perr != nil || (p != "books" && p != "movies") {
+			writeErr(w, http.StatusBadRequest, "invalid cursor")
+			return
+		}
+		phase, after = p, a
+	}
+
+	// total is the full workload at this instant (all books get a backfill
+	// pass; only poster-less sourced movies need work). The client captures it
+	// from the first response; remaining shrinks as the cursor advances.
+	const movieWhere = `poster_path IS NULL AND source_metadata IS NOT NULL`
+	var total int
+	if err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books) +
+		(SELECT COUNT(*) FROM movies WHERE ` + movieWhere + `)`).Scan(&total); err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
 	gkey, _ := s.Store.GetSetting(settingGoogleBooksKey)
 	cookie, _ := s.Store.GetSetting(settingAmazonCookie)
 	domain, _ := s.Store.GetSetting(settingAmazonDomain)
@@ -201,7 +238,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`SELECT id, user_id, title, COALESCE(isbn,''), COALESCE(asin,''),
 		COALESCE(cover_path,''), COALESCE(source_metadata,''),
 		(SELECT COUNT(*) FROM book_genres bg WHERE bg.book_id = books.id)
-		FROM books`)
+		FROM books WHERE ? = 'books' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
@@ -224,7 +261,9 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	rows.Close() // done reading before any writes/network (SQLite single-writer)
 
 	enriched, fetched, failed := 0, 0, 0
+	lastID := after
 	for _, b := range books {
+		lastID = b.id
 		isbnN := metadata.NormalizeISBN(b.isbn)
 
 		// Best candidate from the keyless/keyed sources.
@@ -271,11 +310,14 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Cover, if still missing: candidate URL, then OL-by-ISBN, then Amazon-by-ASIN.
+		// Cover, if still missing: add-time URL, then candidate, then OL-by-ISBN,
+		// then Amazon-by-ASIN. The cached URL was saved verbatim at add time, so
+		// push it through the same hi-res upgrades the fresh builders now apply —
+		// otherwise refetch keeps resurrecting old low-res thumbnails.
 		if b.cover == "" {
 			var urls []string
 			if b.cachedURL != "" {
-				urls = append(urls, b.cachedURL) // the URL that was chosen at add time
+				urls = append(urls, metadata.AmazonFullSizeImage(metadata.GoogleHiResCover(b.cachedURL)))
 			}
 			if cand != nil {
 				urls = append(urls, cand.CoverURL)
@@ -309,13 +351,15 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Movies: fetch the TMDB poster cached at add time (keyless to fetch).
+	// Only runs in the movies phase; the cursor advances over movie ids.
 	type movieTarget struct {
 		id  int64
 		url string
 	}
 	var movies []movieTarget
+	mScanned := 0 // chunk fullness = rows scanned, not posters found
 	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(source_metadata, '') FROM movies
-		WHERE poster_path IS NULL AND source_metadata IS NOT NULL`)
+		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
 	if err == nil {
 		for mrows.Next() {
 			var id int64
@@ -323,12 +367,14 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			if mrows.Scan(&id, &raw) != nil {
 				continue
 			}
+			lastID = id
+			mScanned++
 			var meta struct {
 				PosterPath string `json:"poster_path"`
 			}
 			_ = json.Unmarshal([]byte(raw), &meta)
 			if meta.PosterPath != "" {
-				movies = append(movies, movieTarget{id, tmdbPosterBase + meta.PosterPath})
+				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath)})
 			}
 		}
 		mrows.Close()
@@ -347,5 +393,41 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]int{"fetched": fetched, "failed": failed, "enriched": enriched})
+	// Next cursor: advance within the phase while chunks come back full; a
+	// short books chunk hands over to movies, a short movies chunk finishes.
+	next := ""
+	switch phase {
+	case "books":
+		if len(books) == req.Limit {
+			next = "books:" + strconv.FormatInt(lastID, 10)
+		} else {
+			next = "movies:0"
+		}
+	case "movies":
+		if mScanned == req.Limit {
+			next = "movies:" + strconv.FormatInt(lastID, 10)
+		}
+	}
+
+	// remaining = rows the NEXT calls will still see; drives the progress bar.
+	remaining := 0
+	switch {
+	case next == "":
+		// done
+	case strings.HasPrefix(next, "books:"):
+		if s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE id > ?) +
+			(SELECT COUNT(*) FROM movies WHERE `+movieWhere+`)`, lastID).Scan(&remaining) != nil {
+			remaining = 0
+		}
+	default: // movies:N
+		if s.Store.DB.QueryRow(`SELECT COUNT(*) FROM movies WHERE `+movieWhere+` AND id > ?`,
+			lastID).Scan(&remaining) != nil {
+			remaining = 0
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"fetched": fetched, "failed": failed, "enriched": enriched,
+		"next_cursor": next, "done": next == "", "total": total, "remaining": remaining,
+	})
 }

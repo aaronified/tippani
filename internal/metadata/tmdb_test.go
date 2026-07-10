@@ -109,7 +109,8 @@ func TestTMDBDetails(t *testing.T) {
 	if d.Director != "Lana Wachowski" {
 		t.Errorf("director = %q, want first crew entry with job Director", d.Director)
 	}
-	if d.PosterURL != "https://image.tmdb.org/t/p/w342/matrix.jpg" {
+	// Details carries the storage-size poster (original), not the w342 thumbnail.
+	if d.PosterURL != "https://image.tmdb.org/t/p/original/matrix.jpg" {
 		t.Errorf("poster = %q", d.PosterURL)
 	}
 	if len(d.Genres) != 2 || d.Genres[1] != "Science Fiction" {

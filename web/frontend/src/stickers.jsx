@@ -106,14 +106,11 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
   )
 }
 
-// StickerManager is the Tags-page section: the latest 5 as a quick row, the rest
-// behind "more" as a sortable table (with miniature previews) that scrolls inside
-// its own box — so a big library can't bury this section.
-export function StickerManager() {
-  const { stickers, reload } = useStickers()
+// NewStickerCard — dashed add-card pairing with the Tags page's NewTagCard;
+// upload-only (naming happens inline on the cards/table below).
+export function NewStickerCard({ onUploaded }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [showTable, setShowTable] = useState(false)
   const fileRef = useRef(null)
 
   async function onFile(e) {
@@ -125,35 +122,46 @@ export function StickerManager() {
     const r = await upload('/stickers', f)
     setBusy(false)
     if (!r.ok) return setError(errText(r, 'could not upload sticker'))
-    reload()
+    onUploaded()
   }
+
+  return (
+    <section className="p-5" style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 14 }}>
+      <p className="mb-1 font-semibold" style={{ color: 'var(--accent-ui)' }}>
+        ＋ New sticker
+      </p>
+      <p className="mb-3 text-xs" style={{ color: 'var(--soft)' }}>
+        transparent PNG or SVG images — attach one to any quote in its add/edit form
+      </p>
+      <GhostButton type="button" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}>
+        {busy ? 'uploading…' : 'Upload sticker'}
+      </GhostButton>
+      <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />
+      <ErrorText>{error}</ErrorText>
+    </section>
+  )
+}
+
+// StickerList is the Tags-page library section: the latest 5 as a quick row, the
+// rest behind "more" as a sortable table (with miniature previews) that scrolls
+// inside its own box — so a big library can't bury the sections around it.
+export function StickerList({ stickers, onChanged }) {
+  const [showTable, setShowTable] = useState(false)
 
   const latest = stickers.slice(0, 5) // API returns newest-first
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
-            Stickers
-          </h2>
-          <p className="text-xs" style={{ color: 'var(--soft)' }}>
-            transparent PNG or SVG images — attach one to any quote in its add/edit form
-          </p>
-        </div>
-        <GhostButton type="button" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}>
-          {busy ? 'uploading…' : '＋ Upload sticker'}
-        </GhostButton>
-        <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />
-      </div>
-      <ErrorText>{error}</ErrorText>
+      <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
+        Stickers
+      </h2>
       {stickers.length === 0 ? (
         <EmptyState>no stickers yet — upload a transparent PNG or SVG above</EmptyState>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {latest.map((s, i) => (
-              <StickerCard key={s.id} sticker={s} index={i} onChanged={reload} />
+              <StickerCard key={s.id} sticker={s} index={i} onChanged={onChanged} />
             ))}
           </div>
           {stickers.length > 5 && (
@@ -161,7 +169,7 @@ export function StickerManager() {
               {showTable ? 'Hide table' : `More stickers (${stickers.length - 5})…`}
             </GhostButton>
           )}
-          {showTable && <StickerTable stickers={stickers} onChanged={reload} />}
+          {showTable && <StickerTable stickers={stickers} onChanged={onChanged} />}
         </>
       )}
     </section>

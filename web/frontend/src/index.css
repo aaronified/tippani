@@ -359,6 +359,7 @@
        cards sit in both contexts across pages, so this is needed for them to
        actually respect a narrow column/row instead of forcing it wider. */
     min-width: 0;
+    max-width: 100%;
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
     border: 1.6px solid var(--ink-border);
     border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
@@ -394,11 +395,19 @@
   /* ---- film frame (§6): one dialogue/quote card in the strip. Sheened and
      lifted so the strip reads as stacked frames, not flat rectangles. ---- */
   .film-frame {
+    min-width: 0;
+    max-width: 100%;
     background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 5%), color-mix(in srgb, var(--card), black 7%));
     border: 1px solid var(--frame-border);
     border-radius: 10px;
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(41,38,29,.05);
   }
+
+  /* Quote/note text inside cards must never widen the page: a long unbroken
+     token (URL, compound word) breaks instead. overflow-wrap inherits, so one
+     rule on the card covers every descendant. The table view is exempt —
+     .ann-table-wrap is the one sanctioned horizontal scroller. */
+  .hand-card, .film-frame { overflow-wrap: anywhere; }
   html[data-theme="dark"] .film-frame {
     box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.3);
   }
@@ -1070,6 +1079,25 @@
   .hand-card:has(.tp-tip-wrap:hover),
   .hand-card:has(.tp-tip-wrap:focus-within) { z-index: 30; }
 
+  /* ---- determinate progress (ProgressBar): recessed track, accent fill ---- */
+  .progress-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 1px 2px rgba(41,38,29,.12);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    transition: width .3s ease;
+  }
+  html[data-theme="dark"] .progress-fill {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+  }
+
   .ann-table-wrap { overflow-x: auto; }
   .ann-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .ann-table th, .ann-table td {
@@ -1272,7 +1300,7 @@
   .bottom-nav {
     display: none;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -1519,9 +1547,18 @@
      leaving a redundant strip pinned above it. */
   .topbar { display: none; }
 
-  .container-tp { padding: 4px 12px 80px; }
+  /* No top padding on the container: the page's .mobile-sticky-bar must own
+     the very top edge of the screen — any padding above it shows as a gap
+     until the first scroll. Breathing room lives BELOW the bar (space-y). */
+  .container-tp { padding: 0 12px 80px; }
 
   .bottom-nav { display: flex; }
+
+  /* Ancestor transforms un-stick position:sticky (the stuck bar rides the
+     transform for the animation's duration, floating below the true top).
+     The tab entrance + scroll reveals are desktop niceties — drop them here. */
+  .tab-panel { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
 }
 .nav-toggle .tp-toggle-opt svg,
 .bottom-nav .nav-toggle .tp-toggle-opt svg {
@@ -1548,6 +1585,9 @@
     box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
     margin: 0 -12px;
     padding: 8px 12px;
+    /* notch/status-bar clearance in standalone/PWA contexts (the bottom nav
+       already handles the bottom inset) */
+    padding-top: max(8px, env(safe-area-inset-top));
   }
   html[data-theme="dark"] .mobile-sticky-bar {
     box-shadow: 0 4px 16px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
@@ -1640,8 +1680,25 @@ html[data-theme="dark"] .mobile-sheet-header {
 .mobile-sheet-body {
   flex: 1;
   overflow-y: auto;
-  padding: 14px;
+  padding: 16px 14px;
   -webkit-overflow-scrolling: touch;
+}
+/* Sheet controls read as a form: selects span the full row instead of
+   collapsing to content width (the ragged-left look). */
+.mobile-sheet-body .tp-select { display: block; width: 100%; }
+.mobile-sheet-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: linear-gradient(0deg, var(--topbar-bottom), var(--topbar-top));
+  box-shadow: 0 -3px 14px -6px rgba(41,38,29,.22);
+}
+html[data-theme="dark"] .mobile-sheet-footer {
+  box-shadow: 0 -4px 16px -6px rgba(0,0,0,.55);
 }
 
 /* ---- touch target pass (§11) ---- */
@@ -1674,13 +1731,21 @@ html[data-theme="dark"] .mobile-sheet-header {
     align-items: center;
     justify-content: center;
   }
+  /* In-card marks keep the 44px hit height but narrow the boxes — a heart +
+     five stars + the links must fit a ~310px card column without spilling. */
+  .hand-card .heart,
+  .film-frame .heart,
+  .hand-card .tilt-stars button,
+  .film-frame .tilt-stars button {
+    width: 34px;
+  }
   .tp-btn-ghost {
     min-height: 44px;
     padding: 8px 14px;
   }
   .bottom-nav .tp-toggle-opt {
     min-height: 44px;
-    padding: 8px 10px;
+    padding: 8px 6px; /* five icon tabs + brand + chip must fit a 320px screen */
   }
   .mobile-sticky-bar .tp-btn-ghost,
   .mobile-detail-bar .tp-btn-ghost {
@@ -1693,7 +1758,7 @@ html[data-theme="dark"] .mobile-sheet-header {
   }
   .nav-toggle .tp-toggle-opt {
     min-height: 44px;
-    padding: 8px 10px;
+    padding: 8px 6px;
   }
   .filter-chip-mobile {
     min-height: 44px;

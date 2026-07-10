@@ -34,6 +34,7 @@ import {
   PageHeader,
   Placeholder,
   Select,
+  SheetFooter,
   TagChip,
   TiltStars,
   titleCaseGenre,
@@ -303,13 +304,15 @@ function BookList({ onOpen }) {
     <section>
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader
-          title="Library"
+          title="Books"
           counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
           right={
             <>
               {mobile && (
                 <div className="flex items-center gap-2">
+                  <IconButton icon={<IconPlus />} ariaLabel="Add book" onClick={() => setAdding(true)} />
                   <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+                  <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />
                 </div>
               )}
               {!mobile && <MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>}
@@ -362,44 +365,61 @@ function BookList({ onOpen }) {
       )}
 
       {mobile && (
-        <MobileSheet open={mobileFilter} onClose={() => setMobileFilter(false)} title="Filters">
-          <div className="space-y-4">
+        <MobileSheet
+          open={mobileFilter}
+          onClose={() => setMobileFilter(false)}
+          title="Filters"
+          footer={
+            <SheetFooter
+              count={books ? `${shown.length} shown` : ''}
+              onReset={() => { setGenre(''); setFav(false); setMinRating(''); setSeries(''); setGroupBy('none'); setSort('recent') }}
+              onDone={() => setMobileFilter(false)}
+            />
+          }
+        >
+          <div className="space-y-5">
             <div>
               <MonoLabel className="mb-2 block">genre</MonoLabel>
               <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-                ♥ favourites
-              </button>
-              <MinRatingSelect value={minRating} onChange={setMinRating} />
+            <div>
+              <MonoLabel className="mb-2 block">show only</MonoLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                  ♥ favourites
+                </button>
+                <MinRatingSelect value={minRating} onChange={setMinRating} />
+              </div>
             </div>
             {seriesNames.length > 0 && (
-              <Select
-                ariaLabel="Filter by series"
-                value={series}
-                onChange={setSeries}
-                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
-              />
+              <div>
+                <MonoLabel className="mb-2 block">series</MonoLabel>
+                <Select
+                  ariaLabel="Filter by series"
+                  value={series}
+                  onChange={setSeries}
+                  options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+                />
+              </div>
             )}
-            <label className="flex items-center gap-2">
-              <MonoLabel>group</MonoLabel>
+            <div>
+              <MonoLabel className="mb-2 block">group</MonoLabel>
               <Select
                 ariaLabel="Group by"
                 value={groupBy}
                 onChange={setGroupBy}
                 options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
               />
-            </label>
-            <label className="flex items-center gap-2">
-              <MonoLabel>sort</MonoLabel>
+            </div>
+            <div>
+              <MonoLabel className="mb-2 block">sort</MonoLabel>
               <Select
                 ariaLabel="Sort"
                 value={sort}
                 onChange={setSort}
                 options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['rating', 'Rating'], ['series', 'Series']]}
               />
-            </label>
+            </div>
           </div>
         </MobileSheet>
       )}
@@ -709,7 +729,7 @@ function BookDetail({ id, onClose }) {
   const detailAuthor = book && book.author ? book.author : ''
 
   return (
-    <section ref={reveal} className="reveal space-y-6 pt-4" data-screen-label="book-detail">
+    <section ref={reveal} className="reveal space-y-6 md:pt-4" data-screen-label="book-detail">
       {mobile && (
         <div className="mobile-sticky-bar">
           <div className="mobile-detail-bar">
@@ -1021,8 +1041,10 @@ function locSortVal(a) {
   return m ? parseInt(m[0], 10) : -1
 }
 function ActionRow({ a, patch, setEditingId, remove, onShare }) {
+  // flex-wrap lets the links drop under the marks on narrow cards instead of
+  // pushing the row (and the page) wider than the phone screen.
   return (
-    <div className="mt-1 flex items-center gap-3 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
       <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
       <span className="ml-auto flex gap-3">
@@ -1180,6 +1202,13 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     if (mobileAddOpen) { setAddOpen(true); onMobileAddOpen?.(false); }
   }, [mobileAddOpen])
 
+  // The add form sits at the top of the section; when it opens while the list
+  // is scrolled (the sticky-bar ＋ on mobile), bring it into view.
+  const addRef = useRef(null)
+  useEffect(() => {
+    if (addOpen && addRef.current) addRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [addOpen])
+
   const { stickers, reload: reloadStickers } = useStickers()
   const filtering = Boolean(color || tag || fav || minRating)
   // Chips take colour + style from the tag object (name-keyed map).
@@ -1301,8 +1330,19 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   return (
     <div className="space-y-4">
       {mobile && (
-        <MobileSheet open={mobileFilterOpen} onClose={() => onMobileFilterOpen?.(false)} title="Filter annotations">
-          <div className="space-y-4">
+        <MobileSheet
+          open={mobileFilterOpen}
+          onClose={() => onMobileFilterOpen?.(false)}
+          title="Filter annotations"
+          footer={
+            <SheetFooter
+              count={countsLabel}
+              onReset={() => { setColor(''); setTag(''); setFav(false); setMinRating('') }}
+              onDone={() => onMobileFilterOpen?.(false)}
+            />
+          }
+        >
+          <div className="space-y-5">
             <div>
               <MonoLabel className="mb-2 block">color</MonoLabel>
               <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
@@ -1318,17 +1358,14 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
                 />
               </div>
             )}
-            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-              ♥ favourites
-            </button>
             <div>
-              <MonoLabel className="mb-2 block">rating</MonoLabel>
-              <Select
-                ariaLabel="Minimum rating"
-                value={String(minRating)}
-                onChange={setMinRating}
-                options={[['', 'any rating'], ['1', 'rating ≥ 1'], ['2', 'rating ≥ 2'], ['3', 'rating ≥ 3'], ['4', 'rating ≥ 4'], ['5', 'rating ≥ 5']]}
-              />
+              <MonoLabel className="mb-2 block">show only</MonoLabel>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+                  ♥ favourites
+                </button>
+                <MinRatingSelect value={minRating} onChange={setMinRating} />
+              </div>
             </div>
             <div>
               <MonoLabel className="mb-2 block">view</MonoLabel>
@@ -1352,12 +1389,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
           <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
             ♥ favourites
           </button>
-          <Select
-            ariaLabel="Minimum rating"
-            value={String(minRating)}
-            onChange={setMinRating}
-            options={[['', 'any rating'], ['1', 'rating ≥ 1'], ['2', 'rating ≥ 2'], ['3', 'rating ≥ 3'], ['4', 'rating ≥ 4'], ['5', 'rating ≥ 5']]}
-          />
+          <MinRatingSelect value={minRating} onChange={setMinRating} />
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
             <MonoLabel>{countsLabel}</MonoLabel>
             <ViewToggle value={view} onChange={setView} />
@@ -1366,9 +1398,42 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
       )}
 
       <ErrorText>{error}</ErrorText>
+
+      {/* Add-annotation leads the section (collapsed to a slim dashed tile) so
+          starting a note never requires scrolling past the whole list. */}
+      <div ref={addRef}>
+        {addOpen ? (
+          <HandCard variant={1} className="px-5 py-4">
+            <AnnotationForm
+              onSubmit={async (fields) => {
+                const err = await add(fields)
+                if (!err) setAddOpen(false)
+                return err
+              }}
+              onCancel={() => setAddOpen(false)}
+              submitLabel="Add annotation"
+              tagSuggestions={Object.keys(tagMap)}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
+            />
+          </HandCard>
+        ) : (
+          <button
+            className="w-full text-center"
+            style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 12, padding: '16px 18px', background: 'transparent' }}
+            onClick={() => setAddOpen(true)}
+          >
+            <span className="font-semibold" style={{ color: 'var(--accent-ui)' }}>
+              ＋ Add annotation
+            </span>
+            <span className="microcopy ml-3">quote · note · colour · tags · chapter · location</span>
+          </button>
+        )}
+      </div>
+
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'no annotations match the filters' : 'no annotations yet — add your first below'}
+          {filtering ? 'no annotations match the filters' : 'no annotations yet — add your first above'}
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'table' && (
@@ -1436,34 +1501,6 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
             </li>
           ))}
         </ul>
-      )}
-
-      {addOpen ? (
-        <HandCard variant={1} className="px-5 py-4">
-          <AnnotationForm
-            onSubmit={async (fields) => {
-              const err = await add(fields)
-              if (!err) setAddOpen(false)
-              return err
-            }}
-            onCancel={() => setAddOpen(false)}
-            submitLabel="Add annotation"
-            tagSuggestions={Object.keys(tagMap)}
-            stickers={stickers}
-            reloadStickers={reloadStickers}
-          />
-        </HandCard>
-      ) : (
-        <button
-          className="w-full text-center"
-          style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 12, padding: '16px 18px', background: 'transparent' }}
-          onClick={() => setAddOpen(true)}
-        >
-          <span className="font-semibold" style={{ color: 'var(--accent-ui)' }}>
-            ＋ Add annotation
-          </span>
-          <span className="microcopy ml-3">quote · note · colour · tags · chapter · location</span>
-        </button>
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}

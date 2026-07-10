@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -26,14 +26,34 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
 
   // Fetch missing covers/posters for the whole library (Open Library by ISBN,
   // Amazon by ASIN, cached posters — no key needed). Admin-only endpoint.
+  // The endpoint is chunked ({cursor} → {next_cursor, done, total, remaining}),
+  // so this loops chunk by chunk and drives a real progress bar.
+  const [progress, setProgress] = useState(null) // {done, total} while running
   async function fetchMissingCovers() {
     setBusy(true)
     setError('')
-    const r = await json('POST', '/covers/refetch')
-    setBusy(false)
-    if (!r.ok) return setError(errText(r, 'could not re-fetch covers'))
-    setFlash(`covers: ${r.data.fetched} fetched · ${r.data.enriched || 0} enriched · ${r.data.failed} failed`)
-    load()
+    setFlash('')
+    const sum = { fetched: 0, enriched: 0, failed: 0 }
+    try {
+      let cursor = ''
+      let total = 0
+      for (;;) {
+        const r = await json('POST', '/covers/refetch', cursor ? { cursor } : {})
+        if (!r.ok) return setError(errText(r, 'could not re-fetch covers'))
+        sum.fetched += r.data.fetched
+        sum.enriched += r.data.enriched || 0
+        sum.failed += r.data.failed
+        total = total || r.data.total
+        setProgress({ done: total - r.data.remaining, total })
+        if (r.data.done) break
+        cursor = r.data.next_cursor
+      }
+      setFlash(`covers: ${sum.fetched} fetched · ${sum.enriched} enriched · ${sum.failed} failed`)
+      load()
+    } finally {
+      setBusy(false)
+      setProgress(null)
+    }
   }
 
   const [bookFilter, setBookFilter] = useState('flagged')
@@ -89,6 +109,13 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       />
       </div>
       <ErrorText>{error}</ErrorText>
+      {busy && progress && (
+        <ProgressBar
+          value={progress.done}
+          max={progress.total}
+          label={`fetching covers & metadata · ${progress.done}/${progress.total}`}
+        />
+      )}
       {flash && (
         <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
           {flash}

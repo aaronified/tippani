@@ -14,8 +14,9 @@ import (
 )
 
 // maxUploadBytes bounds the whole multipart envelope; the image itself is
-// re-capped at 2 MB by metadata.StoreImage after decoding.
-const maxUploadBytes = 3 << 20
+// re-capped at 5 MB by metadata.StoreImage after decoding, so the envelope
+// leaves headroom for multipart framing around a cap-sized image.
+const maxUploadBytes = 6 << 20
 
 // coverFile matches server-generated cover/poster/sticker names
 // (metadata.FetchImage / StoreImage: 16 lowercase hex chars + a sniffed image

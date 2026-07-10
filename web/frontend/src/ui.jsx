@@ -1562,9 +1562,10 @@ export function MoreMenu({ items }) {
 
 // MobileSheet — a full-screen overlay for mobile filter pages (§7).
 // On narrow screens it covers the entire viewport with a sticky header
-// (back/close + title) and a scrollable body. Callers compose the filter
-// controls inside the body; on desktop the sheet is never rendered.
-export function MobileSheet({ open, onClose, title, children }) {
+// (back/close + title), a scrollable body, and an optional pinned footer
+// (see SheetFooter). Callers compose the filter controls inside the body;
+// on desktop the sheet is never rendered.
+export function MobileSheet({ open, onClose, title, children, footer }) {
   if (!open) return null;
   return (
     <div className="mobile-sheet" onClick={onClose}>
@@ -1579,7 +1580,42 @@ export function MobileSheet({ open, onClose, title, children }) {
         <div className="mobile-sheet-body">
           {children}
         </div>
+        {footer && <div className="mobile-sheet-footer">{footer}</div>}
       </div>
     </div>
   );
+}
+
+// SheetFooter — the standard filter-sheet footer: Reset · live result count ·
+// Done. Keeps every sheet's exits consistent instead of relying on the back
+// arrow alone.
+export function SheetFooter({ count, onReset, onDone }) {
+  return (
+    <>
+      {onReset && (
+        <GhostButton type="button" onClick={onReset}>
+          Reset
+        </GhostButton>
+      )}
+      {count != null && <span className="microcopy">{count}</span>}
+      <button type="button" className="tp-btn tp-btn-primary ml-auto" style={{ minWidth: 110 }} onClick={onDone}>
+        Done
+      </button>
+    </>
+  )
+}
+
+// ProgressBar — determinate progress for long-running jobs (covers refetch):
+// a recessed track with an accent fill and a mono caption, replacing the dead
+// "busy button" experience with visible movement.
+export function ProgressBar({ value, max, label }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
+  return (
+    <div role="progressbar" aria-valuemin={0} aria-valuemax={max || 0} aria-valuenow={value} aria-label={label || 'progress'}>
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      {label && <p className="microcopy mt-1">{label}</p>}
+    </div>
+  )
 }

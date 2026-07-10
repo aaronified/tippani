@@ -255,6 +255,9 @@ func securityHeaders(next http.Handler) http.Handler {
 				"https://covers.openlibrary.org https://books.google.com "+
 				"https://books.googleusercontent.com https://image.tmdb.org "+
 				"https://artworks.thetvdb.com "+
+				// OL covers redirect to archive.org download nodes; CSP checks
+				// redirect targets, so previews need these hosts too.
+				"https://archive.org https://*.us.archive.org "+
 				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com; "+
 				"frame-ancestors 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
