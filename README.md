@@ -61,9 +61,14 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   genre**.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
-- 📱 **Phone-first ergonomics** — a bottom navigation bar, sticky page bars, full-screen filter
-  sheets with a Reset · count · Done footer, 44 px touch targets, and no horizontal scroll. The
-  same binary serves desktop and phone; nothing to install.
+- 🧠 **Daily review** — a spaced-repetition ritual on the Home screen: a handful of your own
+  highlights resurface each day on a forgetting-curve schedule; *Got it · Forgot · skip* nudge each
+  one's half-life. Two to three minutes, no configuration, no gamification — a dot on the logo
+  says when today's deck is waiting.
+- 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
+  (daily review · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
+  full-screen filter and capture sheets with a Reset · count · Done footer, 44 px touch targets,
+  and no horizontal scroll. The same binary serves desktop and phone; nothing to install.
 - 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
   pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
 - 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected), Kindle
@@ -96,8 +101,8 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — Kindle `My Clippings.txt` import, a spaced-repetition daily review, and opt-in AI
-> summaries (OpenAI-compatible + NTFY). See [`ROADMAP.md`](ROADMAP.md).
+> **Roadmap** — Kindle `My Clippings.txt` import and opt-in AI summaries
+> (OpenAI-compatible + NTFY). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)
 

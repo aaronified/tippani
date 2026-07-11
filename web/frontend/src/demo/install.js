@@ -15,7 +15,7 @@ const USER = {
   username: 'reader',
   is_admin: true,
   avatar_path: '',
-  preferences: { aesthetic: 'paper', theme: 'light', accent: 'terracotta', home: 'library' },
+  preferences: { aesthetic: 'paper', theme: 'light', accent: 'terracotta' },
 }
 
 // ---- inline artwork (data: URIs) ----
@@ -141,7 +141,43 @@ function movieDetail(m) {
   return { ...m, tmdb_id: 0, tvdb_id: 0, description: MOVIE_DESCRIPTIONS[m.id] || '', cast: CAST[m.id] || [], created_at: '2026-01-10 09:00:00' }
 }
 function annRow(a) {
-  return { sticker_id: null, sticker_x: null, sticker_y: null, ...a, created_at: a.noted_at + ' 09:00:00', updated_at: a.noted_at + ' 09:00:00' }
+  const b = BOOKS.find((x) => x.id === a.book_id) || {}
+  return {
+    sticker_id: null, sticker_x: null, sticker_y: null,
+    book_title: b.title || '', book_author: b.author || '',
+    ...a,
+    created_at: a.noted_at + ' 09:00:00', updated_at: a.noted_at + ' 09:00:00',
+  }
+}
+
+// ---- daily review (ROADMAP №2): a live little deck so the Home screen's
+// ritual can actually be played in the demo. Session-only — reload resets it.
+const REVIEW_DECK = [1, 5, 4] // annotation ids, "due" order
+const review = { touched: new Set(), got: 0, forgot: 0 }
+function reviewItems() {
+  return REVIEW_DECK.filter((id) => !review.touched.has(id)).map((id) => {
+    const a = ANNOTATIONS.find((x) => x.id === id)
+    return { ...annRow(a), stability: 1, review_count: 0, mastery: 'soon' }
+  })
+}
+function reviewDeck() {
+  return {
+    items: reviewItems(),
+    reviewed_today: review.touched.size,
+    got_today: review.got,
+    forgot_today: review.forgot,
+    quota: 8,
+  }
+}
+function reviewAnswer(id, result) {
+  review.touched.add(id)
+  if (result === 'got') review.got++
+  if (result === 'forgot') review.forgot++
+  const stability = result === 'got' ? 2.5 : 1
+  return {
+    ok: true, result, stability, mastery: 'soon',
+    remaining: reviewItems().length, reviewed_today: review.touched.size, quota: 8,
+  }
 }
 function dlgRow(d) {
   return { sticker_id: null, sticker_x: null, sticker_y: null, ...d, created_at: '2026-06-01 09:00:00', updated_at: '2026-06-01 09:00:00' }
@@ -222,6 +258,11 @@ function route(method, path, params, body) {
     // spirit — they resolve external pages; the demo answers from a stub).
     if (path === '/auth/me/preferences' || path === '/auth/login') return [200, USER]
     if (path === '/auth/logout') return [200, { ok: true }]
+    // The daily-review ritual works for real (session-only) — it IS the demo.
+    if (/^\/annotations\/\d+\/review$/.test(path)) {
+      const rid = Number(path.split('/')[2])
+      return [200, reviewAnswer(rid, (body && body.result) || 'got')]
+    }
     if (path === '/auth/me/avatar') return [200, { avatar_path: '' }]
     if (path === '/books/lookup' || path === '/movies/lookup') return [200, { candidates: [] }]
     if (path === '/people/lookup') {
@@ -241,6 +282,7 @@ function route(method, path, params, body) {
   switch (true) {
     case path === '/auth/me': return [200, USER]
     case path === '/auth/status': return [200, { needs_onboarding: false }]
+    case path === '/annotations/daily-review': return [200, reviewDeck()]
     case path === '/books': return [200, { books: BOOKS.map(bookListItem) }]
     case /^\/books\/\d+$/.test(path): { const b = BOOKS.find((x) => x.id === id('/books/')); return b ? [200, bookDetail(b)] : [404, { error: 'not found' }] }
     case path === '/annotations': {

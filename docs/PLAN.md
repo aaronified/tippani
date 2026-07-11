@@ -123,6 +123,28 @@ CREATE TABLE annotations (
 );
 CREATE INDEX idx_ann_book ON annotations(book_id);
 
+-- Spaced-repetition daily review (migration 0013, ROADMAP №2). One state row
+-- per annotation, created lazily on the first answer; annotations without a
+-- row are the "unseen" pool. Model: exponential forgetting curve — recall
+-- p = 2^(-elapsed_days/stability) with stability the memory half-life in
+-- days; a card is due when elapsed >= stability (p <= 0.5), and both due-ness
+-- and most-forgotten-first ordering reduce to plain julianday() arithmetic at
+-- query time (no math functions, no background jobs — §2 holds). Answers:
+-- got → stability' = min(365, max(stability*2.5, elapsed*1.2));
+-- forgot → max(1, stability*0.25); skip → last_touched_at only (benched for
+-- the local day). Mastery soon/later/someday derives from stability (7/30
+-- day thresholds), never stored. Outcome vocabulary app-validated (no CHECK).
+-- Review state never enters dedupe hashes and is invisible to FTS.
+CREATE TABLE annotation_reviews (
+  annotation_id    INTEGER PRIMARY KEY REFERENCES annotations(id) ON DELETE CASCADE,
+  stability        REAL NOT NULL DEFAULT 1.0,  -- memory half-life, days
+  review_count     INTEGER NOT NULL DEFAULT 0, -- got/forgot answers recorded
+  lapse_count      INTEGER NOT NULL DEFAULT 0, -- "forgot" answers
+  last_result      TEXT NOT NULL DEFAULT '',   -- got | forgot | skip
+  last_reviewed_at TEXT,                       -- UTC; moved by got/forgot only
+  last_touched_at  TEXT NOT NULL               -- UTC; moved by every answer
+);
+
 CREATE TABLE tags (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -420,6 +442,10 @@ POST   /books/lookup
 POST   /books    GET /books    GET/PUT/DELETE /books/{id}
 POST   /annotations
 GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=      # tag= takes the NAME
+GET    /annotations/daily-review?offset=      # today's deck (≤8): due first, then unseen; offset =
+                                              #   client UTC-offset minutes (timezone-aware "today")
+POST   /annotations/{id}/review               # {result: got|forgot|skip, offset} → new stability +
+                                              #   mastery + deck remaining (ROADMAP №2, DDL §3)
 PUT    /annotations/{id}    DELETE /annotations/{id}
 POST   /movies/lookup                # TMDB search (title, optional year)
 POST   /movies   GET /movies   GET/PUT/DELETE /movies/{id}
@@ -459,7 +485,8 @@ Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `
   returns objects with usage counts; list filters (`tag=`) still take the name.
 - **Preferences:** `users.preferences` JSON blob; `GET /auth/me` returns it with defaults applied
   (theme `system`, accent `terracotta`, aesthetic per theme: dark→film else paper); `PUT` validates
-  all three enums.
+  all three enums. The 0.3.x `home` start-page key is retired (the Home screen replaced the
+  landing-tab choice); stale stored keys and old clients still sending one are silently ignored.
 - **Stats:** `GET /stats` — six user-scoped counts (favorites spans annotations + dialogues) plus
   most-annotated book, most-quoted movie, busiest month (`YYYY-MM`, annotations + dialogues by
   `created_at`); each `null` when empty. Fixed set of aggregate queries.

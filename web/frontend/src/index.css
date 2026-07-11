@@ -1211,7 +1211,7 @@
   .topbar-inner nav[aria-label="Primary"]::-webkit-scrollbar,
   .topbar-inner .topbar-nav::-webkit-scrollbar { display: none; }
   .topbar-inner .topbar-nav { display: flex; }
-  .bottom-nav { display: none; }
+  .mobile-topbar { display: none; }
   @media (max-width: 768px) {
     .nav-toggle .tab-label { display: none; }
     .nav-toggle .tp-toggle-opt { padding: 6px 10px; }
@@ -1337,38 +1337,34 @@
     gap: 1px;
   }
   .container-tp { max-width: 1180px; margin: 0 auto; padding: 4px 20px 64px; }
-  /* bottom nav on mobile: carries brand + primary tabs + user-chip together
-     (the topbar is hidden below 768px — see the max-width query further down —
-     so this bar is the ENTIRE shell header on a phone, not just the tab strip). */
-  .bottom-nav {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 40;
-    background: linear-gradient(0deg, var(--topbar-bottom), var(--topbar-top));
-    border-top: 1px solid var(--line);
-    box-shadow: 0 -3px 14px -6px rgba(41,38,29,.22), inset 0 -1px 0 rgba(255,255,255,.4);
-    padding: 6px 12px;
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  /* The brand is a button now (logo tap = Home, §7 redesign) — strip the
+     button chrome so it keeps reading as the wordmark. */
+  button.brand {
+    background: none;
+    border: none;
+    padding: 0;
+    position: relative;
+    color: inherit;
+    text-align: left;
   }
-  html[data-theme="dark"] .bottom-nav {
-    box-shadow: 0 -4px 16px -6px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.05);
-  }
-  .bottom-nav-brand { flex: none; }
-  .bottom-nav .nav-toggle { flex: 1; min-width: 0; justify-content: space-around; }
-  .bottom-nav .user-menu-panel {
+  /* Pending daily-review dot: rides the brand mark (top bars) or a drawer row.
+     Composed from existing tokens only — accent fill, card-coloured ring so it
+     reads on the topbar gradient. */
+  .review-dot {
     position: absolute;
-    right: 0;
-    top: auto; /* clear the base rule's top — bottom is what positions this one */
-    bottom: calc(100% + 8px); /* opens upward — the bar sits at the screen bottom */
-    margin: 0;
+    top: -2px;
+    left: 20px;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--accent-ui);
+    box-shadow: 0 0 0 2px var(--card);
+    pointer-events: none;
   }
-  @media (max-width: 768px) {
-    .bottom-nav { display: flex; }
+  .drawer-item .review-dot {
+    position: static;
+    flex: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--topbar-top) 80%, transparent);
   }
   /* One entrance for every tab (keyed on the active tab so it replays on switch):
      a quick "roll down" — fade + slight drop into place. Consistent across tabs. */
@@ -1585,17 +1581,17 @@
   .share-source,
   .share-preview { min-height: 10rem; }
 
-  /* The topbar's whole job (brand + nav + user-chip) is taken over by
-     .bottom-nav on a phone, so the topbar itself goes away rather than
-     leaving a redundant strip pinned above it. */
+  /* The desktop topbar's job (wordmark + tab strip + user-chip) is taken over
+     by .mobile-topbar (drawer + logo-home + capture/search/avatar) on a phone,
+     so the topbar itself goes away rather than leaving a redundant strip. */
   .topbar { display: none; }
+  .mobile-topbar { display: flex; }
 
-  /* No top padding on the container: the page's .mobile-sticky-bar must own
-     the very top edge of the screen — any padding above it shows as a gap
-     until the first scroll. Breathing room lives BELOW the bar (space-y). */
-  .container-tp { padding: 0 12px 80px; }
-
-  .bottom-nav { display: flex; }
+  /* No top padding on the container: the shell .mobile-topbar (or, on detail
+     screens, the page's .mobile-sticky-bar) must own the very top edge — any
+     padding above it shows as a gap until the first scroll. The bottom leaves
+     room for the floating toast only (the old fixed bottom bar is gone). */
+  .container-tp { padding: 0 12px 32px; }
 
   /* Ancestor transforms un-stick position:sticky (the stuck bar rides the
      transform for the animation's duration, floating below the true top).
@@ -1603,10 +1599,187 @@
   .tab-panel { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }
-.nav-toggle .tp-toggle-opt svg,
-.bottom-nav .nav-toggle .tp-toggle-opt svg {
+.nav-toggle .tp-toggle-opt svg {
   width: 28px;
   height: 28px;
+}
+
+/* ---- mobile shell top bar (§7 redesign: drawer owns primary nav) ---- */
+/* Sticky like the desktop topbar; rendered by the shell only on main screens
+   (detail screens swap in the page's own back+title bar instead). */
+.mobile-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  align-items: center;
+  gap: 2px;
+  min-height: 52px;
+  margin: 0 -12px;
+  padding: 4px 10px 4px 4px;
+  padding-top: max(4px, env(safe-area-inset-top));
+  background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
+}
+html[data-theme="dark"] .mobile-topbar {
+  box-shadow: 0 4px 16px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.mobile-topbar-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--soft);
+  flex-shrink: 0;
+}
+.mobile-topbar-btn:hover { color: var(--ink); }
+.mobile-topbar .brand { gap: 7px; min-width: 0; }
+.mobile-topbar .user-chip { margin-left: 4px; }
+
+/* While the shell bar is mounted, the per-page sticky bars sit below it — the
+   52px offset mirrors .mobile-topbar's min-height, and the bar no longer needs
+   its own status-bar clearance (the shell bar carries the safe-area inset). */
+.has-mobile-topbar .mobile-sticky-bar {
+  /* Sit flush under the shell bar. Its real height is max(52px, 48px + inset)
+     because .mobile-topbar's padding-top is max(4px, inset) — so match that,
+     not a flat 52px + inset (which leaves a 4px slit when the inset > 4px). */
+  top: calc(48px + max(4px, env(safe-area-inset-top, 0px)));
+  padding-top: 8px;
+}
+
+/* ---- drawer (hamburger nav) ---- */
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(21, 16, 12, .55);
+  border: none;
+  padding: 0;
+  animation: drawer-fade .22s ease;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  width: 290px;
+  max-width: 82%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
+  border-right: 1px solid var(--line);
+  box-shadow: 8px 0 30px -8px rgba(0, 0, 0, .4);
+  animation: drawer-in .28s cubic-bezier(.2, .68, .28, 1);
+}
+.drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px 14px;
+  padding-top: max(18px, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--line);
+}
+.drawer-nav {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 10px 6px;
+}
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 46px;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-radius: 9px;
+  font-family: var(--font-ui);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+}
+.drawer-item:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); }
+.drawer-item.active {
+  color: var(--accent-ui);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.drawer-item svg { flex: none; }
+.drawer-badge {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.drawer-divider { height: 1px; background: var(--line); margin: 8px 6px; flex: none; }
+.drawer-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+@keyframes drawer-in {
+  from { transform: translateX(-102%); }
+  to { transform: none; }
+}
+@keyframes drawer-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---- toast (ink-on-cream feedback pill) ---- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 70;
+  transform: translateX(-50%);
+  max-width: 82%;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 11px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .55);
+  animation: toast-up .24s cubic-bezier(.2, .68, .28, 1);
+  pointer-events: none;
+}
+@keyframes toast-up {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Daily Review card advance: each card (and the done state) fades in with a
+   6px rise, re-keyed per card so the entrance replays on every answer. */
+.review-card-body { animation: review-fade .26s cubic-bezier(.2, .68, .28, 1); }
+@keyframes review-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .drawer-scrim, .toast, .review-card-body { animation: none; }
 }
 
 /* Hide the scrollbar on the format-toggle overflow wrapper (touch-scrollable
@@ -1715,6 +1888,9 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
+  /* status-bar clearance in standalone/PWA contexts — the sheet covers the
+     whole viewport, so it owns the top inset just like the shell bars */
+  padding-top: max(10px, env(safe-area-inset-top));
   background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
   border-bottom: 1px solid var(--line);
   box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
@@ -1812,10 +1988,6 @@ html[data-theme="dark"] .mobile-sheet-footer {
   .tp-btn-ghost {
     min-height: 44px;
     padding: 8px 14px;
-  }
-  .bottom-nav .tp-toggle-opt {
-    min-height: 44px;
-    padding: 8px 6px; /* five icon tabs + brand + chip must fit a 320px screen */
   }
   .mobile-sticky-bar .tp-btn-ghost,
   .mobile-detail-bar .tp-btn-ghost {

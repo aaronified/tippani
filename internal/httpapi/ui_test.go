@@ -31,47 +31,47 @@ func TestPreferences(t *testing.T) {
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	// Fresh user: defaults (theme system -> paper aesthetic, terracotta, library home).
+	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", Home: "library"}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta"}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
-	// A stored dark theme without an aesthetic defaults to film (§4).
-	if _, err := srv.Store.DB.Exec(`UPDATE users SET preferences = '{"theme":"dark"}' WHERE id = 1`); err != nil {
+	// A stored dark theme without an aesthetic defaults to film (§4); a stale
+	// pre-0.4 "home" start-page key in the stored JSON is silently dropped.
+	if _, err := srv.Store.DB.Exec(`UPDATE users SET preferences = '{"theme":"dark","home":"movies"}' WHERE id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", Home: "library"}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta"}) {
 		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
 	}
 
-	// Roundtrip, including the home start-page preference.
+	// Roundtrip.
 	c.mustDo("PUT", "/auth/me/preferences",
-		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", Home: "movies"}, 200)
+		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", Home: "movies"}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
-	// An appearance-only PUT (no home field) keeps the stored home, not resets it.
+	// An older client still sending the retired home key gets it ignored.
 	c.mustDo("PUT", "/auth/me/preferences",
-		prefs{Aesthetic: "paper", Theme: "light", Accent: "olive"}, 200)
+		map[string]string{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences.Home != "movies" || me.Preferences.Accent != "olive" {
-		t.Fatalf("home reset by appearance-only PUT: %+v", me.Preferences)
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive"}) {
+		t.Fatalf("after PUT with stale home key: %+v", me.Preferences)
 	}
 
-	// Validation: appearance fields are required enums; home is an optional enum.
+	// Validation: all three fields are required enums.
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "vellum", Theme: "light", Accent: "ochre"}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "auto", Accent: "ochre"}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light", Accent: "mauve"}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light"}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", prefs{Aesthetic: "paper", Theme: "light", Accent: "ochre", Home: "elsewhere"}, http.StatusBadRequest)
 
 	// A failed PUT never clobbers the stored set.
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences.Home != "movies" {
+	if me.Preferences.Accent != "olive" {
 		t.Fatalf("preferences changed by rejected PUT: %+v", me.Preferences)
 	}
 }

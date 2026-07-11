@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Home, { QuickCapture, tzOffsetMinutes } from './Home.jsx'
 import ImportPage from './ImportPage.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
@@ -9,15 +10,21 @@ import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
 import { DEMO, apiURL, coverImgURL, json, upload } from './api.js'
 import {
+  EdgeRow,
+  ErrorBoundary,
   ErrorText,
   Field,
   FilmButton,
   GhostButton,
+  IconMenu,
+  IconPlus,
+  IconSearch,
   Sprockets,
-  EdgeRow,
   StickerButton,
+  ToastHost,
   Toggle,
   frameCode,
+  toast,
   useFrameBase,
   useResolvedDark,
 } from './ui.jsx'
@@ -78,7 +85,10 @@ export default function App() {
           Demo · dummy data, read-only · <a href="https://github.com/aaronified/tippani">the real, self-hosted app →</a>
         </div>
       )}
-      {screen}
+      {/* A render error in any screen unmounts to a visible fallback, never a
+          blank app (there was no boundary before this branch). */}
+      <ErrorBoundary>{screen}</ErrorBoundary>
+      <ToastHost />
       <div className="grain-overlay" aria-hidden="true" />
     </>
   )
@@ -110,7 +120,10 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
       })
       if (r.ok) {
         const me = await refreshMe()
-        if (me) return onSuccess(me)
+        if (me) {
+          if (action === '/auth/login') toast(`welcome back, ${me.username || 'reader'}`)
+          return onSuccess(me)
+        }
       }
       setError((await r.json().catch(() => ({}))).error || 'something went wrong')
     } finally {
@@ -236,6 +249,13 @@ function TabIcon({ name }) {
     strokeWidth: 2.0, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
   }
   switch (name) {
+    case 'home': // house
+      return (
+        <svg {...p}>
+          <path d="M4 11.2 12 4.5l8 6.7" />
+          <path d="M6 9.8V19a1 1 0 0 0 1 1h3.4v-4.6a1.6 1.6 0 0 1 3.2 0V20H17a1 1 0 0 0 1-1V9.8" />
+        </svg>
+      )
     case 'library': // open book
       return (
         <svg {...p}>
@@ -403,9 +423,10 @@ function UserMenu({ user, tab, menuOpen, setMenuOpen, selectTab, logout, onUser,
 // this state from the URL — and back/forward, including the mouse back button,
 // just work.
 const ROUTE_TABS = ['search', 'tags', 'import', 'metadata', 'settings']
-function parsePath(pathname, home) {
+function parsePath(pathname) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
-  if (!a) return { tab: home, detail: null }
+  // "/" is the Home screen (daily review); unknown paths land there too.
+  if (!a) return { tab: 'home', detail: null }
   if (a === 'books' && b) return { tab: 'library', detail: { type: 'book', id: Number(b) } }
   // The catalogue tab's canonical URL is /catalogue (matching its label); /movies
   // is still accepted so old links/bookmarks keep working.
@@ -413,39 +434,158 @@ function parsePath(pathname, home) {
   if (a === 'library') return { tab: 'library', detail: null }
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
   if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
-  return { tab: home, detail: null }
+  return { tab: 'home', detail: null }
 }
 function statePath(tab, detail) {
   if (detail?.type === 'book') return `/books/${detail.id}`
   if (detail?.type === 'movie') return `/catalogue/${detail.id}`
+  if (tab === 'home') return '/'
   if (tab === 'library') return '/library'
   if (tab === 'movies') return '/catalogue'
   return `/${tab}`
 }
 
-// Shell is the logged-in frame (§7): topbar with mark + wordmark + tabs +
-// user-initial chip, and a {type, id} detail state so lists and search can open
-// detail views. Tab + detail are mirrored to the URL via the History API.
+// The drawer's nav rows, in order; null marks the divider between the primary
+// screens and the utility pair. Labels reuse PRIMARY_TABS/MENU_TABS wording.
+const DRAWER_TABS = [
+  ['home', 'Home'],
+  ['library', 'Library'],
+  ['movies', 'Catalogue'],
+  ['search', 'Search'],
+  ['tags', 'Tags'],
+  ['import', 'Import'],
+  null,
+  ['metadata', 'Metadata'],
+  ['settings', 'Settings'],
+]
+
+// UserAvatar — the squircle chip content, shared by the top bars and drawer.
+function UserAvatar({ user }) {
+  return user.avatar_path
+    ? <img src={coverImgURL(user.avatar_path)} alt="" />
+    : (user.username || '?').trim().charAt(0).toLowerCase()
+}
+
+// Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
+// the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
+// it. Home carries the pending-review dot; Library/Catalogue show live counts.
+function Drawer({ open, onClose, tab, selectTab, user, stats, pending, logout, dark, onUser }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+  if (!open) return null
+
+  const badge = (key) => {
+    if (key === 'home') {
+      return (
+        <span className="drawer-badge" style={{ fontSize: 9 }}>
+          {pending > 0 && <span className="review-dot" aria-hidden="true" />}
+          review · capture
+        </span>
+      )
+    }
+    if (key === 'library' && stats) return <span className="drawer-badge">{stats.books}</span>
+    if (key === 'movies' && stats) return <span className="drawer-badge">{stats.movies}</span>
+    return null
+  }
+
+  return (
+    <>
+      <button type="button" className="drawer-scrim" aria-label="Close menu" onClick={onClose} />
+      <nav className="drawer" aria-label="Primary">
+        <div className="drawer-header">
+          <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
+          <div className="min-w-0">
+            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.02em' }}>
+              tippani
+            </p>
+            <p className="bengali" style={{ fontSize: 11.5, color: 'var(--amber)' }} aria-hidden="true">
+              টিপ্পনী · a marginal annotation
+            </p>
+          </div>
+        </div>
+        <div className="drawer-nav">
+          {DRAWER_TABS.map((t, i) =>
+            t === null ? (
+              <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
+            ) : (
+              <button
+                key={t[0]}
+                type="button"
+                className={'drawer-item' + (tab === t[0] ? ' active' : '')}
+                aria-current={tab === t[0] ? 'page' : undefined}
+                onClick={() => { selectTab(t[0]); onClose() }}
+              >
+                <TabIcon name={t[0]} />
+                {t[1]}
+                {badge(t[0])}
+              </button>
+            ),
+          )}
+        </div>
+        <div className="drawer-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <div className="flex items-center gap-2.5">
+            <span className="user-chip" aria-hidden="true">
+              <UserAvatar user={user} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p style={{ fontSize: 13.5, fontWeight: 600 }}>{user.username}</p>
+              <p className="mono-label" style={{ fontSize: 9 }}>
+                {user.is_admin ? 'admin · self-hosted' : 'self-hosted'}
+              </p>
+            </div>
+            <button type="button" className="tp-link" onClick={logout}>
+              log out
+            </button>
+          </div>
+          {/* Avatar photo management — the only place it lives on mobile now
+              that the bottom-nav user menu is gone. */}
+          <AvatarControl user={user} onUser={onUser} />
+        </div>
+      </nav>
+    </>
+  )
+}
+
+// Shell is the logged-in frame (§7): on desktop a topbar with the (tappable)
+// mark + wordmark, tab strip and user-initial chip; on a phone a slim top bar
+// whose ☰ drawer owns primary nav — logo taps Home, ＋ captures a quote. A
+// {type, id} detail state lets lists and search open detail views; tab +
+// detail are mirrored to the URL via the History API.
 function Shell({ user, onLogout, onPreferences, onUser }) {
-  // The landing tab follows the URL, falling back to the start-page pref (§4).
-  const home = user.preferences?.home === 'movies' ? 'movies' : 'library'
-  const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/', home)
+  const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
   const [tab, setTab] = useState(initial.tab)
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   const [menuOpen, setMenuOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [captureOpen, setCaptureOpen] = useState(false)
+  // pending = cards left in today's review deck; feeds the notification dot on
+  // the brand mark and the drawer's Home row. Seeded once here, then kept
+  // honest by the Home screen as answers land.
+  const [pending, setPending] = useState(0)
+  const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
   const dark = useResolvedDark()
-  // Two refs: the user-chip menu renders once in the topbar (desktop) and once
-  // in the bottom-nav (mobile) — both mounted at once (CSS just hides one), so
-  // a single shared ref would only ever point at whichever rendered last.
   const topMenuRef = useRef(null)
-  const bottomMenuRef = useRef(null)
+
+  const refreshStats = () => {
+    json('GET', '/stats').then((r) => { if (r.ok) setStats(r.data) })
+  }
+  useEffect(() => {
+    refreshStats()
+    json('GET', `/annotations/daily-review?offset=${tzOffsetMinutes()}`).then((r) => {
+      if (r.ok) setPending((r.data.items || []).length)
+    })
+  }, [])
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
-  // path; landing on "/" rewrites the bar to the resolved start page.
+  // path; landing on an unknown path rewrites the bar to the canonical one.
   useEffect(() => {
     if (DEMO) return // no URL sync under the static subpath
     const onPop = () => {
-      const s = parsePath(window.location.pathname, home)
+      const s = parsePath(window.location.pathname)
       setTab(s.tab)
       setDetail(s.detail)
     }
@@ -458,9 +598,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   useEffect(() => {
     if (!menuOpen) return
     const close = (e) => {
-      const inTop = topMenuRef.current && topMenuRef.current.contains(e.target)
-      const inBottom = bottomMenuRef.current && bottomMenuRef.current.contains(e.target)
-      if (!inTop && !inBottom) setMenuOpen(false)
+      if (topMenuRef.current && !topMenuRef.current.contains(e.target)) setMenuOpen(false)
     }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
@@ -483,15 +621,18 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     onLogout()
   }
 
+  const brandDot = pending > 0 && <span className="review-dot" aria-hidden="true" />
+
   return (
-    <div className="min-h-screen">
+    <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
       <header className="topbar">
         <div className="topbar-inner">
-          <span className="brand">
+          <button type="button" className="brand" title="Home — daily review" onClick={() => selectTab('home')}>
             {/* the mark matches the 28px nav tab icons so the row reads level */}
             <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
             <span className="wordmark">tippani</span>
-          </span>
+            {brandDot}
+          </button>
           <nav aria-label="Primary" className="topbar-nav">
             <NavToggle tab={tab} onChange={selectTab} />
           </nav>
@@ -500,15 +641,47 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           </div>
         </div>
       </header>
-      <nav className="bottom-nav" aria-label="Primary">
-        <span className="brand bottom-nav-brand">
-          <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
-        </span>
-        <NavToggle tab={tab} onChange={selectTab} />
-        <UserMenu user={user} tab={tab} menuOpen={menuOpen} setMenuOpen={setMenuOpen} selectTab={selectTab} logout={logout} onUser={onUser} menuRef={bottomMenuRef} />
-      </nav>
       <main className="container-tp">
-        <div className="tab-panel" key={tab}>
+        {/* Mobile shell bar (hidden on desktop): drawer · logo→Home · ＋ ·
+            search · avatar. Detail screens drop it — their own back+title bar
+            (inside the page) takes over the top edge instead. */}
+        {!detail && (
+          <header className="mobile-topbar">
+            <button type="button" className="mobile-topbar-btn" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
+              <IconMenu />
+            </button>
+            <button type="button" className="brand" title="Home — daily review" onClick={() => selectTab('home')}>
+              <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
+              <span className="wordmark">tippani</span>
+              {brandDot}
+            </button>
+            <span className="flex-1" />
+            <button type="button" className="mobile-topbar-btn" aria-label="Capture a quote" onClick={() => setCaptureOpen(true)}>
+              <IconPlus />
+            </button>
+            <button type="button" className="mobile-topbar-btn" aria-label="Search" onClick={() => selectTab('search')}>
+              <IconSearch />
+            </button>
+            <button type="button" className="user-chip" aria-label="Account" onClick={() => setDrawerOpen(true)}>
+              <UserAvatar user={user} />
+            </button>
+          </header>
+        )}
+        <ErrorBoundary key={tab} label={`The ${tab} screen`}>
+        <div className="tab-panel">
+        {tab === 'home' && (
+          <div data-screen-label="home">
+            <Home
+              user={user}
+              stats={stats}
+              onOpenBook={openBook}
+              onGoLibrary={() => selectTab('library')}
+              onGoMovies={() => selectTab('movies')}
+              onCapture={() => setCaptureOpen(true)}
+              onPending={setPending}
+            />
+          </div>
+        )}
         {tab === 'library' && (
           <div data-screen-label="library">
             <Library
@@ -553,7 +726,21 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           </div>
         )}
         </div>
+        </ErrorBoundary>
       </main>
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        tab={tab}
+        selectTab={selectTab}
+        user={user}
+        stats={stats}
+        pending={pending}
+        logout={logout}
+        dark={dark}
+        onUser={onUser}
+      />
+      <QuickCapture open={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={refreshStats} />
     </div>
   )
 }

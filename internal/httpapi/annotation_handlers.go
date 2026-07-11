@@ -95,33 +95,36 @@ func (a *annotationReq) hash() string {
 }
 
 type annotationRow struct {
-	ID        int64    `json:"id"`
-	BookID    int64    `json:"book_id"`
-	Quote     string   `json:"quote"`
-	Note      string   `json:"note"`
-	Color     string   `json:"color"`
-	Chapter   string   `json:"chapter"`
-	Location  string   `json:"location"`
-	Favorite  bool     `json:"favorite"`
-	Rating    int      `json:"rating"`
-	Tags      []string `json:"tags"`
-	NotedAt   string   `json:"noted_at"`   // date of addition (original, or manual-add time); "" if unknown
-	StickerID *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
-	StickerX  *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
-	StickerY  *float64 `json:"sticker_y"`  // seal centre y in the same width units
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
+	ID         int64    `json:"id"`
+	BookID     int64    `json:"book_id"`
+	BookTitle  string   `json:"book_title"`  // parent attribution for cross-book lists (Home favourites)
+	BookAuthor string   `json:"book_author"` // "" if unknown
+	Quote      string   `json:"quote"`
+	Note       string   `json:"note"`
+	Color      string   `json:"color"`
+	Chapter    string   `json:"chapter"`
+	Location   string   `json:"location"`
+	Favorite   bool     `json:"favorite"`
+	Rating     int      `json:"rating"`
+	Tags       []string `json:"tags"`
+	NotedAt    string   `json:"noted_at"`   // date of addition (original, or manual-add time); "" if unknown
+	StickerID  *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
+	StickerX   *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
+	StickerY   *float64 `json:"sticker_y"`  // seal centre y in the same width units
+	CreatedAt  string   `json:"created_at"`
+	UpdatedAt  string   `json:"updated_at"`
 }
 
 func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	var a annotationRow
 	err := s.Store.DB.QueryRow(`
-		SELECT a.id, a.book_id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
+		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
+		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
-		Scan(&a.ID, &a.BookID, &a.Quote, &a.Note, &a.Color,
+		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
 			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -210,7 +213,8 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	q := `
-		SELECT a.id, a.book_id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
+		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
+		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at
 		FROM annotations a JOIN books b ON b.id = a.book_id
@@ -242,6 +246,17 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q += ` ORDER BY a.created_at DESC, a.id DESC`
+	// Optional cap for widgets that only need the newest few (e.g. the Home
+	// screen's "recently favourited" pair) — without it the whole set ships.
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 500 {
+			writeErr(w, http.StatusBadRequest, "limit must be between 1 and 500")
+			return
+		}
+		q += ` LIMIT ?`
+		args = append(args, n)
+	}
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
@@ -251,7 +266,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	items := []annotationRow{}
 	for rows.Next() {
 		a := annotationRow{Tags: []string{}}
-		if err := rows.Scan(&a.ID, &a.BookID, &a.Quote, &a.Note, &a.Color,
+		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
 			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt); err == nil {
 			items = append(items, a)
 		}

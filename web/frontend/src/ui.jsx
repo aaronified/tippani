@@ -1,7 +1,59 @@
 // Shared visual primitives for the tippani UI (instructions §5–§6), plus thin
 // compatibility exports the pre-redesign pages still import — the page pass
 // replaces those call sites, then the compat block can shrink.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+// ErrorBoundary — a render error anywhere below unmounts only to this fallback
+// instead of white-screening the whole app (there was no boundary before, so
+// one thrown component blanked everything, e.g. an engine that lacked a JS
+// feature a page used). Shows the actual message so a phone report is
+// diagnosable, and a reload escape hatch. `label` scopes the message.
+export class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    // Surface the stack in the console for `shoot.js` / devtools capture.
+    console.error("tippani render error:", error, info?.componentStack);
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div
+        role="alert"
+        style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px", textAlign: "center" }}
+      >
+        <p className="display-title" style={{ fontSize: 22, marginBottom: 8 }}>
+          Something broke on this screen
+        </p>
+        <p className="microcopy" style={{ marginBottom: 16 }}>
+          {this.props.label ? this.props.label + " — " : ""}the rest of the app is fine.
+        </p>
+        <pre
+          style={{
+            textAlign: "left", whiteSpace: "pre-wrap", overflowWrap: "anywhere",
+            fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--error)",
+            background: "var(--raised)", border: "1px solid var(--line)",
+            borderRadius: 10, padding: "12px 14px", marginBottom: 18,
+          }}
+        >
+          {String(this.state.error?.message || this.state.error)}
+        </pre>
+        <button
+          type="button"
+          className="tp-btn tp-btn-primary tactile"
+          onClick={() => window.location.reload()}
+        >
+          Reload
+        </button>
+      </div>
+    );
+  }
+}
 
 // The four fixed annotation colours (§4, Kindle default yellow).
 export const ANNOTATION_COLORS = ["yellow", "blue", "pink", "orange"];
@@ -1518,6 +1570,7 @@ export function IconGrid() { return <ViewIcon kind="tiles" /> }
 export function IconList() { return <ViewIcon kind="list" /> }
 export function IconTable() { return <ViewIcon kind="table" /> }
 export function IconMore() { return <svg {...iconStroke}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg> }
+export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 
 // MoreMenu — a small overflow dropdown for actions that don't fit a mobile
 // detail bar (export/edit/delete). Opens below the "⋯" trigger; closes on
@@ -1616,6 +1669,37 @@ export function ProgressBar({ value, max, label }) {
         <div className="progress-fill" style={{ width: `${pct}%` }} />
       </div>
       {label && <p className="microcopy mt-1">{label}</p>}
+    </div>
+  )
+}
+
+// ---- toast (§7 redesign: mutations answer with an ink-on-cream pill) ----
+// One slot app-wide: a new toast replaces the current one and restarts the
+// 2200ms timer; each message is re-keyed so repeats replay the entrance.
+// toast() is a module-level function so any handler can call it without
+// threading a prop chain — ToastHost (mounted once in App) does the rendering.
+
+let toastSink = null
+
+export function toast(msg) {
+  if (toastSink) toastSink(msg)
+}
+
+export function ToastHost() {
+  const [t, setT] = useState({ msg: "", n: 0 })
+  useEffect(() => {
+    toastSink = (msg) => setT((s) => ({ msg, n: s.n + 1 }))
+    return () => { toastSink = null }
+  }, [])
+  useEffect(() => {
+    if (!t.msg) return
+    const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), 2200)
+    return () => clearTimeout(id)
+  }, [t])
+  if (!t.msg) return null
+  return (
+    <div className="toast" key={t.n} role="status">
+      {t.msg}
     </div>
   )
 }

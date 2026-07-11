@@ -230,8 +230,14 @@ const mdInline = [
     el: (m, k, P) => <em key={k}>{inlineNodes(m[1], P)}</em>,
   },
   {
-    re: /(?<![A-Za-z0-9])_([^_\n]+)_(?![A-Za-z0-9])/,
-    el: (m, k, P) => <em key={k}>{inlineNodes(m[1], P)}</em>,
+    // Markdown italic, but not inside snake_case words. Avoid a leading
+    // lookbehind — older Android WebViews / Safari lack ES2018 lookbehind and
+    // Vite lowers the literal to a runtime `new RegExp(...)` that then throws
+    // there, blanking the app. Instead consume the boundary char as group 1
+    // (re-emitted as text by inlineNodes' `lead`), with the content in group 2.
+    re: /(^|[^A-Za-z0-9])_([^_\n]+)_(?![A-Za-z0-9])/,
+    lead: 1,
+    el: (m, k, P) => <em key={k}>{inlineNodes(m[2], P)}</em>,
   },
   {
     re: /\[([^\]]+)\]\(([^)\s]+)\)/,
@@ -294,7 +300,12 @@ function inlineNodes(text, patterns) {
       out.push(rest);
       break;
     }
-    if (best.m.index > 0) out.push(rest.slice(0, best.m.index));
+    // A `lead` group is a boundary char the pattern had to consume (no
+    // lookbehind on old engines) but that isn't part of the markup — keep it
+    // as plain text so the preceding character survives.
+    const lead = best.p.lead ? best.m[best.p.lead] || "" : "";
+    const start = best.m.index + lead.length;
+    if (start > 0) out.push(rest.slice(0, start));
     out.push(best.p.el(best.m, "i" + k++, patterns));
     rest = rest.slice(best.m.index + best.m[0].length);
   }

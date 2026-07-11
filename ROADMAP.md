@@ -9,6 +9,23 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.4 line (July 2026)**
+
+- **Spaced repetition — a daily review** — a Daily Review card on the new Home
+  screen resurfaces your own highlights on a forgetting-curve schedule
+  (per-annotation half-life; recall decays in SQL at query time — no jobs, no
+  cron). *Got it* / *Forgot* / *Skip* nudge each card; ~2–3 minutes a day,
+  capped at 8 cards, timezone-aware, zero configuration. A notification dot on
+  the logo (and the drawer's Home row) shows while today's deck is pending.
+- **Home screen + drawer shell** — the logo now taps to a Home screen (daily
+  review, quick capture, stat tiles, recent favourites) on desktop and mobile;
+  on phones a hamburger **drawer** owns primary nav (the bottom tab bar is
+  retired) with a slim top bar: ☰ · logo → Home · ＋ quick capture · search ·
+  avatar. The old start-page setting is gone — Home is the start page.
+- **PWA install** — web app manifest + icons, `viewport-fit=cover` with
+  safe-area insets on every bar and sheet, theme-colour meta; add-to-home-screen
+  installs a standalone app.
+
 **v0.3.1 and after (July 2026)**
 
 - **Mobile overhaul** — bottom navigation bar, sticky page bars, full-screen
@@ -42,17 +59,7 @@ the raw `My Clippings.txt` straight off a Kindle — the locale header line, the
 the same idempotent, cross-source dedupe as the Markdown / Bookcision /
 Hardcover / Goodreads paths, so the same passage never doubles up.
 
-### 2 · Spaced repetition — a daily review
-Resurface your **own** highlights on a gentle decay curve. A "Daily Review" card
-on the home page shows a handful of quotes due for recall; *Got it* / *Forgot* /
-*Skip* nudge each one's schedule. ~2–3 minutes a day, no configuration, no
-gamification.
-
-- Per-annotation mastery (`SOON` / `LATER` / `SOMEDAY`) + a recall probability that decays in SQL.
-- `GET /annotations/daily-review` for the day's candidates; `POST /annotations/{id}/review` to record *got it* / *forgot*.
-- Handles empty pools and timezone-aware "daily".
-
-### 3 · AI summaries + notifications (opt-in)
+### 2 · AI summaries + notifications (opt-in)
 A passive digest: batch your recent highlights, summarise them with an
 **OpenAI-compatible** model (local or remote — your endpoint, your key), and
 optionally push the result via **NTFY**. Grouped by book, tag, or whole library;

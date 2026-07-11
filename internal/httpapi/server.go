@@ -120,6 +120,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
 	mux.Handle("GET /annotations", s.requireAuth(s.handleListAnnotations))
+	// Spaced-repetition daily review (PLAN §3c). The literal segment cannot
+	// collide with the {id} routes above — they differ by method.
+	mux.Handle("GET /annotations/daily-review", s.requireAuth(s.handleDailyReview))
+	mux.Handle("POST /annotations/{id}/review", s.requireAuth(s.handleReviewAnnotation))
 	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))
 	mux.Handle("DELETE /annotations/{id}", s.requireAuth(s.handleDeleteAnnotation))
 

@@ -2,11 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- viewport-fit=cover lets the shell bars extend under a notch; the CSS
+         safe-area env() insets (top bars, sheets, drawer) pad them back out. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" type="image/svg+xml" href="/mark.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <!-- topbar-top of paper-light / paper-dark (theme.js §4) -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F3EBDB" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2B241C" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Tippani" />
     <title>tippani</title>
-    <script type="module" crossorigin src="/assets/index-DkcJj8ef.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BjnX6NPh.css">
+    <script type="module" crossorigin src="/assets/index-BIUqyNgT.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CylWjWjf.css">
   </head>
   <body>
     <div id="root"></div>

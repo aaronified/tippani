@@ -64,7 +64,7 @@ export default function Settings({ user, onPreferences }) {
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       </div>
-      <Appearance user={user} onPreferences={onPreferences} />
+      <Appearance onPreferences={onPreferences} />
       <div className="grid items-start gap-6" style={{ gridTemplateColumns: `repeat(${ncols}, minmax(0, 1fr))` }}>
         {cols.map((col, i) => (
           <div key={i} className="space-y-6">{col.nodes}</div>
@@ -247,19 +247,17 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
 
 const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
 
-function Appearance({ user, onPreferences }) {
-  const p = user.preferences || {}
+function Appearance({ onPreferences }) {
   // Seed from the appearance actually applied (getResolvedTheme reads the
   // concrete aesthetic off the DOM + the raw theme preference). The stored
   // theme pref maps to this panel's model: 'system' ⇒ syncSystem; 'light'/'dark'
-  // ⇒ that manualTheme. Home isn't a theme token, so it comes from prefs.
+  // ⇒ that manualTheme.
   const applied = getResolvedTheme()
   const [aesthetic, setAesthetic] = useState(applied.aesthetic)
   const [syncSystem, setSyncSystem] = useState(applied.theme === 'system')
   const [manualTheme, setManualTheme] = useState(applied.theme === 'system' ? (prefersDark() ? 'dark' : 'light') : applied.theme)
   const [sysTheme, setSysTheme] = useState(prefersDark() ? 'dark' : 'light')
   const [accent, setAccent] = useState(applied.accent)
-  const [home, setHome] = useState(p.home || 'library')
   const base = useFrameBase()
 
   // Track the OS theme live so the auto-matched card follows it while syncing.
@@ -278,13 +276,12 @@ function Appearance({ user, onPreferences }) {
   // 'system' while syncing, else the explicit light/dark. Every field rides
   // along so changing one never resets another.
   function persist(next) {
-    const s = { aesthetic, syncSystem, manualTheme, accent, home, ...next }
+    const s = { aesthetic, syncSystem, manualTheme, accent, ...next }
     setAesthetic(s.aesthetic)
     setSyncSystem(s.syncSystem)
     setManualTheme(s.manualTheme)
     setAccent(s.accent)
-    setHome(s.home)
-    const merged = { aesthetic: s.aesthetic, theme: s.syncSystem ? 'system' : s.manualTheme, accent: s.accent, home: s.home }
+    const merged = { aesthetic: s.aesthetic, theme: s.syncSystem ? 'system' : s.manualTheme, accent: s.accent }
     applyTheme(merged)
     onPreferences?.(merged)
     json('PUT', '/auth/me/preferences', merged)
@@ -329,12 +326,6 @@ function Appearance({ user, onPreferences }) {
       </div>
 
       <div className="mt-7 flex flex-wrap gap-x-10 gap-y-5">
-        <Toggle
-          label="Start page"
-          value={home}
-          onChange={(v) => persist({ home: v })}
-          options={[['library', 'Library'], ['movies', 'Catalogue']]}
-        />
         <div>
           <MonoLabel className="mb-2 block">Accent</MonoLabel>
           <div className="flex items-center gap-3" style={{ minHeight: 44 }}>

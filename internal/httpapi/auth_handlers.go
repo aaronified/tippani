@@ -168,14 +168,15 @@ var (
 	prefAesthetics = map[string]bool{"paper": true, "film": true}
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
-	prefHomes      = map[string]bool{"library": true, "movies": true} // which tab opens on login
 )
 
+// prefs is the whole preference set. The retired "home" start-page key
+// (pre-0.4 rows may still carry it) is dropped on read and on the next PUT —
+// the Home screen replaced the landing-tab choice.
 type prefs struct {
 	Aesthetic string `json:"aesthetic"`
 	Theme     string `json:"theme"`
 	Accent    string `json:"accent"`
-	Home      string `json:"home"` // "library" (default) | "movies": the landing tab
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
@@ -202,9 +203,6 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 			p.Aesthetic = "paper"
 		}
 	}
-	if !prefHomes[p.Home] {
-		p.Home = "library"
-	}
 	return p, nil
 }
 
@@ -225,18 +223,6 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	case !prefAccents[p.Accent]:
 		writeErr(w, http.StatusBadRequest, "accent must be terracotta, ochre, olive or slate")
 		return
-	case p.Home != "" && !prefHomes[p.Home]:
-		writeErr(w, http.StatusBadRequest, "home must be library or movies")
-		return
-	}
-	// home is optional in the payload (older clients send only appearance); an
-	// omitted home keeps the stored value rather than resetting it.
-	if p.Home == "" {
-		if cur, err := s.loadPrefs(userID(r)); err == nil {
-			p.Home = cur.Home
-		} else {
-			p.Home = "library"
-		}
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {
