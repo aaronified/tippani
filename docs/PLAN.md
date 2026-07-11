@@ -145,6 +145,18 @@ CREATE TABLE annotation_reviews (
   last_touched_at  TEXT NOT NULL               -- UTC; moved by every answer
 );
 
+-- Recall-quiz score history (migration 0014). One row per completed quiz; the
+-- questions are generated on the fly (no stored bank) and each answered
+-- annotation nudges annotation_reviews, so only the tally persists. Per-user,
+-- flushable (DELETE /annotations/quiz/results).
+CREATE TABLE quiz_results (
+  id       INTEGER PRIMARY KEY,
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  total    INTEGER NOT NULL,
+  correct  INTEGER NOT NULL,
+  taken_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE tags (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -441,11 +453,18 @@ GET    /admin/metadata-keys   PUT /admin/metadata-keys               # admin onl
 POST   /books/lookup
 POST   /books    GET /books    GET/PUT/DELETE /books/{id}
 POST   /annotations
-GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=      # tag= takes the NAME
+GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=&limit=   # tag= takes the NAME
 GET    /annotations/daily-review?offset=      # today's deck (≤8): due first, then unseen; offset =
-                                              #   client UTC-offset minutes (timezone-aware "today")
+                                              #   client UTC-offset minutes (timezone-aware "today");
+                                              #   also returns states {unseen,soon,later,someday,total}
 POST   /annotations/{id}/review               # {result: got|forgot|skip, offset} → new stability +
                                               #   mastery + deck remaining (ROADMAP №2, DDL §3)
+GET    /annotations/quiz?count=              # mastery-weighted MCQ round: which-source (annotations)
+                                              #   + who-said (dialogues w/ actor); genre distractors
+POST   /annotations/quiz/submit               # {answers:[{id,kind,correct}]} → records score, folds
+                                              #   each annotation into its review schedule
+GET    /annotations/quiz/stats                # {taken,total,correct,accuracy}
+DELETE /annotations/quiz/results              # flush the quiz score history
 PUT    /annotations/{id}    DELETE /annotations/{id}
 POST   /movies/lookup                # TMDB search (title, optional year)
 POST   /movies   GET /movies   GET/PUT/DELETE /movies/{id}

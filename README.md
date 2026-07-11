@@ -61,10 +61,12 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   genre**.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
-- 🧠 **Daily review** — a spaced-repetition ritual on the Home screen: a handful of your own
+- 🧠 **Daily review & quiz** — a spaced-repetition ritual on the Home screen: a handful of your own
   highlights resurface each day on a forgetting-curve schedule; *Got it · Forgot · skip* nudge each
-  one's half-life. Two to three minutes, no configuration, no gamification — a dot on the logo
-  says when today's deck is waiting.
+  one's half-life. A **recall quiz** builds multiple-choice rounds from your library — match a quote
+  to its book, or a line to who said it — and every answer counts as a revision too. Two to three
+  minutes, no configuration, no gamification — a dot on the logo says when today's deck is waiting,
+  and a "where you stand" readout shows how many quotes are unseen / soon / later / someday.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
   (daily review · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
   full-screen filter and capture sheets with a Reset · count · Done footer, 44 px touch targets,

@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Recall quiz** (roadmap №2): a Home quiz card builds mastery-weighted MCQ rounds from your own
+  library — match a quote to its book (genre-preferring distractors) or a line to its actor; each
+  answer counts as a revision, and a running score can be cleared
+  (`GET /annotations/quiz`, `POST /annotations/quiz/submit`, `/quiz/stats`, `DELETE /quiz/results`;
+  migration 0014 `quiz_results`)
+- **Revision-state readout** on the Daily Review card (unseen / soon / later / someday) with a
+  "how these work" explainer linking the forgetting-curve and spaced-repetition research
+- **Full-screen cover inspector**: tap a book cover / movie poster on its detail page to view it
+  full-screen (× · Escape · backdrop · Android back gesture)
+- **Home favourites**: the full favourites list (newest first), 5 shown with "Show more"; a card
+  expands in place (note · tags · location) with an "Open book" button
+- **Cover search shows resolution**: candidate covers display their pixel size, low-res ones are
+  dimmed; Google Books renders larger (`fife=w1280-h1920`) and more options are offered; the
+  book/movie look-up matches render as a compact card grid
+- Metadata console: a **low-res** cover/poster count + filter; the cover re-fetch now reports
+  `skipped` (kept — no higher-res source) so a partial run is explained
+- **Home screen** with Daily Review, quick capture, stat tiles and favourites (desktop + mobile),
+  now with a Home entry on the desktop navbar; Metadata + Settings moved onto the navbar too
+- PWA: web app manifest + icons, `viewport-fit=cover` + safe-area insets, theme-color meta
+- Author/actor edit: labelled reference links (Open Library etc.), a "one link per line" tip, a
+  photo image-search shortcut, and a details-first view when a name is clicked
 - **Spaced repetition — daily review** (roadmap №2): a Daily Review card on the new Home screen
   resurfaces your own highlights on a forgetting-curve schedule — per-annotation memory half-life,
   recall probability decaying in SQL at query time (no jobs, no cron), *Got it / Forgot / skip*
@@ -55,6 +76,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bottom navigation bar and the Settings "Start page" toggle (superseded by the drawer + Home)
 
 ### Fixed
+- **Blank-screen crashes** — an app-wide ErrorBoundary now shows the actual error instead of a
+  white screen; fixed a `share.jsx` ES2018 regex lookbehind (older Android WebView / Safari
+  couldn't construct it) and missing `coverImgURL` imports in `ui.jsx` and `SearchPage.jsx` that
+  blanked book detail / search whenever a cover rendered
+- Editing or removing an author/actor cleans up the old name's orphaned people metadata (was
+  lingering in the DB and the Metadata console)
+- Manual year fields (books, movies, author "born") accept only a 4-digit year
 - OpenLibrary covers never stored (their `archive.org` redirect targets were rejected by the
   SSRF allowlist); TheTVDB posters never stored (`artworks.thetvdb.com` missing from the allowlist)
 - Mobile annotation cards overflowing the viewport; sticky page bar floating below the top of
