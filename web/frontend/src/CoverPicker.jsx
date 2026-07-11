@@ -17,19 +17,44 @@ export function amazonCoverURL(asin) {
   return a ? `https://images-na.ssl-images-amazon.com/images/P/${a}.01.jpg` : ''
 }
 
+// LOW_RES_W mirrors the server's refetch threshold (lowResCoverWidth): covers
+// narrower than this are the thumbnail-sized ones worth avoiding when a bigger
+// option is on offer.
+const LOW_RES_W = 500
+
+// resLabel formats measured natural dimensions as "W×H"; "" until the image
+// loads (or if it fails to).
+function resLabel(dim) {
+  return dim && dim.w ? `${dim.w}×${dim.h}` : ''
+}
+
 // CoverPreview renders a pending remote URL or the locally-stored file at 2:3.
 // Remote hosts outside the CSP allowlist can't paint — onError swaps to a note.
-export function CoverPreview({ url, label }) {
+// `showRes` overlays the image's true pixel size once it loads, and tints the
+// badge when it's below the low-res threshold, so a small scan is obvious.
+export function CoverPreview({ url, label, showRes = false }) {
   const [broke, setBroke] = useState(false)
+  const [dim, setDim] = useState(null)
   if (url && !broke) {
-    return (
+    const lowRes = dim && dim.w > 0 && dim.w < LOW_RES_W
+    const img = (
       <img
         src={url}
         alt=""
         onError={() => setBroke(true)}
+        onLoad={showRes ? (e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight }) : undefined}
         className="block w-20 shrink-0 object-cover"
         style={{ aspectRatio: '2 / 3', border: '1px solid var(--ink-border)', borderRadius: 8 }}
       />
+    )
+    if (!showRes) return img
+    return (
+      <span className="relative block w-20 shrink-0">
+        {img}
+        {resLabel(dim) && (
+          <span className={'cover-res-badge' + (lowRes ? ' is-low' : '')}>{resLabel(dim)}</span>
+        )}
+      </span>
     )
   }
   if (url && broke) {
@@ -193,27 +218,21 @@ export function CoverControls({
         )}
         {covers && (
           <div className="space-y-1.5 pt-1">
-            <MonoLabel className="block">{covers.length ? `pick a ${label.toLowerCase()}` : `no ${label.toLowerCase()}s found`}</MonoLabel>
+            <MonoLabel className="block">
+              {covers.length ? `pick a ${label.toLowerCase()} — resolution shown; larger is sharper` : `no ${label.toLowerCase()}s found`}
+            </MonoLabel>
             <div className="flex flex-wrap gap-2">
               {covers.map((c) => (
-                <button
+                <CoverPickThumb
                   key={c.url}
-                  type="button"
-                  className="cover-pick"
-                  title={`${c.source} — use this ${label.toLowerCase()}`}
-                  onClick={() => {
+                  url={c.url}
+                  source={c.source}
+                  label={label}
+                  onPick={() => {
                     onSetUrl(c.url)
                     setCovers(null)
                   }}
-                >
-                  <img
-                    src={c.url}
-                    alt=""
-                    loading="lazy"
-                    onError={(e) => { e.currentTarget.closest('button').style.display = 'none' }}
-                  />
-                  <span className="microcopy">{c.source}</span>
-                </button>
+                />
               ))}
             </div>
           </div>
@@ -223,6 +242,36 @@ export function CoverControls({
         <ErrorText>{err}</ErrorText>
       </div>
     </div>
+  )
+}
+
+// CoverPickThumb is one candidate in the "Search covers" grid: the image, its
+// source, and its true pixel size measured on load. A cover below the low-res
+// threshold is dimmed and badge-tinted so the user reaches for a bigger one.
+function CoverPickThumb({ url, source, label, onPick }) {
+  const [dim, setDim] = useState(null)
+  const [hide, setHide] = useState(false)
+  if (hide) return null
+  const lowRes = dim && dim.w > 0 && dim.w < LOW_RES_W
+  return (
+    <button
+      type="button"
+      className={'cover-pick' + (lowRes ? ' is-low' : '')}
+      title={`${source} · ${resLabel(dim) || 'loading…'} — use this ${label.toLowerCase()}`}
+      onClick={onPick}
+    >
+      <span className="relative block">
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+          onError={() => setHide(true)}
+        />
+        {resLabel(dim) && <span className={'cover-res-badge' + (lowRes ? ' is-low' : '')}>{resLabel(dim)}</span>}
+      </span>
+      <span className="microcopy">{source}</span>
+    </button>
   )
 }
 
@@ -267,7 +316,7 @@ export function BookLookupPicker({ isbn, title, asin, onPick }) {
               className="flex items-center gap-3 rounded-xl px-3 py-2"
               style={{ border: '1px solid var(--line)' }}
             >
-              <CoverPreview url={c.cover_url} label="" />
+              <CoverPreview url={c.cover_url} label="" showRes />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{c.title}</p>
                 <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
@@ -344,7 +393,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) 
               className="flex items-center gap-3 px-3 py-2.5"
               style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
             >
-              <CoverPreview url={c.poster_url} label="" />
+              <CoverPreview url={c.poster_url} label="" showRes />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">
                   {c.title}

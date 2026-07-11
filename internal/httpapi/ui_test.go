@@ -472,7 +472,7 @@ func TestCoversRefetch(t *testing.T) {
 	// upgraded to the hi-res fife render before fetching.
 	for _, want := range []string{
 		"https://image.tmdb.org/t/p/original/p.jpg",
-		"https://books.google.com/a.jpg?fife=w800-h1200",
+		"https://books.google.com/a.jpg?fife=w1280-h1920",
 	} {
 		found := false
 		for _, u := range urls {

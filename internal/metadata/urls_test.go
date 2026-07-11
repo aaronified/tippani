@@ -29,8 +29,8 @@ func TestHiResImageURLs(t *testing.T) {
 
 	// url.Values.Encode re-emits the query alphabetically; expectations match.
 	googleCases := map[string]string{
-		"https://books.google.com/books/content?id=1&printsec=frontcover&img=1&zoom=1": "https://books.google.com/books/content?fife=w800-h1200&id=1&img=1&printsec=frontcover&zoom=1",
-		"https://books.googleusercontent.com/books/content?id=2&fife=w100":             "https://books.googleusercontent.com/books/content?fife=w800-h1200&id=2",
+		"https://books.google.com/books/content?id=1&printsec=frontcover&img=1&zoom=1": "https://books.google.com/books/content?fife=w1280-h1920&id=1&img=1&printsec=frontcover&zoom=1",
+		"https://books.googleusercontent.com/books/content?id=2&fife=w100":             "https://books.googleusercontent.com/books/content?fife=w1280-h1920&id=2",
 		"https://covers.openlibrary.org/b/id/1-L.jpg":                                  "https://covers.openlibrary.org/b/id/1-L.jpg",
 		"https://m.media-amazon.com/images/I/x.jpg":                                    "https://m.media-amazon.com/images/I/x.jpg",
 	}

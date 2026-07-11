@@ -19,7 +19,7 @@ var (
 
 // maxBookCandidates caps the merged list — the user picks from a short
 // candidate list (PLAN §6); more is noise.
-const maxBookCandidates = 8
+const maxBookCandidates = 12
 
 // ErrQuota signals Google Books answered 429 — the shared anonymous daily
 // quota is exhausted. Google gives every keyless caller one global quota, so
@@ -144,7 +144,9 @@ func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCand
 }
 
 func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
-	u := googleBase + "/books/v1/volumes?q=" + url.QueryEscape(q)
+	// maxResults=20 (default is 10) widens the cover-search grid so there are
+	// more editions — and so more cover-art options — to pick from.
+	u := googleBase + "/books/v1/volumes?maxResults=20&q=" + url.QueryEscape(q)
 	if key != "" { // optional API key raises the ~1,000/day courtesy quota
 		u += "&key=" + url.QueryEscape(key)
 	}
@@ -253,7 +255,11 @@ func GoogleHiResCover(raw string) string {
 		return raw
 	}
 	q := u.Query()
-	q.Set("fife", "w800-h1200")
+	// The image server returns the largest scan that fits the box, capped by the
+	// source resolution — so a generous box (not a fixed 800) pulls the full
+	// available quality when the volume has it, and harmlessly returns less when
+	// it doesn't. Well above the 500px low-res threshold either way.
+	q.Set("fife", "w1280-h1920")
 	u.RawQuery = q.Encode()
 	return u.String()
 }
@@ -263,7 +269,7 @@ func GoogleHiResCover(raw string) string {
 // docs don't echo the queried ISBN back).
 func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) ([]BookCandidate, error) {
 	params.Set("fields", "key,title,author_name,first_publish_year,cover_i,subject,series")
-	params.Set("limit", "5")
+	params.Set("limit", "10")
 	u := openLibraryBase + "/search.json?" + params.Encode()
 	body, status, err := httpGet(ctx, u, "")
 	if err != nil {

@@ -67,7 +67,7 @@ func TestSearchBooksMergesSources(t *testing.T) {
 			t.Errorf("ol path = %s", r.URL.Path)
 		}
 		q := r.URL.Query()
-		if q.Get("isbn") != "9780306406157" || q.Get("limit") != "5" {
+		if q.Get("isbn") != "9780306406157" || q.Get("limit") != "10" {
 			t.Errorf("ol query = %v", q)
 		}
 		_, _ = w.Write([]byte(openLibraryJSON))
@@ -100,7 +100,7 @@ func TestSearchBooksMergesSources(t *testing.T) {
 		t.Errorf("genres = %v", g.Genres)
 	}
 	// https upgrade + the hi-res fife render (query is re-encoded alphabetically).
-	if g.CoverURL != "https://books.google.com/thumb?fife=w800-h1200&id=vol1" {
+	if g.CoverURL != "https://books.google.com/thumb?fife=w1280-h1920&id=vol1" {
 		t.Errorf("cover = %q, want https + fife upgrade", g.CoverURL)
 	}
 
@@ -215,7 +215,7 @@ func TestSearchBooksGoogleKey(t *testing.T) {
 }
 
 func TestSearchBooksCap(t *testing.T) {
-	items := make([]string, 10)
+	items := make([]string, 15)
 	for i := range items {
 		items[i] = fmt.Sprintf(`{"id":"v%d","volumeInfo":{"title":"T%d"}}`, i, i)
 	}
@@ -227,8 +227,8 @@ func TestSearchBooksCap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 8 {
-		t.Fatalf("got %d candidates, want cap of 8", len(got))
+	if len(got) != maxBookCandidates {
+		t.Fatalf("got %d candidates, want cap of %d", len(got), maxBookCandidates)
 	}
 }
 

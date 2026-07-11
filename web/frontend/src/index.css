@@ -1121,6 +1121,29 @@
     border-radius: 6px;
   }
   .cover-pick:hover { border-color: var(--accent-ui); }
+  /* A low-res candidate is dimmed so the sharper options read first. */
+  .cover-pick.is-low img { opacity: .5; }
+  .cover-pick.is-low:hover img { opacity: .85; }
+  /* Resolution badge: pinned to the thumbnail's bottom-left corner. */
+  .cover-res-badge {
+    position: absolute;
+    left: 3px;
+    bottom: 3px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: .02em;
+    color: #F4EDDE;
+    background: rgba(12, 9, 6, .72);
+    border-radius: 5px;
+    pointer-events: none;
+  }
+  .cover-res-badge.is-low {
+    color: #fff;
+    background: color-mix(in srgb, var(--error) 82%, rgba(0, 0, 0, .5));
+  }
 
   /* ---- determinate progress (ProgressBar): recessed track, accent fill ---- */
   .progress-track {
