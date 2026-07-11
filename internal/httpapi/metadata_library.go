@@ -26,7 +26,8 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		ISBN            string `json:"isbn"` // passed to the look-up picker to seed a stronger match
 		ASIN            string `json:"asin"`
 		HasCover        bool   `json:"has_cover"`
-		HasIDs          bool   `json:"has_ids"` // linked to a source (isbn/asin/google/openlibrary)
+		LowResCover     bool   `json:"low_res_cover"` // stored cover narrower than the refetch threshold
+		HasIDs          bool   `json:"has_ids"`       // linked to a source (isbn/asin/google/openlibrary)
 		HasAuthor       bool   `json:"has_author"`
 		HasSeries       bool   `json:"has_series"`
 		HasYear         bool   `json:"has_year"`
@@ -37,7 +38,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	books := []bookItem{}
 	brows, err := s.Store.DB.Query(`
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.series, ''), COALESCE(b.isbn, ''), COALESCE(b.asin, ''),
-		       b.cover_path IS NOT NULL,
+		       COALESCE(b.cover_path, ''),
 		       (b.isbn IS NOT NULL OR b.asin IS NOT NULL OR b.google_id IS NOT NULL OR b.openlibrary_id IS NOT NULL),
 		       (b.author IS NOT NULL AND b.author <> ''),
 		       (b.series IS NOT NULL AND b.series <> ''),
@@ -54,9 +55,18 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	defer brows.Close()
 	for brows.Next() {
 		var it bookItem
+		var cover string
 		if err := brows.Scan(&it.ID, &it.Title, &it.Author, &it.Series, &it.ISBN, &it.ASIN,
-			&it.HasCover, &it.HasIDs, &it.HasAuthor, &it.HasSeries, &it.HasYear, &it.HasGenre,
+			&cover, &it.HasIDs, &it.HasAuthor, &it.HasSeries, &it.HasYear, &it.HasGenre,
 			&it.HasDescription, &it.AnnotationCount); err == nil {
+			it.HasCover = cover != ""
+			// coverWidth reads only the image header; 0 (webp/svg/missing) is
+			// treated as unknown, not low-res, so it isn't flagged falsely.
+			if cover != "" {
+				if wpx := s.coverWidth(cover); wpx > 0 && wpx < lowResCoverWidth {
+					it.LowResCover = true
+				}
+			}
 			books = append(books, it)
 		}
 	}
@@ -67,6 +77,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		MediaType     string `json:"media_type"`
 		ReleaseYear   int    `json:"release_year"`
 		HasPoster     bool   `json:"has_poster"`
+		LowResPoster  bool   `json:"low_res_poster"`
 		HasCast       bool   `json:"has_cast"`
 		HasSource     bool   `json:"has_source"` // tmdb_id or tvdb_id
 		HasDirector   bool   `json:"has_director"`
@@ -77,7 +88,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	movies := []movieItem{}
 	mrows, err := s.Store.DB.Query(`
 		SELECT m.id, m.title, m.media_type, COALESCE(m.release_year, 0),
-		       m.poster_path IS NOT NULL,
+		       COALESCE(m.poster_path, ''),
 		       (m.cast_json IS NOT NULL AND m.cast_json <> '[]' AND m.cast_json <> ''),
 		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL),
 		       (m.director IS NOT NULL AND m.director <> ''),
@@ -93,9 +104,16 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	defer mrows.Close()
 	for mrows.Next() {
 		var it movieItem
+		var poster string
 		if err := mrows.Scan(&it.ID, &it.Title, &it.MediaType, &it.ReleaseYear,
-			&it.HasPoster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
+			&poster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
 			&it.DialogueCount); err == nil {
+			it.HasPoster = poster != ""
+			if poster != "" {
+				if wpx := s.coverWidth(poster); wpx > 0 && wpx < lowResCoverWidth {
+					it.LowResPoster = true
+				}
+			}
 			movies = append(movies, it)
 		}
 	}

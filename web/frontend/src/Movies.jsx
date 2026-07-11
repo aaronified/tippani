@@ -26,6 +26,7 @@ import {
   IconFilter,
   IconMore,
   IconPlus,
+  Lightbox,
   MinRatingSelect,
   MobileSheet,
   MoreMenu,
@@ -86,15 +87,30 @@ const amberMono = {
 
 // Poster renders the locally-served poster (GET /covers/{file}) or the
 // striped POSTER placeholder (§6), always 2:3 and full-width.
-function Poster({ path, title, className = '' }) {
+function Poster({ path, title, className = '', zoomable = false }) {
+  const [zoom, setZoom] = useState(false)
   if (path) {
-    return (
+    const img = (
       <img
         src={coverImgURL(path)}
         alt={title ? `Poster of ${title}` : ''}
         className={'block w-full object-cover ' + className}
         style={{ aspectRatio: '2 / 3', border: '1px solid var(--line)', borderRadius: 8 }}
       />
+    )
+    if (!zoomable) return img
+    return (
+      <>
+        <button
+          type="button"
+          className="cover-zoom-btn"
+          aria-label={title ? `View poster of ${title} full screen` : 'View poster full screen'}
+          onClick={() => setZoom(true)}
+        >
+          {img}
+        </button>
+        {zoom && <Lightbox path={path} title={title} onClose={() => setZoom(false)} />}
+      </>
     )
   }
   return <Placeholder kind="POSTER" className={'w-full ' + className} />
@@ -837,7 +853,7 @@ function MovieDetail({ id, onClose }) {
         ) : (
           <Reveal className="flex flex-wrap items-start gap-6">
             <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.4))' }}>
-              <Poster path={movie.poster_path} title={movie.title} />
+              <Poster path={movie.poster_path} title={movie.title} zoomable />
             </div>
             <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
               <h1 className="display-title" style={{ fontSize: 27 }}>

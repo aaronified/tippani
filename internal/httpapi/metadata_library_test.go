@@ -1,7 +1,12 @@
 package httpapi
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -9,6 +14,7 @@ type metaLib struct {
 	Books []struct {
 		ID              int64 `json:"id"`
 		HasCover        bool  `json:"has_cover"`
+		LowResCover     bool  `json:"low_res_cover"`
 		HasIDs          bool  `json:"has_ids"`
 		AnnotationCount int   `json:"annotation_count"`
 	} `json:"books"`
@@ -49,6 +55,55 @@ func TestMetadataLibrary(t *testing.T) {
 	}
 	if lib.DialogueStats.Total != 2 || lib.DialogueStats.MissingActor != 1 {
 		t.Fatalf("dialogue stats should count only the fillable (char'd) line: %+v", lib.DialogueStats)
+	}
+}
+
+// TestMetadataLibraryLowRes: a stored cover narrower than the refetch threshold
+// is flagged low_res_cover; a wide one is not; an unmeasurable/absent cover is
+// not falsely flagged.
+func TestMetadataLibraryLowRes(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	dir := srv.coversDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG := func(name string, w int) {
+		t.Helper()
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, w, 10))); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writePNG("00000000000000a1.png", 100) // low-res
+	writePNG("00000000000000a2.png", 900) // hi-res
+	lo := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Lo"}, http.StatusCreated))
+	hi := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Hi"}, http.StatusCreated))
+	none := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "None"}, http.StatusCreated))
+	if _, err := srv.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, "00000000000000a1.png", lo.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, "00000000000000a2.png", hi.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := decode[metaLib](t, c.mustDo("GET", "/metadata/library", nil, 200))
+	byID := map[int64]bool{}
+	for _, b := range lib.Books {
+		byID[b.ID] = b.LowResCover
+	}
+	if !byID[lo.ID] {
+		t.Fatalf("narrow cover not flagged low-res")
+	}
+	if byID[hi.ID] {
+		t.Fatalf("wide cover wrongly flagged low-res")
+	}
+	if byID[none.ID] {
+		t.Fatalf("coverless book wrongly flagged low-res")
 	}
 }
 

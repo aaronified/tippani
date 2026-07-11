@@ -1770,6 +1770,57 @@ html[data-theme="dark"] .mobile-topbar {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* ---- cover Lightbox (full-screen cover/poster viewer) ---- */
+/* The zoom trigger is a bare button wrapping the hero image — strip chrome so
+   it reads exactly as the cover, but keep the pointer + focus ring. */
+.cover-zoom-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  border-radius: 8px;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  background: rgba(12, 9, 6, .88);
+  animation: lightbox-fade .18s ease;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, .7);
+  cursor: default;
+}
+.lightbox-close {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  background: rgba(0, 0, 0, .35);
+  color: #fff;
+}
+.lightbox-close:hover { background: rgba(0, 0, 0, .55); }
+@keyframes lightbox-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lightbox { animation: none; } }
+
 /* Daily Review card advance: each card (and the done state) fades in with a
    6px rise, re-keyed per card so the entrance replays on every answer. */
 .review-card-body { animation: review-fade .26s cubic-bezier(.2, .68, .28, 1); }

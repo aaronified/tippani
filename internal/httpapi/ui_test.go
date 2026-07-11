@@ -375,6 +375,7 @@ type refetchResp struct {
 	Fetched    int    `json:"fetched"`
 	Failed     int    `json:"failed"`
 	Enriched   int    `json:"enriched"`
+	Skipped    int    `json:"skipped"`
 	Total      int    `json:"total"`
 	Remaining  int    `json:"remaining"`
 	NextCursor string `json:"next_cursor"`
@@ -396,6 +397,7 @@ func driveRefetch(t *testing.T, c *testClient) refetchResp {
 		sum.Fetched += res.Fetched
 		sum.Failed += res.Failed
 		sum.Enriched += res.Enriched
+		sum.Skipped += res.Skipped
 		sum.Total, sum.Remaining, sum.Done = res.Total, res.Remaining, res.Done
 		if res.Done {
 			if res.NextCursor != "" {
@@ -646,6 +648,12 @@ func TestCoversRefetchReplacesLowRes(t *testing.T) {
 	res = driveRefetch(t, admin)
 	if res.Fetched != 0 || res.Failed != 0 {
 		t.Fatalf("downgrade pass: %+v", res)
+	}
+	// The worse image was discarded and the low-res original kept — that's a
+	// skip, and it must be reported (not silently dropped) so the UI can say
+	// "left as-is, no higher-res source".
+	if res.Skipped != 1 {
+		t.Fatalf("downgrade should report 1 skipped, got %+v", res)
 	}
 	if err := srv.Store.DB.QueryRow(`SELECT cover_path FROM books WHERE title = 'A'`).Scan(&cover); err != nil || cover != prev {
 		t.Fatalf("cover changed to a worse image: %q (err %v)", cover, err)

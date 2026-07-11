@@ -1223,14 +1223,62 @@ export function Chips({ items, className = "" }) {
   );
 }
 
+// Lightbox — a full-screen viewer for a stored cover/poster. Closes on the ×
+// button, Escape, a backdrop tap, and the browser/Android back gesture (it
+// pushes a history entry on open and closes when that entry is popped).
+export function Lightbox({ path, title, onClose }) {
+  useEffect(() => {
+    // A history entry so the hardware/gesture Back closes the viewer instead
+    // of leaving the page. popstate (Back) => close; explicit close pops it.
+    let closedByPop = false;
+    window.history.pushState({ tpLightbox: true }, "");
+    const onPop = () => { closedByPop = true; onClose(); };
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("popstate", onPop);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      document.removeEventListener("keydown", onKey);
+      // If we're unmounting for a reason other than Back, consume the entry we
+      // pushed so the page's own Back still works normally.
+      if (!closedByPop && window.history.state && window.history.state.tpLightbox) {
+        window.history.back();
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div
+      className="lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title ? `Cover of ${title}` : "Cover"}
+      onClick={onClose}
+    >
+      <button type="button" className="lightbox-close" aria-label="Close" onClick={onClose}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+      <img
+        src={coverImgURL(path)}
+        alt={title ? `Cover of ${title}` : ""}
+        className="lightbox-img"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 // Cover renders a locally-served cover/poster image (GET /covers/{file}), or
 // the striped placeholder. Remote images are never hotlinked (CSP 'self').
-export function Cover({ path, title, large = false, hero = false }) {
+// `zoomable` (detail heroes) makes a real cover open the full-screen Lightbox.
+export function Cover({ path, title, large = false, hero = false, zoomable = false }) {
+  const [zoom, setZoom] = useState(false);
   // hero: fills its (sized) wrapper at 2:3 — used by the detail header, where the
   // wrapper controls width and adds the drop shadow.
   if (hero) {
     if (path) {
-      return (
+      const img = (
         <img
           src={coverImgURL(path)}
           alt={title ? `Cover of ${title}` : ""}
@@ -1240,6 +1288,20 @@ export function Cover({ path, title, large = false, hero = false }) {
             border: "1px solid var(--ink-border)",
           }}
         />
+      );
+      if (!zoomable) return img;
+      return (
+        <>
+          <button
+            type="button"
+            className="cover-zoom-btn"
+            aria-label={title ? `View cover of ${title} full screen` : "View cover full screen"}
+            onClick={() => setZoom(true)}
+          >
+            {img}
+          </button>
+          {zoom && <Lightbox path={path} title={title} onClose={() => setZoom(false)} />}
+        </>
       );
     }
     return <Placeholder kind="COVER" className="w-full" />;

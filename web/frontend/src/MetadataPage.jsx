@@ -34,7 +34,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
     setBusy(true)
     setError('')
     setFlash('')
-    const sum = { fetched: 0, enriched: 0, failed: 0 }
+    const sum = { fetched: 0, enriched: 0, failed: 0, skipped: 0 }
     try {
       let cursor = ''
       let total = 0
@@ -44,12 +44,19 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
         sum.fetched += r.data.fetched
         sum.enriched += r.data.enriched || 0
         sum.failed += r.data.failed
+        sum.skipped += r.data.skipped || 0
         total = total || r.data.total
         setProgress({ done: total - r.data.remaining, total })
         if (r.data.done) break
         cursor = r.data.next_cursor
       }
-      setFlash(`covers: ${sum.fetched} fetched · ${sum.enriched} enriched · ${sum.failed} failed`)
+      // Spell out skipped/failed so a partial run reads as intentional ("11
+      // already had the best available") rather than a silent nothing-happened.
+      const parts = [`${sum.fetched} covers fetched/upgraded`, `${sum.enriched} details filled`]
+      if (sum.skipped) parts.push(`${sum.skipped} left as-is (no higher-res source)`)
+      if (sum.failed) parts.push(`${sum.failed} failed`)
+      if (!sum.fetched && !sum.enriched && !sum.skipped && !sum.failed) parts.length = 0
+      setFlash(parts.length ? parts.join(' · ') : 'everything already up to date')
       load()
     } finally {
       setBusy(false)
@@ -70,6 +77,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       books: {
         total: b.length,
         no_cover: count(b, (x) => !x.has_cover),
+        low_res: count(b, (x) => x.low_res_cover),
         no_author: count(b, (x) => !x.has_author),
         no_series: count(b, (x) => !x.has_series),
         no_year: count(b, (x) => !x.has_year),
@@ -79,6 +87,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       movies: {
         total: m.length,
         no_poster: count(m, (x) => !x.has_poster),
+        low_res: count(m, (x) => x.low_res_poster),
         no_cast: count(m, (x) => !x.has_cast),
         no_director: count(m, (x) => !x.has_director),
         no_year: count(m, (x) => !x.has_year),
@@ -194,6 +203,7 @@ function StatsStrip({ stats, onPickBook, onPickMovie }) {
         {group('Books', [
           <Stat key="t" n={b.total} label="total" onClick={() => onPickBook('all')} />,
           <Stat key="c" n={b.no_cover} label="no cover" warn onClick={() => onPickBook('no_cover')} />,
+          <Stat key="lr" n={b.low_res} label="low-res" warn onClick={() => onPickBook('low_res')} />,
           <Stat key="au" n={b.no_author} label="no author" warn onClick={() => onPickBook('no_author')} />,
           <Stat key="se" n={b.no_series} label="no series" warn onClick={() => onPickBook('no_series')} />,
           <Stat key="y" n={b.no_year} label="no year" warn onClick={() => onPickBook('no_year')} />,
@@ -203,6 +213,7 @@ function StatsStrip({ stats, onPickBook, onPickMovie }) {
         {group('Films & shows', [
           <Stat key="t" n={m.total} label="total" onClick={() => onPickMovie('all')} />,
           <Stat key="p" n={m.no_poster} label="no poster" warn onClick={() => onPickMovie('no_poster')} />,
+          <Stat key="lr" n={m.low_res} label="low-res" warn onClick={() => onPickMovie('low_res')} />,
           <Stat key="c" n={m.no_cast} label="no cast" warn onClick={() => onPickMovie('no_cast')} />,
           <Stat key="d" n={m.no_director} label="no director" warn onClick={() => onPickMovie('no_director')} />,
           <Stat key="y" n={m.no_year} label="no year" warn onClick={() => onPickMovie('no_year')} />,
@@ -330,6 +341,7 @@ function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash }) {
     const pred = {
       flagged: (b) => !b.has_cover || !b.has_ids,
       no_cover: (b) => !b.has_cover,
+      low_res: (b) => b.low_res_cover,
       no_author: (b) => !b.has_author,
       no_series: (b) => !b.has_series,
       no_year: (b) => !b.has_year,
@@ -389,6 +401,7 @@ function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash }) {
           options: [
             ['flagged', 'flagged'],
             ['no_cover', 'no cover'],
+            ['low_res', 'low-res'],
             ['no_author', 'no author'],
             ['no_series', 'no series'],
             ['no_year', 'no year'],
@@ -463,6 +476,7 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
   const [editing, setEditing] = useState(false)
   const gaps = [
     !book.has_cover && 'no cover',
+    book.low_res_cover && 'low-res cover',
     !book.has_author && 'no author',
     !book.has_series && 'no series',
     !book.has_year && 'no year',
@@ -544,6 +558,7 @@ function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
     const pred = {
       flagged: (m) => !m.has_poster || !m.has_cast || !m.has_source,
       no_poster: (m) => !m.has_poster,
+      low_res: (m) => m.low_res_poster,
       no_cast: (m) => !m.has_cast,
       no_director: (m) => !m.has_director,
       no_year: (m) => !m.has_year,
@@ -609,6 +624,7 @@ function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
           options: [
             ['flagged', 'flagged'],
             ['no_poster', 'no poster'],
+            ['low_res', 'low-res'],
             ['no_cast', 'no cast'],
             ['no_director', 'no director'],
             ['no_year', 'no year'],
@@ -664,7 +680,7 @@ function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
 function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(false)
-  const gaps = [!movie.has_poster && 'no poster', !movie.has_cast && 'no cast', !movie.has_source && 'no source'].filter(Boolean)
+  const gaps = [!movie.has_poster && 'no poster', movie.low_res_poster && 'low-res poster', !movie.has_cast && 'no cast', !movie.has_source && 'no source'].filter(Boolean)
 
   async function resync(c) {
     setErr('')

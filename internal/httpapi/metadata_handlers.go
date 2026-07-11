@@ -286,7 +286,11 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close() // done reading before any writes/network (SQLite single-writer)
 
-	enriched, fetched, failed := 0, 0, 0
+	// skipped = a cover that needed work but couldn't be improved: no source URL
+	// to try, or a re-fetch that came back no wider than what's stored. Counting
+	// it (instead of silently dropping) is what tells the user "3 upgraded, 10
+	// left as-is — no higher-res source" rather than an unexplained partial run.
+	enriched, fetched, failed, skipped := 0, 0, 0, 0
 	lastID := after
 	for _, b := range books {
 		lastID = b.id
@@ -375,10 +379,13 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case name == "":
 				if len(urls) > 0 {
-					failed++
+					failed++ // had sources to try, all fetches failed
+				} else {
+					skipped++ // nothing to try (no isbn/asin/cached URL/candidate)
 				}
 			case lowRes && s.coverWidth(name) <= oldW:
 				s.removeCoverFile(name) // no better than what's stored — keep the old one
+				skipped++
 			default:
 				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, name, b.id); uerr == nil {
 					fetched++
@@ -439,6 +446,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		}
 		if m.oldPoster != "" && s.coverWidth(name) <= m.oldW {
 			s.removeCoverFile(name) // no better than what's stored
+			skipped++
 			continue
 		}
 		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ? WHERE id = ?`, name, m.id); uerr == nil {
@@ -486,7 +494,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"fetched": fetched, "failed": failed, "enriched": enriched,
+		"fetched": fetched, "failed": failed, "enriched": enriched, "skipped": skipped,
 		"next_cursor": next, "done": next == "", "total": total, "remaining": remaining,
 	})
 }

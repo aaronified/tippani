@@ -779,7 +779,7 @@ function BookDetail({ id, onClose }) {
         ) : (
           <div className="flex flex-wrap items-start gap-6">
             <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.34))' }}>
-              <Cover path={book.cover_path} title={book.title} hero />
+              <Cover path={book.cover_path} title={book.title} hero zoomable />
             </div>
             <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
               <h1 className="display-title" style={{ fontSize: 28, lineHeight: 1.15 }}>
