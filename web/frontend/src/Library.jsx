@@ -664,7 +664,7 @@ function ManualTab({ onAdded }) {
       <Field label="Title" value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
       <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
+        <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
       </div>
       <ErrorText>{error}</ErrorText>
@@ -970,7 +970,7 @@ export function EditBook({ book, onSaved, onCancel }) {
         <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
         <Field label="ASIN" value={asin} onChange={(e) => setAsin(e.target.value)} />
-        <Field label="Year" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} />
+        <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">Genres</MonoLabel>

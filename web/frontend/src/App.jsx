@@ -226,19 +226,20 @@ function Login({ onLogin }) {
   )
 }
 
-// Primary nav lives in the shell; the utility screens move under the user-chip
-// menu so the nav stays focused on the four content areas.
+// Primary nav lives in the shell. Desktop has room for every screen, so
+// Metadata + Settings ride the navbar too (icon-only when it gets tight); the
+// user-chip menu is then just the avatar/account + log out. Mobile reaches
+// everything through the drawer regardless.
 const PRIMARY_TABS = [
   ['library', 'Library'],
   ['movies', 'Catalogue'],
   ['search', 'Search'],
   ['tags', 'Tags'],
   ['import', 'Import'],
-]
-const MENU_TABS = [
   ['metadata', 'Metadata'],
   ['settings', 'Settings'],
 ]
+const MENU_TABS = []
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
 // active-tab accent tint flows through it. Keyed by the tab key in TABS; the
@@ -395,19 +396,21 @@ function UserMenu({ user, tab, menuOpen, setMenuOpen, selectTab, logout, onUser,
             {user.is_admin ? ' · admin' : ''}
           </p>
           <AvatarControl user={user} onUser={onUser} />
-          <div className="mb-2 flex flex-col gap-0.5">
-            {MENU_TABS.map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => { selectTab(key); setMenuOpen(false) }}
-                className={'menu-item' + (tab === key ? ' active' : '')}
-                aria-current={tab === key ? 'page' : undefined}
-              >
-                <TabIcon name={key} />
-                {label}
-              </button>
-            ))}
-          </div>
+          {MENU_TABS.length > 0 && (
+            <div className="mb-2 flex flex-col gap-0.5">
+              {MENU_TABS.map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => { selectTab(key); setMenuOpen(false) }}
+                  className={'menu-item' + (tab === key ? ' active' : '')}
+                  aria-current={tab === key ? 'page' : undefined}
+                >
+                  <TabIcon name={key} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <GhostButton className="w-full" onClick={logout}>
             Log out
           </GhostButton>

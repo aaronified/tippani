@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { ErrorText, Field, GhostButton, MonoLabel, Placeholder } from './ui.jsx'
+import { ErrorText, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, MonoLabel, Placeholder } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -133,7 +133,12 @@ function PersonView({ person, onEdit, onDelete }) {
         <div className="min-w-0 flex-1 space-y-1.5">
           {person.born && <MonoLabel className="block">{person.born}</MonoLabel>}
           {person.bio && <p style={{ fontSize: 14, lineHeight: 1.55 }}>{person.bio}</p>}
-          {person.links && <PersonLinks links={person.links} />}
+          {person.links && (
+            <div className="space-y-1">
+              <MonoLabel className="block" style={{ color: 'var(--faint)' }}>reference pages</MonoLabel>
+              <PersonLinksDetail links={person.links} />
+            </div>
+          )}
           {person.source && person.source !== 'manual' && (
             <MonoLabel className="block" style={{ color: 'var(--faint)' }}>via {person.source}</MonoLabel>
           )}
@@ -142,34 +147,44 @@ function PersonView({ person, onEdit, onDelete }) {
       <div className="flex justify-end gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
         <GhostButton
           onClick={onDelete}
+          className="inline-flex items-center gap-1.5"
           style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
         >
-          Delete
+          <IconDelete /> Delete
         </GhostButton>
-        <button className={PRIMARY} onClick={onEdit}>
-          Edit
+        <button className={PRIMARY + ' inline-flex items-center gap-1.5'} onClick={onEdit}>
+          <IconEdit /> Edit
         </button>
       </div>
     </div>
   )
 }
 
-// PersonLinks renders whitespace/newline-separated tokens; URL-looking ones
-// become anchors (new tab, rel-safe), the rest plain text.
-function PersonLinks({ links }) {
-  const parts = String(links).split(/[\s\n]+/).filter(Boolean)
+// PersonLinksDetail renders the saved links for the details view: recognised
+// providers as labelled chips (Open Library, IMDb, …), and anything else as a
+// chip showing the bare link text — "wrapping like Open Library for known
+// links, for unknown just show the link text".
+function PersonLinksDetail({ links }) {
+  const { known, extra } = parseLinks(links)
+  const items = PROVIDERS.filter(([slug]) => known[slug])
+  if (items.length === 0 && extra.length === 0) return <span className="microcopy">—</span>
   return (
-    <p className="text-[13px]" style={{ color: 'var(--soft)' }}>
-      {parts.map((t, i) =>
+    <span className="flex flex-wrap items-center gap-1.5">
+      {items.map(([slug, label]) => (
+        <a key={slug} className="tp-chip tp-chip-btn" href={known[slug]} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+      ))}
+      {extra.map((t) =>
         /^https?:\/\//i.test(t) ? (
-          <a key={i} href={t} target="_blank" rel="noopener noreferrer" className="tp-link" style={{ marginRight: 8 }}>
+          <a key={t} className="tp-chip tp-chip-btn" href={t} target="_blank" rel="noopener noreferrer">
             {t.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
           </a>
         ) : (
-          <span key={i} style={{ marginRight: 8 }}>{t}</span>
+          <span key={t} className="tp-chip">{t}</span>
         ),
       )}
-    </p>
+    </span>
   )
 }
 
@@ -184,6 +199,10 @@ function PersonForm({ kind, name, initial, onCancel, onSaved }) {
 
   async function submit(e) {
     e.preventDefault()
+    // Born is a year: 4 digits, or blank. (Same rule the year fields use.)
+    if (born.trim() && !/^\d{4}$/.test(born.trim())) {
+      return setError('born must be a 4-digit year (e.g. 1920)')
+    }
     setBusy(true)
     setError('')
     const r = await json('PUT', '/people', {
@@ -217,28 +236,52 @@ function PersonForm({ kind, name, initial, onCancel, onSaved }) {
         <textarea className="tp-input" rows="4" value={bio} onChange={(e) => setBio(e.target.value)} />
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Born" value={born} onChange={(e) => setBorn(e.target.value)} placeholder="e.g. 1920" />
         <Field
-          label="Photo URL"
-          value={imageUrl}
-          onChange={(e) => {
-            setImageUrl(e.target.value)
-            setClearImage(false)
-          }}
-          placeholder="https://…"
+          label="Born"
+          value={born}
+          onChange={(e) => setBorn(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          inputMode="numeric"
+          maxLength={4}
+          placeholder="e.g. 1920"
         />
+        <div>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <MonoLabel>Photo URL</MonoLabel>
+            {/* No keyless portrait API, so offer a web image search: find one,
+                copy its address, paste it here (this field also takes any cover
+                image URL). */}
+            <button
+              type="button"
+              className="tp-link"
+              style={{ fontSize: 11 }}
+              onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')}
+            >
+              search images ↗
+            </button>
+          </div>
+          <input
+            className="tp-input"
+            value={imageUrl}
+            onChange={(e) => {
+              setImageUrl(e.target.value)
+              setClearImage(false)
+            }}
+            placeholder="https://… paste an image link"
+          />
+        </div>
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">Links</MonoLabel>
-        <textarea className="tp-input" rows="2" value={links} onChange={(e) => setLinks(e.target.value)} placeholder="homepage · wikipedia · …" />
+        <textarea className="tp-input" rows="3" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'https://en.wikipedia.org/wiki/…\nhttps://openlibrary.org/authors/…'} />
+        <p className="microcopy mt-1">one link per line — known sites (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) are labelled automatically; anything else shows as-is.</p>
       </label>
       <ErrorText>{error}</ErrorText>
       <div className="flex justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
-          Cancel
+          <IconClose /> Cancel
         </GhostButton>
-        <button className={PRIMARY} disabled={busy}>
-          Save
+        <button className={PRIMARY + ' inline-flex items-center gap-1.5'} disabled={busy}>
+          <IconCheck /> Save
         </button>
       </div>
     </form>
@@ -276,7 +319,9 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   const [person, setPerson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
-  const [details, setDetails] = useState(false) // secondary bio/photo view
+  // Details (bio · photo · born · labelled links) is the default view when a
+  // name is clicked; the compact links-only redirect menu is one tap away.
+  const [details, setDetails] = useState(true)
   const [fetching, setFetching] = useState(false)
   const [fetchNote, setFetchNote] = useState('')
   const [error, setError] = useState('')
