@@ -231,6 +231,7 @@ function Login({ onLogin }) {
 // user-chip menu is then just the avatar/account + log out. Mobile reaches
 // everything through the drawer regardless.
 const PRIMARY_TABS = [
+  ['home', 'Home'],
   ['library', 'Library'],
   ['movies', 'Catalogue'],
   ['search', 'Search'],

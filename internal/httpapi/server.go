@@ -124,6 +124,11 @@ func (s *Server) Handler() http.Handler {
 	// collide with the {id} routes above — they differ by method.
 	mux.Handle("GET /annotations/daily-review", s.requireAuth(s.handleDailyReview))
 	mux.Handle("POST /annotations/{id}/review", s.requireAuth(s.handleReviewAnnotation))
+	// Recall quiz (PLAN §3c). Literal segments, no {id} collision.
+	mux.Handle("GET /annotations/quiz", s.requireAuth(s.handleQuiz))
+	mux.Handle("POST /annotations/quiz/submit", s.requireAuth(s.handleQuizSubmit))
+	mux.Handle("GET /annotations/quiz/stats", s.requireAuth(s.handleQuizStats))
+	mux.Handle("DELETE /annotations/quiz/results", s.requireAuth(s.handleQuizFlush))
 	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))
 	mux.Handle("DELETE /annotations/{id}", s.requireAuth(s.handleDeleteAnnotation))
 

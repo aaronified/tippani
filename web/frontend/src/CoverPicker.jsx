@@ -32,7 +32,7 @@ function resLabel(dim) {
 // Remote hosts outside the CSP allowlist can't paint — onError swaps to a note.
 // `showRes` overlays the image's true pixel size once it loads, and tints the
 // badge when it's below the low-res threshold, so a small scan is obvious.
-export function CoverPreview({ url, label, showRes = false }) {
+export function CoverPreview({ url, label, showRes = false, className = 'w-20 shrink-0' }) {
   const [broke, setBroke] = useState(false)
   const [dim, setDim] = useState(null)
   if (url && !broke) {
@@ -43,13 +43,13 @@ export function CoverPreview({ url, label, showRes = false }) {
         alt=""
         onError={() => setBroke(true)}
         onLoad={showRes ? (e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight }) : undefined}
-        className="block w-20 shrink-0 object-cover"
+        className={'block w-full object-cover'}
         style={{ aspectRatio: '2 / 3', border: '1px solid var(--ink-border)', borderRadius: 8 }}
       />
     )
-    if (!showRes) return img
+    if (!showRes) return <span className={'block ' + className}>{img}</span>
     return (
-      <span className="relative block w-20 shrink-0">
+      <span className={'relative block ' + className}>
         {img}
         {resLabel(dim) && (
           <span className={'cover-res-badge' + (lowRes ? ' is-low' : '')}>{resLabel(dim)}</span>
@@ -60,14 +60,14 @@ export function CoverPreview({ url, label, showRes = false }) {
   if (url && broke) {
     return (
       <span
-        className="flex w-20 shrink-0 items-center justify-center px-1 text-center"
+        className={'flex items-center justify-center px-1 text-center ' + className}
         style={{ aspectRatio: '2 / 3', border: '1px dashed var(--ink-border)', borderRadius: 8 }}
       >
         <MonoLabel style={{ fontSize: 9, lineHeight: 1.3 }}>preview blocked — will fetch on save</MonoLabel>
       </span>
     )
   }
-  return <Placeholder kind={label} className="w-20 shrink-0" />
+  return <Placeholder kind={label} className={className} />
 }
 
 // hiResPoster upgrades a TMDB picker-thumbnail URL (w342) to the original so

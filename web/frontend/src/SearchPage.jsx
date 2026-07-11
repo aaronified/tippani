@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { json, errText } from './api.js'
+import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
