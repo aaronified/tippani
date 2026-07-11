@@ -35,6 +35,48 @@ func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 
 func validPersonKind(k string) bool { return k == "author" || k == "actor" }
 
+// gcOrphanPeople deletes saved person rows (of one kind) whose name is no
+// longer referenced by any of the user's books (authors) or dialogues
+// (actors) — e.g. after a book's author is renamed, the old author's metadata
+// would otherwise linger in the DB and clutter the Metadata console. Called
+// from the write paths that can change a reference (never from a read).
+// Best-effort: a failure here never fails the triggering request.
+func (s *Server) gcOrphanPeople(uid int64, kind string) {
+	if !validPersonKind(kind) {
+		return
+	}
+	// The set of names still referenced, already lowercased (the console keys
+	// names case-insensitively). Inlined LOWER/TRIM — no derived-table column
+	// alias, which SQLite's driver here doesn't accept.
+	ref := `SELECT LOWER(TRIM(author)) FROM books
+	        WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
+	if kind == "actor" {
+		ref = `SELECT LOWER(TRIM(d.actor)) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		       WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
+	}
+	orphan := ` FROM people WHERE user_id = ? AND kind = ? AND LOWER(name) NOT IN (` + ref + `)`
+	// Collect the orphans' image files first so they can be cleaned after the
+	// row delete.
+	rows, err := s.Store.DB.Query(`SELECT image_path`+orphan, uid, kind, uid)
+	if err != nil {
+		return
+	}
+	var images []string
+	for rows.Next() {
+		var img string
+		if rows.Scan(&img) == nil && img != "" {
+			images = append(images, img)
+		}
+	}
+	rows.Close()
+	if _, err := s.Store.DB.Exec(`DELETE`+orphan, uid, kind, uid); err != nil {
+		return
+	}
+	for _, img := range images {
+		s.removeCoverFile(img)
+	}
+}
+
 // handlePeople: GET /people?kind=author|actor[&name=X].
 // With a name → the single row ({exists,person}); without → all of that kind
 // ({people}), used to paint group-by portraits and manage saved entries.

@@ -11,6 +11,7 @@ import {
   ErrorText,
   GhostButton,
   HandCard,
+  HandNote,
   MobileSheet,
   MonoLabel,
   Select,
@@ -59,6 +60,7 @@ function DailyReviewCard({ onPending }) {
   const [states, setStates] = useState(null) // revision-state counts
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false) // the deck fetch itself errored
+  const [showHelp, setShowHelp] = useState(false) // "how these levels work" explainer
 
   useEffect(() => {
     json('GET', `/annotations/daily-review?offset=${tzOffsetMinutes()}`).then((r) => {
@@ -168,15 +170,33 @@ function DailyReviewCard({ onPending }) {
         </div>
       )}
       {states && states.total > 0 && (
-        <div
-          className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1"
-          style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}
-        >
-          <span className="mono-label" style={{ color: 'var(--faint)' }}>where you stand</span>
-          <ReviewStatePip label="unseen" n={states.unseen} />
-          <ReviewStatePip label="soon" n={states.soon} />
-          <ReviewStatePip label="later" n={states.later} />
-          <ReviewStatePip label="someday" n={states.someday} />
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }} className="mt-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="mono-label" style={{ color: 'var(--faint)' }}>where you stand</span>
+            <ReviewStatePip label="unseen" n={states.unseen} />
+            <ReviewStatePip label="soon" n={states.soon} />
+            <ReviewStatePip label="later" n={states.later} />
+            <ReviewStatePip label="someday" n={states.someday} />
+            <button type="button" className="tp-link" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={() => setShowHelp((v) => !v)}>
+              how these work
+            </button>
+          </div>
+          {showHelp && (
+            <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
+              Each quote carries a memory “half-life” that grows every time you recall it and
+              shrinks when you forget — the classic{' '}
+              <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
+                forgetting curve
+              </a>{' '}
+              behind{' '}
+              <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer" className="tp-link">
+                spaced repetition
+              </a>. A quote is <strong>unseen</strong> until first reviewed, then <strong>soon</strong>{' '}
+              (half-life under a week), <strong>later</strong> (one to four weeks), and{' '}
+              <strong>someday</strong> (a month or more). It resurfaces for review once its recall
+              odds dip past 50%.
+            </p>
+          )}
         </div>
       )}
     </HandCard>
@@ -193,13 +213,172 @@ function ReviewStatePip({ label, n }) {
   )
 }
 
-export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies, onCapture, onPending }) {
-  const [favs, setFavs] = useState([])
+// QuizCard — a recall quiz built from your own library. Pick the right book for
+// a quote (or the actor for a line); each answer also counts as a revision, so
+// the quiz feeds the same schedule as the daily review. Unlimited rounds; the
+// running score can be flushed.
+function QuizCard() {
+  const [phase, setPhase] = useState('idle') // idle | active | done
+  const [qs, setQs] = useState([])
+  const [i, setI] = useState(0)
+  const [picked, setPicked] = useState(null) // index chosen for the current question
+  const [answers, setAnswers] = useState([]) // {id, kind, correct}
+  const [stats, setStats] = useState(null)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    // Only the two most recent favourites are shown — cap the fetch so a large
-    // favourites set doesn't ship in full on every Home visit.
-    json('GET', '/annotations?favorite=1&limit=2').then((r) => {
+    json('GET', '/annotations/quiz/stats').then((r) => { if (r.ok) setStats(r.data) })
+  }, [])
+
+  async function start() {
+    setBusy(true)
+    const r = await json('GET', '/annotations/quiz?count=6')
+    setBusy(false)
+    const items = r.ok ? r.data.questions || [] : []
+    if (items.length === 0) return toast('add a few more quotes first — the quiz needs some to work with')
+    setQs(items)
+    setI(0)
+    setPicked(null)
+    setAnswers([])
+    setPhase('active')
+  }
+
+  function pick(idx) {
+    if (picked != null) return // one shot per question
+    setPicked(idx)
+    const q = qs[i]
+    setAnswers((a) => [...a, { id: q.id, kind: q.kind, correct: idx === q.answer }])
+  }
+
+  async function next() {
+    if (i + 1 < qs.length) {
+      setI(i + 1)
+      setPicked(null)
+      return
+    }
+    setBusy(true)
+    const r = await json('POST', '/annotations/quiz/submit', { answers })
+    setBusy(false)
+    if (r.ok) setStats(r.data.stats)
+    setPhase('done')
+  }
+
+  async function flush() {
+    await json('DELETE', '/annotations/quiz/results')
+    setStats({ taken: 0, total: 0, correct: 0, accuracy: 0 })
+    toast('quiz scores cleared')
+  }
+
+  const roundScore = answers.filter((a) => a.correct).length
+
+  return (
+    <HandCard variant={3} style={{ padding: '16px 18px 14px' }}>
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Quiz</MonoLabel>
+        {phase === 'active' && (
+          <span className="mono-label" style={{ letterSpacing: '.06em' }}>{i + 1} of {qs.length}</span>
+        )}
+      </div>
+
+      {phase === 'idle' && (
+        <div className="review-card-body">
+          <p className="microcopy mb-3">
+            match a quote to its book, or a line to who said it — every answer counts as a revision too.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
+              {busy ? 'Loading…' : 'Start a quiz'}
+            </button>
+            {stats && stats.taken > 0 && (
+              <>
+                <MonoLabel style={{ fontSize: 10.5 }}>
+                  {stats.taken} taken · {Math.round(stats.accuracy * 100)}% correct
+                </MonoLabel>
+                <button type="button" className="tp-link" onClick={flush}>clear scores</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {phase === 'active' && qs[i] && (
+        <div key={i} className="review-card-body">
+          <MonoLabel className="mb-1.5 block">{qs[i].ask}</MonoLabel>
+          <blockquote
+            className="mb-3"
+            style={{ borderLeft: '4px solid var(--accent-ui)', padding: '2px 0 2px 12px' }}
+          >
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16, lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+              {qs[i].prompt}
+            </p>
+          </blockquote>
+          <div className="flex flex-col gap-2">
+            {qs[i].options.map((opt, idx) => {
+              const isAnswer = idx === qs[i].answer
+              const chosen = picked === idx
+              let border = 'var(--line)'
+              let bg = 'var(--raised)'
+              if (picked != null && isAnswer) { border = 'var(--accent-ui)'; bg = 'color-mix(in srgb, var(--accent) 14%, transparent)' }
+              else if (chosen && !isAnswer) { border = 'var(--error)'; bg = 'color-mix(in srgb, var(--error) 12%, transparent)' }
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={picked != null}
+                  onClick={() => pick(idx)}
+                  className="text-left"
+                  style={{
+                    minHeight: 44, padding: '9px 13px', borderRadius: 9,
+                    border: `1.4px solid ${border}`, background: bg,
+                    fontFamily: 'var(--font-ui)', fontSize: 14.5,
+                  }}
+                >
+                  {opt}
+                </button>
+              )
+            })}
+          </div>
+          {picked != null && (
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <MonoLabel style={{ color: picked === qs[i].answer ? 'var(--accent-ui)' : 'var(--error)' }}>
+                {picked === qs[i].answer ? 'correct' : 'not quite'}
+              </MonoLabel>
+              <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={next}>
+                {i + 1 < qs.length ? 'Next' : 'Finish'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {phase === 'done' && (
+        <div className="review-card-body py-2 text-center">
+          <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
+            {roundScore} / {answers.length}
+          </p>
+          <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
+            {roundScore === answers.length ? 'perfect round' : 'counted toward your revisions'}
+          </p>
+          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
+            Another round
+          </button>
+        </div>
+      )}
+    </HandCard>
+  )
+}
+
+const FAVS_INITIAL = 5 // shown before "show more"
+
+export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies, onCapture, onPending }) {
+  const [favs, setFavs] = useState([])
+  const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
+  const [openFav, setOpenFav] = useState(null) // annotation id expanded in place
+
+  useEffect(() => {
+    // All favourites, newest first (capped generously); the list shows a few
+    // and reveals the rest on demand rather than shipping nothing.
+    json('GET', '/annotations?favorite=1&limit=200').then((r) => {
       if (r.ok) setFavs(r.data.annotations || [])
     })
   }, [])
@@ -223,6 +402,8 @@ export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies,
       </div>
 
       <DailyReviewCard onPending={onPending} />
+
+      <QuizCard />
 
       <button
         type="button"
@@ -255,46 +436,76 @@ export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies,
         <section>
           <div className="mb-2.5 flex items-center gap-3">
             <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>
-              Recently favourited
+              Favourites
             </h2>
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
-            {stats && <MonoLabel>♥ {stats.favorites}</MonoLabel>}
+            <MonoLabel>♥ {favs.length}</MonoLabel>
           </div>
           <div className="flex flex-col gap-2.5">
-            {favs.map((a, i) => (
-              <HandCard
+            {favs.slice(0, favsShown).map((a, i) => (
+              <FavouriteCard
                 key={a.id}
+                a={a}
                 variant={i + 1}
-                colorBar={a.color}
-                className="cursor-pointer"
-                style={{ padding: '12px 15px' }}
-                onClick={() => onOpenBook(a.book_id)}
-                role="button"
-                tabIndex={0}
-              >
-                <p
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontStyle: 'italic',
-                    fontSize: 15.5,
-                    lineHeight: 1.5,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  “{a.quote || a.note}”
-                </p>
-                <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
-                  {[a.book_title, a.book_author].filter(Boolean).join(' · ')}
-                </MonoLabel>
-              </HandCard>
+                open={openFav === a.id}
+                onToggle={() => setOpenFav((id) => (id === a.id ? null : a.id))}
+                onOpenBook={() => onOpenBook(a.book_id)}
+              />
             ))}
           </div>
+          {favsShown < favs.length && (
+            <div className="mt-3 text-center">
+              <GhostButton onClick={() => setFavsShown((n) => n + 10)}>
+                Show more ({favs.length - favsShown})
+              </GhostButton>
+            </div>
+          )}
         </section>
       )}
     </div>
+  )
+}
+
+// FavouriteCard — a favourite on the Home list. Collapsed it shows the quote +
+// source; tapping expands it in place (full quote, note, tags) with a button to
+// open the book. Tapping again collapses.
+function FavouriteCard({ a, variant, open, onToggle, onOpenBook }) {
+  return (
+    <HandCard variant={variant} colorBar={a.color} style={{ padding: '12px 15px' }}>
+      <button type="button" className="block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle}>
+        <p
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontStyle: 'italic',
+            fontSize: 15.5,
+            lineHeight: 1.5,
+            ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+          }}
+        >
+          “{a.quote || a.note}”
+        </p>
+        <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
+          {[a.book_title, a.book_author].filter(Boolean).join(' · ')}
+          {[a.chapter && `CH. ${a.chapter}`, a.location && `P. ${a.location}`].filter(Boolean).length > 0 &&
+            ' · ' + [a.chapter && `CH. ${a.chapter}`, a.location && `P. ${a.location}`].filter(Boolean).join(' · ')}
+        </MonoLabel>
+      </button>
+      {open && (
+        <div className="mt-2.5 space-y-2">
+          {a.note && <HandNote>{a.note}</HandNote>}
+          {a.tags && a.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {a.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-1">
+            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpenBook}>
+              Open book →
+            </button>
+          </div>
+        </div>
+      )}
+    </HandCard>
   )
 }
 

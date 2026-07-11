@@ -74,6 +74,48 @@ func TestPeopleMetadataCRUD(t *testing.T) {
 }
 
 // Cross-user isolation: one user's people rows are invisible to another.
+// Renaming a book's author cleans up the old author's saved metadata (it's no
+// longer referenced) while a still-referenced author survives.
+func TestPeopleOrphanGC(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	b := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "The Idiot", "author": "F. Dostoevsky"}, http.StatusCreated))
+	decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Emma", "author": "J. Austen"}, http.StatusCreated))
+	// Save metadata for both authors.
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "F. Dostoevsky", "bio": "x"}, 200)
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "J. Austen", "bio": "y"}, 200)
+
+	type peopleResp struct {
+		People []struct {
+			Name string `json:"name"`
+		} `json:"people"`
+	}
+	before := decode[peopleResp](t, c.mustDo("GET", "/people?kind=author", nil, 200))
+	if len(before.People) != 2 {
+		t.Fatalf("expected 2 saved authors, got %+v", before.People)
+	}
+
+	// Fix the author's name on the book — the old "F. Dostoevsky" is now orphaned.
+	c.mustDo("PUT", "/books/"+itoa(b.ID),
+		map[string]any{"title": "The Idiot", "author": "Fyodor Dostoevsky"}, 200)
+
+	after := decode[peopleResp](t, c.mustDo("GET", "/people?kind=author", nil, 200))
+	names := map[string]bool{}
+	for _, p := range after.People {
+		names[p.Name] = true
+	}
+	if names["F. Dostoevsky"] {
+		t.Fatalf("orphaned author metadata was not cleaned: %+v", after.People)
+	}
+	if !names["J. Austen"] {
+		t.Fatalf("still-referenced author was wrongly removed: %+v", after.People)
+	}
+}
+
 func TestPeopleUserIsolation(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

@@ -392,6 +392,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	if changeCover && oldCover.String != newCover {
 		s.removeCoverFile(oldCover.String) // best-effort; new cover is committed
 	}
+	s.gcOrphanPeople(uid, "author") // a renamed author's stale metadata shouldn't linger
 	b, err := s.fetchBook(uid, id)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
@@ -439,5 +440,6 @@ func (s *Server) handleDeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.removeCoverFile(cover.String) // best-effort
+	s.gcOrphanPeople(uid, "author") // last book by an author gone → drop its metadata
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

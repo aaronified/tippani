@@ -364,6 +364,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	s.gcOrphanPeople(uid, "actor") // a changed actor name can orphan the old one
 	d, err := s.fetchDialogue(uid, id)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
@@ -390,5 +391,6 @@ func (s *Server) handleDeleteDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "dialogue not found")
 		return
 	}
+	s.gcOrphanPeople(userID(r), "actor")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

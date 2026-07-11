@@ -658,5 +658,6 @@ func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.removeCoverFile(poster.String) // best-effort
+	s.gcOrphanPeople(uid, "actor") // cascaded-deleted dialogues can orphan actors
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

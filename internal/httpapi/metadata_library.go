@@ -281,5 +281,6 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("[metadata] remap movie %d: %d remapped, %d refilled", id, remapped, refilled)
+	s.gcOrphanPeople(uid, "actor") // remapping speaker labels can retire an actor name
 	writeJSON(w, http.StatusOK, map[string]any{"remapped": remapped, "refilled": refilled})
 }

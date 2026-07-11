@@ -309,30 +309,29 @@ export function BookLookupPicker({ isbn, title, asin, onPick }) {
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches — try editing the title or ISBN</p>}
       {cands && cands.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="lookup-grid">
           {cands.map((c, i) => (
-            <li
-              key={i}
-              className="flex items-center gap-3 rounded-xl px-3 py-2"
-              style={{ border: '1px solid var(--line)' }}
-            >
-              <CoverPreview url={c.cover_url} label="" showRes />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{c.title}</p>
+            <li key={i} className="lookup-card">
+              <button type="button" className="lookup-card-cover" onClick={() => onPick(c)} title={`Use: ${c.title}`}>
+                <CoverPreview url={c.cover_url} label="" showRes className="w-full" />
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold" title={c.title}>{c.title}</p>
                 <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
-                  {[c.author, c.published_year || null, c.isbn13].filter(Boolean).join(' · ')}
+                  {[c.author, c.published_year || null].filter(Boolean).join(' · ')}
                 </p>
                 {c.series && (
                   <p className="truncate text-xs" style={{ color: 'var(--accent-ui)' }}>
-                    series: {c.series}
-                    {c.series_index ? ` #${c.series_index}` : ''}
+                    {c.series}{c.series_index ? ` #${c.series_index}` : ''}
                   </p>
                 )}
               </div>
-              <span className="tp-chip shrink-0">{(c.source || '').toUpperCase()}</span>
-              <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
-                Use
-              </GhostButton>
+              <div className="flex items-center justify-between gap-2">
+                <span className="tp-chip shrink-0" style={{ fontSize: 9.5 }}>{(c.source || '').toUpperCase()}</span>
+                <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
+                  Use
+                </GhostButton>
+              </div>
             </li>
           ))}
         </ul>
@@ -386,27 +385,24 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) 
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches found</p>}
       {cands && cands.length > 0 && (
-        <ul style={{ border: '1px solid var(--line)', borderRadius: 10 }}>
-          {cands.map((c, i) => (
-            <li
-              key={`${c.source}-${c.source_id || c.tmdb_id}`}
-              className="flex items-center gap-3 px-3 py-2.5"
-              style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
-            >
-              <CoverPreview url={c.poster_url} label="" showRes />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">
-                  {c.title}
-                  {c.release_year ? <span className="ml-2 font-normal" style={{ color: 'var(--soft)' }}>{c.release_year}</span> : null}
-                </p>
-                {c.overview && <p className="line-clamp-2 text-xs" style={{ color: 'var(--faint)' }}>{c.overview}</p>}
+        <ul className="lookup-grid">
+          {cands.map((c) => (
+            <li key={`${c.source}-${c.source_id || c.tmdb_id}`} className="lookup-card">
+              <button type="button" className="lookup-card-cover" onClick={() => onPick(c)} title={`Use: ${c.title}`}>
+                <CoverPreview url={c.poster_url} label="" showRes className="w-full" />
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold" title={c.title}>{c.title}</p>
+                {c.release_year ? <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{c.release_year}</p> : null}
               </div>
-              <span className="tp-chip shrink-0" style={{ color: 'var(--amber)' }}>
-                {(c.source || 'tmdb').toUpperCase()} #{c.source === 'tvdb' ? c.source_id : c.tmdb_id || c.source_id}
-              </span>
-              <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
-                Use
-              </GhostButton>
+              <div className="flex items-center justify-between gap-2">
+                <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
+                  {(c.source || 'tmdb').toUpperCase()}
+                </span>
+                <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
+                  Use
+                </GhostButton>
+              </div>
             </li>
           ))}
         </ul>

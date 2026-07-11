@@ -161,6 +161,7 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "bulk books: commit", err)
 		return
 	}
+	s.gcOrphanPeople(uid, "author") // bulk author edits can orphan old names
 	writeJSON(w, http.StatusOK, map[string]int{"updated": len(owned)})
 }
 
@@ -328,5 +329,6 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "merge: commit", err)
 		return
 	}
+	s.gcOrphanPeople(uid, "author") // merged-away books may drop an author
 	writeJSON(w, http.StatusOK, map[string]any{"into": req.Into, "merged": len(from)})
 }
