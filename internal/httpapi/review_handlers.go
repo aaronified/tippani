@@ -90,6 +90,34 @@ const reviewedToday = `
 	JOIN books b ON b.id = a.book_id
 	WHERE b.user_id = ? AND date(r.last_touched_at, ?) = ?`
 
+// reviewStates counts the caller's annotations by revision state — unseen (no
+// review row yet) and the three mastery buckets derived from the memory
+// half-life (soon <7d, later 7–30d, someday ≥30d). Powers the Home "where your
+// review stands" readout and the quiz's mastery weighting.
+type reviewStateCounts struct {
+	Unseen  int `json:"unseen"`
+	Soon    int `json:"soon"`
+	Later   int `json:"later"`
+	Someday int `json:"someday"`
+	Total   int `json:"total"`
+}
+
+func (s *Server) reviewStates(uid int64) (reviewStateCounts, error) {
+	var c reviewStateCounts
+	err := s.Store.DB.QueryRow(`
+		SELECT
+			COALESCE(SUM(r.annotation_id IS NULL), 0),
+			COALESCE(SUM(r.annotation_id IS NOT NULL AND r.stability < 7), 0),
+			COALESCE(SUM(r.stability >= 7 AND r.stability < 30), 0),
+			COALESCE(SUM(r.stability >= 30), 0),
+			COUNT(*)
+		FROM annotations a
+		JOIN books b ON b.id = a.book_id
+		LEFT JOIN annotation_reviews r ON r.annotation_id = a.id
+		WHERE b.user_id = ?`, uid).Scan(&c.Unseen, &c.Soon, &c.Later, &c.Someday, &c.Total)
+	return c, err
+}
+
 // reviewDeckCounts returns how many cards were already touched today and how
 // many remain in today's deck (candidates capped by the unspent quota).
 func (s *Server) reviewDeckCounts(uid int64, offset int) (touched, remaining int, err error) {
@@ -179,12 +207,18 @@ func (s *Server) handleDailyReview(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	states, err := s.reviewStates(uid)
+	if err != nil {
+		internalError(w, r, "daily review states", err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items":          items,
 		"reviewed_today": touched,
 		"got_today":      got,
 		"forgot_today":   forgot,
 		"quota":          reviewQuota,
+		"states":         states,
 	})
 }
 

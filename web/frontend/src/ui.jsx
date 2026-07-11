@@ -2,6 +2,7 @@
 // compatibility exports the pre-redesign pages still import — the page pass
 // replaces those call sites, then the compat block can shrink.
 import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
 
@@ -1246,7 +1247,10 @@ export function Lightbox({ path, title, onClose }) {
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
+  // Portal to <body>: the detail hero has a filter/will-change ancestor, which
+  // makes position:fixed anchor to it instead of the viewport — so a plain
+  // render would trap the overlay inside the cover's box. The portal escapes it.
+  return createPortal(
     <div
       className="lightbox"
       role="dialog"
@@ -1265,7 +1269,8 @@ export function Lightbox({ path, title, onClose }) {
         className="lightbox-img"
         onClick={(e) => e.stopPropagation()}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }
 

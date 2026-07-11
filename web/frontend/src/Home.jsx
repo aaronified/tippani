@@ -56,6 +56,7 @@ function DailyReviewCard({ onPending }) {
   const [deck, setDeck] = useState(null) // today's remaining cards, fetched once per mount
   const [idx, setIdx] = useState(0)
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
+  const [states, setStates] = useState(null) // revision-state counts
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false) // the deck fetch itself errored
 
@@ -66,6 +67,7 @@ function DailyReviewCard({ onPending }) {
       if (!r.ok) return setFailed(true)
       setDeck(r.data.items || [])
       setTally({ got: r.data.got_today || 0, forgot: r.data.forgot_today || 0 })
+      setStates(r.data.states || null)
       onPending((r.data.items || []).length)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -165,7 +167,29 @@ function DailyReviewCard({ onPending }) {
           </p>
         </div>
       )}
+      {states && states.total > 0 && (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1"
+          style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}
+        >
+          <span className="mono-label" style={{ color: 'var(--faint)' }}>where you stand</span>
+          <ReviewStatePip label="unseen" n={states.unseen} />
+          <ReviewStatePip label="soon" n={states.soon} />
+          <ReviewStatePip label="later" n={states.later} />
+          <ReviewStatePip label="someday" n={states.someday} />
+        </div>
+      )}
     </HandCard>
+  )
+}
+
+// ReviewStatePip — one revision-state count (unseen / soon / later / someday)
+// in the "where you stand" readout: a mono count + label, dimmed at zero.
+function ReviewStatePip({ label, n }) {
+  return (
+    <span className="mono-label" style={{ fontSize: 10.5, opacity: n ? 1 : 0.45 }}>
+      <span style={{ color: n ? 'var(--accent-ui)' : 'var(--faint)', fontWeight: 600 }}>{n}</span> {label}
+    </span>
   )
 }
 
