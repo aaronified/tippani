@@ -2,6 +2,8 @@
 // compatibility exports the pre-redesign pages still import — the page pass
 // replaces those call sites, then the compat block can shrink.
 import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+// Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
+import { coverImgURL } from "./api.js";
 
 // ErrorBoundary — a render error anywhere below unmounts only to this fallback
 // instead of white-screening the whole app (there was no boundary before, so
