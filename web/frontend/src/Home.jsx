@@ -325,7 +325,7 @@ function QuizCard() {
               const chosen = picked === idx
               let border = 'var(--line)'
               let bg = 'var(--raised)'
-              if (picked != null && isAnswer) { border = 'var(--accent-ui)'; bg = 'color-mix(in srgb, var(--accent) 14%, transparent)' }
+              if (picked != null && isAnswer) { border = 'var(--ok)'; bg = 'color-mix(in srgb, var(--ok) 16%, transparent)' }
               else if (chosen && !isAnswer) { border = 'var(--error)'; bg = 'color-mix(in srgb, var(--error) 12%, transparent)' }
               return (
                 <button
@@ -347,7 +347,7 @@ function QuizCard() {
           </div>
           {picked != null && (
             <div className="mt-3 flex items-center justify-between gap-3">
-              <MonoLabel style={{ color: picked === qs[i].answer ? 'var(--accent-ui)' : 'var(--error)' }}>
+              <MonoLabel style={{ color: picked === qs[i].answer ? 'var(--ok)' : 'var(--error)' }}>
                 {picked === qs[i].answer ? 'correct' : 'not quite'}
               </MonoLabel>
               <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={next}>

@@ -48,8 +48,7 @@ export default function Settings({ user, onPreferences }) {
   const cards = [
     { w: user.is_admin ? 5.5 : 1.6, node: <Metadata key="meta" user={user} /> },
     { w: 3, node: <Stats key="stats" /> },
-    { w: 2.4, node: <PasswordForm key="pw" /> },
-    user.is_admin ? { w: 1.9, node: <AdminUsers key="users" me={user} /> } : null,
+    { w: 1.4, node: <Interface key="iface" user={user} onPreferences={onPreferences} /> },
   ].filter(Boolean)
   const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
   ;[...cards]
@@ -71,6 +70,35 @@ export default function Settings({ user, onPreferences }) {
         ))}
       </div>
     </section>
+  )
+}
+
+// Interface — the desktop nav-placement toggle (navUtilities). Persists via the
+// same partial-merge preferences PUT as Appearance, so it never disturbs theme.
+// (Password + Users moved to the Profile / User-management pop-ups on the chip.)
+function Interface({ user, onPreferences }) {
+  const [nav, setNav] = useState(user.preferences?.navUtilities === 'tabs' ? 'tabs' : 'menu')
+  function set(v) {
+    setNav(v)
+    onPreferences?.({ navUtilities: v })
+    json('PUT', '/auth/me/preferences', { navUtilities: v })
+  }
+  return (
+    <Card>
+      <SectionTitle>Interface</SectionTitle>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <MonoLabel>Metadata &amp; Tags</MonoLabel>
+          <p className="microcopy mt-1">where they sit in the desktop top bar — phones always use the menu</p>
+        </div>
+        <Toggle
+          ariaLabel="Metadata and Tags placement"
+          value={nav}
+          onChange={set}
+          options={[['tabs', 'Navbar'], ['menu', 'Menu']]}
+        />
+      </div>
+    </Card>
   )
 }
 

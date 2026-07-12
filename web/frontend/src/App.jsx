@@ -16,6 +16,7 @@ import {
   Field,
   FilmButton,
   GhostButton,
+  IconBack,
   IconMenu,
   IconPlus,
   IconSearch,
@@ -26,8 +27,10 @@ import {
   frameCode,
   toast,
   useFrameBase,
+  useIsMobileScreen,
   useResolvedDark,
 } from './ui.jsx'
+import { Profile, UserManagement } from './Account.jsx'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
 // install.js) serves dummy data and blocks writes; here it just suppresses URL
@@ -226,21 +229,24 @@ function Login({ onLogin }) {
   )
 }
 
-// Primary nav lives in the shell. Desktop has room for every screen, so
-// Metadata + Settings ride the navbar too (icon-only when it gets tight); the
-// user-chip menu is then just the avatar/account + log out. Mobile reaches
-// everything through the drawer regardless.
-const PRIMARY_TABS = [
+// Desktop nav (§7 declutter): four content tabs, a divider, then the utility
+// tabs. Whether Tags + Metadata sit inline or fold into a ⋯ More menu is the
+// per-user `navUtilities` pref ("tabs" | "menu"); the account chip (Profile ·
+// User management · Log out) is always separate. Mobile uses the drawer.
+const CONTENT_TABS = [
   ['home', 'Home'],
   ['library', 'Library'],
   ['movies', 'Catalogue'],
   ['search', 'Search'],
-  ['tags', 'Tags'],
+]
+const UTILITY_ALWAYS = [
   ['import', 'Import'],
-  ['metadata', 'Metadata'],
   ['settings', 'Settings'],
 ]
-const MENU_TABS = []
+const UTILITY_TOGGLED = [
+  ['tags', 'Tags'],
+  ['metadata', 'Metadata'],
+]
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
 // active-tab accent tint flows through it. Keyed by the tab key in TABS; the
@@ -364,59 +370,120 @@ function AvatarControl({ user, onUser }) {
 // (mobile) — CSS shows only one at a time, but both stay mounted, so these are
 // real components (not inline closures in Shell) to avoid remounting the
 // Toggle's measured DOM state and the avatar upload state on every render.
-function NavToggle({ tab, onChange }) {
-  return (
-    <Toggle
-      className="nav-toggle"
-      ariaLabel="Primary"
-      value={tab}
-      onChange={onChange}
-      options={PRIMARY_TABS.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])}
-    />
-  )
+// tabOptions renders a [key,label] list as Toggle segments (icon + label).
+function tabOptions(pairs) {
+  return pairs.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])
 }
 
-function UserMenu({ user, tab, menuOpen, setMenuOpen, selectTab, logout, onUser, menuRef }) {
+// DesktopNav: content tabs · divider · utility tabs. In "menu" mode Tags +
+// Metadata fold into a self-contained ⋯ More dropdown instead of sitting inline.
+function DesktopNav({ tab, onChange, navMode }) {
+  const [moreOpen, setMoreOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!moreOpen) return
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setMoreOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [moreOpen])
+  const utility = navMode === 'tabs'
+    ? [UTILITY_ALWAYS[0], ...UTILITY_TOGGLED, UTILITY_ALWAYS[1]]
+    : UTILITY_ALWAYS
   return (
-    <div className="relative user-menu" ref={menuRef}>
-      <button
-        className="user-chip"
-        title={user.username}
-        aria-haspopup="true"
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((m) => !m)}
-      >
-        {user.avatar_path
-          ? <img src={coverImgURL(user.avatar_path)} alt="" />
-          : (user.username || '?').trim().charAt(0).toLowerCase()}
-      </button>
-      {menuOpen && (
-        <div className="hand-card hc-r2 user-menu-panel z-50 min-w-48 px-3 py-3 text-left">
-          <p className="mono-label mb-2 px-1">
-            {user.username}
-            {user.is_admin ? ' · admin' : ''}
-          </p>
-          <AvatarControl user={user} onUser={onUser} />
-          {MENU_TABS.length > 0 && (
-            <div className="mb-2 flex flex-col gap-0.5">
-              {MENU_TABS.map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => { selectTab(key); setMenuOpen(false) }}
-                  className={'menu-item' + (tab === key ? ' active' : '')}
-                  aria-current={tab === key ? 'page' : undefined}
-                >
-                  <TabIcon name={key} />
-                  {label}
+    <div className="topbar-nav-group">
+      <Toggle className="nav-toggle" ariaLabel="Primary" value={tab} onChange={onChange} options={tabOptions(CONTENT_TABS)} />
+      <span className="nav-divider" aria-hidden="true" />
+      <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(utility)} />
+      {navMode === 'menu' && (
+        <div className="relative" ref={ref}>
+          <button type="button" className="nav-more-btn" aria-haspopup="true" aria-expanded={moreOpen} aria-label="More" title="More" onClick={() => setMoreOpen((v) => !v)}>
+            <span aria-hidden="true">⋯</span>
+          </button>
+          {moreOpen && (
+            <div className="hand-card hc-r2 user-menu-panel z-50 px-2 py-2 text-left" style={{ right: 0, minWidth: 168 }}>
+              {UTILITY_TOGGLED.map(([key, label]) => (
+                <button key={key} type="button" className={'menu-item' + (tab === key ? ' active' : '')} aria-current={tab === key ? 'page' : undefined} onClick={() => { onChange(key); setMoreOpen(false) }}>
+                  <TabIcon name={key} /> {label}
                 </button>
               ))}
             </div>
           )}
-          <GhostButton className="w-full" onClick={logout}>
-            Log out
-          </GhostButton>
         </div>
       )}
+    </div>
+  )
+}
+
+// AccountMenu — the avatar chip and its dropdown: Profile · User management
+// (admin) · Log out. Self-contained (own open state + outside-click). Profile /
+// User management open via onOpenView; AccountOverlay decides pop-up vs page.
+// Avatar upload + password now live inside Profile, not here.
+function AccountMenu({ user, onOpenView, logout }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  const openView = (v) => { setOpen(false); onOpenView(v) }
+  return (
+    <div className="relative user-menu" ref={ref}>
+      <button className="user-chip" title={user.username} aria-haspopup="true" aria-expanded={open} aria-label="Account" onClick={() => setOpen((m) => !m)}>
+        <UserAvatar user={user} />
+      </button>
+      {open && (
+        <div className="hand-card hc-r2 user-menu-panel z-50 min-w-48 px-3 py-3 text-left" style={{ right: 0 }}>
+          <p className="mono-label mb-2 px-1">{user.username}{user.is_admin ? ' · admin' : ''}</p>
+          <div className="mb-2 flex flex-col gap-0.5">
+            <button className="menu-item" onClick={() => openView('profile')}>
+              <span aria-hidden="true">☺</span> Profile
+            </button>
+            {user.is_admin && (
+              <button className="menu-item" onClick={() => openView('users')}>
+                <span aria-hidden="true">⚐</span> User management
+              </button>
+            )}
+          </div>
+          <GhostButton className="w-full" onClick={logout}>Log out</GhostButton>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// AccountOverlay frames Profile / User management: a centered pop-up on desktop
+// (few options), a full-screen page on phones. Escape / backdrop / back closes.
+function AccountOverlay({ view, user, onUser, onClose }) {
+  const mobile = useIsMobileScreen()
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const title = view === 'users' ? 'User management' : 'Profile'
+  const body = view === 'users' ? <UserManagement me={user} /> : <Profile user={user} onUser={onUser} />
+  if (mobile) {
+    return (
+      <div className="account-page" role="dialog" aria-label={title}>
+        <header className="account-page-bar">
+          <button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label="Back"><IconBack /></button>
+          <span className="account-page-title">{title}</span>
+        </header>
+        <div className="account-page-body">{body}</div>
+      </div>
+    )
+  }
+  return (
+    <div className="account-scrim" onMouseDown={onClose}>
+      <div className="account-modal" role="dialog" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="account-modal-bar">
+          <h2 className="account-modal-title">{title}</h2>
+          <button type="button" className="account-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        <div className="account-modal-body">{body}</div>
+      </div>
     </div>
   )
 }
@@ -530,24 +597,20 @@ function Drawer({ open, onClose, tab, selectTab, user, stats, pending, logout, d
             ),
           )}
         </div>
-        <div className="drawer-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-          <div className="flex items-center gap-2.5">
-            <span className="user-chip" aria-hidden="true">
-              <UserAvatar user={user} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p style={{ fontSize: 13.5, fontWeight: 600 }}>{user.username}</p>
-              <p className="mono-label" style={{ fontSize: 9 }}>
-                {user.is_admin ? 'admin · self-hosted' : 'self-hosted'}
-              </p>
-            </div>
-            <button type="button" className="tp-link" onClick={logout}>
-              log out
-            </button>
+        <div className="drawer-footer">
+          <span className="user-chip" aria-hidden="true">
+            <UserAvatar user={user} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p style={{ fontSize: 13.5, fontWeight: 600 }}>{user.username}</p>
+            <p className="mono-label" style={{ fontSize: 9 }}>
+              {user.is_admin ? 'admin · self-hosted' : 'self-hosted'}
+            </p>
           </div>
-          {/* Avatar photo management — the only place it lives on mobile now
-              that the bottom-nav user menu is gone. */}
-          <AvatarControl user={user} onUser={onUser} />
+          {/* Profile / photo / password live behind the avatar chip now. */}
+          <button type="button" className="tp-link" onClick={logout}>
+            log out
+          </button>
         </div>
       </nav>
     </>
@@ -563,7 +626,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
   const [tab, setTab] = useState(initial.tab)
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [accountView, setAccountView] = useState(null) // null | 'profile' | 'users'
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [captureOpen, setCaptureOpen] = useState(false)
   // pending = cards left in today's review deck; feeds the notification dot on
@@ -572,7 +635,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const [pending, setPending] = useState(0)
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
   const dark = useResolvedDark()
-  const topMenuRef = useRef(null)
+  // Desktop nav placement: "tabs" shows Tags+Metadata inline, "menu" folds them
+  // into the ⋯ More dropdown. Per-user pref; defaults to the decluttered menu.
+  const navMode = user.preferences?.navUtilities === 'tabs' ? 'tabs' : 'menu'
 
   const refreshStats = () => {
     json('GET', '/stats').then((r) => { if (r.ok) setStats(r.data) })
@@ -598,15 +663,6 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     if (window.location.pathname !== want) window.history.replaceState({}, '', want)
     return () => window.removeEventListener('popstate', onPop)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const close = (e) => {
-      if (topMenuRef.current && !topMenuRef.current.contains(e.target)) setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [menuOpen])
 
   // go() updates state AND pushes a history entry so the URL + back/forward track.
   function go(nextTab, nextDetail) {
@@ -638,10 +694,10 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             {brandDot}
           </button>
           <nav aria-label="Primary" className="topbar-nav">
-            <NavToggle tab={tab} onChange={selectTab} />
+            <DesktopNav tab={tab} onChange={selectTab} navMode={navMode} />
           </nav>
           <div className="ml-auto">
-            <UserMenu user={user} tab={tab} menuOpen={menuOpen} setMenuOpen={setMenuOpen} selectTab={selectTab} logout={logout} onUser={onUser} menuRef={topMenuRef} />
+            <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
           </div>
         </div>
       </header>
@@ -666,9 +722,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <button type="button" className="mobile-topbar-btn" aria-label="Search" onClick={() => selectTab('search')}>
               <IconSearch />
             </button>
-            <button type="button" className="user-chip" aria-label="Account" onClick={() => setDrawerOpen(true)}>
-              <UserAvatar user={user} />
-            </button>
+            <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
           </header>
         )}
         <ErrorBoundary key={tab} label={`The ${tab} screen`}>
@@ -745,6 +799,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         onUser={onUser}
       />
       <QuickCapture open={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={refreshStats} />
+      {accountView && (
+        <AccountOverlay view={accountView} user={user} onUser={onUser} onClose={() => setAccountView(null)} />
+      )}
     </div>
   )
 }
