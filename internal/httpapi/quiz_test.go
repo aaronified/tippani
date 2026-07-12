@@ -95,16 +95,31 @@ func TestQuiz(t *testing.T) {
 	}
 	_ = sawWho // who-said depends on the random draw filling remaining slots
 
-	// Submit: answer every question correctly. A correct annotation answer must
-	// count as a revision (its review row gains stability).
+	// Answer every question correctly. Each annotation answer is folded into its
+	// review schedule the instant it's given (per-answer, not at submit), so a
+	// review row must already exist and have gained stability before we submit.
 	var answers []map[string]any
 	var oneAnn int64
 	for _, q := range deck.Questions {
 		answers = append(answers, map[string]any{"id": q.ID, "kind": q.Kind, "correct": true})
-		if q.Kind == "ann" && oneAnn == 0 {
-			oneAnn = q.ID
+		if q.Kind == "ann" {
+			c.mustDo("POST", "/annotations/quiz/answer", map[string]any{"id": q.ID, "correct": true}, 200)
+			if oneAnn == 0 {
+				oneAnn = q.ID
+			}
 		}
 	}
+	if oneAnn != 0 {
+		var stability float64
+		if err := srv.Store.DB.QueryRow(`SELECT stability FROM annotation_reviews WHERE annotation_id = ?`, oneAnn).Scan(&stability); err != nil {
+			t.Fatalf("per-answer quiz did not create a review row: %v", err)
+		}
+		if stability <= reviewMinStability {
+			t.Fatalf("correct quiz answer did not grow stability: %v", stability)
+		}
+	}
+
+	// Submit records only the round's score now (never touches the schedule).
 	res := decode[quizSubmitResp](t, c.mustDo("POST", "/annotations/quiz/submit",
 		map[string]any{"answers": answers}, 200))
 	if !res.OK || res.Total != len(answers) || res.Correct != len(answers) {
@@ -112,15 +127,6 @@ func TestQuiz(t *testing.T) {
 	}
 	if res.Stats.Taken != 1 || res.Stats.Total != len(answers) || res.Stats.Correct != len(answers) || res.Stats.Accuracy != 1 {
 		t.Fatalf("stats after submit: %+v", res.Stats)
-	}
-	if oneAnn != 0 {
-		var stability float64
-		if err := srv.Store.DB.QueryRow(`SELECT stability FROM annotation_reviews WHERE annotation_id = ?`, oneAnn).Scan(&stability); err != nil {
-			t.Fatalf("quiz answer did not create a review row: %v", err)
-		}
-		if stability <= reviewMinStability {
-			t.Fatalf("correct quiz answer did not grow stability: %v", stability)
-		}
 	}
 
 	// The dedicated stats endpoint agrees with the submit response.
@@ -144,16 +150,15 @@ func TestQuiz(t *testing.T) {
 		t.Fatalf("flush did not clear history: %+v", flushed.Stats)
 	}
 
-	// Ownership: bob quizzing with admin's annotation id records his own quiz
-	// but must not touch admin's review row — capture it, then prove it's
-	// unchanged after bob's forged answer.
+	// Ownership: bob answering with admin's annotation id must not touch admin's
+	// review row — capture it, then prove it's unchanged after bob's forged answer.
 	var before float64
 	if err := srv.Store.DB.QueryRow(`SELECT stability FROM annotation_reviews WHERE annotation_id = ?`, oneAnn).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	bob := addUser(t, h, c, "bob")
-	bob.mustDo("POST", "/annotations/quiz/submit",
-		map[string]any{"answers": []map[string]any{{"id": oneAnn, "kind": "ann", "correct": false}}}, 200)
+	bob.mustDo("POST", "/annotations/quiz/answer",
+		map[string]any{"id": oneAnn, "correct": false}, 200)
 	var after float64
 	if err := srv.Store.DB.QueryRow(`SELECT stability FROM annotation_reviews WHERE annotation_id = ?`, oneAnn).Scan(&after); err != nil {
 		t.Fatal(err)

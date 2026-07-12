@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -91,30 +92,42 @@ func deriveSeriesFromTitle(title, subtitle string) (string, float64) {
 	return "", 0
 }
 
-// SearchBooks queries Google Books (isbn: or intitle:) and Open Library (by
-// ISBN or by title) and merges the candidates. Best-effort: results from any
-// source win. When no source returns a candidate, whichever error explains the
-// emptiness is surfaced — notably ErrQuota, so the UI can point at the key
-// field. isbn should already be normalized (PLAN §3). googleKey is the optional
-// settings-managed Google Books API key (PLAN §6); "" stays anonymous.
-func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCandidate, error) {
-	q := "intitle:" + title
-	if isbn != "" {
-		q = "isbn:" + isbn
-	}
+// SearchBooks queries Google Books and Open Library and merges the candidates.
+// With an ISBN it's an exact isbn: lookup (title/author ignored). Otherwise it
+// searches by title AND author — Google `intitle:… inauthor:…`, OL
+// `title=&author=` — then ranks the merged list by title+author similarity so
+// the edition the reader means sorts above the box-sets, study guides and
+// foreign reprints a title-only search surfaces first. Author-scoping can
+// over-constrain (a slightly-off author string, or a supplier that indexes the
+// author differently), so an empty author-scoped result falls back to a
+// title-only query — never fewer results than before. Best-effort: any source's
+// hits win; when none return a candidate the explaining error is surfaced
+// (notably ErrQuota). isbn should be normalized (PLAN §3); googleKey is the
+// optional settings-managed Google Books key (PLAN §6); "" stays anonymous.
+func SearchBooks(ctx context.Context, isbn, title, author, googleKey string) ([]BookCandidate, error) {
+	var out []BookCandidate
+	var gErr, olErr error
 
-	out, gErr := searchGoogle(ctx, q, googleKey)
-
-	// Open Library is a keyless fallback — vital when Google is quota-blocked.
-	// Query it by ISBN when we have one, otherwise by title.
-	var ol []BookCandidate
-	var olErr error
 	if isbn != "" {
-		ol, olErr = searchOpenLibrary(ctx, url.Values{"isbn": {isbn}}, isbn)
+		out, gErr = searchGoogle(ctx, "isbn:"+isbn, googleKey)
+		ol, e := searchOpenLibrary(ctx, url.Values{"isbn": {isbn}}, isbn)
+		out, olErr = append(out, ol...), e
 	} else {
-		ol, olErr = searchOpenLibrary(ctx, url.Values{"title": {title}}, "")
+		gq := "intitle:" + title
+		olp := url.Values{"title": {title}}
+		if author != "" {
+			gq += " inauthor:" + author
+			olp.Set("author", author)
+		}
+		out, gErr = searchGoogle(ctx, gq, googleKey)
+		ol, e := searchOpenLibrary(ctx, olp, "")
+		out, olErr = append(out, ol...), e
+		if len(out) == 0 && author != "" {
+			out, gErr = searchGoogle(ctx, "intitle:"+title, googleKey)
+			ol2, e2 := searchOpenLibrary(ctx, url.Values{"title": {title}}, "")
+			out, olErr = append(out, ol2...), e2
+		}
 	}
-	out = append(out, ol...)
 
 	if len(out) == 0 {
 		// Nothing found. Surface an error so the handler can explain (the quota
@@ -137,10 +150,42 @@ func SearchBooks(ctx context.Context, isbn, title, googleKey string) ([]BookCand
 			}
 		}
 	}
+	// Best-match-first when searching by text (an ISBN hit is already exact).
+	if isbn == "" && title != "" {
+		rankBooks(out, title, author)
+	}
 	if len(out) > maxBookCandidates {
 		out = out[:maxBookCandidates]
 	}
 	return out, nil
+}
+
+// rankBooks stably reorders candidates best-match-first by title + author
+// similarity, with a nudge for actually carrying cover art. This is the
+// book-side counterpart to the people disambiguation: matching on name AND
+// author keeps a study guide / box set / foreign reprint from outranking the
+// edition the reader meant. Stable, so same-score ties keep provider order.
+func rankBooks(cands []BookCandidate, title, author string) {
+	nt, na := normalizeWork(title), normalizeWork(author)
+	score := func(c BookCandidate) int {
+		s := 0
+		switch ct := normalizeWork(c.Title); {
+		case ct == nt:
+			s += 4
+		case strings.HasPrefix(ct, nt):
+			s += 2
+		case strings.Contains(ct, nt):
+			s++
+		}
+		if na != "" && strings.Contains(normalizeWork(c.Author), na) {
+			s += 3
+		}
+		if c.CoverURL != "" {
+			s++
+		}
+		return s
+	}
+	sort.SliceStable(cands, func(i, j int) bool { return score(cands[i]) > score(cands[j]) })
 }
 
 func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {

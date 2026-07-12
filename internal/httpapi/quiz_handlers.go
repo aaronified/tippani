@@ -9,10 +9,12 @@ package httpapi
 //                  that have an actor tagged). Distractors are other actors.
 //
 // Questions are drawn mastery-weighted: unseen / low-stability annotations are
-// likeliest, well-revised ones progressively rarer. Answering counts as a
-// revision — a correct answer nudges the annotation's half-life up, a wrong one
-// down — so the quiz and the daily review share one memory model. Scores are
-// recorded (quiz_results, migration 0014) and the user can flush them.
+// likeliest, well-revised ones progressively rarer. Each answer counts as a
+// revision, folded into the schedule the moment it's given (handleQuizAnswer) —
+// a correct answer nudges the annotation's half-life up, a wrong one down — so
+// the quiz and the daily review share one memory model, and an abandoned round
+// still credits the questions the user actually answered. Scores are recorded
+// per completed round (quiz_results, migration 0014) and the user can flush them.
 
 import (
 	"database/sql"
@@ -272,9 +274,10 @@ func quizChoices(answer string, distractors []string, n int) ([]string, int) {
 	return opts, idx
 }
 
-// handleQuizSubmit records a completed round and folds each answered annotation
-// into its review schedule. POST /annotations/quiz/submit with
-// {"answers":[{"id","kind","correct"}]}.
+// handleQuizSubmit records a completed round's score. POST
+// /annotations/quiz/submit with {"answers":[{"id","kind","correct"}]}. The
+// review-schedule folding happens live, per answer, via handleQuizAnswer as the
+// round is played, so submit only tallies — it never touches annotation_reviews.
 func (s *Server) handleQuizSubmit(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Answers []struct {
@@ -297,41 +300,9 @@ func (s *Server) handleQuizSubmit(w http.ResponseWriter, r *http.Request) {
 			correct++
 		}
 	}
-
-	tx, err := s.Store.DB.Begin()
-	if err != nil {
-		internalError(w, r, "quiz begin", err)
-		return
-	}
-	defer tx.Rollback()
-	if _, err := tx.Exec(`INSERT INTO quiz_results (user_id, total, correct) VALUES (?, ?, ?)`,
+	if _, err := s.Store.DB.Exec(`INSERT INTO quiz_results (user_id, total, correct) VALUES (?, ?, ?)`,
 		uid, total, correct); err != nil {
 		internalError(w, r, "quiz record", err)
-		return
-	}
-	// A quizzed annotation counts as a revision. Ownership-check each id (the
-	// review table has no user_id of its own) so a crafted body can't touch
-	// another user's rows.
-	for _, a := range req.Answers {
-		if a.Kind != "ann" {
-			continue // dialogues aren't in the review schedule
-		}
-		var owned bool
-		if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM annotations an JOIN books b ON b.id = an.book_id
-		                       WHERE an.id = ? AND b.user_id = ?)`, a.ID, uid).Scan(&owned); err != nil {
-			internalError(w, r, "quiz ownership", err)
-			return
-		}
-		if !owned {
-			continue
-		}
-		if err := applyReviewOutcome(tx, a.ID, a.Correct); err != nil {
-			internalError(w, r, "quiz review", err)
-			return
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		internalError(w, r, "quiz commit", err)
 		return
 	}
 
@@ -343,11 +314,53 @@ func (s *Server) handleQuizSubmit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "total": total, "correct": correct, "stats": stats})
 }
 
+// handleQuizAnswer folds a single quiz answer into its review schedule the
+// moment it's given, so the quiz and the daily review share one memory model
+// even for a round the user never finishes. POST /annotations/quiz/answer with
+// {"id","correct"}. Only annotation questions reach here — dialogues aren't in
+// the schedule, so the client doesn't call it for them. An id the caller
+// doesn't own is a silent no-op: like a missing one, it can't be probed.
+func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID      int64 `json:"id"`
+		Correct bool  `json:"correct"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	uid := userID(r)
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "quiz answer begin", err)
+		return
+	}
+	defer tx.Rollback()
+	// Ownership-check (annotation_reviews has no user_id of its own) so a crafted
+	// body can't touch another user's rows.
+	var owned bool
+	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM annotations an JOIN books b ON b.id = an.book_id
+	                       WHERE an.id = ? AND b.user_id = ?)`, req.ID, uid).Scan(&owned); err != nil {
+		internalError(w, r, "quiz answer ownership", err)
+		return
+	}
+	if owned {
+		if err := applyReviewOutcome(tx, req.ID, req.Correct); err != nil {
+			internalError(w, r, "quiz answer review", err)
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			internalError(w, r, "quiz answer commit", err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 // applyReviewOutcome nudges an annotation's memory half-life the SM-2 way — a
 // correct recall grows it (crediting elapsed time), a miss shrinks it without a
-// hard reset — creating the review row on first sight. Shared by the quiz;
-// unlike the daily-review endpoint it carries no same-day guard, because a quiz
-// is always a deliberate fresh attempt.
+// hard reset — creating the review row on first sight. Called per answer by
+// handleQuizAnswer; unlike the daily-review endpoint it carries no same-day
+// guard, because a quiz is always a deliberate fresh attempt.
 func applyReviewOutcome(tx *sql.Tx, id int64, correct bool) error {
 	result := "forgot"
 	if correct {

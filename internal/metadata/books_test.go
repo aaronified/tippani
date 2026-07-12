@@ -75,7 +75,7 @@ func TestSearchBooksMergesSources(t *testing.T) {
 	defer osrv.Close()
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "9780306406157", "", "")
+	got, err := SearchBooks(context.Background(), "9780306406157", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestSearchBooksBestEffort(t *testing.T) {
 
 	// Google down, Open Library up -> still get OL's candidates.
 	setBases(t, boom.URL, osrv.URL)
-	got, err := SearchBooks(context.Background(), "9780306406157", "", "")
+	got, err := SearchBooks(context.Background(), "9780306406157", "", "", "")
 	if err != nil {
 		t.Fatalf("one source up should not error: %v", err)
 	}
@@ -144,12 +144,12 @@ func TestSearchBooksBestEffort(t *testing.T) {
 
 	// Both down -> error.
 	setBases(t, boom.URL, boom.URL)
-	if _, err := SearchBooks(context.Background(), "9780306406157", "", ""); err == nil {
+	if _, err := SearchBooks(context.Background(), "9780306406157", "", "", ""); err == nil {
 		t.Fatal("want error when both sources fail")
 	}
 
 	// Title search queries both sources; when both are down it errors.
-	if _, err := SearchBooks(context.Background(), "", "whatever", ""); err == nil {
+	if _, err := SearchBooks(context.Background(), "", "whatever", "", ""); err == nil {
 		t.Fatal("want error for title search when both sources fail")
 	}
 }
@@ -176,7 +176,7 @@ func TestSearchBooksTitleOnly(t *testing.T) {
 	defer osrv.Close()
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "", "the black swan", "")
+	got, err := SearchBooks(context.Background(), "", "the black swan", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,6 +190,31 @@ func TestSearchBooksTitleOnly(t *testing.T) {
 
 // The optional settings-managed Google Books key is appended to the volumes
 // query only — Open Library stays anonymous (PLAN §6).
+// SearchBooks ranks a name+author match first: the exact "Dune" by Frank
+// Herbert outranks a box set and a study guide that a title-only search would
+// otherwise surface ahead of it.
+func TestSearchBooksRanksByAuthor(t *testing.T) {
+	google := `{"items":[
+	  {"id":"box","volumeInfo":{"title":"Frank Herbert's Dune Saga 6-Book Boxed Set","authors":["Frank Herbert"],"imageLinks":{"thumbnail":"http://books.google.com/thumb?id=box"}}},
+	  {"id":"guide","volumeInfo":{"title":"Dune (SparkNotes Literature Guide)","authors":["SparkNotes"],"imageLinks":{"thumbnail":"http://books.google.com/thumb?id=guide"}}},
+	  {"id":"novel","volumeInfo":{"title":"Dune","authors":["Frank Herbert"],"imageLinks":{"thumbnail":"http://books.google.com/thumb?id=novel"}}}
+	]}`
+	gsrv := jsonServer(t, google)
+	osrv := jsonServer(t, `{"docs":[]}`)
+	setBases(t, gsrv.URL, osrv.URL)
+
+	got, err := SearchBooks(context.Background(), "", "Dune", "Frank Herbert", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) < 3 {
+		t.Fatalf("got %d candidates, want 3", len(got))
+	}
+	if got[0].Title != "Dune" || !strings.Contains(got[0].Author, "Frank Herbert") {
+		t.Fatalf("ranking put %q by %q first; want the exact 'Dune' by Frank Herbert", got[0].Title, got[0].Author)
+	}
+}
+
 func TestSearchBooksGoogleKey(t *testing.T) {
 	gotKey := ""
 	gsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +231,7 @@ func TestSearchBooksGoogleKey(t *testing.T) {
 	defer osrv.Close()
 	setBases(t, gsrv.URL, osrv.URL)
 
-	if _, err := SearchBooks(context.Background(), "9780306406157", "", "sekret&key"); err != nil {
+	if _, err := SearchBooks(context.Background(), "9780306406157", "", "", "sekret&key"); err != nil {
 		t.Fatal(err)
 	}
 	if gotKey != "sekret&key" { // query-escaped on the wire, decoded back here
@@ -223,7 +248,7 @@ func TestSearchBooksCap(t *testing.T) {
 	osrv := jsonServer(t, openLibraryJSON)
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "9780306406157", "", "")
+	got, err := SearchBooks(context.Background(), "9780306406157", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

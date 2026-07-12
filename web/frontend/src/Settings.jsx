@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { json, errText } from './api.js'
+import { json, errText, coverImgURL } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
   ErrorText,
@@ -428,12 +428,10 @@ function Metadata({ user }) {
   const tmdbLabel =
     source === 'builtin' ? 'Built-in key · active'
       : source === 'custom' ? 'Custom key'
-        : source === 'env' ? 'Env key'
-          : 'No key'
+        : 'No key'
   const tvdbSource = status?.tvdb?.source
   const tvdbTone = tvdbSource === 'none' || !tvdbSource ? 'muted' : 'active'
-  const tvdbLabel =
-    tvdbSource === 'custom' ? 'Custom key' : tvdbSource === 'env' ? 'Env key' : 'No key (optional)'
+  const tvdbLabel = tvdbSource === 'custom' ? 'Custom key' : 'No key (optional)'
 
   // Secrets are write-only: GET reports only whether each is set, never the
   // value. Only fields the admin actually edited are sent (the PUT leaves any
@@ -861,7 +859,9 @@ function AdminUsers({ me }) {
         {users.map((u) => (
           <li key={u.id} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
             <span className="user-chip" style={{ width: 30, height: 30, fontSize: 13 }} aria-hidden="true">
-              {(u.username || '?').trim().charAt(0).toLowerCase()}
+              {u.avatar_path
+                ? <img src={coverImgURL(u.avatar_path)} alt="" />
+                : (u.username || '?').trim().charAt(0).toLowerCase()}
             </span>
             <span style={{ fontWeight: 600 }}>{u.username}</span>
             {u.is_admin && <StatusChip tone="active">admin</StatusChip>}

@@ -33,9 +33,29 @@ func TMDBPosterURL(path string) string {
 	return tmdbImageFetchBase + path
 }
 
+// TMDBProfileURL builds the full-size actor-profile image URL for a TMDB
+// profile_path — the download+store variant, same image host/size family as the
+// poster. Empty in, empty out (a cast member with no headshot).
+func TMDBProfileURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	return tmdbImageFetchBase + path
+}
+
+// CastMember is one billed actor, stored per movie in movies.cast_json. Beyond
+// the display pair (character/actor) it carries the source-agnostic identity we
+// harvest from the SAME credits call the details fetch already makes — the
+// supplier's person id and a ready-to-fetch headshot URL — so resolving an
+// actor to a portrait later needs NO extra API call. PersonID's namespace is the
+// movie's own source (TMDB person id / TVDB peopleId). The extra fields are
+// omitempty so pre-existing cast_json (character/actor only) round-trips
+// unchanged and old rows simply carry no portrait until re-synced.
 type CastMember struct {
 	Character string `json:"character"`
 	Actor     string `json:"actor"`
+	PersonID  string `json:"person_id,omitempty"` // id within the movie's source
+	ImageURL  string `json:"image_url,omitempty"` // full portrait URL when the source gives one
 }
 
 // MovieCandidate is one search hit from any supplier. Source/SourceID/MediaType
@@ -220,8 +240,10 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		} `json:"genres"`
 		Credits struct {
 			Cast []struct { // TMDB returns cast pre-sorted by billing order
-				Character string `json:"character"`
-				Name      string `json:"name"`
+				ID          int64  `json:"id"`
+				Character   string `json:"character"`
+				Name        string `json:"name"`
+				ProfilePath string `json:"profile_path"`
 			} `json:"cast"`
 			Crew []struct {
 				Job  string `json:"job"`
@@ -249,7 +271,14 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		d.Genres = append(d.Genres, g.Name)
 	}
 	for _, c := range r.Credits.Cast {
-		d.Cast = append(d.Cast, CastMember{Character: c.Character, Actor: c.Name})
+		// The person id + headshot ride in on this same credits payload, so the
+		// actor→portrait resolver later spends no extra API call.
+		cm := CastMember{Character: c.Character, Actor: c.Name}
+		if c.ID != 0 {
+			cm.PersonID = strconv.FormatInt(c.ID, 10)
+		}
+		cm.ImageURL = TMDBProfileURL(c.ProfilePath)
+		d.Cast = append(d.Cast, cm)
 		if len(d.Cast) == maxCast {
 			break
 		}
@@ -290,8 +319,10 @@ func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
 		} `json:"genres"`
 		Credits struct {
 			Cast []struct {
-				Name  string `json:"name"`
-				Roles []struct {
+				ID          int64  `json:"id"`
+				Name        string `json:"name"`
+				ProfilePath string `json:"profile_path"`
+				Roles       []struct {
 					Character string `json:"character"`
 				} `json:"roles"`
 			} `json:"cast"`
@@ -321,7 +352,12 @@ func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
 		if len(c.Roles) > 0 {
 			ch = c.Roles[0].Character
 		}
-		d.Cast = append(d.Cast, CastMember{Character: ch, Actor: c.Name})
+		cm := CastMember{Character: ch, Actor: c.Name}
+		if c.ID != 0 {
+			cm.PersonID = strconv.FormatInt(c.ID, 10)
+		}
+		cm.ImageURL = TMDBProfileURL(c.ProfilePath)
+		d.Cast = append(d.Cast, cm)
 		if len(d.Cast) == maxCast {
 			break
 		}

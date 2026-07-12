@@ -342,7 +342,7 @@ func TestMetadataStatusLookupTransitions(t *testing.T) {
 
 	c.mustDo("PUT", "/admin/metadata-keys", map[string]string{"google_books_key": "gkey"}, 200)
 	gotKey := ""
-	srv.searchBooks = func(_ context.Context, _, _, googleKey string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(_ context.Context, _, _, _, googleKey string) ([]metadata.BookCandidate, error) {
 		gotKey = googleKey
 		return nil, errors.New("google books: status 500\nopen library: boom")
 	}
@@ -360,7 +360,7 @@ func TestMetadataStatusLookupTransitions(t *testing.T) {
 		t.Fatalf("checked_at %q: %v", st.BooksLookup.CheckedAt, err)
 	}
 
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return []metadata.BookCandidate{{Source: "google", Title: "Dune"}}, nil
 	}
 	c.mustDo("POST", "/books/lookup", map[string]string{"title": "dune"}, 200)
@@ -448,7 +448,7 @@ func TestCoversRefetch(t *testing.T) {
 
 	// No isbn/asin on these rows, so the metadata lookup yields nothing — stub it
 	// to keep the test off the network. Covers still come from the cached URL.
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, nil
 	}
 	var urls []string
@@ -508,7 +508,7 @@ func TestCoversRefetch(t *testing.T) {
 // is a 400.
 func TestCoversRefetchChunking(t *testing.T) {
 	srv := newTestServer(t)
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, nil
 	}
 	n := 0
@@ -558,7 +558,7 @@ func TestCoversRefetchChunking(t *testing.T) {
 // (no network) and is reported as failed, not a 500.
 func TestCoversRefetchGuardFailure(t *testing.T) {
 	srv := newTestServer(t)
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, nil // keep the metadata lookup off the network
 	}
 	h := srv.Handler()
@@ -578,7 +578,7 @@ func TestCoversRefetchGuardFailure(t *testing.T) {
 // old file is cleaned up on replace.
 func TestCoversRefetchReplacesLowRes(t *testing.T) {
 	srv := newTestServer(t)
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, nil
 	}
 	dir := srv.coversDir()

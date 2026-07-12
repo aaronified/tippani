@@ -63,6 +63,98 @@ func TestAuthorLinksNoMatch(t *testing.T) {
 	}
 }
 
+// ResolveAuthor disambiguates same-name authors by the book the person wrote:
+// two "David Reich"s come back and the wrong one is the more-published (so a
+// naive pick loses); only the geneticist's works include the library title, so
+// he is chosen, and his OL photo + wikidata identity come back with him.
+func TestResolveAuthorDisambiguatesByBook(t *testing.T) {
+	ol := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/authors.json":
+			_, _ = w.Write([]byte(`{"docs":[
+				{"key":"/authors/OL1A","name":"David Reich","work_count":40},
+				{"key":"OL2A","name":"David Reich","work_count":3}
+			]}`))
+		case "/authors/OL1A/works.json":
+			_, _ = w.Write([]byte(`{"entries":[{"title":"An Unrelated Symphony"}]}`))
+		case "/authors/OL2A/works.json":
+			_, _ = w.Write([]byte(`{"entries":[{"title":"Who We Are and How We Got Here: Ancient DNA"}]}`))
+		case "/authors/OL2A.json":
+			_, _ = w.Write([]byte(`{"photos":[6157527],"remote_ids":{"wikidata":"Q123"}}`))
+		default:
+			t.Errorf("unexpected OL path %s", r.URL.Path)
+		}
+	}))
+	defer ol.Close()
+	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"entities":{"Q123":{"sitelinks":{"enwiki":{"title":"David Reich (geneticist)"}}}}}`))
+	}))
+	defer wikidata.Close()
+	olOld, wdOld := openLibraryBase, wikidataBase
+	openLibraryBase, wikidataBase = ol.URL, wikidata.URL
+	t.Cleanup(func() { openLibraryBase, wikidataBase = olOld, wdOld })
+
+	res, err := ResolveAuthor(context.Background(), "David Reich",
+		[]string{"Who We Are and How We Got Here"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Key != "OL2A" {
+		t.Fatalf("picked %q, want OL2A (the geneticist, chosen by book cross-check)", res.Key)
+	}
+	if res.ImageURL != "https://covers.openlibrary.org/a/id/6157527-L.jpg" {
+		t.Errorf("image = %q", res.ImageURL)
+	}
+	if res.WikidataQID != "Q123" {
+		t.Errorf("qid = %q", res.WikidataQID)
+	}
+	if res.Links["wikipedia"] != "https://en.wikipedia.org/wiki/David_Reich_%28geneticist%29" {
+		t.Errorf("wikipedia = %q", res.Links["wikipedia"])
+	}
+}
+
+// ResolveAuthor falls back to the Wikidata P18 image when Open Library has no
+// author photo (photos absent / [-1]). Single candidate: nothing to disambiguate.
+func TestResolveAuthorWikidataPhotoFallback(t *testing.T) {
+	ol := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/authors.json":
+			_, _ = w.Write([]byte(`{"docs":[{"key":"OL9A","name":"Jane Solo","work_count":2}]}`))
+		case "/authors/OL9A.json":
+			_, _ = w.Write([]byte(`{"photos":[-1],"remote_ids":{"wikidata":"Q9"}}`))
+		default:
+			t.Errorf("unexpected OL path %s", r.URL.Path)
+		}
+	}))
+	defer ol.Close()
+	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/w/api.php" && r.URL.Query().Get("action") == "wbgetclaims":
+			if p := r.URL.Query().Get("property"); p != "P18" {
+				t.Errorf("property = %q, want P18", p)
+			}
+			_, _ = w.Write([]byte(`{"claims":{"P18":[{"mainsnak":{"datavalue":{"value":"Jane Solo.jpg"}}}]}}`))
+		case r.URL.Path == "/wiki/Special:EntityData/Q9.json":
+			_, _ = w.Write([]byte(`{"entities":{"Q9":{"sitelinks":{}}}}`))
+		default:
+			t.Errorf("unexpected wikidata path %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+	}))
+	defer wikidata.Close()
+	olOld, wdOld := openLibraryBase, wikidataBase
+	openLibraryBase, wikidataBase = ol.URL, wikidata.URL
+	t.Cleanup(func() { openLibraryBase, wikidataBase = olOld, wdOld })
+
+	res, err := ResolveAuthor(context.Background(), "Jane Solo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "https://commons.wikimedia.org/wiki/Special:FilePath/Jane%20Solo.jpg?width=600"
+	if res.ImageURL != want {
+		t.Fatalf("image = %q, want %q", res.ImageURL, want)
+	}
+}
+
 // PersonLinks: TMDB person search + external_ids → tmdb/imdb/tvdb/wikipedia.
 func TestTMDBPersonLinks(t *testing.T) {
 	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -38,9 +38,10 @@ type Server struct {
 	// tests (same idea as metadata's TMDB.BaseURL).
 	fetchImage     func(ctx context.Context, rawURL, destDir string) (string, error)
 	fetchUserImage func(ctx context.Context, rawURL, destDir string) (string, error) // user-typed URL: no host allowlist
-	searchBooks    func(ctx context.Context, isbn, title, googleKey string) ([]metadata.BookCandidate, error)
+	searchBooks    func(ctx context.Context, isbn, title, author, googleKey string) ([]metadata.BookCandidate, error)
 	authorLinks    func(ctx context.Context, name string) (map[string]string, error)
 	actorLinks     func(ctx context.Context, t *metadata.TMDB, name string) (map[string]string, error)
+	resolveAuthor  func(ctx context.Context, name string, bookTitles []string) (metadata.AuthorResolution, error)
 
 	// booksLookup remembers the most recent POST /books/lookup outcome for
 	// GET /metadata/status; nil = never tried. In-memory by design (§10).
@@ -60,7 +61,7 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 		// longer read from the environment — production keys come from Settings
 		// or the built-in slot (see resolveTMDB).
 		TMDB:           &metadata.TMDB{},
-		TVDB:           &metadata.TVDB{},                              // env key set by cmd/tippani after New (like TMDBBuiltin)
+		TVDB:           &metadata.TVDB{},                              // key configured in Settings (resolveTVDB); no env slot
 		loginLimiter:   auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
 		fetchImage:     metadata.FetchImage,
 		fetchUserImage: metadata.FetchUserImage,
@@ -69,6 +70,7 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 		actorLinks: func(ctx context.Context, t *metadata.TMDB, name string) (map[string]string, error) {
 			return t.PersonLinks(ctx, name)
 		},
+		resolveAuthor: metadata.ResolveAuthor,
 	}
 }
 
@@ -107,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /people", s.requireAuth(s.handlePeople))
 	mux.Handle("GET /people/names", s.requireAuth(s.handlePeopleNames))
 	mux.Handle("POST /people/lookup", s.requireAuth(s.handlePersonLookup))
+	mux.Handle("POST /people/portrait", s.requireAuth(s.handlePersonPortrait))
 	mux.Handle("PUT /people", s.requireAuth(s.handleUpsertPerson))
 	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
 
@@ -127,6 +130,7 @@ func (s *Server) Handler() http.Handler {
 	// Recall quiz (PLAN §3c). Literal segments, no {id} collision.
 	mux.Handle("GET /annotations/quiz", s.requireAuth(s.handleQuiz))
 	mux.Handle("POST /annotations/quiz/submit", s.requireAuth(s.handleQuizSubmit))
+	mux.Handle("POST /annotations/quiz/answer", s.requireAuth(s.handleQuizAnswer))
 	mux.Handle("GET /annotations/quiz/stats", s.requireAuth(s.handleQuizStats))
 	mux.Handle("DELETE /annotations/quiz/results", s.requireAuth(s.handleQuizFlush))
 	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))

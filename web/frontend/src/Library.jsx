@@ -890,6 +890,7 @@ export function EditBook({ book, onSaved, onCancel }) {
     const body = {}
     if (isbn.trim()) body.isbn = isbn.trim()
     if (title.trim()) body.title = title.trim()
+    if (author.trim()) body.author = author.trim()
     if (asin.trim()) body.asin = asin.trim()
     if (!body.isbn && !body.title && !body.asin) return setError('enter a title, ISBN, or ASIN first')
     setFetchingMeta(true)
@@ -962,9 +963,9 @@ export function EditBook({ book, onSaved, onCancel }) {
         onUploaded={(rec) => setCoverPath(rec.cover_path || '')}
         onFetchMeta={fetchMeta}
         fetchingMeta={fetchingMeta}
-        search={{ isbn, title, asin }}
+        search={{ isbn, title, author, asin }}
       />
-      <BookLookupPicker isbn={isbn} title={title} asin={asin} onPick={(c) => applyCandidate(c, true)} />
+      <BookLookupPicker isbn={isbn} title={title} author={author} asin={asin} onPick={(c) => applyCandidate(c, true)} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />

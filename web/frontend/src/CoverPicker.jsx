@@ -124,6 +124,7 @@ export function CoverControls({
       const body = {}
       if (search?.isbn?.trim()) body.isbn = search.isbn.trim()
       if (search?.title?.trim()) body.title = search.title.trim()
+      if (search?.author?.trim()) body.author = search.author.trim()
       if (search?.asin?.trim()) body.asin = search.asin.trim()
       const r = await json('POST', '/books/lookup', body)
       if (!r.ok) {
@@ -278,7 +279,7 @@ function CoverPickThumb({ url, source, label, onPick }) {
 // BookLookupPicker queries POST /books/lookup with the current isbn/title/asin
 // and lists matches with a real cover thumbnail. Picking one hands the whole
 // candidate back so the form can adopt its fields + cover.
-export function BookLookupPicker({ isbn, title, asin, onPick }) {
+export function BookLookupPicker({ isbn, title, author, asin, onPick }) {
   const [cands, setCands] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -290,6 +291,7 @@ export function BookLookupPicker({ isbn, title, asin, onPick }) {
     const body = {}
     if (isbn && isbn.trim()) body.isbn = isbn.trim()
     if (title && title.trim()) body.title = title.trim()
+    if (author && author.trim()) body.author = author.trim()
     if (asin && asin.trim()) body.asin = asin.trim()
     if (!body.isbn && !body.title && !body.asin) {
       setBusy(false)

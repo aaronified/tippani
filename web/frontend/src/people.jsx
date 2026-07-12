@@ -325,7 +325,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   const [fetching, setFetching] = useState(false)
   const [fetchNote, setFetchNote] = useState('')
   const [error, setError] = useState('')
-  const autoFetched = useRef(false)
+  const enriched = useRef(false)
 
   useEffect(() => {
     let stale = false
@@ -342,17 +342,24 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
     }
   }, [kind, name])
 
-  // fetchLinks resolves the person's reference pages and saves the merged
-  // links (other saved fields carried over untouched).
-  async function fetchLinks(current) {
+  // fetchLinks saves the person's reference pages, merged over anything already
+  // there (other saved fields carried through untouched). `provided` skips the
+  // /people/lookup call and uses the given map — that is how an author's links,
+  // resolved from the SAME confident identity as the portrait, get stored
+  // instead of a fresh (possibly namesake) lookup.
+  async function fetchLinks(current, provided) {
     setFetching(true)
     setFetchNote('')
-    const r = await json('POST', '/people/lookup', { kind, name })
-    if (!r.ok) {
-      setFetching(false)
-      return setFetchNote(errText(r, 'lookup failed'))
+    let map = provided
+    if (!map) {
+      const r = await json('POST', '/people/lookup', { kind, name })
+      if (!r.ok) {
+        setFetching(false)
+        return setFetchNote(errText(r, 'lookup failed'))
+      }
+      map = r.data.links
     }
-    const merged = mergeLinks(current?.links, r.data.links)
+    const merged = mergeLinks(current?.links, map)
     if (!merged) {
       setFetching(false)
       return setFetchNote('no reference pages found for this name')
@@ -377,12 +384,40 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
     setFetching(false)
   }
 
-  // Autofetch wherever possible: first open with no provider links saved.
+  // fetchPortrait pins the person to a stable identity and stores their photo,
+  // resolved from the library itself (an actor from the film's stored cast, an
+  // author via Open Library disambiguated by the books they wrote). Returns the
+  // identity-resolved links, if any, so the caller can store those rather than a
+  // fresh lookup. Best-effort — a miss just leaves the manual Photo URL field.
+  async function fetchPortrait() {
+    const r = await json('POST', '/people/portrait', { kind, name })
+    if (!r.ok) return { person: null, links: null }
+    if (r.data.person && r.data.person.id) {
+      setPerson(r.data.person)
+      onSaved && onSaved()
+    }
+    return { person: r.data.person, links: r.data.links }
+  }
+
+  // Auto-enrich on first open, sequenced so the links save can't clobber the
+  // identity the portrait fetch just pinned: fetch the photo first (only when
+  // one isn't saved), then fill links (only when none are), preferring the
+  // identity-resolved links the portrait returned.
   useEffect(() => {
-    if (loading || autoFetched.current) return
-    if (Object.keys(parseLinks(person?.links).known).length > 0) return
-    autoFetched.current = true
-    fetchLinks(person)
+    if (loading || enriched.current) return
+    enriched.current = true
+    ;(async () => {
+      let p = person
+      let resolvedLinks = null
+      if (!p?.image_path) {
+        const out = await fetchPortrait()
+        if (out.person && out.person.id) p = out.person
+        if (out.links && Object.keys(out.links).length > 0) resolvedLinks = out.links
+      }
+      if (Object.keys(parseLinks(p?.links).known).length === 0) {
+        await fetchLinks(p, resolvedLinks || undefined)
+      }
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, person])
 

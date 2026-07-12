@@ -13,14 +13,16 @@ import (
 // candidate list -> user picks -> POST /books persists.
 func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ISBN  string `json:"isbn"`
-		Title string `json:"title"`
-		ASIN  string `json:"asin"` // Kindle/print ASIN — enables the Amazon source
+		ISBN   string `json:"isbn"`
+		Title  string `json:"title"`
+		Author string `json:"author"` // when known, refines + ranks the match (name AND author)
+		ASIN   string `json:"asin"`   // Kindle/print ASIN — enables the Amazon source
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
 	req.Title = strings.TrimSpace(req.Title)
+	req.Author = strings.TrimSpace(req.Author)
 	req.ISBN = strings.TrimSpace(req.ISBN)
 	req.ASIN = strings.TrimSpace(req.ASIN)
 	if req.ISBN == "" && req.Title == "" && req.ASIN == "" {
@@ -44,7 +46,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	var cands []metadata.BookCandidate
 	var searchErr error
 	if isbn != "" || req.Title != "" {
-		cands, searchErr = s.searchBooks(r.Context(), isbn, req.Title, gkey)
+		cands, searchErr = s.searchBooks(r.Context(), isbn, req.Title, req.Author, gkey)
 		s.recordBooksLookup(searchErr) // GET /metadata/status surfaces this (§10)
 	}
 

@@ -13,16 +13,17 @@ import (
 )
 
 type userRow struct {
-	ID        int64  `json:"id"`
-	Username  string `json:"username"`
-	IsAdmin   bool   `json:"is_admin"`
-	CreatedAt string `json:"created_at"`
+	ID         int64  `json:"id"`
+	Username   string `json:"username"`
+	IsAdmin    bool   `json:"is_admin"`
+	CreatedAt  string `json:"created_at"`
+	AvatarPath string `json:"avatar_path"`
 }
 
 // handleListUsers returns all users (admin only) for the management UI.
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(
-		`SELECT id, username, is_admin, created_at FROM users ORDER BY id`,
+		`SELECT id, username, is_admin, created_at, avatar_path FROM users ORDER BY id`,
 	)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
@@ -32,7 +33,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	users := []userRow{}
 	for rows.Next() {
 		var u userRow
-		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt); err == nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &u.AvatarPath); err == nil {
 			users = append(users, u)
 		}
 	}

@@ -15,10 +15,10 @@
 //	TIPPANI_DATA           data directory        (default ./data)
 //	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0)
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
-//	TIPPANI_TVDB_API_KEY   TheTVDB v4 API key; overrides the Settings-saved key (no built-in)
 //
-// The TMDB key is configured in-app (Settings → metadata keys) or via the
-// built-in slot below — there is no TMDB env var.
+// Metadata API keys (TMDB, TheTVDB, Google Books) are configured in-app
+// (Settings → metadata keys) — there are no metadata-key env vars. TMDB also has
+// the optional built-in slot below for shipping a shared app key.
 package main
 
 import (
@@ -138,14 +138,12 @@ func serve() {
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1",
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
-	srv.TMDBBuiltin = defaultTMDBKey                 // last fallback before 503 (key otherwise set in Settings)
-	srv.TVDB.Key = os.Getenv("TIPPANI_TVDB_API_KEY") // TheTVDB env slot (PLAN §6); no built-in fallback
+	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
 
 	// One-line config summary at boot so `docker logs` shows what's wired without
 	// leaking secrets (presence only). Per-request lines follow (logRequests).
-	log.Printf("config: data=%s tmdb(builtin=%t) tvdb(env=%t) cookie_secure=%t trusted_proxy=%t",
+	log.Printf("config: data=%s tmdb(builtin=%t) cookie_secure=%t trusted_proxy=%t",
 		dataDir, defaultTMDBKey != "",
-		os.Getenv("TIPPANI_TVDB_API_KEY") != "",
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1", os.Getenv("TIPPANI_TRUSTED_PROXY") == "1")
 
 	bind := envOr("TIPPANI_BIND", "127.0.0.1:8080") // localhost-only by default (PLAN §2)

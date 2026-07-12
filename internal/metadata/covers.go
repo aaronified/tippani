@@ -24,10 +24,12 @@ var coverHosts = map[string]bool{
 	"covers.openlibrary.org":          true,
 	"books.google.com":                true,
 	"books.googleusercontent.com":     true,
-	"image.tmdb.org":                  true,
-	"artworks.thetvdb.com":            true, // TVDB poster/series art
+	"image.tmdb.org":                  true, // TMDB posters + actor profile images
+	"artworks.thetvdb.com":            true, // TVDB poster/series art + actor headshots
 	"images-na.ssl-images-amazon.com": true, // cover-by-ASIN CDN
 	"m.media-amazon.com":              true, // og:image host on product pages
+	"commons.wikimedia.org":           true, // Wikidata P18 author photo (Special:FilePath entry point)
+	"upload.wikimedia.org":            true, // ^ the redirect target that serves the actual image bytes
 }
 
 // olArchiveHost matches the Internet Archive node hosts OpenLibrary's cover

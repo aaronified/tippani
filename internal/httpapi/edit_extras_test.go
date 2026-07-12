@@ -138,7 +138,7 @@ func TestMetadataKeysPartialSave(t *testing.T) {
 // "add a key" message, not a generic failure.
 func TestBookLookupQuota(t *testing.T) {
 	srv := newTestServer(t)
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return nil, fmt.Errorf("google books: %w", metadata.ErrQuota)
 	}
 	h := srv.Handler()
@@ -156,7 +156,7 @@ func TestBookLookupQuota(t *testing.T) {
 // with a reliable identifier (ISBN), and never overwrites existing fields.
 func TestRefetchEnriches(t *testing.T) {
 	srv := newTestServer(t)
-	srv.searchBooks = func(context.Context, string, string, string) ([]metadata.BookCandidate, error) {
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
 		return []metadata.BookCandidate{{
 			Source: "openlibrary", Title: "Dune", Author: "Frank Herbert",
 			Description: "Desert planet.", PublishedYear: 1965, Genres: []string{"sci-fi"},

@@ -48,7 +48,6 @@ const (
 	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
 )
 
-
 // lookupOutcome is the in-memory record of the most recent POST /books/lookup
 // (surfaced by GET /metadata/status; a nil pointer = never tried). Not
 // persisted on purpose — it describes the running process, not the library.
@@ -85,15 +84,16 @@ func (s *Server) resolveTMDB() (*metadata.TMDB, string) {
 	return nil, "none"
 }
 
-// resolveTVDB picks the effective TheTVDB client: env key (TIPPANI_TVDB_API_KEY,
-// the persistent client whose token is cached) > settings-table key (a fresh
-// client) > nil (no built-in — TVDB is opt-in). The second return is the source
-// enum for /metadata/status.
+// resolveTVDB picks the effective TheTVDB client: a direct programmatic key
+// (embedders/tests, set on s.TVDB) > the settings-table key (a fresh client) >
+// nil (no built-in — TheTVDB is opt-in). Like TMDB there is no environment slot;
+// the key is configured in Settings. The second return is the source enum for
+// /metadata/status.
 func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 	base := ""
 	if s.TVDB != nil {
 		if s.TVDB.Key != "" {
-			return s.TVDB, "env"
+			return s.TVDB, "direct"
 		}
 		base = s.TVDB.BaseURL
 	}
@@ -255,13 +255,14 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	type bookRow struct {
 		id, uid    int64
 		title      string
+		author     string
 		isbn, asin string
 		cover      string
 		cachedURL  string // cover_url captured in source_metadata at add time
 		genreCount int
 	}
 	var books []bookRow
-	rows, err := s.Store.DB.Query(`SELECT id, user_id, title, COALESCE(isbn,''), COALESCE(asin,''),
+	rows, err := s.Store.DB.Query(`SELECT id, user_id, title, COALESCE(author,''), COALESCE(isbn,''), COALESCE(asin,''),
 		COALESCE(cover_path,''), COALESCE(source_metadata,''),
 		(SELECT COUNT(*) FROM book_genres bg WHERE bg.book_id = books.id)
 		FROM books WHERE ? = 'books' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
@@ -272,7 +273,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var b bookRow
 		var raw string
-		if rows.Scan(&b.id, &b.uid, &b.title, &b.isbn, &b.asin, &b.cover, &raw, &b.genreCount) != nil {
+		if rows.Scan(&b.id, &b.uid, &b.title, &b.author, &b.isbn, &b.asin, &b.cover, &raw, &b.genreCount) != nil {
 			continue
 		}
 		if raw != "" {
@@ -299,7 +300,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		// Best candidate from the keyless/keyed sources.
 		var cand *metadata.BookCandidate
 		if isbnN != "" || b.title != "" {
-			if cs, _ := s.searchBooks(ctx, isbnN, b.title, gkey); len(cs) > 0 {
+			if cs, _ := s.searchBooks(ctx, isbnN, b.title, b.author, gkey); len(cs) > 0 {
 				cand = &cs[0]
 			}
 		}

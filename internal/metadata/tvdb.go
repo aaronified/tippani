@@ -183,9 +183,11 @@ type tvdbExtended struct {
 			Name string `json:"name"`
 		} `json:"genres"`
 		Characters []struct {
-			Name       string `json:"name"`       // role/character name
-			PersonName string `json:"personName"` // actor name
-			PeopleType string `json:"peopleType"` // "Actor" | "Director" | "Writer" | …
+			Name         string `json:"name"`         // role/character name
+			PersonName   string `json:"personName"`   // actor name
+			PeopleType   string `json:"peopleType"`   // "Actor" | "Director" | "Writer" | …
+			PeopleID     int64  `json:"peopleId"`     // stable TheTVDB person id
+			PersonImgURL string `json:"personImgURL"` // actor headshot (full artworks.thetvdb.com URL), or ""
 		} `json:"characters"`
 	} `json:"data"`
 }
@@ -221,7 +223,13 @@ func (t *TVDB) details(ctx context.Context, path, mediaType, id string) (*MovieD
 			}
 		case "Actor":
 			if len(d.Cast) < maxCast {
-				d.Cast = append(d.Cast, CastMember{Character: c.Name, Actor: c.PersonName})
+				// peopleId + personImgURL arrive on this same extended payload, so
+				// the actor→portrait resolver later needs no extra API call.
+				cm := CastMember{Character: c.Name, Actor: c.PersonName, ImageURL: c.PersonImgURL}
+				if c.PeopleID != 0 {
+					cm.PersonID = strconv.FormatInt(c.PeopleID, 10)
+				}
+				d.Cast = append(d.Cast, cm)
 			}
 		}
 	}

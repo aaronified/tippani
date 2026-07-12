@@ -247,7 +247,13 @@ function QuizCard() {
     if (picked != null) return // one shot per question
     setPicked(idx)
     const q = qs[i]
-    setAnswers((a) => [...a, { id: q.id, kind: q.kind, correct: idx === q.answer }])
+    const correct = idx === q.answer
+    setAnswers((a) => [...a, { id: q.id, kind: q.kind, correct }])
+    // Fold this answer into its review schedule right now — the quiz feeds the
+    // same memory model as the daily review. Annotations only (dialogues aren't
+    // in the schedule); fire-and-forget, the round's score still records at
+    // submit even if this one drops.
+    if (q.kind === 'ann') json('POST', '/annotations/quiz/answer', { id: q.id, correct })
   }
 
   async function next() {
