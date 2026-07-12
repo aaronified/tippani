@@ -1019,6 +1019,104 @@ function RemapRow({ label, cast, value, onChange }) {
 
 // ---- people console ----
 
+// editDistance is Levenshtein (iterative, one row of state) — used to spot
+// author/actor names that are one or two edits apart (typos, transliterations).
+function editDistance(a, b) {
+  const m = a.length, n = b.length
+  if (!m) return n
+  if (!n) return m
+  const dp = Array.from({ length: m + 1 }, (_, i) => i)
+  for (let j = 1; j <= n; j++) {
+    let prev = dp[0]
+    dp[0] = j
+    for (let i = 1; i <= m; i++) {
+      const tmp = dp[i]
+      dp[i] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[i], dp[i - 1])
+      prev = tmp
+    }
+  }
+  return dp[m]
+}
+
+// normName folds a name for fuzzy comparison: lowercased, diacritics stripped,
+// punctuation collapsed to spaces. "Fyodor Dostoyevsky" and "Fyodor Dostoevsky"
+// stay one edit apart; "J.R.R. Tolkien" and "JRR Tolkien" normalise equal.
+function normName(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '') // strip combining diacritics
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+// nearDupGroups clusters names that look like the same person: equal once
+// normalised, or within a small edit distance (capped as a fraction of length so
+// short distinct names — "Poe" vs "Roe" — aren't flagged). Returns groups of 2+.
+function nearDupGroups(names) {
+  const norm = names.map(normName)
+  const parent = names.map((_, i) => i)
+  const find = (x) => {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x] }
+    return x
+  }
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const a = norm[i], b = norm[j]
+      if (!a || !b) continue
+      const same = a === b || (() => { const d = editDistance(a, b); return d > 0 && d <= 2 && d / Math.max(a.length, b.length) <= 0.25 })()
+      if (same) parent[find(i)] = find(j)
+    }
+  }
+  const groups = {}
+  names.forEach((n, i) => { const r = find(i); (groups[r] = groups[r] || []).push(n) })
+  return Object.values(groups).filter((g) => g.length >= 2)
+}
+
+// DupCard offers to merge one near-duplicate cluster: pick the spelling to keep,
+// and every other name in the group is renamed to it across the whole library
+// (POST /people/rename), folding their saved metadata in.
+function DupCard({ group, kind, rowsByName, onMerged }) {
+  const def = [...group].sort((a, b) =>
+    (rowsByName[b]?.has_image ? 1 : 0) - (rowsByName[a]?.has_image ? 1 : 0) || b.length - a.length)[0]
+  const [keep, setKeep] = useState(def)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function merge() {
+    setBusy(true)
+    setErr('')
+    for (const n of group) {
+      if (n === keep) continue
+      const r = await json('POST', '/people/rename', { kind, from: n, to: keep })
+      if (!r.ok) { setBusy(false); return setErr(errText(r, 'merge failed')) }
+    }
+    setBusy(false)
+    onMerged()
+  }
+
+  return (
+    <HandCard variant={2} style={{ padding: '12px 14px' }}>
+      <MonoLabel>Possible duplicate — keep which spelling?</MonoLabel>
+      <div className="mt-1.5 flex flex-col gap-1">
+        {group.map((n) => (
+          <label key={n} className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+            <input type="radio" name={`dup-${kind}-${group.join('|')}`} checked={keep === n} onChange={() => setKeep(n)} />
+            <span>{n}</span>
+            {rowsByName[n]?.has_image && <span className="mono-label" style={{ color: 'var(--soft)' }}>· photo</span>}
+          </label>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <GhostButton type="button" disabled={busy} onClick={merge}>
+          {busy ? 'Merging…' : `Merge into “${keep}”`}
+        </GhostButton>
+        <ErrorText>{err}</ErrorText>
+      </div>
+    </HandCard>
+  )
+}
+
 // PeopleConsole — every author/actor referenced in the library, with their
 // external reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library).
 // This metadata governs the redirect menu that opens when a name is clicked
@@ -1052,6 +1150,10 @@ export function PeopleConsole({ onFlash }) {
   // A row still needs work if it has no provider links OR no stored photo.
   const noLinks = (p) => Object.keys(parseLinks(p.links).known).length === 0
   const missing = shown.filter((p) => noLinks(p) || !p.has_image)
+  // Near-duplicate clusters (typos / transliterations of one person) to offer a
+  // one-click merge — computed over the full list, not the search filter.
+  const dupGroups = useMemo(() => nearDupGroups((rows || []).map((p) => p.name)), [rows])
+  const rowsByName = useMemo(() => Object.fromEntries((rows || []).map((p) => [p.name, p])), [rows])
 
   // fetchOne resolves the RIGHT person (book/credits disambiguation), fetches
   // their portrait and pins the identity via POST /people/portrait, then merges
@@ -1141,6 +1243,14 @@ export function PeopleConsole({ onFlash }) {
       </p>
       <ErrorText>{err}</ErrorText>
       {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={`fetching photos & links · ${bulk.done}/${bulk.total}`} />}
+      {dupGroups.length > 0 && (
+        <div className="space-y-2">
+          <MonoLabel>Possible duplicates ({dupGroups.length})</MonoLabel>
+          {dupGroups.map((g, i) => (
+            <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
+          ))}
+        </div>
+      )}
       {!rows ? (
         <EmptyState>loading…</EmptyState>
       ) : shown.length === 0 ? (

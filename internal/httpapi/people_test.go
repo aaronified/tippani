@@ -147,7 +147,10 @@ func TestPeopleNames(t *testing.T) {
 		"movie_id": m.ID, "quote": "Here's looking at you, kid.",
 		"character": "Rick", "actor": "Humphrey Bogart",
 	}, 201)
-	// A saved-but-unreferenced author must still appear (stale rows stay manageable).
+	// A referenced author with saved metadata shows the saved flag + links.
+	// (Unreferenced saved rows are swept on this endpoint now — see
+	// TestRenamePersonAndSweep — so keep this author backed by a real book.)
+	admin.mustDo("POST", "/books", map[string]any{"title": "The Dispossessed", "author": "Ursula K. Le Guin"}, 201)
 	admin.mustDo("PUT", "/people", map[string]any{
 		"kind": "author", "name": "Ursula K. Le Guin",
 		"links": "https://en.wikipedia.org/wiki/Ursula_K._Le_Guin",
@@ -208,4 +211,73 @@ func TestPersonLookup(t *testing.T) {
 	admin.mustDo("POST", "/people/lookup", map[string]any{"kind": "narrator", "name": "X"}, 400)
 	// No TMDB key resolvable in tests -> actor lookup is a labelled 503.
 	admin.mustDo("POST", "/people/lookup", map[string]any{"kind": "actor", "name": "Humphrey Bogart"}, 503)
+}
+
+// Rename an author across the library folds two spellings into one — books
+// rewritten, saved metadata migrated to the new name, old row gone. And the
+// orphan sweep on /people/names removes a saved row no book references.
+func TestRenamePersonAndSweep(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	c.mustDo("POST", "/books", map[string]any{"title": "Crime and Punishment", "author": "Fyodor Dostoevsky"}, http.StatusCreated)
+	c.mustDo("POST", "/books", map[string]any{"title": "The Idiot", "author": "Fyodor Dostoyevsky"}, http.StatusCreated)
+	// Saved metadata on the variant spelling (the one we'll rename away).
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Fyodor Dostoevsky", "bio": "Russian novelist", "born": "1821"}, 200)
+
+	res := decode[struct {
+		OK      bool `json:"ok"`
+		Updated int  `json:"updated"`
+	}](t, c.mustDo("POST", "/people/rename",
+		map[string]any{"kind": "author", "from": "Fyodor Dostoevsky", "to": "Fyodor Dostoyevsky"}, 200))
+	if !res.OK || res.Updated != 1 {
+		t.Fatalf("rename response: %+v", res)
+	}
+
+	var oldBooks, newBooks int
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM books WHERE author = 'Fyodor Dostoevsky'`).Scan(&oldBooks); err != nil {
+		t.Fatal(err)
+	}
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM books WHERE author = 'Fyodor Dostoyevsky'`).Scan(&newBooks); err != nil {
+		t.Fatal(err)
+	}
+	if oldBooks != 0 || newBooks != 2 {
+		t.Fatalf("book authors after rename: old=%d new=%d, want 0/2", oldBooks, newBooks)
+	}
+
+	got := decode[struct {
+		Exists bool      `json:"exists"`
+		Person personRow `json:"person"`
+	}](t, c.mustDo("GET", "/people?kind=author&name=Fyodor+Dostoyevsky", nil, 200))
+	if !got.Exists || got.Person.Bio != "Russian novelist" || got.Person.Born != "1821" {
+		t.Fatalf("metadata not folded onto the new name: %+v", got)
+	}
+	old := decode[struct {
+		Exists bool `json:"exists"`
+	}](t, c.mustDo("GET", "/people?kind=author&name=Fyodor+Dostoevsky", nil, 200))
+	if old.Exists {
+		t.Fatal("old-spelling metadata row still exists after rename")
+	}
+
+	// Auto-sweep: a saved row for a name no book references is gone after a
+	// /people/names load.
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Ghost Author", "bio": "unreferenced"}, 200)
+	names := decode[struct {
+		People []struct {
+			Name string `json:"name"`
+		} `json:"people"`
+	}](t, c.mustDo("GET", "/people/names?kind=author", nil, 200))
+	for _, n := range names.People {
+		if n.Name == "Ghost Author" {
+			t.Fatal("unreferenced 'Ghost Author' was not swept on /people/names load")
+		}
+	}
+	var ghost int
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM people WHERE name = 'Ghost Author'`).Scan(&ghost); err != nil {
+		t.Fatal(err)
+	}
+	if ghost != 0 {
+		t.Fatalf("orphan sweep left %d 'Ghost Author' rows", ghost)
+	}
 }

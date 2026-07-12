@@ -188,7 +188,7 @@ function PersonLinksDetail({ links }) {
   )
 }
 
-function PersonForm({ kind, name, initial, onCancel, onSaved }) {
+function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   const [bio, setBio] = useState(initial?.bio || '')
   const [born, setBorn] = useState(initial?.born || '')
   const [links, setLinks] = useState(initial?.links || '')
@@ -196,6 +196,24 @@ function PersonForm({ kind, name, initial, onCancel, onSaved }) {
   const [clearImage, setClearImage] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [renameTo, setRenameTo] = useState(name)
+  const [renaming, setRenaming] = useState(false)
+  const noun = kind === 'actor' ? 'films' : 'books'
+
+  // rename rewrites this name across every book/film that uses it (and folds the
+  // saved metadata onto the new spelling) — the fix for two transliterations of
+  // one person. Library-wide, so it confirms first.
+  async function rename() {
+    const to = renameTo.trim()
+    if (!to || to === name) return
+    if (!confirm(`Rename “${name}” to “${to}” across all your ${noun}? This updates every ${kind === 'actor' ? 'dialogue' : 'book'} crediting them.`)) return
+    setRenaming(true)
+    setError('')
+    const r = await json('POST', '/people/rename', { kind, from: name, to })
+    setRenaming(false)
+    if (r.ok) onRenamed && onRenamed(to)
+    else setError(errText(r, 'could not rename'))
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -275,6 +293,22 @@ function PersonForm({ kind, name, initial, onCancel, onSaved }) {
         <textarea className="tp-input" rows="3" value={links} onChange={(e) => setLinks(e.target.value)} placeholder={'https://en.wikipedia.org/wiki/…\nhttps://openlibrary.org/authors/…'} />
         <p className="microcopy mt-1">one link per line — known sites (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) are labelled automatically; anything else shows as-is.</p>
       </label>
+      <div className="space-y-1.5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+        <MonoLabel>Rename across your library</MonoLabel>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="tp-input"
+            style={{ flex: 1, minWidth: 160 }}
+            value={renameTo}
+            onChange={(e) => setRenameTo(e.target.value)}
+            placeholder={name}
+          />
+          <GhostButton type="button" disabled={renaming || !renameTo.trim() || renameTo.trim() === name} onClick={rename}>
+            {renaming ? 'Renaming…' : 'Rename everywhere'}
+          </GhostButton>
+        </div>
+        <p className="microcopy">rewrites this name on every {noun} that credits them and merges the saved details — use it to unify two spellings.</p>
+      </div>
       <ErrorText>{error}</ErrorText>
       <div className="flex justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
@@ -468,6 +502,12 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
               setPerson(p)
               setEditing(false)
               onSaved && onSaved()
+            }}
+            onRenamed={() => {
+              // The identity changed, so this modal (keyed by the old name) is
+              // stale — reload the parent list and close.
+              onSaved && onSaved()
+              onClose()
             }}
           />
         ) : details ? (

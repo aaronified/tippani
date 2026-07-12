@@ -110,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /people/names", s.requireAuth(s.handlePeopleNames))
 	mux.Handle("POST /people/lookup", s.requireAuth(s.handlePersonLookup))
 	mux.Handle("POST /people/portrait", s.requireAuth(s.handlePersonPortrait))
+	mux.Handle("POST /people/rename", s.requireAuth(s.handleRenamePerson))
 	mux.Handle("PUT /people", s.requireAuth(s.handleUpsertPerson))
 	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
 

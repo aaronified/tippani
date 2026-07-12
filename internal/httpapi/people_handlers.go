@@ -193,7 +193,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 // handlePeopleNames: GET /people/names?kind=author|actor — every distinct name
 // of that kind referenced in the caller's library (books.author for authors,
 // dialogues.actor joined through the caller's movies for actors), merged with
-// saved people rows so the Metadata console can show link status per name.
+// saved people rows so the Metadata console can show link/photo status per name.
 func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	kind := r.URL.Query().Get("kind")
@@ -201,6 +201,10 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
 		return
 	}
+	// Sweep dangling metadata on load — the hook that keeps orphaned rows (a
+	// renamed/removed author whose old spelling no longer appears on any book)
+	// from lingering in the console, without a background job. Best-effort.
+	s.gcOrphanPeople(uid, kind)
 	q := `SELECT DISTINCT TRIM(author) FROM books
 		WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''`
 	if kind == "actor" {
@@ -309,6 +313,125 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		links = map[string]string{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"links": links})
+}
+
+// handleRenamePerson: POST /people/rename {kind, from, to} — rename an author or
+// actor across the caller's whole library in one shot. Every book.author (for
+// authors) or dialogue.actor (for actors) matching `from` case-insensitively is
+// rewritten to the exact `to` string, and the saved metadata is folded onto
+// `to`: the `from` row is renamed when `to` has none yet, or dropped (its photo
+// file cleaned) when `to` already carries its own. This is how two
+// transliterations ("Dostoevsky" / "Dostoyevsky") collapse into one. Returns how
+// many books/dialogues were rewritten.
+func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Kind string `json:"kind"`
+		From string `json:"from"`
+		To   string `json:"to"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	req.Kind = strings.TrimSpace(req.Kind)
+	req.From = strings.TrimSpace(req.From)
+	req.To = strings.TrimSpace(req.To)
+	if !validPersonKind(req.Kind) {
+		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		return
+	}
+	if req.From == "" || req.To == "" {
+		writeErr(w, http.StatusBadRequest, "from and to are required")
+		return
+	}
+	if req.From == req.To {
+		writeErr(w, http.StatusBadRequest, "from and to are identical")
+		return
+	}
+	uid := userID(r)
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "rename begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	var updated int64
+	if req.Kind == "author" {
+		res, e := tx.Exec(`UPDATE books SET author = ?
+		                   WHERE user_id = ? AND author IS NOT NULL AND LOWER(TRIM(author)) = LOWER(?)`,
+			req.To, uid, req.From)
+		if e != nil {
+			internalError(w, r, "rename books", e)
+			return
+		}
+		updated, _ = res.RowsAffected()
+	} else {
+		res, e := tx.Exec(`UPDATE dialogues SET actor = ?, updated_at = datetime('now')
+		                   WHERE LOWER(TRIM(actor)) = LOWER(?) AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`,
+			req.To, req.From, uid)
+		if e != nil {
+			internalError(w, r, "rename dialogues", e)
+			return
+		}
+		updated, _ = res.RowsAffected()
+	}
+
+	// Fold the saved metadata onto `to`. `from` rows (case-insensitive, excluding
+	// an exact `to`) either get renamed to `to` (when `to` has no row yet) or
+	// deleted — their photo files cleaned after commit.
+	var toExists bool
+	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM people WHERE user_id = ? AND kind = ? AND name = ?)`,
+		uid, req.Kind, req.To).Scan(&toExists); err != nil {
+		internalError(w, r, "rename to-check", err)
+		return
+	}
+	rows, err := tx.Query(`SELECT id, image_path FROM people
+	                       WHERE user_id = ? AND kind = ? AND LOWER(name) = LOWER(?) AND name <> ?`,
+		uid, req.Kind, req.From, req.To)
+	if err != nil {
+		internalError(w, r, "rename from-rows", err)
+		return
+	}
+	type prow struct {
+		id  int64
+		img string
+	}
+	var froms []prow
+	for rows.Next() {
+		var p prow
+		if rows.Scan(&p.id, &p.img) == nil {
+			froms = append(froms, p)
+		}
+	}
+	rows.Close()
+
+	if !toExists && len(froms) > 0 {
+		// Rename the first from-row to `to` — keeps its bio/photo/links/id.
+		if _, e := tx.Exec(`UPDATE people SET name = ? WHERE id = ?`, req.To, froms[0].id); e != nil {
+			internalError(w, r, "rename people", e)
+			return
+		}
+		froms = froms[1:] // the rest are now redundant duplicates
+	}
+	var freed []string
+	for _, p := range froms {
+		if _, e := tx.Exec(`DELETE FROM people WHERE id = ?`, p.id); e != nil {
+			internalError(w, r, "rename dedupe", e)
+			return
+		}
+		if p.img != "" {
+			freed = append(freed, p.img)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "rename commit", err)
+		return
+	}
+	for _, img := range freed {
+		s.removeCoverFile(img) // best-effort; rows are committed
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "updated": updated})
 }
 
 // handleDeletePerson: DELETE /people/{id} — clears the metadata (the free-text
