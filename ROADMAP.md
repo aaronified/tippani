@@ -226,6 +226,18 @@ view that groups either books or annotations by tag — curated, named groupings
 ("Best of 2026", "to reread") that are really just tags surfaced as first-class
 shelves, so there's no new taxonomy to learn.
 
+### 13 · Multi-author separation (for metadata & people)
+A credit is a single string today, so "Gaiman & Pratchett" or "Smith, Jones and
+Lee" becomes **one** non-resolving pseudo-person — no portrait, no links, and a
+junk group-by heading. Split multi-author credits into distinct people **when data
+is fetched**: parse the separators the sources actually use (`,` · ` & ` · ` and ` ·
+`;`) into individual names, then resolve and pin **each** one independently
+(portrait + IMDb / TMDB / TheTVDB / Wikipedia / Open Library links) exactly the way
+a single author already resolves, and surface them as separate names in the
+group-by headings and the People console. Two guards: don't shatter a genuine single
+name that merely contains "and", and keep the 0.4.2 dedupe/merge tools able to
+recombine a split that shouldn't have happened.
+
 ## Later / maybe (being considered)
 
 - **Anki export/import** — bridge the daily review to and from Anki decks (`.apkg`),
