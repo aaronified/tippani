@@ -108,13 +108,145 @@ dashboards): a small, read-only, token-scoped stats endpoint surfacing today's
 **book / annotation / movie** totals — so Tippani shows up as a live tile on your
 NAS dashboard. Opt-in; nothing exposed without a token.
 
-## Later / maybe
+### 5 · Profile & account management (a real Settings › Profile)
+Gather today's scattered account controls into one **Profile** card in Settings.
+Right now your photo hides in the avatar menu (and the mobile drawer footer), your
+password sits in its own card, and your **display name can't be changed at all**
+once the account exists — so the plan is a single place to edit **photo · display
+name · password**, plus the small niceties that follow (a live preview of the chip,
+"changing your name updates it everywhere the avatar shows").
 
+Then grow the admin's **Users** panel from add/remove into real **role
+management**: grant or revoke **admin** rights per user, and **hand the
+primary-admin role to someone else** as an explicit, confirmed transfer — with a
+guard that the *last* admin can never be demoted or deleted (no locking the whole
+household out). True to the frugality goal, this stays local: no email round-trips,
+no external identity provider, no new moving parts — still just rows in the SQLite
+users table behind the existing `requireAdmin` gate.
+
+Three further strands ride on the same account work:
+
+- **Stronger sign-in (opt-in)** — **passkeys (WebAuthn)** and **TOTP 2FA** layered
+  over today's password + hashed-token sessions, for boxes reachable past the LAN.
+  Off unless you turn it on; password stays the fallback.
+- **Trash & undo** — soft-delete with a restorable **trash** for books, films,
+  quotes and users, so a mis-click (or a cascading user delete) isn't final;
+  emptied on demand or after a grace period.
+- **Per-user API tokens + webhooks** — scoped tokens so a script, the Homepage
+  widget, or an Obsidian sync can reach *your* library over the API, plus outbound
+  webhooks on events (new highlight, review done). Absorbs the old "API-token auth"
+  line that used to sit under Later.
+
+### 6 · Achievements — quiet milestones, and one gentle streak
+A deliberately restrained take. Achievements mostly mark *distance travelled* —
+reading and collection milestones drawn from data **already in the library** and
+computed at query time, no counters table, no background jobs, no cron, nothing
+ticking. **Off by default**, private, nothing social and nothing that phones home;
+shown as a modest, dismissible shelf on Home or Profile. Candidate milestones (all
+derivable from what's already stored): your first hundred highlights; a whole book
+carried through the forgetting curve; ten authors on the shelf; a passage recalled
+correctly five times; a series completed; a film quoted from every act.
+
+The **one** place a streak earns its keep is the **spaced-repetition review**, and
+even there it's built the forgiving way the review loop already works — mirroring
+the SM-2 rule that a lapse is *shortened, never hard-reset*. A review streak counts
+days you clear the due deck, but a missed day spends a built-in grace/freeze rather
+than zeroing the count, and it is **never** dressed up as a loss ("you broke your
+streak!" banners are exactly what we won't do). It's a quiet tally that rewards
+turning up, not a chain you're afraid to drop. Streaks stop at the review; nothing
+else in the app grows one.
+
+### 7 · Interface declutter — fewer buttons, a calmer shell
+Cut the standing button count without losing any capability. Several strands:
+
+- **Configurable utility placement (desktop)** — Metadata and Tags/Stickers are
+  maintenance surfaces, not daily destinations. A Settings toggle chooses whether
+  they sit in the top navbar or fold into the avatar (account) menu; either way a
+  **divider** separates them from the four content tabs (Home · Library ·
+  Catalogue · Search). On mobile the avatar always opens **Profile** and everything
+  else lives in the drawer, with the same separator.
+- **One "＋ Add"** — Import stops being a permanent tab and becomes part of a single
+  Add surface that also carries manual / look-up entry for a book or film; the
+  Library and Catalogue "Add" buttons open that very same surface, so there's one
+  obvious way to add anything.
+- **Progressive disclosure on cards** — a quote card shows only its primary mark at
+  rest (the favourite) and tucks *share · edit · delete* behind a single ⋯ overflow,
+  revealed on hover (desktop) or tap (mobile) — the change that most directly
+  answers "too many buttons" across a masonry of cards.
+- **One rating signal, not two** — a favourite ♥ *and* a 1–5 star rating on every
+  card and every book/film header is one control too many. Collapse to a single
+  signal everywhere they co-occur (cards, headers, filters, table columns, stats).
+  The recommendation is to **keep the binary favourite and drop the star rating** —
+  it's the lower-friction "I love this," and it's already the more deeply wired one
+  (the Home "recent favourites" rail, the favourites stat tile, the favourites
+  filter). Which one survives is the call to lock in before this ships.
+- **Compact edit forms (books & films)** — vertical space is precious, so the edit
+  form stops making you scroll. Cover controls collapse to **icon buttons with
+  tooltips** (upload · paste URL · search covers · remove) instead of a wide labelled
+  row; and **"Fetch metadata" stops silently applying a guess** — it opens the
+  **edition/version picker** so you pick the right match, folding today's separate
+  "Browse other matches" button into that one action. Anything not in use stays
+  collapsed until you reach for it.
+
+### 8 · Capture from anywhere (share-target + bookmarklet)
+Two low-cost ways to get text in without a file:
+
+- **PWA share-target** — Tippani already installs as a PWA, so register it as a
+  share target: "Share → Tippani" from any app (a reading app, a browser, your
+  phone's own text selection **or its built-in OCR**) drops straight into quick
+  capture. This is also how a photographed page gets in — the phone recognises the
+  text, you share it (see *Considered and set aside*).
+- **Bookmarklet** — one click that POSTs the current page's **raw HTML** to Tippani,
+  parsed server-side by reusing the existing Hardcover / Goodreads / IMDb HTML
+  importers. Deliberately minimal: just the page, no Bookcision-style JSON layer to
+  install or keep working.
+
+### 9 · More import sources
+Kobo (`KoboReader.sqlite`), Apple Books, a **Readwise** export, and read-later apps
+(Instapaper · Pocket · Matter), all folded into the same idempotent, cross-source
+dedupe. They surface in the Import menu **beside the still-stubbed Kindle
+`My Clippings.txt`** as clearly-marked "planned" cards, so the menu shows the whole
+intended set at a glance. Kobo is unverified for now — no device here to test a real
+`KoboReader.sqlite` against, so it ships only once someone can confirm it parses
+cleanly.
+
+### 10 · Quote-card images
+Render a highlight as a shareable **image** — styled in the current paper/film skin
+— the natural next step past today's text-only share sheet. Something to drop into a
+chat or a post, generated locally, with the same field-picking as the text formats.
+
+### 11 · Backup & restore
+A one-click **tar of the whole data directory** (SQLite DB + downloaded covers and
+posters) from inside the app, and a restore that reads it back — portability and
+disaster-recovery without shelling into the box or wiring up the `VACUUM INTO` cron.
+
+### 12 · Collections & shelves
+Extend tagging **to books** (tags live only on annotations today), then a **shelf**
+view that groups either books or annotations by tag — curated, named groupings
+("Best of 2026", "to reread") that are really just tags surfaced as first-class
+shelves, so there's no new taxonomy to learn.
+
+## Later / maybe (being considered)
+
+- **Anki export/import** — bridge the daily review to and from Anki decks (`.apkg`),
+  a natural pairing for the spaced-repetition audience. Still being scoped — need to
+  learn the format first.
+- **Backlinks & freeform notes** — manually-maintained links between related
+  highlights (Zettelkasten-style) and standalone notes not tied to any book. Kept
+  deliberately manual; no auto-suggested "related" magic.
+- **Shared / household libraries** — collaborative or shared-view libraries across
+  the users on one box.
 - Richer author portraits — resolve the author's Wikidata entry via the *book* (work → author) so a
   photo appears even when the Open Library record is sparse (no photo, no wikidata link). The
   disambiguation already picks the right person; this widens photo coverage.
 - Email digest fallback (SMTP)
-- API-token auth for external triggers
 - Semantic search (`sqlite-vec`)
-- Shared / household libraries
 - Summary export to Markdown / Obsidian
+
+## Considered and set aside
+
+- **OCR of a photographed page** — building OCR into Tippani (even by spending AI
+  tokens) isn't worth the weight. Every modern phone already OCRs text natively in
+  its camera/photos app, and the planned **share-target (§8)** lets you send that
+  recognised text straight in — so the use case is covered without a new dependency
+  or a departure from the frugal, offline-first build.

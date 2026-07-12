@@ -115,11 +115,16 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — Kindle `My Clippings.txt` import; force-fetch & re-verify metadata (review before
-> apply); opt-in AI summaries (OpenAI-compatible) with push notifications (NTFY, likely via a
-> multi-service notifier such as [Shoutrrr](https://containrrr.dev/shoutrrr/), with high/urgent
-> priority); and a [Homepage](https://gethomepage.dev) dashboard widget (pending reviews, quiz
-> scores, library counts). See [`ROADMAP.md`](ROADMAP.md).
+> **Roadmap** — more ways in (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later
+> imports; a PWA **share-target** and a page-HTML **bookmarklet**); force-fetch & re-verify
+> metadata (review before apply); opt-in AI summaries (OpenAI-compatible) with push notifications
+> (NTFY, likely via [Shoutrrr](https://containrrr.dev/shoutrrr/)); a
+> [Homepage](https://gethomepage.dev) dashboard widget; a **calmer interface** (configurable nav,
+> one **＋ Add**, progressive-disclosure cards & edit forms); **quote-card images** and one-click
+> **backup/restore**; collections & shelves; a **Profile** area (photo · display name · password)
+> growing into admin role management, passkeys/2FA, trash-and-undo and per-user API tokens; and
+> quiet, opt-in **achievements** — reading milestones plus one gentle spaced-repetition streak.
+> See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)
 
