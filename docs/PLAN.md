@@ -485,6 +485,9 @@ GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
 GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status
 POST   /people/lookup                # {kind,name} → {links:{imdb,tmdb,tvdb,wikipedia,openlibrary}}
+POST   /people/rename                # {kind,from,to} → rename an author/actor across all books/
+                                     #   dialogues + fold saved metadata onto `to` (unify duplicate
+                                     #   spellings). GET /people/names also sweeps orphaned rows on load
 POST   /people/portrait              # {kind,name} → resolve+store portrait & pin identity: actor from
                                      #   the film's stored cast (no extra call), author via OL
                                      #   disambiguated by their books (+Wikidata P18). {resolved,image,

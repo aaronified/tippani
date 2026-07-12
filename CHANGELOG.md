@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-12
+
+### Added
+- **Merge duplicate authors / actors.** The Metadata → People console flags near-identical names —
+  typos and transliterations like *Fyodor Dostoevsky* vs *Fyodor Dostoyevsky* — as **Possible
+  duplicate** cards; choose the spelling to keep and one click rewrites the others across every book /
+  film and folds their saved metadata in. The author/actor edit card gains a **"Rename everywhere"**
+  action for the same, one person at a time. New `POST /people/rename`.
+
+### Changed
+- **Orphaned author/actor metadata is now swept automatically.** Opening the People console clears
+  saved rows whose name no longer appears on any book or dialogue (they previously lingered until the
+  next book edit triggered the sweep) — still no background job; it runs on load.
+
 ## [0.4.1] - 2026-07-12
 
 ### Changed
