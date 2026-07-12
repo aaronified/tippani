@@ -58,7 +58,7 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 ## Features
 
 - 📚 **Books & annotations** — quotes and notes with 4 highlight colours, tags, chapter/location,
-  a favourite ★, a 1–5 rating, and series/reading-order metadata. Browse as a packed masonry, a
+  a favourite ★ and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
 - 🧠 **Daily review & quiz** — spaced repetition grounded in the memory research. Every highlight
@@ -73,10 +73,11 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   That is the **active-recall** effect the retention research keeps confirming. A **recall quiz** turns
   your own library into quick multiple-choice rounds — match a quote to its book, or a line to who said
   it; **get one right and it counts as a revision too** (a wrong guess never moves your schedule). Two
-  to three minutes a day, no configuration, no gamification — a dot on the logo marks a waiting deck,
+  to three minutes a day, sane defaults (deck size, quiz length/scope and the half-life factors are
+  tunable in Settings), no gamification — a dot on the logo marks a waiting deck,
   and a *"where you stand"* readout shows how many quotes are unseen · soon · later · someday.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
-  actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
+  actor auto-fills from the film's cast. Same tags / favourite / views / filters as books.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
   (daily review · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
   full-screen filter and capture sheets with a Reset · count · Done footer, 44 px touch targets,
@@ -108,22 +109,24 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   from Open Library cross-checked against the books they wrote, so a same-name namesake isn't picked
   by mistake. They power the group-by headings; a per-person bio lives one tap deeper, and you can
   always paste your own photo. A People console under Metadata manages everyone in your library.
-- 🔐 **Multi-user** — per-user isolated libraries, first-run admin onboarding, in-app user
-  management, bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
+- 🔐 **Multi-user** — per-user isolated libraries and a **Profile** area (photo · display name ·
+  password) behind the avatar chip; first-run admin onboarding and in-app user management with
+  **admin role grant / revoke / transfer** (the last admin is protected); bcrypt + hashed-token
+  sessions, stdlib CSRF, login rate limiting.
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — more ways in (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later
-> imports; a PWA **share-target** and a page-HTML **bookmarklet**); force-fetch & re-verify
-> metadata (review before apply); opt-in AI summaries (OpenAI-compatible) with push notifications
-> (NTFY, likely via [Shoutrrr](https://containrrr.dev/shoutrrr/)); a
-> [Homepage](https://gethomepage.dev) dashboard widget; a **calmer interface** (configurable nav,
-> one **＋ Add**, progressive-disclosure cards & edit forms); **quote-card images** and one-click
-> **backup/restore**; collections & shelves; a **Profile** area (photo · display name · password)
-> growing into admin role management, passkeys/2FA, trash-and-undo and per-user API tokens; and
-> quiet, opt-in **achievements** — reading milestones plus one gentle spaced-repetition streak.
+> **Roadmap** — **dialogues in the daily-review deck** (the quiz already covers them); more ways in
+> (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later imports; a PWA
+> **share-target** and a page-HTML **bookmarklet**); force-fetch & re-verify metadata (review
+> before apply); opt-in AI summaries (OpenAI-compatible) with push notifications (NTFY, likely via
+> [Shoutrrr](https://containrrr.dev/shoutrrr/)); a [Homepage](https://gethomepage.dev) dashboard
+> widget; more interface declutter (one **＋ Add**, progressive-disclosure cards & edit forms);
+> **quote-card images**, one-click **backup/restore**, and collections & shelves; the Profile area
+> growing into passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in
+> **achievements** — reading milestones plus one gentle spaced-repetition streak.
 > See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)

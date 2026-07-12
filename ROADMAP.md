@@ -9,6 +9,25 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**On `edge` (unreleased — not yet tagged)**
+
+- **Profile & account management** — the avatar chip is now Profile · User
+  management · Log out (a pop-up on desktop, a full page on phones): edit
+  **photo · display name · password**, and (admin) add/remove users +
+  **grant / revoke / transfer admin** with the last admin protected.
+  New `PUT /auth/me`, `PATCH /admin/users/{id}`.
+- **Favourite-only** — the 1–5 star rating is retired from the UI (the favourite
+  ♥ is the single quick signal); stored ratings are kept but hidden.
+- **Configurable spaced repetition** — Settings › *Daily review & quiz*: cards/day
+  (2–10), quiz length (2–10) + scope (books/films/both), and the half-life
+  growth/lapse factors, all per-user (narrow ranges).
+- **Configurable nav + quiz colour** — a Settings toggle folds Tags + Metadata into
+  a ⋯ More menu; the quiz's correct answer now reads a distinct green, not the
+  accent (which clashed with the wrong-answer red).
+- **Ops** — GitHub Releases auto-cut from the CHANGELOG on `v*` tags; hi-res cover
+  uploads (cap 5→10 MB); book-save failures logged instead of swallowed; both
+  metadata progress bars fixed.
+
 **v0.4 line (July 2026)**
 
 - **Automatic portraits, right-person-first** — author and actor photos are
@@ -65,6 +84,21 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Planned
 
+### Next up · Dialogues in the daily-review deck
+Spaced repetition reviews **book highlights only** today — the recall *quiz*
+already includes movie dialogues (who-said), but the daily *deck* does not. The
+`srReviewScope` preference (books | movies | both) is already stored and validated,
+awaiting this wiring (the concrete handoff):
+
+- migration `0015_dialogue_reviews`, mirroring `annotation_reviews` (per-user via
+  `movies.user_id`, cascade delete);
+- the deck query becomes a **scope-gated UNION** of annotation + dialogue
+  candidates, so the due-ness ordering stays correct across both sources;
+- `POST /dialogues/{id}/review`, mirroring `POST /annotations/{id}/review`;
+- `reviewStates` / `reviewDeckCounts` fold dialogues in (scope-gated);
+- the Home Daily-Review card renders a dialogue item (character · actor · film)
+  and posts to the new endpoint; the SR settings card surfaces **review scope**.
+
 ### 1 · Kindle `My Clippings.txt` import
 The one importer still stubbed (its endpoint deliberately answers `501`). Parse
 the raw `My Clippings.txt` straight off a Kindle — the locale header line, the
@@ -108,23 +142,11 @@ dashboards): a small, read-only, token-scoped stats endpoint surfacing today's
 **book / annotation / movie** totals — so Tippani shows up as a live tile on your
 NAS dashboard. Opt-in; nothing exposed without a token.
 
-### 5 · Profile & account management (a real Settings › Profile)
-Gather today's scattered account controls into one **Profile** card in Settings.
-Right now your photo hides in the avatar menu (and the mobile drawer footer), your
-password sits in its own card, and your **display name can't be changed at all**
-once the account exists — so the plan is a single place to edit **photo · display
-name · password**, plus the small niceties that follow (a live preview of the chip,
-"changing your name updates it everywhere the avatar shows").
-
-Then grow the admin's **Users** panel from add/remove into real **role
-management**: grant or revoke **admin** rights per user, and **hand the
-primary-admin role to someone else** as an explicit, confirmed transfer — with a
-guard that the *last* admin can never be demoted or deleted (no locking the whole
-household out). True to the frugality goal, this stays local: no email round-trips,
-no external identity provider, no new moving parts — still just rows in the SQLite
-users table behind the existing `requireAdmin` gate.
-
-Three further strands ride on the same account work:
+### 5 · Account, continued — sign-in, trash, tokens
+The consolidated **Profile** (photo · display name · password) and admin **role
+management** (grant / revoke / transfer, last admin protected) shipped — see
+Recently shipped. Three strands remain, all local (no email round-trips, no
+external identity provider):
 
 - **Stronger sign-in (opt-in)** — **passkeys (WebAuthn)** and **TOTP 2FA** layered
   over today's password + hashed-token sessions, for boxes reachable past the LAN.
@@ -156,15 +178,11 @@ streak!" banners are exactly what we won't do). It's a quiet tally that rewards
 turning up, not a chain you're afraid to drop. Streaks stop at the review; nothing
 else in the app grows one.
 
-### 7 · Interface declutter — fewer buttons, a calmer shell
-Cut the standing button count without losing any capability. Several strands:
+### 7 · Interface declutter, continued
+The **configurable nav placement** (Tags + Metadata as tabs or a ⋯ More menu) and
+the **single favourite signal** (the star rating dropped) shipped — see Recently
+shipped. Remaining:
 
-- **Configurable utility placement (desktop)** — Metadata and Tags/Stickers are
-  maintenance surfaces, not daily destinations. A Settings toggle chooses whether
-  they sit in the top navbar or fold into the avatar (account) menu; either way a
-  **divider** separates them from the four content tabs (Home · Library ·
-  Catalogue · Search). On mobile the avatar always opens **Profile** and everything
-  else lives in the drawer, with the same separator.
 - **One "＋ Add"** — Import stops being a permanent tab and becomes part of a single
   Add surface that also carries manual / look-up entry for a book or film; the
   Library and Catalogue "Add" buttons open that very same surface, so there's one
@@ -175,13 +193,6 @@ Cut the standing button count without losing any capability. Several strands:
   overflow. Either way the resting card sheds its standing button row — the change
   that most directly answers "too many buttons" across a masonry of cards (delete
   keeps its confirm).
-- **One rating signal, not two** — a favourite ♥ *and* a 1–5 star rating on every
-  card and every book/film header is one control too many. Collapse to a single
-  signal everywhere they co-occur (cards, headers, filters, table columns, stats).
-  The recommendation is to **keep the binary favourite and drop the star rating** —
-  it's the lower-friction "I love this," and it's already the more deeply wired one
-  (the Home "recent favourites" rail, the favourites stat tile, the favourites
-  filter). Which one survives is the call to lock in before this ships.
 - **Compact edit forms (books & films)** — vertical space is precious, so the edit
   form stops making you scroll. Cover controls collapse to **icon buttons with
   tooltips** (upload · paste URL · search covers · remove) instead of a wide labelled

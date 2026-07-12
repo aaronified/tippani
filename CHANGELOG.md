@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Profile & account management behind the avatar chip.** The chip menu is now
+  **Profile · User management · Log out** — a centred pop-up on desktop, a full
+  page on phones. *Profile* edits your photo, **display name** (`PUT /auth/me`,
+  new) and password in one place; *User management* (admin) adds/removes users and
+  **grants/revokes admin** (`PATCH /admin/users/{id}`, new) — handing over the
+  primary admin is grant-another-then-revoke-your-own, with the last admin
+  protected. Avatar upload + password + user management move out of Settings.
+- **Configurable spaced repetition** (Settings › *Daily review & quiz*): per-user
+  review cards/day (2–10), quiz length (2–10), quiz scope (books/films/both), and
+  the half-life growth (1.5–4×) and lapse-keep (0.1–0.6×) factors. `/auth/me/preferences`
+  is now a partial merge, so each setting saves without disturbing the others.
+- **Configurable desktop nav** (Settings › *Interface*): Tags + Metadata as navbar
+  tabs or folded into a ⋯ More menu; the account chip stays separate.
+- **Automated GitHub Releases** — `release.yml` cuts a Release from the matching
+  CHANGELOG section on every `v*` tag (the docker workflow already publishes the
+  image); runnable by hand to backfill.
+
+### Changed
+- **Favourite-only.** The 1–5 star rating is gone from the UI everywhere — cards,
+  detail headers, filters, sort, tables and the share sheet; the favourite ♥ is the
+  single quick signal. Stored ratings stay in the DB but hidden (no destructive
+  migration).
+- Cover/image upload cap raised **5 MB → 10 MB** so hi-res covers upload.
+
+### Fixed
+- **Quiz answer colours** — a correct answer shows a distinct green (`--ok`), no
+  longer the terracotta accent that read the same as the red for a wrong pick.
+- **Metadata progress bars** — the covers/metadata refetch bar now paints even for
+  a single-chunk run (an indeterminate mode); the People-console bar reads on the
+  film-dark backdrop instead of looking like a floating line.
+- **Book-save failures are logged** (method · path · cause) instead of being
+  swallowed behind a bare "internal error".
+
+### Not yet (handoff)
+- **Dialogues in the daily-review *deck*.** The quiz already covers dialogues; the
+  daily review is still annotations-only. The `srReviewScope` pref is stored and
+  forward-compatible — see ROADMAP "Dialogues in the daily-review deck" for the plan
+  (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
+  /dialogues/{id}/review`, and surfacing review scope in Settings).
+
 ## [0.4.2] - 2026-07-12
 
 ### Added
