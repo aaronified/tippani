@@ -129,3 +129,55 @@ func TestOnboardingAndAdmin(t *testing.T) {
 func itoa(n int64) string {
 	return strconv.FormatInt(n, 10)
 }
+
+// TestDisplayNameAndRoles covers PUT /auth/me (rename) and PATCH
+// /admin/users/{id} (grant/revoke admin, transfer, last-admin guard).
+func TestDisplayNameAndRoles(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h) // "alice", user 1, admin
+
+	// Rename self; reflected on the next request (session re-reads the name).
+	admin.mustDo("PUT", "/auth/me", map[string]string{"username": "alice2"}, 200)
+	if me := decode[meResp](t, admin.mustDo("GET", "/auth/me", nil, 200)); me.Username != "alice2" {
+		t.Fatalf("rename: got %q", me.Username)
+	}
+	// Blank / whitespace / spaced names are rejected.
+	admin.mustDo("PUT", "/auth/me", map[string]string{"username": "   "}, http.StatusBadRequest)
+	admin.mustDo("PUT", "/auth/me", map[string]string{"username": "has space"}, http.StatusBadRequest)
+
+	// A second user: renaming into their name conflicts (409); a no-op rename to
+	// your own current name still succeeds.
+	bob := addUser(t, h, admin, "bob")
+	admin.mustDo("PUT", "/auth/me", map[string]string{"username": "bob"}, http.StatusConflict)
+	bob.mustDo("PUT", "/auth/me", map[string]string{"username": "bob"}, 200)
+
+	users := decode[struct {
+		Users []userRow `json:"users"`
+	}](t, admin.mustDo("GET", "/admin/users", nil, 200))
+	var bobID int64
+	for _, u := range users.Users {
+		if u.Username == "bob" {
+			bobID = u.ID
+		}
+	}
+	if bobID == 0 {
+		t.Fatal("bob not in the user list")
+	}
+
+	// A non-admin can't change roles; a missing body is a 400.
+	bob.mustDo("PATCH", "/admin/users/"+itoa(bobID), map[string]bool{"is_admin": true}, http.StatusForbidden)
+	admin.mustDo("PATCH", "/admin/users/"+itoa(bobID), map[string]string{}, http.StatusBadRequest)
+
+	// Grant bob admin; now bob can manage users too.
+	admin.mustDo("PATCH", "/admin/users/"+itoa(bobID), map[string]bool{"is_admin": true}, 200)
+	bob.mustDo("GET", "/admin/users", nil, 200)
+
+	// Transfer: alice2 (user 1) drops her own admin — allowed while bob is admin.
+	admin.mustDo("PATCH", "/admin/users/1", map[string]bool{"is_admin": false}, 200)
+	admin.mustDo("GET", "/admin/users", nil, http.StatusForbidden)
+
+	// bob is now the only admin and cannot be demoted; unknown user → 404.
+	bob.mustDo("PATCH", "/admin/users/"+itoa(bobID), map[string]bool{"is_admin": false}, http.StatusConflict)
+	bob.mustDo("PATCH", "/admin/users/99999", map[string]bool{"is_admin": true}, http.StatusNotFound)
+}

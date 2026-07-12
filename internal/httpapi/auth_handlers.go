@@ -162,12 +162,47 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleUpdateMe changes the caller's own display name. The session stores only
+// the user id and re-reads username/is_admin on each request (auth.Validate's
+// JOIN), so the new name takes effect on the next request with no re-issue.
+func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	var req struct {
+		Username string `json:"username"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	uname, ok := normalizeUsername(req.Username)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "username required")
+		return
+	}
+	// Atomic uniqueness: rename only if no OTHER user holds the name. Setting it
+	// to your own current name is a no-op that still reports success.
+	res, err := s.Store.DB.Exec(
+		`UPDATE users SET username = ? WHERE id = ?
+		 AND NOT EXISTS (SELECT 1 FROM users WHERE username = ? AND id <> ?)`,
+		uname, userID(r), uname, userID(r))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeErr(w, http.StatusConflict, "username already taken")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"username": uname})
+}
+
 // ---- UI preferences (§10; enums from the UI instructions §4) ----
 
 var (
 	prefAesthetics = map[string]bool{"paper": true, "film": true}
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
+	prefNav        = map[string]bool{"tabs": true, "menu": true}
 )
 
 // prefs is the whole preference set. The retired "home" start-page key
@@ -177,6 +212,10 @@ type prefs struct {
 	Aesthetic string `json:"aesthetic"`
 	Theme     string `json:"theme"`
 	Accent    string `json:"accent"`
+	// NavUtilities: where the Metadata + Tags screens live on desktop —
+	// "tabs" (in the navbar) or "menu" (a ⋯ overflow). The account chip is
+	// always separate. Empty on older rows; loadPrefs defaults it.
+	NavUtilities string `json:"navUtilities"`
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
@@ -203,28 +242,60 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 			p.Aesthetic = "paper"
 		}
 	}
+	if !prefNav[p.NavUtilities] {
+		p.NavUtilities = "menu"
+	}
 	return p, nil
 }
 
-// handleUpdatePreferences stores the full preference set (all three fields
-// required, validated enums) as JSON in users.preferences.
+// handleUpdatePreferences is a partial update: it loads the current set, overlays
+// only the fields present in the body, validates, and stores. So the Appearance
+// panel and the nav-placement toggle can each PUT just their own field(s) without
+// clobbering the other's. Any appearance field it does receive is a required
+// enum; navUtilities is optional (empty = leave as-is, so older clients that
+// don't know the field aren't rejected).
 func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
-	var p prefs
-	if !decodeBody(w, r, &p) {
+	cur, err := s.loadPrefs(userID(r))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	var in struct {
+		Aesthetic    *string `json:"aesthetic"`
+		Theme        *string `json:"theme"`
+		Accent       *string `json:"accent"`
+		NavUtilities *string `json:"navUtilities"`
+	}
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	if in.Aesthetic != nil {
+		cur.Aesthetic = *in.Aesthetic
+	}
+	if in.Theme != nil {
+		cur.Theme = *in.Theme
+	}
+	if in.Accent != nil {
+		cur.Accent = *in.Accent
+	}
+	if in.NavUtilities != nil && *in.NavUtilities != "" {
+		cur.NavUtilities = *in.NavUtilities
 	}
 	switch {
-	case !prefAesthetics[p.Aesthetic]:
+	case !prefAesthetics[cur.Aesthetic]:
 		writeErr(w, http.StatusBadRequest, "aesthetic must be paper or film")
 		return
-	case !prefThemes[p.Theme]:
+	case !prefThemes[cur.Theme]:
 		writeErr(w, http.StatusBadRequest, "theme must be light, dark or system")
 		return
-	case !prefAccents[p.Accent]:
+	case !prefAccents[cur.Accent]:
 		writeErr(w, http.StatusBadRequest, "accent must be terracotta, ochre, olive or slate")
 		return
+	case !prefNav[cur.NavUtilities]:
+		writeErr(w, http.StatusBadRequest, "navUtilities must be tabs or menu")
+		return
 	}
-	raw, err := json.Marshal(p)
+	raw, err := json.Marshal(cur)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return

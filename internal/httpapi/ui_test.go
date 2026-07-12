@@ -33,7 +33,7 @@ func TestPreferences(t *testing.T) {
 
 	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta"}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", NavUtilities: "menu"}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -43,7 +43,7 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta"}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", NavUtilities: "menu"}) {
 		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
 	}
 
@@ -51,7 +51,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", NavUtilities: "menu"}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
@@ -59,7 +59,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		map[string]string{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive"}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", NavUtilities: "menu"}) {
 		t.Fatalf("after PUT with stale home key: %+v", me.Preferences)
 	}
 
@@ -74,6 +74,15 @@ func TestPreferences(t *testing.T) {
 	if me.Preferences.Accent != "olive" {
 		t.Fatalf("preferences changed by rejected PUT: %+v", me.Preferences)
 	}
+
+	// navUtilities is a partial update: it toggles on its own and leaves the
+	// appearance set intact; an unknown value is rejected.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]string{"navUtilities": "tabs"}, 200)
+	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.NavUtilities != "tabs" || me.Preferences.Accent != "olive" {
+		t.Fatalf("navUtilities toggle: %+v", me.Preferences)
+	}
+	c.mustDo("PUT", "/auth/me/preferences", map[string]string{"navUtilities": "sidebar"}, http.StatusBadRequest)
 }
 
 func TestTagCRUD(t *testing.T) {

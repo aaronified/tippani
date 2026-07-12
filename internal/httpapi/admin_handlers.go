@@ -84,6 +84,65 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, userRow{ID: id, Username: uname, IsAdmin: false})
 }
 
+// handleSetUserAdmin grants or revokes a user's admin rights (PATCH is_admin).
+// The last remaining admin can never be demoted — the count + update are one
+// atomic statement — so an instance always keeps at least one admin. Granting
+// admin to another user and revoking your own is how the primary-admin role is
+// handed over.
+func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	var req struct {
+		IsAdmin *bool `json:"is_admin"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IsAdmin == nil {
+		writeErr(w, http.StatusBadRequest, "is_admin (bool) required")
+		return
+	}
+	if *req.IsAdmin {
+		res, err := s.Store.DB.Exec(`UPDATE users SET is_admin = 1 WHERE id = ?`, id)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			writeErr(w, http.StatusNotFound, "no such user")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+	// Revoke, unless it would remove the last admin (guard in SQL, atomic).
+	res, err := s.Store.DB.Exec(
+		`UPDATE users SET is_admin = 0 WHERE id = ? AND is_admin = 1
+		 AND (SELECT count(*) FROM users WHERE is_admin = 1) > 1`, id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		// Distinguish no-such-user / already-regular / last-admin.
+		var isAdm bool
+		switch err := s.Store.DB.QueryRow(`SELECT is_admin FROM users WHERE id = ?`, id).Scan(&isAdm); {
+		case errors.Is(err, sql.ErrNoRows):
+			writeErr(w, http.StatusNotFound, "no such user")
+			return
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, "internal error")
+			return
+		case isAdm:
+			writeErr(w, http.StatusConflict, "cannot remove the last admin")
+			return
+		}
+		// already a regular user — idempotent success
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 // handleDeleteUser removes a user (their books/annotations cascade). The admin
 // cannot delete their own account, and the last remaining admin can never be
 // removed — so an instance always keeps at least one admin.

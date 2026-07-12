@@ -86,6 +86,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
+	mux.Handle("PUT /auth/me", s.requireAuth(s.handleUpdateMe))
 	mux.Handle("PUT /auth/me/preferences", s.requireAuth(s.handleUpdatePreferences))
 	mux.Handle("POST /auth/me/avatar", s.requireAuth(s.handleUploadAvatar))
 	mux.Handle("DELETE /auth/me/avatar", s.requireAuth(s.handleDeleteAvatar))
@@ -94,6 +95,7 @@ func (s *Server) Handler() http.Handler {
 	// User management — admin only (PLAN §2). The first user is the admin.
 	mux.Handle("GET /admin/users", s.requireAdmin(s.handleListUsers))
 	mux.Handle("POST /admin/users", s.requireAdmin(s.handleCreateUser))
+	mux.Handle("PATCH /admin/users/{id}", s.requireAdmin(s.handleSetUserAdmin))
 	mux.Handle("DELETE /admin/users/{id}", s.requireAdmin(s.handleDeleteUser))
 
 	// Settings-managed metadata keys + admin cover maintenance (§10).
