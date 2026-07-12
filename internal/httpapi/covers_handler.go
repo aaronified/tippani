@@ -14,9 +14,9 @@ import (
 )
 
 // maxUploadBytes bounds the whole multipart envelope; the image itself is
-// re-capped at 5 MB by metadata.StoreImage after decoding, so the envelope
+// re-capped at 10 MB by metadata.StoreImage after decoding, so the envelope
 // leaves headroom for multipart framing around a cap-sized image.
-const maxUploadBytes = 6 << 20
+const maxUploadBytes = 12 << 20
 
 // coverFile matches server-generated cover/poster/sticker names
 // (metadata.FetchImage / StoreImage: 16 lowercase hex chars + a sniffed image
@@ -88,7 +88,7 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
 	f, _, err := r.FormFile("file")
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "expected a multipart form with a 'file' field (max 2 MB image)")
+		writeErr(w, http.StatusBadRequest, "expected a multipart form with a 'file' field (max 10 MB image)")
 		return
 	}
 	defer f.Close()
@@ -99,7 +99,7 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 	}
 	name, err := metadata.StoreImage(data, s.coversDir())
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "that file isn't an accepted image (JPG/PNG/WebP/GIF, under 2 MB)")
+		writeErr(w, http.StatusBadRequest, "that file isn't an accepted image (JPG/PNG/WebP/GIF, under 10 MB)")
 		return
 	}
 	if _, err := s.Store.DB.Exec(

@@ -240,6 +240,15 @@ group-by headings and the People console. Two guards: don't shatter a genuine si
 name that merely contains "and", and keep the 0.4.2 dedupe/merge tools able to
 recombine a split that shouldn't have happened.
 
+### 14 · Verbose, structured logs
+A failed request should tell you *why* from the Docker logs, not just that it
+failed. Plan: consistent structured logging across handlers (method · path ·
+user · outcome · **cause**), a `TIPPANI_LOG_LEVEL` knob (quiet by default,
+`debug` opt-in), and request ids to correlate a client error with its server
+line — without ever leaking internals into the HTTP response. (A first step is
+already in: the book-save 500s now log their real cause instead of swallowing
+it.)
+
 ## Later / maybe (being considered)
 
 - **Anki export/import** — bridge the daily review to and from Anki decks (`.apkg`),

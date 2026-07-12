@@ -53,7 +53,7 @@ var fetchAllowAny = false
 // maxImageBytes is the PLAN §6 cover/poster size cap. 5 MB fits full-size
 // provider art (TMDB `original` posters, Amazon unmodified scans) that the old
 // 2 MB cap rejected.
-const maxImageBytes = 5 << 20
+const maxImageBytes = 10 << 20
 
 // minImageBytes rejects tracking-pixel placeholders — notably Amazon's "no
 // image available" 1×1 GIF (~tens of bytes) served with HTTP 200 for an ASIN

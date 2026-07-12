@@ -325,7 +325,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		name, ferr := s.fetchUserImage(r.Context(), req.CoverURL, s.coversDir())
 		if ferr != nil {
 			writeErr(w, http.StatusBadGateway,
-				"couldn't fetch that cover image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
+				"couldn't fetch that cover image — check the URL points directly at a JPG/PNG/WebP/GIF under 10 MB")
 			return
 		}
 		newCover, changeCover = name, true
@@ -334,10 +334,17 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		s.removeCoverFile(newCover)
 		writeErr(w, code, msg)
 	}
+	// failErr is fail for the 500 path: it logs the real cause (visible in the
+	// server / docker logs) instead of swallowing it behind a bare "internal
+	// error", so a save that fails is diagnosable.
+	failErr := func(context string, err error) {
+		s.removeCoverFile(newCover)
+		internalError(w, r, context, err)
+	}
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update book", err)
 		return
 	}
 	defer tx.Rollback()
@@ -349,7 +356,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Description), nullableInt(req.PublishedYear),
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.Rating, id, uid)
 	if err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update book", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -359,12 +366,12 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	if changeCover {
 		if _, err := tx.Exec(`UPDATE books SET cover_path = ? WHERE id = ? AND user_id = ?`,
 			nullable(newCover), id, uid); err != nil {
-			fail(http.StatusInternalServerError, "internal error")
+			failErr("update book", err)
 			return
 		}
 	}
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update book", err)
 		return
 	}
 	// Adopting a looked-up candidate links the book to its source, so the
@@ -373,20 +380,20 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	case "google":
 		if req.SourceID != "" {
 			if _, err := tx.Exec(`UPDATE books SET google_id = ? WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
-				fail(http.StatusInternalServerError, "internal error")
+				failErr("update book", err)
 				return
 			}
 		}
 	case "openlibrary":
 		if req.SourceID != "" {
 			if _, err := tx.Exec(`UPDATE books SET openlibrary_id = ? WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
-				fail(http.StatusInternalServerError, "internal error")
+				failErr("update book", err)
 				return
 			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update book", err)
 		return
 	}
 	if changeCover && oldCover.String != newCover {
@@ -395,7 +402,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	s.gcOrphanPeople(uid, "author") // a renamed author's stale metadata shouldn't linger
 	b, err := s.fetchBook(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update book: reload", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, b)
