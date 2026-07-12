@@ -170,9 +170,11 @@ Cut the standing button count without losing any capability. Several strands:
   Library and Catalogue "Add" buttons open that very same surface, so there's one
   obvious way to add anything.
 - **Progressive disclosure on cards** — a quote card shows only its primary mark at
-  rest (the favourite) and tucks *share · edit · delete* behind a single ⋯ overflow,
-  revealed on hover (desktop) or tap (mobile) — the change that most directly
-  answers "too many buttons" across a masonry of cards.
+  rest (the favourite). On **desktop**, hovering the card reveals the *share · edit ·
+  delete* actions inline; on **mobile** (no hover) they sit behind a single ⋯
+  overflow. Either way the resting card sheds its standing button row — the change
+  that most directly answers "too many buttons" across a masonry of cards (delete
+  keeps its confirm).
 - **One rating signal, not two** — a favourite ♥ *and* a 1–5 star rating on every
   card and every book/film header is one control too many. Collapse to a single
   signal everywhere they co-occur (cards, headers, filters, table columns, stats).
