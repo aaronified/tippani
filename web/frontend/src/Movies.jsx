@@ -27,7 +27,6 @@ import {
   IconMore,
   IconPlus,
   Lightbox,
-  MinRatingSelect,
   MobileSheet,
   MoreMenu,
   MonoLabel,
@@ -37,7 +36,6 @@ import {
   SheetFooter,
   Sprockets,
   TagChip,
-  TiltStars,
   Toggle,
   TokenInput,
   EditReveal,
@@ -142,7 +140,6 @@ function MovieList({ onOpen }) {
   const [genre, setGenre] = useState('')
   const [series, setSeries] = useState('')
   const [fav, setFav] = useState(false)
-  const [minRating, setMinRating] = useState('')
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -183,15 +180,13 @@ function MovieList({ onOpen }) {
     if (genre) list = list.filter((m) => (m.genres || []).includes(genre))
     if (series) list = list.filter((m) => (m.series || '') === series)
     if (fav) list = list.filter((m) => m.favorite)
-    if (minRating) list = list.filter((m) => (m.rating || 0) >= Number(minRating))
     if (sort === 'recent') return list
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'year') list.sort((a, b) => (b.release_year || 0) - (a.release_year || 0))
-    else if (sort === 'rating') list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
     else if (sort === 'series') list.sort(bySeries)
     return list
-  }, [movies, mediaType, genre, series, fav, minRating, sort])
+  }, [movies, mediaType, genre, series, fav, sort])
 
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
@@ -248,7 +243,6 @@ function MovieList({ onOpen }) {
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>
-            <MinRatingSelect value={minRating} onChange={setMinRating} />
             {seriesNames.length > 0 && (
               <Select
                 ariaLabel="Filter by series"
@@ -263,7 +257,7 @@ function MovieList({ onOpen }) {
                 ariaLabel="Sort"
                 value={sort}
                 onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['rating', 'Rating'], ['series', 'Series']]}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Series']]}
               />
             </label>
           </div>
@@ -278,7 +272,7 @@ function MovieList({ onOpen }) {
           footer={
             <SheetFooter
               count={movies ? `${shown.length} shown` : ''}
-              onReset={() => { setGenre(''); setMediaType(''); setFav(false); setMinRating(''); setSeries(''); setSort('recent') }}
+              onReset={() => { setGenre(''); setMediaType(''); setFav(false); setSeries(''); setSort('recent') }}
               onDone={() => setMobileFilter(false)}
             />
           }
@@ -310,8 +304,7 @@ function MovieList({ onOpen }) {
                 <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
                   ♥ favourites
                 </button>
-                <MinRatingSelect value={minRating} onChange={setMinRating} />
-              </div>
+                  </div>
             </div>
             {seriesNames.length > 0 && (
               <div>
@@ -330,7 +323,7 @@ function MovieList({ onOpen }) {
                 ariaLabel="Sort"
                 value={sort}
                 onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['rating', 'Rating'], ['series', 'Series']]}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Series']]}
               />
             </div>
           </div>
@@ -416,7 +409,6 @@ function PosterCard({ movie: m, onOpen }) {
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
           {n} dialogue{n === 1 ? '' : 's'}
         </span>
-        {m.rating > 0 && <TiltStars value={m.rating} />}
       </span>
     </button>
   )
@@ -862,7 +854,6 @@ function MovieDetail({ id, onClose }) {
               {metaLine && <p style={amberMono}>{metaLine}</p>}
               <div className="flex flex-wrap items-center gap-3">
                 <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
-                <TiltStars value={movie.rating || 0} onChange={(v) => patch({ rating: v })} />
               </div>
               {movie.genres?.length > 0 && (
                 <p className="flex flex-wrap gap-1.5">
@@ -1048,7 +1039,6 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   const [person, setPerson] = useState(null) // actor metadata panel ({ kind, name })
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
-  const [minRating, setMinRating] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [adding, setAdding] = useState(false)
 
@@ -1086,7 +1076,6 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
     const params = new URLSearchParams({ movie_id: movieId })
     if (tag) params.set('tag', tag)
     if (fav) params.set('favorite', '1')
-    if (minRating) params.set('min_rating', minRating)
     const r = await json('GET', `/dialogues?${params}`)
     if (seq !== reqSeq.current) return
     if (r.ok) setItems(r.data.dialogues)
@@ -1094,7 +1083,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   }
   useEffect(() => {
     load()
-  }, [movieId, tag, fav, minRating])
+  }, [movieId, tag, fav])
   useEffect(() => {
     loadTags()
   }, [movieId])
@@ -1131,7 +1120,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
     load()
   }
 
-  const filtering = tag || fav || minRating
+  const filtering = tag || fav
 
   // Build the normalised share payload from the chosen dialogue + its movie.
   const sharePayload = (d) =>
@@ -1159,7 +1148,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
           footer={
             <SheetFooter
               count={items ? `${items.length} shown` : ''}
-              onReset={() => { setTag(''); setFav(false); setMinRating('') }}
+              onReset={() => { setTag(''); setFav(false) }}
               onDone={() => onMobileFilterOpen?.(false)}
             />
           }
@@ -1181,8 +1170,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
                   ♥ favourites
                 </button>
-                <MinRatingSelect value={minRating} onChange={setMinRating} />
-              </div>
+                  </div>
             </div>
             <div>
               <MonoLabel className="mb-2 block">view</MonoLabel>
@@ -1198,7 +1186,6 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ Favourites
             </button>
-            <MinRatingSelect value={minRating} onChange={setMinRating} />
             {tags.length > 0 && (
               <Select
                 ariaLabel="Filter by tag"
@@ -1344,7 +1331,6 @@ const DIALOGUE_COLS = [
   { key: 'quote', label: 'Quote' },
   { key: 'character', label: 'Character' },
   { key: 'timestamp', label: 'Time' },
-  { key: 'rating', label: '★' },
   { key: 'favorite', label: '♥' },
 ]
 
@@ -1354,8 +1340,6 @@ function sortDialogues(rows, sort) {
   const dir = sort.dir === 'asc' ? 1 : -1
   return [...rows].sort((a, b) => {
     switch (sort.col) {
-      case 'rating':
-        return ((a.rating || 0) - (b.rating || 0)) * dir
       case 'favorite':
         return ((a.favorite ? 1 : 0) - (b.favorite ? 1 : 0)) * dir
       case 'character':
@@ -1419,7 +1403,6 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 </td>
                 <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
                 <td className="col-mono">{d.timestamp || '—'}</td>
-                <td className="col-center">{d.rating ? '★'.repeat(d.rating) : '—'}</td>
                 <td className="col-center">{d.favorite ? '♥' : '—'}</td>
                 <td className="col-actions">
                   {onShare && <button className="tp-link" onClick={() => onShare(d)}>share</button>}
@@ -1503,7 +1486,6 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         </span>
         <div className="flex flex-wrap items-center gap-3">
           {sticker && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
-          <TiltStars value={d.rating || 0} onChange={(v) => onPatch({ rating: v })} />
         </div>
       </div>
       {d.tags?.length > 0 && (

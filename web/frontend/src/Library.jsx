@@ -29,14 +29,12 @@ import {
   IconPlus,
   MobileSheet,
   MoreMenu,
-  MinRatingSelect,
   MonoLabel,
   PageHeader,
   Placeholder,
   Select,
   SheetFooter,
   TagChip,
-  TiltStars,
   titleCaseGenre,
   Toggle,
   TokenInput,
@@ -226,9 +224,7 @@ function BookGrid({ books, coverSize, onOpen }) {
               </p>
             )}
             <div className="mt-0.5 flex items-center gap-2">
-              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>
-              {b.rating > 0 && <TiltStars value={b.rating} />}
-            </div>
+              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>            </div>
           </button>
         </li>
       ))}
@@ -243,7 +239,6 @@ function BookList({ onOpen }) {
   const [genre, setGenre] = useState('') // '' = All
   const [series, setSeries] = useState('') // '' = all series
   const [fav, setFav] = useState(false)
-  const [minRating, setMinRating] = useState('')
   const [sort, setSort] = useState('recent')
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [adding, setAdding] = useState(false)
@@ -286,15 +281,13 @@ function BookList({ onOpen }) {
     if (genre) list = list.filter((b) => bookGenres(b).includes(genre))
     if (series) list = list.filter((b) => (b.series || '') === series)
     if (fav) list = list.filter((b) => b.favorite)
-    if (minRating) list = list.filter((b) => (b.rating || 0) >= Number(minRating))
     if (sort === 'recent') return list // server order (created_at DESC)
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
-    else if (sort === 'rating') list.sort((a, b) => (b.rating || 0) - (a.rating || 0))
     else if (sort === 'series') list.sort(bySeries)
     return list
-  }, [books, genre, series, fav, minRating, sort])
+  }, [books, genre, series, fav, sort])
 
   const grouped = useMemo(() => (groupBy === 'none' ? null : groupBooks(shown, groupBy)), [shown, groupBy])
 
@@ -333,7 +326,6 @@ function BookList({ onOpen }) {
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ favourites
             </button>
-            <MinRatingSelect value={minRating} onChange={setMinRating} />
             {seriesNames.length > 0 && (
               <Select
                 ariaLabel="Filter by series"
@@ -357,7 +349,7 @@ function BookList({ onOpen }) {
                 ariaLabel="Sort"
                 value={sort}
                 onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['rating', 'Rating'], ['series', 'Series']]}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series']]}
               />
             </label>
           </div>
@@ -372,7 +364,7 @@ function BookList({ onOpen }) {
           footer={
             <SheetFooter
               count={books ? `${shown.length} shown` : ''}
-              onReset={() => { setGenre(''); setFav(false); setMinRating(''); setSeries(''); setGroupBy('none'); setSort('recent') }}
+              onReset={() => { setGenre(''); setFav(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
               onDone={() => setMobileFilter(false)}
             />
           }
@@ -388,7 +380,6 @@ function BookList({ onOpen }) {
                 <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
                   ♥ favourites
                 </button>
-                <MinRatingSelect value={minRating} onChange={setMinRating} />
               </div>
             </div>
             {seriesNames.length > 0 && (
@@ -417,7 +408,7 @@ function BookList({ onOpen }) {
                 ariaLabel="Sort"
                 value={sort}
                 onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['rating', 'Rating'], ['series', 'Series']]}
+                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series']]}
               />
             </div>
           </div>
@@ -797,7 +788,6 @@ function BookDetail({ id, onClose }) {
               )}
               <div className="flex flex-wrap items-center gap-3">
                 <Hearts value={!!book.favorite} onChange={(v) => patch({ favorite: v })} />
-                <TiltStars value={book.rating || 0} onChange={(v) => patch({ rating: v })} />
               </div>
               {bookGenres(book).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -1050,7 +1040,6 @@ function ActionRow({ a, patch, setEditingId, remove, onShare }) {
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-      <TiltStars value={a.rating || 0} onChange={(v) => patch(a, { rating: v })} />
       <span className="ml-auto flex gap-3">
         {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
         <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
@@ -1119,7 +1108,6 @@ const TABLE_COLS = [
   { key: 'chapter', label: 'Chapter' },
   { key: 'location', label: 'Location' },
   { key: 'date', label: 'Date' },
-  { key: 'rating', label: '★' },
   { key: 'favorite', label: '♥' },
 ]
 
@@ -1167,7 +1155,6 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                 <td className="col-mono">{a.chapter || '—'}</td>
                 <td className="col-mono">{a.location || '—'}</td>
                 <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
-                <td className="col-center">{a.rating ? '★'.repeat(a.rating) : '—'}</td>
                 <td className="col-center">{a.favorite ? '♥' : '—'}</td>
                 <td className="col-actions">
                   {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
@@ -1192,7 +1179,6 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   const [color, setColor] = useState('') // filter, '' = all
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
-  const [minRating, setMinRating] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
   const [total, setTotal] = useState(null) // unfiltered count for "N quotes · M shown"
@@ -1214,7 +1200,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   }, [addOpen])
 
   const { stickers, reload: reloadStickers } = useStickers()
-  const filtering = Boolean(color || tag || fav || minRating)
+  const filtering = Boolean(color || tag || fav)
   // Chips take colour + style from the tag object (name-keyed map).
   const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
   // Attached stickers resolve id → image for the card seal.
@@ -1234,7 +1220,6 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
         case 'chapter': return (a.chapter || '').toLowerCase()
         case 'location': return locSortVal(a)
         case 'date': return annDate(a)
-        case 'rating': return a.rating || 0
         case 'favorite': return a.favorite ? 1 : 0
         default: return 0
       }
@@ -1260,17 +1245,16 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     if (color) params.set('color', color)
     if (tag) params.set('tag', tag)
     if (fav) params.set('favorite', '1')
-    if (minRating) params.set('min_rating', minRating)
     const r = await json('GET', `/annotations?${params}`)
     if (seq !== reqSeq.current) return
     if (r.ok) {
       setItems(r.data.annotations)
-      if (!color && !tag && !fav && !minRating) setTotal(r.data.annotations.length)
+      if (!color && !tag && !fav) setTotal(r.data.annotations.length)
     } else setError(errText(r))
   }
   useEffect(() => {
     load()
-  }, [bookId, color, tag, fav, minRating])
+  }, [bookId, color, tag, fav])
   useEffect(() => {
     loadTags()
   }, [bookId])
@@ -1341,7 +1325,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
           footer={
             <SheetFooter
               count={countsLabel}
-              onReset={() => { setColor(''); setTag(''); setFav(false); setMinRating('') }}
+              onReset={() => { setColor(''); setTag(''); setFav(false) }}
               onDone={() => onMobileFilterOpen?.(false)}
             />
           }
@@ -1368,7 +1352,6 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
                 <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
                   ♥ favourites
                 </button>
-                <MinRatingSelect value={minRating} onChange={setMinRating} />
               </div>
             </div>
             <div>
@@ -1393,7 +1376,6 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
           <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
             ♥ favourites
           </button>
-          <MinRatingSelect value={minRating} onChange={setMinRating} />
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
             <MonoLabel>{countsLabel}</MonoLabel>
             <ViewToggle value={view} onChange={setView} />

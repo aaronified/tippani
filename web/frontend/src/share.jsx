@@ -52,7 +52,6 @@ export function bookShare({
   chapter,
   location,
   date,
-  rating,
   tags,
 }) {
   return {
@@ -83,7 +82,6 @@ export function bookShare({
       },
       { id: "noted", label: "Noted", value: date || "" },
     ],
-    rating: rating || 0,
     tags: tags || [],
     note: note || "",
   };
@@ -97,7 +95,6 @@ export function movieShare({
   character,
   actor,
   timestamp,
-  rating,
   tags,
   tmdbId,
   tvdbId,
@@ -122,7 +119,6 @@ export function movieShare({
       },
       { id: "timestamp", label: "Time", value: timestamp || "" },
     ],
-    rating: rating || 0,
     tags: tags || [],
     note: note || "",
   };
@@ -136,7 +132,6 @@ function fieldsOf(share) {
     if (a.value) f.push({ id: a.id, label: a.label });
   for (const m of share.meta || [])
     if (m.value) f.push({ id: m.id, label: m.label });
-  if (share.rating) f.push({ id: "rating", label: "Rating" });
   if (share.tags && share.tags.length) f.push({ id: "tags", label: "Tags" });
   if (share.note) f.push({ id: "note", label: "Note" });
   return f;
@@ -188,7 +183,6 @@ export function buildShareText(share, selected, fmt) {
   for (const m of share.meta || [])
     if (selected[m.id] && m.value)
       meta.push((m.prefix || "") + emph(m.value, m.emphasis, fmt));
-  if (selected.rating && share.rating) meta.push("★".repeat(share.rating));
   if (meta.length) blocks.push(meta.join(" · "));
 
   if (selected.note && share.note) blocks.push(share.note);

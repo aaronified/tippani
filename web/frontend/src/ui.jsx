@@ -364,49 +364,6 @@ export function Hearts({ value, onChange }) {
   );
 }
 
-export function TiltStars({ value = 0, onChange }) {
-  // A fresh jitter per glyph, per mount — every rating row is individually inked.
-  const wobbles = useMemo(
-    () => Array.from({ length: 5 }, () => randWobble(12, 1.4)),
-    [],
-  );
-  // One animating star at a time: {i, cls} = which glyph plays which variant.
-  const [anim, setAnim] = useState({ i: -1, cls: "" });
-  return (
-    <span className="tilt-stars" aria-label={`rated ${value} of 5`}>
-      {wobbles.map((wob, i) => {
-        const n = i + 1;
-        const on = n <= value;
-        if (!onChange)
-          return (
-            <span key={n} className={on ? "on" : ""} style={wob}>
-              {on ? "★" : "☆"}
-            </span>
-          );
-        return (
-          <button
-            key={n}
-            type="button"
-            className={`${on ? "on " : ""}${anim.i === i ? anim.cls : ""}`}
-            style={wob}
-            title={n === value ? "Clear rating" : `Rate ${n}`}
-            onAnimationEnd={() => setAnim({ i: -1, cls: "" })}
-            onClick={() => {
-              if (!prefersReducedMotion())
-                setAnim({
-                  i,
-                  cls: `anim-star-${1 + Math.floor(Math.random() * 3)}`,
-                });
-              onChange(n === value ? 0 : n);
-            }}
-          >
-            {on ? "★" : "☆"}
-          </button>
-        );
-      })}
-    </span>
-  );
-}
 
 // ---- cover/poster grid size (persisted per screen; controlled from Settings) ----
 
@@ -1565,28 +1522,6 @@ export function FavoriteStar({ value, onChange }) {
   return <Hearts value={value} onChange={onChange} />;
 }
 
-export function RatingStars({ value, onChange }) {
-  return <TiltStars value={value} onChange={onChange} />;
-}
-
-// MinRatingSelect filters a list by minimum rating; '' means any.
-export function MinRatingSelect({ value, onChange }) {
-  return (
-    <Select
-      ariaLabel="Minimum rating"
-      value={String(value)}
-      onChange={(v) => onChange(v)}
-      options={[
-        ["", "Any rating"],
-        ["1", "1+"],
-        ["2", "2+"],
-        ["3", "3+"],
-        ["4", "4+"],
-        ["5", "5"],
-      ]}
-    />
-  );
-}
 
 // ColorSwatches renders the four annotation-colour dots; '' = none selected.
 export function ColorSwatches({ value, onChange }) {
@@ -1734,11 +1669,18 @@ export function SheetFooter({ count, onReset, onDone }) {
 // a recessed track with an accent fill and a mono caption, replacing the dead
 // "busy button" experience with visible movement.
 export function ProgressBar({ value, max, label }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
+  // Indeterminate when the total isn't known yet (max <= 0): show a sliding
+  // stripe so the bar is visible from the first paint — even a run that finishes
+  // in a single chunk shows movement, instead of React batching the set-then-
+  // clear into one render so the bar never appears at all.
+  const indeterminate = !(max > 0)
+  const pct = indeterminate ? 0 : Math.min(100, Math.round((value / max) * 100))
   return (
-    <div role="progressbar" aria-valuemin={0} aria-valuemax={max || 0} aria-valuenow={value} aria-label={label || 'progress'}>
+    <div role="progressbar" aria-valuemin={0} aria-valuemax={max || undefined} aria-valuenow={indeterminate ? undefined : value} aria-label={label || 'progress'}>
       <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
+        {indeterminate
+          ? <div className="progress-fill progress-indeterminate" />
+          : <div className="progress-fill" style={{ width: `${pct}%` }} />}
       </div>
       {label && <p className="microcopy mt-1">{label}</p>}
     </div>

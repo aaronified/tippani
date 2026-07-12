@@ -34,6 +34,11 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
     setBusy(true)
     setError('')
     setFlash('')
+    // Seed progress before the first request so the bar paints immediately, even
+    // when the whole library fits in one chunk (React would otherwise batch the
+    // set-then-clear into a single render and the bar would never show). total 0
+    // => indeterminate stripe until the first chunk reports the real total.
+    setProgress({ done: 0, total: 0 })
     const sum = { fetched: 0, enriched: 0, failed: 0, skipped: 0 }
     try {
       let cursor = ''
@@ -131,7 +136,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
         <ProgressBar
           value={progress.done}
           max={progress.total}
-          label={`fetching covers & metadata · ${progress.done}/${progress.total}`}
+          label={progress.total > 0
+            ? `fetching covers & metadata · ${progress.done}/${progress.total}`
+            : 'fetching covers & metadata…'}
         />
       )}
       {flash && (

@@ -279,8 +279,8 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
   const title = isBook ? parent?.title || hit.book_title : parent?.title || hit.movie_title
   const sharePayload = () =>
     isBook
-      ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), rating: row.rating, tags: row.tags })
-      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, rating: row.rating, tags: row.tags, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id })
+      ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags })
+      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, tags: row.tags, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id })
 
   return (
     <div
