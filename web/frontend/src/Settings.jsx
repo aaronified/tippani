@@ -48,6 +48,7 @@ export default function Settings({ user, onPreferences }) {
   const cards = [
     { w: user.is_admin ? 5.5 : 1.6, node: <Metadata key="meta" user={user} /> },
     { w: 3, node: <Stats key="stats" /> },
+    { w: 2.8, node: <SRSettings key="sr" user={user} onPreferences={onPreferences} /> },
     { w: 1.4, node: <Interface key="iface" user={user} onPreferences={onPreferences} /> },
   ].filter(Boolean)
   const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
@@ -97,6 +98,62 @@ function Interface({ user, onPreferences }) {
           onChange={set}
           options={[['tabs', 'Navbar'], ['menu', 'Menu']]}
         />
+      </div>
+    </Card>
+  )
+}
+
+// Slider — a labelled range that commits on release (pointer/key up), so a drag
+// is one PUT, not one per step. Mirrors its `value` prop if it changes upstream.
+function Slider({ label, min, max, step, value, unit = '', decimals = 0, onCommit }) {
+  const [v, setV] = useState(value)
+  useEffect(() => setV(value), [value])
+  const show = decimals ? v.toFixed(decimals) : String(v)
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <MonoLabel>{label}</MonoLabel>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--faint)' }}>{show}{unit}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={v} aria-label={label}
+        onChange={(e) => setV(Number(e.target.value))}
+        onPointerUp={() => onCommit(Number(Number(v).toFixed(2)))}
+        onKeyUp={() => onCommit(Number(Number(v).toFixed(2)))}
+        style={{ width: '100%', accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
+      />
+    </div>
+  )
+}
+
+// SRSettings — the spaced-repetition knobs (§3c): deck size, quiz length + scope,
+// and the half-life growth / lapse factors (kept in a deliberately narrow band).
+// Each persists via the partial-merge preferences PUT. (Review scope — books vs
+// catalogue — arrives with dialogues-in-review.)
+function SRSettings({ user, onPreferences }) {
+  const p = user.preferences || {}
+  function set(patch) {
+    onPreferences?.(patch)
+    json('PUT', '/auth/me/preferences', patch)
+  }
+  return (
+    <Card>
+      <SectionTitle>Daily review &amp; quiz</SectionTitle>
+      <div className="space-y-5">
+        <Slider label="Review cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
+        <Slider label="Quiz length" min={2} max={10} step={1} value={p.srQuizLen || 6} onCommit={(v) => set({ srQuizLen: v })} />
+        <div>
+          <MonoLabel className="mb-2 block">Quiz draws from</MonoLabel>
+          <Toggle
+            ariaLabel="Quiz scope"
+            value={p.srQuizScope || 'both'}
+            onChange={(v) => set({ srQuizScope: v })}
+            options={[['books', 'Books'], ['movies', 'Films'], ['both', 'Both']]}
+          />
+        </div>
+        <Slider label="Recall grows half-life by" min={1.5} max={4} step={0.1} value={p.srGrow || 2.5} unit="×" decimals={1} onCommit={(v) => set({ srGrow: v })} />
+        <Slider label="A lapse keeps" min={0.1} max={0.6} step={0.05} value={p.srShrink || 0.25} unit="×" decimals={2} onCommit={(v) => set({ srShrink: v })} />
+        <p className="microcopy">how far a card's memory half-life stretches when you recall it, and how much of it survives a "forgot"</p>
       </div>
     </Card>
   )

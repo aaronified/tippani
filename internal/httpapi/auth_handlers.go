@@ -203,7 +203,24 @@ var (
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
 	prefNav        = map[string]bool{"tabs": true, "menu": true}
+	srScopes       = map[string]bool{"books": true, "movies": true, "both": true}
 )
+
+// clampInt returns def when v is unset (0), else v bounded to [lo, hi].
+func clampInt(v, lo, hi, def int) int {
+	if v == 0 {
+		return def
+	}
+	return max(lo, min(v, hi))
+}
+
+// clampFloat returns def when v is unset (0), else v bounded to [lo, hi].
+func clampFloat(v, lo, hi, def float64) float64 {
+	if v == 0 {
+		return def
+	}
+	return max(lo, min(v, hi))
+}
 
 // prefs is the whole preference set. The retired "home" start-page key
 // (pre-0.4 rows may still carry it) is dropped on read and on the next PUT —
@@ -216,6 +233,16 @@ type prefs struct {
 	// "tabs" (in the navbar) or "menu" (a ⋯ overflow). The account chip is
 	// always separate. Empty on older rows; loadPrefs defaults it.
 	NavUtilities string `json:"navUtilities"`
+	// Spaced repetition (§3c), per-user with defaults + clamps applied in
+	// loadPrefs: SRDaily/SRQuizLen are 2..10; SRReviewScope/SRQuizScope are
+	// books|movies|both; SRGrow (the "got it" half-life multiplier) and SRShrink
+	// (the "forgot" retained fraction) stay in a deliberately narrow band.
+	SRDaily       int     `json:"srDaily"`
+	SRReviewScope string  `json:"srReviewScope"`
+	SRQuizLen     int     `json:"srQuizLen"`
+	SRQuizScope   string  `json:"srQuizScope"`
+	SRGrow        float64 `json:"srGrow"`
+	SRShrink      float64 `json:"srShrink"`
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
@@ -245,6 +272,16 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if !prefNav[p.NavUtilities] {
 		p.NavUtilities = "menu"
 	}
+	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
+	p.SRQuizLen = clampInt(p.SRQuizLen, 2, 10, quizDefaultQuestions)
+	if !srScopes[p.SRReviewScope] {
+		p.SRReviewScope = "both"
+	}
+	if !srScopes[p.SRQuizScope] {
+		p.SRQuizScope = "both"
+	}
+	p.SRGrow = clampFloat(p.SRGrow, 1.5, 4.0, reviewGrowth)
+	p.SRShrink = clampFloat(p.SRShrink, 0.1, 0.6, reviewLapseShrink)
 	return p, nil
 }
 
@@ -261,10 +298,16 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var in struct {
-		Aesthetic    *string `json:"aesthetic"`
-		Theme        *string `json:"theme"`
-		Accent       *string `json:"accent"`
-		NavUtilities *string `json:"navUtilities"`
+		Aesthetic     *string  `json:"aesthetic"`
+		Theme         *string  `json:"theme"`
+		Accent        *string  `json:"accent"`
+		NavUtilities  *string  `json:"navUtilities"`
+		SRDaily       *int     `json:"srDaily"`
+		SRReviewScope *string  `json:"srReviewScope"`
+		SRQuizLen     *int     `json:"srQuizLen"`
+		SRQuizScope   *string  `json:"srQuizScope"`
+		SRGrow        *float64 `json:"srGrow"`
+		SRShrink      *float64 `json:"srShrink"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -278,8 +321,29 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.Accent != nil {
 		cur.Accent = *in.Accent
 	}
+	// Optional fields: an empty/zero value means "leave unchanged", so a client
+	// PUTting only one field (or an older client omitting the newer ones) is
+	// neither rejected nor allowed to clobber the rest.
 	if in.NavUtilities != nil && *in.NavUtilities != "" {
 		cur.NavUtilities = *in.NavUtilities
+	}
+	if in.SRDaily != nil && *in.SRDaily != 0 {
+		cur.SRDaily = *in.SRDaily
+	}
+	if in.SRReviewScope != nil && *in.SRReviewScope != "" {
+		cur.SRReviewScope = *in.SRReviewScope
+	}
+	if in.SRQuizLen != nil && *in.SRQuizLen != 0 {
+		cur.SRQuizLen = *in.SRQuizLen
+	}
+	if in.SRQuizScope != nil && *in.SRQuizScope != "" {
+		cur.SRQuizScope = *in.SRQuizScope
+	}
+	if in.SRGrow != nil && *in.SRGrow != 0 {
+		cur.SRGrow = *in.SRGrow
+	}
+	if in.SRShrink != nil && *in.SRShrink != 0 {
+		cur.SRShrink = *in.SRShrink
 	}
 	switch {
 	case !prefAesthetics[cur.Aesthetic]:
@@ -293,6 +357,24 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case !prefNav[cur.NavUtilities]:
 		writeErr(w, http.StatusBadRequest, "navUtilities must be tabs or menu")
+		return
+	case cur.SRDaily < 2 || cur.SRDaily > 10:
+		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
+		return
+	case cur.SRQuizLen < 2 || cur.SRQuizLen > 10:
+		writeErr(w, http.StatusBadRequest, "srQuizLen must be between 2 and 10")
+		return
+	case !srScopes[cur.SRReviewScope]:
+		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies or both")
+		return
+	case !srScopes[cur.SRQuizScope]:
+		writeErr(w, http.StatusBadRequest, "srQuizScope must be books, movies or both")
+		return
+	case cur.SRGrow < 1.5 || cur.SRGrow > 4:
+		writeErr(w, http.StatusBadRequest, "srGrow must be between 1.5 and 4")
+		return
+	case cur.SRShrink < 0.1 || cur.SRShrink > 0.6:
+		writeErr(w, http.StatusBadRequest, "srShrink must be between 0.1 and 0.6")
 		return
 	}
 	raw, err := json.Marshal(cur)

@@ -448,7 +448,8 @@ GET    /auth/status         POST /auth/signup    # onboarding (first user only)
 POST   /auth/login          POST /auth/logout
 POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
 PUT    /auth/me                       # {username} — change your own display name
-PUT    /auth/me/preferences          # {aesthetic, theme, accent, navUtilities} partial merge (§10)
+PUT    /auth/me/preferences          # partial merge: appearance + navUtilities + spaced-repetition
+                                     # (srDaily, srQuizLen, srQuizScope, srGrow, srShrink) (§10)
 GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin only
 PATCH  /admin/users/{id}              # {is_admin} grant/revoke (last admin protected)
 GET    /admin/metadata-keys   PUT /admin/metadata-keys               # admin only (§10 note)

@@ -53,7 +53,12 @@ type quizBook struct {
 // handleQuiz builds a fresh MCQ round. GET /annotations/quiz?count=N.
 func (s *Server) handleQuiz(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
-	count := quizDefaultQuestions
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		internalError(w, r, "quiz prefs", err)
+		return
+	}
+	count := pf.SRQuizLen
 	if v := r.URL.Query().Get("count"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			count = min(n, quizMaxQuestions)
@@ -76,7 +81,7 @@ func (s *Server) handleQuiz(w http.ResponseWriter, r *http.Request) {
 	questions := []quizQuestion{}
 
 	// which-source needs at least two distinct book titles to offer a choice.
-	if len(bookByID) >= 2 {
+	if pf.SRQuizScope != "movies" && len(bookByID) >= 2 {
 		rows, err := s.Store.DB.Query(`
 			SELECT a.id, COALESCE(a.quote, ''), COALESCE(a.note, ''), a.book_id
 			FROM annotations a
@@ -117,7 +122,7 @@ func (s *Server) handleQuiz(w http.ResponseWriter, r *http.Request) {
 
 	// who-said fills the rest from dialogues that have an actor, when there are
 	// enough distinct actors to choose between.
-	if len(actors) >= 2 && len(questions) < count {
+	if pf.SRQuizScope != "books" && len(actors) >= 2 && len(questions) < count {
 		rows, err := s.Store.DB.Query(`
 			SELECT d.id, COALESCE(d.quote, ''), d.actor
 			FROM dialogues d
@@ -336,6 +341,11 @@ func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		internalError(w, r, "quiz answer prefs", err)
+		return
+	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		internalError(w, r, "quiz answer begin", err)
@@ -351,7 +361,7 @@ func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if owned {
-		if err := applyCorrectRecall(tx, req.ID); err != nil {
+		if err := applyCorrectRecall(tx, req.ID, pf.SRGrow); err != nil {
 			internalError(w, r, "quiz answer review", err)
 			return
 		}
@@ -369,7 +379,7 @@ func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
 // wrong quiz answer is not a revision and never shrinks the schedule. Unlike the
 // daily-review endpoint there is no same-day guard — a quiz is a deliberate
 // fresh attempt.
-func applyCorrectRecall(tx *sql.Tx, id int64) error {
+func applyCorrectRecall(tx *sql.Tx, id int64, grow float64) error {
 	stability := reviewMinStability
 	var lastReviewed sql.NullString
 	found := true
@@ -386,7 +396,7 @@ func applyCorrectRecall(tx *sql.Tx, id int64) error {
 			elapsed = time.Since(t).Hours() / 24
 		}
 	}
-	stability *= reviewGrowth
+	stability *= grow
 	if late := elapsed * reviewLateBonus; late > stability {
 		stability = late
 	}

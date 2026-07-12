@@ -232,7 +232,7 @@ function QuizCard() {
 
   async function start() {
     setBusy(true)
-    const r = await json('GET', '/annotations/quiz?count=6')
+    const r = await json('GET', '/annotations/quiz')
     setBusy(false)
     const items = r.ok ? r.data.questions || [] : []
     if (items.length === 0) return toast('add a few more quotes first — the quiz needs some to work with')

@@ -120,13 +120,13 @@ func (s *Server) reviewStates(uid int64) (reviewStateCounts, error) {
 
 // reviewDeckCounts returns how many cards were already touched today and how
 // many remain in today's deck (candidates capped by the unspent quota).
-func (s *Server) reviewDeckCounts(uid int64, offset int) (touched, remaining int, err error) {
+func (s *Server) reviewDeckCounts(uid int64, offset, quota int) (touched, remaining int, err error) {
 	day, _, mod := reviewDay(offset)
 	var got, forgot int
 	if err := s.Store.DB.QueryRow(reviewedToday, uid, mod, day).Scan(&touched, &got, &forgot); err != nil {
 		return 0, 0, err
 	}
-	slots := reviewQuota - touched
+	slots := quota - touched
 	if slots <= 0 {
 		return touched, 0, nil
 	}
@@ -169,6 +169,11 @@ func (s *Server) handleDailyReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		internalError(w, r, "daily review prefs", err)
+		return
+	}
 	day, seed, mod := reviewDay(offset)
 	var touched, got, forgot int
 	if err := s.Store.DB.QueryRow(reviewedToday, uid, mod, day).Scan(&touched, &got, &forgot); err != nil {
@@ -176,7 +181,7 @@ func (s *Server) handleDailyReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	items := []reviewItem{}
-	if slots := reviewQuota - touched; slots > 0 {
+	if slots := pf.SRDaily - touched; slots > 0 {
 		// Due cards first, deepest-forgotten first (elapsed/stability is
 		// monotonic in decayed recall probability — no pow() needed); unseen
 		// cards fill the rest in a shuffle that is stable within a day.
@@ -217,7 +222,7 @@ func (s *Server) handleDailyReview(w http.ResponseWriter, r *http.Request) {
 		"reviewed_today": touched,
 		"got_today":      got,
 		"forgot_today":   forgot,
-		"quota":          reviewQuota,
+		"quota":          pf.SRDaily,
 		"states":         states,
 	})
 }
@@ -252,6 +257,11 @@ func (s *Server) handleReviewAnnotation(w http.ResponseWriter, r *http.Request) 
 		offset = *req.Offset
 	}
 	uid := userID(r)
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		internalError(w, r, "review prefs", err)
+		return
+	}
 	var owned bool
 	if err := s.Store.DB.QueryRow(`
 		SELECT EXISTS(SELECT 1 FROM annotations a JOIN books b ON b.id = a.book_id
@@ -291,7 +301,7 @@ func (s *Server) handleReviewAnnotation(w http.ResponseWriter, r *http.Request) 
 	// stability (1→2.5→6.25) and double-count the tally. Treat a same-day
 	// got/forgot repeat as a no-op that echoes the stored state.
 	if found && touchedToday && req.Result != "skip" {
-		touched, remaining, err := s.reviewDeckCounts(uid, offset)
+		touched, remaining, err := s.reviewDeckCounts(uid, offset, pf.SRDaily)
 		if err != nil {
 			internalError(w, r, "review counts", err)
 			return
@@ -299,7 +309,7 @@ func (s *Server) handleReviewAnnotation(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ok": true, "result": req.Result, "stability": stability,
 			"mastery": reviewMastery(stability), "remaining": remaining,
-			"reviewed_today": touched, "quota": reviewQuota,
+			"reviewed_today": touched, "quota": pf.SRDaily,
 		})
 		return
 	}
@@ -311,13 +321,13 @@ func (s *Server) handleReviewAnnotation(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 		if req.Result == "got" {
-			stability *= reviewGrowth
+			stability *= pf.SRGrow
 			if late := elapsed * reviewLateBonus; late > stability {
 				stability = late
 			}
 			stability = min(stability, reviewMaxStability)
 		} else {
-			stability = max(stability*reviewLapseShrink, reviewMinStability)
+			stability = max(stability*pf.SRShrink, reviewMinStability)
 		}
 	}
 	if found {
@@ -349,7 +359,7 @@ func (s *Server) handleReviewAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	touched, remaining, err := s.reviewDeckCounts(uid, offset)
+	touched, remaining, err := s.reviewDeckCounts(uid, offset, pf.SRDaily)
 	if err != nil {
 		internalError(w, r, "review counts", err)
 		return
@@ -361,6 +371,6 @@ func (s *Server) handleReviewAnnotation(w http.ResponseWriter, r *http.Request) 
 		"mastery":        reviewMastery(stability),
 		"remaining":      remaining,
 		"reviewed_today": touched,
-		"quota":          reviewQuota,
+		"quota":          pf.SRDaily,
 	})
 }
