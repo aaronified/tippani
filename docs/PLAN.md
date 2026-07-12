@@ -461,8 +461,9 @@ POST   /annotations/{id}/review               # {result: got|forgot|skip, offset
                                               #   mastery + deck remaining (ROADMAP №2, DDL §3)
 GET    /annotations/quiz?count=              # mastery-weighted MCQ round: which-source (annotations)
                                               #   + who-said (dialogues w/ actor); genre distractors
-POST   /annotations/quiz/submit               # {answers:[{id,kind,correct}]} → records score, folds
-                                              #   each annotation into its review schedule
+POST   /annotations/quiz/answer               # {id,correct} → folds one annotation into its review
+                                              #   schedule as it's answered (per-answer, not batched)
+POST   /annotations/quiz/submit               # {answers:[{id,kind,correct}]} → records the round score
 GET    /annotations/quiz/stats                # {taken,total,correct,accuracy}
 DELETE /annotations/quiz/results              # flush the quiz score history
 PUT    /annotations/{id}    DELETE /annotations/{id}
@@ -484,6 +485,10 @@ GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
 GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status
 POST   /people/lookup                # {kind,name} → {links:{imdb,tmdb,tvdb,wikipedia,openlibrary}}
+POST   /people/portrait              # {kind,name} → resolve+store portrait & pin identity: actor from
+                                     #   the film's stored cast (no extra call), author via OL
+                                     #   disambiguated by their books (+Wikidata P18). {resolved,image,
+                                     #   person,links}. Best-effort; manual Photo URL (PUT /people) overrides
 GET    /metadata/status              # TMDB key source, google key set?, last book-lookup outcome
 GET    /covers/{file}                # local static (covers + posters, data/MediaCover)
 POST   /covers/refetch               # admin: re-fetch missing covers/posters (all users); chunked:

@@ -42,16 +42,18 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/img/library-paper-light.jpg" alt="Books — paper / light theme: a grid of book covers with genre filters"></td>
-    <td width="50%"><img src="docs/img/catalogue-film-dark.jpg" alt="Catalogue — film / dark theme: a grid of movie & show posters with dialogue counts"></td>
+    <td width="38%"><img src="docs/img/library-paper-light.jpg" alt="Books — paper / light theme: a grid of real book covers with genre filters"></td>
+    <td width="38%"><img src="docs/img/catalogue-film-dark.jpg" alt="Catalogue — film / dark theme: a grid of movie & show posters with dialogue counts"></td>
+    <td width="24%"><img src="docs/img/library-mobile-paper-light.jpg" alt="Books on a phone — paper / light theme: the cover grid in the mobile layout"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/img/search-film-dark.jpg" alt="Search — film / dark theme: instant FTS5 results across books, annotations, movies and dialogues"></td>
-    <td width="50%"><img src="docs/img/import-paper-light.jpg" alt="Import — paper / light theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
+    <td width="38%"><img src="docs/img/search-film-dark.jpg" alt="Search — film / dark theme: instant FTS5 results across books, annotations, movies and dialogues"></td>
+    <td width="38%"><img src="docs/img/import-paper-light.jpg" alt="Import — paper / light theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
+    <td width="24%"><img src="docs/img/home-mobile-film-dark.jpg" alt="Home on a phone — film / dark theme: the daily spaced-repetition review, quiz and library stats"></td>
   </tr>
 </table>
 
-<p align="center"><sub>Books (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light)</sub></p>
+<p align="center"><sub>Desktop — Books (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light). Mobile — Books &amp; the Home daily review (film · dark).</sub></p>
 
 ## Features
 
@@ -59,14 +61,18 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   a favourite ★, a 1–5 rating, and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
+- 🧠 **Daily review & quiz** — spaced repetition grounded in the memory research. Each highlight
+  carries a **memory half-life** and resurfaces on the **Ebbinghaus forgetting curve** (recall
+  probability `2^(−days ÷ half-life)`), so a card comes due just as you're about to forget it. Answers
+  move that half-life the **SM-2 / expanding-retrieval** way — *Got it* stretches the interval, *Forgot*
+  is a lapse (shortened, never hard-reset), *Skip* benches the card for the day — the **active-recall**
+  effect the retention studies keep confirming. A **recall quiz** turns your library into
+  multiple-choice rounds (match a quote to its book, a line to who said it) and every answer counts as a
+  revision too. Two to three minutes, no configuration, no gamification — a dot on the logo says when
+  today's deck is waiting, and a "where you stand" readout shows how many quotes are unseen / soon /
+  later / someday.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
-- 🧠 **Daily review & quiz** — a spaced-repetition ritual on the Home screen: a handful of your own
-  highlights resurface each day on a forgetting-curve schedule; *Got it · Forgot · skip* nudge each
-  one's half-life. A **recall quiz** builds multiple-choice rounds from your library — match a quote
-  to its book, or a line to who said it — and every answer counts as a revision too. Two to three
-  minutes, no configuration, no gamification — a dot on the logo says when today's deck is waiting,
-  and a "where you stand" readout shows how many quotes are unseen / soon / later / someday.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
   (daily review · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
   full-screen filter and capture sheets with a Reset · count · Done footer, 44 px touch targets,
@@ -87,15 +93,17 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   View as tiles, a list, or sortable tables; **group by** the same axes as the Library; **open any
   quote in place** to share/edit/delete; **select results** for a bulk tag or field edit — and your
   last search is remembered when you come back.
-- 🖼 **Metadata & covers** — Google Books + Open Library for books, [TMDB](https://www.themoviedb.org/)
-  + TheTVDB for films/shows, fetched **at full resolution** (TMDB originals, full-size Amazon scans,
-  hi-res Google Books renders) through an SSRF-guarded fetcher and served locally. A **Metadata
-  console** shows per-field coverage, filters by what's missing, bulk-corrects a selection, merges
-  duplicates — and "fetch missing covers & metadata" runs chunked with a **real progress bar**.
-- 👤 **People link out** — click any author or actor name and a small menu opens with their
-  **IMDb · TMDB · TheTVDB · Wikipedia · Open Library** pages, resolved automatically on first
-  open. A People console under Metadata manages the links for everyone in your library (with bulk
-  fetch); optional per-person bio/photo lives one tap deeper and powers the group-by portraits.
+- 🖼 **Metadata & covers** — books from Google Books + Open Library, films and shows from
+  [TMDB](https://www.themoviedb.org/) + TheTVDB. Covers, posters and portraits are fetched at full
+  resolution through an SSRF-guarded fetcher and served locally, never hotlinked. A **Metadata
+  console** shows per-field coverage, filters by what's missing, bulk-corrects a selection, and merges
+  duplicates; "fetch missing covers & metadata" runs in chunks behind a **real progress bar**.
+- 👤 **People** — click any author or actor name for a menu of their **IMDb · TMDB · TheTVDB ·
+  Wikipedia · Open Library** pages, resolved automatically on first open. **Portraits are fetched
+  automatically too**, and matched to the right person — an actor from the film's own cast, an author
+  from Open Library cross-checked against the books they wrote, so a same-name namesake isn't picked
+  by mistake. They power the group-by headings; a per-person bio lives one tap deeper, and you can
+  always paste your own photo. A People console under Metadata manages everyone in your library.
 - 🔐 **Multi-user** — per-user isolated libraries, first-run admin onboarding, in-app user
   management, bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
@@ -103,8 +111,11 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — Kindle `My Clippings.txt` import and opt-in AI summaries
-> (OpenAI-compatible + NTFY). See [`ROADMAP.md`](ROADMAP.md).
+> **Roadmap** — Kindle `My Clippings.txt` import; force-fetch & re-verify metadata (review before
+> apply); opt-in AI summaries (OpenAI-compatible) with push notifications (NTFY, likely via a
+> multi-service notifier such as [Shoutrrr](https://containrrr.dev/shoutrrr/), with high/urgent
+> priority); and a [Homepage](https://gethomepage.dev) dashboard widget (pending reviews, quiz
+> scores, library counts). See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)
 
@@ -196,8 +207,14 @@ make build       # re-embed
 | `TIPPANI_DATA` | `./data` | Data dir (SQLite DB + downloaded covers/posters) |
 | `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app |
 | `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` for login rate limiting |
-| `TIPPANI_TVDB_API_KEY` | *(none)* | TheTVDB v4 key for show lookups; overrides a key saved in Settings. Optional — TMDB alone covers most catalogues |
-| *TMDB API key* | *(none)* | **Configured in-app**, not via env: sign in → Settings → metadata keys, and paste a v3 key or v4 read token from [themoviedb.org](https://www.themoviedb.org/settings/api). There is also an optional built-in key slot (`defaultTMDBKey` in [`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently empty**, so until a key is saved (or that constant is filled) movie lookup answers 503 and manual movie entry still works. Everything else works with no key |
+
+**Metadata API keys — TMDB, TheTVDB, Google Books — are configured in the app**, not via environment:
+sign in → **Settings → metadata keys**, and paste a TMDB v3 key or v4 read token from
+[themoviedb.org](https://www.themoviedb.org/settings/api) (TheTVDB and Google Books keys are optional —
+TMDB alone covers most catalogues). There is also an optional built-in TMDB slot (`defaultTMDBKey` in
+[`cmd/tippani/main.go`](cmd/tippani/main.go)) for shipping a Jellyfin-style shared app key — **currently
+empty**, so until a key is saved (or that constant is filled) movie lookup answers `503` and manual
+entry still works. Everything else works with no key.
 
 Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.service)):
 `GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200`.

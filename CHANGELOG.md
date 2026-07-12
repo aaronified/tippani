@@ -7,12 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-12
+
 ### Added
+- **Automatic author & actor portraits, with correct-person disambiguation.** Photos are now fetched
+  on demand from the library's own catalogue instead of only pasted by hand: an **actor** from the
+  film's stored cast — the supplier's person id + headshot are now captured in the credits call the
+  movie fetch already makes, so resolving a portrait costs **no extra API call** — and an **author**
+  via Open Library, disambiguated by the books they actually wrote so a same-name namesake is no longer
+  fetched (e.g. the wrong "David Reich"), with a Wikidata P18 photo fallback. The resolved identity is
+  pinned on the person (`people.source_id`) so it can't re-drift, an author's reference links come from
+  that same identity, and the manual Photo URL field still overrides. New `POST /people/portrait`; hosts
+  `commons.wikimedia.org` + `upload.wikimedia.org` added to the cover allowlist for P18 images.
+- **Book lookup matches on title _and_ author.** `/books/lookup` now takes an optional author and queries
+  Google Books (`intitle:… inauthor:…`) and Open Library (`title=&author=`) accordingly, then ranks the
+  merged candidates by title+author similarity — so the edition you meant sorts above box-sets, study
+  guides and foreign reprints a title-only search surfaced first. Author-scoping falls back to title-only
+  if it over-constrains, and cover re-fetch passes the stored author too.
 - **Recall quiz** (roadmap №2): a Home quiz card builds mastery-weighted MCQ rounds from your own
   library — match a quote to its book (genre-preferring distractors) or a line to its actor; each
-  answer counts as a revision, and a running score can be cleared
-  (`GET /annotations/quiz`, `POST /annotations/quiz/submit`, `/quiz/stats`, `DELETE /quiz/results`;
-  migration 0014 `quiz_results`)
+  answer is folded into its review schedule the moment it's given (so an abandoned round still
+  credits what you answered), and a running score can be cleared
+  (`GET /annotations/quiz`, `POST /annotations/quiz/answer`, `POST /annotations/quiz/submit`,
+  `/quiz/stats`, `DELETE /quiz/results`; migration 0014 `quiz_results`)
 - **Revision-state readout** on the Daily Review card (unseen / soon / later / someday) with a
   "how these work" explainer linking the forgetting-curve and spaced-repetition research
 - **Full-screen cover inspector**: tap a book cover / movie poster on its detail page to view it
@@ -87,6 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SSRF allowlist); TheTVDB posters never stored (`artworks.thetvdb.com` missing from the allowlist)
 - Mobile annotation cards overflowing the viewport; sticky page bar floating below the top of
   the screen; five nav tabs now fit a 320 px viewport
+- Settings → Users showed every user's initial instead of their uploaded profile photo
+  (the admin user list never returned `avatar_path`)
 
 ## [0.3.1] - 2026-07-07
 
