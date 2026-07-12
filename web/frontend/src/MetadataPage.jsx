@@ -1049,30 +1049,43 @@ export function PeopleConsole({ onFlash }) {
     const s = q.trim().toLowerCase()
     return (rows || []).filter((p) => !s || p.name.toLowerCase().includes(s))
   }, [rows, q])
-  const missing = shown.filter((p) => Object.keys(parseLinks(p.links).known).length === 0)
+  // A row still needs work if it has no provider links OR no stored photo.
+  const noLinks = (p) => Object.keys(parseLinks(p.links).known).length === 0
+  const missing = shown.filter((p) => noLinks(p) || !p.has_image)
 
-  // fetchOne: lookup → merge into the saved row (bio/born untouched) → PUT.
-  // Returns an error string or null, like the form handlers do.
+  // fetchOne resolves the RIGHT person (book/credits disambiguation), fetches
+  // their portrait and pins the identity via POST /people/portrait, then merges
+  // the identity-resolved links into the row (bio/born untouched). Returns an
+  // error string or null, like the form handlers do. This is what makes the
+  // console pick the correct namesake — the old /people/lookup ranked by work
+  // count and grabbed the wrong "David Reich".
   async function fetchOne(p) {
-    const r = await json('POST', '/people/lookup', { kind, name: p.name })
+    const r = await json('POST', '/people/portrait', { kind, name: p.name })
     if (!r.ok) return errText(r)
-    let existing = null
-    if (p.saved) {
-      const g = await json('GET', `/people?${new URLSearchParams({ kind, name: p.name })}`)
-      if (g.ok && g.data.exists) existing = g.data.person
+    const cur = r.data.person && r.data.person.id ? r.data.person : null
+    // Prefer the links the portrait resolved from the same identity; fall back to
+    // a plain lookup (e.g. actors, or an author with no confident match).
+    let linksMap = r.data.links && Object.keys(r.data.links).length ? r.data.links : null
+    if (!linksMap) {
+      const l = await json('POST', '/people/lookup', { kind, name: p.name })
+      if (l.ok) linksMap = l.data.links
     }
-    const merged = mergeLinks(existing?.links ?? p.links, r.data.links)
-    if (!merged) return 'no reference pages found'
-    const s = await json('PUT', '/people', {
-      kind,
-      name: p.name,
-      bio: existing?.bio || '',
-      born: existing?.born || '',
-      links: merged,
-      source: existing?.source || 'lookup',
-      source_id: existing?.source_id || '',
-    })
-    return s.ok ? null : errText(s)
+    const merged = mergeLinks(cur?.links ?? p.links, linksMap)
+    // The portrait may have stored an image even when there are no links — only
+    // the link save is conditional; a clean run still counts as success.
+    if (merged && merged !== (cur?.links ?? p.links ?? '')) {
+      const s = await json('PUT', '/people', {
+        kind,
+        name: p.name,
+        bio: cur?.bio || '',
+        born: cur?.born || '',
+        links: merged,
+        source: cur?.source || 'portrait',
+        source_id: cur?.source_id || '',
+      })
+      if (!s.ok) return errText(s)
+    }
+    return null
   }
 
   async function fetchRow(p) {
@@ -1100,7 +1113,7 @@ export function PeopleConsole({ onFlash }) {
       setBulk({ done, total: missing.length })
     })
     setBulk(null)
-    onFlash(`people links: ${missing.length - failed} fetched · ${failed} failed${firstErr ? ` (${firstErr})` : ''}`)
+    onFlash(`people: ${missing.length - failed} fetched · ${failed} failed${firstErr ? ` (${firstErr})` : ''}`)
     load()
   }
 
@@ -1117,16 +1130,17 @@ export function PeopleConsole({ onFlash }) {
           ))}
           <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
           <GhostButton disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
-            Fetch missing links{missing.length > 0 ? ` (${missing.length})` : ''}
+            Fetch missing{missing.length > 0 ? ` (${missing.length})` : ''}
           </GhostButton>
         </div>
       </div>
       <p className="microcopy">
-        external reference pages — IMDb · TMDB · TheTVDB · Wikipedia · Open Library. This is the menu
-        behind every clickable name; actor lookups need a TMDB key (Settings).
+        photos + reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library), matched to the
+        right person — an author by the books they wrote, an actor from the film's cast. Actor photos
+        and links need a TMDB key (Settings); author photos are keyless.
       </p>
       <ErrorText>{err}</ErrorText>
-      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={`fetching links · ${bulk.done}/${bulk.total}`} />}
+      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={`fetching photos & links · ${bulk.done}/${bulk.total}`} />}
       {!rows ? (
         <EmptyState>loading…</EmptyState>
       ) : shown.length === 0 ? (
@@ -1144,11 +1158,16 @@ export function PeopleConsole({ onFlash }) {
             <tbody>
               {shown.map((p) => (
                 <tr key={p.name}>
-                  <td>{p.name}</td>
+                  <td>
+                    {p.name}
+                    {p.has_image && (
+                      <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title="photo saved">· photo</span>
+                    )}
+                  </td>
                   <td><ProviderChips links={p.links} /></td>
                   <td className="col-actions">
                     <button className="tp-link" disabled={busyName === p.name || !!bulk} onClick={() => fetchRow(p)}>
-                      {busyName === p.name ? 'fetching…' : Object.keys(parseLinks(p.links).known).length > 0 ? 'refetch' : 'fetch links'}
+                      {busyName === p.name ? 'fetching…' : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image) ? 'refetch' : 'fetch'}
                     </button>
                   </td>
                 </tr>

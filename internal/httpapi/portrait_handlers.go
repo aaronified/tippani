@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -51,30 +52,10 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 
-	var source, sourceID, imageURL string
-	// links are the reference pages resolved from the SAME confident identity — so
-	// an author's links (Open Library + Wikipedia) can't point at a namesake
-	// either. Empty for actors, whose links still come from POST /people/lookup.
-	links := map[string]string{}
-	if req.Kind == "actor" {
-		source, sourceID, imageURL = s.actorPortraitFromCast(uid, req.Name)
-	} else {
-		titles, err := s.authorBookTitles(uid, req.Name)
-		if err != nil {
-			internalError(w, r, "portrait book titles", err)
-			return
-		}
-		res, rerr := s.resolveAuthor(r.Context(), req.Name, titles)
-		if rerr != nil {
-			writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
-			return
-		}
-		if res.Key != "" {
-			source, sourceID, imageURL = "openlibrary", res.Key, res.ImageURL
-			if res.Links != nil {
-				links = res.Links
-			}
-		}
+	source, sourceID, imageURL, links, rerr := s.resolvePersonPortrait(r.Context(), uid, req.Kind, req.Name)
+	if rerr != nil {
+		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
+		return
 	}
 
 	// Download the portrait through the API-host allowlist (image.tmdb.org,
@@ -128,6 +109,36 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 		"person":   p,
 		"links":    links,
 	})
+}
+
+// resolvePersonPortrait resolves a person's portrait, stable identity and
+// reference links from the library's own catalogue: an actor from the film's
+// stored cast (no external call), an author via Open Library disambiguated by
+// the books they wrote, with a Wikidata fallback. Best-effort — empty
+// source/imageURL means nothing confident was found. A non-nil err is only a
+// hard author-lookup failure (the caller surfaces it as 502); actor resolution
+// never errors. Shared by the portrait endpoint and the bulk refetch.
+func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, name string) (source, sourceID, imageURL string, links map[string]string, err error) {
+	links = map[string]string{}
+	if kind == "actor" {
+		source, sourceID, imageURL = s.actorPortraitFromCast(uid, name)
+		return source, sourceID, imageURL, links, nil
+	}
+	titles, terr := s.authorBookTitles(uid, name)
+	if terr != nil {
+		return "", "", "", links, terr
+	}
+	res, rerr := s.resolveAuthor(ctx, name, titles)
+	if rerr != nil {
+		return "", "", "", links, rerr
+	}
+	if res.Key != "" {
+		source, sourceID, imageURL = "openlibrary", res.Key, res.ImageURL
+		if res.Links != nil {
+			links = res.Links
+		}
+	}
+	return source, sourceID, imageURL, links, nil
 }
 
 // actorPortraitFromCast finds an actor's portrait + supplier identity in the

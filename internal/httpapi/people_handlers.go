@@ -223,10 +223,11 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	rows.Close()
 
 	type nameRow struct {
-		Name  string `json:"name"`
-		Saved bool   `json:"saved"`
-		ID    int64  `json:"id,omitempty"`
-		Links string `json:"links"`
+		Name     string `json:"name"`
+		Saved    bool   `json:"saved"`
+		ID       int64  `json:"id,omitempty"`
+		Links    string `json:"links"`
+		HasImage bool   `json:"has_image"` // a portrait is stored — lets the console flag who still needs one
 	}
 	byName := map[string]*nameRow{}
 	for _, n := range referenced {
@@ -235,22 +236,22 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	// Saved rows fold in (and appear even when no longer referenced, so stale
 	// metadata stays visible and deletable from the console).
 	prows, err := s.Store.DB.Query(
-		`SELECT id, name, links FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
+		`SELECT id, name, links, image_path FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 	for prows.Next() {
 		var id int64
-		var name, links string
-		if prows.Scan(&id, &name, &links) != nil {
+		var name, links, image string
+		if prows.Scan(&id, &name, &links, &image) != nil {
 			continue
 		}
 		key := strings.ToLower(name)
 		if row, ok := byName[key]; ok {
-			row.Saved, row.ID, row.Links = true, id, links
+			row.Saved, row.ID, row.Links, row.HasImage = true, id, links, image != ""
 		} else {
-			byName[key] = &nameRow{Name: name, Saved: true, ID: id, Links: links}
+			byName[key] = &nameRow{Name: name, Saved: true, ID: id, Links: links, HasImage: image != ""}
 		}
 	}
 	prows.Close()

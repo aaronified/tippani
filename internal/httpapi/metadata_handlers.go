@@ -355,6 +355,13 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		lowRes := b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
 		if b.cover == "" || lowRes {
 			var urls []string
+			// Amazon's ISBN-10 image CDN is keyless and serves the full-size
+			// scan — the best-quality source, so try it first. A book Amazon
+			// doesn't stock returns a tiny placeholder the size floor rejects,
+			// so it harmlessly falls through to the next source.
+			if isbnN != "" {
+				urls = append(urls, metadata.AmazonCoverByISBN(isbnN))
+			}
 			if b.cachedURL != "" {
 				urls = append(urls, metadata.AmazonFullSizeImage(metadata.GoogleHiResCover(b.cachedURL)))
 			}

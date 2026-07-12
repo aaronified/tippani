@@ -157,8 +157,10 @@ func TestQuiz(t *testing.T) {
 		t.Fatal(err)
 	}
 	bob := addUser(t, h, c, "bob")
+	// correct:true so the ownership guard is what stops the write (a wrong answer
+	// would no-op regardless), proving bob can't touch admin's review row.
 	bob.mustDo("POST", "/annotations/quiz/answer",
-		map[string]any{"id": oneAnn, "correct": false}, 200)
+		map[string]any{"id": oneAnn, "correct": true}, 200)
 	var after float64
 	if err := srv.Store.DB.QueryRow(`SELECT stability FROM annotation_reviews WHERE annotation_id = ?`, oneAnn).Scan(&after); err != nil {
 		t.Fatal(err)

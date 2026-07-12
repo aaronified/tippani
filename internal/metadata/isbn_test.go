@@ -27,3 +27,18 @@ func TestNormalizeISBN(t *testing.T) {
 		}
 	}
 }
+
+func TestISBN13to10(t *testing.T) {
+	cases := map[string]string{
+		"9780441172719": "0441172717", // Dune (Ace) — recomputed check digit
+		"9780306406157": "0306406152", // Fooled by Randomness
+		"9791090636071": "",           // 979 prefix has no ISBN-10 form
+		"978044117271":  "",           // too short
+		"":              "",           // empty
+	}
+	for in, want := range cases {
+		if got := ISBN13to10(in); got != want {
+			t.Errorf("ISBN13to10(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

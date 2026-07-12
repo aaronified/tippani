@@ -249,11 +249,12 @@ function QuizCard() {
     const q = qs[i]
     const correct = idx === q.answer
     setAnswers((a) => [...a, { id: q.id, kind: q.kind, correct }])
-    // Fold this answer into its review schedule right now — the quiz feeds the
-    // same memory model as the daily review. Annotations only (dialogues aren't
-    // in the schedule); fire-and-forget, the round's score still records at
-    // submit even if this one drops.
-    if (q.kind === 'ann') json('POST', '/annotations/quiz/answer', { id: q.id, correct })
+    // A CORRECT annotation recall folds into the review schedule right now — the
+    // quiz feeds the same memory model as the daily review, and only a correct
+    // answer counts as a revision. Annotations only (dialogues aren't in the
+    // schedule); a miss doesn't touch the schedule. Fire-and-forget; the round's
+    // score still records at submit regardless.
+    if (correct && q.kind === 'ann') json('POST', '/annotations/quiz/answer', { id: q.id, correct: true })
   }
 
   async function next() {
@@ -289,7 +290,7 @@ function QuizCard() {
       {phase === 'idle' && (
         <div className="review-card-body">
           <p className="microcopy mb-3">
-            match a quote to its book, or a line to who said it — every answer counts as a revision too.
+            match a quote to its book, or a line to who said it — every one you get right counts as a revision too.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
@@ -363,7 +364,7 @@ function QuizCard() {
             {roundScore} / {answers.length}
           </p>
           <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
-            {roundScore === answers.length ? 'perfect round' : 'counted toward your revisions'}
+            {roundScore === answers.length ? 'perfect round — all counted as revisions' : 'correct answers counted as revisions'}
           </p>
           <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
             Another round

@@ -9,11 +9,12 @@ package httpapi
 //                  that have an actor tagged). Distractors are other actors.
 //
 // Questions are drawn mastery-weighted: unseen / low-stability annotations are
-// likeliest, well-revised ones progressively rarer. Each answer counts as a
+// likeliest, well-revised ones progressively rarer. A CORRECT answer counts as a
 // revision, folded into the schedule the moment it's given (handleQuizAnswer) —
-// a correct answer nudges the annotation's half-life up, a wrong one down — so
-// the quiz and the daily review share one memory model, and an abandoned round
-// still credits the questions the user actually answered. Scores are recorded
+// it nudges the annotation's half-life up; a wrong answer is a no-op that never
+// shrinks the schedule — so the quiz and the daily review share one memory
+// model, and an abandoned round still credits what the user got right. Scores
+// are recorded
 // per completed round (quiz_results, migration 0014) and the user can flush them.
 
 import (
@@ -314,18 +315,24 @@ func (s *Server) handleQuizSubmit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "total": total, "correct": correct, "stats": stats})
 }
 
-// handleQuizAnswer folds a single quiz answer into its review schedule the
-// moment it's given, so the quiz and the daily review share one memory model
+// handleQuizAnswer folds a single CORRECT quiz recall into its review schedule
+// the moment it's given, so the quiz and the daily review share one memory model
 // even for a round the user never finishes. POST /annotations/quiz/answer with
-// {"id","correct"}. Only annotation questions reach here — dialogues aren't in
-// the schedule, so the client doesn't call it for them. An id the caller
-// doesn't own is a silent no-op: like a missing one, it can't be probed.
+// {"id","correct"}. Only a correct answer counts as a revision — a wrong one is
+// a no-op that must not nudge (or penalise) the schedule. Only annotation
+// questions reach here — dialogues aren't in the schedule, so the client doesn't
+// call it for them. An id the caller doesn't own is a silent no-op: like a
+// missing one, it can't be probed.
 func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID      int64 `json:"id"`
 		Correct bool  `json:"correct"`
 	}
 	if !decodeBody(w, r, &req) {
+		return
+	}
+	if !req.Correct { // a wrong recall is not a revision
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
 	uid := userID(r)
@@ -344,7 +351,7 @@ func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if owned {
-		if err := applyReviewOutcome(tx, req.ID, req.Correct); err != nil {
+		if err := applyCorrectRecall(tx, req.ID); err != nil {
 			internalError(w, r, "quiz answer review", err)
 			return
 		}
@@ -356,16 +363,13 @@ func (s *Server) handleQuizAnswer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// applyReviewOutcome nudges an annotation's memory half-life the SM-2 way — a
-// correct recall grows it (crediting elapsed time), a miss shrinks it without a
-// hard reset — creating the review row on first sight. Called per answer by
-// handleQuizAnswer; unlike the daily-review endpoint it carries no same-day
-// guard, because a quiz is always a deliberate fresh attempt.
-func applyReviewOutcome(tx *sql.Tx, id int64, correct bool) error {
-	result := "forgot"
-	if correct {
-		result = "got"
-	}
+// applyCorrectRecall credits a correct quiz recall against the annotation's
+// memory half-life the SM-2 way — grows it (crediting elapsed time, capped),
+// creating the review row on first sight. Only correct recalls reach here: a
+// wrong quiz answer is not a revision and never shrinks the schedule. Unlike the
+// daily-review endpoint there is no same-day guard — a quiz is a deliberate
+// fresh attempt.
+func applyCorrectRecall(tx *sql.Tx, id int64) error {
 	stability := reviewMinStability
 	var lastReviewed sql.NullString
 	found := true
@@ -382,27 +386,20 @@ func applyReviewOutcome(tx *sql.Tx, id int64, correct bool) error {
 			elapsed = time.Since(t).Hours() / 24
 		}
 	}
-	if correct {
-		stability *= reviewGrowth
-		if late := elapsed * reviewLateBonus; late > stability {
-			stability = late
-		}
-		stability = min(stability, reviewMaxStability)
-	} else {
-		stability = max(stability*reviewLapseShrink, reviewMinStability)
+	stability *= reviewGrowth
+	if late := elapsed * reviewLateBonus; late > stability {
+		stability = late
 	}
+	stability = min(stability, reviewMaxStability)
 	if found {
-		q := `UPDATE annotation_reviews SET stability = ?, review_count = review_count + 1,
-		      last_result = ?, last_reviewed_at = datetime('now'), last_touched_at = datetime('now')`
-		if !correct {
-			q += `, lapse_count = lapse_count + 1`
-		}
-		_, err = tx.Exec(q+` WHERE annotation_id = ?`, stability, result, id)
+		_, err = tx.Exec(`UPDATE annotation_reviews SET stability = ?, review_count = review_count + 1,
+		                  last_result = 'got', last_reviewed_at = datetime('now'), last_touched_at = datetime('now')
+		                  WHERE annotation_id = ?`, stability, id)
 	} else {
 		_, err = tx.Exec(`INSERT INTO annotation_reviews (annotation_id, stability, review_count, lapse_count,
 		                  last_result, last_reviewed_at, last_touched_at)
-		                  VALUES (?, ?, 1, ?, ?, datetime('now'), datetime('now'))`,
-			id, stability, boolToInt(!correct), result)
+		                  VALUES (?, ?, 1, 0, 'got', datetime('now'), datetime('now'))`,
+			id, stability)
 	}
 	return err
 }

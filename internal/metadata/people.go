@@ -185,7 +185,147 @@ func ResolveAuthor(ctx context.Context, name string, bookTitles []string) (Autho
 			res.ImageURL = WikidataImageURL(ctx, qid)
 		}
 	}
+	// Sparse Open Library record (no wikidata link → no Wikipedia link and no P18
+	// photo, e.g. David Reich): anchor on the book to find the author's Wikidata
+	// identity directly. A bare name search would risk a namesake; the work's
+	// author (P50) is unambiguous.
+	if res.WikidataQID == "" {
+		if wqid, wiki, img := authorWikidataViaBook(ctx, name, bookTitles); wqid != "" {
+			res.WikidataQID = wqid
+			if wiki != "" {
+				res.Links["wikipedia"] = wiki
+			}
+			if res.ImageURL == "" {
+				res.ImageURL = img
+			}
+		}
+	}
 	return res, nil
+}
+
+// authorWikidataViaBook resolves an author's Wikidata identity by anchoring on a
+// book they wrote — the reliable path when Open Library is sparse and a bare
+// name search would hit a namesake (there are several "David Reich"s). It
+// searches Wikidata for a book title, reads the work's author (P50), and accepts
+// that author only when its label carries the queried surname. Returns the QID,
+// English Wikipedia URL and P18 image URL (any may be ""). Best-effort.
+func authorWikidataViaBook(ctx context.Context, name string, bookTitles []string) (qid, wiki, imageURL string) {
+	surname := normalizeWork(lastWord(name))
+	for i, bt := range bookTitles {
+		if i >= 2 { // bound the fan-out
+			break
+		}
+		for j, bookQ := range wikidataSearchItems(ctx, bt) {
+			if j >= 4 {
+				break
+			}
+			aq := wikidataItemClaim(ctx, bookQ, "P50") // work → author
+			if aq == "" {
+				continue
+			}
+			label, w := wikidataLabelWiki(ctx, aq)
+			if label == "" {
+				continue
+			}
+			if surname != "" && strings.Contains(normalizeWork(label), surname) {
+				return aq, w, WikidataImageURL(ctx, aq)
+			}
+		}
+	}
+	return "", "", ""
+}
+
+func lastWord(s string) string {
+	f := strings.Fields(strings.TrimSpace(s))
+	if len(f) == 0 {
+		return ""
+	}
+	return f[len(f)-1]
+}
+
+// wikidataSearchItems returns candidate item QIDs for a free-text query.
+func wikidataSearchItems(ctx context.Context, query string) []string {
+	q := url.Values{"action": {"wbsearchentities"}, "search": {query}, "language": {"en"}, "type": {"item"}, "limit": {"5"}, "format": {"json"}}
+	body, status, err := httpGet(ctx, wikidataBase+"/w/api.php?"+q.Encode(), "")
+	if err != nil || status != 200 {
+		return nil
+	}
+	var r struct {
+		Search []struct {
+			ID string `json:"id"`
+		} `json:"search"`
+	}
+	if json.Unmarshal(body, &r) != nil {
+		return nil
+	}
+	out := make([]string, 0, len(r.Search))
+	for _, s := range r.Search {
+		if s.ID != "" {
+			out = append(out, s.ID)
+		}
+	}
+	return out
+}
+
+// wikidataItemClaim returns the first item-id value of a wikibase-item property
+// (e.g. P50 author) on an entity, or "".
+func wikidataItemClaim(ctx context.Context, entity, property string) string {
+	q := url.Values{"action": {"wbgetclaims"}, "entity": {entity}, "property": {property}, "format": {"json"}}
+	body, status, err := httpGet(ctx, wikidataBase+"/w/api.php?"+q.Encode(), "")
+	if err != nil || status != 200 {
+		return ""
+	}
+	var r struct {
+		Claims map[string][]struct {
+			Mainsnak struct {
+				DataValue struct {
+					Value struct {
+						ID string `json:"id"`
+					} `json:"value"`
+				} `json:"datavalue"`
+			} `json:"mainsnak"`
+		} `json:"claims"`
+	}
+	if json.Unmarshal(body, &r) != nil {
+		return ""
+	}
+	if cs, ok := r.Claims[property]; ok && len(cs) > 0 {
+		return cs[0].Mainsnak.DataValue.Value.ID
+	}
+	return ""
+}
+
+// wikidataLabelWiki returns an entity's English label and English Wikipedia URL
+// (either may be "") from the EntityData JSON.
+func wikidataLabelWiki(ctx context.Context, qid string) (label, wiki string) {
+	body, status, err := httpGet(ctx, wikidataBase+"/wiki/Special:EntityData/"+url.PathEscape(qid)+".json", "")
+	if err != nil || status != 200 {
+		return "", ""
+	}
+	var r struct {
+		Entities map[string]struct {
+			Labels map[string]struct {
+				Value string `json:"value"`
+			} `json:"labels"`
+			Sitelinks map[string]struct {
+				Title string `json:"title"`
+			} `json:"sitelinks"`
+		} `json:"entities"`
+	}
+	if json.Unmarshal(body, &r) != nil {
+		return "", ""
+	}
+	e, ok := r.Entities[qid]
+	if !ok {
+		return "", ""
+	}
+	if l, ok := e.Labels["en"]; ok {
+		label = l.Value
+	}
+	if s, ok := e.Sitelinks["enwiki"]; ok && s.Title != "" {
+		wiki = "https://en.wikipedia.org/wiki/" + url.PathEscape(strings.ReplaceAll(s.Title, " ", "_"))
+	}
+	return label, wiki
 }
 
 // searchAuthors returns Open Library author-search candidates for a name.

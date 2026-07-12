@@ -11,8 +11,15 @@ func TestHiResImageURLs(t *testing.T) {
 	if got := TMDBPosterURL(""); got != "" {
 		t.Errorf("TMDBPosterURL(\"\") = %q, want empty", got)
 	}
-	if got, want := AmazonCoverURL("B00X"), "https://images-na.ssl-images-amazon.com/images/P/B00X.01.jpg"; got != want {
-		t.Errorf("AmazonCoverURL = %q, want modifier-less original %q", got, want)
+	if got, want := AmazonCoverURL("B00X"), "https://images-na.ssl-images-amazon.com/images/P/B00X.01._SCLZZZZZZZ_.jpg"; got != want {
+		t.Errorf("AmazonCoverURL = %q, want the _SCLZZZZZZZ_ largest-scan variant %q", got, want)
+	}
+	// ISBN-13 -> the ISBN-10 Amazon indexes covers by, same largest-scan variant.
+	if got, want := AmazonCoverByISBN("9780441172719"), "https://images-na.ssl-images-amazon.com/images/P/0441172717.01._SCLZZZZZZZ_.jpg"; got != want {
+		t.Errorf("AmazonCoverByISBN = %q, want %q", got, want)
+	}
+	if got := AmazonCoverByISBN("9791090636071"); got != "" { // 979 has no ISBN-10
+		t.Errorf("AmazonCoverByISBN(979…) = %q, want empty", got)
 	}
 
 	amazonCases := map[string]string{
@@ -54,6 +61,8 @@ func TestAllowedCoverHosts(t *testing.T) {
 		"books.googleusercontent.com",
 		"images-na.ssl-images-amazon.com",
 		"m.media-amazon.com",
+		"commons.wikimedia.org",
+		"upload.wikimedia.org",
 		"archive.org",
 		"ia800100.us.archive.org",
 		"ia601604.us.archive.org",

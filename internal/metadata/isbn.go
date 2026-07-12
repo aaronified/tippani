@@ -30,6 +30,26 @@ func NormalizeISBN(s string) string {
 	return ""
 }
 
+// ISBN13to10 converts a 978-prefixed ISBN-13 back to its ISBN-10 — the form
+// Amazon's image CDN indexes print-book covers by (an ISBN-10 doubles as the
+// print ASIN). Returns "" for 979-prefixed or malformed input. Input should be
+// a normalized 13-digit ISBN (see NormalizeISBN).
+func ISBN13to10(isbn13 string) string {
+	if len(isbn13) != 13 || !allDigits(isbn13) || isbn13[:3] != "978" {
+		return ""
+	}
+	core := isbn13[3:12] // the 9 significant digits
+	sum := 0
+	for i := 0; i < 9; i++ {
+		sum += int(core[i]-'0') * (10 - i)
+	}
+	check := (11 - sum%11) % 11
+	if check == 10 {
+		return core + "X"
+	}
+	return core + string(rune('0'+check))
+}
+
 func allDigits(s string) bool {
 	for _, r := range s {
 		if r < '0' || r > '9' {

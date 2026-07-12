@@ -155,6 +155,68 @@ func TestResolveAuthorWikidataPhotoFallback(t *testing.T) {
 	}
 }
 
+// When Open Library is sparse (no photo, no wikidata link) — the David Reich
+// case — ResolveAuthor anchors on the book to reach Wikidata: the work's author
+// (P50) gives the correct person (not a namesake), then P18 + enwiki.
+func TestResolveAuthorBookWikidataFallback(t *testing.T) {
+	ol := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/authors.json":
+			// Two namesakes; the wrong one is more published.
+			_, _ = w.Write([]byte(`{"docs":[
+				{"key":"OL_WRONG","name":"David Reich","work_count":40},
+				{"key":"OL_RIGHT","name":"David Reich","work_count":2}
+			]}`))
+		case "/authors/OL_WRONG/works.json":
+			_, _ = w.Write([]byte(`{"entries":[{"title":"You Could Lose an Eye"}]}`))
+		case "/authors/OL_RIGHT/works.json":
+			_, _ = w.Write([]byte(`{"entries":[{"title":"Who We Are and How We Got Here"}]}`))
+		case "/authors/OL_RIGHT.json":
+			// Sparse: no photo, no wikidata remote id.
+			_, _ = w.Write([]byte(`{"photos":[],"remote_ids":{}}`))
+		default:
+			t.Errorf("unexpected OL path %s", r.URL.Path)
+		}
+	}))
+	defer ol.Close()
+	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case r.URL.Path == "/w/api.php" && q.Get("action") == "wbsearchentities":
+			_, _ = w.Write([]byte(`{"search":[{"id":"Q_BOOK"}]}`))
+		case r.URL.Path == "/w/api.php" && q.Get("action") == "wbgetclaims" && q.Get("property") == "P50":
+			_, _ = w.Write([]byte(`{"claims":{"P50":[{"mainsnak":{"datavalue":{"value":{"id":"Q_AUTHOR"}}}}]}}`))
+		case r.URL.Path == "/w/api.php" && q.Get("action") == "wbgetclaims" && q.Get("property") == "P18":
+			_, _ = w.Write([]byte(`{"claims":{"P18":[{"mainsnak":{"datavalue":{"value":"David Reich.jpg"}}}]}}`))
+		case r.URL.Path == "/wiki/Special:EntityData/Q_AUTHOR.json":
+			_, _ = w.Write([]byte(`{"entities":{"Q_AUTHOR":{"labels":{"en":{"value":"David E. Reich"}},"sitelinks":{"enwiki":{"title":"David Reich (geneticist)"}}}}}`))
+		default:
+			t.Errorf("unexpected wikidata path %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+	}))
+	defer wikidata.Close()
+	olOld, wdOld := openLibraryBase, wikidataBase
+	openLibraryBase, wikidataBase = ol.URL, wikidata.URL
+	t.Cleanup(func() { openLibraryBase, wikidataBase = olOld, wdOld })
+
+	res, err := ResolveAuthor(context.Background(), "David Reich", []string{"Who We Are and How We Got Here"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Key != "OL_RIGHT" {
+		t.Fatalf("picked %q, want OL_RIGHT (by the book cross-check)", res.Key)
+	}
+	if res.WikidataQID != "Q_AUTHOR" {
+		t.Fatalf("qid = %q, want Q_AUTHOR (via the book's P50)", res.WikidataQID)
+	}
+	if res.ImageURL != "https://commons.wikimedia.org/wiki/Special:FilePath/David%20Reich.jpg?width=600" {
+		t.Fatalf("image = %q", res.ImageURL)
+	}
+	if res.Links["wikipedia"] != "https://en.wikipedia.org/wiki/David_Reich_%28geneticist%29" {
+		t.Fatalf("wikipedia = %q", res.Links["wikipedia"])
+	}
+}
+
 // PersonLinks: TMDB person search + external_ids → tmdb/imdb/tvdb/wikipedia.
 func TestTMDBPersonLinks(t *testing.T) {
 	wikidata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

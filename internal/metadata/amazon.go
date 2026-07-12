@@ -21,17 +21,29 @@ const browserUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 const maxHTMLBody = 3 << 20
 
 // AmazonCoverURL returns Amazon's public image-CDN URL for a book/Kindle cover
-// keyed by ASIN. No auth needed — this host serves cover art openly. A missing
-// image comes back as a tiny placeholder, so callers should let the user
-// visually confirm the cover before storing it. No size modifier = the
-// original full-size scan (mirrored by amazonCoverURL in CoverPicker.jsx;
-// keep the two in sync).
+// keyed by ASIN (or a print ISBN-10). No auth needed — this host serves cover
+// art openly. The `_SCLZZZZZZZ_` modifier asks for the LARGEST available scan:
+// the bare `.01.jpg` hands back a small ~4 KB thumbnail, while `_SCLZZZZZZZ_`
+// returns the full-size cover (typically 5× the bytes). A book Amazon doesn't
+// stock comes back as a small "image unavailable" placeholder, so callers should
+// prefer the widest candidate / let the user confirm before storing. Mirrored by
+// amazonCoverURL in CoverPicker.jsx — keep the two in sync.
 func AmazonCoverURL(asin string) string {
 	asin = strings.TrimSpace(asin)
 	if asin == "" {
 		return ""
 	}
-	return "https://images-na.ssl-images-amazon.com/images/P/" + asin + ".01.jpg"
+	return "https://images-na.ssl-images-amazon.com/images/P/" + asin + ".01._SCLZZZZZZZ_.jpg"
+}
+
+// AmazonCoverByISBN returns Amazon's keyless, full-size cover URL for a print
+// book by converting its ISBN-13 to the ISBN-10 that Amazon's image CDN indexes
+// covers by — the trick book apps use for a hi-res cover when Google/OpenLibrary
+// only offer a thumbnail. "" for a non-978 ISBN. A book Amazon doesn't stock
+// comes back as a tiny placeholder the size floor rejects, so this is a
+// high-quality source to TRY, not a guaranteed hit.
+func AmazonCoverByISBN(isbn13 string) string {
+	return AmazonCoverURL(ISBN13to10(isbn13))
 }
 
 var (
