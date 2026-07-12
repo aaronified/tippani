@@ -61,16 +61,20 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   a favourite ★, a 1–5 rating, and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
-- 🧠 **Daily review & quiz** — spaced repetition grounded in the memory research. Each highlight
-  carries a **memory half-life** and resurfaces on the **Ebbinghaus forgetting curve** (recall
-  probability `2^(−days ÷ half-life)`), so a card comes due just as you're about to forget it. Answers
-  move that half-life the **SM-2 / expanding-retrieval** way — *Got it* stretches the interval, *Forgot*
-  is a lapse (shortened, never hard-reset), *Skip* benches the card for the day — the **active-recall**
-  effect the retention studies keep confirming. A **recall quiz** turns your library into
-  multiple-choice rounds (match a quote to its book, a line to who said it) and every answer counts as a
-  revision too. Two to three minutes, no configuration, no gamification — a dot on the logo says when
-  today's deck is waiting, and a "where you stand" readout shows how many quotes are unseen / soon /
-  later / someday.
+- 🧠 **Daily review & quiz** — spaced repetition grounded in the memory research. Every highlight
+  carries a **memory half-life** and resurfaces along the **Ebbinghaus forgetting curve**: recall
+  probability decays as $p = 2^{-t/h}$ — where $t$ is the days since you last saw it and $h$ is its
+  half-life — so a card comes due right as you're about to forget it. Your verdict moves the half-life
+  the **SM-2 / expanding-retrieval** way:
+  - ***Got it*** — stretch the interval (the half-life grows);
+  - ***Forgot*** — a lapse: shortened, never hard-reset;
+  - ***Skip*** — benched for the rest of the local day.
+
+  That is the **active-recall** effect the retention research keeps confirming. A **recall quiz** turns
+  your own library into quick multiple-choice rounds — match a quote to its book, or a line to who said
+  it; **get one right and it counts as a revision too** (a wrong guess never moves your schedule). Two
+  to three minutes a day, no configuration, no gamification — a dot on the logo marks a waiting deck,
+  and a *"where you stand"* readout shows how many quotes are unseen · soon · later · someday.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / rating / views / filters as books.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen

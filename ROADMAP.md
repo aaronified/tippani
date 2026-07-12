@@ -20,16 +20,16 @@ Have a request or a strong opinion on ordering? Open an issue.
   overrides.
 - **Spaced repetition — a daily review** — a Daily Review card on the Home
   screen resurfaces your own highlights on the **Ebbinghaus forgetting curve**:
-  each annotation carries a memory half-life and its recall probability
-  (`2^(−days ÷ half-life)`) decays in SQL at query time, so a card comes due
-  right as you'd forget it — no jobs, no cron, nothing ticking. Answers move the
-  half-life the **SM-2 / expanding-retrieval** way — *Got it* stretches the
-  interval, *Forgot* is a lapse (shortened, not reset), *Skip* benches the card
-  for the local day — the active-recall loop the memory research keeps
-  confirming. ~2–3 minutes a day, capped at 8 cards, timezone-aware, zero
-  configuration; a dot on the logo (and the drawer's Home row) marks a pending
-  deck. Paired with a **recall quiz** that builds multiple-choice rounds from
-  your own library, every answer counting as a revision.
+  each annotation carries a memory half-life $h$ and its recall probability
+  $p = 2^{-t/h}$ ($t$ = days since the last review) decays in SQL at query time,
+  so a card comes due right as you'd forget it — no jobs, no cron, nothing
+  ticking. Answers move the half-life the **SM-2 / expanding-retrieval** way —
+  *Got it* stretches the interval, *Forgot* is a lapse (shortened, not reset),
+  *Skip* benches the card for the local day — the active-recall loop the memory
+  research keeps confirming. ~2–3 minutes a day, capped at 8 cards, timezone-aware,
+  zero configuration; a dot on the logo (and the drawer's Home row) marks a
+  pending deck. Paired with a **recall quiz** that builds multiple-choice rounds
+  from your own library, where **each correct answer counts as a revision** too.
 - **Home screen + drawer shell** — the logo now taps to a Home screen (daily
   review, quick capture, stat tiles, recent favourites) on desktop and mobile;
   on phones a hamburger **drawer** owns primary nav (the bottom tab bar is

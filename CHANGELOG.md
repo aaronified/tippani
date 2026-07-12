@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-12
+
+### Changed
+- **Only a correct quiz answer counts as a revision.** A wrong guess is now a no-op — it no longer
+  shrinks (or otherwise moves) the spaced-repetition schedule. The daily review's *Got it / Forgot /
+  Skip* semantics are unchanged.
+
+### Fixed
+- **Portraits resolve the right person everywhere, not only in the modal.** The Metadata → People
+  console — both per-row and the "Fetch missing" bulk — now goes through the disambiguating portrait
+  path (`/people/portrait`) instead of the old name + work-count lookup, so it no longer grabs the
+  wrong same-name person (the more-published "David Reich") and now fetches **photos**, not just links.
+  "Fetch missing" also covers people who have links but still no photo.
+- **Author photos & links reach Wikidata even when the Open Library record is sparse** (no photo, no
+  wikidata link): the author's Wikidata identity is resolved by anchoring on a book they wrote
+  (work → author P50), yielding the correct Wikipedia link and a P18 photo where one exists. (Some
+  authors — David Reich among them — have no freely-licensed photo anywhere, so the initial is kept;
+  the identity and links are now correct regardless.)
+- **Higher-resolution book covers.** Cover re-fetch now tries Amazon's keyless full-size cover CDN
+  first (via the book's ISBN-10, which is Amazon's image key), upgrading covers that were previously
+  only available as Google / Open Library thumbnails.
+
 ## [0.4.0] - 2026-07-12
 
 ### Added
