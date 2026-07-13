@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
+import AddSurface from './AddSurface.jsx'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -32,6 +33,7 @@ import {
   MonoLabel,
   PageHeader,
   Placeholder,
+  QuoteActions,
   Select,
   SheetFooter,
   Sprockets,
@@ -344,16 +346,16 @@ function MovieList({ onOpen }) {
           ))}
         </Reveal>
       )}
-      {adding && (
-        <AddMovieModal
-          tmdbSource={tmdbSource}
-          onClose={() => setAdding(false)}
-          onAdded={() => {
-            setAdding(false)
-            load()
-          }}
-        />
-      )}
+      <AddSurface
+        open={adding}
+        initialSection="film"
+        onClose={() => setAdding(false)}
+        onAdded={() => {
+          setAdding(false)
+          load()
+        }}
+        onOpenMovie={onOpen}
+      />
       <ConfirmDialog
         open={exporting}
         title="Export catalogue"
@@ -414,79 +416,8 @@ function PosterCard({ movie: m, onOpen }) {
   )
 }
 
-// ---- add movie (§8.4): modal, tabs Look up | Manual, status-aware ----
-
-function Modal({ label, onClose, children }) {
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)' }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div role="dialog" aria-modal="true" aria-label={label} className="hand-card hc-r2 mx-auto w-full max-w-xl px-6 py-6">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function AddMovieModal({ tmdbSource, onClose, onAdded }) {
-  const noKey = tmdbSource === 'none' // §2: no key → 503; Manual stays first-class
-  const [mode, setMode] = useState(noKey ? 'manual' : 'lookup')
-  const [lookupError, setLookupError] = useState('') // runtime 503 message, shown above Manual
-  // Media type + title live here (not in the sub-forms) so switching Look up ↔
-  // Manual keeps your selection instead of snapping back to Movie / blank.
-  const [mediaType, setMediaType] = useState('movie')
-  const [title, setTitle] = useState('')
-
-  return (
-    <Modal label="Add title" onClose={onClose}>
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <h2 className="display-title text-xl">Add title</h2>
-        <GhostButton onClick={onClose}>Close</GhostButton>
-      </div>
-      {/* Both switches live here (one line) and are independent: media type is no
-          longer inside the sub-forms, so switching Look up ↔ Manual doesn't
-          remount (and re-animate) it. */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Toggle ariaLabel="Add mode" value={mode} onChange={setMode} options={[['lookup', 'Look up'], ['manual', 'Manual']]} />
-        <MediaTypeToggle value={mediaType} onChange={setMediaType} />
-      </div>
-      {noKey && (
-        <p className="tp-error mb-3" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-          no TMDB key configured — lookup returns 503. Add one in Settings (or set TIPPANI_TMDB_API_KEY);
-          manual entry always works.
-        </p>
-      )}
-      {mode === 'lookup' ? (
-        <LookupMovie
-          mediaType={mediaType}
-          setMediaType={setMediaType}
-          title={title}
-          setTitle={setTitle}
-          onAdded={onAdded}
-          onUnavailable={(msg) => {
-            // TMDB key missing at request time — surface it and fall back to manual.
-            setLookupError(msg)
-            setMode('manual')
-          }}
-        />
-      ) : (
-        <>
-          <ErrorText>{lookupError}</ErrorText>
-          <ManualMovie mediaType={mediaType} setMediaType={setMediaType} title={title} setTitle={setTitle} onAdded={onAdded} />
-        </>
-      )}
-    </Modal>
-  )
-}
+// ---- add movie (§8.4): look-up / manual forms, now hosted by AddSurface (§7).
+// The old modal wrapper lives in AddSurface; the forms below are exported. ----
 
 // candSource labels a candidate's supplier + id (e.g. "TMDB #603", "TVDB #121361").
 function candSource(c) {
@@ -504,7 +435,7 @@ function sourceRef(c, fallbackMedia) {
   }
 }
 
-function LookupMovie({ mediaType, setMediaType, title, setTitle, onAdded, onUnavailable }) {
+export function LookupMovie({ mediaType, setMediaType, title, setTitle, onAdded, onUnavailable }) {
   const [year, setYear] = useState('')
   const [candidates, setCandidates] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -664,7 +595,7 @@ function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCancel }) 
   )
 }
 
-function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
+export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
   const [director, setDirector] = useState('')
   const [year, setYear] = useState('')
   const [genres, setGenres] = useState([])
@@ -731,7 +662,7 @@ function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
 
 // MediaTypeToggle — the Movie | Show switch, reused by the add + edit forms
 // (TV is folded into movies via media_type).
-function MediaTypeToggle({ value, onChange }) {
+export function MediaTypeToggle({ value, onChange }) {
   return <Toggle ariaLabel="Media type" value={value} onChange={onChange} options={[['movie', 'Movie'], ['show', 'Show']]} />
 }
 
@@ -904,6 +835,9 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   const [clearCover, setClearCover] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // §7: the Fetch-metadata icon opens the TMDB/TVDB match picker rather than a
+  // permanently-visible lookup block.
+  const [pickerOpen, setPickerOpen] = useState(false)
   const isShow = mediaType === 'show'
 
   async function submit(e) {
@@ -968,13 +902,17 @@ export function EditMovie({ movie, onSaved, onCancel }) {
           }
         }}
         onUploaded={(rec) => setPosterPath(rec.poster_path || '')}
+        onFetchMeta={() => setPickerOpen((v) => !v)}
+        fetchMetaOpen={pickerOpen}
         search={{ title, year, mediaType }}
       />
       <MediaTypeToggle value={mediaType} onChange={setMediaType} />
-      <div>
-        <MonoLabel className="mb-1.5 block">Look up on TMDB / TVDB (replaces details, cast &amp; poster)</MonoLabel>
-        <MovieLookupPicker title={title} year={year} mediaType={mediaType} onPick={resync} />
-      </div>
+      {pickerOpen && (
+        <div>
+          <MonoLabel className="mb-1.5 block">Pick the right title — replaces details, cast &amp; poster</MonoLabel>
+          <MovieLookupPicker auto title={title} year={year} mediaType={mediaType} onPick={resync} />
+        </div>
+      )}
       <div className="grid gap-2.5 sm:grid-cols-2">
         <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input
@@ -1420,7 +1358,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actionsAlwaysVisible = false }) {
   if (editing) {
     return (
       <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
@@ -1501,18 +1439,15 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         </div>
       )}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
-      <div className="mt-1 flex justify-end gap-2.5">
-        {onShare && (
-          <button className="tp-link" onClick={onShare}>
-            share
-          </button>
-        )}
-        <button className="tp-link" onClick={onEdit}>
-          edit
-        </button>
-        <button className="tp-link tp-link-danger" onClick={onDelete}>
-          delete
-        </button>
+      {/* §7 declutter: the ♥ above is the frame's resting mark; share/edit/delete
+          reveal on hover (desktop) or fold behind a ⋯ overflow (mobile). */}
+      <div className="mt-1 flex justify-end">
+        <QuoteActions
+          onShare={onShare || undefined}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          alwaysVisible={actionsAlwaysVisible}
+        />
       </div>
     </article>
   )

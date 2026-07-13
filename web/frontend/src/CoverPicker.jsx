@@ -2,11 +2,20 @@
 // edit views. Three ways to set a cover (§ user request): pick from an API
 // match, paste an image URL, or upload a file. Amazon covers are derived from
 // the ASIN with no cookie needed.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
-import { GhostButton, MonoLabel, Placeholder, ErrorText } from './ui.jsx'
-
-const PRIMARY = 'tp-btn tp-btn-primary'
+import {
+  ErrorText,
+  GhostButton,
+  IconDelete,
+  IconLink,
+  IconMetadata,
+  IconSearch,
+  IconUpload,
+  MonoLabel,
+  Placeholder,
+  Tooltip,
+} from './ui.jsx'
 
 // amazonCoverURL builds Amazon's public image-CDN URL for a cover from an ASIN
 // (mirrors metadata.AmazonCoverURL — keep the two in sync). No size modifier =
@@ -83,7 +92,7 @@ const hiResPoster = (u) => (u || '').replace('/t/p/w342/', '/t/p/original/')
 export function CoverControls({
   kind, id, currentPath, asin,
   coverUrl, clearCover, onSetUrl, onClear, onUploaded,
-  onFetchMeta, fetchingMeta, search,
+  onFetchMeta, fetchMetaOpen, search,
 }) {
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlText, setUrlText] = useState('')
@@ -164,37 +173,66 @@ export function CoverControls({
       <CoverPreview url={previewUrl} label={label} />
       <div className="min-w-0 flex-1 space-y-2">
         <MonoLabel className="block">{label}</MonoLabel>
-        <div className="flex flex-wrap gap-2">
-          <label className={PRIMARY} style={{ cursor: 'pointer' }}>
-            {busy ? 'Uploading…' : 'Upload file'}
-            <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
-          </label>
+        {/* §7 declutter: cover controls collapse to icon buttons with tooltips
+            (upload · fetch metadata · paste URL · search covers · remove) so the
+            edit form stops burning a whole labelled row on them. */}
+        <div className="cover-ctl-row">
+          <Tooltip label={busy ? 'Uploading…' : `Upload a ${label.toLowerCase()} image`}>
+            <label className={'cover-icon-btn tactile' + (busy ? ' is-busy' : '')} aria-label={`Upload ${label.toLowerCase()} image`}>
+              <IconUpload />
+              <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
+            </label>
+          </Tooltip>
           {onFetchMeta && (
-            <GhostButton type="button" onClick={onFetchMeta} disabled={fetchingMeta} title="Fetch title, author, year, genres, series & cover from the metadata providers">
-              {fetchingMeta ? 'Fetching…' : 'Fetch metadata'}
-            </GhostButton>
+            <Tooltip label="Fetch metadata — pick the right edition to fill the fields below">
+              <button
+                type="button"
+                className={'cover-icon-btn tactile' + (fetchMetaOpen ? ' is-active' : '')}
+                aria-label="Fetch metadata"
+                aria-pressed={!!fetchMetaOpen}
+                onClick={onFetchMeta}
+              >
+                <IconMetadata />
+              </button>
+            </Tooltip>
           )}
-          <GhostButton type="button" onClick={() => setUrlOpen((v) => !v)}>
-            Paste URL
-          </GhostButton>
-          <GhostButton
-            type="button"
-            onClick={searchCovers}
-            disabled={searching}
-            title={kind === 'movies'
-              ? 'Search TMDB and TheTVDB for high-quality posters to pick from'
-              : 'Search Google Books, Open Library and Amazon for high-quality covers to pick from'}
-          >
-            {searching ? 'Searching…' : 'Search covers'}
-          </GhostButton>
-          {(currentPath || coverUrl) && !clearCover && (
-            <GhostButton
+          <Tooltip label="Paste an image URL">
+            <button
               type="button"
-              style={{ color: 'var(--error)' }}
-              onClick={onClear}
+              className={'cover-icon-btn tactile' + (urlOpen ? ' is-active' : '')}
+              aria-label="Paste image URL"
+              aria-pressed={urlOpen}
+              onClick={() => setUrlOpen((v) => !v)}
             >
-              Remove
-            </GhostButton>
+              <IconLink />
+            </button>
+          </Tooltip>
+          <Tooltip
+            label={kind === 'movies'
+              ? 'Search TMDB & TheTVDB for high-quality posters'
+              : 'Search Google Books, Open Library & Amazon for high-quality covers'}
+          >
+            <button
+              type="button"
+              className={'cover-icon-btn tactile' + (searching ? ' is-busy' : '')}
+              aria-label={`Search ${label.toLowerCase()}s`}
+              onClick={searchCovers}
+              disabled={searching}
+            >
+              <IconSearch />
+            </button>
+          </Tooltip>
+          {(currentPath || coverUrl) && !clearCover && (
+            <Tooltip label={`Remove ${label.toLowerCase()}`}>
+              <button
+                type="button"
+                className="cover-icon-btn cover-icon-btn-danger tactile"
+                aria-label={`Remove ${label.toLowerCase()}`}
+                onClick={onClear}
+              >
+                <IconDelete />
+              </button>
+            </Tooltip>
           )}
         </div>
         {urlOpen && (
@@ -279,7 +317,10 @@ function CoverPickThumb({ url, source, label, onPick }) {
 // BookLookupPicker queries POST /books/lookup with the current isbn/title/asin
 // and lists matches with a real cover thumbnail. Picking one hands the whole
 // candidate back so the form can adopt its fields + cover.
-export function BookLookupPicker({ isbn, title, author, asin, onPick }) {
+// `auto` runs the lookup as soon as the picker opens (§7: "Fetch metadata"
+// opens this edition picker instead of silently applying a guess, folding in the
+// old "Browse other matches" button). `onClose` dismisses the opened picker.
+export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = false, onClose }) {
   const [cands, setCands] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -303,11 +344,31 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick }) {
     else setErr(errText(r, 'lookup failed'))
   }
 
+  // Auto-search on open (the picker is mounted only while open, so re-opening
+  // after editing the title re-runs with the fresh fields).
+  useEffect(() => {
+    if (auto) look()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="space-y-2">
-      <GhostButton type="button" onClick={look} disabled={busy}>
-        {busy ? 'Looking up…' : 'Browse other matches…'}
-      </GhostButton>
+      {auto ? (
+        <div className="flex items-center justify-between gap-2">
+          <MonoLabel className="block">
+            {busy ? 'finding editions…' : 'pick the right edition — replaces the fields below'}
+          </MonoLabel>
+          {onClose && (
+            <GhostButton type="button" onClick={onClose}>
+              Close
+            </GhostButton>
+          )}
+        </div>
+      ) : (
+        <GhostButton type="button" onClick={look} disabled={busy}>
+          {busy ? 'Looking up…' : 'Browse other matches…'}
+        </GhostButton>
+      )}
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches — try editing the title or ISBN</p>}
       {cands && cands.length > 0 && (
@@ -345,12 +406,19 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick }) {
 // MovieLookupPicker searches TMDB + TVDB (title + year, for the given
 // media_type) and, on pick, hands the whole candidate back so the caller can
 // re-sync from its source (poster, cast, genres, details).
-export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick }) {
+export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, auto = false }) {
   const [q, setQ] = useState(title || '')
   const [yr, setYr] = useState(year ? String(year) : '')
   const [cands, setCands] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  // §7: opening the edition picker (from the Fetch-metadata icon) auto-runs the
+  // search with the current title/year; the inline field still lets you refine.
+  useEffect(() => {
+    if (auto && (title || '').trim()) look()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // NB: this picker lives inside the movie edit <form>, so it must NOT render a
   // nested <form> of its own — a nested form's submit escapes to the outer form

@@ -1574,6 +1574,10 @@ export function IconGrid() { return <ViewIcon kind="tiles" /> }
 export function IconList() { return <ViewIcon kind="list" /> }
 export function IconTable() { return <ViewIcon kind="table" /> }
 export function IconMore() { return <svg {...iconStroke}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg> }
+export function IconShare() { return <svg {...iconStroke}><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3.5v12"/><path d="m8 7.5 4-4 4 4"/></svg> }
+export function IconUpload() { return <svg {...iconStroke}><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><path d="M12 3.5v11"/><path d="m7.5 8 4.5-4.5 4.5 4.5"/></svg> }
+export function IconLink() { return <svg {...iconStroke}><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 1 0-5-5l-1.5 1.5"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 1 0 5 5l1.5-1.5"/></svg> }
+export function IconMetadata() { return <svg {...iconStroke}><path d="M12 3.5v11"/><path d="m7.5 10 4.5 4.5 4.5-4.5"/><path d="M4.5 20h15"/></svg> }
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18 6 6 18"/></svg> }
@@ -1618,6 +1622,45 @@ export function MoreMenu({ items }) {
       )}
     </div>
   )
+}
+
+// QuoteActions — the share · edit · delete cluster on a quote card (§7
+// declutter: progressive disclosure). At rest a card shows only its primary
+// mark (the favourite ♥, rendered by the caller); these secondary actions stay
+// out of the way until wanted. On desktop they sit inline and fade in when the
+// card is hovered or focused (the `.card-actions` CSS keys off the card's
+// :hover / :focus-within); on a phone (no hover) they fold behind a single ⋯
+// overflow so the resting card sheds its standing button row either way.
+// `alwaysVisible` pins them on regardless — used where a card stands alone (the
+// search quote modal) rather than in a masonry a pointer sweeps across.
+export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false }) {
+  const mobile = useIsMobileScreen();
+  if (mobile) {
+    const items = [];
+    if (onShare) items.push({ icon: <IconShare />, label: "Share", onClick: onShare });
+    if (onEdit) items.push({ icon: <IconEdit />, label: "Edit", onClick: onEdit });
+    if (onDelete) items.push({ icon: <IconDelete />, label: "Delete", onClick: onDelete, danger: true });
+    return <MoreMenu items={items} />;
+  }
+  return (
+    <span className={"card-actions" + (alwaysVisible ? " is-visible" : "")}>
+      {onShare && (
+        <button type="button" className="tp-link" onClick={onShare}>
+          share
+        </button>
+      )}
+      {onEdit && (
+        <button type="button" className="tp-link" onClick={onEdit}>
+          edit
+        </button>
+      )}
+      {onDelete && (
+        <button type="button" className="tp-link tp-link-danger" onClick={onDelete}>
+          delete
+        </button>
+      )}
+    </span>
+  );
 }
 
 // MobileSheet — a full-screen overlay for mobile filter pages (§7).

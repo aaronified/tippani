@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Home, { QuickCapture, tzOffsetMinutes } from './Home.jsx'
-import ImportPage from './ImportPage.jsx'
+import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
 import Movies from './Movies.jsx'
@@ -232,7 +232,9 @@ function Login({ onLogin }) {
 // Desktop nav (§7 declutter): four content tabs, a divider, then the utility
 // tabs. Whether Tags + Metadata sit inline or fold into a ⋯ More menu is the
 // per-user `navUtilities` pref ("tabs" | "menu"); the account chip (Profile ·
-// User management · Log out) is always separate. Mobile uses the drawer.
+// User management · Log out) and the "＋ Add" button are always separate. Import
+// is no longer a permanent tab — it lives inside the "＋ Add" surface (§7 One
+// "＋ Add"). Mobile uses the drawer.
 const CONTENT_TABS = [
   ['home', 'Home'],
   ['library', 'Library'],
@@ -240,7 +242,6 @@ const CONTENT_TABS = [
   ['search', 'Search'],
 ]
 const UTILITY_ALWAYS = [
-  ['import', 'Import'],
   ['settings', 'Settings'],
 ]
 const UTILITY_TOGGLED = [
@@ -387,7 +388,7 @@ function DesktopNav({ tab, onChange, navMode }) {
     return () => document.removeEventListener('mousedown', close)
   }, [moreOpen])
   const utility = navMode === 'tabs'
-    ? [UTILITY_ALWAYS[0], ...UTILITY_TOGGLED, UTILITY_ALWAYS[1]]
+    ? [...UTILITY_TOGGLED, ...UTILITY_ALWAYS]
     : UTILITY_ALWAYS
   return (
     <div className="topbar-nav-group">
@@ -493,7 +494,7 @@ function AccountOverlay({ view, user, onUser, onClose }) {
 // refresh on /books/42 is served index.html by the server, then Shell restores
 // this state from the URL — and back/forward, including the mouse back button,
 // just work.
-const ROUTE_TABS = ['search', 'tags', 'import', 'metadata', 'settings']
+const ROUTE_TABS = ['search', 'tags', 'metadata', 'settings']
 function parsePath(pathname) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   // "/" is the Home screen (daily review); unknown paths land there too.
@@ -504,6 +505,9 @@ function parsePath(pathname) {
   if ((a === 'catalogue' || a === 'movies') && b) return { tab: 'movies', detail: { type: 'movie', id: Number(b) } }
   if (a === 'library') return { tab: 'library', detail: null }
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
+  // /import is no longer a tab (§7 One "＋ Add"); an old link opens the Add
+  // surface on its Import section over Home — handled by the Shell.
+  if (a === 'import') return { tab: 'import', detail: null }
   if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
   return { tab: 'home', detail: null }
 }
@@ -524,7 +528,6 @@ const DRAWER_TABS = [
   ['movies', 'Catalogue'],
   ['search', 'Search'],
   ['tags', 'Tags'],
-  ['import', 'Import'],
   null,
   ['metadata', 'Metadata'],
   ['settings', 'Settings'],
@@ -540,7 +543,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, user, stats, pending, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, logout, dark, onUser }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -579,6 +582,17 @@ function Drawer({ open, onClose, tab, selectTab, user, stats, pending, logout, d
           </div>
         </div>
         <div className="drawer-nav">
+          {/* §7 One "＋ Add": Import is no longer a nav row — the single Add
+              surface (book · film · import) leads the drawer instead. */}
+          <button
+            type="button"
+            className="drawer-item drawer-add"
+            onClick={() => { onAdd(); onClose() }}
+          >
+            <IconPlus />
+            Add
+            <span className="drawer-badge">book · film · import</span>
+          </button>
           {DRAWER_TABS.map((t, i) =>
             t === null ? (
               <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
@@ -624,11 +638,20 @@ function Drawer({ open, onClose, tab, selectTab, user, stats, pending, logout, d
 // detail are mirrored to the URL via the History API.
 function Shell({ user, onLogout, onPreferences, onUser }) {
   const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
-  const [tab, setTab] = useState(initial.tab)
+  // /import isn't a tab any more — start on Home and open the Add surface there.
+  const initialTab = initial.tab === 'import' ? 'home' : initial.tab
+  const [tab, setTab] = useState(initialTab)
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   const [accountView, setAccountView] = useState(null) // null | 'profile' | 'users'
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [captureOpen, setCaptureOpen] = useState(false)
+  // The single "＋ Add" surface (§7 One "＋ Add"): book · film · import.
+  const [addOpen, setAddOpen] = useState(false)
+  const [addSection, setAddSection] = useState('book')
+  const openAdd = (section = 'book') => {
+    setAddSection(section)
+    setAddOpen(true)
+  }
   // pending = cards left in today's review deck; feeds the notification dot on
   // the brand mark and the drawer's Home row. Seeded once here, then kept
   // honest by the Home screen as answers land.
@@ -647,7 +670,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     json('GET', `/annotations/daily-review?offset=${tzOffsetMinutes()}`).then((r) => {
       if (r.ok) setPending((r.data.items || []).length)
     })
-  }, [])
+    // An old /import link lands here — open the Add surface on Import.
+    if (initial.tab === 'import') openAdd('import')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on an unknown path rewrites the bar to the canonical one.
@@ -655,11 +680,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     if (DEMO) return // no URL sync under the static subpath
     const onPop = () => {
       const s = parsePath(window.location.pathname)
+      // /import via back/forward opens the Add surface over Home (no import tab).
+      if (s.tab === 'import') { setTab('home'); setDetail(null); openAdd('import'); return }
       setTab(s.tab)
       setDetail(s.detail)
     }
     window.addEventListener('popstate', onPop)
-    const want = statePath(initial.tab, initial.detail)
+    const want = statePath(initialTab, initial.detail)
     if (window.location.pathname !== want) window.history.replaceState({}, '', want)
     return () => window.removeEventListener('popstate', onPop)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -696,7 +723,17 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           <nav aria-label="Primary" className="topbar-nav">
             <DesktopNav tab={tab} onChange={selectTab} navMode={navMode} />
           </nav>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2.5">
+            {/* §7 One "＋ Add": the single way to add a book, a film, or import. */}
+            <button
+              type="button"
+              className="topbar-add-btn tactile"
+              onClick={() => openAdd('book')}
+              title="Add a book or film, or import highlights"
+            >
+              <IconPlus />
+              <span>Add</span>
+            </button>
             <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
           </div>
         </div>
@@ -746,6 +783,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               openId={detail?.type === 'book' ? detail.id : null}
               onOpen={openBook}
               onClose={() => go('library', null)}
+              onOpenMovie={openMovie}
             />
           </div>
         )}
@@ -761,11 +799,6 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         {tab === 'metadata' && (
           <div data-screen-label="metadata">
             <MetadataPage user={user} onOpenBook={openBook} onOpenMovie={openMovie} />
-          </div>
-        )}
-        {tab === 'import' && (
-          <div data-screen-label="import">
-            <ImportPage onOpenMovie={openMovie} />
           </div>
         )}
         {tab === 'search' && (
@@ -791,6 +824,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         onClose={() => setDrawerOpen(false)}
         tab={tab}
         selectTab={selectTab}
+        onAdd={() => openAdd('book')}
         user={user}
         stats={stats}
         pending={pending}
@@ -799,6 +833,18 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         onUser={onUser}
       />
       <QuickCapture open={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={refreshStats} />
+      <AddSurface
+        open={addOpen}
+        initialSection={addSection}
+        onClose={() => setAddOpen(false)}
+        onAdded={(what) => {
+          setAddOpen(false)
+          refreshStats()
+          // Land on the list for what was just added so it's visible.
+          go(what === 'film' ? 'movies' : 'library', null)
+        }}
+        onOpenMovie={openMovie}
+      />
       {accountView && (
         <AccountOverlay view={accountView} user={user} onUser={onUser} onClose={() => setAccountView(null)} />
       )}

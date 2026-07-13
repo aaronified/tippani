@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
+import AddSurface from './AddSurface.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -32,11 +33,11 @@ import {
   MonoLabel,
   PageHeader,
   Placeholder,
+  QuoteActions,
   Select,
   SheetFooter,
   TagChip,
   titleCaseGenre,
-  Toggle,
   TokenInput,
   EditReveal,
   ViewToggle,
@@ -55,9 +56,9 @@ const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontStyle: 'italic', fo
 
 // Library is the books tab (§8.3): cover grid + add-book modal, or a single
 // book's detail view (§8.5). Import flows live on the Import page now.
-export default function Library({ openId, onOpen, onClose }) {
+export default function Library({ openId, onOpen, onClose, onOpenMovie }) {
   if (openId) return <BookDetail id={openId} onClose={onClose} />
-  return <BookList onOpen={onOpen} />
+  return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} />
 }
 
 function plural(n, word) {
@@ -234,7 +235,7 @@ function BookGrid({ books, coverSize, onOpen }) {
 
 // ---- book list (§8.3, mockups 06–07) ----
 
-function BookList({ onOpen }) {
+function BookList({ onOpen, onOpenMovie }) {
   const [books, setBooks] = useState(null)
   const [genre, setGenre] = useState('') // '' = All
   const [series, setSeries] = useState('') // '' = all series
@@ -416,7 +417,7 @@ function BookList({ onOpen }) {
       )}
 
       {books && books.length === 0 && (
-        <EmptyState>no books yet — add one, or bring highlights in from the Import tab</EmptyState>
+        <EmptyState>no books yet — add one, or bring highlights in from ＋ Add › Import</EmptyState>
       )}
       {books && books.length > 0 && shown.length === 0 && <EmptyState>no books match these filters</EmptyState>}
       {shown.length > 0 &&
@@ -441,15 +442,16 @@ function BookList({ onOpen }) {
           <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} />
         ))}
 
-      {adding && (
-        <AddBookModal
-          onClose={() => setAdding(false)}
-          onAdded={() => {
-            setAdding(false)
-            load()
-          }}
-        />
-      )}
+      <AddSurface
+        open={adding}
+        initialSection="book"
+        onClose={() => setAdding(false)}
+        onAdded={() => {
+          setAdding(false)
+          load()
+        }}
+        onOpenMovie={onOpenMovie}
+      />
       {person && (
         <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
       )}
@@ -473,40 +475,7 @@ function BookList({ onOpen }) {
   )
 }
 
-// ---- add-book modal (§8.4, mockups 10–11) ----
-
-function AddBookModal({ onClose, onAdded }) {
-  const [mode, setMode] = useState('lookup')
-
-  useEffect(() => {
-    const fn = (e) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', fn)
-    return () => document.removeEventListener('keydown', fn)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-12"
-      style={{ background: 'rgba(21,16,12,.5)' }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add book"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <HandCard variant={2} className="w-full max-w-xl px-7 py-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-          <h2 className="display-title text-xl">Add book</h2>
-          <Toggle ariaLabel="Add mode" value={mode} onChange={setMode} options={[['lookup', 'Look up'], ['manual', 'Manual']]} />
-        </div>
-        {mode === 'lookup' ? <LookupTab onAdded={onAdded} /> : <ManualTab onAdded={onAdded} />}
-      </HandCard>
-    </div>
-  )
-}
+// ---- add-book forms (§8.4, mockups 10–11) — now hosted by AddSurface (§7) ----
 
 // isIsbn detects a 10- or 13-digit ISBN (hyphens/spaces allowed, trailing X ok).
 function isIsbn(s) {
@@ -520,7 +489,7 @@ function sourceLabel(source) {
   return (source || '').toUpperCase()
 }
 
-function LookupTab({ onAdded }) {
+export function LookupTab({ onAdded }) {
   const [q, setQ] = useState('')
   const [candidates, setCandidates] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -620,7 +589,7 @@ function LookupTab({ onAdded }) {
   )
 }
 
-function ManualTab({ onAdded }) {
+export function ManualTab({ onAdded }) {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [year, setYear] = useState('')
@@ -871,27 +840,10 @@ export function EditBook({ book, onSaved, onCancel }) {
     }
   }
 
-  // One-click metadata fetch (sits with the cover controls): look up by
-  // title/ISBN/ASIN and auto-fill the empty fields from the best match,
-  // preferring a candidate that carries series info. The candidate LIST is still
-  // available below (BookLookupPicker) when you'd rather choose among matches.
-  const [fetchingMeta, setFetchingMeta] = useState(false)
-  async function fetchMeta() {
-    const body = {}
-    if (isbn.trim()) body.isbn = isbn.trim()
-    if (title.trim()) body.title = title.trim()
-    if (author.trim()) body.author = author.trim()
-    if (asin.trim()) body.asin = asin.trim()
-    if (!body.isbn && !body.title && !body.asin) return setError('enter a title, ISBN, or ASIN first')
-    setFetchingMeta(true)
-    setError('')
-    const r = await json('POST', '/books/lookup', body)
-    setFetchingMeta(false)
-    if (!r.ok) return setError(errText(r, 'metadata lookup failed'))
-    const cands = r.data.candidates || []
-    if (cands.length === 0) return setError('no metadata match — try refining the title or ISBN')
-    applyCandidate(cands.find((c) => c.series) || cands[0])
-  }
+  // §7: "Fetch metadata" no longer silently applies a guess — it opens the
+  // edition picker (below) so you pick the right match, folding in what used to
+  // be a separate "Browse other matches" button.
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
@@ -951,11 +903,24 @@ export function EditBook({ book, onSaved, onCancel }) {
           }
         }}
         onUploaded={(rec) => setCoverPath(rec.cover_path || '')}
-        onFetchMeta={fetchMeta}
-        fetchingMeta={fetchingMeta}
+        onFetchMeta={() => setPickerOpen((v) => !v)}
+        fetchMetaOpen={pickerOpen}
         search={{ isbn, title, author, asin }}
       />
-      <BookLookupPicker isbn={isbn} title={title} author={author} asin={asin} onPick={(c) => applyCandidate(c, true)} />
+      {pickerOpen && (
+        <BookLookupPicker
+          auto
+          isbn={isbn}
+          title={title}
+          author={author}
+          asin={asin}
+          onPick={(c) => {
+            applyCandidate(c, true)
+            setPickerOpen(false)
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
@@ -1034,16 +999,20 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-function ActionRow({ a, patch, setEditingId, remove, onShare }) {
-  // flex-wrap lets the links drop under the marks on narrow cards instead of
-  // pushing the row (and the page) wider than the phone screen.
+function ActionRow({ a, patch, setEditingId, remove, onShare, actionsAlwaysVisible }) {
+  // §7 declutter: the favourite ♥ is the card's resting mark; share/edit/delete
+  // hide until the card is hovered (desktop) or behind a ⋯ overflow (mobile),
+  // so the resting card sheds its standing button row (see QuoteActions).
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-      <span className="ml-auto flex gap-3">
-        {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
-        <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
-        <button className="tp-link tp-link-danger" onClick={() => remove(a)}>delete</button>
+      <span className="ml-auto flex items-center">
+        <QuoteActions
+          onShare={onShare ? () => onShare(a) : undefined}
+          onEdit={() => setEditingId(a.id)}
+          onDelete={() => remove(a)}
+          alwaysVisible={actionsAlwaysVisible}
+        />
       </span>
     </div>
   )
@@ -1052,7 +1021,7 @@ function ActionRow({ a, patch, setEditingId, remove, onShare }) {
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
 // quote clamps to `quoteLines` with an inline show-more.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [] }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const d = fmtDate(annDate(a))
   return (
@@ -1095,7 +1064,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               })}
             </div>
           )}
-          <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} />
+          <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
         </div>
       )}
       </EditReveal>

@@ -319,6 +319,7 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
             onShare={() => setShareOpen(true)}
             quoteLines={40}
             tagSuggestions={Object.keys(tagMap)}
+            actionsAlwaysVisible
           />
         ) : (
           <Frame
@@ -335,6 +336,7 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
             onPatch={(fields) => patch(row, fields)}
             onDelete={() => remove(row)}
             onShare={() => setShareOpen(true)}
+            actionsAlwaysVisible
           />
         )}
       </div>

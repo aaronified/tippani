@@ -1078,6 +1078,10 @@
      open, lift its whole card above the siblings so the bubble wins. */
   .hand-card:has(.tp-tip-wrap:hover),
   .hand-card:has(.tp-tip-wrap:focus-within) { z-index: 30; }
+  /* Same lift for a card whose ⋯ overflow (mobile QuoteActions, §7) is open, so
+     its dropdown isn't clipped by a later sibling card in a masonry column. */
+  .hand-card:has(.more-menu),
+  .film-frame:has(.more-menu) { position: relative; z-index: 30; }
 
   /* ---- person link menu (people.jsx): clicking a name opens a redirect menu
      of external reference pages — full-width rows, provider label left, ↗
@@ -1121,6 +1125,28 @@
     border-radius: 6px;
   }
   .cover-pick:hover { border-color: var(--accent-ui); }
+  /* Compact cover controls (§7 declutter): a row of icon buttons with tooltips
+     replacing the old wide labelled button row. Ghost-styled squares, tactile,
+     with an active state for the toggles (paste URL / fetch metadata) and a
+     danger tint for remove. */
+  .cover-ctl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .cover-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: var(--soft);
+    background: var(--raised);
+    border: 1.3px solid var(--line);
+    border-radius: 10px 7px 9px 8px / 8px 9px 7px 10px;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .cover-icon-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
+  .cover-icon-btn:disabled, .cover-icon-btn.is-busy { opacity: .55; cursor: default; }
+  .cover-icon-btn.is-active { color: var(--accent-ui); border-color: var(--accent-ui); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .cover-icon-btn-danger:hover:not(:disabled) { color: var(--error); border-color: color-mix(in srgb, var(--error) 55%, var(--line)); }
   /* Look-up matches ("Browse other matches" / movie search): a compact card
      grid (~3 columns) instead of full-width rows, cover on top. */
   .lookup-grid {
@@ -1286,6 +1312,32 @@
     font-size: 20px; line-height: 1;
   }
   .nav-more-btn:hover { color: var(--ink); background: var(--raised); }
+  /* §7 One "＋ Add": the top-bar CTA that opens the single Add surface. Wears
+     the primary accent fill (this is the page's main add action) but sits a
+     touch smaller than a form button so it reads as a nav control. */
+  .topbar-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    height: 38px;
+    padding: 0 14px 0 11px;
+    border: 1.4px solid transparent;
+    border-radius: 10px 7px 9px 8px / 8px 9px 7px 10px;
+    color: #FFF9EC;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    text-shadow: 0 1px 1px rgba(0,0,0,.28);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+    box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.28);
+  }
+  html[data-theme="dark"] .topbar-add-btn {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+  }
+  .topbar-add-btn:hover { filter: brightness(1.05); }
+  .topbar-add-btn svg { width: 18px; height: 18px; }
   .mobile-topbar { display: none; }
   @media (max-width: 768px) {
     .nav-toggle .tab-label { display: none; }
@@ -1528,6 +1580,32 @@
   .tp-link:hover { color: var(--ink); }
   .tp-link-danger { color: var(--error); }
   .tp-link-danger:hover { color: var(--error); }
+
+  /* Progressive disclosure on quote cards (§7 declutter). The share/edit/delete
+     cluster is invisible + non-interactive at rest so a resting card shows only
+     its favourite mark; it fades in when the card is hovered or holds focus. It
+     keeps its layout box at rest (opacity, not display) so revealing it never
+     nudges the card's height in a masonry. `is-visible` pins it on (the search
+     quote modal, where a card stands alone). Phones use the ⋯ overflow instead
+     and never see this rule. Keyboard users tabbing into the hidden buttons
+     trip :focus-within, which reveals + re-enables them. */
+  .card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+  }
+  .card-actions.is-visible,
+  .hand-card:hover .card-actions,
+  .hand-card:focus-within .card-actions,
+  .film-frame:hover .card-actions,
+  .film-frame:focus-within .card-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @media (prefers-reduced-motion: reduce) { .card-actions { transition: none; } }
   .tp-filter-chip {
     min-height: 34px;
     padding: 5px 13px;
@@ -1827,6 +1905,16 @@ html[data-theme="dark"] .mobile-topbar {
   background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 .drawer-item svg { flex: none; }
+/* §7 One "＋ Add": the drawer's lead row wears the accent so the single add
+   action reads as primary, and a rule sets it apart from the nav rows below. */
+.drawer-add {
+  color: var(--accent-ui);
+  margin-bottom: 4px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 9px 9px 0 0;
+}
+.drawer-add:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .drawer-badge {
   margin-left: auto;
   font-family: var(--font-mono);

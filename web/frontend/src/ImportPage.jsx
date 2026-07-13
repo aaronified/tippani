@@ -89,7 +89,9 @@ const SOURCES = [
   },
 ]
 
-export default function ImportPage({ onOpenMovie }) {
+// `embedded` renders without the page header / sticky bar, for the unified Add
+// surface (§7 One "＋ Add") where the surface supplies its own title + chooser.
+export default function ImportPage({ onOpenMovie, embedded = false }) {
   const [results, setResults] = useState(null) // per-file rows, in batch order
   const [summary, setSummary] = useState('')
   const [queue, setQueue] = useState(null) // review pass: [{bookId, ann}]
@@ -145,9 +147,11 @@ export default function ImportPage({ onOpenMovie }) {
 
   return (
     <section className="space-y-5">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Import" counts="bring the highlights home" />
-      </div>
+      {!embedded && (
+        <div className={mobile ? 'mobile-sticky-bar' : ''}>
+          <PageHeader title="Import" counts="bring the highlights home" />
+        </div>
+      )}
       <div ref={ref} className="reveal grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SOURCES.map((s, i) => (
           <SourceCard
