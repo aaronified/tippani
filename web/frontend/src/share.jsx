@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { GhostButton, MonoLabel, Toggle, useIsMobileScreen } from "./ui.jsx";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ANNOTATION_HEX, GhostButton, MonoLabel, Toggle, useIsMobileScreen } from "./ui.jsx";
+import { buildModel, drawQuoteCard, ensureFonts, readTheme } from "./quoteImage.js";
 
 const PRIMARY = "tp-btn tp-btn-primary";
 
@@ -53,9 +54,13 @@ export function bookShare({
   location,
   date,
   tags,
+  color,
 }) {
   return {
     quote: quote || "",
+    // The annotation colour (yellow|blue|pink|orange), for the quote-card
+    // image's coloured edge. Ignored by the text formats.
+    color: color || "",
     // Author-first (bold), work italic, then the publication year — the classic
     // epigraph order ("— **Author**, *Title*, 1965").
     attribution: [
@@ -387,6 +392,101 @@ export function renderShareHTML(text, fmt) {
   return blocks.map((blk, i) => renderBlock(blk, fmt, patterns, i));
 }
 
+// ---- quote-card image (ROADMAP §10) ------------------------------------
+// The "Image" format: the same field-picking, rendered to a shareable PNG in
+// the current paper/film skin (drawn locally on a <canvas>, see quoteImage.js).
+function QuoteImagePanel({ share, selected }) {
+  const canvasRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const redraw = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || cancelled) return;
+      try {
+        const colorHex = share.color ? ANNOTATION_HEX[share.color] : null;
+        drawQuoteCard(canvas, buildModel(share, selected, colorHex), readTheme());
+        setErr("");
+      } catch {
+        setErr("couldn't render the image on this device");
+      }
+    };
+    redraw();
+    // Redraw once the bundled fonts are ready (first paint may fall back) and
+    // whenever the app theme flips, so the card always matches the live skin.
+    ensureFonts().then(redraw);
+    window.addEventListener("tippani:theme", redraw);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("tippani:theme", redraw);
+    };
+  }, [share, selected]);
+
+  function download() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = "tippani-quote.png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+    }, "image/png");
+  }
+
+  const canCopyImage =
+    typeof window !== "undefined" &&
+    typeof window.ClipboardItem !== "undefined" &&
+    !!navigator.clipboard?.write;
+
+  async function copyImage() {
+    const canvas = canvasRef.current;
+    if (!canvas || !canCopyImage) return;
+    setBusy(true);
+    try {
+      const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+      await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setErr("image copy isn't supported here — use Download");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <MonoLabel className="mb-1.5 block">preview</MonoLabel>
+      <div className="share-image-preview">
+        <canvas ref={canvasRef} className="share-image-canvas" aria-label="Quote card image preview" />
+      </div>
+      {err && (
+        <p className="microcopy mt-2" style={{ color: "var(--error)" }}>
+          {err}
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        {canCopyImage && (
+          <GhostButton onClick={copyImage} disabled={busy}>
+            {copied ? "Copied ✓" : "Copy image"}
+          </GhostButton>
+        )}
+        <button className={PRIMARY} onClick={download}>
+          Download PNG
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---- the dialog --------------------------------------------------------
 export function ShareDialog({ share, onClose }) {
   const [format, setFormat] = useState("whatsapp");
@@ -399,6 +499,10 @@ export function ShareDialog({ share, onClose }) {
   const mobile = useIsMobileScreen()
 
   const active = SHARE_FORMATS.find((f) => f.id === format) || SHARE_FORMATS[0];
+  // "Image" is a format alongside the text ones — same field-picking, rendered
+  // to a PNG instead of copyable text (ROADMAP §10).
+  const isImage = format === "image";
+  const formatOptions = [...SHARE_FORMATS.map((f) => [f.id, f.name]), ["image", "Image"]];
 
   // Regenerate the source whenever the format or the chosen fields change.
   // Manual edits to the textarea persist until the next such change.
@@ -455,9 +559,9 @@ export function ShareDialog({ share, onClose }) {
                 value={format}
                 onChange={(e) => setFormat(e.target.value)}
               >
-                {SHARE_FORMATS.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
+                {formatOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
                   </option>
                 ))}
               </select>
@@ -467,15 +571,23 @@ export function ShareDialog({ share, onClose }) {
                   ariaLabel="Share format"
                   value={format}
                   onChange={setFormat}
-                  options={SHARE_FORMATS.map((f) => [f.id, f.name])}
+                  options={formatOptions}
                 />
               </div>
             )}
           </div>
-          <p className="microcopy" style={{ color: "var(--soft)" }}>
-            {active.logic}
-          </p>
-          <code className="share-hint">{active.hint}</code>
+          {isImage ? (
+            <p className="microcopy" style={{ color: "var(--soft)" }}>
+              a shareable image in your current paper/film skin — pick what to include below, then download or copy it.
+            </p>
+          ) : (
+            <>
+              <p className="microcopy" style={{ color: "var(--soft)" }}>
+                {active.logic}
+              </p>
+              <code className="share-hint">{active.hint}</code>
+            </>
+          )}
         </div>
 
         {/* choose what to include */}
@@ -503,35 +615,42 @@ export function ShareDialog({ share, onClose }) {
           </div>
         )}
 
-        {/* editable source ↔ live rendered preview */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <MonoLabel className="mb-1.5 block">text</MonoLabel>
-            <textarea
-              className="tp-input share-source"
-              rows="11"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              aria-label="Shareable text"
-            />
-          </div>
-          <div>
-            <MonoLabel className="mb-1.5 block">preview</MonoLabel>
-            <div className="share-preview" aria-live="polite">
-              {text.trim() ? (
-                preview
-              ) : (
-                <p className="microcopy">nothing selected</p>
-              )}
+        {/* Image: rendered card + download/copy. Text: editable source ↔ live
+            rendered preview. */}
+        {isImage ? (
+          <QuoteImagePanel share={share} selected={selected} />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <MonoLabel className="mb-1.5 block">text</MonoLabel>
+              <textarea
+                className="tp-input share-source"
+                rows="11"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                aria-label="Shareable text"
+              />
+            </div>
+            <div>
+              <MonoLabel className="mb-1.5 block">preview</MonoLabel>
+              <div className="share-preview" aria-live="polite">
+                {text.trim() ? (
+                  preview
+                ) : (
+                  <p className="microcopy">nothing selected</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
           <GhostButton onClick={onClose}>Done</GhostButton>
-          <button className={PRIMARY} onClick={copy}>
-            {copied ? "Copied ✓" : "Copy"}
-          </button>
+          {!isImage && (
+            <button className={PRIMARY} onClick={copy}>
+              {copied ? "Copied ✓" : "Copy"}
+            </button>
+          )}
         </div>
       </div>
     </div>

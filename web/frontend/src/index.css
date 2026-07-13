@@ -1739,6 +1739,24 @@
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+  /* Quote-card image (ROADMAP §10): centre the rendered <canvas>; its intrinsic
+     buffer ratio drives a responsive display size (toBlob stays full-res). */
+  .share-image-preview {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--ink) 4%, transparent);
+  }
+  .share-image-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 460px;
+    border-radius: 6px;
+    box-shadow: 0 8px 22px -10px rgba(0, 0, 0, .5);
+  }
   .share-preview > :first-child { margin-top: 0; }
   .share-preview > :last-child { margin-bottom: 0; }
   .share-preview .share-p { margin: 0 0 .6em; line-height: 1.55; }

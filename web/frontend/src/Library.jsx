@@ -1276,6 +1276,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
       date: fmtDate(annDate(a)),
       rating: a.rating,
       tags: a.tags,
+      color: a.color,
     })
 
   const countsLabel = !items
