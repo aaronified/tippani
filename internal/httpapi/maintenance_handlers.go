@@ -18,6 +18,9 @@ import (
 func (s *Server) handleReindexFTS(w http.ResponseWriter, r *http.Request) {
 	olog.Printf("[admin] search reindex requested by user %d (%s)", userID(r), username(r))
 	failed := s.Store.ReindexFTS()
+	// ReindexFTS may escalate to a whole-database Recover, which swaps the DB
+	// handle — repoint the session store at the current one.
+	s.Sessions.DB = s.Store.DB
 	if failed == nil {
 		failed = []string{}
 	}

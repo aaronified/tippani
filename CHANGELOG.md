@@ -14,6 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
   /dialogues/{id}/review`, and surfacing review scope in Settings).
 
+## [0.4.7] - 2026-07-13
+
+### Fixed
+- **Search corruption now recovers even when `DROP TABLE` fails — with no data loss.**
+  0.4.6's startup repair rebuilt a corrupt index by dropping and recreating it, but a
+  badly-corrupt index makes even `DROP TABLE` raise `database disk image is malformed`
+  (the repair logged "reconstruction FAILED" and gave up). The repair now escalates to
+  a **data-preserving whole-database rebuild**: it copies every intact base table into
+  a fresh database file and lets the sync triggers repopulate the search indexes,
+  **never reading the corrupt pages**. It runs automatically at startup and on demand
+  via Profile → *Rebuild search index* (which now falls back to this recovery too).
+  The search indexes are derived data, so every book, quote, film, dialogue, tag,
+  person, setting and preference is preserved. Verified against a reproduction of the
+  exact failure — structural page corruption of the `annotations_fts` b-tree where both
+  MATCH and DROP raise SQLITE_CORRUPT.
+
 ## [0.4.6] - 2026-07-13
 
 ### Added

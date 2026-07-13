@@ -58,13 +58,17 @@ func (s *Store) CheckIntegrity() bool {
 }
 
 // RepairFTS integrity-checks each FTS index at startup and reconstructs any that
-// come back broken. An in-place 'rebuild' can't fix page-level corruption (it
-// reads the same corrupt shadow pages), so reconstruction is DROP + recreate +
-// rebuild — see rebuildFTSTable. A table that can't be reconstructed is logged
-// and skipped so the server still starts (that scope's search stays down until a
-// reset) rather than crash-looping on a bad index.
+// come back broken. First it tries the cheap in-place path (DROP + recreate +
+// rebuild — rebuildFTSTable). If that fails, the index is so corrupt that even
+// DROP TABLE reads a bad page and errors ("database disk image is malformed"),
+// so it escalates ONCE to Recover — a whole-database rebuild that copies the
+// intact base tables into a fresh file and lets the triggers repopulate every
+// index, never touching the corrupt pages. Data is preserved throughout (the FTS
+// indexes are derived). A failure at both levels is logged loudly and the server
+// still starts (search on that scope errors until Profile → Reset all data).
 func (s *Store) RepairFTS() {
 	olog.Printf("[fts] checking %d full-text index(es) for corruption", len(ftsTables))
+	needRecover := false
 	for _, t := range ftsTables {
 		if _, err := s.DB.Exec(fmt.Sprintf(`INSERT INTO %s(%s) VALUES('integrity-check')`, t, t)); err == nil {
 			olog.Printf("[fts] %s OK", t)
@@ -73,23 +77,33 @@ func (s *Store) RepairFTS() {
 			olog.Alertf("[fts] %s failed integrity-check (%v) — reconstructing from content", t, err)
 		}
 		if err := s.rebuildFTSTable(t); err != nil {
-			olog.Alertf("[fts] %s reconstruction FAILED: %v — search on this scope will error until a data reset (Profile → Reset all data)", t, err)
+			olog.Alertf("[fts] %s in-place reconstruction failed: %v", t, err)
+			needRecover = true
 		} else {
 			olog.Printf("[fts] %s reconstructed successfully", t)
+		}
+	}
+	if needRecover {
+		olog.Alertf("[fts] an index is too corrupt to rebuild in place — recovering the whole database by rebuilding it from intact content (no data lost)")
+		if err := s.Recover(); err != nil {
+			olog.Alertf("[fts] database recovery FAILED: %v — search will error until Profile → Reset all data", err)
+		} else {
+			olog.Printf("[fts] database recovered — all indexes rebuilt from content, no data lost")
 		}
 	}
 }
 
 // ReindexFTS force-rebuilds every FTS index from its content table, whether or
 // not it currently reports corrupt — the non-destructive fix behind Profile →
-// "Rebuild search index". Returns the tables that could NOT be rebuilt (empty on
-// full success).
+// "Rebuild search index". If an index is too corrupt to rebuild in place it
+// escalates to Recover (whole-database rebuild from content). Returns the tables
+// that could NOT be rebuilt (empty on full success, including after a recovery).
 func (s *Store) ReindexFTS() []string {
 	olog.Printf("[fts] reindex requested — reconstructing all %d index(es)", len(ftsTables))
 	var failed []string
 	for _, t := range ftsTables {
 		if err := s.rebuildFTSTable(t); err != nil {
-			olog.Alertf("[fts] reindex: %s FAILED: %v", t, err)
+			olog.Alertf("[fts] reindex: %s in-place rebuild failed: %v", t, err)
 			failed = append(failed, t)
 		} else {
 			olog.Printf("[fts] reindex: %s done", t)
@@ -97,10 +111,16 @@ func (s *Store) ReindexFTS() []string {
 	}
 	if len(failed) == 0 {
 		olog.Printf("[fts] reindex complete — all indexes rebuilt")
-	} else {
-		olog.Alertf("[fts] reindex finished with %d failure(s): %s", len(failed), strings.Join(failed, ", "))
+		return nil
 	}
-	return failed
+	olog.Alertf("[fts] reindex: %d index(es) too corrupt for in-place rebuild (%s) — recovering the whole database from content",
+		len(failed), strings.Join(failed, ", "))
+	if err := s.Recover(); err != nil {
+		olog.Alertf("[fts] reindex: database recovery FAILED: %v", err)
+		return failed
+	}
+	olog.Printf("[fts] reindex: database recovered — all indexes rebuilt from content, no data lost")
+	return nil
 }
 
 // rebuildFTSTable reconstructs one external-content FTS5 index: capture its
@@ -167,6 +187,118 @@ func (s *Store) rebuildFTSTable(t string) error {
 		return fmt.Errorf("rebuild %s index: %w", t, err)
 	}
 	return tx.Commit()
+}
+
+// Recover rebuilds the database into a fresh file, data intact, when an FTS
+// index is so corrupt that even DROP TABLE fails on it. It copies every base
+// table — but NONE of the FTS index/shadow tables — into a freshly-migrated
+// file, and the sync triggers repopulate the indexes from that copied content as
+// it lands. Crucially it NEVER reads the corrupt index pages (only the intact
+// base tables), so it succeeds where an in-place DROP/rebuild can't. The fresh
+// file then atomically replaces the old one and the DB handle is swapped in
+// place (callers holding their own *sql.DB must re-read it).
+func (s *Store) Recover() error {
+	old := s.path
+	tmp := old + ".recover"
+	olog.Alertf("[recover] rebuilding database from intact content into %s", tmp)
+
+	// Which tables to copy: real tables only — skip the fts virtual tables and
+	// their %_fts_* shadow tables (rebuilt by triggers), sqlite internals, and
+	// schema_version (the fresh migrate writes its own).
+	rows, err := s.DB.Query(`SELECT name FROM sqlite_master WHERE type='table'
+		AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%\_fts' ESCAPE '\'
+		AND name NOT LIKE '%\_fts\_%' ESCAPE '\' AND name != 'schema_version'
+		ORDER BY name`)
+	if err != nil {
+		return fmt.Errorf("list tables: %w", err)
+	}
+	var tables []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			rows.Close()
+			return err
+		}
+		tables = append(tables, n)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	olog.Printf("[recover] copying %d base table(s): %s", len(tables), strings.Join(tables, ", "))
+
+	// Fresh, fully-migrated schema in the temp file (empty tables + empty fts +
+	// the sync triggers).
+	_, _ = removeWithRetry(tmp)
+	_, _ = removeWithRetry(tmp + "-wal")
+	_, _ = removeWithRetry(tmp + "-shm")
+	fresh, err := openDB(tmp)
+	if err != nil {
+		return fmt.Errorf("open temp db: %w", err)
+	}
+	freshStore := &Store{DB: fresh, path: tmp}
+	if err := freshStore.Migrate(); err != nil {
+		fresh.Close()
+		_, _ = removeWithRetry(tmp)
+		return fmt.Errorf("migrate temp db: %w", err)
+	}
+
+	// Copy content in. FK off (the source was already consistent; this avoids
+	// insertion-order constraints); triggers stay ON so the fts indexes fill as
+	// rows land. ATTACH reads only the base tables we name — never the corrupt
+	// index pages.
+	copyErr := func() error {
+		if _, err := fresh.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
+			return err
+		}
+		if _, err := fresh.Exec(`ATTACH DATABASE ? AS old`, old); err != nil {
+			return fmt.Errorf("attach old db: %w", err)
+		}
+		defer fresh.Exec(`DETACH DATABASE old`)
+		for _, t := range tables {
+			q := `INSERT INTO main."` + t + `" SELECT * FROM old."` + t + `"`
+			if _, err := fresh.Exec(q); err != nil {
+				return fmt.Errorf("copy %s: %w", t, err)
+			}
+		}
+		return nil
+	}()
+	if copyErr != nil {
+		fresh.Close()
+		_, _ = removeWithRetry(tmp)
+		_, _ = removeWithRetry(tmp + "-wal")
+		_, _ = removeWithRetry(tmp + "-shm")
+		return copyErr
+	}
+	if err := fresh.Close(); err != nil {
+		return fmt.Errorf("close temp db: %w", err)
+	}
+
+	// Swap the fresh file in for the old one, then reopen the live handle on it.
+	if err := s.DB.Close(); err != nil {
+		olog.Alertf("[recover] closing old db returned: %v (continuing)", err)
+	}
+	for _, suffix := range []string{"-wal", "-shm", ""} {
+		if _, err := removeWithRetry(old + suffix); err != nil {
+			// Can't clear the old file — reopen it so the server isn't db-less.
+			if db, oerr := openDB(old); oerr == nil {
+				s.DB = db
+			}
+			return fmt.Errorf("remove old %s: %w", old+suffix, err)
+		}
+	}
+	_, _ = removeWithRetry(tmp + "-wal")
+	_, _ = removeWithRetry(tmp + "-shm")
+	if err := os.Rename(tmp, old); err != nil {
+		return fmt.Errorf("promote recovered db: %w", err)
+	}
+	db, err := openDB(old)
+	if err != nil {
+		return fmt.Errorf("reopen recovered db: %w", err)
+	}
+	s.DB = db
+	olog.Alertf("[recover] done — database rebuilt, all rows preserved")
+	return nil
 }
 
 // Reset is a factory reset: it deletes the database files and re-initialises an

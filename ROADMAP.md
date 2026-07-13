@@ -9,6 +9,14 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.4.7 (July 2026)**
+
+- **Search recovery that survives un-droppable corruption** — when an FTS index is so
+  corrupt that even `DROP TABLE` fails, the repair escalates to a data-preserving
+  whole-database rebuild (copy the intact base tables into a fresh file, triggers
+  repopulate the indexes; the corrupt pages are never read). Automatic at startup and
+  via Profile → *Rebuild search index*. No data lost. Reproduced + tested end to end.
+
 **v0.4.6 (July 2026)**
 
 - **Database health + self-healing search** — startup runs `PRAGMA quick_check` and
