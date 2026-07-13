@@ -91,8 +91,9 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 📤 **Export** — any book or movie to Obsidian-friendly Markdown, a filtered set as one multi-item
   file, or the whole library as a zip. Book exports round-trip cleanly back through the importer.
 - 💬 **Share a quote** — one click on any highlight or dialogue opens a share sheet that formats it
-  for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit**. Choose which
-  fields to include, tweak the text, and copy it — with a live, per-format preview.
+  for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit** — or renders it
+  as a **shareable image** in your current paper/film skin, generated locally. Choose which fields to
+  include, tweak the text, and copy or download it — with a live preview.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, directors, genres,
   **series**, quotes, notes, and dialogue (find a line by its text, its character, or its actor).
   View as tiles, a list, or sortable tables; **group by** the same axes as the Library; **open any
@@ -123,10 +124,9 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 > **share-target** and a page-HTML **bookmarklet**); force-fetch & re-verify metadata (review
 > before apply); opt-in AI summaries (OpenAI-compatible) with push notifications (NTFY, likely via
 > [Shoutrrr](https://containrrr.dev/shoutrrr/)); a [Homepage](https://gethomepage.dev) dashboard
-> widget; more interface declutter (one **＋ Add**, progressive-disclosure cards & edit forms);
-> **quote-card images**, one-click **backup/restore**, and collections & shelves; the Profile area
-> growing into passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in
-> **achievements** — reading milestones plus one gentle spaced-repetition streak.
+> widget; one-click **backup/restore** and collections & shelves; the Profile area growing into
+> passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in **achievements** —
+> reading milestones plus one gentle spaced-repetition streak.
 > See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)

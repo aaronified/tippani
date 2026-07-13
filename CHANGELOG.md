@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Not yet (handoff)
+- **Dialogues in the daily-review *deck*.** The quiz already covers dialogues; the
+  daily review is still annotations-only. The `srReviewScope` pref is stored and
+  forward-compatible — see ROADMAP "Dialogues in the daily-review deck" for the plan
+  (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
+  /dialogues/{id}/review`, and surfacing review scope in Settings).
+
+## [0.4.3] - 2026-07-13
+
 ### Added
+- **One "＋ Add".** A single Add surface — book · film · import in one modal —
+  replaces the standalone Import tab. The top-bar **＋ Add** button, the drawer's
+  lead row, and the Library/Catalogue "Add" buttons all open the same surface, so
+  there's one obvious way to add anything (an old `/import` link opens it on
+  the Import section).
+- **Quote-card images.** The share sheet gains an **Image** format beside the text
+  ones: a highlight rendered to a shareable PNG in your current paper/film skin,
+  generated entirely in the browser (no server, no external calls), with the same
+  field-picking as the text formats — download it or copy it to the clipboard.
 - **Profile & account management behind the avatar chip.** The chip menu is now
   **Profile · User management · Log out** — a centred pop-up on desktop, a full
   page on phones. *Profile* edits your photo, **display name** (`PUT /auth/me`,
@@ -26,6 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   image); runnable by hand to backfill.
 
 ### Changed
+- **Progressive disclosure on quote cards.** A card shows only its favourite ♥ at
+  rest; on desktop, hovering reveals *share · edit · delete* inline, and on a phone
+  they fold behind a single ⋯ overflow — so a masonry of cards sheds its standing
+  button rows (delete keeps its confirm).
+- **Compact edit forms (books & films).** Cover controls collapse to icon buttons
+  with tooltips (upload · fetch metadata · paste URL · search covers · remove), and
+  **"Fetch metadata" now opens the edition/version picker** to choose the right
+  match instead of silently applying a guess — folding in the old "Browse other
+  matches" button.
 - **Favourite-only.** The 1–5 star rating is gone from the UI everywhere — cards,
   detail headers, filters, sort, tables and the share sheet; the favourite ♥ is the
   single quick signal. Stored ratings stay in the DB but hidden (no destructive
@@ -40,13 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   film-dark backdrop instead of looking like a floating line.
 - **Book-save failures are logged** (method · path · cause) instead of being
   swallowed behind a bare "internal error".
-
-### Not yet (handoff)
-- **Dialogues in the daily-review *deck*.** The quiz already covers dialogues; the
-  daily review is still annotations-only. The `srReviewScope` pref is stored and
-  forward-compatible — see ROADMAP "Dialogues in the daily-review deck" for the plan
-  (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
-  /dialogues/{id}/review`, and surfacing review scope in Settings).
 
 ## [0.4.2] - 2026-07-12
 

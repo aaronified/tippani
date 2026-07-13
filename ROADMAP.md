@@ -9,8 +9,21 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
-**On `edge` (unreleased — not yet tagged)**
+**v0.4.3 (July 2026)**
 
+- **One "＋ Add"** — Import is no longer a permanent tab: one Add surface carries
+  **book · film · import**, opened by the top-bar **＋ Add**, the drawer's lead
+  row, and the Library/Catalogue Add buttons — one obvious way to add anything.
+- **Progressive disclosure on cards** — a quote card shows only its favourite ♥
+  at rest; **share · edit · delete** reveal on hover (desktop) or fold behind a
+  single ⋯ overflow (mobile), so a masonry sheds its standing button rows.
+- **Compact edit forms** — the book/film cover controls collapse to icon buttons
+  with tooltips (upload · fetch metadata · paste URL · search covers · remove),
+  and **"Fetch metadata" opens the edition/version picker** to pick the right
+  match instead of silently applying a guess.
+- **Quote-card images** — render a highlight as a shareable **image** in the
+  current paper/film skin, straight from the share sheet, generated locally with
+  the same field-picking as the text formats.
 - **Profile & account management** — the avatar chip is now Profile · User
   management · Log out (a pop-up on desktop, a full page on phones): edit
   **photo · display name · password**, and (admin) add/remove users +
@@ -178,30 +191,7 @@ streak!" banners are exactly what we won't do). It's a quiet tally that rewards
 turning up, not a chain you're afraid to drop. Streaks stop at the review; nothing
 else in the app grows one.
 
-### 7 · Interface declutter, continued
-The **configurable nav placement** (Tags + Metadata as tabs or a ⋯ More menu) and
-the **single favourite signal** (the star rating dropped) shipped — see Recently
-shipped. Remaining:
-
-- **One "＋ Add"** — Import stops being a permanent tab and becomes part of a single
-  Add surface that also carries manual / look-up entry for a book or film; the
-  Library and Catalogue "Add" buttons open that very same surface, so there's one
-  obvious way to add anything.
-- **Progressive disclosure on cards** — a quote card shows only its primary mark at
-  rest (the favourite). On **desktop**, hovering the card reveals the *share · edit ·
-  delete* actions inline; on **mobile** (no hover) they sit behind a single ⋯
-  overflow. Either way the resting card sheds its standing button row — the change
-  that most directly answers "too many buttons" across a masonry of cards (delete
-  keeps its confirm).
-- **Compact edit forms (books & films)** — vertical space is precious, so the edit
-  form stops making you scroll. Cover controls collapse to **icon buttons with
-  tooltips** (upload · paste URL · search covers · remove) instead of a wide labelled
-  row; and **"Fetch metadata" stops silently applying a guess** — it opens the
-  **edition/version picker** so you pick the right match, folding today's separate
-  "Browse other matches" button into that one action. Anything not in use stays
-  collapsed until you reach for it.
-
-### 8 · Capture from anywhere (share-target + bookmarklet)
+### 7 · Capture from anywhere (share-target + bookmarklet)
 Two low-cost ways to get text in without a file:
 
 - **PWA share-target** — Tippani already installs as a PWA, so register it as a
@@ -214,7 +204,7 @@ Two low-cost ways to get text in without a file:
   importers. Deliberately minimal: just the page, no Bookcision-style JSON layer to
   install or keep working.
 
-### 9 · More import sources
+### 8 · More import sources
 Kobo (`KoboReader.sqlite`), Apple Books, a **Readwise** export, and read-later apps
 (Instapaper · Pocket · Matter), all folded into the same idempotent, cross-source
 dedupe. They surface in the Import menu **beside the still-stubbed Kindle
@@ -223,23 +213,18 @@ intended set at a glance. Kobo is unverified for now — no device here to test 
 `KoboReader.sqlite` against, so it ships only once someone can confirm it parses
 cleanly.
 
-### 10 · Quote-card images
-Render a highlight as a shareable **image** — styled in the current paper/film skin
-— the natural next step past today's text-only share sheet. Something to drop into a
-chat or a post, generated locally, with the same field-picking as the text formats.
-
-### 11 · Backup & restore
+### 9 · Backup & restore
 A one-click **tar of the whole data directory** (SQLite DB + downloaded covers and
 posters) from inside the app, and a restore that reads it back — portability and
 disaster-recovery without shelling into the box or wiring up the `VACUUM INTO` cron.
 
-### 12 · Collections & shelves
+### 10 · Collections & shelves
 Extend tagging **to books** (tags live only on annotations today), then a **shelf**
 view that groups either books or annotations by tag — curated, named groupings
 ("Best of 2026", "to reread") that are really just tags surfaced as first-class
 shelves, so there's no new taxonomy to learn.
 
-### 13 · Multi-author separation (for metadata & people)
+### 11 · Multi-author separation (for metadata & people)
 A credit is a single string today, so "Gaiman & Pratchett" or "Smith, Jones and
 Lee" becomes **one** non-resolving pseudo-person — no portrait, no links, and a
 junk group-by heading. Split multi-author credits into distinct people **when data
@@ -251,7 +236,7 @@ group-by headings and the People console. Two guards: don't shatter a genuine si
 name that merely contains "and", and keep the 0.4.2 dedupe/merge tools able to
 recombine a split that shouldn't have happened.
 
-### 14 · Verbose, structured logs
+### 12 · Verbose, structured logs
 A failed request should tell you *why* from the Docker logs, not just that it
 failed. Plan: consistent structured logging across handlers (method · path ·
 user · outcome · **cause**), a `TIPPANI_LOG_LEVEL` knob (quiet by default,
