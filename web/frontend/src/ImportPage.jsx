@@ -5,6 +5,7 @@ import {
   Field,
   GhostButton,
   HandCard,
+  InfoDot,
   MonoLabel,
   PageHeader,
   useIsMobileScreen,
@@ -152,7 +153,10 @@ export default function ImportPage({ onOpenMovie, embedded = false }) {
           <PageHeader title="Import" counts="bring the highlights home" />
         </div>
       )}
-      <div ref={ref} className="reveal grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Embedded in the narrow Add surface (max-w-2xl), 4 columns crammed the
+          cards and overflowed the buttons — cap at 2 there; the standalone page
+          keeps the wide 4-up wall. */}
+      <div ref={ref} className={'reveal grid gap-3 sm:grid-cols-2' + (embedded ? '' : ' lg:grid-cols-4')}>
         {SOURCES.map((s, i) => (
           <SourceCard
             key={s.kind}
@@ -245,20 +249,15 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
       }}
     >
       <ExtBadge color={color}>{ext}</ExtBadge>
-      <h3 className="text-base font-semibold">{title}</h3>
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-base font-semibold">{title}</h3>
+        {steps && steps.length > 0 && (
+          <InfoDot text={steps.map((s, i) => `${i + 1}. ${s}`).join('  ')} side="bottom" />
+        )}
+      </div>
       <p className="text-sm" style={{ color: 'var(--soft)' }}>
         {desc}
       </p>
-      {steps && steps.length > 0 && (
-        <ol
-          className="space-y-1"
-          style={{ fontSize: 12, color: 'var(--faint)', paddingLeft: 16, listStyle: 'decimal', lineHeight: 1.45 }}
-        >
-          {steps.map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ol>
-      )}
       <div className="mt-auto">
         <label
           className="tp-btn tp-btn-ghost w-full"

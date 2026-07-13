@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Home, { QuickCapture, tzOffsetMinutes } from './Home.jsx'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
@@ -380,12 +381,36 @@ function tabOptions(pairs) {
 // Metadata fold into a self-contained ⋯ More dropdown instead of sitting inline.
 function DesktopNav({ tab, onChange, navMode }) {
   const [moreOpen, setMoreOpen] = useState(false)
-  const ref = useRef(null)
+  const [pos, setPos] = useState(null) // fixed-position coords for the portaled panel
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  // The dropdown is portaled to <body> and positioned via getBoundingClientRect:
+  // its natural home (the ⋯ button) lives inside <nav.topbar-nav>, which sets
+  // overflow-x:auto — and a non-visible overflow on one axis forces the other to
+  // compute to auto too, so an in-flow absolute panel was clipped by the ~48px
+  // nav and never showed. Escaping to the body sidesteps the clip entirely.
   useEffect(() => {
     if (!moreOpen) return
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setMoreOpen(false) }
+    const place = () => {
+      const b = btnRef.current?.getBoundingClientRect()
+      if (b) setPos({ top: b.bottom + 6, right: Math.max(8, window.innerWidth - b.right) })
+    }
+    place()
+    const close = (e) => {
+      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+      setMoreOpen(false)
+    }
+    const onKey = (e) => { if (e.key === 'Escape') setMoreOpen(false) }
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
   }, [moreOpen])
   const utility = navMode === 'tabs'
     ? [...UTILITY_TOGGLED, ...UTILITY_ALWAYS]
@@ -396,18 +421,23 @@ function DesktopNav({ tab, onChange, navMode }) {
       <span className="nav-divider" aria-hidden="true" />
       <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(utility)} />
       {navMode === 'menu' && (
-        <div className="relative" ref={ref}>
-          <button type="button" className="nav-more-btn" aria-haspopup="true" aria-expanded={moreOpen} aria-label="More" title="More" onClick={() => setMoreOpen((v) => !v)}>
+        <div className="relative">
+          <button ref={btnRef} type="button" className="nav-more-btn" aria-haspopup="true" aria-expanded={moreOpen} aria-label="More" title="More" onClick={() => setMoreOpen((v) => !v)}>
             <span aria-hidden="true">⋯</span>
           </button>
-          {moreOpen && (
-            <div className="hand-card hc-r2 user-menu-panel z-50 px-2 py-2 text-left" style={{ right: 0, minWidth: 168 }}>
+          {moreOpen && pos && createPortal(
+            <div
+              ref={menuRef}
+              className="hand-card hc-r2 user-menu-panel px-2 py-2 text-left"
+              style={{ position: 'fixed', top: pos.top, right: pos.right, minWidth: 168, zIndex: 60 }}
+            >
               {UTILITY_TOGGLED.map(([key, label]) => (
                 <button key={key} type="button" className={'menu-item' + (tab === key ? ' active' : '')} aria-current={tab === key ? 'page' : undefined} onClick={() => { onChange(key); setMoreOpen(false) }}>
                   <TabIcon name={key} /> {label}
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       )}

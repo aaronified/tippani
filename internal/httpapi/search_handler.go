@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"database/sql"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -102,7 +105,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	wantDialogues := scope == "all" || scope == "dialogues"
 
 	if wantBooks {
-		rows, err := s.Store.DB.Query(`
+		rows, err := s.ftsQuery("books_fts", `
 			SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
 			       COALESCE(b.published_year, 0), COALESCE(b.series, ''), COALESCE(b.series_index, 0)
 			FROM books_fts
@@ -111,7 +114,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			ORDER BY bm25(books_fts)
 			LIMIT ?`, match, uid, limit)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "search failed")
+			internalError(w, r, "search books", err)
 			return
 		}
 		defer rows.Close()
@@ -126,7 +129,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wantAnnotations {
-		rows, err := s.Store.DB.Query(`
+		rows, err := s.ftsQuery("annotations_fts", `
 			SELECT a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
 			       COALESCE(a.quote, ''), COALESCE(a.note, ''),
 			       COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, '')
@@ -137,7 +140,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			ORDER BY bm25(annotations_fts)
 			LIMIT ?`, match, uid, limit)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "search failed")
+			internalError(w, r, "search annotations", err)
 			return
 		}
 		defer rows.Close()
@@ -152,7 +155,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wantMovies {
-		rows, err := s.Store.DB.Query(`
+		rows, err := s.ftsQuery("movies_fts", `
 			SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 			       COALESCE(m.poster_path, ''), COALESCE(m.series, ''), COALESCE(m.series_index, 0)
 			FROM movies_fts
@@ -161,7 +164,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			ORDER BY bm25(movies_fts)
 			LIMIT ?`, match, uid, limit)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "search failed")
+			internalError(w, r, "search movies", err)
 			return
 		}
 		defer rows.Close()
@@ -176,7 +179,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wantDialogues {
-		rows, err := s.Store.DB.Query(`
+		rows, err := s.ftsQuery("dialogues_fts", `
 			SELECT d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 			       COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
 			       COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, '')
@@ -187,7 +190,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			ORDER BY bm25(dialogues_fts)
 			LIMIT ?`, match, uid, limit)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "search failed")
+			internalError(w, r, "search dialogues", err)
 			return
 		}
 		defer rows.Close()
@@ -235,4 +238,27 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// ftsQuery runs an FTS5 MATCH query and, if it fails, rebuilds the given
+// external-content index once and retries. These indexes (books_fts, …) are
+// kept in sync by triggers, but can still drift out of sync with their content
+// table — e.g. a NULL-vs-'' mismatch between what a row was indexed with and
+// what the delete/update trigger passes — which surfaces only at query time as
+// a runtime "database disk image is malformed" and turned every search into an
+// opaque 500. A 'rebuild' re-derives the whole index from the content rows, so
+// it self-heals a drifted index on the first search after a deploy instead of
+// staying broken until someone notices. ftsTable is a fixed internal identifier
+// (never user input), so the Sprintf is injection-safe.
+func (s *Server) ftsQuery(ftsTable, query string, args ...any) (*sql.Rows, error) {
+	rows, err := s.Store.DB.Query(query, args...)
+	if err == nil {
+		return rows, nil
+	}
+	log.Printf("[search] %s query failed (%v); rebuilding index and retrying", ftsTable, err)
+	if _, rbErr := s.Store.DB.Exec(fmt.Sprintf("INSERT INTO %s(%s) VALUES('rebuild')", ftsTable, ftsTable)); rbErr != nil {
+		log.Printf("[search] %s rebuild failed: %v", ftsTable, rbErr)
+		return nil, err
+	}
+	return s.Store.DB.Query(query, args...)
 }

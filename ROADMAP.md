@@ -9,6 +9,22 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.4.4 (July 2026)**
+
+- **One look-up card** — the Add surface is now *Look up / add* + *Import files*;
+  the first is a single card with a **Book · Film · Show** toggle, one search box and
+  an optional year, with manual entry moved into a **"Add manually"** popup per kind.
+- **Import instructions as tooltips** — each source card's step-by-step "save the
+  page" notes fold into the standard info-dot tooltip, so the cards read at a glance
+  (and no longer overflow inside the narrow Add modal).
+- **Leaner mobile Metadata** — on phones it's a maintenance screen (fetch covers &
+  metadata with no replacement · scan duplicates · speaker remap · people
+  fetch-missing) with the coverage tiles as plain text lines; the at-scale console
+  stays desktop-only. New `missing_only` on `POST /covers/refetch`.
+- **Fixes** — search self-heals a drifted FTS5 index (and logs the real cause)
+  instead of a bare "search failed" 500; the desktop **⋯ More** menu portals out of
+  the clipping top-bar nav so it's no longer hidden behind the page.
+
 **v0.4.3 (July 2026)**
 
 - **One "＋ Add"** — Import is no longer a permanent tab: one Add surface carries

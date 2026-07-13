@@ -478,115 +478,15 @@ function BookList({ onOpen, onOpenMovie }) {
 // ---- add-book forms (§8.4, mockups 10–11) — now hosted by AddSurface (§7) ----
 
 // isIsbn detects a 10- or 13-digit ISBN (hyphens/spaces allowed, trailing X ok).
-function isIsbn(s) {
+export function isIsbn(s) {
   const t = s.replace(/[-\s]/g, '')
   return /^(\d{9}[\dXx]|\d{13})$/.test(t)
 }
 
-function sourceLabel(source) {
+export function sourceLabel(source) {
   if (source === 'google') return 'GOOGLE BOOKS'
   if (source === 'openlibrary') return 'OPEN LIBRARY'
   return (source || '').toUpperCase()
-}
-
-export function LookupTab({ onAdded }) {
-  const [q, setQ] = useState('')
-  const [candidates, setCandidates] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [lookupDown, setLookupDown] = useState(false)
-
-  // §2: surface the LOOKUP FAILING state inline when the last lookup failed.
-  useEffect(() => {
-    json('GET', '/metadata/status').then((r) => {
-      if (r.ok && r.data.books_lookup && r.data.books_lookup.ok === false) setLookupDown(true)
-    })
-  }, [])
-
-  async function search(e) {
-    e.preventDefault()
-    const v = q.trim()
-    if (!v) return
-    setBusy(true)
-    setError('')
-    setCandidates(null)
-    const r = await json('POST', '/books/lookup', isIsbn(v) ? { isbn: v } : { title: v })
-    setBusy(false)
-    if (r.ok) setCandidates(r.data.candidates)
-    else {
-      setError(errText(r, 'lookup failed'))
-      if (r.status >= 500) setLookupDown(true)
-    }
-  }
-
-  async function add(c) {
-    setError('')
-    const r = await json('POST', '/books', {
-      title: c.title,
-      author: c.author || undefined,
-      isbn: c.isbn13 || undefined,
-      description: c.description || undefined,
-      published_year: c.published_year || undefined,
-      genres: c.genres || undefined,
-      cover_url: c.cover_url || undefined,
-      source: c.source,
-      source_id: c.source_id,
-    })
-    if (r.ok) onAdded()
-    else setError(errText(r, 'could not add book')) // 409 duplicate lands here
-  }
-
-  return (
-    <div className="space-y-3">
-      <form onSubmit={search} className="flex gap-2">
-        <div className="relative min-w-0 flex-1">
-          <input
-            className="tp-input pr-28"
-            aria-label="ISBN or title"
-            autoFocus
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <MonoLabel className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-            ISBN or title
-          </MonoLabel>
-        </div>
-        <button className={PRIMARY + ' shrink-0'} disabled={busy}>
-          {busy ? 'Searching…' : 'Search'}
-        </button>
-      </form>
-      {lookupDown && (
-        <p className="microcopy" style={{ color: 'var(--error)' }}>
-          lookup failing right now? switch to Manual — title + author is enough
-        </p>
-      )}
-      <ErrorText>{error}</ErrorText>
-      {candidates && candidates.length === 0 && <EmptyState>no matches found</EmptyState>}
-      {candidates && candidates.length > 0 && (
-        <ul className="space-y-2.5">
-          {candidates.map((c, i) => (
-            <li
-              key={i}
-              className="sheen-raised flex items-center gap-3 rounded-xl px-3 py-2.5"
-              style={{ border: '1px solid var(--line)' }}
-            >
-              <Placeholder kind="" className="w-9 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{c.title}</p>
-                <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
-                  {[c.author, c.published_year || null, c.isbn13].filter(Boolean).join(' · ')}
-                </p>
-              </div>
-              <span className="tp-chip shrink-0">{sourceLabel(c.source)}</span>
-              <button className={PRIMARY + ' shrink-0'} onClick={() => add(c)}>
-                Add
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
 }
 
 export function ManualTab({ onAdded }) {

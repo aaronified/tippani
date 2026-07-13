@@ -220,6 +220,10 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Cursor string `json:"cursor"`
 		Limit  int    `json:"limit"`
+		// MissingOnly fills empty covers/posters only and never upgrades a stored
+		// low-res image — the "no replacement" mode the mobile Metadata screen uses
+		// so a quick tap can't churn art the user is happy with.
+		MissingOnly bool `json:"missing_only"`
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
 	_ = json.NewDecoder(r.Body).Decode(&req) // absent/empty body = defaults
@@ -352,7 +356,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		if b.cover != "" {
 			oldW = s.coverWidth(b.cover)
 		}
-		lowRes := b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
+		lowRes := !req.MissingOnly && b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
 		if b.cover == "" || lowRes {
 			var urls []string
 			// Amazon's ISBN-10 image CDN is keyless and serves the full-size
@@ -440,7 +444,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			if poster != "" {
 				oldW = s.coverWidth(poster)
 			}
-			if poster == "" || (oldW > 0 && oldW < lowResCoverWidth) {
+			if poster == "" || (!req.MissingOnly && oldW > 0 && oldW < lowResCoverWidth) {
 				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath), poster, oldW})
 			}
 		}

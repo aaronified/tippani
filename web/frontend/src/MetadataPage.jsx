@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconExport, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
 import { ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
@@ -30,7 +30,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
   // The endpoint is chunked ({cursor} → {next_cursor, done, total, remaining}),
   // so this loops chunk by chunk and drives a real progress bar.
   const [progress, setProgress] = useState(null) // {done, total} while running
-  async function fetchMissingCovers() {
+  // missingOnly = fill empty covers/posters + details only, never upgrade stored
+  // low-res art — the "no replacement" mode the stripped-down mobile screen uses.
+  async function fetchMissingCovers(missingOnly = false) {
     setBusy(true)
     setError('')
     setFlash('')
@@ -44,7 +46,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       let cursor = ''
       let total = 0
       for (;;) {
-        const r = await json('POST', '/covers/refetch', cursor ? { cursor } : {})
+        const body = {}
+        if (cursor) body.cursor = cursor
+        if (missingOnly) body.missing_only = true
+        const r = await json('POST', '/covers/refetch', body)
         if (!r.ok) return setError(errText(r, 'could not re-fetch covers'))
         sum.fetched += r.data.fetched
         sum.enriched += r.data.enriched || 0
@@ -108,26 +113,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader
           title="Metadata"
-          counts="stats · filters · bulk actions"
+          counts={mobile ? 'maintenance' : 'stats · filters · bulk actions'}
           right={
-            user?.is_admin &&
-            (mobile ? (
-              <IconButton
-                icon={<IconExport />}
-                ariaLabel="Fetch missing covers & metadata"
-                onClick={fetchMissingCovers}
-                disabled={busy}
-              />
-            ) : (
+            !mobile && user?.is_admin && (
               <Tooltip
                 side="bottom"
                 label="Admin maintenance: fetches missing covers/posters (and replaces low-res ones) and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
               >
-                <GhostButton disabled={busy} onClick={fetchMissingCovers}>
+                <GhostButton disabled={busy} onClick={() => fetchMissingCovers(false)}>
                   Fetch missing covers &amp; metadata
                 </GhostButton>
               </Tooltip>
-            ))
+            )
           }
       />
       </div>
@@ -148,6 +145,25 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       )}
       {!lib ? (
         <EmptyState>loading…</EmptyState>
+      ) : mobile ? (
+        // Mobile (§5): a maintenance screen, not the at-scale console. Just the
+        // handful of one-tap actions; the big filterable lists are desktop-only,
+        // and the coverage tiles collapse into plain text lines at the bottom.
+        <>
+          {user?.is_admin && (
+            <MobileAction
+              title="Fetch covers & metadata"
+              desc="Fill missing covers, posters and details — never replaces what you already have."
+              actionLabel="Fetch"
+              busy={busy}
+              onClick={() => fetchMissingCovers(true)}
+            />
+          )}
+          <DuplicatesPanel onDone={load} onFlash={setFlash} />
+          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
+          <PeopleConsole onFlash={setFlash} compact />
+          <StatsLines stats={stats} />
+        </>
       ) : (
         <>
           <StatsStrip stats={stats} onPickBook={setBookFilter} onPickMovie={setMovieFilter} />
@@ -159,6 +175,46 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
         </>
       )}
     </section>
+  )
+}
+
+// MobileAction — a compact action card for the stripped-down mobile Metadata
+// screen (§5): a title, a one-line what-it-does, and a single run button.
+function MobileAction({ title, desc, actionLabel = 'Run', busy, onClick, disabled }) {
+  return (
+    <HandCard className="flex items-center gap-3 p-4">
+      <div className="min-w-0 flex-1">
+        <h2 style={H2}>{title}</h2>
+        {desc && <p className="microcopy" style={{ color: 'var(--soft)' }}>{desc}</p>}
+      </div>
+      <GhostButton className="shrink-0" disabled={busy || disabled} onClick={onClick}>
+        {busy ? '…' : actionLabel}
+      </GhostButton>
+    </HandCard>
+  )
+}
+
+// StatsLines — the coverage tiles as plain text lines (§5, mobile): one line per
+// group listing only the non-zero gaps, so "what still needs work" reads at a
+// glance without the tap-to-filter tiles the mobile screen has no lists to feed.
+function StatsLines({ stats }) {
+  const line = (label, entries) => {
+    const parts = entries.filter(([, n]) => n > 0).map(([l, n]) => `${n} ${l}`)
+    return (
+      <p className="microcopy" style={{ color: 'var(--soft)' }}>
+        <b style={{ color: 'var(--ink)' }}>{label}</b> — {parts.length ? parts.join(' · ') : 'all complete ✓'}
+      </p>
+    )
+  }
+  const b = stats.books
+  const m = stats.movies
+  return (
+    <div className="space-y-1.5 pt-1">
+      <MonoLabel className="block">Coverage</MonoLabel>
+      {line(`Books (${b.total})`, [['no cover', b.no_cover], ['low-res', b.low_res], ['no author', b.no_author], ['no series', b.no_series], ['no year', b.no_year], ['no genre', b.no_genre], ['no source', b.no_source]])}
+      {line(`Films & shows (${m.total})`, [['no poster', m.no_poster], ['low-res', m.low_res], ['no cast', m.no_cast], ['no director', m.no_director], ['no year', m.no_year], ['no genre', m.no_genre], ['no source', m.no_source]])}
+      {line(`Dialogues (${stats.dialogues.total})`, [['no actor', stats.dialogues.missing_actor]])}
+    </div>
   )
 }
 
@@ -1130,7 +1186,7 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
 // anywhere in the app. Links are fetched per row or in bulk for the ones
 // still missing; rows stay listed even when no longer referenced so stale
 // metadata remains manageable.
-export function PeopleConsole({ onFlash }) {
+export function PeopleConsole({ onFlash, compact = false }) {
   const [kind, setKind] = useState('author')
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
@@ -1230,68 +1286,76 @@ export function PeopleConsole({ onFlash }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>People</h2>
-        <MonoLabel>{shown.length} shown</MonoLabel>
+        {/* §4: the verbose "what this fetches" copy now lives in a tooltip. */}
+        <InfoDot text="Photos + reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library), matched to the right person — an author by the books they wrote, an actor from the film's cast. Actor photos and links need a TMDB key (Settings); author photos are keyless." />
+        {!compact && <MonoLabel>{shown.length} shown</MonoLabel>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {[['author', 'Authors'], ['actor', 'Actors']].map(([k, label]) => (
             <button key={k} className={'tp-filter-chip' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>
               {label}
             </button>
           ))}
-          <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
+          {!compact && <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />}
           <GhostButton disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
             Fetch missing{missing.length > 0 ? ` (${missing.length})` : ''}
           </GhostButton>
         </div>
       </div>
-      <p className="microcopy">
-        photos + reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library), matched to the
-        right person — an author by the books they wrote, an actor from the film's cast. Actor photos
-        and links need a TMDB key (Settings); author photos are keyless.
-      </p>
       <ErrorText>{err}</ErrorText>
       {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={`fetching photos & links · ${bulk.done}/${bulk.total}`} />}
-      {dupGroups.length > 0 && (
-        <div className="space-y-2">
-          <MonoLabel>Possible duplicates ({dupGroups.length})</MonoLabel>
-          {dupGroups.map((g, i) => (
-            <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
-          ))}
-        </div>
-      )}
-      {!rows ? (
-        <EmptyState>loading…</EmptyState>
-      ) : shown.length === 0 ? (
-        <EmptyState>{kind === 'author' ? 'no authors in the library yet' : 'no actors on any dialogue yet'}</EmptyState>
+      {/* Mobile (§5): no browsable list — just how many still need work. */}
+      {compact ? (
+        <p className="microcopy" style={{ color: 'var(--soft)' }}>
+          {!rows
+            ? 'loading…'
+            : `${missing.length} ${kind === 'author' ? 'author' : 'actor'}${missing.length === 1 ? '' : 's'} still need${missing.length === 1 ? 's' : ''} photos or links`}
+        </p>
       ) : (
-        <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
-          <table className="ann-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Links</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((p) => (
-                <tr key={p.name}>
-                  <td>
-                    {p.name}
-                    {p.has_image && (
-                      <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title="photo saved">· photo</span>
-                    )}
-                  </td>
-                  <td><ProviderChips links={p.links} /></td>
-                  <td className="col-actions">
-                    <button className="tp-link" disabled={busyName === p.name || !!bulk} onClick={() => fetchRow(p)}>
-                      {busyName === p.name ? 'fetching…' : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image) ? 'refetch' : 'fetch'}
-                    </button>
-                  </td>
-                </tr>
+        <>
+          {dupGroups.length > 0 && (
+            <div className="space-y-2">
+              <MonoLabel>Possible duplicates ({dupGroups.length})</MonoLabel>
+              {dupGroups.map((g, i) => (
+                <DupCard key={i} group={g} kind={kind} rowsByName={rowsByName} onMerged={() => load()} />
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          )}
+          {!rows ? (
+            <EmptyState>loading…</EmptyState>
+          ) : shown.length === 0 ? (
+            <EmptyState>{kind === 'author' ? 'no authors in the library yet' : 'no actors on any dialogue yet'}</EmptyState>
+          ) : (
+            <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+              <table className="ann-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Links</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((p) => (
+                    <tr key={p.name}>
+                      <td>
+                        {p.name}
+                        {p.has_image && (
+                          <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title="photo saved">· photo</span>
+                        )}
+                      </td>
+                      <td><ProviderChips links={p.links} /></td>
+                      <td className="col-actions">
+                        <button className="tp-link" disabled={busyName === p.name || !!bulk} onClick={() => fetchRow(p)}>
+                          {busyName === p.name ? 'fetching…' : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image) ? 'refetch' : 'fetch'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </section>
   )

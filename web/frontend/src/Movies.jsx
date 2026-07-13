@@ -420,14 +420,14 @@ function PosterCard({ movie: m, onOpen }) {
 // The old modal wrapper lives in AddSurface; the forms below are exported. ----
 
 // candSource labels a candidate's supplier + id (e.g. "TMDB #603", "TVDB #121361").
-function candSource(c) {
+export function candSource(c) {
   const id = c.source === 'tvdb' ? c.source_id : c.tmdb_id || c.source_id
   return `${(c.source || 'tmdb').toUpperCase()} #${id}`
 }
 
 // sourceRef normalises a candidate to the {source, source_id, media_type} the
 // create/enrich endpoints expect.
-function sourceRef(c, fallbackMedia) {
+export function sourceRef(c, fallbackMedia) {
   return {
     source: c.source || 'tmdb',
     source_id: c.source === 'tvdb' ? c.source_id : String(c.tmdb_id || c.source_id),
@@ -435,119 +435,10 @@ function sourceRef(c, fallbackMedia) {
   }
 }
 
-export function LookupMovie({ mediaType, setMediaType, title, setTitle, onAdded, onUnavailable }) {
-  const [year, setYear] = useState('')
-  const [candidates, setCandidates] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [confirm, setConfirm] = useState(null) // {cand, existing:[…]} when a same-name title already exists
-
-  async function search(e) {
-    e.preventDefault()
-    if (!title.trim()) return
-    setBusy(true)
-    setError('')
-    setConfirm(null)
-    setCandidates(null)
-    const body = { title: title.trim(), media_type: mediaType }
-    if (year) body.year = Number(year)
-    const r = await json('POST', '/movies/lookup', body)
-    setBusy(false)
-    if (r.ok) return setCandidates(r.data.candidates)
-    if (r.status === 503) return onUnavailable(errText(r, 'lookup is unavailable'))
-    setError(errText(r, 'lookup failed'))
-  }
-
-  // add posts the pick. A same-name title already in the library comes back as
-  // 409 + needs_confirm (with the existing rows) so the user chooses: enrich one
-  // of them, or add a distinct title (same-name films are legitimate).
-  async function add(c, confirmNew = false) {
-    setError('')
-    const r = await json('POST', '/movies', { ...sourceRef(c, mediaType), confirm_new: confirmNew })
-    if (r.ok) return onAdded()
-    if (r.status === 409 && r.data?.needs_confirm) return setConfirm({ cand: c, existing: r.data.existing || [] })
-    setError(errText(r, 'could not add title'))
-  }
-
-  // enrich re-syncs an existing row from the picked candidate's supplier — a
-  // full re-pull that keeps that row's dialogues/rating/favourite (PLAN §6).
-  async function enrich(existingId, c) {
-    setBusy(true)
-    setError('')
-    const r = await json('PUT', `/movies/${existingId}`, sourceRef(c, mediaType))
-    setBusy(false)
-    if (r.ok) return onAdded()
-    setError(errText(r, 'could not enrich that title'))
-  }
-
-  return (
-    <div className="space-y-3">
-      <form onSubmit={search} className="flex gap-2">
-        <input className="tp-input" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input
-          className="tp-input w-24 shrink-0"
-          placeholder="Year"
-          inputMode="numeric"
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
-        />
-        <button className="tp-btn tp-btn-primary shrink-0" disabled={busy}>
-          {busy ? 'Searching…' : 'Search'}
-        </button>
-      </form>
-      <ErrorText>{error}</ErrorText>
-      {confirm && (
-        <DuplicateConfirm
-          confirm={confirm}
-          busy={busy}
-          onEnrich={(id) => enrich(id, confirm.cand)}
-          onAddSeparate={() => add(confirm.cand, true)}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
-      {!confirm && candidates && candidates.length === 0 && <EmptyState>No matches found.</EmptyState>}
-      {!confirm && candidates && candidates.length > 0 && (
-        <ul style={{ border: '1px solid var(--line)', borderRadius: 10 }}>
-          {candidates.map((c, i) => (
-            <li
-              key={`${c.source}-${c.source_id || c.tmdb_id}`}
-              className="flex items-center gap-3 px-4 py-3"
-              style={i > 0 ? { borderTop: '1px solid var(--line)' } : undefined}
-            >
-              <CoverPreview url={c.poster_url} label="" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate">
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15 }}>{c.title}</span>
-                  {c.release_year ? (
-                    <span className="ml-2 text-[12.5px]" style={{ color: 'var(--soft)' }}>
-                      {c.release_year}
-                    </span>
-                  ) : null}
-                </p>
-                {c.overview && (
-                  <p className="mt-0.5 line-clamp-2 text-xs" style={{ color: 'var(--faint)' }}>
-                    {c.overview}
-                  </p>
-                )}
-              </div>
-              <span className="tp-chip shrink-0" style={{ color: 'var(--amber)' }}>
-                {candSource(c)}
-              </span>
-              <GhostButton className="shrink-0" onClick={() => add(c)}>
-                Add
-              </GhostButton>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
 // DuplicateConfirm asks the user what to do when the picked title shares a name
 // with something already in their library: enrich one of the existing rows in
 // place (keeping its dialogues), or add a separate title.
-function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCancel }) {
+export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCancel }) {
   return (
     <div className="hand-card hc-r1 space-y-3 p-4" style={{ borderLeft: '4px solid var(--amber, var(--accent))' }}>
       <p className="text-sm">

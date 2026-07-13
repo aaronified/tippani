@@ -14,6 +14,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
   /dialogues/{id}/review`, and surfacing review scope in Settings).
 
+## [0.4.4] - 2026-07-13
+
+### Changed
+- **One look-up card for books, films and shows.** The Add surface is now two tabs
+  — *Look up / add* and *Import files*. *Look up / add* is a single card with a
+  **Book · Film · Show** toggle, one search box and an optional year, replacing the
+  separate book / film sections that each carried their own look-up ↔ manual switch.
+  Manual entry is no longer a sibling mode: a **"Can't find it? Add manually"** link
+  opens a hand-entry popup for the chosen kind.
+- **Import instructions are now tooltips.** Each import source card's step-by-step
+  "how to save the page" instructions moved into the standard info-dot tooltip (the
+  same one used across Settings), so the cards read at a glance; the one-line
+  description stays visible.
+- **Stripped-down mobile Metadata screen.** On phones the Metadata tab is now a
+  maintenance screen — *fetch covers & metadata* (fill-empty only, never replacing
+  stored art), *scan for duplicates*, *speaker remap*, and *people fetch-missing*
+  (no browsable list) — with the coverage tiles collapsed into plain text lines. The
+  at-scale filterable console stays desktop-only.
+
+### Added
+- **`missing_only` on cover refetch.** `POST /covers/refetch` accepts `missing_only`
+  to fill empty covers/posters and details without upgrading stored low-res art — the
+  "no replacement" mode the mobile Metadata screen's one-tap fetch uses.
+
+### Fixed
+- **Search no longer fails on a drifted FTS index.** A search that hit a runtime
+  SQLite error — an external-content FTS5 index out of sync with its content table —
+  returned a bare `search failed` 500 with nothing logged. The handler now logs the
+  real cause and self-heals: it rebuilds the affected index once and retries, so
+  search recovers on the first query after a deploy instead of staying broken.
+- **The ⋯ More menu (Tags · Metadata) is no longer hidden.** On desktop the overflow
+  menu rendered inside the horizontally-scrolling top-bar nav, whose overflow clipped
+  the dropdown so it appeared behind the page. It now portals to `<body>` and
+  positions against its button, so it always sits above the content.
+- **The Add surface's import cards no longer overflow.** Embedded in the narrow Add
+  modal, the four-column import wall crammed the cards and overflowed their buttons;
+  the embedded grid is capped at two columns while the standalone page keeps its wide
+  four-up layout.
+
 ## [0.4.3] - 2026-07-13
 
 ### Added
