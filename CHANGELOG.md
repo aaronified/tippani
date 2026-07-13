@@ -14,6 +14,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
   /dialogues/{id}/review`, and surfacing review scope in Settings).
 
+## [0.4.6] - 2026-07-13
+
+### Added
+- **Startup database health checks.** On boot Tippani now runs `PRAGMA quick_check`
+  over the whole database and an FTS `integrity-check` on each search index, logging
+  the outcome to **both stdout and stderr**. Real corruption is alerted loudly so it
+  can't be missed in the container logs.
+- **Self-healing search indexes.** A corrupt full-text index (SQLite
+  `database disk image is malformed`) is rebuilt automatically at startup from the
+  intact base tables — the search data is *derived*, so nothing is lost. An in-place
+  `rebuild` can't fix page-level corruption (it re-reads the same bad pages), so the
+  repair drops and recreates the index (schema-driven, DDL read from the live schema).
+- **Profile → Maintenance (admin).** *Rebuild search index* runs that same
+  non-destructive repair on demand (fixes "search failed / internal error" without a
+  restart or any data loss). *Reset all data* is a guarded factory reset — it deletes
+  the database **file** (row/table deletes are blocked by a corrupt index) and
+  re-initialises an empty schema, returning the app to first-run admin-account
+  creation. New endpoints `POST /admin/search/reindex` and `POST /admin/reset`
+  (the reset requires `{"confirm":"RESET"}`).
+
+### Fixed
+- **Search "internal error" from a corrupt index** now recovers instead of 500ing
+  indefinitely: the index self-heals on the next boot, or immediately via Profile →
+  *Rebuild search index*. Settings (metadata keys) and preferences live in tables, so
+  a full reset clears them too — the Reset warning says so.
+
 ## [0.4.5] - 2026-07-13
 
 ### Fixed

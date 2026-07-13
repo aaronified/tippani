@@ -148,12 +148,121 @@ function PasswordForm() {
   )
 }
 
+// MaintenanceCard (admin only) — recovery tools that live in Profile: a
+// non-destructive search-index rebuild (the fix for "search failed / internal
+// error" from a corrupt full-text index) and the factory reset that wipes
+// everything back to first-run onboarding.
+function MaintenanceCard() {
+  const [busy, setBusy] = useState('') // 'reindex' | 'reset' | ''
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  const [showReset, setShowReset] = useState(false)
+  const [confirm, setConfirm] = useState('')
+
+  async function reindex() {
+    setBusy('reindex')
+    setErr('')
+    setMsg('')
+    const r = await json('POST', '/admin/search/reindex')
+    setBusy('')
+    if (r.ok && r.data.ok) setMsg('Search index rebuilt — search should work again.')
+    else if (r.ok)
+      setErr(
+        `Some indexes were too damaged to rebuild (${(r.data.failed || []).join(', ')}). ` +
+          'If search stays broken, a full reset is the remaining option.',
+      )
+    else setErr(errText(r, 'could not rebuild the search index'))
+  }
+
+  async function reset() {
+    if (confirm !== 'RESET') return
+    setBusy('reset')
+    setErr('')
+    setMsg('')
+    const r = await json('POST', '/admin/reset', { confirm: 'RESET' })
+    if (r.ok) {
+      // Fresh, empty database → reload into first-run onboarding.
+      window.location.href = '/'
+      return
+    }
+    setBusy('')
+    setErr(errText(r, 'could not reset the database'))
+  }
+
+  return (
+    <Card>
+      <FieldLabel>Maintenance</FieldLabel>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Rebuild search index</p>
+            <p className="microcopy" style={{ color: 'var(--soft)' }}>
+              Fixes “search failed / internal error” by rebuilding the full-text indexes from your
+              library. Non-destructive — no books, quotes or settings are touched.
+            </p>
+          </div>
+          <GhostButton disabled={busy === 'reindex'} onClick={reindex}>
+            {busy === 'reindex' ? 'Rebuilding…' : 'Rebuild'}
+          </GhostButton>
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '1px dashed var(--line)' }} />
+
+        <div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--error)' }}>
+            Reset all data
+          </p>
+          <p className="microcopy" style={{ color: 'var(--soft)' }}>
+            Permanently deletes <b>everything</b> — every account, all books, films, quotes, dialogue,
+            tags, people, stickers, saved covers, metadata keys and preferences — and restarts Tippani at
+            first-run admin-account creation. This cannot be undone.
+          </p>
+          {!showReset ? (
+            <GhostButton className="mt-2" onClick={() => setShowReset(true)}>
+              Reset all data…
+            </GhostButton>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <p className="microcopy">
+                Type <b>RESET</b> to confirm you want to delete everything:
+              </p>
+              <input
+                className="tp-input"
+                value={confirm}
+                autoFocus
+                placeholder="RESET"
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="tp-btn"
+                  style={{ background: 'var(--error)', color: '#fff', opacity: confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55 }}
+                  disabled={confirm !== 'RESET' || busy === 'reset'}
+                  onClick={reset}
+                >
+                  {busy === 'reset' ? 'Resetting…' : 'Delete everything & restart'}
+                </button>
+                <GhostButton onClick={() => { setShowReset(false); setConfirm('') }}>Cancel</GhostButton>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {msg && <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>{msg}</p>}
+        <ErrorText>{err}</ErrorText>
+      </div>
+    </Card>
+  )
+}
+
 export function Profile({ user, onUser }) {
   return (
     <div className="space-y-5">
       <Card><AvatarRow user={user} onUser={onUser} /></Card>
       <Card><NameForm user={user} onUser={onUser} /></Card>
       <Card><PasswordForm /></Card>
+      {user?.is_admin && <MaintenanceCard />}
     </div>
   )
 }

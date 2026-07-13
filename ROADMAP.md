@@ -9,6 +9,19 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.4.6 (July 2026)**
+
+- **Database health + self-healing search** — startup runs `PRAGMA quick_check` and
+  an FTS integrity-check (alerted on stdout+stderr), and any corrupt full-text index
+  is rebuilt automatically from the intact base tables (search data is derived, so no
+  loss). An in-place rebuild can't fix page corruption, so the repair drops + recreates
+  the index.
+- **Profile → Maintenance (admin)** — *Rebuild search index* (non-destructive, fixes
+  "search failed / internal error" with no restart or data loss) and *Reset all data*
+  (guarded factory reset: deletes the DB file — row deletes are blocked by a corrupt
+  index — and restarts at first-run onboarding). New `POST /admin/search/reindex`,
+  `POST /admin/reset`.
+
 **v0.4.5 (July 2026)**
 
 - **CSP font fix** — allow `font-src 'self' data:` so the small `@fontsource` subset

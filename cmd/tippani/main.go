@@ -97,6 +97,13 @@ func openStore() (*store.Store, string) {
 	if err := st.Migrate(); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
+	// Startup health: a structural corruption sweep of the whole DB file
+	// (alerted loudly on stdout+stderr if the image is malformed), then an
+	// FTS-index check that self-heals any corrupt full-text index by rebuilding
+	// it from the intact base tables — so search recovers on the next boot
+	// instead of 500ing until someone notices.
+	st.CheckIntegrity()
+	st.RepairFTS()
 	return st, dataDir
 }
 

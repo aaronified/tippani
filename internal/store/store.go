@@ -9,12 +9,23 @@ import (
 )
 
 type Store struct {
-	DB *sql.DB
+	DB   *sql.DB
+	path string // the file DB was opened from, so Reset can delete + reopen it
 }
 
 // Open opens (or creates) the database at path with the pragmas from PLAN §8:
 // WAL, synchronous=NORMAL, busy_timeout, foreign keys on.
 func Open(path string) (*Store, error) {
+	db, err := openDB(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{DB: db, path: path}, nil
+}
+
+// openDB builds the connection with the standard DSN + pool, verifying it opens.
+// Shared by Open and Reset so a re-initialised database is configured identically.
+func openDB(path string) (*sql.DB, error) {
 	dsn := fmt.Sprintf(
 		"file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)",
 		path,
@@ -29,7 +40,10 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
-	return &Store{DB: db}, nil
+	return db, nil
 }
+
+// Path is the on-disk database file this store was opened from.
+func (s *Store) Path() string { return s.path }
 
 func (s *Store) Close() error { return s.DB.Close() }

@@ -102,6 +102,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/metadata-keys", s.requireAdmin(s.handleGetMetadataKeys))
 	mux.Handle("PUT /admin/metadata-keys", s.requireAdmin(s.handlePutMetadataKeys))
 	mux.Handle("POST /covers/refetch", s.requireAdmin(s.handleCoversRefetch))
+	// Maintenance (admin): rebuild the search indexes (non-destructive) and the
+	// factory reset (destructive) behind Profile.
+	mux.Handle("POST /admin/search/reindex", s.requireAdmin(s.handleReindexFTS))
+	mux.Handle("POST /admin/reset", s.requireAdmin(s.handleResetDatabase))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
