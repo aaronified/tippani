@@ -274,8 +274,12 @@ func securityHeaders(next http.Handler) http.Handler {
 		// img-src also allows the metadata cover CDNs so candidate thumbnails and
 		// the cover picker can preview remote images before they're fetched and
 		// stored locally (matches metadata.coverHosts).
+		// font-src allows data: because Vite inlines small @fontsource subset files
+		// (< 4 KB) as base64 data: URIs; without it default-src blocks them and those
+		// glyphs silently fall back to a system face. data: fonts are inert (parsed,
+		// never executed), same rationale as data: images above.
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; img-src 'self' data: "+
+			"default-src 'self'; font-src 'self' data:; img-src 'self' data: "+
 				"https://covers.openlibrary.org https://books.google.com "+
 				"https://books.googleusercontent.com https://image.tmdb.org "+
 				"https://artworks.thetvdb.com "+

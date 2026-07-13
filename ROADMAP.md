@@ -9,6 +9,12 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.4.5 (July 2026)**
+
+- **CSP font fix** — allow `font-src 'self' data:` so the small `@fontsource` subset
+  files Vite inlines as `data:` URIs aren't blocked (they were falling back to a
+  system face); also unblocks the quote-card image renderer's fonts.
+
 **v0.4.4 (July 2026)**
 
 - **One look-up card** — the Add surface is now *Look up / add* + *Import files*;

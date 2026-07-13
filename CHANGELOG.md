@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
   /dialogues/{id}/review`, and surfacing review scope in Settings).
 
+## [0.4.5] - 2026-07-13
+
+### Fixed
+- **Bundled fonts no longer blocked by the CSP.** Vite inlines small `@fontsource`
+  subset files (< 4 KB) as `data:` URIs, which the `default-src 'self'` policy
+  rejected — so those glyphs silently fell back to a system face (and the browser
+  console filled with CSP errors). The Content-Security-Policy now allows
+  `font-src 'self' data:` (data: fonts are inert, same rationale as the existing
+  `data:` image allowance). This also unblocks the fonts the quote-card image
+  renderer relies on.
+
 ## [0.4.4] - 2026-07-13
 
 ### Changed
