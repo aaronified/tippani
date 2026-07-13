@@ -1076,6 +1076,67 @@ export function InfoDot({ text, side = "top" }) {
   );
 }
 
+// ---- spaced-repetition status dot (v0.5.0) ----
+
+// STATUS_META — the three repetition statuses (renamed for clarity) plus the
+// unseen state, each with its dot colour. Mirrors recallStatus() on the server.
+export const STATUS_META = {
+  remembered: { label: "Remembered", color: "var(--ok)", filled: true },
+  forgetting: { label: "Forgetting", color: "var(--amber)", filled: true },
+  "probably-forgotten": { label: "Probably forgotten", color: "var(--error)", filled: true },
+  unseen: { label: "Not yet reviewed", color: "var(--faint)", filled: false },
+};
+
+// fmtHalfLife renders a memory half-life (days) compactly: hours under a day,
+// then days, weeks, months.
+function fmtHalfLife(h) {
+  if (h < 1) return `${Math.max(1, Math.round(h * 24))}h`;
+  if (h < 14) return `${Math.round(h)}d`;
+  if (h < 60) return `${Math.round(h / 7)}w`;
+  return `${Math.round(h / 30)}mo`;
+}
+
+// reviewStatus derives a quote's repetition status from the fields the list
+// endpoints attach (reviewed / stability / last_reviewed_at). It mirrors the
+// server's forgetting-curve model p = 2^(-elapsed/half-life): remembered at
+// p >= 0.9, forgetting down to 0.5, probably-forgotten below. The tooltip
+// carries the half-life and when it next comes due, like the settings InfoDots.
+export function reviewStatus(item = {}) {
+  const { reviewed, stability, last_reviewed_at } = item;
+  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: "Not yet reviewed" };
+  const h = Math.max(Number(stability) || 1, 1);
+  let elapsed = 0;
+  if (last_reviewed_at) {
+    // Stored UTC "YYYY-MM-DD HH:MM:SS" — normalise to an ISO instant.
+    const t = Date.parse(last_reviewed_at.replace(" ", "T") + "Z");
+    if (!Number.isNaN(t)) elapsed = (Date.now() - t) / 86400000;
+  }
+  const p = Math.pow(2, -elapsed / h);
+  const key = p >= 0.9 ? "remembered" : p >= 0.5 ? "forgetting" : "probably-forgotten";
+  const meta = STATUS_META[key];
+  const due = elapsed >= h ? "due now" : `review in ~${fmtHalfLife(h - elapsed)}`;
+  return { key, ...meta, tip: `${meta.label} · half-life ${fmtHalfLife(h)} · ${due}` };
+}
+
+// ReviewDot — the coloured repetition-status dot shown on every quote/dialogue
+// card. Hover/focus reveals the status + half-life (a Tooltip, same as InfoDot).
+export function ReviewDot({ item, side = "top" }) {
+  const st = reviewStatus(item);
+  return (
+    <Tooltip label={st.tip} side={side}>
+      <span
+        tabIndex={0}
+        className="status-dot"
+        aria-label={st.tip}
+        style={{
+          background: st.filled ? st.color : "transparent",
+          borderColor: st.filled ? st.color : "var(--line)",
+        }}
+      />
+    </Tooltip>
+  );
+}
+
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.

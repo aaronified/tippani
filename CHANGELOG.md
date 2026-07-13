@@ -7,12 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Not yet (handoff)
-- **Dialogues in the daily-review *deck*.** The quiz already covers dialogues; the
-  daily review is still annotations-only. The `srReviewScope` pref is stored and
-  forward-compatible — see ROADMAP "Dialogues in the daily-review deck" for the plan
-  (migration `0015_dialogue_reviews`, a scope-gated UNION deck, `POST
-  /dialogues/{id}/review`, and surfacing review scope in Settings).
+## [0.5.0] - 2026-07-13
+
+Spaced-repetition rework: two clear modes, films & shows as first-class review
+material, and a status dot on every quote.
+
+### Added
+- **Daily Quiz & Practice.** The learning surface is now two modes sharing one
+  retrieval flow — *present → attempt recall → reveal → grade*:
+  - **Daily Quiz** — the scheduled session: every card due that day, **no skipping**,
+    each grade folded into the schedule, with a **permanent daily score and streak**.
+  - **Practice** — **unlimited, skippable** study across your whole library that by
+    default **does not touch the schedule** (a Settings toggle, *Practice moves the
+    schedule*, opts in), with a **separate, resettable score**.
+- **Two question directions**, in both modes and over books **and** films/shows: *which
+  work is this quote from?* and *recall a quote from this work*.
+- **Status dots on every quote** in the Library and the Catalogue — 🟢 **remembered**,
+  🟡 **forgetting**, 🔴 **probably forgotten** (a hollow dot until first reviewed) —
+  derived live from recall probability $p = 2^{-t/h}$. Hovering a dot shows the card's
+  memory half-life and when it next comes due, like the Settings info dots.
+- **Films & shows are now first-class review items.** Dialogue lines enter the deck,
+  grade, and carry a status dot exactly like book quotes; the review **scope**
+  (books / films & shows / both) governs both modes.
+
+### Changed
+- **Repetition statuses renamed** from soon / later / someday to **remembered /
+  forgetting / probably forgotten** — describing whether you can recall a quote *now*
+  rather than the raw half-life bucket.
+- **Review API** consolidated to `GET /review/daily`, `GET /review/practice`,
+  `POST /review/answer` (mode-aware), `GET /review/scores`, and
+  `DELETE /review/practice`, replacing the old `/annotations/daily-review`,
+  `/annotations/{id}/review` and `/annotations/quiz*` routes.
+- **Settings** now reads *Daily quiz cards / day*, *Review covers* (books / films &
+  shows / both), *Practice moves the schedule*, and the half-life growth/lapse factors;
+  the annotation & dialogue list responses gained `reviewed` / `stability` /
+  `last_reviewed_at` for the status dots.
+
+### Removed
+- **The multiple-choice recall quiz.** Retrieval is now self-graded in both modes
+  (honest recall is the point of spaced repetition), so the MCQ round, its distractor
+  machinery and the `srQuizLen` / `srQuizScope` preferences are gone.
+
+### Migration
+- `0015_review_rework` replaces `annotation_reviews` with a polymorphic `item_reviews`
+  (books + films/shows), **carrying every existing book half-life forward** — no
+  schedule is lost. Parent-delete cleanup moves from `ON DELETE CASCADE` to triggers.
+  The old `quiz_results` table is replaced by `quiz_sessions` (per-day, per-mode); the
+  previous multiple-choice score history does not map onto the new model and is not
+  carried over. The schedule itself is fully preserved.
 
 ## [0.4.7] - 2026-07-13
 

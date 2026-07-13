@@ -33,7 +33,7 @@ func TestPreferences(t *testing.T) {
 
 	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRQuizLen: 6, SRQuizScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -43,7 +43,7 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRQuizLen: 6, SRQuizScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
 		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
 	}
 
@@ -51,7 +51,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRQuizLen: 6, SRQuizScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
@@ -59,7 +59,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		map[string]string{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRQuizLen: 6, SRQuizScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", NavUtilities: "menu", SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25}) {
 		t.Fatalf("after PUT with stale home key: %+v", me.Preferences)
 	}
 
@@ -84,18 +84,20 @@ func TestPreferences(t *testing.T) {
 	}
 	c.mustDo("PUT", "/auth/me/preferences", map[string]string{"navUtilities": "sidebar"}, http.StatusBadRequest)
 
-	// Spaced-repetition settings: partial-merge, each in a clamped/enumerated
-	// range; an out-of-range value is rejected and leaves the set untouched.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 5, "srQuizScope": "movies", "srGrow": 3.0}, 200)
+	// Spaced-repetition settings (v0.5.0): partial-merge, each in a clamped/
+	// enumerated range; an out-of-range value is rejected and leaves the set
+	// untouched. srPracticeCounts is a bool that toggles on its own.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 5, "srReviewScope": "movies", "srGrow": 3.0, "srPracticeCounts": true}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences.SRDaily != 5 || me.Preferences.SRQuizScope != "movies" || me.Preferences.SRGrow != 3.0 || me.Preferences.NavUtilities != "tabs" {
+	if me.Preferences.SRDaily != 5 || me.Preferences.SRReviewScope != "movies" || me.Preferences.SRGrow != 3.0 ||
+		!me.Preferences.SRPracticeCounts || me.Preferences.NavUtilities != "tabs" {
 		t.Fatalf("SR settings: %+v", me.Preferences)
 	}
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 99}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srQuizLen": 1}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 1}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srGrow": 9.0}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srShrink": 0.9}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srQuizScope": "bogus"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srReviewScope": "bogus"}, http.StatusBadRequest)
 }
 
 func TestTagCRUD(t *testing.T) {

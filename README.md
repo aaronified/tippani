@@ -49,11 +49,11 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   <tr>
     <td width="38%"><img src="docs/img/search-film-dark.jpg" alt="Search — film / dark theme: instant FTS5 results across books, annotations, movies and dialogues"></td>
     <td width="38%"><img src="docs/img/import-paper-light.jpg" alt="Import — paper / light theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
-    <td width="24%"><img src="docs/img/home-mobile-film-dark.jpg" alt="Home on a phone — film / dark theme: the daily spaced-repetition review, quiz and library stats"></td>
+    <td width="24%"><img src="docs/img/home-mobile-film-dark.jpg" alt="Home on a phone — film / dark theme: the Daily Quiz, Practice and library stats"></td>
   </tr>
 </table>
 
-<p align="center"><sub>Desktop — Books (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light). Mobile — Books &amp; the Home daily review (film · dark).</sub></p>
+<p align="center"><sub>Desktop — Books (paper · light) · Catalogue (film · dark) · Search (film · dark) · Import (paper · light). Mobile — Books &amp; the Home Daily Quiz (film · dark).</sub></p>
 
 ## Features
 
@@ -61,25 +61,29 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   a favourite ★ and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
-- 🧠 **Daily review & quiz** — spaced repetition grounded in the memory research. Every highlight
-  carries a **memory half-life** and resurfaces along the **Ebbinghaus forgetting curve**: recall
-  probability decays as $p = 2^{-t/h}$ — where $t$ is the days since you last saw it and $h$ is its
-  half-life — so a card comes due right as you're about to forget it. Your verdict moves the half-life
-  the **SM-2 / expanding-retrieval** way:
+- 🧠 **Daily Quiz & Practice** — spaced repetition grounded in the memory research, over your
+  **books *and* films/shows** alike. Every highlight carries a **memory half-life** and resurfaces
+  along the **Ebbinghaus forgetting curve**: recall probability decays as $p = 2^{-t/h}$ — where $t$
+  is the days since you last saw it and $h$ is its half-life — so a card comes due right as you're
+  about to forget it. Each card is a **retrieval prompt** in one of two directions — *which work is
+  this quote from?* or *recall a quote from this work* — that you answer from memory, then reveal and
+  grade honestly:
   - ***Got it*** — stretch the interval (the half-life grows);
   - ***Forgot*** — a lapse: shortened, never hard-reset;
-  - ***Skip*** — benched for the rest of the local day.
+  - ***Skip*** — Practice only; benched, no effect on the schedule.
 
-  That is the **active-recall** effect the retention research keeps confirming. A **recall quiz** turns
-  your own library into quick multiple-choice rounds — match a quote to its book, or a line to who said
-  it; **get one right and it counts as a revision too** (a wrong guess never moves your schedule). Two
-  to three minutes a day, sane defaults (deck size, quiz length/scope and the half-life factors are
-  tunable in Settings), no gamification — a dot on the logo marks a waiting deck,
-  and a *"where you stand"* readout shows how many quotes are unseen · soon · later · someday.
+  The **Daily Quiz** is the scheduled session: every card due that day, no skipping, each grade folded
+  into your schedule, with a permanent score and streak. **Practice** is unlimited, skippable, on-demand
+  study for exams or a refresher — and by default it *doesn't* touch your schedule (a Settings toggle
+  opts in), with its own resettable score. Every quote in the Library and Catalogue wears a **status
+  dot** — 🟢 **remembered**, 🟡 **forgetting**, 🔴 **probably forgotten** (renamed from the old
+  soon/later/someday for clarity) — and hovering it shows the half-life. Two to three minutes a day,
+  sane defaults (deck size, scope and the half-life factors are tunable in Settings), no gamification —
+  a dot on the logo marks a waiting deck.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / views / filters as books.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
-  (daily review · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
+  (daily quiz · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
   full-screen filter and capture sheets with a Reset · count · Done footer, 44 px touch targets,
   and no horizontal scroll. The same binary serves desktop and phone; nothing to install.
 - 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
@@ -119,7 +123,7 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — **dialogues in the daily-review deck** (the quiz already covers them); more ways in
+> **Roadmap** — more ways in
 > (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later imports; a PWA
 > **share-target** and a page-HTML **bookmarklet**); force-fetch & re-verify metadata (review
 > before apply); opt-in AI summaries (OpenAI-compatible) with push notifications (NTFY, likely via

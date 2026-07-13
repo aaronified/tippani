@@ -34,6 +34,7 @@ import {
   PageHeader,
   Placeholder,
   QuoteActions,
+  ReviewDot,
   Select,
   SheetFooter,
   TagChip,
@@ -946,11 +947,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             ) : (
               <ExpandableText text={a.quote} lines={quoteLines} style={QUOTE_STYLE} />
             ))}
-          {(a.chapter || a.location || d) && (
-            <MonoLabel className="block">
-              {[a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')}
-            </MonoLabel>
-          )}
+          <div className="flex items-center gap-2">
+            <ReviewDot item={a} />
+            {(a.chapter || a.location || d) && (
+              <MonoLabel className="block">
+                {[a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')}
+              </MonoLabel>
+            )}
+          </div>
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">

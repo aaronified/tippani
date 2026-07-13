@@ -37,6 +37,7 @@ import {
   Select,
   SheetFooter,
   Sprockets,
+  ReviewDot,
   TagChip,
   Toggle,
   TokenInput,
@@ -1305,13 +1306,16 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           </div>
         ))}
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span style={amberMono}>
-          {creditParts.map((p, i) => (
-            <span key={i}>
-              {i > 0 ? ' · ' : ''}
-              {p}
-            </span>
-          ))}
+        <span className="inline-flex items-center gap-2">
+          <ReviewDot item={d} />
+          <span style={amberMono}>
+            {creditParts.map((p, i) => (
+              <span key={i}>
+                {i > 0 ? ' · ' : ''}
+                {p}
+              </span>
+            ))}
+          </span>
         </span>
         <div className="flex flex-wrap items-center gap-3">
           {sticker && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}

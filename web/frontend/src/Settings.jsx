@@ -126,10 +126,11 @@ function Slider({ label, min, max, step, value, unit = '', decimals = 0, onCommi
   )
 }
 
-// SRSettings — the spaced-repetition knobs (§3c): deck size, quiz length + scope,
-// and the half-life growth / lapse factors (kept in a deliberately narrow band).
-// Each persists via the partial-merge preferences PUT. (Review scope — books vs
-// catalogue — arrives with dialogues-in-review.)
+// SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the
+// daily deck size, what the review covers (books / films & shows / both), the
+// half-life growth + lapse factors (kept in a deliberately narrow band), and
+// whether Practice is allowed to move the schedule. Each persists via the
+// partial-merge preferences PUT.
 function SRSettings({ user, onPreferences }) {
   const p = user.preferences || {}
   function set(patch) {
@@ -138,22 +139,31 @@ function SRSettings({ user, onPreferences }) {
   }
   return (
     <Card>
-      <SectionTitle>Daily review &amp; quiz</SectionTitle>
+      <SectionTitle>Daily quiz &amp; practice</SectionTitle>
       <div className="space-y-5">
-        <Slider label="Review cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
-        <Slider label="Quiz length" min={2} max={10} step={1} value={p.srQuizLen || 6} onCommit={(v) => set({ srQuizLen: v })} />
+        <Slider label="Daily quiz cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
         <div>
-          <MonoLabel className="mb-2 block">Quiz draws from</MonoLabel>
+          <MonoLabel className="mb-2 block">Review covers</MonoLabel>
           <Toggle
-            ariaLabel="Quiz scope"
-            value={p.srQuizScope || 'both'}
-            onChange={(v) => set({ srQuizScope: v })}
-            options={[['books', 'Books'], ['movies', 'Films'], ['both', 'Both']]}
+            ariaLabel="Review scope"
+            value={p.srReviewScope || 'both'}
+            onChange={(v) => set({ srReviewScope: v })}
+            options={[['books', 'Books'], ['movies', 'Films & shows'], ['both', 'Both']]}
           />
+        </div>
+        <div>
+          <MonoLabel className="mb-2 block">Practice moves the schedule</MonoLabel>
+          <Toggle
+            ariaLabel="Practice affects schedule"
+            value={p.srPracticeCounts ? 'on' : 'off'}
+            onChange={(v) => set({ srPracticeCounts: v === 'on' })}
+            options={[['off', 'No'], ['on', 'Yes']]}
+          />
+          <p className="microcopy mt-2">by default practice is study only — turn this on to let correct practice recalls stretch half-lives like the daily quiz does</p>
         </div>
         <Slider label="Recall grows half-life by" min={1.5} max={4} step={0.1} value={p.srGrow || 2.5} unit="×" decimals={1} onCommit={(v) => set({ srGrow: v })} />
         <Slider label="A lapse keeps" min={0.1} max={0.6} step={0.05} value={p.srShrink || 0.25} unit="×" decimals={2} onCommit={(v) => set({ srShrink: v })} />
-        <p className="microcopy">how far a card's memory half-life stretches when you recall it, and how much of it survives a "forgot"</p>
+        <p className="microcopy">how far a card's memory half-life stretches when you recall it, and how much of it survives a “forgot”. Every quote shows a status dot — <strong>remembered</strong>, <strong>forgetting</strong> or <strong>probably forgotten</strong> — with its half-life on hover.</p>
       </div>
     </Card>
   )

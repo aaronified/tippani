@@ -130,18 +130,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
 	mux.Handle("GET /annotations", s.requireAuth(s.handleListAnnotations))
-	// Spaced-repetition daily review (PLAN §3c). The literal segment cannot
-	// collide with the {id} routes above — they differ by method.
-	mux.Handle("GET /annotations/daily-review", s.requireAuth(s.handleDailyReview))
-	mux.Handle("POST /annotations/{id}/review", s.requireAuth(s.handleReviewAnnotation))
-	// Recall quiz (PLAN §3c). Literal segments, no {id} collision.
-	mux.Handle("GET /annotations/quiz", s.requireAuth(s.handleQuiz))
-	mux.Handle("POST /annotations/quiz/submit", s.requireAuth(s.handleQuizSubmit))
-	mux.Handle("POST /annotations/quiz/answer", s.requireAuth(s.handleQuizAnswer))
-	mux.Handle("GET /annotations/quiz/stats", s.requireAuth(s.handleQuizStats))
-	mux.Handle("DELETE /annotations/quiz/results", s.requireAuth(s.handleQuizFlush))
 	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))
 	mux.Handle("DELETE /annotations/{id}", s.requireAuth(s.handleDeleteAnnotation))
+	// Spaced repetition — Daily Quiz & Practice (v0.5.0, ROADMAP №2). One
+	// retrieval model over books (annotations) and films/shows (dialogues).
+	mux.Handle("GET /review/daily", s.requireAuth(s.handleDailyQuiz))
+	mux.Handle("GET /review/practice", s.requireAuth(s.handlePractice))
+	mux.Handle("POST /review/answer", s.requireAuth(s.handleReviewAnswer))
+	mux.Handle("GET /review/scores", s.requireAuth(s.handleReviewScores))
+	mux.Handle("DELETE /review/practice", s.requireAuth(s.handlePracticeReset))
 
 	// Movies + dialogues (PLAN §3b, §6).
 	mux.Handle("POST /movies/lookup", s.requireAuth(s.handleMovieLookup))

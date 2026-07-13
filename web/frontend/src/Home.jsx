@@ -1,8 +1,8 @@
 // Home — the landing screen (mobile handoff §7 redesign, ROADMAP №2): a date +
-// greeting, the Daily Review card, a quick-capture tile, two stat tiles, and
-// the two most recent favourites. Reached by tapping the logo (every bar) or
-// landing on "/". One narrow column on every screen size — the ritual reads
-// the same on a phone and a desktop.
+// greeting, the Daily Quiz card, the Practice card, a quick-capture tile, two
+// stat tiles, and the most recent favourites. Reached by tapping the logo
+// (every bar) or landing on "/". One narrow column on every screen size — the
+// ritual reads the same on a phone and a desktop.
 import { useEffect, useState } from 'react'
 import { errText, json } from './api.js'
 import {
@@ -15,6 +15,7 @@ import {
   MobileSheet,
   MonoLabel,
   Select,
+  STATUS_META,
   toast,
   useIsMobileScreen,
 } from './ui.jsx'
@@ -38,333 +39,377 @@ function greeting(username) {
   return `Good ${part}, ${username || 'reader'}`
 }
 
-// reviewSource — the mono attribution line under a review quote:
-// "{Title} · {Author} · CH. {n}". Chapter is free text — only prefix "CH."
-// when it's a bare number (imports often store "Ch. 3" or a chapter name).
-function reviewSource(item) {
-  const ch = (item.chapter || '').trim()
-  return [item.book_title, item.book_author, ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch)]
-    .filter(Boolean)
-    .join(' · ')
+// ---- shared quiz pieces (Daily Quiz + Practice) ----
+
+// workNoun — what to call a card's source in the question line.
+function workNoun(card) {
+  if (card.kind === 'screen') return card.media_type === 'show' ? 'show' : 'film'
+  return 'book'
 }
 
-// DailyReviewCard drives the day's deck: due cards first, then unseen ones,
-// capped server-side so the ritual stays at ~2–3 minutes. Got it / Forgot
-// nudge each card's half-life (the schedule lives server-side); skip benches
-// the card for the rest of the day. `onPending` keeps the shell's
-// notification dot honest as the deck drains.
-function DailyReviewCard({ onPending }) {
-  const [deck, setDeck] = useState(null) // today's remaining cards, fetched once per mount
-  const [idx, setIdx] = useState(0)
-  const [tally, setTally] = useState({ got: 0, forgot: 0 })
-  const [states, setStates] = useState(null) // revision-state counts
+// askLine — the retrieval prompt for a card's direction. "source" shows the
+// quote and asks which work it's from; "quote" shows the work and asks the
+// reader to recall a line from it.
+function askLine(card) {
+  return card.direction === 'source'
+    ? `Which ${workNoun(card)} is this quote from?`
+    : `Recall a quote from this ${workNoun(card)}`
+}
+
+// QuoteBlock — the quote side of a card (used as prompt for "source", as the
+// revealed answer for "quote").
+function QuoteBlock({ card }) {
+  return (
+    <blockquote
+      style={{
+        borderLeft: `4px solid ${ANNOTATION_HEX[card.color] || 'var(--accent-ui)'}`,
+        padding: '2px 0 2px 12px',
+      }}
+    >
+      <p
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontStyle: 'italic',
+          fontSize: 17,
+          lineHeight: 1.5,
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {card.quote || card.note}
+      </p>
+      {card.note && card.quote && <HandNote className="mt-2">{card.note}</HandNote>}
+    </blockquote>
+  )
+}
+
+// SourceLines — the attribution side of a card (title + author/character etc.):
+// the revealed answer for "source", the prompt for "quote".
+function SourceLines({ card }) {
+  let meta
+  if (card.kind === 'screen') {
+    const media = card.media_type === 'show' ? 'Show' : 'Film'
+    meta = [media, card.character, card.timestamp].filter(Boolean).join(' · ')
+  } else {
+    const ch = (card.chapter || '').trim()
+    meta = [
+      card.author,
+      ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch),
+      card.location && `P. ${card.location}`,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+  return (
+    <div>
+      <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.2 }}>
+        {card.title}
+      </p>
+      {meta && <MonoLabel className="mt-1 block" style={{ fontSize: 11 }}>{meta}</MonoLabel>}
+    </div>
+  )
+}
+
+// QuizRunner — the shared present → attempt recall → reveal → grade flow. The
+// caller supplies the deck and whether skipping is allowed (Practice only) and
+// is told each result (to keep its tally + pending dot honest) and when the
+// deck is exhausted. A correct save is required before advancing on got/forgot;
+// skip advances locally (the server neither schedules nor scores a skip).
+function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
+  const [i, setI] = useState(0)
+  const [revealed, setRevealed] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false) // the deck fetch itself errored
-  const [showHelp, setShowHelp] = useState(false) // "how these levels work" explainer
+  const card = cards[i]
+  if (!card) return null
 
-  useEffect(() => {
-    json('GET', `/annotations/daily-review?offset=${tzOffsetMinutes()}`).then((r) => {
-      // A failed fetch must NOT masquerade as "all caught up" — show an error
-      // and leave the pending dot as the shell seeded it (don't clear it).
-      if (!r.ok) return setFailed(true)
-      setDeck(r.data.items || [])
-      setTally({ got: r.data.got_today || 0, forgot: r.data.forgot_today || 0 })
-      setStates(r.data.states || null)
-      onPending((r.data.items || []).length)
-    })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  function advance() {
+    if (i + 1 >= cards.length) return onDone?.()
+    setI(i + 1)
+    setRevealed(false)
+  }
 
-  const total = deck ? deck.length : 0
-  const cur = deck ? deck[idx] : null
-
-  async function answer(result) {
-    if (!cur || busy) return
+  async function grade(result) {
+    if (busy) return
+    if (result === 'skip') return advance()
     setBusy(true)
-    const r = await json('POST', `/annotations/${cur.id}/review`, {
+    const r = await json('POST', '/review/answer', {
+      kind: card.kind,
+      id: card.id,
       result,
+      mode,
       offset: tzOffsetMinutes(),
     })
     setBusy(false)
-    // Only advance and count on a confirmed save — a failed POST leaves the
-    // card in place to retry rather than inflating the tally / clearing the
-    // dot with recalls the server never recorded.
+    // Advance only on a confirmed save — a failed POST leaves the card in place
+    // rather than inflating the tally / draining the pending dot for a grade the
+    // server never recorded.
     if (!r.ok) return toast('couldn’t save — check your connection and try again')
-    setIdx((i) => i + 1)
-    if (result === 'got') setTally((t) => ({ ...t, got: t.got + 1 }))
-    if (result === 'forgot') setTally((t) => ({ ...t, forgot: t.forgot + 1 }))
-    onPending(r.data.remaining) // server is authoritative for the pending dot
+    onAnswered?.(result, r.data)
+    advance()
   }
 
+  const isSource = card.direction === 'source'
   return (
-    <HandCard variant={0} style={{ padding: '16px 18px 14px' }}>
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Daily review</MonoLabel>
-        <span className="mono-label" style={{ letterSpacing: '.06em' }}>
-          {cur ? `${idx + 1} of ${total}` : `${total} of ${total}`}
-        </span>
+    <div key={i} className="review-card-body">
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <MonoLabel>{askLine(card)}</MonoLabel>
+        <span className="mono-label" style={{ letterSpacing: '.06em' }}>{i + 1} of {cards.length}</span>
       </div>
-      {failed ? (
-        <p className="microcopy py-6 text-center" style={{ color: 'var(--error)' }}>
-          couldn’t load today’s review — reload to try again
-        </p>
-      ) : deck == null ? (
-        <p className="microcopy py-6 text-center">gathering today’s quotes…</p>
-      ) : cur ? (
-        // Re-keyed per card so the entrance replays on each advance.
-        <div key={cur.id} className="review-card-body">
-          <blockquote
-            className="mb-2.5"
-            style={{
-              borderLeft: `4px solid ${ANNOTATION_HEX[cur.color] || ANNOTATION_HEX.yellow}`,
-              padding: '2px 0 2px 12px',
-            }}
-          >
-            <p
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontStyle: 'italic',
-                fontSize: 17.5,
-                lineHeight: 1.5,
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {cur.quote || cur.note}
-            </p>
-          </blockquote>
-          <MonoLabel className="mb-3.5 block" style={{ fontSize: 11 }}>
-            {reviewSource(cur)}
-          </MonoLabel>
-          <div className="flex items-center gap-2">
+      {isSource ? <QuoteBlock card={card} /> : <SourceLines card={card} />}
+      {!revealed ? (
+        <div className="mt-3 flex items-center gap-3">
+          <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setRevealed(true)}>
+            Show answer
+          </button>
+          {allowSkip && (
+            <button type="button" className="tp-link" onClick={() => grade('skip')}>skip</button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+            {isSource ? <SourceLines card={card} /> : <QuoteBlock card={card} />}
+          </div>
+          <div className="mt-3.5 flex items-center gap-2">
             <button
               type="button"
               className="tp-btn tp-btn-primary tactile flex-1"
               disabled={busy}
-              onClick={() => answer('got')}
+              onClick={() => grade('got')}
             >
               Got it
             </button>
-            <GhostButton className="flex-1" disabled={busy} onClick={() => answer('forgot')}>
+            <GhostButton className="flex-1" disabled={busy} onClick={() => grade('forgot')}>
               Forgot
             </GhostButton>
-            <button type="button" className="tp-link" disabled={busy} onClick={() => answer('skip')}>
-              skip
-            </button>
+            {allowSkip && (
+              <button type="button" className="tp-link" disabled={busy} onClick={() => grade('skip')}>skip</button>
+            )}
           </div>
-        </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// StatesRow — the "where you stand" breakdown: a count per repetition status
+// with its coloured dot, plus a toggle for the explainer.
+function StatesRow({ states, help, onToggleHelp }) {
+  if (!states || states.total === 0) return null
+  const pips = [
+    ['remembered', states.remembered],
+    ['forgetting', states.forgetting],
+    ['probably-forgotten', states.probably_forgotten],
+    ['unseen', states.unseen],
+  ]
+  return (
+    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }} className="mt-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="mono-label" style={{ color: 'var(--faint)' }}>where you stand</span>
+        {pips.map(([key, n]) => (
+          <span key={key} className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 10.5, opacity: n ? 1 : 0.45 }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                border: `1.5px solid ${STATUS_META[key].color}`,
+                background: STATUS_META[key].filled ? STATUS_META[key].color : 'transparent',
+              }}
+            />
+            <span style={{ fontWeight: 600 }}>{n}</span> {STATUS_META[key].label.toLowerCase()}
+          </span>
+        ))}
+        <button type="button" className="tp-link" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={onToggleHelp}>
+          how these work
+        </button>
+      </div>
+      {help && (
+        <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
+          Each quote carries a memory “half-life” that grows every time you recall it and shrinks when
+          you forget — the classic{' '}
+          <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
+            forgetting curve
+          </a>{' '}
+          behind{' '}
+          <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer" className="tp-link">
+            spaced repetition
+          </a>. A quote is <strong>remembered</strong> while your odds of recalling it stay high,{' '}
+          <strong>forgetting</strong> as they slip, and <strong>probably forgotten</strong> once they
+          fall past half — which is when the Daily Quiz brings it back. Hover a quote’s dot anywhere to
+          see its half-life.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// DailyQuizCard — the scheduled spaced-repetition session (ROADMAP №2): every
+// card due today, no skips, each grade folded into the schedule. Got it / Forgot
+// move the card's half-life; the deck drains as you go and the pending dot
+// follows. Records a permanent daily score + streak.
+function DailyQuizCard({ onPending }) {
+  const [data, setData] = useState(null)
+  const [phase, setPhase] = useState('loading') // loading | active | done | error
+  const [tally, setTally] = useState({ got: 0, forgot: 0 })
+  const [help, setHelp] = useState(false)
+
+  useEffect(() => {
+    json('GET', `/review/daily?offset=${tzOffsetMinutes()}`).then((r) => {
+      // A failed fetch must NOT masquerade as "all caught up" — show an error and
+      // leave the pending dot as the shell seeded it.
+      if (!r.ok) return setPhase('error')
+      setData(r.data)
+      setTally({ got: r.data.got_today || 0, forgot: r.data.forgot_today || 0 })
+      const n = (r.data.items || []).length
+      onPending(n)
+      setPhase(n ? 'active' : 'done')
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onAnswered(result, res) {
+    setTally((t) => ({
+      got: t.got + (result === 'got' ? 1 : 0),
+      forgot: t.forgot + (result === 'forgot' ? 1 : 0),
+    }))
+    if (res && typeof res.remaining === 'number') onPending(res.remaining)
+  }
+
+  const streak = data?.streak || 0
+  return (
+    <HandCard variant={0} style={{ padding: '16px 18px 14px' }}>
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Daily quiz</MonoLabel>
+        {streak > 0 && (
+          <span className="mono-label" style={{ letterSpacing: '.06em' }}>{streak}-day streak</span>
+        )}
+      </div>
+
+      {phase === 'error' ? (
+        <p className="microcopy py-6 text-center" style={{ color: 'var(--error)' }}>
+          couldn’t load today’s quiz — reload to try again
+        </p>
+      ) : phase === 'loading' ? (
+        <p className="microcopy py-6 text-center">gathering today’s cards…</p>
+      ) : phase === 'active' ? (
+        <QuizRunner
+          mode="daily"
+          cards={data.items}
+          allowSkip={false}
+          onAnswered={onAnswered}
+          onDone={() => setPhase('done')}
+        />
       ) : (
         <div className="review-card-body py-4 text-center" style={{ padding: '18px 6px 12px' }}>
           <p
             aria-hidden="true"
-            style={{
-              fontFamily: 'var(--font-hand)',
-              fontSize: 24,
-              color: 'var(--accent-ui)',
-              transform: 'rotate(-1.2deg)',
-            }}
+            style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
           >
-            all caught up ✓
+            {tally.got || tally.forgot ? 'all caught up ✓' : 'nothing due today'}
           </p>
           <p className="mono-label mt-1" style={{ letterSpacing: '.06em' }}>
-            {tally.got} recalled · {tally.forgot} to resurface · back tomorrow
+            {tally.got || tally.forgot
+              ? `${tally.got} recalled · ${tally.forgot} to resurface · back tomorrow`
+              : 'add or review more quotes to build your schedule'}
           </p>
         </div>
       )}
-      {states && states.total > 0 && (
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }} className="mt-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="mono-label" style={{ color: 'var(--faint)' }}>where you stand</span>
-            <ReviewStatePip label="unseen" n={states.unseen} />
-            <ReviewStatePip label="soon" n={states.soon} />
-            <ReviewStatePip label="later" n={states.later} />
-            <ReviewStatePip label="someday" n={states.someday} />
-            <button type="button" className="tp-link" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={() => setShowHelp((v) => !v)}>
-              how these work
-            </button>
-          </div>
-          {showHelp && (
-            <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
-              Each quote carries a memory “half-life” that grows every time you recall it and
-              shrinks when you forget — the classic{' '}
-              <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
-                forgetting curve
-              </a>{' '}
-              behind{' '}
-              <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" rel="noopener noreferrer" className="tp-link">
-                spaced repetition
-              </a>. A quote is <strong>unseen</strong> until first reviewed, then <strong>soon</strong>{' '}
-              (half-life under a week), <strong>later</strong> (one to four weeks), and{' '}
-              <strong>someday</strong> (a month or more). It resurfaces for review once its recall
-              odds dip past 50%.
-            </p>
-          )}
-        </div>
+
+      {data && (
+        <StatesRow states={data.states} help={help} onToggleHelp={() => setHelp((v) => !v)} />
       )}
     </HandCard>
   )
 }
 
-// ReviewStatePip — one revision-state count (unseen / soon / later / someday)
-// in the "where you stand" readout: a mono count + label, dimmed at zero.
-function ReviewStatePip({ label, n }) {
-  return (
-    <span className="mono-label" style={{ fontSize: 10.5, opacity: n ? 1 : 0.45 }}>
-      <span style={{ color: n ? 'var(--accent-ui)' : 'var(--faint)', fontWeight: 600 }}>{n}</span> {label}
-    </span>
-  )
-}
-
-// QuizCard — a recall quiz built from your own library. Pick the right book for
-// a quote (or the actor for a line); each answer also counts as a revision, so
-// the quiz feeds the same schedule as the daily review. Unlimited rounds; the
-// running score can be flushed.
-function QuizCard() {
+// PracticeCard — unlimited retrieval practice (ROADMAP №2): the same reveal/grade
+// flow as the Daily Quiz, but skippable and, by default, schedule-neutral (a
+// setting opts it into moving half-lives). Its score is separate and can be
+// reset without touching learning history.
+function PracticeCard() {
   const [phase, setPhase] = useState('idle') // idle | active | done
-  const [qs, setQs] = useState([])
-  const [i, setI] = useState(0)
-  const [picked, setPicked] = useState(null) // index chosen for the current question
-  const [answers, setAnswers] = useState([]) // {id, kind, correct}
-  const [stats, setStats] = useState(null)
+  const [cards, setCards] = useState([])
+  const [score, setScore] = useState(null) // lifetime practice score
+  const [round, setRound] = useState({ got: 0, forgot: 0 })
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    json('GET', '/annotations/quiz/stats').then((r) => { if (r.ok) setStats(r.data) })
-  }, [])
+  function loadScore() {
+    json('GET', `/review/scores?offset=${tzOffsetMinutes()}`).then((r) => {
+      if (r.ok) setScore(r.data.practice)
+    })
+  }
+  useEffect(() => { loadScore() }, [])
 
   async function start() {
     setBusy(true)
-    const r = await json('GET', '/annotations/quiz')
+    const r = await json('GET', '/review/practice')
     setBusy(false)
-    const items = r.ok ? r.data.questions || [] : []
-    if (items.length === 0) return toast('add a few more quotes first — the quiz needs some to work with')
-    setQs(items)
-    setI(0)
-    setPicked(null)
-    setAnswers([])
+    const items = r.ok ? r.data.items || [] : []
+    if (!items.length) return toast('add a few more quotes first — practice needs some to work with')
+    setCards(items)
+    setRound({ got: 0, forgot: 0 })
     setPhase('active')
   }
 
-  function pick(idx) {
-    if (picked != null) return // one shot per question
-    setPicked(idx)
-    const q = qs[i]
-    const correct = idx === q.answer
-    setAnswers((a) => [...a, { id: q.id, kind: q.kind, correct }])
-    // A CORRECT annotation recall folds into the review schedule right now — the
-    // quiz feeds the same memory model as the daily review, and only a correct
-    // answer counts as a revision. Annotations only (dialogues aren't in the
-    // schedule); a miss doesn't touch the schedule. Fire-and-forget; the round's
-    // score still records at submit regardless.
-    if (correct && q.kind === 'ann') json('POST', '/annotations/quiz/answer', { id: q.id, correct: true })
+  function onAnswered(result) {
+    setRound((t) => ({
+      got: t.got + (result === 'got' ? 1 : 0),
+      forgot: t.forgot + (result === 'forgot' ? 1 : 0),
+    }))
   }
 
-  async function next() {
-    if (i + 1 < qs.length) {
-      setI(i + 1)
-      setPicked(null)
-      return
-    }
-    setBusy(true)
-    const r = await json('POST', '/annotations/quiz/submit', { answers })
-    setBusy(false)
-    if (r.ok) setStats(r.data.stats)
-    setPhase('done')
+  async function reset() {
+    await json('DELETE', '/review/practice')
+    loadScore()
+    toast('practice score cleared')
   }
-
-  async function flush() {
-    await json('DELETE', '/annotations/quiz/results')
-    setStats({ taken: 0, total: 0, correct: 0, accuracy: 0 })
-    toast('quiz scores cleared')
-  }
-
-  const roundScore = answers.filter((a) => a.correct).length
 
   return (
     <HandCard variant={3} style={{ padding: '16px 18px 14px' }}>
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Quiz</MonoLabel>
-        {phase === 'active' && (
-          <span className="mono-label" style={{ letterSpacing: '.06em' }}>{i + 1} of {qs.length}</span>
-        )}
+        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Practice</MonoLabel>
+        {phase === 'active' && <span className="mono-label" style={{ letterSpacing: '.06em' }}>unlimited</span>}
       </div>
 
       {phase === 'idle' && (
         <div className="review-card-body">
           <p className="microcopy mb-3">
-            match a quote to its book, or a line to who said it — every one you get right counts as a revision too.
+            free retrieval practice across your whole library — recall the source of a quote, or a quote
+            from a work. Skippable, and it won’t touch your schedule unless you turn that on in settings.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
-              {busy ? 'Loading…' : 'Start a quiz'}
+              {busy ? 'Loading…' : 'Start practice'}
             </button>
-            {stats && stats.taken > 0 && (
+            {score && score.answered > 0 && (
               <>
                 <MonoLabel style={{ fontSize: 10.5 }}>
-                  {stats.taken} taken · {Math.round(stats.accuracy * 100)}% correct
+                  {score.answered} answered · {Math.round(score.accuracy * 100)}% recalled
                 </MonoLabel>
-                <button type="button" className="tp-link" onClick={flush}>clear scores</button>
+                <button type="button" className="tp-link" onClick={reset}>reset score</button>
               </>
             )}
           </div>
         </div>
       )}
 
-      {phase === 'active' && qs[i] && (
-        <div key={i} className="review-card-body">
-          <MonoLabel className="mb-1.5 block">{qs[i].ask}</MonoLabel>
-          <blockquote
-            className="mb-3"
-            style={{ borderLeft: '4px solid var(--accent-ui)', padding: '2px 0 2px 12px' }}
-          >
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16, lineHeight: 1.5, overflowWrap: 'anywhere' }}>
-              {qs[i].prompt}
-            </p>
-          </blockquote>
-          <div className="flex flex-col gap-2">
-            {qs[i].options.map((opt, idx) => {
-              const isAnswer = idx === qs[i].answer
-              const chosen = picked === idx
-              let border = 'var(--line)'
-              let bg = 'var(--raised)'
-              if (picked != null && isAnswer) { border = 'var(--ok)'; bg = 'color-mix(in srgb, var(--ok) 16%, transparent)' }
-              else if (chosen && !isAnswer) { border = 'var(--error)'; bg = 'color-mix(in srgb, var(--error) 12%, transparent)' }
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  disabled={picked != null}
-                  onClick={() => pick(idx)}
-                  className="text-left"
-                  style={{
-                    minHeight: 44, padding: '9px 13px', borderRadius: 9,
-                    border: `1.4px solid ${border}`, background: bg,
-                    fontFamily: 'var(--font-ui)', fontSize: 14.5,
-                  }}
-                >
-                  {opt}
-                </button>
-              )
-            })}
-          </div>
-          {picked != null && (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <MonoLabel style={{ color: picked === qs[i].answer ? 'var(--ok)' : 'var(--error)' }}>
-                {picked === qs[i].answer ? 'correct' : 'not quite'}
-              </MonoLabel>
-              <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={next}>
-                {i + 1 < qs.length ? 'Next' : 'Finish'}
-              </button>
-            </div>
-          )}
-        </div>
+      {phase === 'active' && (
+        <QuizRunner
+          mode="practice"
+          cards={cards}
+          allowSkip
+          onAnswered={onAnswered}
+          onDone={() => { loadScore(); setPhase('done') }}
+        />
       )}
 
       {phase === 'done' && (
         <div className="review-card-body py-2 text-center">
           <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
-            {roundScore} / {answers.length}
+            {round.got} / {round.got + round.forgot}
           </p>
           <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
-            {roundScore === answers.length ? 'perfect round — all counted as revisions' : 'correct answers counted as revisions'}
+            practice round done — {round.got} recalled · {round.forgot} missed
           </p>
           <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
             Another round
@@ -408,9 +453,9 @@ export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies,
         </h1>
       </div>
 
-      <DailyReviewCard onPending={onPending} />
+      <DailyQuizCard onPending={onPending} />
 
-      <QuizCard />
+      <PracticeCard />
 
       <button
         type="button"

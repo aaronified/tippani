@@ -233,16 +233,17 @@ type prefs struct {
 	// "tabs" (in the navbar) or "menu" (a ⋯ overflow). The account chip is
 	// always separate. Empty on older rows; loadPrefs defaults it.
 	NavUtilities string `json:"navUtilities"`
-	// Spaced repetition (§3c), per-user with defaults + clamps applied in
-	// loadPrefs: SRDaily/SRQuizLen are 2..10; SRReviewScope/SRQuizScope are
-	// books|movies|both; SRGrow (the "got it" half-life multiplier) and SRShrink
-	// (the "forgot" retained fraction) stay in a deliberately narrow band.
-	SRDaily       int     `json:"srDaily"`
-	SRReviewScope string  `json:"srReviewScope"`
-	SRQuizLen     int     `json:"srQuizLen"`
-	SRQuizScope   string  `json:"srQuizScope"`
-	SRGrow        float64 `json:"srGrow"`
-	SRShrink      float64 `json:"srShrink"`
+	// Spaced repetition (v0.5.0 Daily Quiz & Practice), per-user, defaults +
+	// clamps applied in loadPrefs. SRDaily (Daily Quiz deck size) is 2..10;
+	// SRReviewScope (books|movies|both) bounds BOTH modes; SRGrow (the "got it"
+	// half-life multiplier) and SRShrink (the "forgot" retained fraction) stay
+	// in a deliberately narrow band. SRPracticeCounts opts Practice into moving
+	// the schedule (off by default, so Practice is study without distortion).
+	SRDaily          int     `json:"srDaily"`
+	SRReviewScope    string  `json:"srReviewScope"`
+	SRGrow           float64 `json:"srGrow"`
+	SRShrink         float64 `json:"srShrink"`
+	SRPracticeCounts bool    `json:"srPracticeCounts"`
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
@@ -273,12 +274,8 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 		p.NavUtilities = "menu"
 	}
 	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
-	p.SRQuizLen = clampInt(p.SRQuizLen, 2, 10, quizDefaultQuestions)
 	if !srScopes[p.SRReviewScope] {
 		p.SRReviewScope = "both"
-	}
-	if !srScopes[p.SRQuizScope] {
-		p.SRQuizScope = "both"
 	}
 	p.SRGrow = clampFloat(p.SRGrow, 1.5, 4.0, reviewGrowth)
 	p.SRShrink = clampFloat(p.SRShrink, 0.1, 0.6, reviewLapseShrink)
@@ -302,12 +299,11 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		Theme         *string  `json:"theme"`
 		Accent        *string  `json:"accent"`
 		NavUtilities  *string  `json:"navUtilities"`
-		SRDaily       *int     `json:"srDaily"`
-		SRReviewScope *string  `json:"srReviewScope"`
-		SRQuizLen     *int     `json:"srQuizLen"`
-		SRQuizScope   *string  `json:"srQuizScope"`
-		SRGrow        *float64 `json:"srGrow"`
-		SRShrink      *float64 `json:"srShrink"`
+		SRDaily          *int     `json:"srDaily"`
+		SRReviewScope    *string  `json:"srReviewScope"`
+		SRGrow           *float64 `json:"srGrow"`
+		SRShrink         *float64 `json:"srShrink"`
+		SRPracticeCounts *bool    `json:"srPracticeCounts"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -333,17 +329,15 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.SRReviewScope != nil && *in.SRReviewScope != "" {
 		cur.SRReviewScope = *in.SRReviewScope
 	}
-	if in.SRQuizLen != nil && *in.SRQuizLen != 0 {
-		cur.SRQuizLen = *in.SRQuizLen
-	}
-	if in.SRQuizScope != nil && *in.SRQuizScope != "" {
-		cur.SRQuizScope = *in.SRQuizScope
-	}
 	if in.SRGrow != nil && *in.SRGrow != 0 {
 		cur.SRGrow = *in.SRGrow
 	}
 	if in.SRShrink != nil && *in.SRShrink != 0 {
 		cur.SRShrink = *in.SRShrink
+	}
+	// A bool has no "empty" sentinel, so presence is the pointer being non-nil.
+	if in.SRPracticeCounts != nil {
+		cur.SRPracticeCounts = *in.SRPracticeCounts
 	}
 	switch {
 	case !prefAesthetics[cur.Aesthetic]:
@@ -361,14 +355,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	case cur.SRDaily < 2 || cur.SRDaily > 10:
 		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
 		return
-	case cur.SRQuizLen < 2 || cur.SRQuizLen > 10:
-		writeErr(w, http.StatusBadRequest, "srQuizLen must be between 2 and 10")
-		return
 	case !srScopes[cur.SRReviewScope]:
 		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies or both")
-		return
-	case !srScopes[cur.SRQuizScope]:
-		writeErr(w, http.StatusBadRequest, "srQuizScope must be books, movies or both")
 		return
 	case cur.SRGrow < 1.5 || cur.SRGrow > 4:
 		writeErr(w, http.StatusBadRequest, "srGrow must be between 1.5 and 4")

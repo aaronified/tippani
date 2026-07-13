@@ -9,6 +9,28 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.5.0 (July 2026)**
+
+- **Daily Quiz & Practice** — the spaced-repetition surface is reworked into two
+  modes that share one *present → recall → reveal → grade* flow, over **books and
+  films/shows** alike. The **Daily Quiz** is the scheduled session (all cards due
+  that day, no skipping, every grade folded into the schedule, permanent score +
+  streak); **Practice** is unlimited, skippable, on-demand study that by default
+  **doesn't move the schedule** (a Settings toggle opts in) and keeps a separate,
+  resettable score. Each card is a retrieval prompt in one of two directions —
+  *which work is this quote from?* or *recall a quote from this work*.
+- **Status dot on every quote** — Library and Catalogue cards now carry a repetition
+  dot, 🟢 **remembered** · 🟡 **forgetting** · 🔴 **probably forgotten** (renamed
+  from soon/later/someday), derived live from recall probability with the half-life
+  on hover.
+- **Films & shows join the deck** — the `srReviewScope` preference now governs both
+  modes; dialogue lines grade and carry status exactly like book quotes.
+- **Under the hood** — polymorphic `item_reviews` (migration `0015_review_rework`)
+  replaces `annotation_reviews`, carrying every existing book half-life forward; the
+  multiple-choice quiz and its `srQuizLen`/`srQuizScope` prefs are retired in favour
+  of honest self-graded recall. New review API: `GET /review/daily` · `/review/practice`
+  · `/review/scores`, `POST /review/answer`, `DELETE /review/practice`.
+
 **v0.4.7 (July 2026)**
 
 - **Search recovery that survives un-droppable corruption** — when an FTS index is so
@@ -139,21 +161,6 @@ Have a request or a strong opinion on ordering? Open an issue.
 - Uploaded **stickers**, a read-only **demo**, real per-view **URLs**, and the tactile **paper/film redesign**.
 
 ## Planned
-
-### Next up · Dialogues in the daily-review deck
-Spaced repetition reviews **book highlights only** today — the recall *quiz*
-already includes movie dialogues (who-said), but the daily *deck* does not. The
-`srReviewScope` preference (books | movies | both) is already stored and validated,
-awaiting this wiring (the concrete handoff):
-
-- migration `0015_dialogue_reviews`, mirroring `annotation_reviews` (per-user via
-  `movies.user_id`, cascade delete);
-- the deck query becomes a **scope-gated UNION** of annotation + dialogue
-  candidates, so the due-ness ordering stays correct across both sources;
-- `POST /dialogues/{id}/review`, mirroring `POST /annotations/{id}/review`;
-- `reviewStates` / `reviewDeckCounts` fold dialogues in (scope-gated);
-- the Home Daily-Review card renders a dialogue item (character · actor · film)
-  and posts to the new endpoint; the SR settings card surfaces **review scope**.
 
 ### 1 · Kindle `My Clippings.txt` import
 The one importer still stubbed (its endpoint deliberately answers `501`). Parse

@@ -1072,6 +1072,20 @@
     cursor: help;
   }
   .info-dot:hover, .info-dot:focus-visible { color: var(--accent-ui); border-color: var(--accent-ui); }
+  /* .status-dot — the spaced-repetition repetition-status dot on quote cards
+     (remembered/forgetting/probably-forgotten; hollow when unseen). Colour is
+     set inline per status; hover reveals a Tooltip with the half-life. */
+  .status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: help;
+    transition: transform .12s ease;
+  }
+  .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
   /* Each .hand-card is an isolated stacking context, so a tooltip (z-index 70
      inside its own card) is still painted UNDER an adjacent card that sits later
      in the flow — the bubble gets clipped by the neighbour. While a tooltip is

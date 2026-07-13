@@ -697,7 +697,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   }
   useEffect(() => {
     refreshStats()
-    json('GET', `/annotations/daily-review?offset=${tzOffsetMinutes()}`).then((r) => {
+    json('GET', `/review/daily?offset=${tzOffsetMinutes()}`).then((r) => {
       if (r.ok) setPending((r.data.items || []).length)
     })
     // An old /import link lands here — open the Add surface on Import.

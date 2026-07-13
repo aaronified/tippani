@@ -133,19 +133,34 @@ type dialogueRow struct {
 	StickerY  *float64 `json:"sticker_y"`
 	CreatedAt string   `json:"created_at"`
 	UpdatedAt string   `json:"updated_at"`
+	// Spaced-repetition state for the status dot (v0.5.0), mirroring annotations:
+	// Reviewed=false is the "unseen" pool; the client derives the status from
+	// stability + last_reviewed_at.
+	Reviewed       bool    `json:"reviewed"`
+	Stability      float64 `json:"stability"`
+	LastReviewedAt string  `json:"last_reviewed_at"`
 }
 
+// dialogueCols includes the LEFT-JOINed spaced-repetition state (see
+// dialogueReviewJoin); every SELECT using it must add that join.
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.rating, d.sticker_id, d.sticker_x, d.sticker_y, d.created_at, d.updated_at`
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.rating, d.sticker_id, d.sticker_x, d.sticker_y, d.created_at, d.updated_at,
+	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, '')`
+
+// dialogueReviewJoin attaches the per-line review row (kind='screen') that
+// dialogueCols reads. Kept as a fragment so the list and single-fetch queries
+// share one definition.
+const dialogueReviewJoin = ` LEFT JOIN item_reviews r ON r.kind = 'screen' AND r.item_id = d.id`
 
 func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 	var d dialogueRow
 	err := s.Store.DB.QueryRow(`
 		SELECT `+dialogueCols+`
-		FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt)
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +250,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	q := `
 		SELECT ` + dialogueCols + `
-		FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		FROM dialogues d JOIN movies m ON m.id = d.movie_id` + dialogueReviewJoin + `
 		WHERE m.user_id = ?`
 	args := []any{uid}
 	if v := r.URL.Query().Get("movie_id"); v != "" {
@@ -267,7 +282,8 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		d := dialogueRow{Tags: []string{}}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt); err == nil {
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt); err == nil {
 			items = append(items, d)
 		}
 	}

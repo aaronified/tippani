@@ -113,6 +113,12 @@ type annotationRow struct {
 	StickerY   *float64 `json:"sticker_y"`  // seal centre y in the same width units
 	CreatedAt  string   `json:"created_at"`
 	UpdatedAt  string   `json:"updated_at"`
+	// Spaced-repetition state for the status dot (v0.5.0). Reviewed=false is the
+	// "unseen" pool; the client derives remembered/forgetting/probably-forgotten
+	// from stability + last_reviewed_at. Absent on create/update responses.
+	Reviewed       bool    `json:"reviewed"`
+	Stability      float64 `json:"stability"`
+	LastReviewedAt string  `json:"last_reviewed_at"`
 }
 
 func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
@@ -216,8 +222,10 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
-		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at
+		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
+		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, '')
 		FROM annotations a JOIN books b ON b.id = a.book_id
+		LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
 		WHERE b.user_id = ?`
 	args := []any{uid}
 	if v := r.URL.Query().Get("book_id"); v != "" {
@@ -267,7 +275,8 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		a := annotationRow{Tags: []string{}}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt); err == nil {
+			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
+			&a.Reviewed, &a.Stability, &a.LastReviewedAt); err == nil {
 			items = append(items, a)
 		}
 	}
