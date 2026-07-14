@@ -245,6 +245,10 @@ type prefs struct {
 	SRReviewScope    string  `json:"srReviewScope"`
 	SRGrow           float64 `json:"srGrow"`
 	SRShrink         float64 `json:"srShrink"`
+	// SRSeen is the "seeing" multiplier — practising (not skipping), sharing, or
+	// favouriting a card lengthens its half-life marginally. 1.0 = off (default),
+	// so this reinforcement is entirely opt-in.
+	SRSeen           float64 `json:"srSeen"`
 	SRPracticeCounts bool    `json:"srPracticeCounts"`
 }
 
@@ -281,6 +285,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	}
 	p.SRGrow = clampFloat(p.SRGrow, 1.5, 4.0, reviewGrowth)
 	p.SRShrink = clampFloat(p.SRShrink, 0.1, 0.6, reviewLapseShrink)
+	p.SRSeen = clampFloat(p.SRSeen, 1.0, 1.5, reviewSeen)
 	return p, nil
 }
 
@@ -305,6 +310,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRReviewScope    *string  `json:"srReviewScope"`
 		SRGrow           *float64 `json:"srGrow"`
 		SRShrink         *float64 `json:"srShrink"`
+		SRSeen           *float64 `json:"srSeen"`
 		SRPracticeCounts *bool    `json:"srPracticeCounts"`
 	}
 	if !decodeBody(w, r, &in) {
@@ -337,6 +343,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.SRShrink != nil && *in.SRShrink != 0 {
 		cur.SRShrink = *in.SRShrink
 	}
+	if in.SRSeen != nil && *in.SRSeen != 0 {
+		cur.SRSeen = *in.SRSeen
+	}
 	// A bool has no "empty" sentinel, so presence is the pointer being non-nil.
 	if in.SRPracticeCounts != nil {
 		cur.SRPracticeCounts = *in.SRPracticeCounts
@@ -365,6 +374,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case cur.SRShrink < 0.1 || cur.SRShrink > 0.6:
 		writeErr(w, http.StatusBadRequest, "srShrink must be between 0.1 and 0.6")
+		return
+	case cur.SRSeen < 1.0 || cur.SRSeen > 1.5:
+		writeErr(w, http.StatusBadRequest, "srSeen must be between 1.0 and 1.5")
 		return
 	}
 	raw, err := json.Marshal(cur)

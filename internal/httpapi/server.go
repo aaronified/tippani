@@ -149,6 +149,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /review/daily", s.requireAuth(s.handleDailyQuiz))
 	mux.Handle("GET /review/practice", s.requireAuth(s.handlePractice))
 	mux.Handle("POST /review/answer", s.requireAuth(s.handleReviewAnswer))
+	mux.Handle("POST /review/seen", s.requireAuth(s.handleReviewSeen))
 	mux.Handle("GET /review/scores", s.requireAuth(s.handleReviewScores))
 	mux.Handle("DELETE /review/practice", s.requireAuth(s.handlePracticeReset))
 

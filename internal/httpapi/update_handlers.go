@@ -34,7 +34,7 @@ type UpdateDocker interface {
 	RunWatchtower(ctx context.Context, target string) error
 }
 
-const guidedUpdateCommand = "docker compose pull && docker compose up -d"
+const guidedUpdateCommand = "docker compose up -d --pull always --force-recreate"
 
 // handleUpdateCheck reports the running version, the latest release, whether an
 // update is available, and whether a one-click update is possible on this host.

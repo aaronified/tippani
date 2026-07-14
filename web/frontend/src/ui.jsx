@@ -1097,12 +1097,15 @@ function fmtHalfLife(h) {
 }
 
 // reviewStatus derives a quote's repetition status from the fields the list
-// endpoints attach (reviewed / stability / last_reviewed_at). It mirrors the
-// server's forgetting-curve model p = 2^(-elapsed/half-life): remembered at
-// p >= 0.9, forgetting down to 0.5, probably-forgotten below. The tooltip
-// carries the half-life and when it next comes due, like the settings InfoDots.
+// endpoints attach (reviewed / stability / last_reviewed_at / last_result). It
+// mirrors the server's forgetting-curve model p = 2^(-elapsed/half-life):
+// remembered at p >= 0.9, forgetting down to 0.5, probably-forgotten below. A
+// card whose last answer was a lapse ("forgot") is always probably-forgotten,
+// however recently reviewed — the failed recall, not the timestamp, is the
+// honest signal (mirrors recallStatus on the server). The tooltip carries the
+// half-life and when it next comes due, like the settings InfoDots.
 export function reviewStatus(item = {}) {
-  const { reviewed, stability, last_reviewed_at } = item;
+  const { reviewed, stability, last_reviewed_at, last_result } = item;
   if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: "Not yet reviewed" };
   const h = Math.max(Number(stability) || 1, 1);
   let elapsed = 0;
@@ -1112,7 +1115,14 @@ export function reviewStatus(item = {}) {
     if (!Number.isNaN(t)) elapsed = (Date.now() - t) / 86400000;
   }
   const p = Math.pow(2, -elapsed / h);
-  const key = p >= 0.9 ? "remembered" : p >= 0.5 ? "forgetting" : "probably-forgotten";
+  const key =
+    last_result === "forgot"
+      ? "probably-forgotten"
+      : p >= 0.9
+        ? "remembered"
+        : p >= 0.5
+          ? "forgetting"
+          : "probably-forgotten";
   const meta = STATUS_META[key];
   const due = elapsed >= h ? "due now" : `review in ~${fmtHalfLife(h - elapsed)}`;
   return { key, ...meta, tip: `${meta.label} · half-life ${fmtHalfLife(h)} · ${due}` };

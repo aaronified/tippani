@@ -1139,7 +1139,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
         />
       )}
 
-      {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}
+      {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'screen', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { json, errText, coverImgURL } from './api.js'
+import { json, errText, coverImgURL, copyText } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
   ErrorText,
@@ -107,14 +107,14 @@ function Interface({ user, onPreferences }) {
 
 // Slider — a labelled range that commits on release (pointer/key up), so a drag
 // is one PUT, not one per step. Mirrors its `value` prop if it changes upstream.
-function Slider({ label, min, max, step, value, unit = '', decimals = 0, onCommit }) {
+function Slider({ label, hideLabel = false, min, max, step, value, unit = '', decimals = 0, onCommit }) {
   const [v, setV] = useState(value)
   useEffect(() => setV(value), [value])
   const show = decimals ? v.toFixed(decimals) : String(v)
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <MonoLabel>{label}</MonoLabel>
+        {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--faint)' }}>{show}{unit}</span>
       </div>
       <input
@@ -173,6 +173,13 @@ function SRSettings({ user, onPreferences }) {
         </div>
         <Slider label="Recall grows half-life by" min={1.5} max={4} step={0.1} value={p.srGrow || 2.5} unit="×" decimals={1} onCommit={(v) => set({ srGrow: v })} />
         <Slider label="A lapse keeps" min={0.1} max={0.6} step={0.05} value={p.srShrink || 0.25} unit="×" decimals={2} onCommit={(v) => set({ srShrink: v })} />
+        <div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>Seeing lengthens half-life by</MonoLabel>
+            <InfoDot text="“Seeing” a quote — practising it (not skipping), sharing it, or favouriting it — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off." />
+          </div>
+          <Slider label="Seeing lengthens half-life by" hideLabel min={1} max={1.5} step={0.05} value={p.srSeen || 1} unit="×" decimals={2} onCommit={(v) => set({ srSeen: v })} />
+        </div>
       </div>
     </Card>
   )
@@ -218,8 +225,9 @@ function UpdatesCard({ user }) {
     toast('the app didn’t come back automatically — reload the page in a moment')
   }
 
-  const copyCmd = () => {
-    navigator.clipboard?.writeText(info?.guided_command || '').then(() => toast('command copied'))
+  const copyCmd = async () => {
+    const ok = await copyText(info?.guided_command || '')
+    toast(ok ? 'command copied' : 'couldn’t copy — select the command and copy manually')
   }
 
   return (

@@ -1,6 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ANNOTATION_HEX, GhostButton, MonoLabel, Toggle, useIsMobileScreen } from "./ui.jsx";
+import { ANNOTATION_HEX, GhostButton, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, readTheme } from "./quoteImage.js";
+import { paletteTheme } from "./theme.js";
+import { DEMO, copyText, json } from "./api.js";
+
+// Image themes for the share card — the app's four skins, chosen independently
+// of the live app theme (an export choice, persisted per device). Value is the
+// "aesthetic-mode" palette key drawTheme() resolves.
+const IMAGE_THEMES = [
+  ["paper-light", "Paper · Light"],
+  ["paper-dark", "Paper · Dark"],
+  ["film-light", "Film · Light"],
+  ["film-dark", "Film · Dark"],
+];
+
+// defaultImageTheme seeds the picker from whatever the app is showing now, so
+// the first share matches the live skin until the user picks otherwise.
+function defaultImageTheme() {
+  const t = readTheme();
+  return `${t.aesthetic}-${t.dark ? "dark" : "light"}`;
+}
+
+// drawTheme resolves an IMAGE_THEMES key to the canvas theme object, keeping the
+// app's current accent (the picker only swaps paper/film + light/dark).
+function drawTheme(key) {
+  const [aesthetic, mode] = String(key || "").split("-");
+  return paletteTheme(aesthetic, mode === "dark", readTheme().accent);
+}
 
 const PRIMARY = "tp-btn tp-btn-primary";
 
@@ -395,11 +421,14 @@ export function renderShareHTML(text, fmt) {
 // ---- quote-card image (ROADMAP §10) ------------------------------------
 // The "Image" format: the same field-picking, rendered to a shareable PNG in
 // the current paper/film skin (drawn locally on a <canvas>, see quoteImage.js).
-function QuoteImagePanel({ share, selected }) {
+function QuoteImagePanel({ share, selected, onShared }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // The image skin is chosen independently of the app theme and persisted per
+  // device (an export preference, not an identity one — like the view toggles).
+  const [imageTheme, setImageTheme] = usePersistedState("tippani:shareImageTheme", defaultImageTheme());
 
   useEffect(() => {
     let cancelled = false;
@@ -408,7 +437,7 @@ function QuoteImagePanel({ share, selected }) {
       if (!canvas || cancelled) return;
       try {
         const colorHex = share.color ? ANNOTATION_HEX[share.color] : null;
-        drawQuoteCard(canvas, buildModel(share, selected, colorHex), readTheme());
+        drawQuoteCard(canvas, buildModel(share, selected, colorHex), drawTheme(imageTheme));
         setErr("");
       } catch {
         setErr("couldn't render the image on this device");
@@ -416,14 +445,15 @@ function QuoteImagePanel({ share, selected }) {
     };
     redraw();
     // Redraw once the bundled fonts are ready (first paint may fall back) and
-    // whenever the app theme flips, so the card always matches the live skin.
+    // whenever the app accent flips (the chosen skin follows the picker, but the
+    // accent still tracks the app).
     ensureFonts().then(redraw);
     window.addEventListener("tippani:theme", redraw);
     return () => {
       cancelled = true;
       window.removeEventListener("tippani:theme", redraw);
     };
-  }, [share, selected]);
+  }, [share, selected, imageTheme]);
 
   function download() {
     const canvas = canvasRef.current;
@@ -438,6 +468,7 @@ function QuoteImagePanel({ share, selected }) {
       a.click();
       a.remove();
       URL.revokeObjectURL(href);
+      onShared?.();
     }, "image/png");
   }
 
@@ -455,6 +486,7 @@ function QuoteImagePanel({ share, selected }) {
       await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
+      onShared?.();
     } catch {
       setErr("image copy isn't supported here — use Download");
     } finally {
@@ -464,6 +496,18 @@ function QuoteImagePanel({ share, selected }) {
 
   return (
     <div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <MonoLabel>theme</MonoLabel>
+        <Select
+          ariaLabel="Image theme"
+          value={imageTheme}
+          onChange={setImageTheme}
+          options={IMAGE_THEMES}
+        />
+        <span className="microcopy" style={{ color: "var(--soft)" }}>
+          image only — doesn’t change the app
+        </span>
+      </div>
       <MonoLabel className="mb-1.5 block">preview</MonoLabel>
       <div className="share-image-preview">
         <canvas ref={canvasRef} className="share-image-canvas" aria-label="Quote card image preview" />
@@ -488,7 +532,7 @@ function QuoteImagePanel({ share, selected }) {
 }
 
 // ---- the dialog --------------------------------------------------------
-export function ShareDialog({ share, onClose }) {
+export function ShareDialog({ share, seen, onClose }) {
   const [format, setFormat] = useState("whatsapp");
   const fields = useMemo(() => fieldsOf(share), [share]);
   const [selected, setSelected] = useState(() =>
@@ -497,6 +541,15 @@ export function ShareDialog({ share, onClose }) {
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
   const mobile = useIsMobileScreen()
+  // Sharing a quote counts as "seeing" it (spaced-repetition reinforcement).
+  // Fire once per dialog, on the first successful copy/download, for the item
+  // being shared. Fire-and-forget: it's a marginal bump, off unless srSeen > 1.
+  const seenFired = useRef(false);
+  const markSeen = () => {
+    if (seenFired.current || DEMO || !seen?.id) return;
+    seenFired.current = true;
+    json("POST", "/review/seen", { kind: seen.kind, id: seen.id });
+  };
 
   const active = SHARE_FORMATS.find((f) => f.id === format) || SHARE_FORMATS[0];
   // "Image" is a format alongside the text ones — same field-picking, rendered
@@ -518,12 +571,14 @@ export function ShareDialog({ share, onClose }) {
   }, [onClose]);
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
+    // copyText falls back to execCommand on insecure origins (self-hosted over
+    // HTTP), where navigator.clipboard is undefined and the old path silently
+    // no-opped — that was the "copy does nothing" bug.
+    const ok = await copyText(text);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* clipboard API unavailable on insecure origins — selection still works */
+      markSeen();
     }
   }
 
@@ -618,7 +673,7 @@ export function ShareDialog({ share, onClose }) {
         {/* Image: rendered card + download/copy. Text: editable source ↔ live
             rendered preview. */}
         {isImage ? (
-          <QuoteImagePanel share={share} selected={selected} />
+          <QuoteImagePanel share={share} selected={selected} onShared={markSeen} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>

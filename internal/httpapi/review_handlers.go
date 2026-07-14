@@ -55,6 +55,7 @@ const (
 	reviewGrowth       = 2.5   // default srGrow: "got it" multiplies the half-life
 	reviewLateBonus    = 1.2   // a late recall proves stability >= elapsed — credit it
 	reviewLapseShrink  = 0.25  // default srShrink: "forgot" keeps this fraction, not zero
+	reviewSeen         = 1.0   // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
 	reviewQuota        = 8     // default srDaily deck size
 )
 
@@ -109,9 +110,20 @@ func scopeFlags(scope string) (books, screen bool) {
 
 // recallStatus derives a card's status dot from its half-life and how long it's
 // been since the last review. Unseen cards (no review row) have no probability.
-func recallStatus(seen bool, stability, elapsedDays float64) string {
+//
+// A lapse is decisive: a card whose most recent answer was "forgot" reads as
+// probably-forgotten however recently it was reviewed. The forgetting curve
+// assumes the last review was a SUCCESSFUL recall (p = 1 at elapsed 0), so
+// without this a wrong answer — which resets last_reviewed_at to now — would
+// paradoxically count the card as remembered. The failed attempt, not the
+// timestamp, is the honest signal; the card re-earns "remembered" only when a
+// later recall succeeds (flipping last_result back to "got").
+func recallStatus(seen bool, stability, elapsedDays float64, lastResult string) string {
 	if !seen {
 		return "unseen"
+	}
+	if lastResult == "forgot" {
+		return "probably-forgotten"
 	}
 	if stability < reviewMinStability {
 		stability = reviewMinStability
@@ -177,10 +189,11 @@ type reviewCard struct {
 // ("book:12" / "screen:7") so distractors can be ranked by that work's author
 // and genres.
 type reviewCand struct {
-	card    reviewCard
-	seen    bool
-	elapsed float64 // days since last_reviewed_at (seen cards only)
-	workKey string  // parent book/movie, for similar-distractor ranking
+	card       reviewCard
+	seen       bool
+	elapsed    float64 // days since last_reviewed_at (seen cards only)
+	lastResult string  // "got" | "forgot" | "" — a lapse forces probably-forgotten
+	workKey    string  // parent book/movie, for similar-distractor ranking
 }
 
 func elapsedDays(ts sql.NullString) float64 {
@@ -200,7 +213,7 @@ func elapsedDays(ts sql.NullString) float64 {
 func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
 	q := `SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,''), a.color,
 	             b.title, COALESCE(b.author,''), COALESCE(a.chapter,''), COALESCE(a.location,''),
-	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at
+	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,'')
 	      FROM annotations a
 	      JOIN books b ON b.id = a.book_id
 	      LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
@@ -229,7 +242,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Chapter, &c.card.Location,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult); err != nil {
 			continue
 		}
 		c.workKey = kindBook + ":" + strconv.FormatInt(bookID, 10)
@@ -242,7 +255,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
 	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
 	             COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
-	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at
+	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,'')
 	      FROM dialogues d
 	      JOIN movies m ON m.id = d.movie_id
 	      LEFT JOIN item_reviews r ON r.kind = 'screen' AND r.item_id = d.id
@@ -271,7 +284,7 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
 			&c.card.Timestamp, &c.card.MediaType,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult); err != nil {
 			continue
 		}
 		c.workKey = kindScreen + ":" + strconv.FormatInt(movieID, 10)
@@ -286,7 +299,7 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 func finishCard(c reviewCand, direction string) reviewCard {
 	card := c.card
 	card.Direction = direction
-	card.Status = recallStatus(c.seen, card.Stability, c.elapsed)
+	card.Status = recallStatus(c.seen, card.Stability, c.elapsed, c.lastResult)
 	return card
 }
 
@@ -812,11 +825,12 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 
 	stability := reviewMinStability
 	var lastReviewed sql.NullString
+	var lastResult string
 	var touchedToday bool
 	found := true
-	err = tx.QueryRow(`SELECT stability, last_reviewed_at, COALESCE(date(last_touched_at, ?) = ?, 0)
+	err = tx.QueryRow(`SELECT stability, last_reviewed_at, COALESCE(last_result, ''), COALESCE(date(last_touched_at, ?) = ?, 0)
 	                   FROM item_reviews WHERE kind = ? AND item_id = ?`, mod, day, req.Kind, req.ID).
-		Scan(&stability, &lastReviewed, &touchedToday)
+		Scan(&stability, &lastReviewed, &lastResult, &touchedToday)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		found = false
@@ -830,7 +844,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// retried POST could, and re-applying growth would compound the half-life
 	// and double-count the tally. Treat a same-day repeat as a no-op echo.
 	if req.Mode == "daily" && found && touchedToday {
-		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, lastReviewed, pf, found)
+		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, lastReviewed, lastResult, pf, found)
 		return
 	}
 
@@ -885,20 +899,30 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Status for the reply: a card whose schedule just moved is freshly reviewed
-	// (elapsed 0 → remembered); one that didn't move (Practice not counting)
-	// keeps its real last-review time so the dot stays honest.
+	// (elapsed 0), so its status turns on the grade just given — "got" reads as
+	// remembered, "forgot" as probably-forgotten. One that didn't move (Practice
+	// not counting) keeps its real last-review time and prior result so the dot
+	// stays honest.
 	respLastReviewed := lastReviewed
+	respLastResult := lastResult
 	if moveSchedule {
 		respLastReviewed = sql.NullString{}
+		respLastResult = req.Result
 	}
-	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, respLastReviewed, pf, found || moveSchedule)
+	// Practicing a card (a non-skip answer) counts as "seeing" it — a marginal
+	// half-life bump on top of any schedule move. The Daily Quiz is not "seeing":
+	// its got/forgot already drive the schedule in full.
+	if req.Mode == "practice" && req.Result != "skip" {
+		s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
+	}
+	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, respLastReviewed, respLastResult, pf, found || moveSchedule)
 }
 
 // answerResponse assembles the reply shared by the normal path and the daily
 // no-op echo: the card's new status + half-life, the mode's day tally, and (for
 // daily) how much of today's deck is left so the pending dot stays honest.
 func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int64, mode string, offset int,
-	kind string, id int64, stability float64, lastReviewed sql.NullString, pf prefs, seen bool) {
+	kind string, id int64, stability float64, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
 	day, _, _ := reviewDay(offset)
 	answered, got, forgot, err := s.modeTally(uid, mode, day)
 	if err != nil {
@@ -910,7 +934,7 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		"kind":      kind,
 		"id":        id,
 		"stability": stability,
-		"status":    recallStatus(seen, stability, elapsedDays(lastReviewed)),
+		"status":    recallStatus(seen, stability, elapsedDays(lastReviewed), lastResult),
 		"mode":      mode,
 		"answered":  answered,
 		"got":       got,
@@ -1007,7 +1031,7 @@ func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts
 	var c statusCounts
 	tally := func(table, parent, parentKey, userCol, kind string) error {
 		rows, err := s.Store.DB.Query(`
-			SELECT r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at
+			SELECT r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result, '')
 			FROM `+table+` x
 			JOIN `+parent+` p ON p.id = x.`+parentKey+`
 			LEFT JOIN item_reviews r ON r.kind = '`+kind+`' AND r.item_id = x.id
@@ -1021,11 +1045,12 @@ func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts
 			var seen bool
 			var stability float64
 			var lr sql.NullString
-			if err := rows.Scan(&seen, &stability, &lr); err != nil {
+			var lastResult string
+			if err := rows.Scan(&seen, &stability, &lr, &lastResult); err != nil {
 				continue
 			}
 			c.Total++
-			switch recallStatus(seen, stability, elapsedDays(lr)) {
+			switch recallStatus(seen, stability, elapsedDays(lr), lastResult) {
 			case "unseen":
 				c.Unseen++
 			case "remembered":
@@ -1180,5 +1205,71 @@ func (s *Server) handlePracticeReset(w http.ResponseWriter, r *http.Request) {
 	}
 	n, _ := res.RowsAffected()
 	olog.Printf("[review] practice score reset by user %d (%s) — %d session rows cleared", uid, username(r), n)
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// bumpSeen applies the "seeing" effect (srSeen): being shown a card outside the
+// Daily Quiz — practice (not skipped), sharing, or favouriting it — lengthens
+// its half-life marginally. It only touches cards already in the schedule (an
+// unseen card has no half-life to grow, and creating one here would falsely read
+// as "remembered"); it never moves the recall clock or the last result, so a
+// lapsed card stays probably-forgotten. factor <= 1 (the default) is a no-op, so
+// the whole effect is opt-in.
+func (s *Server) bumpSeen(kind string, id int64, factor float64) {
+	if factor <= 1.0 {
+		return
+	}
+	if _, err := s.Store.DB.Exec(
+		`UPDATE item_reviews SET stability = MIN(stability * ?, ?) WHERE kind = ? AND item_id = ?`,
+		factor, reviewMaxStability, kind, id); err != nil {
+		olog.Printf("[review] seen bump %s#%d: %v", kind, id, err)
+	}
+}
+
+// applySeen is the fire-and-forget wrapper used by non-quiz "seeing" events
+// (favouriting): it verifies ownership, loads the srSeen factor, and bumps.
+func (s *Server) applySeen(uid int64, kind string, id int64) {
+	owned, err := s.ownsItem(uid, kind, id)
+	if err != nil || !owned {
+		return
+	}
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		return
+	}
+	s.bumpSeen(kind, id, pf.SRSeen)
+}
+
+// handleReviewSeen records a "seeing" event from a client-side action that has
+// no other server round-trip — sharing a quote. POST /review/seen {kind,id}.
+// (Practice and favouriting are hooked where they already hit the server.)
+func (s *Server) handleReviewSeen(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Kind string `json:"kind"`
+		ID   int64  `json:"id"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if req.Kind != kindBook && req.Kind != kindScreen {
+		writeErr(w, http.StatusBadRequest, "kind must be book or screen")
+		return
+	}
+	uid := userID(r)
+	owned, err := s.ownsItem(uid, req.Kind, req.ID)
+	if err != nil {
+		internalError(w, r, "review seen ownership", err)
+		return
+	}
+	if !owned {
+		writeErr(w, http.StatusNotFound, "item not found")
+		return
+	}
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		internalError(w, r, "review seen prefs", err)
+		return
+	}
+	s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

@@ -135,17 +135,19 @@ type dialogueRow struct {
 	UpdatedAt string   `json:"updated_at"`
 	// Spaced-repetition state for the status dot (v0.5.0), mirroring annotations:
 	// Reviewed=false is the "unseen" pool; the client derives the status from
-	// stability + last_reviewed_at.
+	// stability + last_reviewed_at + last_result (a lapse forces
+	// probably-forgotten).
 	Reviewed       bool    `json:"reviewed"`
 	Stability      float64 `json:"stability"`
 	LastReviewedAt string  `json:"last_reviewed_at"`
+	LastResult     string  `json:"last_result"` // "got" | "forgot" | ""
 }
 
 // dialogueCols includes the LEFT-JOINed spaced-repetition state (see
 // dialogueReviewJoin); every SELECT using it must add that join.
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), COALESCE(d.character, ''),
 	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.rating, d.sticker_id, d.sticker_x, d.sticker_y, d.created_at, d.updated_at,
-	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, '')`
+	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')`
 
 // dialogueReviewJoin attaches the per-line review row (kind='screen') that
 // dialogueCols reads. Kept as a fragment so the list and single-fetch queries
@@ -160,7 +162,7 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
-			&d.Reviewed, &d.Stability, &d.LastReviewedAt)
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +285,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		d := dialogueRow{Tags: []string{}}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
-			&d.Reviewed, &d.Stability, &d.LastReviewedAt); err == nil {
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err == nil {
 			items = append(items, d)
 		}
 	}
@@ -329,9 +331,10 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	var movieID int64
 	var castJSON string
+	var wasFavorite bool
 	err := s.Store.DB.QueryRow(`
-		SELECT d.movie_id, m.cast_json FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		WHERE d.id = ? AND m.user_id = ?`, id, uid).Scan(&movieID, &castJSON)
+		SELECT d.movie_id, m.cast_json, d.favorite FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		WHERE d.id = ? AND m.user_id = ?`, id, uid).Scan(&movieID, &castJSON, &wasFavorite)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "dialogue not found")
@@ -381,6 +384,11 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.gcOrphanPeople(uid, "actor") // a changed actor name can orphan the old one
+	// Favouriting a dialogue counts as "seeing" it (marginal half-life bump);
+	// only on the false→true transition.
+	if req.Favorite && !wasFavorite {
+		s.applySeen(uid, kindScreen, id)
+	}
 	d, err := s.fetchDialogue(uid, id)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")

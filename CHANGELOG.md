@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-07-14
+
+### Added
+- **Home favourites now cover films & shows too, as a tile grid.** The Favourites
+  section merged only book highlights before; it now shows favourited **book quotes
+  and film/show dialogues together**, newest first, as two-up tiles (about four,
+  with the rest behind **View more**). Each tile is tagged BOOK / FILM / SHOW and
+  opens its source. *(This also fixes favourites reading as empty when you'd only
+  favourited dialogues, never a book quote.)*
+- **"Seeing" reinforcement (opt-in).** A new **srSeen** knob (Settings → Daily quiz
+  & practice) lets *seeing* a quote — practising it (not skipping), sharing it, or
+  favouriting it — lengthen its memory half-life marginally, separate from Daily
+  Quiz recall. Off by default (1.0×), and merely appearing in the Daily Quiz is not
+  "seeing". New `POST /review/seen`.
+- **Share-image theme picker.** The *Image* share format gains a four-way theme
+  dropdown (Paper / Film × Light / Dark) that restyles only the exported image, not
+  the app; the choice is remembered per device.
+
+### Changed
+- **The manual-update command** shown in Settings → Updates is now
+  `docker compose up -d --pull always --force-recreate` — one step that always
+  re-pulls the tag and recreates the container.
+
+### Fixed
+- **A wrong Daily Quiz answer no longer inflates "remembered".** Statuses read the
+  recall probability `2^(-elapsed/half-life)`, but a just-answered card has ~0 days
+  elapsed, so *any* fresh answer (right or wrong) read as fully remembered. A lapse
+  now correctly reads as **probably forgotten** — on the "where you stand" tally and
+  on every quote's status dot — until the next successful recall.
+- **Copy buttons work on plain-HTTP self-hosted instances.** The share sheet's
+  **Copy** and the update-command copy used the async Clipboard API, which is
+  undefined outside a secure context (HTTPS/localhost), so on a LAN-IP HTTP instance
+  they silently did nothing. They now fall back to a legacy copy that works over HTTP.
+
 ## [0.6.1] - 2026-07-14
 
 ### Changed

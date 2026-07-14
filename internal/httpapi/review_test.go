@@ -151,9 +151,11 @@ func TestDailyQuizMCQ(t *testing.T) {
 	if !res.OK || res.Stability != 2.5 || res.Status != "remembered" || res.Answered != 1 || res.Got != 1 {
 		t.Fatalf("got: %+v", res)
 	}
-	// A wrong pick counts as "forgot": floor 1, lapse recorded.
+	// A wrong pick counts as "forgot": floor 1, lapse recorded, and — however
+	// freshly reviewed — it reads as probably-forgotten, not remembered (a lapse
+	// is the honest signal about current recall).
 	res = answer(t, c, kindBook, ids[1], "forgot", "daily")
-	if res.Stability != 1 || res.Answered != 2 || res.Forgot != 1 {
+	if res.Stability != 1 || res.Answered != 2 || res.Forgot != 1 || res.Status != "probably-forgotten" {
 		t.Fatalf("forgot: %+v", res)
 	}
 	var lapses int
@@ -383,11 +385,82 @@ func TestReviewScores(t *testing.T) {
 	if scores.Practice.Answered != 1 || scores.Practice.Got != 1 || scores.Practice.Sessions != 1 {
 		t.Fatalf("practice score: %+v", scores.Practice)
 	}
-	// 3 dailied cards just reviewed → remembered; the practice + Emma cards never
-	// entered the schedule → unseen. Total = 6.
-	if scores.States.Remembered != 3 || scores.States.Unseen != 3 || scores.States.Total != 6 {
+	// The 2 dailied "got" cards → remembered; the 1 dailied "forgot" → probably-
+	// forgotten (a lapse is never "remembered", however freshly reviewed); the
+	// practice + Emma cards never entered the schedule → unseen. Total = 6.
+	if scores.States.Remembered != 2 || scores.States.ProbablyForgotten != 1 ||
+		scores.States.Unseen != 3 || scores.States.Total != 6 {
 		t.Fatalf("states: %+v", scores.States)
 	}
+}
+
+// The "seeing" effect (srSeen): practising (not skipping), sharing, or
+// favouriting a card lengthens its half-life marginally — separate from Daily
+// Quiz recall, off by default, and never touching an unseen card.
+func TestReviewSeen(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, ids := seedReviewBook(t, c, "Dune", 1)
+	seedDistractorBook(t, srv, c, "Emma") // a 2nd title so MCQ can form
+
+	stabilityOf := func(id int64) float64 {
+		var s float64
+		if err := srv.Store.DB.QueryRow(
+			`SELECT stability FROM item_reviews WHERE kind='book' AND item_id=?`, id).Scan(&s); err != nil {
+			return -1 // no review row yet
+		}
+		return s
+	}
+	near := func(got, want float64) bool { return got > want-0.01 && got < want+0.01 }
+
+	// Turn "seeing" on (off by default: 1.0×).
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srSeen": 1.2}, 200)
+
+	// Seeing an unseen card must NOT create a schedule row (nothing to lengthen).
+	c.mustDo("POST", "/review/seen", map[string]any{"kind": kindBook, "id": ids[0]}, 200)
+	if stabilityOf(ids[0]) != -1 {
+		t.Fatalf("seeing an unseen card created a review row")
+	}
+
+	// Quiz it right → row at 2.5. The Daily Quiz is NOT "seeing" (its grade drives
+	// the schedule in full), so no extra bump here.
+	answer(t, c, kindBook, ids[0], "got", "daily")
+	if s := stabilityOf(ids[0]); !near(s, 2.5) {
+		t.Fatalf("after daily got: %v (want 2.5)", s)
+	}
+	// Sharing (POST /review/seen): 2.5 × 1.2 = 3.0
+	c.mustDo("POST", "/review/seen", map[string]any{"kind": kindBook, "id": ids[0]}, 200)
+	if s := stabilityOf(ids[0]); !near(s, 3.0) {
+		t.Fatalf("after share-seen: %v (want 3.0)", s)
+	}
+	// Practising (default: not counting) still counts as seeing: 3.0 × 1.2 = 3.6
+	answer(t, c, kindBook, ids[0], "got", "practice")
+	if s := stabilityOf(ids[0]); !near(s, 3.6) {
+		t.Fatalf("after practice-seen: %v (want 3.6)", s)
+	}
+	// Favouriting (false→true) counts as seeing: 3.6 × 1.2 = 4.32
+	favBody := map[string]any{"quote": "Dune passage 0", "color": "yellow", "favorite": true}
+	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
+	if s := stabilityOf(ids[0]); !near(s, 4.32) {
+		t.Fatalf("after favourite-seen: %v (want 4.32)", s)
+	}
+	// Re-saving an already-favourite card is not a fresh "seeing".
+	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
+	if s := stabilityOf(ids[0]); !near(s, 4.32) {
+		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 4.32)", s)
+	}
+
+	// A skipped practice card is not "seeing".
+	before := stabilityOf(ids[0])
+	c.mustDo("POST", "/review/answer", map[string]any{"kind": kindBook, "id": ids[0], "result": "skip", "mode": "practice"}, 200)
+	if s := stabilityOf(ids[0]); !near(s, before) {
+		t.Fatalf("a skip counted as seeing: %v -> %v", before, s)
+	}
+
+	// Ownership: another user can't "see" this card.
+	bob := addUser(t, h, c, "bob")
+	bob.mustDo("POST", "/review/seen", map[string]any{"kind": kindBook, "id": ids[0]}, http.StatusNotFound)
 }
 
 // Films/shows are first-class review items: they enter the deck with options,

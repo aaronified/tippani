@@ -1363,7 +1363,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
         </ul>
       )}
 
-      {shareTarget && <ShareDialog share={sharePayload(shareTarget)} onClose={() => setShareTarget(null)} />}
+      {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'book', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}
     </div>
   )
 }

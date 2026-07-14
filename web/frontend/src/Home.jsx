@@ -444,18 +444,78 @@ function PracticeCard() {
   )
 }
 
-const FAVS_INITIAL = 5 // shown before "show more"
+const FAVS_INITIAL = 4 // tiles shown before "view more"
 
-export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies, onCapture, onPending }) {
+// bookFav / screenFav flatten a book annotation and a screen dialogue into one
+// favourite-tile shape so the Home grid can mix both media. `text` is the line
+// shown (the quote, or the note for note-only captures); `note` is the margin
+// note, surfaced on expand only when there's a separate quote (so it never
+// duplicates the text).
+function bookFav(a) {
+  const ch = (a.chapter || '').trim()
+  const meta = [
+    a.book_title,
+    a.book_author,
+    ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch),
+    a.location && `P. ${a.location}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return {
+    key: `book:${a.id}`,
+    kind: 'book',
+    color: a.color,
+    text: a.quote || a.note,
+    note: a.quote ? a.note : '',
+    tags: a.tags || [],
+    source: [a.book_title, a.book_author].filter(Boolean).join(' · '),
+    meta,
+    createdAt: a.created_at,
+    openLabel: 'Open book →',
+    workId: a.book_id,
+  }
+}
+
+function screenFav(d, movieMap) {
+  const m = movieMap[d.movie_id] || {}
+  const isShow = (m.media_type || 'movie') === 'show'
+  return {
+    key: `screen:${d.id}`,
+    kind: 'screen',
+    media: isShow ? 'SHOW' : 'FILM',
+    text: d.quote || d.note,
+    note: d.quote ? d.note : '',
+    tags: d.tags || [],
+    source: [m.title, d.character].filter(Boolean).join(' · '),
+    meta: [m.title, d.character, d.timestamp].filter(Boolean).join(' · '),
+    createdAt: d.created_at,
+    openLabel: isShow ? 'Open show →' : 'Open film →',
+    workId: d.movie_id,
+  }
+}
+
+export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onCapture, onPending }) {
   const [favs, setFavs] = useState([])
   const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
-  const [openFav, setOpenFav] = useState(null) // annotation id expanded in place
+  const [openFav, setOpenFav] = useState(null) // favourite key expanded in place
 
   useEffect(() => {
-    // All favourites, newest first (capped generously); the list shows a few
-    // and reveals the rest on demand rather than shipping nothing.
-    json('GET', '/annotations?favorite=1&limit=200').then((r) => {
-      if (r.ok) setFavs(r.data.annotations || [])
+    // Favourites across both media — books (annotations) and films/shows
+    // (dialogues) — merged newest-first. A few show as tiles; the rest wait
+    // behind "view more". Movies are fetched once to attribute each dialogue to
+    // its title (the dialogues list carries only movie_id).
+    Promise.all([
+      json('GET', '/annotations?favorite=1&limit=200'),
+      json('GET', '/dialogues?favorite=1'),
+      json('GET', '/movies'),
+    ]).then(([ra, rd, rm]) => {
+      const movieMap = {}
+      if (rm.ok) for (const m of rm.data.movies || []) movieMap[m.id] = m
+      const list = []
+      if (ra.ok) for (const a of ra.data.annotations || []) list.push(bookFav(a))
+      if (rd.ok) for (const d of rd.data.dialogues || []) list.push(screenFav(d, movieMap))
+      list.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''))
+      setFavs(list)
     })
   }, [])
 
@@ -517,22 +577,22 @@ export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies,
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
             <MonoLabel>♥ {favs.length}</MonoLabel>
           </div>
-          <div className="flex flex-col gap-2.5">
-            {favs.slice(0, favsShown).map((a, i) => (
-              <FavouriteCard
-                key={a.id}
-                a={a}
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {favs.slice(0, favsShown).map((f, i) => (
+              <FavouriteTile
+                key={f.key}
+                f={f}
                 variant={i + 1}
-                open={openFav === a.id}
-                onToggle={() => setOpenFav((id) => (id === a.id ? null : a.id))}
-                onOpenBook={() => onOpenBook(a.book_id)}
+                open={openFav === f.key}
+                onToggle={() => setOpenFav((k) => (k === f.key ? null : f.key))}
+                onOpen={() => (f.kind === 'book' ? onOpenBook(f.workId) : onOpenMovie(f.workId))}
               />
             ))}
           </div>
           {favsShown < favs.length && (
             <div className="mt-3 text-center">
-              <GhostButton onClick={() => setFavsShown((n) => n + 10)}>
-                Show more ({favs.length - favsShown})
+              <GhostButton onClick={() => setFavsShown((n) => n + 8)}>
+                View more ({favs.length - favsShown})
               </GhostButton>
             </div>
           )}
@@ -542,41 +602,51 @@ export default function Home({ user, stats, onOpenBook, onGoLibrary, onGoMovies,
   )
 }
 
-// FavouriteCard — a favourite on the Home list. Collapsed it shows the quote +
-// source; tapping expands it in place (full quote, note, tags) with a button to
-// open the book. Tapping again collapses.
-function FavouriteCard({ a, variant, open, onToggle, onOpenBook }) {
+// FavouriteTile — one favourite in the Home grid, book or screen. Collapsed it
+// shows a media tag, the quote (clamped) and its source; tapping expands it in
+// place (full quote, note, tags) and widens the tile to the full row, with a
+// button to open the parent book / film / show. The colour bar is the highlight
+// colour for books, amber for screen quotes (the film voice). Tapping again
+// collapses.
+function FavouriteTile({ f, variant, open, onToggle, onOpen }) {
+  const isBook = f.kind === 'book'
   return (
-    <HandCard variant={variant} colorBar={a.color} style={{ padding: '12px 15px' }}>
+    <HandCard
+      variant={variant}
+      colorBar={isBook ? f.color : 'var(--amber)'}
+      className={open ? 'sm:col-span-2' : ''}
+      style={{ padding: '12px 15px' }}
+    >
       <button type="button" className="block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle}>
+        <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
+          {isBook ? 'BOOK' : f.media}
+        </MonoLabel>
         <p
           style={{
             fontFamily: 'var(--font-display)',
             fontStyle: 'italic',
-            fontSize: 15.5,
+            fontSize: 15,
             lineHeight: 1.5,
             ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
           }}
         >
-          “{a.quote || a.note}”
+          “{f.text}”
         </p>
         <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
-          {[a.book_title, a.book_author].filter(Boolean).join(' · ')}
-          {[a.chapter && `CH. ${a.chapter}`, a.location && `P. ${a.location}`].filter(Boolean).length > 0 &&
-            ' · ' + [a.chapter && `CH. ${a.chapter}`, a.location && `P. ${a.location}`].filter(Boolean).join(' · ')}
+          {open ? f.meta : f.source}
         </MonoLabel>
       </button>
       {open && (
         <div className="mt-2.5 space-y-2">
-          {a.note && <HandNote>{a.note}</HandNote>}
-          {a.tags && a.tags.length > 0 && (
+          {f.note && <HandNote>{f.note}</HandNote>}
+          {f.tags && f.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {a.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
+              {f.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
             </div>
           )}
           <div className="flex items-center gap-2 pt-1">
-            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpenBook}>
-              Open book →
+            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpen}>
+              {f.openLabel}
             </button>
           </div>
         </div>

@@ -9,6 +9,22 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.6.2 (July 2026)**
+
+- **Favourites span both media** — the Home Favourites section now mixes favourited
+  book quotes and film/show dialogues in one newest-first **tile grid** (about four,
+  the rest behind *View more*), each tile tagged and opening its source. Also fixes
+  favourites reading as empty when you'd only favourited dialogues.
+- **"Seeing" reinforcement (opt-in)** — a new **srSeen** knob lets practising (not
+  skipping), sharing, or favouriting a quote nudge its half-life up a little, apart
+  from Daily Quiz recall; off by default, and appearing in the quiz is not "seeing".
+- **Share-image theme picker** — the Image share format restyles the exported card
+  across the four skins (Paper/Film × Light/Dark) without touching the app theme.
+- **Fixes** — a wrong quiz answer no longer counts as *remembered* (a lapse reads as
+  *probably forgotten* until the next correct recall); **Copy** works on plain-HTTP
+  self-hosted instances; the manual-update command is now a single
+  `docker compose up -d --pull always --force-recreate`.
+
 **v0.6.1 (July 2026)**
 
 - **Multiple-choice Daily Quiz & Practice** — replaced 0.5.0's self-graded "show

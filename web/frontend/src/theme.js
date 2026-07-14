@@ -80,6 +80,29 @@ export function getResolvedTheme() {
   }
 }
 
+// paletteTheme returns the canvas theme object (the shape quoteImage's readTheme
+// produces) for an explicit aesthetic + mode, independent of what's applied to
+// the DOM. Used by the share-image picker to render any of the four skins
+// without touching the live app theme. `accentHex` keeps the app's accent.
+export function paletteTheme(aesthetic, dark, accentHex) {
+  const aes = aesthetic === 'film' ? 'film' : 'paper'
+  const p = PALETTES[aes + '-' + (dark ? 'dark' : 'light')]
+  return {
+    aesthetic: aes,
+    dark: !!dark,
+    bg: p.bg,
+    cardTop: p['card-top'],
+    cardBottom: p['card-bottom'],
+    ink: p.ink,
+    soft: p.soft,
+    faint: p.faint,
+    line: p.line,
+    amber: p.amber,
+    accent: accentHex || ACCENTS.terracotta,
+    inkBorder: p['ink-border'],
+  }
+}
+
 function apply() {
   const dark = current.theme === 'dark' || (current.theme !== 'light' && media.matches)
   const aesthetic =

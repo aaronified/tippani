@@ -115,10 +115,12 @@ type annotationRow struct {
 	UpdatedAt  string   `json:"updated_at"`
 	// Spaced-repetition state for the status dot (v0.5.0). Reviewed=false is the
 	// "unseen" pool; the client derives remembered/forgetting/probably-forgotten
-	// from stability + last_reviewed_at. Absent on create/update responses.
+	// from stability + last_reviewed_at + last_result (a lapse forces
+	// probably-forgotten). Absent on create/update responses.
 	Reviewed       bool    `json:"reviewed"`
 	Stability      float64 `json:"stability"`
 	LastReviewedAt string  `json:"last_reviewed_at"`
+	LastResult     string  `json:"last_result"` // "got" | "forgot" | ""
 }
 
 func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
@@ -223,7 +225,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite, a.rating,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
-		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, '')
+		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
 		WHERE b.user_id = ?`
@@ -276,7 +278,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		a := annotationRow{Tags: []string{}}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
 			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
-			&a.Reviewed, &a.Stability, &a.LastReviewedAt); err == nil {
+			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult); err == nil {
 			items = append(items, a)
 		}
 	}
@@ -321,9 +323,10 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	uid := userID(r)
 	var bookID int64
+	var wasFavorite bool
 	err := s.Store.DB.QueryRow(`
-		SELECT a.book_id FROM annotations a JOIN books b ON b.id = a.book_id
-		WHERE a.id = ? AND b.user_id = ?`, id, uid).Scan(&bookID)
+		SELECT a.book_id, a.favorite FROM annotations a JOIN books b ON b.id = a.book_id
+		WHERE a.id = ? AND b.user_id = ?`, id, uid).Scan(&bookID, &wasFavorite)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "annotation not found")
@@ -370,6 +373,11 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	if err := tx.Commit(); err != nil {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	// Favouriting a quote counts as "seeing" it (marginal half-life bump); only
+	// on the false→true transition, so re-saving a favourite doesn't re-credit.
+	if req.Favorite && !wasFavorite {
+		s.applySeen(uid, kindBook, id)
 	}
 	a, err := s.fetchAnnotation(uid, id)
 	if err != nil {

@@ -800,6 +800,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               user={user}
               stats={stats}
               onOpenBook={openBook}
+              onOpenMovie={openMovie}
               onGoLibrary={() => selectTab('library')}
               onGoMovies={() => selectTab('movies')}
               onCapture={() => setCaptureOpen(true)}

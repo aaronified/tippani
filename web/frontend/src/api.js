@@ -71,3 +71,35 @@ export async function downloadPost(url, body, filename) {
 export function errText(res, fallback = 'something went wrong') {
   return (res.data && res.data.error) || fallback
 }
+
+// copyText copies text to the clipboard, returning true on success. The async
+// Clipboard API only exists in a secure context (HTTPS or localhost); a
+// self-hosted instance reached over plain HTTP has navigator.clipboard
+// undefined, so writeText silently no-ops. This falls back to a hidden
+// <textarea> + execCommand('copy'), which works on insecure origins too.
+export async function copyText(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // permission denied / not focused — fall through to the legacy path
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.top = '-1000px'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    ta.setSelectionRange(0, ta.value.length)
+    const ok = document.execCommand('copy')
+    ta.remove()
+    return ok
+  } catch {
+    return false
+  }
+}

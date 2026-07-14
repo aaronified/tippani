@@ -340,7 +340,7 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
           />
         )}
       </div>
-      {shareOpen && row && <ShareDialog share={sharePayload()} onClose={() => setShareOpen(false)} />}
+      {shareOpen && row && <ShareDialog share={sharePayload()} seen={{ kind: isBook ? 'book' : 'screen', id: row.id }} onClose={() => setShareOpen(false)} />}
     </div>
   )
 }
