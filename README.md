@@ -120,6 +120,10 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   sessions, stdlib CSRF, login rate limiting.
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
+- 🔄 **In-app updates** — Settings shows your running version and checks GitHub for a newer release
+  **on demand** (never automatically). If you mount the Docker socket (**opt-in**, a deliberate
+  security trade-off — see `docker-compose.yml`), one click pulls the new image and restarts the
+  container; otherwise it hands you the exact `docker compose pull && up -d` to run.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 

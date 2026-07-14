@@ -15,6 +15,7 @@ const USER = {
   username: 'reader',
   is_admin: true,
   avatar_path: '',
+  version: 'demo',
   preferences: { aesthetic: 'paper', theme: 'light', accent: 'terracotta' },
 }
 
@@ -350,6 +351,8 @@ function route(method, path, params, body) {
   switch (true) {
     case path === '/auth/me': return [200, USER]
     case path === '/auth/status': return [200, { needs_onboarding: false }]
+    case path === '/admin/update/check':
+      return [200, { current: 'demo', image: 'ghcr.io/aaronified/tippani', socket: false, can_self_update: false, update_available: false, guided_command: 'docker compose pull && docker compose up -d' }]
     case path === '/review/daily': return [200, reviewDeck()]
     case path === '/review/practice': return [200, practiceDeck()]
     case path === '/review/scores': return [200, reviewScores()]

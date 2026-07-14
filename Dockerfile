@@ -14,13 +14,17 @@ RUN npm run build   # -> /src/web/dist
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend
 ARG TARGETOS
 ARG TARGETARCH
+# VERSION is stamped into the binary (buildinfo.Version) so the app knows its
+# own version for the in-app update check; the docker-publish workflow passes
+# the release tag, and it defaults to "dev" for a plain local build.
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /src/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags "-s -w" -o /tippani ./cmd/tippani
+    go build -trimpath -ldflags "-s -w -X tippani/internal/buildinfo.Version=${VERSION}" -o /tippani ./cmd/tippani
 # Stage an empty data dir owned by distroless's nonroot uid (65532). A named
 # volume mounted at /data inherits this ownership when first initialized, so the
 # non-root process can create the SQLite DB — otherwise the volume is root-owned

@@ -1,5 +1,8 @@
 BINARY  := bin/tippani
-LDFLAGS := -s -w
+# VERSION stamps buildinfo.Version so the app knows its own version for the
+# in-app update check; override with `make build VERSION=v1.2.3`.
+VERSION ?= dev
+LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION)
 
 .PHONY: build frontend test run clean
 

@@ -8,6 +8,7 @@
 //	tippani user passwd <name>    reset a user's password (stdin)
 //	tippani user del <name>       delete a user and their data
 //	tippani healthcheck           probe /healthz; exit 0 if healthy (Docker HEALTHCHECK)
+//	tippani version               print the build version and exit
 //
 // Configuration (env):
 //
@@ -34,6 +35,7 @@ import (
 	"time"
 
 	"tippani/internal/auth"
+	"tippani/internal/buildinfo"
 	"tippani/internal/httpapi"
 	"tippani/internal/store"
 	"tippani/web"
@@ -52,6 +54,8 @@ func main() {
 		userCmd(args[1:])
 	case "healthcheck":
 		healthcheck()
+	case "version":
+		fmt.Println(buildinfo.Version)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
 		os.Exit(2)
@@ -147,8 +151,10 @@ func serve() {
 	)
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
 
-	// One-line config summary at boot so `docker logs` shows what's wired without
-	// leaking secrets (presence only). Per-request lines follow (logRequests).
+	// Identity + one-line config summary at boot so `docker logs` shows the
+	// running version and what's wired without leaking secrets (presence only).
+	// Per-request lines follow (logRequests).
+	log.Printf("tippani %s (%s)", buildinfo.Version, buildinfo.Image())
 	log.Printf("config: data=%s tmdb(builtin=%t) cookie_secure=%t trusted_proxy=%t",
 		dataDir, defaultTMDBKey != "",
 		os.Getenv("TIPPANI_COOKIE_SECURE") == "1", os.Getenv("TIPPANI_TRUSTED_PROXY") == "1")

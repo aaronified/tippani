@@ -9,6 +9,7 @@ import {
   PageHeader,
   StickerButton,
   Toggle,
+  toast,
   frameCode,
   useCoverSize,
   useFrameBase,
@@ -50,6 +51,7 @@ export default function Settings({ user, onPreferences }) {
     { w: 3, node: <Stats key="stats" /> },
     { w: 2.8, node: <SRSettings key="sr" user={user} onPreferences={onPreferences} /> },
     { w: 1.4, node: <Interface key="iface" user={user} onPreferences={onPreferences} /> },
+    user.is_admin && { w: 1.8, node: <UpdatesCard key="upd" user={user} /> },
   ].filter(Boolean)
   const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
   ;[...cards]
@@ -164,6 +166,145 @@ function SRSettings({ user, onPreferences }) {
         <Slider label="Recall grows half-life by" min={1.5} max={4} step={0.1} value={p.srGrow || 2.5} unit="×" decimals={1} onCommit={(v) => set({ srGrow: v })} />
         <Slider label="A lapse keeps" min={0.1} max={0.6} step={0.05} value={p.srShrink || 0.25} unit="×" decimals={2} onCommit={(v) => set({ srShrink: v })} />
         <p className="microcopy">how far a card's memory half-life stretches when you recall it, and how much of it survives a “forgot”. Every quote shows a status dot — <strong>remembered</strong>, <strong>forgetting</strong> or <strong>probably forgotten</strong> — with its half-life on hover.</p>
+      </div>
+    </Card>
+  )
+}
+
+// UpdatesCard (admin only) — the version + update control. "Check for updates"
+// queries GitHub on demand (never automatically); if a newer release exists it
+// offers a one-click update when the Docker socket is mounted (pull + recreate
+// via a one-shot Watchtower), and otherwise shows the manual command to run.
+function UpdatesCard({ user }) {
+  const current = user?.version || 'dev'
+  const [info, setInfo] = useState(null) // check result
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState('')
+  const [phase, setPhase] = useState('idle') // idle | applying | restarting | failed
+
+  async function check() {
+    setBusy(true)
+    const r = await json('GET', '/admin/update/check')
+    setBusy(false)
+    if (r.ok) setInfo(r.data)
+    else toast('couldn’t check for updates')
+  }
+
+  async function apply() {
+    if (confirm !== 'UPDATE') return
+    setPhase('applying')
+    const r = await json('POST', '/admin/update/apply', { confirm: 'UPDATE' })
+    if (!r.ok) {
+      setPhase('failed')
+      toast(r.data?.error || 'update failed to start')
+      return
+    }
+    // Watchtower will stop + recreate this container; poll until the new one
+    // answers, then reload onto the fresh version.
+    setPhase('restarting')
+    for (let i = 0; i < 60; i++) {
+      await new Promise((res) => setTimeout(res, 3000))
+      const ping = await json('GET', '/auth/me')
+      if (ping.ok) return window.location.reload()
+    }
+    setPhase('failed')
+    toast('the app didn’t come back automatically — reload the page in a moment')
+  }
+
+  const copyCmd = () => {
+    navigator.clipboard?.writeText(info?.guided_command || '').then(() => toast('command copied'))
+  }
+
+  return (
+    <Card>
+      <SectionTitle>Updates</SectionTitle>
+      <div className="space-y-3">
+        <div className="flex items-baseline gap-2">
+          <MonoLabel>version</MonoLabel>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{current}</span>
+        </div>
+
+        {phase === 'restarting' ? (
+          <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
+            updating & restarting — this page will reload automatically when Tippani is back…
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <GhostButton onClick={check} disabled={busy || phase === 'applying'}>
+                {busy ? 'Checking…' : 'Check for updates'}
+              </GhostButton>
+              {info && !info.update_available && !info.check_error && (
+                <MonoLabel style={{ color: 'var(--ok)' }}>✓ up to date</MonoLabel>
+              )}
+            </div>
+
+            {info?.check_error && (
+              <p className="microcopy" style={{ color: 'var(--soft)' }}>
+                couldn’t reach GitHub ({info.check_error}) — check your connection and try again
+              </p>
+            )}
+
+            {info?.update_available && (
+              <div className="space-y-3">
+                <p className="microcopy">
+                  <strong>{info.latest}</strong> is available (you’re on {current}).{' '}
+                  {info.notes_url && (
+                    <a href={info.notes_url} target="_blank" rel="noopener noreferrer" className="tp-link">
+                      release notes ↗
+                    </a>
+                  )}
+                </p>
+
+                {info.can_self_update ? (
+                  <div className="space-y-2">
+                    <p className="microcopy">
+                      Type <b>UPDATE</b> to pull {info.latest} and restart the container:
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        className="tp-input"
+                        style={{ maxWidth: 140, fontFamily: 'var(--font-mono)' }}
+                        placeholder="UPDATE"
+                        value={confirm}
+                        onChange={(e) => setConfirm(e.target.value)}
+                      />
+                      <StickerButton
+                        onClick={apply}
+                        disabled={confirm !== 'UPDATE' || phase === 'applying'}
+                      >
+                        {phase === 'applying' ? 'Starting…' : 'Update & restart now'}
+                      </StickerButton>
+                    </div>
+                    {phase === 'failed' && (
+                      <p className="microcopy" style={{ color: 'var(--error)' }}>
+                        update didn’t start — check the container logs, or update by hand below
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="microcopy">
+                      One-click update needs the Docker socket mounted (see the README). To update by
+                      hand, run on your host:
+                    </p>
+                    <div
+                      className="flex items-center justify-between gap-2"
+                      style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px' }}
+                    >
+                      <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, overflowWrap: 'anywhere' }}>
+                        {info.guided_command}
+                      </code>
+                      <button type="button" className="tp-link" onClick={copyCmd} style={{ whiteSpace: 'nowrap' }}>
+                        copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </Card>
   )

@@ -18,6 +18,7 @@ import (
 	"tippani/internal/auth"
 	"tippani/internal/metadata"
 	"tippani/internal/store"
+	"tippani/internal/updater"
 )
 
 type Server struct {
@@ -46,6 +47,11 @@ type Server struct {
 	// booksLookup remembers the most recent POST /books/lookup outcome for
 	// GET /metadata/status; nil = never tried. In-memory by design (§10).
 	booksLookup atomic.Pointer[lookupOutcome]
+
+	// Update-check seams (Settings → Updates, admin): the GitHub API base and a
+	// factory for the Docker-socket client, both stubbed in tests.
+	GitHubAPI string
+	newDocker func() UpdateDocker
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -71,6 +77,8 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 			return t.PersonLinks(ctx, name)
 		},
 		resolveAuthor: metadata.ResolveAuthor,
+		GitHubAPI:     updater.DefaultGitHubAPI,
+		newDocker:     func() UpdateDocker { return updater.NewDocker(updater.DockerSock()) },
 	}
 }
 
@@ -106,6 +114,10 @@ func (s *Server) Handler() http.Handler {
 	// factory reset (destructive) behind Profile.
 	mux.Handle("POST /admin/search/reindex", s.requireAdmin(s.handleReindexFTS))
 	mux.Handle("POST /admin/reset", s.requireAdmin(s.handleResetDatabase))
+	// Updates (admin): check GitHub for a newer release, and (Docker socket
+	// permitting) pull it and recreate this container in one click.
+	mux.Handle("GET /admin/update/check", s.requireAdmin(s.handleUpdateCheck))
+	mux.Handle("POST /admin/update/apply", s.requireAdmin(s.handleUpdateApply))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))

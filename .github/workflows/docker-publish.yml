@@ -49,6 +49,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          # Stamp the resolved version (e.g. 0.5.0 on a tag, "edge" on main) into
+          # the binary so the in-app update check knows what it's running.
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
           # Multi-arch: amd64 is the tested arch; arm64 is published too (pure Go,
           # CGO-free, so it cross-compiles cleanly) but is UNTESTED — shipped so
           # arm64 NAS owners (Synology/QNAP/Pi) can try it and report back.

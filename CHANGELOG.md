@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-14
+
+### Added
+- **In-app updates (Settings → Updates, admin).** The build version is now stamped
+  into the binary (`buildinfo.Version`, via `-ldflags -X`; logged at startup and
+  printed by `tippani version`) and surfaced in Settings. **Check for updates**
+  queries the latest GitHub release **on demand** — Tippani never contacts GitHub on
+  its own — and reports whether you're up to date.
+- **One-click update via the Docker socket (opt-in).** When the Docker socket is
+  mounted (a documented, deliberate security trade-off in `docker-compose.yml`), the
+  card offers **Update & restart now** (admin, typed `UPDATE` confirm): it pulls the
+  new image and recreates the container with a one-shot Watchtower — which copies the
+  existing config so the data volume, ports and env survive — then the page waits for
+  the app to come back and reloads. Works when you track a moving tag (`:latest`).
+  Without the socket it shows the exact `docker compose pull && docker compose up -d`
+  to run by hand. New `GET /admin/update/check`, `POST /admin/update/apply`.
+
 ## [0.5.0] - 2026-07-13
 
 Spaced-repetition rework: two clear modes, films & shows as first-class review

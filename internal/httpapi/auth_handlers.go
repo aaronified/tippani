@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"tippani/internal/auth"
+	"tippani/internal/buildinfo"
 )
 
 const maxAuthBody = 4 << 10 // 4 KiB is plenty for credentials
@@ -159,6 +160,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"is_admin":    isAdmin(r),
 		"preferences": p,
 		"avatar_path": avatar,
+		"version":     buildinfo.Version, // running build, for the Settings → Updates card
 	})
 }
 

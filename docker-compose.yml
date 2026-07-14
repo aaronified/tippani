@@ -24,6 +24,15 @@ services:
       # below, OR bind-mount any host folder you already back up, e.g.:
       #   - /srv/tippani:/data
       - tippani-data:/data
+      # OPT-IN: mount the Docker socket to enable the in-app one-click update
+      # (Settings → Updates, admin). SECURITY: this grants the container control
+      # of your Docker host — only enable it if you understand that trade-off.
+      # It only works when you track a moving tag (image: …:latest, as above).
+      #   - /var/run/docker.sock:/var/run/docker.sock
+    # The image runs as non-root (uid 65532); to let it reach the socket above,
+    # add it to your host's docker group (find the gid with `getent group docker`):
+    #   group_add:
+    #     - "999"   # <- your host's docker group id
     # environment:
     #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
     #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter

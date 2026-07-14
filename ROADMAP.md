@@ -9,6 +9,16 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.6.0 (July 2026)**
+
+- **In-app updates** — the build version is stamped into the binary and shown in
+  Settings; **Check for updates** compares it against the latest GitHub release **on
+  demand** (never automatic). With the Docker socket mounted (opt-in, documented
+  security trade-off), **Update & restart now** pulls the new image and recreates the
+  container via a one-shot Watchtower (config/volume preserved), then the page reloads
+  onto the new version; without the socket it hands over the manual `docker compose
+  pull && up -d`. New `GET /admin/update/check`, `POST /admin/update/apply`.
+
 **v0.5.0 (July 2026)**
 
 - **Daily Quiz & Practice** — the spaced-repetition surface is reworked into two
