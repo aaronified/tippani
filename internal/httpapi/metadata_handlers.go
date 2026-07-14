@@ -5,6 +5,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"image"
 	_ "image/gif"  // register decoders: coverWidth reads stored art headers
 	_ "image/jpeg" //
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // lowResCoverWidth is the replace threshold for stored art: anything narrower
@@ -107,11 +109,12 @@ func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 // effect, whether a Google Books key is saved, and how the last book lookup
 // went — the Settings page chips (LOOKUP FAILING etc.) hang off this.
 func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[meta] handleMetadataStatus")
 	_, source := s.resolveTMDB()
 	_, tvdbSource := s.resolveTVDB()
 	gkey, err := s.Store.GetSetting(settingGoogleBooksKey)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load google books key", err)
 		return
 	}
 	lookup := map[string]any{"ok": nil, "error": "", "checked_at": ""}
@@ -130,13 +133,14 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 // the Amazon cookie are never echoed. The Amazon domain is not secret, so it is
 // returned so the field can be pre-filled.
 func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[meta] handleGetMetadataKeys")
 	tkey, err1 := s.Store.GetSetting(settingTMDBKey)
 	gkey, err2 := s.Store.GetSetting(settingGoogleBooksKey)
 	acookie, err3 := s.Store.GetSetting(settingAmazonCookie)
 	adomain, err4 := s.Store.GetSetting(settingAmazonDomain)
 	vkey, err5 := s.Store.GetSetting(settingTVDBKey)
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5))
 		return
 	}
 	_, source := s.resolveTMDB()
@@ -168,6 +172,7 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
+	olog.Tracef("[meta] handlePutMetadataKeys")
 	set := func(key string, v *string) error {
 		if v == nil {
 			return nil
@@ -175,23 +180,23 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		return s.Store.SetSetting(key, strings.TrimSpace(*v))
 	}
 	if err := set(settingTMDBKey, req.TMDBKey); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "save tmdb key", err)
 		return
 	}
 	if err := set(settingTVDBKey, req.TVDBKey); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "save tvdb key", err)
 		return
 	}
 	if err := set(settingGoogleBooksKey, req.GoogleBooksKey); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "save google books key", err)
 		return
 	}
 	if err := set(settingAmazonCookie, req.AmazonCookie); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "save amazon cookie", err)
 		return
 	}
 	if err := set(settingAmazonDomain, req.AmazonDomain); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "save amazon domain", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -240,6 +245,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		}
 		phase, after = p, a
 	}
+	olog.Tracef("[meta] handleCoversRefetch phase=%v after=%v limit=%v missing_only=%v", phase, after, req.Limit, req.MissingOnly)
 
 	// total is the full workload at this instant (all books get a backfill
 	// pass; sourced movies get a poster pass — missing or low-res). The client
@@ -248,13 +254,21 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	var total int
 	if err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books) +
 		(SELECT COUNT(*) FROM movies WHERE ` + movieWhere + `)`).Scan(&total); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "count refetch total", err)
 		return
 	}
 
-	gkey, _ := s.Store.GetSetting(settingGoogleBooksKey)
-	cookie, _ := s.Store.GetSetting(settingAmazonCookie)
-	domain, _ := s.Store.GetSetting(settingAmazonDomain)
+	// GetSetting returns ("", nil) for an absent key, so a non-nil error here is a
+	// real read failure — not a missing setting — and the refetch would otherwise
+	// silently proceed as if no key/cookie were configured.
+	gkey, gErr := s.Store.GetSetting(settingGoogleBooksKey)
+	cookie, cErr := s.Store.GetSetting(settingAmazonCookie)
+	domain, dErr := s.Store.GetSetting(settingAmazonDomain)
+	for _, err := range []error{gErr, cErr, dErr} {
+		if err != nil {
+			olog.Warnf(olog.CodeMetaKeyRead, "[meta] provider key read failed: %v", err)
+		}
+	}
 
 	type bookRow struct {
 		id, uid    int64
@@ -271,13 +285,14 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		(SELECT COUNT(*) FROM book_genres bg WHERE bg.book_id = books.id)
 		FROM books WHERE ? = 'books' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "query books", err)
 		return
 	}
 	for rows.Next() {
 		var b bookRow
 		var raw string
-		if rows.Scan(&b.id, &b.uid, &b.title, &b.author, &b.isbn, &b.asin, &b.cover, &raw, &b.genreCount) != nil {
+		if err := rows.Scan(&b.id, &b.uid, &b.title, &b.author, &b.isbn, &b.asin, &b.cover, &raw, &b.genreCount); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] refetch book row scan failed: %v", err)
 			continue
 		}
 		if raw != "" {
@@ -288,6 +303,9 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			b.cachedURL = meta.CoverURL
 		}
 		books = append(books, b)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeMetaRowScan, "[meta] refetch book row iteration failed: %v", err)
 	}
 	rows.Close() // done reading before any writes/network (SQLite single-writer)
 
@@ -335,12 +353,13 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 				if len(genres) > 5 {
 					genres = genres[:5]
 				}
-				if tx, terr := s.Store.DB.Begin(); terr == nil {
-					if setGenres(tx, "book", b.uid, b.id, genres) == nil {
-						_ = tx.Commit()
-					} else {
-						_ = tx.Rollback()
-					}
+				if tx, terr := s.Store.DB.Begin(); terr != nil {
+					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", terr)
+				} else if serr := setGenres(tx, "book", b.uid, b.id, genres); serr != nil {
+					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", serr)
+					_ = tx.Rollback()
+				} else if cerr := tx.Commit(); cerr != nil {
+					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", cerr)
 				}
 			}
 		}
@@ -428,7 +447,8 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		for mrows.Next() {
 			var id int64
 			var poster, raw string
-			if mrows.Scan(&id, &poster, &raw) != nil {
+			if err := mrows.Scan(&id, &poster, &raw); err != nil {
+				olog.Warnf(olog.CodeMetaRowScan, "[meta] refetch movie row scan failed: %v", err)
 				continue
 			}
 			lastID = id
@@ -447,6 +467,9 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			if poster == "" || (!req.MissingOnly && oldW > 0 && oldW < lowResCoverWidth) {
 				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath), poster, oldW})
 			}
+		}
+		if err := mrows.Err(); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] refetch movie row iteration failed: %v", err)
 		}
 		mrows.Close()
 	}

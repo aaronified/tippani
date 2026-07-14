@@ -227,6 +227,7 @@ make build       # re-embed
 | `TIPPANI_DATA` | `./data` | Data dir (SQLite DB + downloaded covers/posters) |
 | `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app |
 | `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` for login rate limiting |
+| `TIPPANI_LOG_LEVEL` | `info` | Set `debug` for verbose per-operation `[trace]` logging when diagnosing an issue; errors carry lookup codes documented in [`docs/troubleshoot.md`](docs/troubleshoot.md) |
 
 **Metadata API keys — TMDB, TheTVDB, Google Books — are configured in the app**, not via environment:
 sign in → **Settings → metadata keys**, and paste a TMDB v3 key or v4 read token from

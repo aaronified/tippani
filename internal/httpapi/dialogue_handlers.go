@@ -177,9 +177,14 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			d.Tags = append(d.Tags, n)
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeDlgRowScan, "[dlg] fetchDialogue tag row scan failed: %v", err)
+			continue
 		}
+		d.Tags = append(d.Tags, n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeDlgRowScan, "[dlg] fetchDialogue tag row iteration failed: %v", err)
 	}
 	return &d, nil
 }
@@ -194,6 +199,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[dlg] handleCreateDialogue uid=%d movie=%d", uid, req.MovieID)
 	var castJSON string
 	err := s.Store.DB.QueryRow(
 		`SELECT cast_json FROM movies WHERE id = ? AND user_id = ?`,
@@ -203,7 +209,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "movie not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load movie cast", err)
 		return
 	}
 	if !s.stickerOwned(uid, req.StickerID) {
@@ -213,7 +219,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	req.Actor = autofillActor(castJSON, req.Character, req.Actor)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -225,7 +231,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating,
 		store.DedupeHash(req.Quote), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "insert dialogue", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // same dedupe_hash already in this movie
@@ -234,16 +240,16 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	id, _ := res.LastInsertId()
 	if err := setTags(tx, "dialogue", uid, id, req.Tags); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "set tags", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	d, err := s.fetchDialogue(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch dialogue", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, d)
@@ -251,6 +257,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[dlg] handleListDialogues uid=%d movie_id=%q tag=%q", uid, r.URL.Query().Get("movie_id"), r.URL.Query().Get("tag"))
 	q := `
 		SELECT ` + dialogueCols + `
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id` + dialogueReviewJoin + `
@@ -277,7 +284,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY (d.timestamp IS NULL), d.timestamp, d.id`
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list dialogues", err)
 		return
 	}
 	defer rows.Close()
@@ -289,20 +296,20 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
 			// SELECT/struct drift and would present as an unexplained empty list.
-			olog.Alertf("[dialogues] list row scan failed (schema/query drift?): %v", err)
+			olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row scan failed (schema/query drift?): %v", err)
 			continue
 		}
 		items = append(items, d)
 	}
 	if err := rows.Err(); err != nil {
-		olog.Alertf("[dialogues] list row iteration failed: %v", err)
+		olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row iteration failed: %v", err)
 	}
 	// One query fills all tag lists (tags are per-user, so this can't leak).
 	tagRows, err := s.Store.DB.Query(`
 		SELECT dt.dialogue_id, t.name FROM dialogue_tags dt
 		JOIN tags t ON t.id = dt.tag_id WHERE t.user_id = ? ORDER BY t.name`, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load dialogue tags", err)
 		return
 	}
 	defer tagRows.Close()
@@ -310,9 +317,14 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	for tagRows.Next() {
 		var id int64
 		var n string
-		if err := tagRows.Scan(&id, &n); err == nil {
-			byDlg[id] = append(byDlg[id], n)
+		if err := tagRows.Scan(&id, &n); err != nil {
+			olog.Warnf(olog.CodeDlgRowScan, "[dlg] list tag row scan failed: %v", err)
+			continue
 		}
+		byDlg[id] = append(byDlg[id], n)
+	}
+	if err := tagRows.Err(); err != nil {
+		olog.Warnf(olog.CodeDlgRowScan, "[dlg] list tag row iteration failed: %v", err)
 	}
 	for i := range items {
 		if ts := byDlg[items[i].ID]; ts != nil {
@@ -337,6 +349,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[dlg] handleUpdateDialogue uid=%d id=%d", uid, id)
 	var movieID int64
 	var castJSON string
 	var wasFavorite bool
@@ -348,7 +361,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "dialogue not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load dialogue", err)
 		return
 	}
 	req.Actor = autofillActor(castJSON, req.Character, req.Actor)
@@ -357,7 +370,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.DB.QueryRow(
 		`SELECT EXISTS(SELECT 1 FROM dialogues WHERE movie_id = ? AND dedupe_hash = ? AND id <> ?)`,
 		movieID, hash, id).Scan(&clash); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "check duplicate dialogue", err)
 		return
 	}
 	if clash {
@@ -370,7 +383,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -380,15 +393,15 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		WHERE id = ?`,
 		req.Quote, nullable(req.Note), nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update dialogue", err)
 		return
 	}
 	if err := setTags(tx, "dialogue", uid, id, req.Tags); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "set tags", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	s.gcOrphanPeople(uid, "actor") // a changed actor name can orphan the old one
@@ -399,7 +412,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.fetchDialogue(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch dialogue", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, d)
@@ -411,12 +424,13 @@ func (s *Server) handleDeleteDialogue(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid dialogue id")
 		return
 	}
+	olog.Tracef("[dlg] handleDeleteDialogue uid=%d id=%d", userID(r), id)
 	// Tag join rows cascade; the tags themselves persist (managed vocabulary, §10).
 	res, err := s.Store.DB.Exec(`
 		DELETE FROM dialogues WHERE id = ?
 		AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, id, userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete dialogue", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {

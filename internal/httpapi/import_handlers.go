@@ -131,7 +131,7 @@ func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source str
 	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -156,7 +156,7 @@ func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source str
 			if errors.As(err, &ce) {
 				writeErr(w, http.StatusBadRequest, ce.msg)
 			} else {
-				writeErr(w, http.StatusInternalServerError, "internal error")
+				internalError(w, r, "import book", err)
 			}
 			return
 		}
@@ -167,7 +167,7 @@ func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source str
 		tEn += enriched
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	if allDupes == nil {

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // tmdbKeyMissing: manual movie entry still works without a key (PLAN §6).
@@ -119,9 +120,14 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			m.Genres = append(m.Genres, n)
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeMovieRowScan, "[movie] genre name row scan failed: %v", err)
+			continue
 		}
+		m.Genres = append(m.Genres, n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeMovieRowScan, "[movie] genre name row iteration failed: %v", err)
 	}
 	return &m, nil
 }
@@ -134,6 +140,7 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
+	olog.Tracef("[movie] handleCreateMovie uid=%v source=%q source_id=%q tmdb_id=%v", userID(r), req.Source, req.SourceID, req.TMDBID)
 	if req.Source != "" && req.SourceID != "" {
 		s.createMovieFromSource(w, r, req.Source, req.SourceID, req.MediaType, req.ConfirmNew)
 		return
@@ -149,7 +156,7 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -161,21 +168,21 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Description), req.MediaType, nullable(req.Series),
 		nullableFloat(req.SeriesIndex), req.Favorite, req.Rating)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: insert", err)
 		return
 	}
 	id, _ := res.LastInsertId()
 	if err := setGenres(tx, "movie", uid, id, req.Genres); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: set genres", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: commit", err)
 		return
 	}
 	m, err := s.fetchMovie(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create movie: fetch", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, m)
@@ -219,6 +226,8 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	if d.PosterURL != "" {
 		if name, err := s.fetchImage(r.Context(), d.PosterURL, s.coversDir()); err == nil {
 			posterPath = name
+		} else {
+			olog.Warnf(olog.CodeMovieCover, "[movie] poster fetch failed: %v", err)
 		}
 	}
 	castJSON := "[]"
@@ -354,6 +363,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		DialogueCount int      `json:"dialogue_count"`
 	}
 	uid := userID(r)
+	olog.Tracef("[movie] handleListMovies uid=%v", uid)
 	rows, err := s.Store.DB.Query(`
 		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		       m.media_type, COALESCE(m.poster_path, ''),
@@ -362,7 +372,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list movies: query", err)
 		return
 	}
 	defer rows.Close()
@@ -371,13 +381,18 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Rating, &it.DialogueCount); err == nil {
-			items = append(items, it)
+			&it.Favorite, &it.Rating, &it.DialogueCount); err != nil {
+			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
+			continue
 		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row iteration failed: %v", err)
 	}
 	byMovie, err := s.genreNames(uid, "movie")
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list movies: genre names", err)
 		return
 	}
 	for i := range items {
@@ -394,12 +409,13 @@ func (s *Server) handleGetMovie(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid movie id")
 		return
 	}
+	olog.Tracef("[movie] handleGetMovie uid=%v id=%v", userID(r), id)
 	m, err := s.fetchMovie(userID(r), id)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "movie not found")
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "get movie: fetch", err)
 	default:
 		writeJSON(w, http.StatusOK, m)
 	}
@@ -415,6 +431,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
+	olog.Tracef("[movie] handleUpdateMovie uid=%v id=%v source=%q source_id=%q", userID(r), id, req.Source, req.SourceID)
 	// A source+source_id (or legacy tmdb_id) re-syncs everything (poster, cast,
 	// genres, details) from that supplier — the "look up" action in the edit view.
 	if req.Source != "" && req.SourceID != "" {
@@ -439,7 +456,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeErr(w, http.StatusNotFound, "movie not found")
 		} else {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "update movie: load poster", err)
 		}
 		return
 	}
@@ -459,10 +476,15 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		s.removeCoverFile(newPoster)
 		writeErr(w, code, msg)
 	}
+	// failErr is fail for the 500 path: it logs the real cause instead of swallowing it.
+	failErr := func(context string, err error) {
+		s.removeCoverFile(newPoster)
+		internalError(w, r, context, err)
+	}
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update movie: begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -474,7 +496,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Description), req.MediaType, nullable(req.Series),
 		nullableFloat(req.SeriesIndex), req.Favorite, req.Rating, id, uid)
 	if err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update movie: exec", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -484,16 +506,16 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	if changePoster {
 		if _, err := tx.Exec(`UPDATE movies SET poster_path = ? WHERE id = ? AND user_id = ?`,
 			nullable(newPoster), id, uid); err != nil {
-			fail(http.StatusInternalServerError, "internal error")
+			failErr("update movie: set poster", err)
 			return
 		}
 	}
 	if err := setGenres(tx, "movie", uid, id, req.Genres); err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update movie: set genres", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("update movie: commit", err)
 		return
 	}
 	if changePoster && oldPoster.String != newPoster {
@@ -501,7 +523,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	m, err := s.fetchMovie(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update movie: fetch", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, m)
@@ -524,7 +546,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		if errors.Is(err, sql.ErrNoRows) {
 			writeErr(w, http.StatusNotFound, "movie not found")
 		} else {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "resync movie: load poster", err)
 		}
 		return
 	}
@@ -541,7 +563,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 			uid, id, d.TMDBID).Scan(&clash)
 	}
 	if clashErr != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "resync movie: check id clash", clashErr)
 		return
 	}
 	if clash {
@@ -552,6 +574,8 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	if d.PosterURL != "" {
 		if name, err := s.fetchImage(r.Context(), d.PosterURL, s.coversDir()); err == nil {
 			newPoster = name
+		} else {
+			olog.Warnf(olog.CodeMovieCover, "[movie] poster fetch failed: %v", err)
 		}
 	}
 	castJSON := "[]"
@@ -564,9 +588,14 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		s.removeCoverFile(newPoster)
 		writeErr(w, code, msg)
 	}
+	// failErr is fail for the 500 path: it logs the real cause instead of swallowing it.
+	failErr := func(context string, err error) {
+		s.removeCoverFile(newPoster)
+		internalError(w, r, context, err)
+	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("resync movie: begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -584,7 +613,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
 		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), id, uid)
 	if err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("resync movie: exec", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -592,7 +621,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 	if err := setGenres(tx, "movie", uid, id, d.Genres); err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("resync movie: set genres", err)
 		return
 	}
 	// Correcting the movie's cast flows through to dialogues imported before it
@@ -600,11 +629,11 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	filled, err := refillMovieActors(tx, id)
 	if err != nil {
 		log.Printf("[movies] resync %d: refill actors: %v", id, err)
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("resync movie: refill actors", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		fail(http.StatusInternalServerError, "internal error")
+		failErr("resync movie: commit", err)
 		return
 	}
 	if newPoster != "" && oldPoster.String != newPoster {
@@ -627,6 +656,7 @@ func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[movie] handleDeleteMovie uid=%v id=%v", uid, id)
 	var poster sql.NullString
 	err := s.Store.DB.QueryRow(
 		`SELECT poster_path FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&poster)
@@ -635,26 +665,26 @@ func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "movie not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete movie: load poster", err)
 		return
 	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete movie: begin tx", err)
 		return
 	}
 	defer tx.Rollback()
 	// Dialogues cascade with the movie; GC the genres it held (tags persist, §10).
 	if _, err := tx.Exec(`DELETE FROM movies WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete movie: delete row", err)
 		return
 	}
 	if err := gcGenres(tx, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete movie: gc genres", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete movie: commit", err)
 		return
 	}
 	s.removeCoverFile(poster.String) // best-effort

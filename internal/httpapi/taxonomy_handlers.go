@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"unicode"
+
+	"tippani/internal/olog"
 )
 
 // defaultSeedTags is the starter tag vocabulary every new user receives, so the
@@ -39,19 +41,25 @@ func seedDefaultTags(db *sql.DB, userID int64) {
 }
 
 func (s *Server) handleListGenres(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[tag] handleListGenres uid=%v", userID(r))
 	rows, err := s.Store.DB.Query(
 		`SELECT name FROM genres WHERE user_id = ? ORDER BY name`, userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list genres", err)
 		return
 	}
 	defer rows.Close()
 	names := []string{}
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			names = append(names, n)
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeTagRowScan, "[tag] genre row scan failed: %v", err)
+			continue
 		}
+		names = append(names, n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeTagRowScan, "[tag] genre row iteration failed: %v", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"genres": names})
 }
@@ -100,18 +108,24 @@ func (s *Server) fetchTag(uid, id int64) (*tagRow, error) {
 }
 
 func (s *Server) handleListTags(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[tag] handleListTags uid=%v", userID(r))
 	rows, err := s.Store.DB.Query(tagSelect+` WHERE t.user_id = ? ORDER BY t.name`, userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list tags", err)
 		return
 	}
 	defer rows.Close()
 	tags := []tagRow{}
 	for rows.Next() {
 		var t tagRow
-		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Style, &t.Annotations, &t.Dialogues); err == nil {
-			tags = append(tags, t)
+		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Style, &t.Annotations, &t.Dialogues); err != nil {
+			olog.Warnf(olog.CodeTagRowScan, "[tag] tag row scan failed: %v", err)
+			continue
 		}
+		tags = append(tags, t)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeTagRowScan, "[tag] tag row iteration failed: %v", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tags": tags})
 }
@@ -155,6 +169,7 @@ func (s *Server) handleCreateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[tag] handleCreateTag uid=%v name=%q", uid, req.Name)
 	// Case-insensitive dedupe, same rule as cleanNames; the guard is in the
 	// INSERT so check and insert are one atomic statement.
 	res, err := s.Store.DB.Exec(`
@@ -163,7 +178,7 @@ func (s *Server) handleCreateTag(w http.ResponseWriter, r *http.Request) {
 		WHERE NOT EXISTS (SELECT 1 FROM tags WHERE user_id = ? AND lower(name) = lower(?))`,
 		uid, req.Name, req.Color, req.Style, uid, req.Name)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "insert tag", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -173,7 +188,7 @@ func (s *Server) handleCreateTag(w http.ResponseWriter, r *http.Request) {
 	id, _ := res.LastInsertId()
 	t, err := s.fetchTag(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch tag", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, t)
@@ -194,12 +209,13 @@ func (s *Server) handleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[tag] handleUpdateTag uid=%v id=%v", uid, id)
 	// Surface a rename collision with another tag as a 409.
 	var clash bool
 	if err := s.Store.DB.QueryRow(
 		`SELECT EXISTS(SELECT 1 FROM tags WHERE user_id = ? AND id <> ? AND lower(name) = lower(?))`,
 		uid, id, req.Name).Scan(&clash); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "check tag name clash", err)
 		return
 	}
 	if clash {
@@ -210,7 +226,7 @@ func (s *Server) handleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		`UPDATE tags SET name = ?, color = ?, style = ? WHERE id = ? AND user_id = ?`,
 		req.Name, req.Color, req.Style, id, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update tag", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -219,7 +235,7 @@ func (s *Server) handleUpdateTag(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := s.fetchTag(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch tag", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, t)
@@ -233,9 +249,10 @@ func (s *Server) handleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid tag id")
 		return
 	}
+	olog.Tracef("[tag] handleDeleteTag uid=%v id=%v", userID(r), id)
 	res, err := s.Store.DB.Exec(`DELETE FROM tags WHERE id = ? AND user_id = ?`, id, userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete tag", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {

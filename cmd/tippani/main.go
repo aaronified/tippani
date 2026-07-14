@@ -16,6 +16,7 @@
 //	TIPPANI_DATA           data directory        (default ./data)
 //	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0)
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
+//	TIPPANI_LOG_LEVEL      "debug" for verbose [trace] logs (default info/quiet)
 //
 // Metadata API keys (TMDB, TheTVDB, Google Books) are configured in-app
 // (Settings → metadata keys) — there are no metadata-key env vars. TMDB also has
@@ -40,11 +41,15 @@ import (
 	"tippani/internal/auth"
 	"tippani/internal/buildinfo"
 	"tippani/internal/httpapi"
+	"tippani/internal/olog"
 	"tippani/internal/store"
 	"tippani/web"
 )
 
 func main() {
+	// Log level for the whole process: TIPPANI_LOG_LEVEL=debug turns on the gated
+	// [trace] per-operation logging (ROADMAP §12); anything else stays quiet.
+	olog.SetLevel(os.Getenv("TIPPANI_LOG_LEVEL"))
 	args := os.Args[1:]
 	cmd := "serve"
 	if len(args) > 0 {
@@ -201,7 +206,7 @@ func serve() {
 			_ = httpServer.Close()
 		}
 		if err := st.Checkpoint(); err != nil {
-			log.Printf("wal checkpoint on shutdown failed: %v (db still valid; WAL replays on reopen)", err)
+			olog.Errorf(olog.CodeStoreCheckpoint, "wal checkpoint on shutdown failed: %v (db still valid; WAL replays on reopen)", err)
 		} else {
 			log.Printf("wal checkpointed into main database — clean shutdown")
 		}

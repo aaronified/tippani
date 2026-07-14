@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+
+	"tippani/internal/olog"
 )
 
 // Metadata bulk management (Calibre-inspired basics): a bulk field-correction
@@ -41,9 +43,11 @@ func (s *Server) ownedRowIDs(table string, uid int64, ids []int64) ([]int64, err
 	var out []int64
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err == nil {
-			out = append(out, id)
+		if err := rows.Scan(&id); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] owned id row scan failed: %v", err)
+			continue
 		}
+		out = append(out, id)
 	}
 	return out, rows.Err()
 }
@@ -72,9 +76,11 @@ func genresOf(tx *sql.Tx, kind string, ownerID int64) ([]string, error) {
 	var names []string
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			names = append(names, n)
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] genre name row scan failed: %v", err)
+			continue
 		}
+		names = append(names, n)
 	}
 	return names, rows.Err()
 }
@@ -105,6 +111,7 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[meta] handleBulkUpdateBooks uid=%v ids=%d", uid, len(req.IDs))
 	owned, err := s.ownedRowIDs("books", uid, req.IDs)
 	if err != nil {
 		internalError(w, r, "bulk books: ownership", err)
@@ -182,6 +189,7 @@ type dupBook struct {
 // offer a merge. Detection only; merging is an explicit POST /books/merge.
 func (s *Server) handleBookDuplicates(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[meta] handleBookDuplicates uid=%v", uid)
 	rows, err := s.Store.DB.Query(`
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.published_year, 0),
 		       b.cover_path IS NOT NULL,
@@ -197,6 +205,7 @@ func (s *Server) handleBookDuplicates(w http.ResponseWriter, r *http.Request) {
 		var b dupBook
 		var title string
 		if err := rows.Scan(&b.ID, &title, &b.Author, &b.Year, &b.HasCover, &b.AnnotationCount); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] duplicates book row scan failed: %v", err)
 			continue
 		}
 		b.Title = title
@@ -205,6 +214,9 @@ func (s *Server) handleBookDuplicates(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		groups[key] = append(groups[key], b)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeMetaRowScan, "[meta] duplicates book row iteration failed: %v", err)
 	}
 
 	out := [][]dupBook{}
@@ -239,6 +251,7 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[meta] handleMergeBooks uid=%v into=%v from=%d", uid, req.Into, len(req.From))
 	// Verify every id (target + sources) is the caller's, and the target isn't
 	// also a source.
 	all := append([]int64{req.Into}, req.From...)

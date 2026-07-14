@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+
+	"tippani/internal/olog"
 )
 
 // people: per-name metadata (bio/photo/links) for the authors and actors
@@ -59,17 +61,26 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 	// row delete.
 	rows, err := s.Store.DB.Query(`SELECT image_path`+orphan, uid, kind, uid)
 	if err != nil {
+		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC select failed: %v", err)
 		return
 	}
 	var images []string
 	for rows.Next() {
 		var img string
-		if rows.Scan(&img) == nil && img != "" {
+		if err := rows.Scan(&img); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC image row scan failed: %v", err)
+			continue
+		}
+		if img != "" {
 			images = append(images, img)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC image row iteration failed: %v", err)
+	}
 	rows.Close()
 	if _, err := s.Store.DB.Exec(`DELETE`+orphan, uid, kind, uid); err != nil {
+		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC delete failed: %v", err)
 		return
 	}
 	for _, img := range images {
@@ -87,6 +98,7 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
 		return
 	}
+	olog.Tracef("[people] handlePeople uid=%d kind=%s name=%q", uid, kind, r.URL.Query().Get("name"))
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
 		p, err := scanPerson(s.Store.DB.QueryRow(
 			`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? AND name = ?`, uid, kind, name))
@@ -96,7 +108,7 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "load person", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"exists": true, "person": p})
@@ -105,15 +117,21 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(
 		`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? ORDER BY name`, uid, kind)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list people", err)
 		return
 	}
 	defer rows.Close()
 	people := []personRow{}
 	for rows.Next() {
-		if p, err := scanPerson(rows); err == nil {
-			people = append(people, p)
+		p, err := scanPerson(rows)
+		if err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] people list row scan failed: %v", err)
+			continue
 		}
+		people = append(people, p)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] people list row iteration failed: %v", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"people": people})
 }
@@ -146,6 +164,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[people] handleUpsertPerson uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
 
 	// The current image, so a replace/clear can GC the old file after commit.
 	var oldImage string
@@ -175,7 +194,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 		uid, req.Kind, req.Name, strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
 		strings.TrimSpace(req.Links), strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID)); err != nil {
 		s.removeCoverFile(newImage) // roll back a just-fetched file on write failure
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "upsert person", err)
 		return
 	}
 	if oldImage != "" && oldImage != newImage {
@@ -184,7 +203,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	p, err := scanPerson(s.Store.DB.QueryRow(
 		`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? AND name = ?`, uid, req.Kind, req.Name))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "reload person", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -201,6 +220,7 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
 		return
 	}
+	olog.Tracef("[people] handlePeopleNames uid=%d kind=%s", uid, kind)
 	// Sweep dangling metadata on load — the hook that keeps orphaned rows (a
 	// renamed/removed author whose old spelling no longer appears on any book)
 	// from lingering in the console, without a background job. Best-effort.
@@ -214,15 +234,22 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.Store.DB.Query(q, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list referenced names", err)
 		return
 	}
 	referenced := []string{}
 	for rows.Next() {
 		var n string
-		if rows.Scan(&n) == nil && n != "" {
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] referenced names row scan failed: %v", err)
+			continue
+		}
+		if n != "" {
 			referenced = append(referenced, n)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] referenced names row iteration failed: %v", err)
 	}
 	rows.Close()
 
@@ -242,13 +269,14 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	prows, err := s.Store.DB.Query(
 		`SELECT id, name, links, image_path FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list saved people", err)
 		return
 	}
 	for prows.Next() {
 		var id int64
 		var name, links, image string
-		if prows.Scan(&id, &name, &links, &image) != nil {
+		if err := prows.Scan(&id, &name, &links, &image); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] saved names row scan failed: %v", err)
 			continue
 		}
 		key := strings.ToLower(name)
@@ -257,6 +285,9 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		} else {
 			byName[key] = &nameRow{Name: name, Saved: true, ID: id, Links: links, HasImage: image != ""}
 		}
+	}
+	if err := prows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] saved names row iteration failed: %v", err)
 	}
 	prows.Close()
 
@@ -292,6 +323,7 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "name is required")
 		return
 	}
+	olog.Tracef("[people] handlePersonLookup kind=%s name=%q", req.Kind, req.Name)
 	var links map[string]string
 	var err error
 	if req.Kind == "author" {
@@ -348,6 +380,7 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[people] handleRenamePerson uid=%d kind=%s from=%q to=%q", uid, req.Kind, req.From, req.To)
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
@@ -400,9 +433,14 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	var froms []prow
 	for rows.Next() {
 		var p prow
-		if rows.Scan(&p.id, &p.img) == nil {
-			froms = append(froms, p)
+		if err := rows.Scan(&p.id, &p.img); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] rename from-rows row scan failed: %v", err)
+			continue
 		}
+		froms = append(froms, p)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] rename from-rows row iteration failed: %v", err)
 	}
 	rows.Close()
 
@@ -443,6 +481,7 @@ func (s *Server) handleDeletePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[people] handleDeletePerson uid=%d id=%d", uid, id)
 	var image string
 	err := s.Store.DB.QueryRow(`SELECT image_path FROM people WHERE id = ? AND user_id = ?`, id, uid).Scan(&image)
 	switch {
@@ -450,11 +489,11 @@ func (s *Server) handleDeletePerson(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load person image", err)
 		return
 	}
 	if _, err := s.Store.DB.Exec(`DELETE FROM people WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete person", err)
 		return
 	}
 	if image != "" {

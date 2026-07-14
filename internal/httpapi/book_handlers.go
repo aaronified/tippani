@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 type bookReq struct {
@@ -95,9 +96,14 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			b.Genres = append(b.Genres, n)
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeBookRowScan, "[book] genre row scan failed: %v", err)
+			continue
 		}
+		b.Genres = append(b.Genres, n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeBookRowScan, "[book] genre row iteration failed: %v", err)
 	}
 	return &b, nil
 }
@@ -124,7 +130,9 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	// non-fatal: on failure the book is saved without a cover.
 	var coverPath string
 	if req.CoverURL != "" {
-		if name, err := s.fetchImage(r.Context(), req.CoverURL, s.coversDir()); err == nil {
+		if name, err := s.fetchImage(r.Context(), req.CoverURL, s.coversDir()); err != nil {
+			olog.Warnf(olog.CodeBookCover, "[book] cover fetch failed: %v", err)
+		} else {
 			coverPath = name
 		}
 	}
@@ -140,10 +148,11 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uid := userID(r)
+	olog.Tracef("[book] handleCreateBook uid=%v title=%q", uid, req.Title)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
 		s.removeCoverFile(coverPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -158,7 +167,7 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.Rating)
 	if err != nil {
 		s.removeCoverFile(coverPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "insert book", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // (user_id, isbn) or (user_id, asin) collision
@@ -169,17 +178,17 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	id, _ := res.LastInsertId()
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
 		s.removeCoverFile(coverPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "set genres", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
 		s.removeCoverFile(coverPath)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	b, err := s.fetchBook(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "reload book", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, b)
@@ -201,6 +210,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		AnnotationCount int      `json:"annotation_count"`
 	}
 	uid := userID(r)
+	olog.Tracef("[book] handleListBooks uid=%v", uid)
 	rows, err := s.Store.DB.Query(`
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
 		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
@@ -209,7 +219,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		FROM books b WHERE b.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list books", err)
 		return
 	}
 	defer rows.Close()
@@ -218,13 +228,18 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
 			&it.PublishedYear, &it.CoverPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Rating, &it.AnnotationCount); err == nil {
-			items = append(items, it)
+			&it.Favorite, &it.Rating, &it.AnnotationCount); err != nil {
+			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
+			continue
 		}
+		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeBookRowScan, "[book] list book row iteration failed: %v", err)
 	}
 	byBook, err := s.genreNames(uid, "book")
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list book genres", err)
 		return
 	}
 	for i := range items {
@@ -250,9 +265,14 @@ func (s *Server) genreNames(uid int64, kind string) (map[int64][]string, error) 
 	for rows.Next() {
 		var id int64
 		var n string
-		if err := rows.Scan(&id, &n); err == nil {
-			out[id] = append(out[id], n)
+		if err := rows.Scan(&id, &n); err != nil {
+			olog.Warnf(olog.CodeBookRowScan, "[book] genre names row scan failed: %v", err)
+			continue
 		}
+		out[id] = append(out[id], n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeBookRowScan, "[book] genre names row iteration failed: %v", err)
 	}
 	return out, nil
 }
@@ -263,12 +283,13 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid book id")
 		return
 	}
+	olog.Tracef("[book] handleGetBook uid=%v id=%v", userID(r), id)
 	b, err := s.fetchBook(userID(r), id)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "book not found")
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "get book", err)
 	default:
 		writeJSON(w, http.StatusOK, b)
 	}
@@ -289,6 +310,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[book] handleUpdateBook uid=%v id=%v", uid, id)
 	// Surface an isbn/asin collision with another of the user's books as a 409
 	// instead of a constraint error.
 	var clash bool
@@ -296,7 +318,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		SELECT EXISTS(SELECT 1 FROM books WHERE user_id = ? AND id <> ?
 		              AND ((isbn IS NOT NULL AND isbn = ?) OR (asin IS NOT NULL AND asin = ?)))`,
 		uid, id, req.ISBN, req.ASIN).Scan(&clash); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "check isbn clash", err)
 		return
 	}
 	if clash {
@@ -314,7 +336,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeErr(w, http.StatusNotFound, "book not found")
 		} else {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "load book cover", err)
 		}
 		return
 	}
@@ -415,6 +437,7 @@ func (s *Server) handleDeleteBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[book] handleDeleteBook uid=%v id=%v", uid, id)
 	var cover sql.NullString
 	err := s.Store.DB.QueryRow(
 		`SELECT cover_path FROM books WHERE id = ? AND user_id = ?`, id, uid).Scan(&cover)
@@ -423,27 +446,27 @@ func (s *Server) handleDeleteBook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "book not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load book cover", err)
 		return
 	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
 	// Annotations cascade with the book; GC the genres they held. Tags persist
 	// (managed vocabulary, §10) — only their join rows cascade away.
 	if _, err := tx.Exec(`DELETE FROM books WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete book", err)
 		return
 	}
 	if err := gcGenres(tx, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "gc genres", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	s.removeCoverFile(cover.String) // best-effort

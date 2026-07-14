@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"time"
+
+	"tippani/internal/olog"
 )
 
 // statsTop is a "most annotated/quoted" superlative (null when the user has
@@ -20,6 +22,7 @@ type statsTop struct {
 // aggregate queries — nothing per-row.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[stats] handleStats uid=%v", uid)
 
 	var books, annotations, movies, dialogues, tags, favorites int
 	err := s.Store.DB.QueryRow(`
@@ -36,7 +39,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		uid, uid, uid, uid, uid, uid, uid).
 		Scan(&books, &annotations, &movies, &dialogues, &tags, &favorites)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "scan stats", err)
 		return
 	}
 
@@ -55,14 +58,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		SELECT b.id, b.title, count(*) FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE b.user_id = ? GROUP BY b.id ORDER BY count(*) DESC, b.id LIMIT 1`)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load most annotated", err)
 		return
 	}
 	mostQuoted, err := topOf(`
 		SELECT m.id, m.title, count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		WHERE m.user_id = ? GROUP BY m.id ORDER BY count(*) DESC, m.id LIMIT 1`)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load most quoted", err)
 		return
 	}
 
@@ -89,7 +92,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, sql.ErrNoRows):
 			// leave busiest nil -> JSON null
 		case err != nil:
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "scan busiest month", err)
 			return
 		default:
 			busiest = &m
@@ -117,15 +120,20 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		      SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)
 		GROUP BY month`, uid, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "query monthly activity", err)
 		return
 	}
 	for arows.Next() {
 		var m string
 		var n int
-		if err := arows.Scan(&m, &n); err == nil {
-			byMonth[m] = n
+		if err := arows.Scan(&m, &n); err != nil {
+			olog.Warnf(olog.CodeStatsRowScan, "[stats] monthly activity row scan failed: %v", err)
+			continue
 		}
+		byMonth[m] = n
+	}
+	if err := arows.Err(); err != nil {
+		olog.Warnf(olog.CodeStatsRowScan, "[stats] monthly activity row iteration failed: %v", err)
 	}
 	arows.Close()
 	for i := range monthly {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // Portrait resolution (author/actor photos) — the "fetch the image
@@ -51,6 +52,7 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[people] handlePersonPortrait uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
 
 	source, sourceID, imageURL, links, rerr := s.resolvePersonPortrait(r.Context(), uid, req.Kind, req.Name)
 	if rerr != nil {
@@ -160,7 +162,8 @@ func (s *Server) actorPortraitFromCast(uid int64, name string) (source, personID
 	for rows.Next() {
 		var castJSON string
 		var tmdbID, tvdbID int64
-		if rows.Scan(&castJSON, &tmdbID, &tvdbID) != nil {
+		if err := rows.Scan(&castJSON, &tmdbID, &tvdbID); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] actor cast row scan failed: %v", err)
 			continue
 		}
 		src := "tvdb"
@@ -183,6 +186,9 @@ func (s *Server) actorPortraitFromCast(uid int64, name string) (source, personID
 			}
 		}
 	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] actor cast row iteration failed: %v", err)
+	}
 	return fbSource, fbID, ""
 }
 
@@ -200,7 +206,11 @@ func (s *Server) authorBookTitles(uid int64, name string) ([]string, error) {
 	var out []string
 	for rows.Next() {
 		var t string
-		if rows.Scan(&t) == nil && strings.TrimSpace(t) != "" {
+		if err := rows.Scan(&t); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] author book titles row scan failed: %v", err)
+			continue
+		}
+		if strings.TrimSpace(t) != "" {
 			out = append(out, t)
 		}
 	}

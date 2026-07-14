@@ -24,7 +24,7 @@ func (s *Store) CheckIntegrity() bool {
 	olog.Printf("[integrity] running PRAGMA quick_check on %s", s.path)
 	rows, err := s.DB.Query(`PRAGMA quick_check`)
 	if err != nil {
-		olog.Alertf("[integrity] quick_check could not run (database may be unreadable): %v", err)
+		olog.Errorf(olog.CodeStoreIntegrityRun, "[integrity] quick_check could not run (database may be unreadable): %v", err)
 		return false
 	}
 	defer rows.Close()
@@ -39,14 +39,14 @@ func (s *Store) CheckIntegrity() bool {
 		}
 	}
 	if err := rows.Err(); err != nil {
-		olog.Alertf("[integrity] quick_check read error (database may be corrupt): %v", err)
+		olog.Errorf(olog.CodeStoreIntegrityRun, "[integrity] quick_check read error (database may be corrupt): %v", err)
 		return false
 	}
 	if len(problems) == 0 {
 		olog.Printf("[integrity] OK — database passed quick_check")
 		return true
 	}
-	olog.Alertf("[integrity] DATABASE CORRUPTION DETECTED — %d problem(s):", len(problems))
+	olog.Errorf(olog.CodeStoreCorruption, "[integrity] DATABASE CORRUPTION DETECTED — %d problem(s):", len(problems))
 	for i, p := range problems {
 		if i >= 20 {
 			olog.Alertf("[integrity]   … and %d more", len(problems)-20)
@@ -79,7 +79,7 @@ func (s *Store) RepairFTS() {
 			olog.Alertf("[fts] %s failed integrity-check (%v) — reconstructing from content", t, err)
 		}
 		if err := s.rebuildFTSTable(t); err != nil {
-			olog.Alertf("[fts] %s in-place reconstruction failed: %v", t, err)
+			olog.Errorf(olog.CodeStoreFTSRebuild, "[fts] %s in-place reconstruction failed: %v", t, err)
 			needRecover = true
 		} else {
 			olog.Printf("[fts] %s reconstructed successfully", t)
@@ -88,7 +88,7 @@ func (s *Store) RepairFTS() {
 	if needRecover {
 		olog.Alertf("[fts] an index is too corrupt to rebuild in place — recovering the whole database by rebuilding it from intact content (no data lost)")
 		if err := s.Recover(); err != nil {
-			olog.Alertf("[fts] database recovery FAILED: %v — search will error until Profile → Reset all data", err)
+			olog.Errorf(olog.CodeStoreRecoverFailed, "[fts] database recovery FAILED: %v — search will error until Profile → Reset all data", err)
 		} else {
 			olog.Printf("[fts] database recovered — all indexes rebuilt from content, no data lost")
 		}
@@ -107,7 +107,7 @@ func (s *Store) ReindexFTS() []string {
 	var failed []string
 	for _, t := range ftsTables {
 		if err := s.rebuildFTSTable(t); err != nil {
-			olog.Alertf("[fts] reindex: %s in-place rebuild failed: %v", t, err)
+			olog.Errorf(olog.CodeStoreFTSRebuild, "[fts] reindex: %s in-place rebuild failed: %v", t, err)
 			failed = append(failed, t)
 		} else {
 			olog.Printf("[fts] reindex: %s done", t)
@@ -120,7 +120,7 @@ func (s *Store) ReindexFTS() []string {
 	olog.Alertf("[fts] reindex: %d index(es) too corrupt for in-place rebuild (%s) — recovering the whole database from content",
 		len(failed), strings.Join(failed, ", "))
 	if err := s.Recover(); err != nil {
-		olog.Alertf("[fts] reindex: database recovery FAILED: %v", err)
+		olog.Errorf(olog.CodeStoreRecoverFailed, "[fts] reindex: database recovery FAILED: %v", err)
 		return failed
 	}
 	olog.Printf("[fts] reindex: database recovered — all indexes rebuilt from content, no data lost")
@@ -141,6 +141,7 @@ func (s *Store) ReindexFTS() []string {
 func (s *Store) RepairIndex(table string) error {
 	s.repairMu.Lock()
 	defer s.repairMu.Unlock()
+	olog.Tracef("[fts] RepairIndex(%s) — runtime in-place reconstruction", table)
 	return s.rebuildFTSTable(table)
 }
 
@@ -341,7 +342,7 @@ func (s *Store) Reset() error {
 		f := path + suffix
 		removed, err := removeWithRetry(f)
 		if err != nil {
-			olog.Alertf("[reset] could not delete %s: %v — reopening the existing database", f, err)
+			olog.Errorf(olog.CodeStoreResetDelete, "[reset] could not delete %s: %v — reopening the existing database", f, err)
 			if db, oerr := openDB(path); oerr == nil {
 				s.DB = db
 			}

@@ -1,0 +1,95 @@
+package olog
+
+// Code is a stable, greppable error identifier of the form TIP-<SUBSYS>-<NNN>.
+// It appears verbatim in `[error]`/`[warn]` log lines and in docs/troubleshoot.md,
+// so an operator who sees a code in `docker logs` can look up its cause and fix.
+//
+// Rules (see the error-logging skill):
+//   - Every Code MUST have an entry in Registry below AND a row in
+//     docs/troubleshoot.md. TestCodesDocumented (codes_test.go) fails the build if
+//     the two ever drift apart.
+//   - Codes are append-only within a subsystem: never renumber or reuse a code, so
+//     a code seen in an old log always means the same thing.
+type Code string
+
+const (
+	// HTTP — cross-cutting web layer.
+	CodeHTTPInternal Code = "TIP-HTTP-000" // unclassified internal error (generic 500 fallback)
+
+	// STORE — database lifecycle, integrity, repair, checkpoint.
+	CodeStoreIntegrityRun  Code = "TIP-STORE-001" // PRAGMA quick_check could not run
+	CodeStoreCorruption    Code = "TIP-STORE-002" // quick_check found page-level corruption
+	CodeStoreFTSRebuild    Code = "TIP-STORE-003" // an FTS index could not be reconstructed in place
+	CodeStoreRecoverFailed Code = "TIP-STORE-004" // whole-database recovery-from-content failed
+	CodeStoreCheckpoint    Code = "TIP-STORE-005" // WAL checkpoint on shutdown failed
+	CodeStoreResetDelete   Code = "TIP-STORE-006" // factory reset could not delete a database file
+
+	// SRCH — full-text search.
+	CodeSearchQuery   Code = "TIP-SRCH-001" // an FTS MATCH query failed at runtime
+	CodeSearchRepair  Code = "TIP-SRCH-002" // a corrupt FTS index could not be reconstructed at query time
+	CodeSearchRowScan Code = "TIP-SRCH-003" // a search result row failed to scan (dropped from results)
+
+	// Per-subsystem "list row failed to scan" — a SELECT/struct drift that would
+	// otherwise silently shorten a list with a 200 (the class the 0.6.4 favourites
+	// bug exposed). One per subsystem that has list/collection loops.
+	CodeAnnoRowScan    Code = "TIP-ANNO-001"
+	CodeDlgRowScan     Code = "TIP-DLG-001"
+	CodeBookRowScan    Code = "TIP-BOOK-001"
+	CodeMovieRowScan   Code = "TIP-MOVIE-001"
+	CodePeopleRowScan  Code = "TIP-PEOPLE-001"
+	CodeReviewRowScan  Code = "TIP-REVIEW-001"
+	CodeExportRowScan  Code = "TIP-EXPORT-001"
+	CodeBulkRowScan    Code = "TIP-BULK-001"
+	CodeTagRowScan     Code = "TIP-TAG-001"
+	CodeStatsRowScan   Code = "TIP-STATS-001"
+	CodeStickerRowScan Code = "TIP-STICKER-001"
+	CodeAdminRowScan   Code = "TIP-ADMIN-001"
+	CodeMetaRowScan    Code = "TIP-META-001"
+
+	// Specific genuine-failure codes (were silently swallowed before).
+	CodeMetaKeyRead      Code = "TIP-META-002" // provider key/settings read failed (degrades to no-key)
+	CodeMetaGenrePersist Code = "TIP-META-010" // genre write not persisted (tx begin/commit failed)
+	CodePeopleOrphanGC   Code = "TIP-PEOPLE-010" // orphan-people garbage collection failed
+	CodeBookCover        Code = "TIP-BOOK-002"  // book cover fetch failed on create (cover dropped, book kept)
+	CodeMovieCover       Code = "TIP-MOVIE-002" // movie poster fetch failed on create/update (dropped)
+	CodeCoverFetch       Code = "TIP-COVER-001" // on-demand cover/poster refetch failed
+)
+
+// Registry maps every Code to a one-line description. It is the machine-readable
+// source of truth paired with docs/troubleshoot.md (human-readable cause+fix).
+// Keep this and the doc in lockstep — the sync test enforces it.
+var Registry = map[Code]string{
+	CodeHTTPInternal: "Unclassified internal server error (generic 500 fallback).",
+
+	CodeStoreIntegrityRun:  "SQLite PRAGMA quick_check could not run — the database file may be unreadable.",
+	CodeStoreCorruption:    "quick_check found page-level corruption in the database file.",
+	CodeStoreFTSRebuild:    "A full-text index could not be reconstructed in place from its content table.",
+	CodeStoreRecoverFailed: "Whole-database recovery (rebuild from intact content) failed.",
+	CodeStoreCheckpoint:    "WAL checkpoint on shutdown failed (the WAL is still valid and replays on reopen).",
+	CodeStoreResetDelete:   "Factory reset could not delete a database file.",
+
+	CodeSearchQuery:   "A full-text search query failed at runtime (often a corrupt or drifted FTS index).",
+	CodeSearchRepair:  "A corrupt FTS index could not be reconstructed while serving a search.",
+	CodeSearchRowScan: "A search result row failed to scan and was dropped from the results.",
+
+	CodeAnnoRowScan:    "An annotation list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeDlgRowScan:     "A dialogue list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeBookRowScan:    "A book list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeMovieRowScan:   "A movie list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodePeopleRowScan:  "A people list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeReviewRowScan:  "A review/quiz candidate row failed to scan; dropped from the set.",
+	CodeExportRowScan:  "An export row failed to scan; omitted from the export.",
+	CodeBulkRowScan:    "A bulk-selection id row failed to scan; omitted from the operation.",
+	CodeTagRowScan:     "A genre/tag row failed to scan; dropped from the list.",
+	CodeStatsRowScan:   "A stats aggregate row failed to scan; omitted from the totals.",
+	CodeStickerRowScan: "A sticker list row failed to scan; dropped from the list.",
+	CodeAdminRowScan:   "A user list row failed to scan; dropped from the admin list.",
+	CodeMetaRowScan:    "A metadata console/library row failed to scan; dropped from the result.",
+
+	CodeMetaKeyRead:      "A metadata provider key/setting could not be read; lookups degrade to unconfigured.",
+	CodeMetaGenrePersist: "Genres failed to persist (transaction begin/commit error) although the request returned OK.",
+	CodePeopleOrphanGC:   "Garbage-collecting orphaned people rows/images failed; orphans may remain.",
+	CodeBookCover:        "A book cover image could not be fetched on create; the book was saved without a cover.",
+	CodeMovieCover:       "A movie poster could not be fetched on create/update; saved without a poster.",
+	CodeCoverFetch:       "An on-demand cover/poster refetch failed.",
+}

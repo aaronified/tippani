@@ -148,9 +148,14 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			a.Tags = append(a.Tags, n)
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeAnnoRowScan, "[anno] annotation tags row scan failed: %v", err)
+			continue
 		}
+		a.Tags = append(a.Tags, n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeAnnoRowScan, "[anno] annotation tags row iteration failed: %v", err)
 	}
 	return &a, nil
 }
@@ -165,11 +170,12 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[anno] handleCreateAnnotation uid=%v book_id=%v", uid, req.BookID)
 	var owned bool
 	if err := s.Store.DB.QueryRow(
 		`SELECT EXISTS(SELECT 1 FROM books WHERE id = ? AND user_id = ?)`,
 		req.BookID, uid).Scan(&owned); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "check book ownership", err)
 		return
 	}
 	if !owned { // someone else's book looks identical to a missing one
@@ -182,7 +188,7 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -195,7 +201,7 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
 		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, req.hash(), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "insert annotation", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // same dedupe_hash already in this book
@@ -204,16 +210,16 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	id, _ := res.LastInsertId()
 	if err := setTags(tx, "annotation", uid, id, req.Tags); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "set tags", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	a, err := s.fetchAnnotation(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch annotation", err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, a)
@@ -221,6 +227,8 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[anno] handleListAnnotations uid=%v book_id=%q color=%q tag=%q", uid,
+		r.URL.Query().Get("book_id"), r.URL.Query().Get("color"), r.URL.Query().Get("tag"))
 	q := `
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
@@ -270,7 +278,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list annotations", err)
 		return
 	}
 	defer rows.Close()
@@ -285,20 +293,20 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 			// which would otherwise show up as a mysteriously short/empty list with a
 			// 200 — exactly the kind of "favourites vanished" symptom that's painful
 			// to trace. Log it loudly and keep going.
-			olog.Alertf("[annotations] list row scan failed (schema/query drift?): %v", err)
+			olog.Warnf(olog.CodeAnnoRowScan, "[annotations] list row scan failed (schema/query drift?): %v", err)
 			continue
 		}
 		items = append(items, a)
 	}
 	if err := rows.Err(); err != nil {
-		olog.Alertf("[annotations] list row iteration failed: %v", err)
+		olog.Warnf(olog.CodeAnnoRowScan, "[annotations] list row iteration failed: %v", err)
 	}
 	// One query fills all tag lists (tags are per-user, so this can't leak).
 	tagRows, err := s.Store.DB.Query(`
 		SELECT at.annotation_id, t.name FROM annotation_tags at
 		JOIN tags t ON t.id = at.tag_id WHERE t.user_id = ? ORDER BY t.name`, uid)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load tags", err)
 		return
 	}
 	defer tagRows.Close()
@@ -306,9 +314,14 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	for tagRows.Next() {
 		var id int64
 		var n string
-		if err := tagRows.Scan(&id, &n); err == nil {
-			byAnn[id] = append(byAnn[id], n)
+		if err := tagRows.Scan(&id, &n); err != nil {
+			olog.Warnf(olog.CodeAnnoRowScan, "[anno] tag row scan failed: %v", err)
+			continue
 		}
+		byAnn[id] = append(byAnn[id], n)
+	}
+	if err := tagRows.Err(); err != nil {
+		olog.Warnf(olog.CodeAnnoRowScan, "[anno] tag row iteration failed: %v", err)
 	}
 	for i := range items {
 		if ts := byAnn[items[i].ID]; ts != nil {
@@ -333,6 +346,7 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[anno] handleUpdateAnnotation uid=%v id=%v", uid, id)
 	var bookID int64
 	var wasFavorite bool
 	err := s.Store.DB.QueryRow(`
@@ -343,7 +357,7 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusNotFound, "annotation not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load annotation", err)
 		return
 	}
 	hash := req.hash()
@@ -351,7 +365,7 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	if err := s.Store.DB.QueryRow(
 		`SELECT EXISTS(SELECT 1 FROM annotations WHERE book_id = ? AND dedupe_hash = ? AND id <> ?)`,
 		bookID, hash, id).Scan(&clash); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "check duplicate annotation", err)
 		return
 	}
 	if clash { // the edit now collides with a sibling annotation
@@ -364,7 +378,7 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "begin tx", err)
 		return
 	}
 	defer tx.Rollback()
@@ -374,15 +388,15 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 		WHERE id = ?`,
 		nullable(req.Quote), nullable(req.Note), req.Color,
 		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Rating, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update annotation", err)
 		return
 	}
 	if err := setTags(tx, "annotation", uid, id, req.Tags); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "set tags", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "commit tx", err)
 		return
 	}
 	// Favouriting a quote counts as "seeing" it (marginal half-life bump); only
@@ -392,7 +406,7 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	a, err := s.fetchAnnotation(uid, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch annotation", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, a)
@@ -404,12 +418,13 @@ func (s *Server) handleDeleteAnnotation(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "invalid annotation id")
 		return
 	}
+	olog.Tracef("[anno] handleDeleteAnnotation uid=%v id=%v", userID(r), id)
 	// Tag join rows cascade; the tags themselves persist (managed vocabulary, §10).
 	res, err := s.Store.DB.Exec(`
 		DELETE FROM annotations WHERE id = ?
 		AND book_id IN (SELECT id FROM books WHERE user_id = ?)`, id, userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete annotation", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {

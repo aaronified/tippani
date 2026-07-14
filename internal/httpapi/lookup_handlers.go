@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // handleBookLookup implements POST /books/lookup (PLAN §6): on-demand only,
@@ -25,6 +26,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	req.Author = strings.TrimSpace(req.Author)
 	req.ISBN = strings.TrimSpace(req.ISBN)
 	req.ASIN = strings.TrimSpace(req.ASIN)
+	olog.Tracef("[meta] handleBookLookup isbn=%q title=%q asin=%q", req.ISBN, req.Title, req.ASIN)
 	if req.ISBN == "" && req.Title == "" && req.ASIN == "" {
 		writeErr(w, http.StatusBadRequest, "isbn, title, or asin is required")
 		return
@@ -38,7 +40,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	}
 	gkey, err := s.Store.GetSetting(settingGoogleBooksKey)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load google books key", err)
 		return
 	}
 
@@ -112,6 +114,7 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	if req.MediaType == "show" {
 		mediaType = "show"
 	}
+	olog.Tracef("[meta] handleMovieLookup title=%q year=%d media=%s", req.Title, req.Year, mediaType)
 
 	tmdb, _ := s.resolveTMDB()
 	tvdb, _ := s.resolveTVDB()

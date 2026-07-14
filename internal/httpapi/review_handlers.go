@@ -243,6 +243,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Chapter, &c.card.Location,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult); err != nil {
+			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
 		}
 		c.workKey = kindBook + ":" + strconv.FormatInt(bookID, 10)
@@ -285,6 +286,7 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
 			&c.card.Timestamp, &c.card.MediaType,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult); err != nil {
+			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue
 		}
 		c.workKey = kindScreen + ":" + strconv.FormatInt(movieID, 10)
@@ -360,7 +362,8 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			func(rows *sql.Rows) error {
 				var id int64
 				var title, author string
-				if rows.Scan(&id, &title, &author) != nil {
+				if err := rows.Scan(&id, &title, &author); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] book work row scan failed: %v", err)
 					return nil
 				}
 				k := kindBook + ":" + strconv.FormatInt(id, 10)
@@ -374,10 +377,12 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			func(rows *sql.Rows) error {
 				var id int64
 				var name string
-				if rows.Scan(&id, &name) == nil {
-					if w, ok := p.byKey[kindBook+":"+strconv.FormatInt(id, 10)]; ok && name != "" {
-						w.genres[strings.ToLower(name)] = true
-					}
+				if err := rows.Scan(&id, &name); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] book genre row scan failed: %v", err)
+					return nil
+				}
+				if w, ok := p.byKey[kindBook+":"+strconv.FormatInt(id, 10)]; ok && name != "" {
+					w.genres[strings.ToLower(name)] = true
 				}
 				return nil
 			}); err != nil {
@@ -396,7 +401,8 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			func(rows *sql.Rows) error {
 				var id int64
 				var title string
-				if rows.Scan(&id, &title) != nil {
+				if err := rows.Scan(&id, &title); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] screen work row scan failed: %v", err)
 					return nil
 				}
 				k := kindScreen + ":" + strconv.FormatInt(id, 10)
@@ -410,10 +416,12 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			func(rows *sql.Rows) error {
 				var id int64
 				var name string
-				if rows.Scan(&id, &name) == nil {
-					if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && name != "" {
-						w.genres[strings.ToLower(name)] = true
-					}
+				if err := rows.Scan(&id, &name); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] screen genre row scan failed: %v", err)
+					return nil
+				}
+				if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && name != "" {
+					w.genres[strings.ToLower(name)] = true
 				}
 				return nil
 			}); err != nil {
@@ -424,10 +432,12 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			func(rows *sql.Rows) error {
 				var id int64
 				var actor string
-				if rows.Scan(&id, &actor) == nil {
-					if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && actor != "" {
-						w.actors[strings.ToLower(actor)] = true
-					}
+				if err := rows.Scan(&id, &actor); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] screen actor row scan failed: %v", err)
+					return nil
+				}
+				if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && actor != "" {
+					w.actors[strings.ToLower(actor)] = true
 				}
 				return nil
 			}); err != nil {
@@ -453,7 +463,8 @@ func (p *quizPools) quoteScanner(kind string) func(*sql.Rows) error {
 	return func(rows *sql.Rows) error {
 		var id, workID int64
 		var quote, note string
-		if rows.Scan(&id, &workID, &quote, &note) != nil {
+		if err := rows.Scan(&id, &workID, &quote, &note); err != nil {
+			olog.Warnf(olog.CodeReviewRowScan, "[review] quote pool row scan failed: %v", err)
 			return nil
 		}
 		text := quote
@@ -625,6 +636,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[review] handleDailyQuiz uid=%d offset=%d", uid, offset)
 	pf, err := s.loadPrefs(uid)
 	if err != nil {
 		internalError(w, r, "daily quiz prefs", err)
@@ -713,6 +725,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 // its own position and honours Skip locally.
 func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[review] handlePractice uid=%d", uid)
 	pf, err := s.loadPrefs(uid)
 	if err != nil {
 		internalError(w, r, "practice prefs", err)
@@ -796,6 +809,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		offset = *req.Offset
 	}
 	uid := userID(r)
+	olog.Tracef("[review] handleReviewAnswer uid=%d kind=%s id=%d result=%s mode=%s", uid, req.Kind, req.ID, req.Result, req.Mode)
 	pf, err := s.loadPrefs(uid)
 	if err != nil {
 		internalError(w, r, "review answer prefs", err)
@@ -1047,6 +1061,7 @@ func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts
 			var lr sql.NullString
 			var lastResult string
 			if err := rows.Scan(&seen, &stability, &lr, &lastResult); err != nil {
+				olog.Warnf(olog.CodeReviewRowScan, "[review] status count row scan failed: %v", err)
 				continue
 			}
 			c.Total++
@@ -1088,9 +1103,11 @@ func (s *Server) dailyStreak(uid int64, today string) (int, error) {
 	days := map[string]bool{}
 	for rows.Next() {
 		var d string
-		if rows.Scan(&d) == nil {
-			days[d] = true
+		if err := rows.Scan(&d); err != nil {
+			olog.Warnf(olog.CodeReviewRowScan, "[review] daily streak row scan failed: %v", err)
+			continue
 		}
+		days[d] = true
 	}
 	if err := rows.Err(); err != nil {
 		return 0, err
@@ -1120,6 +1137,7 @@ func (s *Server) handleReviewScores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[review] handleReviewScores uid=%d offset=%d", uid, offset)
 	pf, err := s.loadPrefs(uid)
 	if err != nil {
 		internalError(w, r, "scores prefs", err)
@@ -1198,6 +1216,7 @@ func accuracy(got, answered int) float64 {
 // untouched — only the resettable practice tally goes.
 func (s *Server) handlePracticeReset(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[review] handlePracticeReset uid=%d", uid)
 	res, err := s.Store.DB.Exec(`DELETE FROM quiz_sessions WHERE user_id = ? AND mode = 'practice'`, uid)
 	if err != nil {
 		internalError(w, r, "practice reset", err)
@@ -1256,6 +1275,7 @@ func (s *Server) handleReviewSeen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[review] handleReviewSeen uid=%d kind=%s id=%d", uid, req.Kind, req.ID)
 	owned, err := s.ownsItem(uid, req.Kind, req.ID)
 	if err != nil {
 		internalError(w, r, "review seen ownership", err)

@@ -3,6 +3,8 @@ package httpapi
 import (
 	"database/sql"
 	"net/http"
+
+	"tippani/internal/olog"
 )
 
 // Bulk actions over a selection from the search results (and reusable elsewhere):
@@ -32,11 +34,17 @@ func (s *Server) ownedChildIDs(table, parentCol, parentTable string, uid int64, 
 	var out []int64
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err == nil {
-			out = append(out, id)
+		if err := rows.Scan(&id); err != nil {
+			olog.Warnf(olog.CodeBulkRowScan, "[bulk] ownedChildIDs row scan failed: %v", err)
+			continue
 		}
+		out = append(out, id)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeBulkRowScan, "[bulk] ownedChildIDs row iteration failed: %v", err)
+		return out, err
+	}
+	return out, nil
 }
 
 // bulkTagReq is the shared shape for tagging/flagging a set of annotations or
@@ -138,9 +146,11 @@ func boolToInt(b bool) int {
 }
 
 func (s *Server) handleBulkTagAnnotations(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[bulk] handleBulkTagAnnotations uid=%v", userID(r))
 	s.bulkTag(w, r, "annotation")
 }
 func (s *Server) handleBulkTagDialogues(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[bulk] handleBulkTagDialogues uid=%v", userID(r))
 	s.bulkTag(w, r, "dialogue")
 }
 
@@ -166,6 +176,7 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[bulk] handleBulkUpdateMovies uid=%v ids=%d", uid, len(req.IDs))
 	owned, err := s.ownedRowIDs("movies", uid, req.IDs)
 	if err != nil {
 		internalError(w, r, "bulk movies: ownership", err)

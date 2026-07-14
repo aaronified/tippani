@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-07-14
+
+### Added
+- **Structured, code-tagged error logging (ROADMAP §12).** Every handled failure
+  now logs a stable code of the form `TIP-<SUBSYS>-NNN` (for example
+  `TIP-SRCH-002`) to both stdout and stderr. Look any code up in the new
+  [`docs/troubleshoot.md`](docs/troubleshoot.md) for its cause and fix. Each
+  request also carries a short correlation id so all of its log lines line up.
+- **`TIPPANI_LOG_LEVEL=debug`** turns on verbose `[trace]` per-operation logging
+  for diagnosing an issue; it is off (quiet) by default, so normal deployments are
+  unaffected.
+
+### Fixed
+- **A whole class of silent failures.** List endpoints that dropped a row on a
+  scan error while still returning `200` — the same failure mode behind the
+  disappearing homepage favourites — now log it with a code instead of quietly
+  shortening the list. Also surfaced: genres that could silently fail to persist
+  (a dropped transaction error), orphaned-people cleanup failures, and swallowed
+  cover/poster fetch errors.
+
 ## [0.6.4] - 2026-07-14
 
 ### Fixed

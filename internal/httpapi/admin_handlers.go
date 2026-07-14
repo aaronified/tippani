@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"tippani/internal/auth"
+	"tippani/internal/olog"
 )
 
 type userRow struct {
@@ -22,20 +23,26 @@ type userRow struct {
 
 // handleListUsers returns all users (admin only) for the management UI.
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[admin] handleListUsers")
 	rows, err := s.Store.DB.Query(
 		`SELECT id, username, is_admin, created_at, avatar_path FROM users ORDER BY id`,
 	)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "list users", err)
 		return
 	}
 	defer rows.Close()
 	users := []userRow{}
 	for rows.Next() {
 		var u userRow
-		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &u.AvatarPath); err == nil {
-			users = append(users, u)
+		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &u.CreatedAt, &u.AvatarPath); err != nil {
+			olog.Warnf(olog.CodeAdminRowScan, "[admin] list users row scan failed: %v", err)
+			continue
 		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeAdminRowScan, "[admin] list users row iteration failed: %v", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": users})
 }
@@ -56,13 +63,14 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "username required")
 		return
 	}
+	olog.Tracef("[admin] handleCreateUser username=%q", uname)
 	if msg := passwordProblem(req.Password); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "hash password", err)
 		return
 	}
 	res, err := s.Store.DB.Exec(
@@ -70,7 +78,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		 ON CONFLICT(username) DO NOTHING`, uname, hash,
 	)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "insert user", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -103,10 +111,11 @@ func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "is_admin (bool) required")
 		return
 	}
+	olog.Tracef("[admin] handleSetUserAdmin id=%d is_admin=%v", id, *req.IsAdmin)
 	if *req.IsAdmin {
 		res, err := s.Store.DB.Exec(`UPDATE users SET is_admin = 1 WHERE id = ?`, id)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "grant admin", err)
 			return
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
@@ -121,7 +130,7 @@ func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 		`UPDATE users SET is_admin = 0 WHERE id = ? AND is_admin = 1
 		 AND (SELECT count(*) FROM users WHERE is_admin = 1) > 1`, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "revoke admin", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -132,7 +141,7 @@ func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusNotFound, "no such user")
 			return
 		case err != nil:
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "load user admin status", err)
 			return
 		case isAdm:
 			writeErr(w, http.StatusConflict, "cannot remove the last admin")
@@ -152,6 +161,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
+	olog.Tracef("[admin] handleDeleteUser id=%d uid=%d", id, userID(r))
 	if id == userID(r) {
 		writeErr(w, http.StatusConflict, "cannot delete your own account")
 		return
@@ -166,7 +176,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		`DELETE FROM users WHERE id = ?
 		 AND (is_admin = 0 OR (SELECT count(*) FROM users WHERE is_admin = 1) > 1)`, id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "delete user", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -176,7 +186,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, sql.ErrNoRows):
 			writeErr(w, http.StatusNotFound, "no such user")
 		case err != nil:
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "load user admin status", err)
 		default:
 			writeErr(w, http.StatusConflict, "cannot remove the last admin")
 		}
@@ -205,9 +215,16 @@ func (s *Server) userCoverFiles(id int64) []string {
 	var names []string
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil && n != "" {
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodeAdminRowScan, "[admin] user cover files row scan failed: %v", err)
+			continue
+		}
+		if n != "" {
 			names = append(names, n)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeAdminRowScan, "[admin] user cover files row iteration failed: %v", err)
 	}
 	return names
 }

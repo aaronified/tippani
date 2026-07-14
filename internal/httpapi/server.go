@@ -17,6 +17,7 @@ import (
 
 	"tippani/internal/auth"
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 	"tippani/internal/store"
 	"tippani/internal/updater"
 )
@@ -261,25 +262,38 @@ func logRequests(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		rid := nextReqID()
+		r = r.WithContext(context.WithValue(r.Context(), ctxReqID, rid))
 		rec := &statusRecorder{ResponseWriter: w}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
 		if rec.status == 0 {
 			rec.status = http.StatusOK
 		}
-		log.Printf("%s %s %d %s %dB %s",
+		// rid ties this summary line to any [error]/[warn]/[trace] lines the
+		// handler logged for the same request (they all carry "(req rNNN)").
+		log.Printf("%s %s %d %s %dB %s %s",
 			r.Method, r.URL.RequestURI(), rec.status,
-			time.Since(start).Round(time.Millisecond), rec.bytes, r.RemoteAddr)
+			time.Since(start).Round(time.Millisecond), rec.bytes, r.RemoteAddr, rid)
 	})
 }
 
-// internalError logs the real cause of a 500 (method, path, context, error)
-// server-side, then returns the opaque "internal error" to the client. Use it
-// wherever a DB/tx/marshal failure would otherwise vanish into a bland 500 —
-// the log line is what makes such failures debuggable.
-func internalError(w http.ResponseWriter, r *http.Request, context string, err error) {
-	log.Printf("[error] %s %s: %s: %v", r.Method, r.URL.Path, context, err)
+// codedError logs the real cause of a 500 server-side with a stable lookup code
+// (see internal/olog/codes.go + docs/troubleshoot.md), then returns the opaque
+// "internal error" to the client — the cause never leaks into the response
+// (ROADMAP §12). The line is `[error] TIP-XXX-NNN METHOD PATH (req rNNN): ctx: err`,
+// so an operator greps the code, and the req id ties it to the request's summary
+// line. Prefer this over internalError in new/updated handlers.
+func codedError(w http.ResponseWriter, r *http.Request, code olog.Code, ctx string, err error) {
+	olog.Errorf(code, "%s %s%s: %s: %v", r.Method, r.URL.Path, reqSuffix(r), ctx, err)
 	writeErr(w, http.StatusInternalServerError, "internal error")
+}
+
+// internalError is the generic 500 funnel — codedError with the catch-all
+// TIP-HTTP-000. It stays for the many call sites not yet assigned a specific code;
+// the per-subsystem rollout migrates them to codedError with a precise code.
+func internalError(w http.ResponseWriter, r *http.Request, ctx string, err error) {
+	codedError(w, r, olog.CodeHTTPInternal, ctx, err)
 }
 
 func securityHeaders(next http.Handler) http.Handler {
@@ -317,7 +331,27 @@ const (
 	ctxUserID ctxKey = iota
 	ctxUsername
 	ctxIsAdmin
+	ctxReqID
 )
+
+// reqSeq numbers requests within a process run so every log line for one request
+// shares an id (ROADMAP §12). A counter — not a random id — is enough to correlate
+// lines in `docker logs`; it resets on restart, which is fine.
+var reqSeq atomic.Uint64
+
+func nextReqID() string { return "r" + strconv.FormatUint(reqSeq.Add(1), 10) }
+
+// reqID returns the current request's correlation id (empty outside a served
+// request, e.g. in tests that bypass logRequests).
+func reqID(r *http.Request) string { v, _ := r.Context().Value(ctxReqID).(string); return v }
+
+// reqSuffix renders the request id for a log line as " (req rNNN)", or "" if none.
+func reqSuffix(r *http.Request) string {
+	if id := reqID(r); id != "" {
+		return " (req " + id + ")"
+	}
+	return ""
+}
 
 const sessionCookie = "tippani_session"
 

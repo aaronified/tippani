@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // maxUploadBytes bounds the whole multipart envelope; the image itself is
@@ -31,6 +32,7 @@ func (s *Server) coversDir() string { return filepath.Join(s.DataDir, "MediaCove
 
 func (s *Server) handleCover(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("file")
+	olog.Tracef("[cover] handleCover name=%v", name)
 	if !coverFile.MatchString(name) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
@@ -57,9 +59,11 @@ func (s *Server) handleCover(w http.ResponseWriter, r *http.Request) {
 // multipart form (field "file") — the "upload from disk" cover source. Both
 // funnel into uploadCover with the owning table/column.
 func (s *Server) handleUploadBookCover(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[cover] handleUploadBookCover")
 	s.uploadCover(w, r, "books", "cover_path")
 }
 func (s *Server) handleUploadMoviePoster(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[cover] handleUploadMoviePoster")
 	s.uploadCover(w, r, "movies", "poster_path")
 }
 
@@ -81,7 +85,7 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load cover path", err)
 		return
 	}
 
@@ -105,24 +109,27 @@ func (s *Server) uploadCover(w http.ResponseWriter, r *http.Request, table, colu
 	if _, err := s.Store.DB.Exec(
 		`UPDATE `+table+` SET `+column+` = ? WHERE id = ? AND user_id = ?`, name, id, uid); err != nil {
 		s.removeCoverFile(name)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update cover", err)
 		return
 	}
 	if old.String != name {
 		s.removeCoverFile(old.String)
 	}
 	if table == "books" {
-		if b, err := s.fetchBook(uid, id); err == nil {
-			writeJSON(w, http.StatusOK, b)
+		b, err := s.fetchBook(uid, id)
+		if err != nil {
+			codedError(w, r, olog.CodeCoverFetch, "refetch cover", err)
 			return
 		}
-	} else {
-		if m, err := s.fetchMovie(uid, id); err == nil {
-			writeJSON(w, http.StatusOK, m)
-			return
-		}
+		writeJSON(w, http.StatusOK, b)
+		return
 	}
-	writeErr(w, http.StatusInternalServerError, "internal error")
+	m, err := s.fetchMovie(uid, id)
+	if err != nil {
+		codedError(w, r, olog.CodeCoverFetch, "refetch cover", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, m)
 }
 
 // removeCoverFile best-effort deletes a stored cover/poster (row delete, or

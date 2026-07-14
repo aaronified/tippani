@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // handleMetadataLibrary powers the Metadata tab's review lists: every book and
@@ -17,6 +18,7 @@ import (
 // endpoints) so it can carry the gap flags without perturbing those shapes.
 func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[meta] handleMetadataLibrary uid=%v", uid)
 
 	type bookItem struct {
 		ID              int64  `json:"id"`
@@ -58,17 +60,22 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		var cover string
 		if err := brows.Scan(&it.ID, &it.Title, &it.Author, &it.Series, &it.ISBN, &it.ASIN,
 			&cover, &it.HasIDs, &it.HasAuthor, &it.HasSeries, &it.HasYear, &it.HasGenre,
-			&it.HasDescription, &it.AnnotationCount); err == nil {
-			it.HasCover = cover != ""
-			// coverWidth reads only the image header; 0 (webp/svg/missing) is
-			// treated as unknown, not low-res, so it isn't flagged falsely.
-			if cover != "" {
-				if wpx := s.coverWidth(cover); wpx > 0 && wpx < lowResCoverWidth {
-					it.LowResCover = true
-				}
-			}
-			books = append(books, it)
+			&it.HasDescription, &it.AnnotationCount); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] library book row scan failed: %v", err)
+			continue
 		}
+		it.HasCover = cover != ""
+		// coverWidth reads only the image header; 0 (webp/svg/missing) is
+		// treated as unknown, not low-res, so it isn't flagged falsely.
+		if cover != "" {
+			if wpx := s.coverWidth(cover); wpx > 0 && wpx < lowResCoverWidth {
+				it.LowResCover = true
+			}
+		}
+		books = append(books, it)
+	}
+	if err := brows.Err(); err != nil {
+		olog.Warnf(olog.CodeMetaRowScan, "[meta] library book row iteration failed: %v", err)
 	}
 
 	type movieItem struct {
@@ -107,15 +114,20 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		var poster string
 		if err := mrows.Scan(&it.ID, &it.Title, &it.MediaType, &it.ReleaseYear,
 			&poster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
-			&it.DialogueCount); err == nil {
-			it.HasPoster = poster != ""
-			if poster != "" {
-				if wpx := s.coverWidth(poster); wpx > 0 && wpx < lowResCoverWidth {
-					it.LowResPoster = true
-				}
-			}
-			movies = append(movies, it)
+			&it.DialogueCount); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] library movie row scan failed: %v", err)
+			continue
 		}
+		it.HasPoster = poster != ""
+		if poster != "" {
+			if wpx := s.coverWidth(poster); wpx > 0 && wpx < lowResCoverWidth {
+				it.LowResPoster = true
+			}
+		}
+		movies = append(movies, it)
+	}
+	if err := mrows.Err(); err != nil {
+		olog.Warnf(olog.CodeMetaRowScan, "[meta] library movie row iteration failed: %v", err)
 	}
 
 	// Dialogue coverage (for the stats strip): missing_actor counts only lines
@@ -170,6 +182,7 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[meta] handleRemapSpeakers uid=%v movie=%v mappings=%d refill=%v", uid, id, len(req.Mappings), req.Refill)
 	var castJSON string
 	err := s.Store.DB.QueryRow(
 		`SELECT cast_json FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&castJSON)

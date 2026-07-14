@@ -43,7 +43,7 @@ func (s *Server) handleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := s.Store.DB.Exec(`UPDATE users SET avatar_path = ? WHERE id = ?`, name, uid); err != nil {
 		s.removeCoverFile(name)
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update avatar path", err)
 		return
 	}
 	if old != name {
@@ -59,7 +59,7 @@ func (s *Server) handleDeleteAvatar(w http.ResponseWriter, r *http.Request) {
 	var old string
 	_ = s.Store.DB.QueryRow(`SELECT avatar_path FROM users WHERE id = ?`, uid).Scan(&old)
 	if _, err := s.Store.DB.Exec(`UPDATE users SET avatar_path = '' WHERE id = ?`, uid); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "clear avatar path", err)
 		return
 	}
 	s.removeCoverFile(old)

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"tippani/internal/olog"
 )
 
 // Export (PLAN §6b): Obsidian-friendly markdown. One renderer, three
@@ -20,18 +22,19 @@ func (s *Server) handleExportBook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid book id")
 		return
 	}
+	olog.Tracef("[export] handleExportBook uid=%v id=%v", userID(r), id)
 	b, err := s.fetchBook(userID(r), id)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "book not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch book", err)
 		return
 	}
 	md, err := s.renderBookExport(b)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "render book export", err)
 		return
 	}
 	serveMarkdown(w, sanitizeFilename(b.Title)+".md", md)
@@ -43,18 +46,19 @@ func (s *Server) handleExportMovie(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid movie id")
 		return
 	}
+	olog.Tracef("[export] handleExportMovie uid=%v id=%v", userID(r), id)
 	m, err := s.fetchMovie(userID(r), id)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "movie not found")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "fetch movie", err)
 		return
 	}
 	md, err := s.renderMovieExport(m)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "render movie export", err)
 		return
 	}
 	serveMarkdown(w, sanitizeFilename(m.Title)+".md", md)
@@ -65,13 +69,14 @@ func (s *Server) handleExportMovie(w http.ResponseWriter, r *http.Request) {
 // still answer 500 before any zip bytes go out.
 func (s *Server) handleExportAll(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[export] handleExportAll uid=%v", uid)
 	type entry struct{ name, body string }
 	var entries []entry
 	used := map[string]bool{}
 	for _, kind := range []string{"books", "movies"} {
 		ids, err := s.ownedIDs(uid, kind)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "list owned ids", err)
 			return
 		}
 		for _, id := range ids {
@@ -92,7 +97,7 @@ func (s *Server) handleExportAll(w http.ResponseWriter, r *http.Request) {
 				err = ferr
 			}
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, "internal error")
+				internalError(w, r, "render export", err)
 				return
 			}
 			entries = append(entries, entry{zipName(used, kind, title), md})
@@ -118,11 +123,13 @@ func (s *Server) handleExportAll(w http.ResponseWriter, r *http.Request) {
 // Each book keeps its own "---" frontmatter block, so the file re-imports as
 // many books (multi-book import). Missing/unowned ids are skipped.
 func (s *Server) handleExportBooks(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[export] handleExportBooks")
 	s.exportSet(w, r, "books", "tippani-books.md")
 }
 
 // handleExportMovies is the movie/show counterpart (dialogue exports).
 func (s *Server) handleExportMovies(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[export] handleExportMovies")
 	s.exportSet(w, r, "movies", "tippani-titles.md")
 }
 
@@ -138,7 +145,7 @@ func (s *Server) exportSet(w http.ResponseWriter, r *http.Request, kind, filenam
 	if len(ids) == 0 {
 		var err error
 		if ids, err = s.ownedIDs(uid, kind); err != nil {
-			writeErr(w, http.StatusInternalServerError, "internal error")
+			internalError(w, r, "list owned ids", err)
 			return
 		}
 	}
@@ -155,7 +162,7 @@ func (s *Server) exportSet(w http.ResponseWriter, r *http.Request, kind, filenam
 				md, err = s.renderBookExport(b)
 			}
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, "internal error")
+				internalError(w, r, "render book export", err)
 				return
 			}
 		} else {
@@ -167,7 +174,7 @@ func (s *Server) exportSet(w http.ResponseWriter, r *http.Request, kind, filenam
 				md, err = s.renderMovieExport(m)
 			}
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, "internal error")
+				internalError(w, r, "render movie export", err)
 				return
 			}
 		}
@@ -190,11 +197,17 @@ func (s *Server) ownedIDs(uid int64, table string) ([]int64, error) {
 	var ids []int64
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err == nil {
-			ids = append(ids, id)
+		if err := rows.Scan(&id); err != nil {
+			olog.Warnf(olog.CodeExportRowScan, "[export] ownedIDs row scan failed: %v", err)
+			continue
 		}
+		ids = append(ids, id)
 	}
-	return ids, rows.Err()
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeExportRowScan, "[export] ownedIDs row iteration failed: %v", err)
+		return ids, err
+	}
+	return ids, nil
 }
 
 func serveMarkdown(w http.ResponseWriter, filename, body string) {
@@ -221,11 +234,14 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	for rows.Next() {
 		var a annotationRow
 		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Color, &a.Chapter,
-			&a.Location, &a.Favorite, &a.Rating, &a.NotedAt); err == nil {
-			anns = append(anns, a)
+			&a.Location, &a.Favorite, &a.Rating, &a.NotedAt); err != nil {
+			olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row scan failed: %v", err)
+			continue
 		}
+		anns = append(anns, a)
 	}
 	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row iteration failed: %v", err)
 		return "", err
 	}
 	tags, err := s.exportTags(b.ID, "annotation", "book_id")
@@ -286,11 +302,14 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	for rows.Next() {
 		var d dialogueRow
 		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Character, &d.Actor,
-			&d.Timestamp, &d.Favorite, &d.Rating); err == nil {
-			dlgs = append(dlgs, d)
+			&d.Timestamp, &d.Favorite, &d.Rating); err != nil {
+			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
+			continue
 		}
+		dlgs = append(dlgs, d)
 	}
 	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row iteration failed: %v", err)
 		return "", err
 	}
 	tags, err := s.exportTags(m.ID, "dialogue", "movie_id")
@@ -336,11 +355,17 @@ func (s *Server) exportTags(parentID int64, kind, parentCol string) (map[int64][
 	for rows.Next() {
 		var id int64
 		var n string
-		if err := rows.Scan(&id, &n); err == nil {
-			out[id] = append(out[id], n)
+		if err := rows.Scan(&id, &n); err != nil {
+			olog.Warnf(olog.CodeExportRowScan, "[export] tag row scan failed: %v", err)
+			continue
 		}
+		out[id] = append(out[id], n)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeExportRowScan, "[export] tag row iteration failed: %v", err)
+		return out, err
+	}
+	return out, nil
 }
 
 // ---- rendering helpers ----

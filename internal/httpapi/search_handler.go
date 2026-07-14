@@ -2,10 +2,10 @@ package httpapi
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 	"strconv"
 
+	"tippani/internal/olog"
 	"tippani/internal/search"
 )
 
@@ -88,6 +88,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// input never reaches MATCH.
 	match := search.PrefixQuery(q)
 	uid := userID(r)
+	olog.Tracef("[search] handleSearch uid=%d scope=%q q=%q limit=%d", uid, scope, q, limit)
 	resp := struct {
 		Books       []bookHit       `json:"books"`
 		Annotations []annotationHit `json:"annotations"`
@@ -120,9 +121,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			h := bookHit{Genres: []string{}}
 			if err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.CoverPath,
-				&h.PublishedYear, &h.Series, &h.SeriesIndex); err == nil {
-				resp.Books = append(resp.Books, h)
+				&h.PublishedYear, &h.Series, &h.SeriesIndex); err != nil {
+				olog.Warnf(olog.CodeSearchRowScan, "[search] book result row scan failed: %v", err)
+				continue
 			}
+			resp.Books = append(resp.Books, h)
 		}
 		rows.Close()
 	}
@@ -146,9 +149,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			h := annotationHit{BookGenres: []string{}}
 			if err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note,
-				&h.BookAuthor, &h.BookYear, &h.BookSeries); err == nil {
-				resp.Annotations = append(resp.Annotations, h)
+				&h.BookAuthor, &h.BookYear, &h.BookSeries); err != nil {
+				olog.Warnf(olog.CodeSearchRowScan, "[search] annotation result row scan failed: %v", err)
+				continue
 			}
+			resp.Annotations = append(resp.Annotations, h)
 		}
 		rows.Close()
 	}
@@ -170,9 +175,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			h := movieHit{Genres: []string{}}
 			if err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath,
-				&h.Series, &h.SeriesIndex); err == nil {
-				resp.Movies = append(resp.Movies, h)
+				&h.Series, &h.SeriesIndex); err != nil {
+				olog.Warnf(olog.CodeSearchRowScan, "[search] movie result row scan failed: %v", err)
+				continue
 			}
+			resp.Movies = append(resp.Movies, h)
 		}
 		rows.Close()
 	}
@@ -197,9 +204,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			h := dialogueHit{MovieGenres: []string{}}
 			if err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote,
 				&h.Character, &h.Actor, &h.Timestamp,
-				&h.MovieDirector, &h.MovieYear, &h.MovieSeries); err == nil {
-				resp.Dialogues = append(resp.Dialogues, h)
+				&h.MovieDirector, &h.MovieYear, &h.MovieSeries); err != nil {
+				olog.Warnf(olog.CodeSearchRowScan, "[search] dialogue result row scan failed: %v", err)
+				continue
 			}
+			resp.Dialogues = append(resp.Dialogues, h)
 		}
 		rows.Close()
 	}
@@ -236,6 +245,8 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	olog.Tracef("[search] handleSearch uid=%d results books=%d annotations=%d movies=%d dialogues=%d",
+		uid, len(resp.Books), len(resp.Annotations), len(resp.Movies), len(resp.Dialogues))
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -260,11 +271,11 @@ func (s *Server) ftsQuery(ftsTable, query string, args ...any) (*sql.Rows, error
 	if err == nil {
 		return rows, nil
 	}
-	log.Printf("[search] %s query failed (%v); reconstructing index and retrying", ftsTable, err)
+	olog.Warnf(olog.CodeSearchQuery, "%s query failed (%v); reconstructing index and retrying", ftsTable, err)
 	if rbErr := s.Store.RepairIndex(ftsTable); rbErr != nil {
-		log.Printf("[search] %s reconstruction failed: %v — restart the server or run Profile → Rebuild search index to fully recover", ftsTable, rbErr)
+		olog.Errorf(olog.CodeSearchRepair, "%s reconstruction failed: %v — restart the server or run Profile → Rebuild search index to fully recover", ftsTable, rbErr)
 		return nil, err
 	}
-	log.Printf("[search] %s reconstructed; retrying query", ftsTable)
+	olog.Printf("[search] %s reconstructed; retrying query", ftsTable)
 	return s.Store.DB.Query(query, args...)
 }

@@ -38,7 +38,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "look up user", err)
 		return
 	}
 	if !auth.CheckPassword(hash, req.Password) {
@@ -46,14 +46,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.startSession(w, id, req.Username)
+	s.startSession(w, r, id, req.Username)
 }
 
 // startSession creates a session, sets the cookie, and writes {username}.
-func (s *Server) startSession(w http.ResponseWriter, id int64, uname string) {
+func (s *Server) startSession(w http.ResponseWriter, r *http.Request, id int64, uname string) {
 	token, err := s.Sessions.Create(id)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create session", err)
 		return
 	}
 	http.SetCookie(w, s.sessionCookie(token, int(auth.SessionLifetime.Seconds())))
@@ -65,7 +65,7 @@ func (s *Server) startSession(w http.ResponseWriter, id int64, uname string) {
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	var n int
 	if err := s.Store.DB.QueryRow(`SELECT count(*) FROM users`).Scan(&n); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "count users", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"needs_onboarding": n == 0})
@@ -104,7 +104,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	// closed, so don't spend bcrypt on a request we're going to reject.
 	var exists bool
 	if err := s.Store.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users)`).Scan(&exists); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "check for existing users", err)
 		return
 	}
 	if exists {
@@ -113,7 +113,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "hash password", err)
 		return
 	}
 	// The INSERT ... WHERE NOT EXISTS stays as the atomic guard: if a concurrent
@@ -124,7 +124,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		uname, hash,
 	)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create admin user", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -135,7 +135,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	if s.SeedNewUsers {
 		seedDefaultTags(s.Store.DB, id) // starter tag/sticker vocabulary (v3)
 	}
-	s.startSession(w, id, uname)
+	s.startSession(w, r, id, uname)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +149,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	p, err := s.loadPrefs(userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load prefs", err)
 		return
 	}
 	var avatar string
@@ -192,7 +192,7 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 		 AND NOT EXISTS (SELECT 1 FROM users WHERE username = ? AND id <> ?)`,
 		uname, userID(r), uname, userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update username", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
@@ -302,7 +302,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	cur, err := s.loadPrefs(userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load prefs", err)
 		return
 	}
 	var in struct {
@@ -385,12 +385,12 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	raw, err := json.Marshal(cur)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "marshal prefs", err)
 		return
 	}
 	if _, err := s.Store.DB.Exec(
 		`UPDATE users SET preferences = ? WHERE id = ?`, string(raw), userID(r)); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "save prefs", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -414,7 +414,7 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.DB.QueryRow(
 		`SELECT password_hash FROM users WHERE id = ?`, userID(r),
 	).Scan(&hash); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "load password hash", err)
 		return
 	}
 	if !auth.CheckPassword(hash, req.Current) {
@@ -423,25 +423,25 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	newHash, err := auth.HashPassword(req.New)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "hash password", err)
 		return
 	}
 	if _, err := s.Store.DB.Exec(
 		`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID(r),
 	); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "update password", err)
 		return
 	}
 	// Revoke every existing session for this user (a leaked cookie must not
 	// survive a password change), then re-issue one for the current caller so
 	// changing your own password doesn't log you out.
 	if err := s.Sessions.DeleteAllForUser(userID(r)); err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "revoke sessions", err)
 		return
 	}
 	token, err := s.Sessions.Create(userID(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "internal error")
+		internalError(w, r, "create session", err)
 		return
 	}
 	http.SetCookie(w, s.sessionCookie(token, int(auth.SessionLifetime.Seconds())))

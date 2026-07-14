@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // Stickers are a user's library of uploaded transparent images (PNG/SVG/…),
@@ -58,6 +59,7 @@ func (s *Server) stickerOwned(uid int64, id *int64) bool {
 }
 
 func (s *Server) handleListStickers(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[sticker] handleListStickers uid=%v", userID(r))
 	rows, err := s.Store.DB.Query(stickerSelect+` WHERE s.user_id = ? ORDER BY s.created_at DESC, s.id DESC`, userID(r))
 	if err != nil {
 		internalError(w, r, "list stickers", err)
@@ -67,9 +69,14 @@ func (s *Server) handleListStickers(w http.ResponseWriter, r *http.Request) {
 	stickers := []stickerRow{}
 	for rows.Next() {
 		var st stickerRow
-		if err := rows.Scan(&st.ID, &st.Name, &st.Path, &st.Annotations, &st.Dialogues); err == nil {
-			stickers = append(stickers, st)
+		if err := rows.Scan(&st.ID, &st.Name, &st.Path, &st.Annotations, &st.Dialogues); err != nil {
+			olog.Warnf(olog.CodeStickerRowScan, "[sticker] list stickers row scan failed: %v", err)
+			continue
 		}
+		stickers = append(stickers, st)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeStickerRowScan, "[sticker] list stickers row iteration failed: %v", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"stickers": stickers})
 }
@@ -78,6 +85,7 @@ func (s *Server) handleListStickers(w http.ResponseWriter, r *http.Request) {
 // an optional "name". Stores the image and inserts a sticker row.
 func (s *Server) handleUploadSticker(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	olog.Tracef("[sticker] handleUploadSticker uid=%v", uid)
 	r.Body = http.MaxBytesReader(w, r.Body, maxStickerUpload)
 	f, _, err := r.FormFile("file")
 	if err != nil {
@@ -126,6 +134,7 @@ func (s *Server) handleUpdateSticker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[sticker] handleUpdateSticker uid=%v id=%v", uid, id)
 	res, err := s.Store.DB.Exec(
 		`UPDATE stickers SET name = ? WHERE id = ? AND user_id = ?`, cleanTagName(req.Name), id, uid)
 	if err != nil {
@@ -154,6 +163,7 @@ func (s *Server) handleDeleteSticker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uid := userID(r)
+	olog.Tracef("[sticker] handleDeleteSticker uid=%v id=%v", uid, id)
 	var path string
 	err := s.Store.DB.QueryRow(`SELECT path FROM stickers WHERE id = ? AND user_id = ?`, id, uid).Scan(&path)
 	switch {
