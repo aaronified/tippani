@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-07-14
+
+### Added
+- **Version → changelog link + update badge (AudioBookshelf-style).** The running
+  version is now a link to the GitHub releases/changelog — in **Settings → Updates**
+  and at the bottom of the **mobile drawer** (shown to every user). When an admin has
+  run *Check for updates* and a newer release exists, an **↑ update to vX** link to
+  that release's notes appears in both places (cached for the session). The check
+  stays strictly **on demand** — Tippani still never contacts GitHub on its own.
+  `GET /auth/me` now returns `releases_url` for this link.
+
 ## [0.6.2] - 2026-07-14
 
 ### Added

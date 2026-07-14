@@ -36,7 +36,7 @@ function useColumnCount() {
   return n
 }
 
-export default function Settings({ user, onPreferences }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
   const mobile = useIsMobileScreen()
   // Masonry that minimises page height. The tall Metadata card is ~40% of the
   // total, so any 2-column split leaves it dominating one column with a long
@@ -51,7 +51,7 @@ export default function Settings({ user, onPreferences }) {
     { w: 3, node: <Stats key="stats" /> },
     { w: 2.8, node: <SRSettings key="sr" user={user} onPreferences={onPreferences} /> },
     { w: 1.4, node: <Interface key="iface" user={user} onPreferences={onPreferences} /> },
-    user.is_admin && { w: 1.8, node: <UpdatesCard key="upd" user={user} /> },
+    user.is_admin && { w: 1.8, node: <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} /> },
   ].filter(Boolean)
   const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
   ;[...cards]
@@ -189,9 +189,9 @@ function SRSettings({ user, onPreferences }) {
 // queries GitHub on demand (never automatically); if a newer release exists it
 // offers a one-click update when the Docker socket is mounted (pull + recreate
 // via a one-shot Watchtower), and otherwise shows the manual command to run.
-function UpdatesCard({ user }) {
+function UpdatesCard({ user, update, onUpdateInfo }) {
   const current = user?.version || 'dev'
-  const [info, setInfo] = useState(null) // check result
+  const [info, setInfo] = useState(update || null) // check result (seeded from the shared session cache)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState('')
   const [phase, setPhase] = useState('idle') // idle | applying | restarting | failed
@@ -200,8 +200,10 @@ function UpdatesCard({ user }) {
     setBusy(true)
     const r = await json('GET', '/admin/update/check')
     setBusy(false)
-    if (r.ok) setInfo(r.data)
-    else toast('couldn’t check for updates')
+    if (r.ok) {
+      setInfo(r.data)
+      onUpdateInfo?.(r.data) // share up so the mobile drawer's badge mirrors this
+    } else toast('couldn’t check for updates')
   }
 
   async function apply() {
@@ -236,7 +238,20 @@ function UpdatesCard({ user }) {
       <div className="space-y-3">
         <div className="flex items-baseline gap-2">
           <MonoLabel>version</MonoLabel>
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{current}</span>
+          {user?.releases_url ? (
+            <a
+              href={user.releases_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tp-link"
+              style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+              title="Release notes & changelog on GitHub"
+            >
+              {current} ↗
+            </a>
+          ) : (
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{current}</span>
+          )}
         </div>
 
         {phase === 'restarting' ? (

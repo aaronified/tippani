@@ -161,6 +161,10 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"preferences": p,
 		"avatar_path": avatar,
 		"version":     buildinfo.Version, // running build, for the Settings → Updates card
+		// releases_url points at the GitHub releases page for the configured repo
+		// (honours TIPPANI_REPO) — the "version → changelog" link in Settings and
+		// the mobile drawer. Pure string, no network call.
+		"releases_url": "https://github.com/" + buildinfo.Repo() + "/releases",
 	})
 }
 

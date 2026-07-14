@@ -573,7 +573,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, update, logout, dark, onUser }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -656,6 +656,35 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, lo
             log out
           </button>
         </div>
+        {/* Version → changelog (ABS-style corner). The update link only appears
+            once a check has found a newer release (admin-run, on demand). */}
+        <div
+          className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pb-3 pt-2"
+          style={{ borderTop: '1px solid var(--line)' }}
+        >
+          <a
+            href={user.releases_url || 'https://github.com/aaronified/tippani/releases'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mono-label"
+            style={{ fontSize: 10, letterSpacing: '.04em', color: 'var(--faint)' }}
+            title="Release notes & changelog on GitHub"
+          >
+            v{user.version || 'dev'} · changelog ↗
+          </a>
+          {update?.update_available && update.notes_url && (
+            <a
+              href={update.notes_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mono-label"
+              style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-ui)' }}
+              title={`Update to ${update.latest}`}
+            >
+              ↑ update to {update.latest}
+            </a>
+          )}
+        </div>
       </nav>
     </>
   )
@@ -687,6 +716,11 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // honest by the Home screen as answers land.
   const [pending, setPending] = useState(0)
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
+  // Update-check result, shared so the mobile drawer's "update available" link
+  // mirrors the Settings → Updates card. Populated on demand when an admin runs
+  // the check (Tippani never contacts GitHub on its own), then cached here for
+  // the rest of the session.
+  const [update, setUpdate] = useState(null)
   const dark = useResolvedDark()
   // Desktop nav placement: "tabs" shows Tags+Metadata inline, "menu" folds them
   // into the ⋯ More dropdown. Per-user pref; defaults to the decluttered menu.
@@ -844,7 +878,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'settings' && (
           <div data-screen-label="settings">
-            <Settings user={user} onPreferences={onPreferences} />
+            <Settings user={user} onPreferences={onPreferences} update={update} onUpdateInfo={setUpdate} />
           </div>
         )}
         </div>
@@ -859,6 +893,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         user={user}
         stats={stats}
         pending={pending}
+        update={update}
         logout={logout}
         dark={dark}
         onUser={onUser}

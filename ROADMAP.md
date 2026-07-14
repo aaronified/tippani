@@ -9,6 +9,13 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.6.3 (July 2026)**
+
+- **Version → changelog + update badge** — the running version links to the GitHub
+  changelog in Settings and the mobile drawer (everyone), and once an admin has run
+  *Check for updates* a "↑ update to vX" link to the release notes shows in both.
+  Still on-demand — Tippani never contacts GitHub on its own.
+
 **v0.6.2 (July 2026)**
 
 - **Favourites span both media** — the Home Favourites section now mixes favourited
