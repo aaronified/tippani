@@ -141,7 +141,13 @@ function SRSettings({ user, onPreferences }) {
   }
   return (
     <Card>
-      <SectionTitle>Daily quiz &amp; practice</SectionTitle>
+      <SectionTitle
+        right={
+          <InfoDot text="These settings drive both the Daily Quiz and Practice. Recall grows a card's memory half-life; a lapse shrinks it (kept in a narrow band). Every quote carries a status dot — remembered, forgetting or probably forgotten — with its half-life on hover." />
+        }
+      >
+        Daily quiz &amp; practice
+      </SectionTitle>
       <div className="space-y-5">
         <Slider label="Daily quiz cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
         <div>
@@ -154,18 +160,19 @@ function SRSettings({ user, onPreferences }) {
           />
         </div>
         <div>
-          <MonoLabel className="mb-2 block">Practice moves the schedule</MonoLabel>
+          <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>Practice moves the schedule</MonoLabel>
+            <InfoDot text="By default Practice is study only. Turn this on to let correct Practice answers stretch half-lives just like the Daily Quiz does." />
+          </div>
           <Toggle
             ariaLabel="Practice affects schedule"
             value={p.srPracticeCounts ? 'on' : 'off'}
             onChange={(v) => set({ srPracticeCounts: v === 'on' })}
             options={[['off', 'No'], ['on', 'Yes']]}
           />
-          <p className="microcopy mt-2">by default practice is study only — turn this on to let correct practice recalls stretch half-lives like the daily quiz does</p>
         </div>
         <Slider label="Recall grows half-life by" min={1.5} max={4} step={0.1} value={p.srGrow || 2.5} unit="×" decimals={1} onCommit={(v) => set({ srGrow: v })} />
         <Slider label="A lapse keeps" min={0.1} max={0.6} step={0.05} value={p.srShrink || 0.25} unit="×" decimals={2} onCommit={(v) => set({ srShrink: v })} />
-        <p className="microcopy">how far a card's memory half-life stretches when you recall it, and how much of it survives a “forgot”. Every quote shows a status dot — <strong>remembered</strong>, <strong>forgetting</strong> or <strong>probably forgotten</strong> — with its half-life on hover.</p>
       </div>
     </Card>
   )

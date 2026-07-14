@@ -43,6 +43,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"tippani/internal/olog"
@@ -164,14 +165,22 @@ type reviewCard struct {
 	Stability   float64 `json:"stability"`
 	ReviewCount int     `json:"review_count"`
 	Status      string  `json:"status"`
+	// Multiple-choice options and the index of the correct one. For a "source"
+	// card the options are titles (which work is this quote from?); for a "quote"
+	// card they are quotes (which quote is from this work?).
+	Options []string `json:"options"`
+	Answer  int      `json:"answer"`
 }
 
-// reviewCand wraps a card with the transient scheduling facts (whether it's
-// been seen and how long since) used to order and grade it.
+// reviewCand wraps a card with the transient facts used to order it and build
+// its question: scheduling state (seen / elapsed) and the parent work's key
+// ("book:12" / "screen:7") so distractors can be ranked by that work's author
+// and genres.
 type reviewCand struct {
 	card    reviewCard
 	seen    bool
 	elapsed float64 // days since last_reviewed_at (seen cards only)
+	workKey string  // parent book/movie, for similar-distractor ranking
 }
 
 func elapsedDays(ts sql.NullString) float64 {
@@ -189,7 +198,7 @@ func elapsedDays(ts sql.NullString) float64 {
 // most-forgotten-first and capped; dueOnly=false (Practice) returns the whole
 // in-scope pool for the client to shuffle and walk.
 func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
-	q := `SELECT a.id, COALESCE(a.quote,''), COALESCE(a.note,''), a.color,
+	q := `SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,''), a.color,
 	             b.title, COALESCE(b.author,''), COALESCE(a.chapter,''), COALESCE(a.location,''),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at
 	      FROM annotations a
@@ -216,12 +225,14 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 	for rows.Next() {
 		var c reviewCand
 		var lr sql.NullString
+		var bookID int64
 		c.card.Kind = kindBook
-		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Color,
+		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Chapter, &c.card.Location,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr); err != nil {
 			continue
 		}
+		c.workKey = kindBook + ":" + strconv.FormatInt(bookID, 10)
 		c.elapsed = elapsedDays(lr)
 		out = append(out, c)
 	}
@@ -229,7 +240,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 }
 
 func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
-	q := `SELECT d.id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
+	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
 	             COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at
 	      FROM dialogues d
@@ -256,12 +267,14 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 	for rows.Next() {
 		var c reviewCand
 		var lr sql.NullString
+		var movieID int64
 		c.card.Kind = kindScreen
-		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
+		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
 			&c.card.Timestamp, &c.card.MediaType,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr); err != nil {
 			continue
 		}
+		c.workKey = kindScreen + ":" + strconv.FormatInt(movieID, 10)
 		c.elapsed = elapsedDays(lr)
 		out = append(out, c)
 	}
@@ -275,6 +288,317 @@ func finishCard(c reviewCand, direction string) reviewCard {
 	card.Direction = direction
 	card.Status = recallStatus(c.seen, card.Stability, c.elapsed)
 	return card
+}
+
+const (
+	quizOptions   = 4   // choices per question (fewer only if the pool is tiny)
+	quizQuoteClip = 140 // display length for a quote option
+	quizQuoteCap  = 200 // quotes sampled per medium into the distractor pool
+)
+
+// workRef is one book / film / show with the metadata that makes a distractor
+// "similar" to a given card: the person signal (author for a book, the cast for
+// a screen work) and its genres. Distractors are ranked by overlap with the
+// card's own work — see distractorScore.
+type workRef struct {
+	key    string // "book:12" / "screen:7"
+	kind   string
+	title  string
+	author string          // books only
+	genres map[string]bool // both
+	actors map[string]bool // screen only
+}
+
+// quoteRef is one quote in the distractor pool, carrying its source work so a
+// "which quote is from this work?" question never offers a quote from the same
+// work, and can rank distractors by that work's similarity.
+type quoteRef struct {
+	work workRef
+	text string
+}
+
+// quizPools holds a round's distractor material: every in-scope work (for
+// "which work" questions) and a random sample of quotes (for "which quote"),
+// with a by-key index for looking up a card's own work. Built once per request.
+type quizPools struct {
+	works  []workRef
+	quotes []quoteRef
+	byKey  map[string]workRef
+}
+
+func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, error) {
+	p := quizPools{byKey: map[string]workRef{}}
+	scan := func(q string, fn func(*sql.Rows) error) error {
+		rows, err := s.Store.DB.Query(q, uid)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			if err := fn(rows); err != nil {
+				return err
+			}
+		}
+		return rows.Err()
+	}
+	// works (title + person signal), genres, actors (screen), and a quote sample.
+	if incBooks {
+		if err := scan(`SELECT id, title, COALESCE(author,'') FROM books WHERE user_id = ? AND title <> ''`,
+			func(rows *sql.Rows) error {
+				var id int64
+				var title, author string
+				if rows.Scan(&id, &title, &author) != nil {
+					return nil
+				}
+				k := kindBook + ":" + strconv.FormatInt(id, 10)
+				p.byKey[k] = workRef{key: k, kind: kindBook, title: title, author: author, genres: map[string]bool{}, actors: map[string]bool{}}
+				return nil
+			}); err != nil {
+			return p, err
+		}
+		if err := scan(`SELECT bg.book_id, g.name FROM book_genres bg JOIN genres g ON g.id = bg.genre_id
+		                JOIN books b ON b.id = bg.book_id WHERE b.user_id = ?`,
+			func(rows *sql.Rows) error {
+				var id int64
+				var name string
+				if rows.Scan(&id, &name) == nil {
+					if w, ok := p.byKey[kindBook+":"+strconv.FormatInt(id, 10)]; ok && name != "" {
+						w.genres[strings.ToLower(name)] = true
+					}
+				}
+				return nil
+			}); err != nil {
+			return p, err
+		}
+		if err := scan(`SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,'')
+		                FROM annotations a JOIN books b ON b.id = a.book_id
+		                WHERE b.user_id = ? AND (COALESCE(a.quote,'') <> '' OR COALESCE(a.note,'') <> '')
+		                ORDER BY RANDOM() LIMIT `+strconv.Itoa(quizQuoteCap),
+			p.quoteScanner(kindBook)); err != nil {
+			return p, err
+		}
+	}
+	if incScreen {
+		if err := scan(`SELECT id, title FROM movies WHERE user_id = ? AND title <> ''`,
+			func(rows *sql.Rows) error {
+				var id int64
+				var title string
+				if rows.Scan(&id, &title) != nil {
+					return nil
+				}
+				k := kindScreen + ":" + strconv.FormatInt(id, 10)
+				p.byKey[k] = workRef{key: k, kind: kindScreen, title: title, genres: map[string]bool{}, actors: map[string]bool{}}
+				return nil
+			}); err != nil {
+			return p, err
+		}
+		if err := scan(`SELECT mg.movie_id, g.name FROM movie_genres mg JOIN genres g ON g.id = mg.genre_id
+		                JOIN movies m ON m.id = mg.movie_id WHERE m.user_id = ?`,
+			func(rows *sql.Rows) error {
+				var id int64
+				var name string
+				if rows.Scan(&id, &name) == nil {
+					if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && name != "" {
+						w.genres[strings.ToLower(name)] = true
+					}
+				}
+				return nil
+			}); err != nil {
+			return p, err
+		}
+		if err := scan(`SELECT DISTINCT d.movie_id, d.actor FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		                WHERE m.user_id = ? AND COALESCE(d.actor,'') <> ''`,
+			func(rows *sql.Rows) error {
+				var id int64
+				var actor string
+				if rows.Scan(&id, &actor) == nil {
+					if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && actor != "" {
+						w.actors[strings.ToLower(actor)] = true
+					}
+				}
+				return nil
+			}); err != nil {
+			return p, err
+		}
+		if err := scan(`SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,'')
+		                FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		                WHERE m.user_id = ? AND (COALESCE(d.quote,'') <> '' OR COALESCE(d.note,'') <> '')
+		                ORDER BY RANDOM() LIMIT `+strconv.Itoa(quizQuoteCap),
+			p.quoteScanner(kindScreen)); err != nil {
+			return p, err
+		}
+	}
+	for _, w := range p.byKey {
+		p.works = append(p.works, w)
+	}
+	return p, nil
+}
+
+// quoteScanner adds a row (id, work_id, quote, note) to the quote pool, linking
+// it to its work so distractors can be ranked and same-work quotes excluded.
+func (p *quizPools) quoteScanner(kind string) func(*sql.Rows) error {
+	return func(rows *sql.Rows) error {
+		var id, workID int64
+		var quote, note string
+		if rows.Scan(&id, &workID, &quote, &note) != nil {
+			return nil
+		}
+		text := quote
+		if text == "" {
+			text = note
+		}
+		if text == "" {
+			return nil
+		}
+		if w, ok := p.byKey[kind+":"+strconv.FormatInt(workID, 10)]; ok {
+			p.quotes = append(p.quotes, quoteRef{work: w, text: text})
+		}
+		return nil
+	}
+}
+
+func sharedCount(a, b map[string]bool) int {
+	n := 0
+	for k := range a {
+		if b[k] {
+			n++
+		}
+	}
+	return n
+}
+
+// distractorScore rates how "confusable" a candidate work is with the card's
+// own work — higher means a better (harder) distractor. Same medium ranks
+// first; then, for books, the SAME AUTHOR dominates and shared genres break
+// ties; for films/shows, shared GENRES dominate and a shared ACTOR breaks ties
+// (per the owner's rule: books→author then genre, screen→genre then actor).
+func distractorScore(own, cand workRef) int {
+	if cand.key == own.key {
+		return -1 // never itself
+	}
+	score := 0
+	if cand.kind == own.kind {
+		score += 1_000_000 // same medium strongly preferred
+		if own.kind == kindBook {
+			if own.author != "" && cand.author == own.author {
+				score += 100_000
+			}
+			score += 100 * sharedCount(own.genres, cand.genres)
+		} else {
+			score += 1_000 * sharedCount(own.genres, cand.genres)
+			score += 10 * sharedCount(own.actors, cand.actors)
+		}
+	} else {
+		score += 100 * sharedCount(own.genres, cand.genres) // cross-medium: only genre overlap, weakly
+	}
+	return score
+}
+
+// buildQuestion turns a candidate into a multiple-choice card in its preferred
+// direction, falling back to the other. ok=false when neither can form (a
+// library with only one title can't offer a wrong answer).
+func buildQuestion(c reviewCand, preferred string, p quizPools) (reviewCard, bool) {
+	if card := finishCard(c, preferred); attachMCQ(&card, c.workKey, p) {
+		return card, true
+	}
+	other := dirQuote
+	if preferred == dirQuote {
+		other = dirSource
+	}
+	if card := finishCard(c, other); attachMCQ(&card, c.workKey, p) {
+		return card, true
+	}
+	return reviewCard{}, false
+}
+
+// attachMCQ fills a card's Options/Answer for its direction, drawing distractors
+// most-similar-first. Returns false if there isn't enough material for a choice.
+func attachMCQ(card *reviewCard, ownKey string, p quizPools) bool {
+	own := p.byKey[ownKey]
+	if card.Direction == dirSource {
+		// options = work titles, ranked by similarity; answer = own title.
+		var distractors []string
+		for _, w := range rankWorks(own, p.works) {
+			if w.title != card.Title {
+				distractors = append(distractors, w.title)
+			}
+		}
+		opts, ans := choicesFrom(card.Title, distractors, quizOptions)
+		if len(opts) < 2 {
+			return false
+		}
+		card.Options, card.Answer = opts, ans
+		return true
+	}
+	// dirQuote: options = quotes from OTHER works, ranked by that work's
+	// similarity; answer = this card's quote.
+	correct := card.Quote
+	if correct == "" {
+		correct = card.Note
+	}
+	if correct == "" {
+		return false
+	}
+	var distractors []string
+	for _, q := range rankQuotes(own, p.quotes) {
+		if q.work.key == ownKey || q.work.title == card.Title {
+			continue // never a quote from the same work
+		}
+		distractors = append(distractors, clip(q.text, quizQuoteClip))
+	}
+	opts, ans := choicesFrom(clip(correct, quizQuoteClip), distractors, quizOptions)
+	if len(opts) < 2 {
+		return false
+	}
+	card.Options, card.Answer = opts, ans
+	return true
+}
+
+// rankWorks / rankQuotes order distractors most-similar-first, shuffling first
+// so equally-similar candidates vary between rounds.
+func rankWorks(own workRef, works []workRef) []workRef {
+	out := append([]workRef(nil), works...)
+	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	sort.SliceStable(out, func(i, j int) bool { return distractorScore(own, out[i]) > distractorScore(own, out[j]) })
+	return out
+}
+
+func rankQuotes(own workRef, quotes []quoteRef) []quoteRef {
+	out := append([]quoteRef(nil), quotes...)
+	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	sort.SliceStable(out, func(i, j int) bool { return distractorScore(own, out[i].work) > distractorScore(own, out[j].work) })
+	return out
+}
+
+// choicesFrom assembles up to n options (the answer + distinct distractors,
+// which arrive best-first), shuffles them, and reports the answer's index.
+func choicesFrom(answer string, distractors []string, n int) ([]string, int) {
+	opts := []string{answer}
+	seen := map[string]bool{answer: true}
+	for _, d := range distractors {
+		if len(opts) >= n {
+			break
+		}
+		if !seen[d] {
+			seen[d] = true
+			opts = append(opts, d)
+		}
+	}
+	rand.Shuffle(len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
+	for i, o := range opts {
+		if o == answer {
+			return opts, i
+		}
+	}
+	return opts, 0
+}
+
+func clip(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return strings.TrimSpace(string(r[:n])) + "…"
 }
 
 // handleDailyQuiz serves GET /review/daily?offset=N — the rest of today's due
@@ -302,9 +626,18 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 	items := []reviewCard{}
 	if slots := pf.SRDaily - answered; slots > 0 {
+		pools, err := s.quizPools(uid, incBooks, incScreen)
+		if err != nil {
+			internalError(w, r, "daily quiz pools", err)
+			return
+		}
+		// Fetch with headroom over the quota: a card that can't form a
+		// multiple-choice question (too few distinct titles) is skipped, so we
+		// need more candidates than slots to still fill the deck.
+		fetch := slots * 5
 		var cands []reviewCand
 		if incBooks {
-			bc, err := s.bookCandidates(uid, true, mod, day, slots)
+			bc, err := s.bookCandidates(uid, true, mod, day, fetch)
 			if err != nil {
 				internalError(w, r, "daily quiz books", err)
 				return
@@ -312,7 +645,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			cands = append(cands, bc...)
 		}
 		if incScreen {
-			sc, err := s.screenCandidates(uid, true, mod, day, slots)
+			sc, err := s.screenCandidates(uid, true, mod, day, fetch)
 			if err != nil {
 				internalError(w, r, "daily quiz screen", err)
 				return
@@ -331,11 +664,13 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 			return shuffleKey(a.card.Kind, a.card.ID, seed) < shuffleKey(b.card.Kind, b.card.ID, seed)
 		})
-		if len(cands) > slots {
-			cands = cands[:slots]
-		}
 		for _, c := range cands {
-			items = append(items, finishCard(c, dailyDirection(c.card.Kind, c.card.ID, seed)))
+			if len(items) >= slots {
+				break
+			}
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools); ok {
+				items = append(items, card)
+			}
 		}
 	}
 	states, err := s.reviewStates(uid, incBooks, incScreen)
@@ -371,6 +706,11 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
+	pools, err := s.quizPools(uid, incBooks, incScreen)
+	if err != nil {
+		internalError(w, r, "practice pools", err)
+		return
+	}
 	var cands []reviewCand
 	if incBooks {
 		bc, err := s.bookCandidates(uid, false, "", "", 0)
@@ -389,10 +729,12 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		cands = append(cands, sc...)
 	}
 	rand.Shuffle(len(cands), func(i, j int) { cands[i], cands[j] = cands[j], cands[i] })
-	items := make([]reviewCard, 0, len(cands))
 	dirs := []string{dirSource, dirQuote}
+	items := make([]reviewCard, 0, len(cands))
 	for _, c := range cands {
-		items = append(items, finishCard(c, dirs[rand.IntN(2)]))
+		if card, ok := buildQuestion(c, dirs[rand.IntN(2)], pools); ok {
+			items = append(items, card)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pool": len(items)})
 }

@@ -47,13 +47,13 @@ function workNoun(card) {
   return 'book'
 }
 
-// askLine — the retrieval prompt for a card's direction. "source" shows the
-// quote and asks which work it's from; "quote" shows the work and asks the
-// reader to recall a line from it.
+// askLine — the multiple-choice prompt for a card's direction. "source" shows
+// the quote and asks which work it's from (options are titles); "quote" shows
+// the work and asks which quote is from it (options are quotes).
 function askLine(card) {
   return card.direction === 'source'
     ? `Which ${workNoun(card)} is this quote from?`
-    : `Recall a quote from this ${workNoun(card)}`
+    : `Which quote is from this ${workNoun(card)}?`
 }
 
 // QuoteBlock — the quote side of a card (used as prompt for "source", as the
@@ -109,14 +109,15 @@ function SourceLines({ card }) {
   )
 }
 
-// QuizRunner — the shared present → attempt recall → reveal → grade flow. The
-// caller supplies the deck and whether skipping is allowed (Practice only) and
-// is told each result (to keep its tally + pending dot honest) and when the
-// deck is exhausted. A correct save is required before advancing on got/forgot;
-// skip advances locally (the server neither schedules nor scores a skip).
+// QuizRunner — the shared multiple-choice flow. The caller supplies the deck
+// and whether skipping is allowed (Practice only) and is told each result — a
+// correct pick counts as "got", a wrong one as "forgot" — so the quiz feeds the
+// same schedule as before, only auto-graded. A correct save is required before
+// advancing; skip (Practice) advances locally, touching neither schedule nor
+// score.
 function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
   const [i, setI] = useState(0)
-  const [revealed, setRevealed] = useState(false)
+  const [picked, setPicked] = useState(null) // chosen option index for the current card
   const [busy, setBusy] = useState(false)
   const card = cards[i]
   if (!card) return null
@@ -124,69 +125,92 @@ function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
   function advance() {
     if (i + 1 >= cards.length) return onDone?.()
     setI(i + 1)
-    setRevealed(false)
+    setPicked(null)
   }
 
-  async function grade(result) {
-    if (busy) return
-    if (result === 'skip') return advance()
+  async function pick(idx) {
+    if (picked != null || busy) return // one shot per question
+    const correct = idx === card.answer
+    setPicked(idx)
     setBusy(true)
     const r = await json('POST', '/review/answer', {
       kind: card.kind,
       id: card.id,
-      result,
+      result: correct ? 'got' : 'forgot',
       mode,
       offset: tzOffsetMinutes(),
     })
     setBusy(false)
-    // Advance only on a confirmed save — a failed POST leaves the card in place
-    // rather than inflating the tally / draining the pending dot for a grade the
-    // server never recorded.
-    if (!r.ok) return toast('couldn’t save — check your connection and try again')
-    onAnswered?.(result, r.data)
-    advance()
+    // A failed save reverts the pick so the card can be retried rather than
+    // silently missing from the tally / schedule.
+    if (!r.ok) {
+      setPicked(null)
+      return toast('couldn’t save — check your connection and try again')
+    }
+    onAnswered?.(correct, r.data)
   }
 
   const isSource = card.direction === 'source'
+  const answered = picked != null
   return (
     <div key={i} className="review-card-body">
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+      <div className="mb-2 flex items-baseline justify-between gap-3">
         <MonoLabel>{askLine(card)}</MonoLabel>
         <span className="mono-label" style={{ letterSpacing: '.06em' }}>{i + 1} of {cards.length}</span>
       </div>
       {isSource ? <QuoteBlock card={card} /> : <SourceLines card={card} />}
-      {!revealed ? (
-        <div className="mt-3 flex items-center gap-3">
-          <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setRevealed(true)}>
-            Show answer
-          </button>
-          {allowSkip && (
-            <button type="button" className="tp-link" onClick={() => grade('skip')}>skip</button>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-            {isSource ? <SourceLines card={card} /> : <QuoteBlock card={card} />}
-          </div>
-          <div className="mt-3.5 flex items-center gap-2">
+      <div className="mt-3 flex flex-col gap-2">
+        {(card.options || []).map((opt, idx) => {
+          const isAnswer = idx === card.answer
+          const chosen = picked === idx
+          let border = 'var(--line)'
+          let bg = 'var(--raised)'
+          if (answered && isAnswer) {
+            border = 'var(--ok)'
+            bg = 'color-mix(in srgb, var(--ok) 16%, transparent)'
+          } else if (chosen && !isAnswer) {
+            border = 'var(--error)'
+            bg = 'color-mix(in srgb, var(--error) 12%, transparent)'
+          }
+          return (
             <button
+              key={idx}
               type="button"
-              className="tp-btn tp-btn-primary tactile flex-1"
-              disabled={busy}
-              onClick={() => grade('got')}
+              disabled={answered || busy}
+              onClick={() => pick(idx)}
+              className="text-left"
+              style={{
+                minHeight: 44,
+                padding: '9px 13px',
+                borderRadius: 9,
+                border: `1.4px solid ${border}`,
+                background: bg,
+                fontFamily: isSource ? 'var(--font-ui)' : 'var(--font-display)',
+                fontStyle: isSource ? 'normal' : 'italic',
+                fontSize: 14.5,
+                lineHeight: 1.4,
+                overflowWrap: 'anywhere',
+              }}
             >
-              Got it
+              {opt}
             </button>
-            <GhostButton className="flex-1" disabled={busy} onClick={() => grade('forgot')}>
-              Forgot
-            </GhostButton>
-            {allowSkip && (
-              <button type="button" className="tp-link" disabled={busy} onClick={() => grade('skip')}>skip</button>
-            )}
-          </div>
-        </>
-      )}
+          )
+        })}
+      </div>
+      {answered ? (
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <MonoLabel style={{ color: picked === card.answer ? 'var(--ok)' : 'var(--error)' }}>
+            {picked === card.answer ? 'correct' : 'not quite'}
+          </MonoLabel>
+          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={advance}>
+            {i + 1 < cards.length ? 'Next' : 'Finish'}
+          </button>
+        </div>
+      ) : allowSkip ? (
+        <div className="mt-3 text-right">
+          <button type="button" className="tp-link" onClick={advance}>skip</button>
+        </div>
+      ) : null}
     </div>
   )
 }

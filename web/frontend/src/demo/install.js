@@ -176,26 +176,51 @@ const REVIEW_DECK = [1, 5, 4] // annotation ids, "due" order
 const review = { touched: new Set(), got: 0, forgot: 0 }
 const practice = { answered: 0, got: 0, forgot: 0 }
 
+// demoShuffle / demoMCQ attach multiple-choice options the way review_handlers.go
+// does — options are titles (source direction) or quotes (quote direction), with
+// the correct one's index.
+function demoShuffle(arr) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+function demoMCQ(card) {
+  if (card.direction === 'source') {
+    const pool = (card.kind === 'book' ? BOOKS : MOVIES).map((x) => x.title).filter((t) => t && t !== card.title)
+    const opts = demoShuffle([card.title, ...demoShuffle(pool).slice(0, 3)])
+    return { options: opts, answer: opts.indexOf(card.title) }
+  }
+  const correct = card.quote || card.note
+  const pool = (card.kind === 'book' ? ANNOTATIONS : DIALOGUES).map((x) => x.quote).filter((q) => q && q !== correct)
+  const opts = demoShuffle([correct, ...demoShuffle(pool).slice(0, 3)])
+  return { options: opts, answer: opts.indexOf(correct) }
+}
+
 // reviewCard shapes a card the way review_handlers.go does.
 function bookCard(a, direction) {
   const b = BOOKS.find((x) => x.id === a.book_id) || {}
-  return {
+  const card = {
     kind: 'book', id: a.id, direction: direction || (a.id % 2 ? 'source' : 'quote'),
     quote: a.quote || '', note: a.note || '', color: a.color || 'yellow',
     title: b.title || '', author: b.author || '', character: '',
     chapter: a.chapter || '', location: a.location || '', timestamp: '', media_type: '',
     stability: 1, review_count: 0, status: 'unseen',
   }
+  return { ...card, ...demoMCQ(card) }
 }
 function screenCard(d, direction) {
   const m = MOVIES.find((x) => x.id === d.movie_id) || {}
-  return {
+  const card = {
     kind: 'screen', id: d.id, direction: direction || (d.id % 2 ? 'source' : 'quote'),
     quote: d.quote || '', note: d.note || '', color: '',
     title: m.title || '', author: '', character: d.character || '',
     chapter: '', location: '', timestamp: d.timestamp || '', media_type: m.media_type || 'movie',
     stability: 1, review_count: 0, status: 'unseen',
   }
+  return { ...card, ...demoMCQ(card) }
 }
 function reviewItems() {
   return REVIEW_DECK.filter((id) => !review.touched.has(id))

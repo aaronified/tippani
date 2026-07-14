@@ -65,12 +65,12 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   **books *and* films/shows** alike. Every highlight carries a **memory half-life** and resurfaces
   along the **Ebbinghaus forgetting curve**: recall probability decays as $p = 2^{-t/h}$ — where $t$
   is the days since you last saw it and $h$ is its half-life — so a card comes due right as you're
-  about to forget it. Each card is a **retrieval prompt** in one of two directions — *which work is
-  this quote from?* or *recall a quote from this work* — that you answer from memory, then reveal and
-  grade honestly:
-  - ***Got it*** — stretch the interval (the half-life grows);
-  - ***Forgot*** — a lapse: shortened, never hard-reset;
-  - ***Skip*** — Practice only; benched, no effect on the schedule.
+  about to forget it. Each card is a **multiple-choice** question in one of two directions — *which
+  work is this quote from?* (pick the title) or *which quote is from this work?* (pick the quote) — with
+  **plausible distractors**: for books, other works by the **same author** first, then the closest by
+  **shared genre**; for films/shows, the closest by **shared genre**, then a **shared actor**. A correct
+  pick counts as ***Got it*** (the half-life grows); a wrong one as ***Forgot*** (a lapse — shortened,
+  never hard-reset); Practice also allows ***Skip*** (no effect on the schedule).
 
   The **Daily Quiz** is the scheduled session: every card due that day, no skipping, each grade folded
   into your schedule, with a permanent score and streak. **Practice** is unlimited, skippable, on-demand

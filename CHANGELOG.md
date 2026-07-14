@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-14
+
+### Changed
+- **Daily Quiz & Practice are now multiple-choice**, replacing the self-graded
+  "show answer" reveal from 0.5.0 (which was awkward, especially for the "which
+  quote is from this work?" direction). Both directions are now real MCQs: *which
+  work is this quote from?* (pick the title) and *which quote is from this work?*
+  (pick the quote). A correct pick counts as **Got it**, a wrong one as **Forgot**;
+  Practice still allows **Skip**. The schedule, scores and status dots are
+  unchanged — only the interaction.
+- **Distractors are chosen to be plausible, not random.** For books, wrong options
+  are drawn from other works by the **same author** first, then those sharing the
+  **most genres**; for films/shows, by **shared genre** first, then a **shared
+  actor** (never the director). Same medium is always preferred over cross-medium.
+
+### Fixed
+- **Status dots now show on every quote.** The "not yet reviewed" dot used a border
+  colour (`--line`) that was invisible against the card; unseen quotes now show a
+  visible hollow grey dot, and reviewed ones their remembered/forgetting/probably-
+  forgotten colour.
+- **Flaky timezone test.** `TestDailyQuizTimezone` asserted a cross-midnight case
+  off the wall clock and could fail depending on the hour CI ran (it broke 0.6.0's
+  CI at 03:45 UTC though the code was fine); it now asserts the local-day shift
+  deterministically.
+
+### Settings
+- The two long descriptor paragraphs in *Daily quiz & practice* collapse into the
+  standard info-dot tooltips (the panel's controls already govern both modes: daily
+  deck size, review scope, "Practice moves the schedule", and the half-life factors).
+
 ## [0.6.0] - 2026-07-14
 
 ### Added

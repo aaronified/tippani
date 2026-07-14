@@ -9,6 +9,17 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.6.1 (July 2026)**
+
+- **Multiple-choice Daily Quiz & Practice** — replaced 0.5.0's self-graded "show
+  answer" reveal with real MCQs in both directions (*which work is this quote from?*
+  / *which quote is from this work?*); a correct pick is Got it, a wrong one Forgot,
+  Practice still skippable. Distractors are **plausible, not random** — books by
+  same author then shared genre, films/shows by shared genre then shared actor.
+- **Fixes** — the "not yet reviewed" status dot was invisible (wrong border colour)
+  and now shows on every quote; a wall-clock-flaky timezone test is deterministic;
+  the *Daily quiz & practice* settings descriptors collapse into info-dots.
+
 **v0.6.0 (July 2026)**
 
 - **In-app updates** — the build version is stamped into the binary and shown in

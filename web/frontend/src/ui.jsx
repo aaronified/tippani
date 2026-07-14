@@ -1130,7 +1130,9 @@ export function ReviewDot({ item, side = "top" }) {
         aria-label={st.tip}
         style={{
           background: st.filled ? st.color : "transparent",
-          borderColor: st.filled ? st.color : "var(--line)",
+          // Always ring in the status colour (unseen = a visible hollow grey);
+          // using --line here made the unseen dot invisible against the card.
+          borderColor: st.color,
         }}
       />
     </Tooltip>
