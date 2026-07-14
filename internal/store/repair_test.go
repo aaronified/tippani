@@ -215,6 +215,81 @@ func TestFTSRepair(t *testing.T) {
 	}
 }
 
+// TestRepairIndex covers the runtime self-heal primitive the live search path
+// uses (Server.ftsQuery → Store.RepairIndex): a single named index reconstructed
+// in place from content while the server is running. Same DROP+recreate+rebuild
+// mechanism as ReindexFTS but scoped to one table. Plants a stray entry, repairs,
+// and proves the index is re-derived from content and the sync triggers survive.
+func TestRepairIndex(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := st.DB.Exec(q, args...); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	count := func(q string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := st.DB.QueryRow(q, args...).Scan(&n); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+		return n
+	}
+
+	exec(`INSERT INTO users (username, password_hash) VALUES ('a', 'x')`)
+	exec(`INSERT INTO books (user_id, title) VALUES (1, 'Moby Dick')`)
+	exec(`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (1, 'Call me Ishmael', 'manual', 'h1')`)
+
+	// Stray index entry with no backing content row — must vanish on repair.
+	exec(`INSERT INTO annotations_fts(rowid, quote, note) VALUES (999, 'phantom ghost', '')`)
+	if n := count(`SELECT count(*) FROM annotations_fts WHERE annotations_fts MATCH ?`, `"phantom"`); n != 1 {
+		t.Fatalf("stray entry not present before repair: got %d", n)
+	}
+
+	if err := st.RepairIndex("annotations_fts"); err != nil {
+		t.Fatalf("RepairIndex: %v", err)
+	}
+
+	if n := count(`SELECT count(*) FROM annotations_fts WHERE annotations_fts MATCH ?`, `"ishmael"`); n != 1 {
+		t.Fatalf("real row missing after repair: got %d", n)
+	}
+	if n := count(`SELECT count(*) FROM annotations_fts WHERE annotations_fts MATCH ?`, `"phantom"`); n != 0 {
+		t.Fatalf("stray entry survived repair: got %d", n)
+	}
+	// Triggers restored by the repair: a fresh insert indexes.
+	exec(`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (1, 'the doubloon', 'manual', 'h2')`)
+	if n := count(`SELECT count(*) FROM annotations_fts WHERE annotations_fts MATCH ?`, `"doubloon"`); n != 1 {
+		t.Fatalf("insert trigger not restored after repair: got %d", n)
+	}
+}
+
+// TestCheckpoint proves the graceful-shutdown WAL checkpoint (Store.Checkpoint)
+// runs without error on a healthy database with a populated WAL.
+func TestCheckpoint(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO users (username, password_hash) VALUES ('a','x')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Checkpoint(); err != nil {
+		t.Fatalf("Checkpoint: %v", err)
+	}
+}
+
 // TestReset proves the factory reset wipes the database file and re-initialises
 // an empty, usable schema (back to zero users → onboarding).
 func TestReset(t *testing.T) {

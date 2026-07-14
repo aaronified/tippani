@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-07-14
+
+### Fixed
+- **Search no longer stays broken after a corrupt index — it self-heals on the
+  spot.** When a live search hit a corrupt full-text index (`database disk image
+  is malformed`), the old runtime recovery only ran a bare `rebuild`, which has to
+  re-read the same damaged pages and so failed again — every search 500'd until the
+  server was restarted. The search path now reconstructs the index the same way
+  startup does (drop + recreate + rebuild, discarding the corrupt pages) and
+  retries, so search recovers within the same request. No library data is affected
+  (the search indexes are derived from your books, quotes, films and dialogues).
+- **Homepage favourites could silently disappear entirely.** If any of the three
+  requests behind the Favourites grid returned an unexpected non-JSON response
+  (e.g. an HTML page from a reverse proxy, or an expired session), the whole
+  section vanished instead of degrading gracefully. It's now guarded.
+
+### Changed
+- **Hardened the database against the corruption recurring.** The server now shuts
+  down gracefully on `SIGTERM`/`docker stop` (and during a self-update): it drains
+  in-flight requests, then folds the write-ahead log back into the main database
+  file before exiting, so an unclean kill can't leave a torn WAL to corrupt the
+  search index on the next boot. Writes also now use `synchronous=FULL` in WAL mode
+  to close the torn-write window on volumes that don't guarantee fsync ordering.
+- **List endpoints no longer silently drop rows.** A row that fails to scan (a sign
+  of schema/query drift) is now logged loudly instead of being quietly skipped with
+  a `200`, so "mysteriously empty list" bugs surface immediately.
+
 ## [0.6.3] - 2026-07-14
 
 ### Added

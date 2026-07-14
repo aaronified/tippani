@@ -24,14 +24,17 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io/fs"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"tippani/internal/auth"
@@ -168,9 +171,40 @@ func serve() {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-	log.Printf("tippani listening on http://%s", bind)
-	if err := httpServer.ListenAndServe(); err != nil {
+	// Graceful shutdown. `docker stop` and the Watchtower self-updater send
+	// SIGTERM, then SIGKILL after a grace period (~10s by default). Without a
+	// handler the Go runtime terminates immediately: the deferred st.Close() never
+	// runs and the WAL is left un-checkpointed, so an unclean kill on a volume that
+	// doesn't guarantee fsync ordering can tear the WAL and corrupt the search
+	// indexes on the next boot. Here we drain in-flight requests, fold the WAL back
+	// into the main file (Checkpoint) and then let the deferred Close run — all well
+	// inside the stop-grace period (5s drain) so it finishes before SIGKILL.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	serveErr := make(chan error, 1)
+	go func() {
+		log.Printf("tippani listening on http://%s", bind)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serveErr <- err
+		}
+	}()
+
+	select {
+	case err := <-serveErr:
 		log.Fatal(err)
+	case sig := <-stop:
+		log.Printf("received %s — shutting down gracefully", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Printf("graceful shutdown timed out (%v) — forcing close", err)
+			_ = httpServer.Close()
+		}
+		if err := st.Checkpoint(); err != nil {
+			log.Printf("wal checkpoint on shutdown failed: %v (db still valid; WAL replays on reopen)", err)
+		} else {
+			log.Printf("wal checkpointed into main database — clean shutdown")
+		}
 	}
 }
 

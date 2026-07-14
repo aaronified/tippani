@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"tippani/internal/olog"
 	"tippani/internal/store"
 )
 
@@ -278,9 +279,19 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		a := annotationRow{Tags: []string{}}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
 			&a.Chapter, &a.Location, &a.Favorite, &a.Rating, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
-			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult); err == nil {
-			items = append(items, a)
+			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult); err != nil {
+			// Never silently drop a row: a scan error means the SELECT and the
+			// annotationRow struct drifted apart (e.g. a migration added a column),
+			// which would otherwise show up as a mysteriously short/empty list with a
+			// 200 — exactly the kind of "favourites vanished" symptom that's painful
+			// to trace. Log it loudly and keep going.
+			olog.Alertf("[annotations] list row scan failed (schema/query drift?): %v", err)
+			continue
 		}
+		items = append(items, a)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Alertf("[annotations] list row iteration failed: %v", err)
 	}
 	// One query fills all tag lists (tags are per-user, so this can't leak).
 	tagRows, err := s.Store.DB.Query(`

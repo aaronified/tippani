@@ -67,6 +67,8 @@ func (s *Store) CheckIntegrity() bool {
 // indexes are derived). A failure at both levels is logged loudly and the server
 // still starts (search on that scope errors until Profile → Reset all data).
 func (s *Store) RepairFTS() {
+	s.repairMu.Lock()
+	defer s.repairMu.Unlock()
 	olog.Printf("[fts] checking %d full-text index(es) for corruption", len(ftsTables))
 	needRecover := false
 	for _, t := range ftsTables {
@@ -99,6 +101,8 @@ func (s *Store) RepairFTS() {
 // escalates to Recover (whole-database rebuild from content). Returns the tables
 // that could NOT be rebuilt (empty on full success, including after a recovery).
 func (s *Store) ReindexFTS() []string {
+	s.repairMu.Lock()
+	defer s.repairMu.Unlock()
 	olog.Printf("[fts] reindex requested — reconstructing all %d index(es)", len(ftsTables))
 	var failed []string
 	for _, t := range ftsTables {
@@ -121,6 +125,23 @@ func (s *Store) ReindexFTS() []string {
 	}
 	olog.Printf("[fts] reindex: database recovered — all indexes rebuilt from content, no data lost")
 	return nil
+}
+
+// RepairIndex reconstructs a single FTS index in place (DROP + recreate + rebuild
+// via rebuildFTSTable) under the repair lock. It is the runtime counterpart to the
+// startup RepairFTS: the search path calls it when a live query hits
+// "database disk image is malformed", because a bare 'rebuild' re-reads the same
+// corrupt pages and can't fix page-level damage — dropping and recreating the
+// shadow tables discards them instead. Deliberately does NOT escalate to the
+// whole-database Recover(): Recover swaps s.DB, which would race in-flight request
+// goroutines on the hot path. If the index is too corrupt for even DROP to
+// succeed, this returns the error and the caller surfaces it; that rare case is
+// fully healed by RepairFTS→Recover on the next (now-clean) restart or by the
+// admin "Rebuild search index" action. table must be one of ftsTables.
+func (s *Store) RepairIndex(table string) error {
+	s.repairMu.Lock()
+	defer s.repairMu.Unlock()
+	return s.rebuildFTSTable(table)
 }
 
 // rebuildFTSTable reconstructs one external-content FTS5 index: capture its

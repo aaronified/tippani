@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 	"tippani/internal/store"
 )
 
@@ -285,9 +286,16 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		d := dialogueRow{Tags: []string{}}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
-			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err == nil {
-			items = append(items, d)
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err != nil {
+			// See annotation_handlers: never silently drop a row — a scan error is a
+			// SELECT/struct drift and would present as an unexplained empty list.
+			olog.Alertf("[dialogues] list row scan failed (schema/query drift?): %v", err)
+			continue
 		}
+		items = append(items, d)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Alertf("[dialogues] list row iteration failed: %v", err)
 	}
 	// One query fills all tag lists (tags are per-user, so this can't leak).
 	tagRows, err := s.Store.DB.Query(`

@@ -509,13 +509,20 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       json('GET', '/dialogues?favorite=1'),
       json('GET', '/movies'),
     ]).then(([ra, rd, rm]) => {
+      // Guard .data, not just .ok: a 2xx response with a non-JSON/empty body
+      // (an SPA/HTML fallback from a reverse proxy, or a session-expiry redirect
+      // resolved to a 200 page) leaves .data null. Dereferencing .data.movies
+      // then throws and — with no catch — silently blanked the ENTIRE favourites
+      // section while the rest of Home rendered. Guard each, and catch below.
       const movieMap = {}
-      if (rm.ok) for (const m of rm.data.movies || []) movieMap[m.id] = m
+      if (rm.ok && rm.data) for (const m of rm.data.movies || []) movieMap[m.id] = m
       const list = []
-      if (ra.ok) for (const a of ra.data.annotations || []) list.push(bookFav(a))
-      if (rd.ok) for (const d of rd.data.dialogues || []) list.push(screenFav(d, movieMap))
+      if (ra.ok && ra.data) for (const a of ra.data.annotations || []) list.push(bookFav(a))
+      if (rd.ok && rd.data) for (const d of rd.data.dialogues || []) list.push(screenFav(d, movieMap))
       list.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''))
       setFavs(list)
+    }).catch((e) => {
+      console.error('favourites load failed', e)
     })
   }, [])
 

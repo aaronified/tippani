@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -240,25 +239,32 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// ftsQuery runs an FTS5 MATCH query and, if it fails, rebuilds the given
-// external-content index once and retries. These indexes (books_fts, …) are
-// kept in sync by triggers, but can still drift out of sync with their content
-// table — e.g. a NULL-vs-'' mismatch between what a row was indexed with and
-// what the delete/update trigger passes — which surfaces only at query time as
-// a runtime "database disk image is malformed" and turned every search into an
-// opaque 500. A 'rebuild' re-derives the whole index from the content rows, so
-// it self-heals a drifted index on the first search after a deploy instead of
-// staying broken until someone notices. ftsTable is a fixed internal identifier
-// (never user input), so the Sprintf is injection-safe.
+// ftsQuery runs an FTS5 MATCH query and, if it fails, reconstructs the given
+// external-content index once and retries. These indexes (books_fts, …) are kept
+// in sync by triggers but can still end up corrupt — a NULL-vs-'' drift between
+// what a row was indexed with and what a delete/update trigger passes, or genuine
+// page-level damage from an unclean shutdown — which surfaces only at query time
+// as "database disk image is malformed" and turned every search into an opaque
+// 500.
+//
+// Recovery mirrors the startup path (store.RepairFTS): RepairIndex does a
+// DROP + recreate + rebuild, which discards the corrupt shadow pages instead of
+// re-reading them. This matters because a bare 'rebuild' has to read the same bad
+// %_data b-tree to clear it, so on page-level corruption it re-hits SQLITE_CORRUPT
+// and can't self-heal — which is exactly what the old code did and why searches
+// stayed broken until a restart. RepairIndex serializes with any concurrent
+// search's repair (and with admin reindex / startup repair) via the store lock,
+// so two corrupt-index queries don't race on the DROP.
 func (s *Server) ftsQuery(ftsTable, query string, args ...any) (*sql.Rows, error) {
 	rows, err := s.Store.DB.Query(query, args...)
 	if err == nil {
 		return rows, nil
 	}
-	log.Printf("[search] %s query failed (%v); rebuilding index and retrying", ftsTable, err)
-	if _, rbErr := s.Store.DB.Exec(fmt.Sprintf("INSERT INTO %s(%s) VALUES('rebuild')", ftsTable, ftsTable)); rbErr != nil {
-		log.Printf("[search] %s rebuild failed: %v", ftsTable, rbErr)
+	log.Printf("[search] %s query failed (%v); reconstructing index and retrying", ftsTable, err)
+	if rbErr := s.Store.RepairIndex(ftsTable); rbErr != nil {
+		log.Printf("[search] %s reconstruction failed: %v — restart the server or run Profile → Rebuild search index to fully recover", ftsTable, rbErr)
 		return nil, err
 	}
+	log.Printf("[search] %s reconstructed; retrying query", ftsTable)
 	return s.Store.DB.Query(query, args...)
 }
