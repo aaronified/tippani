@@ -53,6 +53,14 @@ const (
 	CodeBookCover        Code = "TIP-BOOK-002"  // book cover fetch failed on create (cover dropped, book kept)
 	CodeMovieCover       Code = "TIP-MOVIE-002" // movie poster fetch failed on create/update (dropped)
 	CodeCoverFetch       Code = "TIP-COVER-001" // on-demand cover/poster refetch failed
+
+	// User-supplied cover/poster/image URL fetch failed on an edit — the whole
+	// save is rejected (502), unlike the create-time CodeBookCover/CodeMovieCover
+	// paths, which are non-fatal. These log the real cause since the client only
+	// ever sees a generic "couldn't fetch that image" message.
+	CodeBookCoverUpdate  Code = "TIP-BOOK-003"
+	CodeMovieCoverUpdate Code = "TIP-MOVIE-003"
+	CodePeopleImageFetch Code = "TIP-PEOPLE-002"
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -92,4 +100,8 @@ var Registry = map[Code]string{
 	CodeBookCover:        "A book cover image could not be fetched on create; the book was saved without a cover.",
 	CodeMovieCover:       "A movie poster could not be fetched on create/update; saved without a poster.",
 	CodeCoverFetch:       "An on-demand cover/poster refetch failed.",
+
+	CodeBookCoverUpdate:  "A user-supplied cover URL failed to fetch on edit; the save was rejected.",
+	CodeMovieCoverUpdate: "A user-supplied poster URL failed to fetch on edit; the save was rejected.",
+	CodePeopleImageFetch: "A user-supplied person image URL failed to fetch; the save was rejected.",
 }

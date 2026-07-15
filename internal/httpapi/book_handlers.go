@@ -346,6 +346,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	} else if req.CoverURL != "" {
 		name, ferr := s.fetchUserImage(r.Context(), req.CoverURL, s.coversDir())
 		if ferr != nil {
+			olog.Errorf(olog.CodeBookCoverUpdate, "[book] update id=%d cover fetch failed: %v", id, ferr)
 			writeErr(w, http.StatusBadGateway,
 				"couldn't fetch that cover image — check the URL points directly at a JPG/PNG/WebP/GIF under 10 MB")
 			return

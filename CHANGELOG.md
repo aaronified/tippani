@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-07-16
+
+### Fixed
+- **Silent cover/poster/image fetch failures on edit.** Updating a book's cover,
+  a movie's poster, or a person's image now logs the real cause
+  (`TIP-BOOK-003`, `TIP-MOVIE-003`, `TIP-PEOPLE-002`) when the fetch is
+  rejected, instead of only returning the generic "couldn't fetch that image"
+  502 with nothing in the logs to diagnose it by.
+
 ## [0.6.5] - 2026-07-14
 
 ### Added

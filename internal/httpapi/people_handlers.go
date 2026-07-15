@@ -178,6 +178,8 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	} else if req.ImageURL != "" {
 		name, ferr := s.fetchUserImage(r.Context(), req.ImageURL, s.coversDir())
 		if ferr != nil {
+			olog.Errorf(olog.CodePeopleImageFetch, "[people] upsert kind=%s name=%q image fetch failed: %v",
+				req.Kind, req.Name, ferr)
 			writeErr(w, http.StatusBadGateway,
 				"couldn't fetch that image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
 			return

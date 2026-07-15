@@ -466,6 +466,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	} else if req.PosterURL != "" {
 		name, ferr := s.fetchUserImage(r.Context(), req.PosterURL, s.coversDir())
 		if ferr != nil {
+			olog.Errorf(olog.CodeMovieCoverUpdate, "[movie] update id=%d poster fetch failed: %v", id, ferr)
 			writeErr(w, http.StatusBadGateway,
 				"couldn't fetch that poster image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
 			return
