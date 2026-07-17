@@ -1425,8 +1425,8 @@
   .preset-callout.tex-film::before { background-image: url("./textures/metal.webp"); background-size: 170px; }
 
   .user-chip {
-    width: 34px;
-    height: 34px;
+    width: 38px;               /* matches .topbar-add-btn height so the row reads level */
+    height: 38px;
     border-radius: 32%;        /* squircle, not a circle */
     overflow: hidden;          /* clip an uploaded avatar image to the squircle */
     display: inline-flex;
@@ -1444,7 +1444,11 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
   .user-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .user-menu { flex: none; }
+  /* Flex, not block: an inline-flex chip in a block wrapper sits on the text
+     baseline, so the line box adds ~6px of descender space below it — the
+     wrapper outgrows the chip and the chip rides high (or spills out of the
+     52px mobile bar). A flex wrapper hugs the chip exactly. */
+  .user-menu { flex: none; display: flex; align-items: center; }
   .user-menu-panel {
     position: absolute;
     right: 0;
