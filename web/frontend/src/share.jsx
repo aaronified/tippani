@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ANNOTATION_HEX, GhostButton, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, readTheme } from "./quoteImage.js";
 import { paletteTheme } from "./theme.js";
-import { DEMO, copyText, json } from "./api.js";
+import { DEMO, apiURL, copyText, json } from "./api.js";
 
 // Image themes for the share card — the app's four skins, chosen independently
 // of the live app theme (an export choice, persisted per device). Value is the
@@ -476,8 +476,33 @@ function QuoteImagePanel({ share, selected, onShared }) {
           return;
         } catch (e) {
           if (e?.name === "AbortError") return; // user closed the sheet — not an error
-          // anything else falls through to the anchor download below
+          // anything else falls through to the server round-trip below
         }
+      }
+    }
+    // Phones without a usable Web Share API — Android WebView wrappers
+    // (Native Alpha) never implement it, and plain-HTTP origins strip it —
+    // round-trip through the server instead: stage the PNG, then download the
+    // returned one-shot URL. A real URL + Content-Disposition survives the
+    // WebView DownloadManager boundary that garbles blob: names and bytes.
+    if (mobile) {
+      try {
+        const form = new FormData();
+        form.append("file", blob, "tippani-quote.png");
+        const r = await fetch(apiURL("/share/image"), { method: "POST", body: form });
+        if (r.ok) {
+          const { url } = await r.json();
+          const a = document.createElement("a");
+          a.href = apiURL(url);
+          a.download = "tippani-quote.png";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          onShared?.();
+          return;
+        }
+      } catch {
+        // server unreachable — the blob anchor below is the last resort
       }
     }
     const href = URL.createObjectURL(blob);

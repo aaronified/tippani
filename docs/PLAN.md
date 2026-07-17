@@ -486,6 +486,12 @@ GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
+POST   /share/image                  # stage a rendered quote PNG (multipart "file") → {url}: a
+                                     #   one-shot download path. For WebView wrappers with no Web
+                                     #   Share API whose blob: bridges garble names/bytes.
+GET    /share/image/{token}          # serve the staged PNG once (Content-Disposition names it);
+                                     #   session-free BY DESIGN — DownloadManager fetches outside
+                                     #   the cookie jar; the single-use random token is the credential
 GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status;
                                      #   joined multi-author credits list as split components (§11,
                                      #   per-user creditSeparators pref); each row carries count =

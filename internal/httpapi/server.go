@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -54,6 +55,11 @@ type Server struct {
 	// factory for the Docker-socket client, both stubbed in tests.
 	GitHubAPI string
 	newDocker func() UpdateDocker
+
+	// One-shot quote-image downloads (share_handlers.go): token → staged PNG,
+	// lazily initialized under the lock.
+	shareMu     sync.Mutex
+	shareImages map[string]shareEntry
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -124,6 +130,12 @@ func (s *Server) Handler() http.Handler {
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
+
+	// One-shot quote-image downloads (share_handlers.go). The GET is public by
+	// design: the single-use crypto-random token is the credential, because
+	// WebView wrappers download outside the page's cookie jar.
+	mux.Handle("POST /share/image", s.requireAuth(s.handleShareImageUpload))
+	mux.HandleFunc("GET /share/image/{token}", s.handleShareImageDownload)
 
 	// People metadata (§ author/actor enrichment): per-name bio/photo/links,
 	// keyed by (kind, name) and matched to books/films by exact author/actor.
