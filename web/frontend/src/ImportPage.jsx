@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { json, upload, errText } from './api.js'
 import {
   ErrorText,
@@ -155,20 +155,25 @@ export default function ImportPage({ onOpenMovie, embedded = false }) {
       )}
       {/* Embedded in the narrow Add surface (max-w-2xl), 4 columns crammed the
           cards and overflowed the buttons — cap at 2 there; the standalone page
-          keeps the wide 4-up wall. */}
-      <div ref={ref} className={'reveal grid gap-3 sm:grid-cols-2' + (embedded ? '' : ' lg:grid-cols-4')}>
-        {SOURCES.map((s, i) => (
-          <SourceCard
-            key={s.kind}
-            {...s}
-            variant={i}
-            color={CARD_COLORS[i % CARD_COLORS.length]}
-            busy={busy}
-            onFiles={(fs) => runBatch(s.kind, fs)}
-          />
-        ))}
-        <DisabledCard />
-      </div>
+          keeps the wide 4-up wall. Phones swap the wall for a searchable
+          format picker: one detail card beats a six-card scroll. */}
+      {mobile ? (
+        <MobileImportPicker busy={busy} onFiles={runBatch} />
+      ) : (
+        <div ref={ref} className={'reveal grid gap-3 sm:grid-cols-2' + (embedded ? '' : ' lg:grid-cols-4')}>
+          {SOURCES.map((s, i) => (
+            <SourceCard
+              key={s.kind}
+              {...s}
+              variant={i}
+              color={CARD_COLORS[i % CARD_COLORS.length]}
+              busy={busy}
+              onFiles={(fs) => runBatch(s.kind, fs)}
+            />
+          ))}
+          <DisabledCard />
+        </div>
+      )}
       {results && <BatchResults results={results} summary={summary} onOpenMovie={onOpenMovie} />}
       {queue && <ReviewPanel queue={queue} onDone={() => setQueue(null)} />}
       <SaveDontPasteNote />
@@ -223,6 +228,99 @@ function ExtBadge({ muted, color, children }) {
     >
       {children}
     </span>
+  )
+}
+
+// MobileImportPicker — the phone-sized import chooser (§ mobile): a searchable
+// dropdown over SOURCES, the picked format's detail card with its how-to steps
+// inline (the info-dot tooltip barely works on touch), and one Import button.
+// Markdown is the default pick.
+function MobileImportPicker({ busy, onFiles }) {
+  const [sel, setSel] = useState('markdown')
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('touchstart', onDoc)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('touchstart', onDoc)
+    }
+  }, [open])
+  const selIdx = SOURCES.findIndex((s) => s.kind === sel)
+  const selected = SOURCES[selIdx]
+  const color = CARD_COLORS[selIdx % CARD_COLORS.length]
+  const q = query.trim().toLowerCase()
+  const hits = q
+    ? SOURCES.filter((s) => `${s.title} ${s.desc} ${s.ext}`.toLowerCase().includes(q))
+    : SOURCES
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="relative" ref={boxRef}>
+        <input
+          type="text"
+          className="tp-input"
+          role="combobox"
+          aria-expanded={open}
+          aria-label="Import format"
+          placeholder="Search formats…"
+          value={open ? query : selected.title}
+          onFocus={() => { setQuery(''); setOpen(true) }}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        />
+        {open && (
+          <div className="tp-select-panel" role="listbox" style={{ width: '100%' }}>
+            {hits.length === 0 && <p className="microcopy px-3 py-2">no format matches</p>}
+            {hits.map((s) => (
+              <button
+                key={s.kind}
+                type="button"
+                role="option"
+                aria-selected={s.kind === sel}
+                className="tp-select-opt tactile"
+                onClick={() => { setSel(s.kind); setQuery(''); setOpen(false) }}
+              >
+                {s.title} <span className="mono-label" style={{ color: 'var(--faint)', marginLeft: 6 }}>{s.ext}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <HandCard variant={selIdx} colorBar={color} className="flex flex-col gap-3 p-5">
+        <ExtBadge color={color}>{selected.ext}</ExtBadge>
+        <h3 className="text-base font-semibold">{selected.title}</h3>
+        <p className="text-sm" style={{ color: 'var(--soft)' }}>{selected.desc}</p>
+        <ol
+          className="text-sm"
+          style={{ color: 'var(--soft)', listStyle: 'decimal', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}
+        >
+          {selected.steps.map((step, i) => (
+            <li key={i}>{step}</li>
+          ))}
+        </ol>
+        <label
+          className="tp-btn tp-btn-primary w-full"
+          style={busy ? { opacity: 0.55, cursor: 'default' } : { cursor: 'pointer' }}
+        >
+          Import — pick file(s)
+          <input
+            type="file"
+            multiple
+            accept={selected.accept}
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const fs = [...e.target.files]
+              e.target.value = ''
+              if (fs.length > 0) onFiles(selected.kind, fs)
+            }}
+          />
+        </label>
+      </HandCard>
+    </div>
   )
 }
 
