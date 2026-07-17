@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-07-17
+
+### Added
+- **Backup & restore (Settings, admin).** `POST /admin/backup` builds a dated
+  `tippani-backup-<ts>.tar.gz` of the whole data directory — a `VACUUM INTO`
+  snapshot of the live database (consistent while people keep writing, no WAL
+  sidecars) plus MediaCover and everything else — into `<data>/backups`, keeps
+  exactly the newest archive server-side and starts the download. The restore
+  block shows that backup's date and, on a typed `RESTORE`, replaces the whole
+  data directory from it **in-process** — staged extraction with
+  path-traversal/entry-type/decompression-bomb guards, database validation
+  (header, `quick_check`, schema not newer than the binary), atomic rename
+  swap, then the normal boot sequence (migrate → integrity → FTS self-heal).
+  No Docker socket needed; the previous data dir survives as one
+  `.pre-restore-<ts>` safety generation, a failed swap rolls back intact, and
+  new `TIP-BACKUP-001..006` codes land in `docs/troubleshoot.md`.
+- **Per-person work counts in the People console.** `GET /people/names` rows
+  now carry `count` — books for authors, distinct titles for actors, tallied
+  on the *split* credit components so a co-authored book counts once per
+  author. The console shows it as a Books/Titles column; tapping the count
+  jumps to Search seeded with that person's name.
+- **Searchable import picker on phones.** The Import tab's six-card wall
+  becomes a searchable format dropdown (Markdown preselected), the picked
+  format's detail card with its how-to steps inline — the hover info-dot never
+  worked on touch — and a single Import button into the same per-file batch
+  pipeline. The desktop card wall is unchanged.
+- **Scroll memory for the last two list pages.** Opening a detail (or hopping
+  tabs) and coming back restores the list's scroll position; the memory holds
+  the last TWO list pages (LRU) and everything else starts fresh at the top.
+
+### Changed
+- **The mobile top-bar ＋ now opens the Add surface** (book · film · import
+  toggle) like the desktop pill, instead of quote capture — the Import toggle
+  was otherwise unreachable outside the drawer. Quote capture lives on the
+  Home capture tile.
+- **Credit-separator chips show bare symbols** (`,` `;` `&` “and”) instead of
+  spelling each symbol out next to itself.
+
+### Fixed
+- **Mobile image share inside WebView wrappers (random names, corrupt bytes).**
+  Android WebView (Native Alpha and other PWA wrappers) never implements the
+  Web Share API, so the 0.6.7 share-sheet fix silently fell back to the
+  `blob:` anchor whose download bridge produces UUID filenames and mangled
+  bytes. Phones without a usable share sheet now stage the rendered PNG via
+  `POST /share/image` and download the returned **one-shot URL** — a real
+  request the wrapper's DownloadManager handles, filename carried by
+  `Content-Disposition`, single-use 128-bit token standing in for the cookie
+  jar the wrapper doesn't forward.
+- **Import-card and tooltip text rendered soft.** Whole import cards were
+  tilted (±0.7°), rasterizing every glyph on a rotated layer, and the tooltip
+  bubble was centered with `translateX(-50%)` onto half-pixels. The paste-on
+  wobble now lives on a chrome-only underlay with the text stack unrotated,
+  and tooltips center by flex layout so their glyphs stay pixel-snapped.
+- **User chip mis-sized in the top bars.** The inline-flex chip sat on the
+  text baseline of its block wrapper, adding ~6px of phantom descender space —
+  it rode high next to the Add pill on desktop and spilled out of the 52px
+  mobile bar. The wrapper now centers via flex and the desktop chip matches
+  the Add pill's 38px exactly.
+- **`npm run dev` API proxy.** The Vite dev proxy still listed the pre-`/api`
+  route prefixes, so every API call from the dev server fell through to the
+  SPA fallback.
+
 ## [0.6.7] - 2026-07-17
 
 ### Added

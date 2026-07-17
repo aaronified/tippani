@@ -124,17 +124,21 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   **on demand** (never automatically). If you mount the Docker socket (**opt-in**, a deliberate
   security trade-off — see `docker-compose.yml`), one click pulls the new image and restarts the
   container; otherwise it hands you the exact `docker compose pull && up -d` to run.
+- 💾 **Backup & restore** — one click in Settings builds a dated `tar.gz` of the whole data
+  directory (a consistent snapshot of the live database plus every stored image) and downloads it;
+  the newest backup is kept on the server, and restore — shown with that backup's date — swaps the
+  whole data directory back **in-process**, no Docker socket needed. The archive contains password
+  hashes and API keys, so store it somewhere safe.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
 > **Roadmap** — more ways in
 > (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later imports; a PWA
-> **share-target** and a page-HTML **bookmarklet**); force-fetch & re-verify metadata (review
-> before apply); opt-in AI summaries (OpenAI-compatible) with push notifications (NTFY, likely via
-> [Shoutrrr](https://containrrr.dev/shoutrrr/)); a [Homepage](https://gethomepage.dev) dashboard
-> widget; one-click **backup/restore** and collections & shelves; the Profile area growing into
-> passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in **achievements** —
-> reading milestones plus one gentle spaced-repetition streak.
+> **share-target** and a page-HTML **bookmarklet**); opt-in AI summaries (OpenAI-compatible) with
+> push notifications (NTFY, likely via [Shoutrrr](https://containrrr.dev/shoutrrr/)); a
+> [Homepage](https://gethomepage.dev) dashboard widget; collections & shelves; the Profile area
+> growing into passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in
+> **achievements** — reading milestones plus one gentle spaced-repetition streak.
 > See [`ROADMAP.md`](ROADMAP.md).
 
 ## Quick start (Docker Compose)

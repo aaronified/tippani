@@ -9,6 +9,27 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.6.8 (July 2026)**
+
+- **Backup & restore (was roadmap §8)** — a dated tar.gz of the whole data
+  directory (consistent `VACUUM INTO` snapshot + covers/posters) built and
+  kept server-side (newest only), served for download from Settings; restore
+  shows that backup's date and swaps the data directory back **in-process**,
+  with staged validation, an atomic swap, and one `.pre-restore-<ts>` safety
+  generation — no Docker socket, no shelling into the box.
+- **People console work counts** — every author/actor row counts its books or
+  titles (split credits tallied per person); the count clicks through to
+  Search seeded with that name.
+- **Phone import picker** — the import wall becomes a searchable format
+  dropdown + one detail card with the how-to steps inline, and the top-bar ＋
+  opens the same Add surface (book · film · import) as desktop.
+- **WebView share fix** — quote-image saving inside PWA wrappers (no Web Share
+  API) now round-trips through a one-shot server URL, so the file arrives with
+  a real name and intact bytes.
+- **Polish** — import cards and tooltips render pixel-sharp (text left rotated
+  layers), the user chip sits level with the Add pill, the last two list pages
+  remember scroll position, and credit-separator chips show bare symbols.
+
 **v0.6.7 (July 2026)**
 
 - **Force-fetch & re-verify metadata (review before apply)** — re-check a
@@ -320,18 +341,13 @@ intended set at a glance. Kobo is unverified for now — no device here to test 
 `KoboReader.sqlite` against, so it ships only once someone can confirm it parses
 cleanly.
 
-### 8 · Backup & restore
-A one-click **tar of the whole data directory** (SQLite DB + downloaded covers and
-posters) from inside the app, and a restore that reads it back — portability and
-disaster-recovery without shelling into the box or wiring up the `VACUUM INTO` cron.
-
-### 9 · Collections & shelves
+### 8 · Collections & shelves
 Extend tagging **to books** (tags live only on annotations today), then a **shelf**
 view that groups either books or annotations by tag — curated, named groupings
 ("Best of 2026", "to reread") that are really just tags surfaced as first-class
 shelves, so there's no new taxonomy to learn.
 
-### 10 · Verbose, structured logs
+### 9 · Verbose, structured logs
 A failed request should tell you *why* from the Docker logs, not just that it
 failed. Plan: consistent structured logging across handlers (method · path ·
 user · outcome · **cause**), a `TIPPANI_LOG_LEVEL` knob (quiet by default,
