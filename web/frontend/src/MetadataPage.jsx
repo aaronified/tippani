@@ -11,7 +11,7 @@ import { ReverifyFlow } from './ReverifyReview.jsx'
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
 // fetch missing covers) plus per-row review-each look-up, and a per-title speaker
 // remap tool. The point of the tab is doing metadata at scale, not one at a time.
-export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
+export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -193,7 +193,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
           <BooksConsole books={lib.books} filter={bookFilter} setFilter={setBookFilter} onOpen={onOpenBook} onDone={load} onFlash={setFlash} onReverify={(ids) => setReverify({ book_ids: ids })} />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
           <MoviesConsole movies={lib.movies} filter={movieFilter} setFilter={setMovieFilter} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} onReverify={(ids) => setReverify({ movie_ids: ids })} />
-          <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} />
+          <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
         </>
       )}
@@ -1223,7 +1223,7 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
 // anywhere in the app — including right here (each row's name opens it).
 // Links are fetched per row or in bulk for the ones still missing; rows stay
 // listed even when no longer referenced so stale metadata remains manageable.
-export function PeopleConsole({ onFlash, compact = false, onReverify }) {
+export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }) {
   const [kind, setKind] = useState('author')
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
@@ -1379,6 +1379,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify }) {
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>{kind === 'author' ? 'Books' : 'Titles'}</th>
                     <th>Links</th>
                     <th></th>
                   </tr>
@@ -1390,6 +1391,22 @@ export function PeopleConsole({ onFlash, compact = false, onReverify }) {
                         <PersonName kind={kind} name={p.name} onOpen={setPerson} />
                         {p.has_image && (
                           <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title="photo saved">· photo</span>
+                        )}
+                      </td>
+                      <td>
+                        {/* Work count → search, which matches authors on book
+                            hits and actors on dialogue hits. Saved-but-no-
+                            longer-referenced rows count 0 — nothing to find. */}
+                        {p.count > 0 ? (
+                          <button
+                            className="tp-link"
+                            title={`search “${p.name}”`}
+                            onClick={() => onSearch?.(p.name)}
+                          >
+                            {p.count}
+                          </button>
+                        ) : (
+                          <span className="microcopy">0</span>
                         )}
                       </td>
                       <td><ProviderChips links={p.links} /></td>

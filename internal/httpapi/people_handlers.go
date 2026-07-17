@@ -278,12 +278,16 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	// renamed/removed author whose old spelling no longer appears on any book)
 	// from lingering in the console, without a background job. Best-effort.
 	s.gcOrphanPeople(uid, kind)
-	q := `SELECT DISTINCT TRIM(author) FROM books
-		WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''`
+	// Each credit row carries its work count (books for authors, distinct
+	// titles for actors) so the console can show per-person tallies.
+	q := `SELECT TRIM(author), COUNT(*) FROM books
+		WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''
+		GROUP BY TRIM(author)`
 	if kind == "actor" {
-		q = `SELECT DISTINCT TRIM(d.actor) FROM dialogues d
+		q = `SELECT TRIM(d.actor), COUNT(DISTINCT d.movie_id) FROM dialogues d
 			JOIN movies m ON m.id = d.movie_id
-			WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) != ''`
+			WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) != ''
+			GROUP BY TRIM(d.actor)`
 	}
 	rows, err := s.Store.DB.Query(q, uid)
 	if err != nil {
@@ -296,14 +300,22 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	// this people view splits. The byName map dedupes components shared
 	// across works case-insensitively.
 	seps := s.creditSeps(uid)
+	// Tally on the SPLIT components: a co-authored book counts once for each
+	// author, keyed case-insensitively like byName below. First spelling wins
+	// for display.
 	referenced := []string{}
+	counts := map[string]int64{}
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err != nil {
+		var c int64
+		if err := rows.Scan(&n, &c); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[people] referenced names row scan failed: %v", err)
 			continue
 		}
-		referenced = append(referenced, metadata.SplitCredits(n, seps)...)
+		for _, comp := range metadata.SplitCredits(n, seps) {
+			referenced = append(referenced, comp)
+			counts[strings.ToLower(comp)] += c
+		}
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodePeopleRowScan, "[people] referenced names row iteration failed: %v", err)
@@ -316,10 +328,14 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		ID       int64  `json:"id,omitempty"`
 		Links    string `json:"links"`
 		HasImage bool   `json:"has_image"` // a portrait is stored — lets the console flag who still needs one
+		Count    int64  `json:"count"`     // works referencing this name (books / distinct titles); 0 for saved-only rows
 	}
 	byName := map[string]*nameRow{}
 	for _, n := range referenced {
-		byName[strings.ToLower(n)] = &nameRow{Name: n}
+		key := strings.ToLower(n)
+		if _, ok := byName[key]; !ok {
+			byName[key] = &nameRow{Name: n, Count: counts[key]}
+		}
 	}
 	// Saved rows fold in (and appear even when no longer referenced, so stale
 	// metadata stays visible and deletable from the console).

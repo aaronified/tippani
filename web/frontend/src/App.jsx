@@ -880,7 +880,21 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'metadata' && (
           <div data-screen-label="metadata">
-            <MetadataPage user={user} onOpenBook={openBook} onOpenMovie={openMovie} />
+            <MetadataPage
+              user={user}
+              onOpenBook={openBook}
+              onOpenMovie={openMovie}
+              onSearch={(q) => {
+                // Seed the search screen's persisted state before it mounts (it
+                // reads localStorage once); scope resets so hits aren't hidden
+                // by a stale books/movies pick.
+                try {
+                  localStorage.setItem('tippani:search:q', JSON.stringify(q))
+                  localStorage.setItem('tippani:search:scope', JSON.stringify('all'))
+                } catch { /* private mode — search just opens empty */ }
+                selectTab('search')
+              }}
+            />
           </div>
         )}
         {tab === 'search' && (

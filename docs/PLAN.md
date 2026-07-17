@@ -488,7 +488,8 @@ GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
 GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status;
                                      #   joined multi-author credits list as split components (§11,
-                                     #   per-user creditSeparators pref)
+                                     #   per-user creditSeparators pref); each row carries count =
+                                     #   works referencing the name (books / distinct titles)
 POST   /people/lookup                # {kind,name} → {links:{imdb,tmdb,tvdb,wikipedia,openlibrary}}
 POST   /people/rename                # {kind,from,to} → rename an author/actor across all books/
                                      #   dialogues + fold saved metadata onto `to` (unify duplicate

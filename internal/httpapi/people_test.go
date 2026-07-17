@@ -140,11 +140,21 @@ func TestPeopleNames(t *testing.T) {
 	bob := addUser(t, h, admin, "bob")
 
 	admin.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"}, 201)
+	// Counts: a second solo book and a co-authored credit — each split
+	// component gets the credit's count, so Herbert tallies 3 and Le Guin 2.
+	admin.mustDo("POST", "/books", map[string]any{"title": "Children of Dune", "author": "Frank Herbert"}, 201)
+	admin.mustDo("POST", "/books", map[string]any{"title": "Collected Letters", "author": "Frank Herbert & Ursula K. Le Guin"}, 201)
 	m := decode[struct {
 		ID int64 `json:"id"`
 	}](t, admin.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, 201))
 	admin.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": m.ID, "quote": "Here's looking at you, kid.",
+		"character": "Rick", "actor": "Humphrey Bogart",
+	}, 201)
+	// A second dialogue on the SAME title must not double-count the actor —
+	// actors tally distinct titles, not dialogue rows.
+	admin.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": m.ID, "quote": "We'll always have Paris.",
 		"character": "Rick", "actor": "Humphrey Bogart",
 	}, 201)
 	// A referenced author with saved metadata shows the saved flag + links.
@@ -160,6 +170,7 @@ func TestPeopleNames(t *testing.T) {
 		Name  string `json:"name"`
 		Saved bool   `json:"saved"`
 		Links string `json:"links"`
+		Count int64  `json:"count"`
 	}
 	authors := decode[struct {
 		People []nameRow `json:"people"`
@@ -170,11 +181,17 @@ func TestPeopleNames(t *testing.T) {
 	if authors.People[0].Saved || !authors.People[1].Saved || authors.People[1].Links == "" {
 		t.Fatalf("saved flags/links wrong: %+v", authors.People)
 	}
+	if authors.People[0].Count != 3 || authors.People[1].Count != 2 {
+		t.Fatalf("author counts wrong (want Herbert 3, Le Guin 2): %+v", authors.People)
+	}
 	actors := decode[struct {
 		People []nameRow `json:"people"`
 	}](t, admin.mustDo("GET", "/people/names?kind=actor", nil, 200))
 	if len(actors.People) != 1 || actors.People[0].Name != "Humphrey Bogart" {
 		t.Fatalf("actors = %+v", actors.People)
+	}
+	if actors.People[0].Count != 1 {
+		t.Fatalf("actor count should be distinct titles, got %+v", actors.People)
 	}
 
 	// Isolation: bob sees none of admin's names; bad kind is a 400.
