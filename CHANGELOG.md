@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Restore during first-run onboarding.** Moving to a new box no longer needs a
+  throwaway admin account: drop the backup archive into `<data>/backups` and the
+  onboarding screen shows an "or restore a backup" card (with the backup's date)
+  beside "create admin". `GET /auth/status` surfaces the kept archive **only**
+  while onboarding is open (never after a user exists), and the new public
+  `POST /auth/restore` self-guards on the users table being empty — no session,
+  no typed confirmation (nothing to lose yet), rate-limited. The users-empty
+  invariant is enforced atomically at the swap: the restore re-checks it under
+  `backupMu` just before the point of no return, and signup takes the same lock
+  around its insert, so a signup can never land mid-restore and be overwritten.
+
+### Changed
+- **Settings help moved into info-dots.** The Metadata "Save keys" and the
+  Backup & restore cards drop their standing help paragraphs for the same
+  hover/focus info-dot used elsewhere, tightening both cards (removes the empty
+  gap under "Save keys"). The last-backup line and the restore warning stay.
+
+### Fixed
+- **Navbar labels no longer clip when the window narrows.** The desktop tab
+  strip held its `.topbar-nav-group` at natural width (`flex: none`) so a tight
+  window overflows the nav — which the icon-only collapse actually measures —
+  instead of squeezing the toggles and shearing labels mid-glyph without ever
+  tripping the collapse.
+- **A long restore no longer strands the UI.** `restoreFromNewest` clears the
+  60s write deadline (a large-library extract+swap+reopen could outlive it and
+  drop the connection), and both restore buttons fall back to a reload if the
+  connection drops, rather than freezing on "Restoring…".
+
 ## [0.6.8] - 2026-07-17
 
 ### Added

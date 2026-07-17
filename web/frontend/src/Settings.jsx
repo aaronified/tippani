@@ -404,13 +404,19 @@ function BackupCard() {
   async function restore() {
     if (confirm !== 'RESTORE' || !backup || restoring) return
     setRestoring(true)
-    const r = await json('POST', '/admin/restore', { confirm: 'RESTORE' })
-    if (!r.ok) {
-      setRestoring(false)
-      return toast(errText(r, 'restore failed — the current data is intact'))
+    try {
+      const r = await json('POST', '/admin/restore', { confirm: 'RESTORE' })
+      if (!r.ok) {
+        setRestoring(false)
+        return toast(errText(r, 'restore failed — the current data is intact'))
+      }
+      toast('restore complete — logging you out')
+      setTimeout(() => window.location.reload(), 1200)
+    } catch {
+      // A large restore can outlive the connection even when it succeeds
+      // server-side; reload rather than freeze on 'Restoring…'.
+      setTimeout(() => window.location.reload(), 1200)
     }
-    toast('restore complete — logging you out')
-    setTimeout(() => window.location.reload(), 1200)
   }
 
   const fmtWhen = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -420,11 +426,6 @@ function BackupCard() {
     <Card>
       <SectionTitle>Backup &amp; restore</SectionTitle>
       <div className="space-y-3">
-        <p className="microcopy">
-          A complete archive of your library, images, users and settings — including password
-          hashes and API keys, so store the download somewhere safe. The server keeps only the
-          most recent backup.
-        </p>
         <div className="flex flex-wrap items-center gap-3">
           <GhostButton onClick={create} disabled={busy || restoring}>
             {busy ? 'Backing up…' : 'Back up now'}
@@ -434,6 +435,7 @@ function BackupCard() {
               download
             </a>
           )}
+          <InfoDot text="A complete archive of your library, images, users and settings — including password hashes and API keys, so store the download somewhere safe. The server keeps only the most recent backup." />
         </div>
         {loaded && (
           <p className="microcopy">
@@ -976,11 +978,9 @@ function Metadata({ user }) {
       )}
 
       {admin && (
-        <div className="mb-6">
+        <div className="flex items-center gap-2">
           <StickerButton onClick={saveKeys} disabled={saving}>{saving ? 'Saving…' : 'Save keys'}</StickerButton>
-          <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.04em', color: 'var(--faint)' }}>
-            secrets are write-only — saved keys show masked; Edit to replace, or save a blank field to clear
-          </p>
+          <InfoDot text="Secrets are write-only — saved keys show masked. Edit to replace, or save a blank field to clear." />
         </div>
       )}
 

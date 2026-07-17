@@ -291,18 +291,77 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"RESTORE"}`)
 		return
 	}
+	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
+}
+
+// handleOnboardRestore: POST /auth/restore — the onboarding twin of
+// /admin/restore. Self-guards like /auth/signup: it only works while the users
+// table is empty (a fresh box whose operator dropped an archive into
+// <data>/backups), so it needs no session and no typed confirmation — there is
+// nothing yet to lose. Rate-limited: restore is expensive and unauthenticated.
+//
+// The users-empty check here is a fast rejection, not the real guard: a slow
+// multi-GB extraction could otherwise finish long after a legitimate signup
+// landed and swap that new admin away. The atomic guard is the closure passed to
+// restoreFromNewest, re-checked under backupMu just before the swap, paired with
+// handleSignup taking backupMu around its INSERT (so a signup can't commit while
+// a restore holds the lock). Together they make "users empty" hold at the swap.
+func (s *Server) handleOnboardRestore(w http.ResponseWriter, r *http.Request) {
+	if !s.loginLimiter.Allow(s.clientIP(r) + "|restore") {
+		writeErr(w, http.StatusTooManyRequests, "too many attempts; try again later")
+		return
+	}
+	if exists, err := s.usersExist(); err != nil {
+		internalError(w, r, "check for existing users", err)
+		return
+	} else if exists {
+		writeErr(w, http.StatusForbidden, "onboarding is closed; log in and restore from Settings")
+		return
+	}
+	s.restoreFromNewest(w, "first-run onboarding", func() error {
+		if exists, err := s.usersExist(); err != nil {
+			return err
+		} else if exists {
+			return errOnboardingClosed
+		}
+		return nil
+	})
+}
+
+// usersExist reports whether the users table has any row — the onboarding gate.
+func (s *Server) usersExist() (bool, error) {
+	var exists bool
+	err := s.Store.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users)`).Scan(&exists)
+	return exists, err
+}
+
+// errOnboardingClosed is the sentinel the onboard-restore late guard returns
+// when a user appeared between the request and the swap — mapped to 409 below.
+var errOnboardingClosed = errors.New("someone finished onboarding while this restore was preparing; not overwriting the new account")
+
+// restoreFromNewest is the shared restore core behind /admin/restore and
+// /auth/restore; callers have already authorized the request. guard, if non-nil,
+// runs under backupMu immediately before the irreversible swap — the onboarding
+// path uses it to re-verify the users-empty invariant at the last moment (a
+// non-nil error there aborts the restore with 409, nothing having been touched).
+func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, guard func() error) {
 	if !s.backupMu.TryLock() {
 		writeErr(w, http.StatusConflict, "a backup or restore is already running")
 		return
 	}
 	defer s.backupMu.Unlock()
 
+	// Extract + validate + swap + reopen can outlive the server's 60s
+	// WriteTimeout on a large library; clear the write deadline so the final
+	// JSON still reaches the client (mirrors handleBackupDownload).
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+
 	name, _ := s.newestBackup()
 	if name == "" {
 		writeErr(w, http.StatusBadRequest, "no backup on the server — create one first")
 		return
 	}
-	olog.Alertf("[backup] RESTORE from %s requested by user %d (%s)", name, userID(r), username(r))
+	olog.Alertf("[backup] RESTORE from %s requested by %s", name, requestedBy)
 
 	staging, err := os.MkdirTemp(s.DataDir, ".restore-")
 	if err != nil {
@@ -320,6 +379,20 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	if msg := validateRestoredDB(filepath.Join(stage, "tippani.db")); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
+	}
+
+	// Last-moment re-guard (onboarding): a signup can only have committed while
+	// backupMu was free, so re-checking now — still holding the lock — sees it.
+	if guard != nil {
+		if err := guard(); err != nil {
+			if errors.Is(err, errOnboardingClosed) {
+				writeErr(w, http.StatusConflict, err.Error())
+			} else {
+				olog.Errorf(olog.CodeHTTPInternal, "[backup] restore guard check failed: %v", err)
+				writeErr(w, http.StatusInternalServerError, "internal error")
+			}
+			return
+		}
 	}
 
 	// ---- point of no return: swap ----

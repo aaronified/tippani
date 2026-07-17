@@ -44,6 +44,9 @@ export { DEMO } from './api.js'
 export default function App() {
   const [user, setUser] = useState(null)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  // The kept server-side backup archive, reported by /auth/status only while
+  // onboarding is open — offered there as restore-instead-of-signup.
+  const [onboardBackup, setOnboardBackup] = useState(null)
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
@@ -53,7 +56,10 @@ export default function App() {
         if (u) return setUser(u)
         return fetch(apiURL('/auth/status'))
           .then((r) => r.json())
-          .then((s) => setNeedsOnboarding(s.needs_onboarding))
+          .then((s) => {
+            setNeedsOnboarding(s.needs_onboarding)
+            setOnboardBackup(s.backup || null)
+          })
       })
       .finally(() => setChecking(false))
   }, [])
@@ -75,7 +81,7 @@ export default function App() {
   let screen = null
   if (!checking) {
     if (user) screen = <Shell user={user} onLogout={() => setUser(null)} onPreferences={onPreferences} onUser={onUser} />
-    else if (needsOnboarding) screen = <Onboarding onDone={setUser} />
+    else if (needsOnboarding) screen = <Onboarding onDone={setUser} backup={onboardBackup} />
     else screen = <Login onLogin={setUser} />
   }
   return (
@@ -166,13 +172,37 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
 }
 
 // Onboarding — paper-light centered card; first account becomes admin (§8.1).
-function Onboarding({ onDone }) {
+// When the server holds a backup archive (backup ≠ null, from /auth/status),
+// a second card offers restoring it instead — the moving-to-a-new-box path.
+function Onboarding({ onDone, backup }) {
+  const [restoring, setRestoring] = useState(false)
+  const [restoreError, setRestoreError] = useState('')
   useEffect(() => {
     applyTheme({ aesthetic: 'paper', theme: 'light' })
   }, [])
+
+  async function restore() {
+    setRestoring(true)
+    setRestoreError('')
+    try {
+      const r = await json('POST', '/auth/restore')
+      if (!r.ok) {
+        setRestoring(false)
+        return setRestoreError((r.data && r.data.error) || 'restore failed')
+      }
+      toast('restore complete — log in with your account from the backup')
+      // Reload → /auth/status now reports onboarding closed → the login screen.
+      setTimeout(() => window.location.reload(), 1200)
+    } catch {
+      // A large restore can outlive the connection even when it succeeds
+      // server-side; reload to re-check /auth/status rather than freeze here.
+      setTimeout(() => window.location.reload(), 1200)
+    }
+  }
+
   return (
     <main
-      className="flex min-h-screen items-center justify-center px-4 py-10"
+      className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 py-10"
       data-screen-label="onboarding"
     >
       <CredentialForm
@@ -190,6 +220,23 @@ function Onboarding({ onDone }) {
         microcopy="onboarding closes once a user exists"
         onSuccess={onDone}
       />
+      {backup && (
+        <div className="hand-card w-full max-w-sm px-8 py-6 text-center">
+          <p className="mono-label mb-2">or restore a backup</p>
+          <p className="text-sm" style={{ color: 'var(--soft)' }}>
+            This server has a backup from{' '}
+            <b>{new Date(backup.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b>.
+            Restoring loads everything in it — accounts, libraries and settings — then you log in
+            with the credentials from that backup.
+          </p>
+          <GhostButton className="mt-4 w-full" onClick={restore} disabled={restoring}>
+            {restoring ? 'Restoring…' : 'Restore this backup'}
+          </GhostButton>
+          <div className="mt-2">
+            <ErrorText>{restoreError}</ErrorText>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
@@ -392,7 +439,10 @@ function DesktopNav({ tab, onChange }) {
 // remembered so the labels come back once the bar is genuinely wide enough
 // again (with a small hysteresis margin so a boundary width can't flap).
 // Requires .topbar-nav { flex: 1 } so clientWidth tracks the AVAILABLE space
-// rather than the (already collapsed) content.
+// rather than the (already collapsed) content, and .topbar-nav-group
+// { flex: none } so a tight bar overflows the nav (measurable) instead of
+// squeezing the overflow:hidden toggles, which clips labels mid-glyph without
+// ever tripping the scrollWidth check.
 function useIconOnlyNav() {
   const ref = useRef(null)
   const [iconOnly, setIconOnly] = useState(false)

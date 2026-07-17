@@ -101,9 +101,11 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	// Auth. /auth/status and /auth/login are the only unauthenticated routes;
-	// /auth/signup self-guards (it only works during first-run onboarding).
+	// /auth/signup and /auth/restore self-guard (they only work during
+	// first-run onboarding, while the users table is empty).
 	mux.HandleFunc("GET /auth/status", s.handleStatus)
 	mux.HandleFunc("POST /auth/signup", s.handleSignup)
+	mux.HandleFunc("POST /auth/restore", s.handleOnboardRestore)
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))

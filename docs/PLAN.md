@@ -444,7 +444,12 @@ Property: a book export is valid §5b(a) importer input, so **exports round-trip
 one is a dedupe no-op. (Movie exports are export-only; there is no movie markdown importer — YAGNI.)
 
 ```bash
-GET    /auth/status         POST /auth/signup    # onboarding (first user only)
+GET    /auth/status         POST /auth/signup    # onboarding (first user only); while onboarding is
+                                     #   open, status also reports the kept backup archive
+                                     #   ({backup:{name,created,size}|null}) for /auth/restore
+POST   /auth/restore                 # onboarding only (users table empty): restore the kept
+                                     #   <data>/backups archive — the moving-to-a-new-box path;
+                                     #   no confirm needed (nothing to lose), rate-limited
 POST   /auth/login          POST /auth/logout
 POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
 PUT    /auth/me                       # {username} — change your own display name
@@ -530,7 +535,7 @@ POST   /metadata/reverify/apply      # write only the user-approved fields: {ite
 GET    /healthz                      # public liveness probe (container HEALTHCHECK)
 ```
 
-Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` + `POST /covers/refetch` additionally require `is_admin`.
+Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/restore` (both self-guarded: first-run only), `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` + `POST /covers/refetch` additionally require `is_admin`.
 
 ### §10 UI surface (implemented 2026-07; from the UI instruction sheet §10)
 

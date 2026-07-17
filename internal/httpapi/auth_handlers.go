@@ -62,14 +62,24 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, id int64, 
 }
 
 // handleStatus is public: it tells the SPA whether first-run onboarding is
-// still open (no users yet) so it can show the "create admin" screen.
+// still open (no users yet) so it can show the "create admin" screen. While it
+// is, the kept backup archive (if an operator dropped one into <data>/backups)
+// is surfaced too, so onboarding can offer restore-instead-of-signup — never
+// afterwards, when backup existence is admin-only knowledge.
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	var n int
 	if err := s.Store.DB.QueryRow(`SELECT count(*) FROM users`).Scan(&n); err != nil {
 		internalError(w, r, "count users", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"needs_onboarding": n == 0})
+	resp := map[string]any{"needs_onboarding": n == 0}
+	if n == 0 {
+		resp["backup"] = nil
+		if name, info := s.newestBackup(); name != "" {
+			resp["backup"] = backupMeta(name, info)
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleSignup creates the first user (the admin) during onboarding. It only
@@ -101,6 +111,17 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
+	// Serialize the whole check→hash→insert against an in-progress onboarding
+	// restore (POST /auth/restore, which holds backupMu across its swap). Without
+	// this, a signup could commit an admin during a slow restore that then swaps
+	// the DB and discards it; the restore's late users-empty re-guard only closes
+	// the race because a signup can't commit while the lock is held. TryLock so a
+	// running restore returns a clean 409 instead of blocking for minutes.
+	if !s.backupMu.TryLock() {
+		writeErr(w, http.StatusConflict, "a restore is running; try again shortly")
+		return
+	}
+	defer s.backupMu.Unlock()
 	// Cheap check before the expensive hash: once any user exists onboarding is
 	// closed, so don't spend bcrypt on a request we're going to reject.
 	var exists bool

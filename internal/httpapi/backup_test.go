@@ -210,6 +210,94 @@ func TestRestoreRoundTrip(t *testing.T) {
 	}
 }
 
+// TestOnboardRestore covers the first-run restore path: /auth/status surfaces
+// the kept archive while onboarding is open, POST /auth/restore restores it on
+// a box with no users, and both close once a user exists.
+func TestOnboardRestore(t *testing.T) {
+	// Build an archive on a seeded "old" server.
+	old := newTestServer(t)
+	admin := signupAdmin(t, old.Handler())
+	admin.mustDo("POST", "/books", map[string]any{"title": "Original", "author": "Keeper"}, 201)
+	admin.mustDo("POST", "/admin/backup", nil, 200)
+	name, _ := old.newestBackup()
+	archive, err := os.ReadFile(filepath.Join(old.backupsDir(), name))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A fresh box: no users, no archive → status has backup:null, restore 400.
+	srv := newTestServer(t)
+	h := srv.Handler()
+	anon := &testClient{t: t, h: h}
+	if rec := anon.do("GET", "/auth/status", nil); !bytes.Contains(rec.Body.Bytes(), []byte(`"backup":null`)) {
+		t.Fatalf("status without archive: %s", rec.Body)
+	}
+	if rec := anon.do("POST", "/auth/restore", nil); rec.Code != http.StatusBadRequest {
+		t.Fatalf("restore without archive: %d %s", rec.Code, rec.Body)
+	}
+
+	// Drop the old box's archive in: status reports it, restore applies it.
+	if err := os.MkdirAll(srv.backupsDir(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srv.backupsDir(), name), archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if rec := anon.do("GET", "/auth/status", nil); !bytes.Contains(rec.Body.Bytes(), []byte(name)) {
+		t.Fatalf("status with archive: %s", rec.Body)
+	}
+	if rec := anon.do("POST", "/auth/restore", nil); rec.Code != 200 {
+		t.Fatalf("onboarding restore: %d %s", rec.Code, rec.Body)
+	}
+
+	// Onboarding is closed; the restored credentials log in and see the data.
+	if rec := anon.do("GET", "/auth/status", nil); !bytes.Contains(rec.Body.Bytes(), []byte(`"needs_onboarding":false`)) {
+		t.Fatalf("status after restore: %s", rec.Body)
+	}
+	user := &testClient{t: t, h: h}
+	lrec := user.do("POST", "/auth/login", map[string]string{"username": "alice", "password": "supersecret"})
+	if lrec.Code != 200 {
+		t.Fatalf("login after onboarding restore: %d %s", lrec.Code, lrec.Body)
+	}
+	user.cookie = cookieOf(t, lrec)
+	if rec := user.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("Original")) {
+		t.Fatalf("restored books: %s", rec.Body)
+	}
+
+	// With a user present the route is closed and status hides the backup.
+	if rec := anon.do("POST", "/auth/restore", nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("restore after onboarding: %d", rec.Code)
+	}
+	if rec := anon.do("GET", "/auth/status", nil); bytes.Contains(rec.Body.Bytes(), []byte(`"backup"`)) {
+		t.Fatalf("status leaks backup existence after onboarding: %s", rec.Body)
+	}
+}
+
+// TestSignupSerializesWithRestore proves the TOCTOU guard: while a restore holds
+// backupMu (as it does across its whole swap), neither a signup nor a second
+// restore may proceed — both get 409 — so a signup can never commit an admin
+// mid-restore that the swap would then discard. Once the lock frees, signup works.
+func TestSignupSerializesWithRestore(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	anon := &testClient{t: t, h: h}
+
+	// Stand in for an in-progress restore holding the lock across its swap.
+	srv.backupMu.Lock()
+	if rec := anon.do("POST", "/auth/signup", map[string]string{"username": "alice", "password": "supersecret"}); rec.Code != http.StatusConflict {
+		t.Fatalf("signup while a restore holds the lock: got %d, want 409: %s", rec.Code, rec.Body)
+	}
+	if rec := anon.do("POST", "/auth/restore", nil); rec.Code != http.StatusConflict {
+		t.Fatalf("restore while a restore holds the lock: got %d, want 409", rec.Code)
+	}
+	srv.backupMu.Unlock()
+
+	// Lock free again → onboarding signup succeeds.
+	if rec := anon.do("POST", "/auth/signup", map[string]string{"username": "alice", "password": "supersecret"}); rec.Code != 200 {
+		t.Fatalf("signup after the lock freed: got %d: %s", rec.Code, rec.Body)
+	}
+}
+
 func TestRestoreValidation(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
