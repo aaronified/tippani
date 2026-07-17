@@ -8,9 +8,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: { outDir: '../dist', emptyOutDir: true },
   server: {
-    proxy: Object.fromEntries(
-      ['/auth', '/admin', '/books', '/annotations', '/movies', '/dialogues', '/import', '/export', '/search', '/genres', '/tags', '/covers', '/stats', '/metadata']
-        .map((p) => [p, 'http://127.0.0.1:8080'])
-    ),
+    // The whole REST API is mounted under /api (api.js prefixes every call),
+    // so one proxy entry covers it.
+    proxy: { '/api': 'http://127.0.0.1:8080' },
   },
 })
