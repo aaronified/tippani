@@ -77,7 +77,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
     }
   }, [q, scope, nonce])
 
-  const terms = queryTerms(q)
+  // Highlight the words the results actually came from: the server-corrected
+  // query on a fuzzy (zero-hit) pass, else the raw input (PLAN §4).
+  const terms = queryTerms(results?.corrected || q)
   const bookGroups = results ? groupBooks(results) : []
   const movieGroups = results ? groupMovies(results) : []
   const empty = results && bookGroups.length === 0 && movieGroups.length === 0
@@ -154,6 +156,13 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
             {scope !== 'all' && <GhostButton onClick={() => setScope('all')}>Search everything</GhostButton>}
           </div>
         </div>
+      )}
+      {/* Silent typo correction (PLAN §4): the server ran the fuzzy pass because
+          the exact query had no hits. Tell the reader which query these came from. */}
+      {!empty && results?.corrected && (
+        <p className="microcopy">
+          no exact matches — showing results for “{results.corrected}”
+        </p>
       )}
 
       {/* table view flattens the raw hits into sortable tables; tiles/list keep

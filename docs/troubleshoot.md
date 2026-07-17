@@ -39,6 +39,7 @@ document and that registry in lockstep.
 | `TIP-SRCH-001` | A full-text search query failed at runtime. | The FTS index is corrupt or has drifted from its content table. | Tippani reconstructs the index and retries automatically within the same request. No action needed unless it is followed by `TIP-SRCH-002`. |
 | `TIP-SRCH-002` | A corrupt FTS index could not be reconstructed while serving a search. | Page-level corruption too severe for an in-place rebuild. | Restart the server (startup repair escalates to a full recovery) or run Profile → Rebuild search index. Library data is never affected. |
 | `TIP-SRCH-003` | A search result row failed to scan and was dropped. | A `SELECT` and its target struct drifted apart (usually a migration added a column). | Report it — the search query and its scan target need realigning. |
+| `TIP-SRCH-004` | A fuzzy-search vocabulary read failed; typo correction was skipped. | A corrupt FTS index that also failed its one-shot repair, or the `0016` fts5vocab migration did not apply. | Run Profile → Rebuild search index or restart. Exact search still works; only the zero-hit typo-correction pass was skipped. If it persists, check for `TIP-SRCH-002`. |
 
 ## List scanning — dropped rows
 

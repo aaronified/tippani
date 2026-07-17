@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Typo-tolerant search.** When a search finds nothing, Tippani now retries with
+  the query's words corrected to the nearest ones it has actually indexed —
+  "shawshenk" finds *The Shawshank Redemption*, "casblanca" finds *Casablanca* —
+  and shows an "no exact matches — showing results for …" note above the results.
+  Correction is bounded edit-distance in Go over zero-storage `fts5vocab` views
+  (migration `0016`); it runs only on a zero-hit query, keeps whole words that
+  are already valid prefixes untouched (so typeahead is unchanged), stays scoped
+  to your own library, and degrades silently to the plain empty result if the
+  vocabulary can't be read (`TIP-SRCH-004`). No new dependencies, no new index
+  data. See `docs/PLAN.md` §4.
 - **Restore during first-run onboarding.** Moving to a new box no longer needs a
   throwaway admin account: drop the backup archive into `<data>/backups` and the
   onboarding screen shows an "or restore a backup" card (with the backup's date)

@@ -28,6 +28,7 @@ const (
 	CodeSearchQuery   Code = "TIP-SRCH-001" // an FTS MATCH query failed at runtime
 	CodeSearchRepair  Code = "TIP-SRCH-002" // a corrupt FTS index could not be reconstructed at query time
 	CodeSearchRowScan Code = "TIP-SRCH-003" // a search result row failed to scan (dropped from results)
+	CodeSearchVocab   Code = "TIP-SRCH-004" // fuzzy-search vocabulary read failed; typo correction skipped
 
 	// Per-subsystem "list row failed to scan" — a SELECT/struct drift that would
 	// otherwise silently shorten a list with a 200 (the class the 0.6.4 favourites
@@ -92,6 +93,7 @@ var Registry = map[Code]string{
 	CodeSearchQuery:   "A full-text search query failed at runtime (often a corrupt or drifted FTS index).",
 	CodeSearchRepair:  "A corrupt FTS index could not be reconstructed while serving a search.",
 	CodeSearchRowScan: "A search result row failed to scan and was dropped from the results.",
+	CodeSearchVocab:   "A fuzzy-search vocabulary read failed; typo correction was skipped and the exact (empty) result was returned.",
 
 	CodeAnnoRowScan:    "An annotation list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodeDlgRowScan:     "A dialogue list row failed to scan (SELECT/struct drift); dropped from the list.",

@@ -301,6 +301,12 @@ func ftsQuery(q string) string {
 
 - **Speed at scale** (e.g. 5,000 books / 250,000 annotations): FTS5 `MATCH` is an inverted-index lookup, not a table scan — typically ≤5 ms on weak ARM. `prefix='2 3'` keeps 2–3-char typeahead index-backed instead of term-expanding (index ~20–30 % larger; disk is cheap, CPU isn't). `remove_diacritics 2` makes “Bronte” find “Brontë”. Client debounces input ~200 ms. Run `ANALYZE` / `PRAGMA optimize` after bulk imports. Never use `LIKE '%…%'` anywhere. **Confidence: High** (design inference; verify with a generated 250k-row fixture during build).
 
+- **Typo-tolerant fuzzy pass (0.6.9):** when the exact pass returns **zero** hits across every requested scope and the query is correctable (≥1 token ≥3 runes, ≤8 tokens, ≤64 runes), the handler harvests the indexed terms from per-index `fts5vocab` views (migration `0016`, zero-storage — they read each FTS index's term dictionary, so nothing new can corrupt and `store.Recover()` skips them via the `%_fts_%` name pattern), corrects each token to the nearest term by bounded Levenshtein in Go (`internal/search` — budget 1 for 3–5-rune tokens, 2 for longer; a token that is an indexed term or a prefix of one is left alone so `PrefixQuery` typeahead is preserved), and re-runs the same `MATCH` once with the corrected tokens. Corrected tokens still flow through `PrefixQuery`, so raw input never reaches `MATCH`. The vocab is index-wide, not user-scoped, but the re-run stays `user_id`-filtered and the response's `corrected` field is set **only** when this user actually received rows — so no other user's vocabulary is ever surfaced. A vocab read that fails even after the one-shot index repair logs `TIP-SRCH-004` and degrades to the plain empty result (search never 500s because fuzzy broke). Vocab DDL:
+
+```sql
+CREATE VIRTUAL TABLE books_fts_vocab USING fts5vocab('books_fts', 'row'); -- + annotations/movies/dialogues
+```
+
 Semantic search remains **deferred** (`sqlite-vec` later, if ever).
 
 ---
@@ -490,6 +496,8 @@ GET    /books/{id}/export            # markdown (§6b)
 GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
+                                     #   {books,annotations,movies,dialogues}; on a zero-hit
+                                     #   query a fuzzy pass may add "corrected":"<query>" (§4)
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
 GET    /admin/backup                 # {backup:{name,created,size}} | {backup:null} — the ONE kept
                                      #   server-side archive (newest only, date in the name)

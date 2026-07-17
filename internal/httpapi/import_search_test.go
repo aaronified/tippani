@@ -376,6 +376,7 @@ type searchResp struct {
 	Annotations []annotationHit `json:"annotations"`
 	Movies      []movieHit      `json:"movies"`
 	Dialogues   []dialogueHit   `json:"dialogues"`
+	Corrected   string          `json:"corrected"`
 }
 
 func TestSearchScopes(t *testing.T) {
