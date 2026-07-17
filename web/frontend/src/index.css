@@ -1026,13 +1026,24 @@
   .vt-opt { display: inline-flex; align-items: center; gap: 6px; }
 
   /* ---- Tooltip (§ design): on-brand hover/focus bubble, replaces title= ---- */
+  /* The holder is a zero-width flex strut at the trigger's center: the bubble
+     centers by overflowing it equally, so its glyphs are layout-positioned
+     (pixel-snapped at paint) instead of riding a blurry translateX(-50%). */
   .tp-tip-wrap { position: relative; display: inline-flex; align-items: center; }
-  .tp-tip {
+  .tp-tip-holder {
     position: absolute;
     z-index: 70;
     left: 50%;
     bottom: calc(100% + 9px);
-    transform: translateX(-50%) translateY(4px);
+    width: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .tp-tip-holder[data-side="bottom"] { bottom: auto; top: calc(100% + 9px); align-items: flex-start; }
+  .tp-tip {
+    transform: translateY(4px);
+    flex: none;                /* don't shrink into the zero-width holder */
     width: max-content;
     max-width: 260px;
     padding: 8px 11px;
@@ -1051,10 +1062,10 @@
     pointer-events: none;
     transition: opacity .16s ease, transform .16s ease;
   }
-  .tp-tip[data-side="bottom"] { bottom: auto; top: calc(100% + 9px); transform: translateX(-50%) translateY(-4px); }
-  .tp-tip-wrap:hover > .tp-tip,
-  .tp-tip-wrap:focus-within > .tp-tip { opacity: 1; transform: translateX(-50%) translateY(0); }
-  @media (prefers-reduced-motion: reduce) { .tp-tip { transition: opacity .16s ease; } }
+  .tp-tip-holder[data-side="bottom"] .tp-tip { transform: translateY(-4px); }
+  .tp-tip-wrap:hover .tp-tip,
+  .tp-tip-wrap:focus-within .tp-tip { opacity: 1; transform: translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .tp-tip { transition: opacity .16s ease; transform: none; } }
   .info-dot {
     font-family: var(--font-mono);
     font-size: 10.5px;

@@ -1071,13 +1071,18 @@ export function ConfirmDialog({
 // Tooltip — an on-brand hover/focus bubble that replaces native title= tooltips.
 // Visibility is pure CSS (hover + focus-within) so it works for pointer and
 // keyboard focus; the label wraps in an inverse chip. Wrap any trigger.
+// The zero-width holder centers the bubble via flex layout rather than
+// translateX(-50%): transform-positioned text lands on half-pixels and skips
+// paint-time glyph snapping, which rendered the bubble blurry.
 export function Tooltip({ label, side = "top", className = "", children }) {
   if (!label) return children;
   return (
     <span className={`tp-tip-wrap ${className}`}>
       {children}
-      <span className="tp-tip" role="tooltip" data-side={side}>
-        {label}
+      <span className="tp-tip-holder" data-side={side}>
+        <span className="tp-tip" role="tooltip">
+          {label}
+        </span>
       </span>
     </span>
   );

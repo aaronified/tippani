@@ -228,15 +228,15 @@ function ExtBadge({ muted, color, children }) {
 
 // SourceCard accepts single or bulk file selection via the hidden input, and
 // drag-drop of one or many files anywhere on the card (a bonus, not the point).
+// The paste-on wobble lives on a chrome-only HandCard underlay: rotating the
+// text itself rasterized every glyph on a 0.7° layer and blurred it (§ the
+// import wall was the only place whole text cards were tilted).
 function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, color }) {
   const [over, setOver] = useState(false)
   const tilt = variant % 2 ? 0.7 : -0.7 // paste-on wobble (§ playful, within ±2.2°)
   return (
-    <HandCard
-      variant={variant}
-      colorBar={color}
-      className="flex flex-col gap-3 p-5"
-      style={{ rotate: `${tilt}deg`, ...(over ? { borderColor: color, background: `color-mix(in srgb, ${color} 8%, var(--card))` } : null) }}
+    <div
+      className="relative"
       onDragOver={(e) => {
         e.preventDefault()
         setOver(true)
@@ -248,6 +248,14 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
         onFiles([...e.dataTransfer.files])
       }}
     >
+      <HandCard
+        variant={variant}
+        colorBar={color}
+        className="absolute inset-0"
+        style={{ rotate: `${tilt}deg`, ...(over ? { borderColor: color, background: `color-mix(in srgb, ${color} 8%, var(--card))` } : null) }}
+        aria-hidden="true"
+      />
+      <div className="relative flex h-full flex-col gap-3 p-5">
       <ExtBadge color={color}>{ext}</ExtBadge>
       <div className="flex items-center gap-1.5">
         <h3 className="text-base font-semibold">{title}</h3>
@@ -279,7 +287,8 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
         </label>
         <p className="microcopy mt-1.5 text-center">or drag &amp; drop here</p>
       </div>
-    </HandCard>
+      </div>
+    </div>
   )
 }
 
