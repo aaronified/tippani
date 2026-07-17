@@ -61,6 +61,11 @@ const (
 	CodeBookCoverUpdate  Code = "TIP-BOOK-003"
 	CodeMovieCoverUpdate Code = "TIP-MOVIE-003"
 	CodePeopleImageFetch Code = "TIP-PEOPLE-002"
+
+	// META — force-fetch & re-verify (review before apply, ROADMAP §2).
+	CodeMetaReverifyFetch Code = "TIP-META-011" // a provider lookup failed during a re-verify preview (item reported fetch_failed)
+	CodeMetaReverifyApply Code = "TIP-META-012" // an approved re-verify write failed for one item
+	CodeMetaReverifyImage Code = "TIP-META-013" // an approved cover/poster/portrait fetch failed on apply (text fields kept)
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -104,4 +109,8 @@ var Registry = map[Code]string{
 	CodeBookCoverUpdate:  "A user-supplied cover URL failed to fetch on edit; the save was rejected.",
 	CodeMovieCoverUpdate: "A user-supplied poster URL failed to fetch on edit; the save was rejected.",
 	CodePeopleImageFetch: "A user-supplied person image URL failed to fetch; the save was rejected.",
+
+	CodeMetaReverifyFetch: "A provider lookup failed while previewing a re-verify; the item was reported fetch_failed.",
+	CodeMetaReverifyApply: "Writing an approved re-verify change failed for one item; the rest of the batch continued.",
+	CodeMetaReverifyImage: "An approved cover/poster/portrait failed to download on re-verify apply; text fields were kept.",
 }

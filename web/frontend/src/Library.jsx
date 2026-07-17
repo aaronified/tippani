@@ -5,7 +5,7 @@ import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
-import { PersonModal, PersonName, PersonPortrait, usePeople } from './people.jsx'
+import { PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -57,9 +57,9 @@ const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontStyle: 'italic', fo
 
 // Library is the books tab (§8.3): cover grid + add-book modal, or a single
 // book's detail view (§8.5). Import flows live on the Import page now.
-export default function Library({ openId, onOpen, onClose, onOpenMovie }) {
-  if (openId) return <BookDetail id={openId} onClose={onClose} />
-  return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} />
+export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators }) {
+  if (openId) return <BookDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
+  return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} creditSeparators={creditSeparators} />
 }
 
 function plural(n, word) {
@@ -132,7 +132,7 @@ function decadeOf(year) {
 // always sinks to the end. A book with several genres appears in each. Members
 // keep the incoming sort order, except series groups sort by index (the natural
 // reading order within a series).
-function groupBooks(list, mode) {
+function groupBooks(list, mode, seps) {
   const map = new Map()
   const add = (key, label, b, opts = {}) => {
     let g = map.get(key)
@@ -147,7 +147,11 @@ function groupBooks(list, mode) {
       if (b.series) add(b.series, b.series, b)
       else add('~none', 'No series', b, { residual: true })
     } else if (mode === 'author') {
-      if (b.author) add(b.author, b.author, b)
+      // Multi-author separation (ROADMAP §11): a joined credit puts the book
+      // under EACH author's heading (like multi-genre membership); the stored
+      // credit string stays verbatim on the book itself.
+      const as = splitCredits(b.author, seps)
+      if (as.length) as.forEach((a) => add(a, a, b))
       else add('~none', 'Unknown author', b, { residual: true })
     } else if (mode === 'decade') {
       const d = decadeOf(b.published_year)
@@ -236,7 +240,7 @@ function BookGrid({ books, coverSize, onOpen }) {
 
 // ---- book list (§8.3, mockups 06–07) ----
 
-function BookList({ onOpen, onOpenMovie }) {
+function BookList({ onOpen, onOpenMovie, creditSeparators }) {
   const [books, setBooks] = useState(null)
   const [genre, setGenre] = useState('') // '' = All
   const [series, setSeries] = useState('') // '' = all series
@@ -291,7 +295,8 @@ function BookList({ onOpen, onOpenMovie }) {
     return list
   }, [books, genre, series, fav, sort])
 
-  const grouped = useMemo(() => (groupBy === 'none' ? null : groupBooks(shown, groupBy)), [shown, groupBy])
+  const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
+  const grouped = useMemo(() => (groupBy === 'none' ? null : groupBooks(shown, groupBy, creditSeps)), [shown, groupBy, creditSeps])
 
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
@@ -538,7 +543,7 @@ export function ManualTab({ onAdded }) {
 
 // ---- book detail (§8.5, mockups 08–09) ----
 
-function BookDetail({ id, onClose }) {
+function BookDetail({ id, onClose, creditSeparators }) {
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
@@ -574,11 +579,14 @@ function BookDetail({ id, onClose }) {
     else setError(errText(r, 'could not save'))
   }
 
-  // Meta parts: the author is a clickable PersonName (opens the metadata panel);
+  // Meta parts: each author is a clickable PersonName (opens the metadata
+  // panel) — a joined multi-author credit renders one link per person (§11);
   // the rest are plain, interleaved with " · ".
   const metaParts = book
     ? [
-        book.author ? <PersonName key="author" kind="author" name={book.author} onOpen={setPerson} /> : null,
+        ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
+          <PersonName key={`author-${a}`} kind="author" name={a} onOpen={setPerson} />
+        )),
         book.published_year || null,
         seriesLabel(book) || null,
         book.isbn && `ISBN ${book.isbn}`,
@@ -1370,7 +1378,8 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
 
 // AnnotationForm serves both add (no initial) and inline edit (initial set).
 // onSubmit receives the full field state and returns an error string or null.
-function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers }) {
+// Exported for Home's favourite-tile inline edit (same form, same contract).
+export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')

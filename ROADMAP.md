@@ -9,6 +9,30 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v0.6.7 (July 2026)**
+
+- **Force-fetch & re-verify metadata (review before apply)** — re-check a
+  selection of books, films/shows and saved people against the live sources,
+  targeted by their **pinned identity ids** (never re-guessed by name), with
+  every changed field presented stored-vs-fresh for field-by-field approval.
+  Nothing is written until confirmed. On desktop it rides the Metadata console
+  selections; on phones it's a one-tap pass over every pinned item.
+- **Multi-author separation** — "Gaiman & Pratchett" now surfaces as two
+  people (group-by headings, People console, clickable author links), each
+  resolving their own portrait and links; the stored credit string stays
+  verbatim, guards keep "Daniels and Sons" whole, and a Settings card picks
+  the separators (turn comma off for "Last, First" libraries). Renames are
+  component-aware and never touch co-authors.
+- **Quick capture, films included** — the ＋ sheet's book dropdown became a
+  search picker across books, films and shows (with inline "add as a new
+  book"), so a dialogue captures as fast as a book quote.
+- **Polish & fixes** — Home favourites get the full ♥ · share · edit · delete
+  toolkit; "where you stand" ticks live with every quiz/practice answer;
+  session tallies actually count; the phone PNG share saves a real, named
+  image; the drawer locks background scroll and closes on swipe; the top nav
+  collapses to icons when a smaller window would clip it; Tags/Metadata sit
+  permanently in the navbar (the Interface toggle is retired).
+
 **v0.6.3 (July 2026)**
 
 - **Version → changelog + update badge** — the running version links to the GitHub
@@ -213,18 +237,7 @@ the raw `My Clippings.txt` straight off a Kindle — the locale header line, the
 the same idempotent, cross-source dedupe as the Markdown / Bookcision /
 Hardcover / Goodreads paths, so the same passage never doubles up.
 
-### 2 · Force-fetch & re-verify metadata (review before apply)
-A deliberate "re-check everything" pass over a **selection** of books, movies,
-shows, authors and actors: re-run each item's lookup against the live sources,
-diff the fresh values (covers/posters, descriptions, cast, portraits, links,
-identity ids) against what's stored, and present the differences for the user to
-**approve field-by-field** — nothing is written until they confirm. Builds on the
-now-pinned identity ids (`movies.tmdb_id`, `people.source_id`, book ids) so a
-re-verify targets the same entity rather than re-guessing by name, and reuses the
-chunked-refetch plumbing. The companion to the on-demand automatic portraits
-already shipped — same resolution, but user-gated and bulk.
-
-### 3 · AI summaries + notifications (opt-in)
+### 2 · AI summaries + notifications (opt-in)
 A passive digest: batch your recent highlights, summarise them with an
 **OpenAI-compatible** model (local or remote — your endpoint, your key), and
 optionally push the result. Grouped by book, tag, or whole library; weekly or
@@ -242,14 +255,14 @@ should be able to shout. Exact backend still to be decided.
 - Config: OpenAI endpoint / key / model, the notifier URL(s), cadence + grouping.
 - A "Summaries" page listing recent digests, each linking back to its source.
 
-### 4 · Homepage dashboard widget
+### 3 · Homepage dashboard widget
 A widget for **[Homepage](https://gethomepage.dev)** (and similar self-hosted
 dashboards): a small, read-only, token-scoped stats endpoint surfacing today's
 **pending spaced-repetition** count, your latest **quiz score**, and
 **book / annotation / movie** totals — so Tippani shows up as a live tile on your
 NAS dashboard. Opt-in; nothing exposed without a token.
 
-### 5 · Account, continued — sign-in, trash, tokens
+### 4 · Account, continued — sign-in, trash, tokens
 The consolidated **Profile** (photo · display name · password) and admin **role
 management** (grant / revoke / transfer, last admin protected) shipped — see
 Recently shipped. Three strands remain, all local (no email round-trips, no
@@ -266,7 +279,7 @@ external identity provider):
   webhooks on events (new highlight, review done). Absorbs the old "API-token auth"
   line that used to sit under Later.
 
-### 6 · Achievements — quiet milestones, and one gentle streak
+### 5 · Achievements — quiet milestones, and one gentle streak
 A deliberately restrained take. Achievements mostly mark *distance travelled* —
 reading and collection milestones drawn from data **already in the library** and
 computed at query time, no counters table, no background jobs, no cron, nothing
@@ -285,7 +298,7 @@ streak!" banners are exactly what we won't do). It's a quiet tally that rewards
 turning up, not a chain you're afraid to drop. Streaks stop at the review; nothing
 else in the app grows one.
 
-### 7 · Capture from anywhere (share-target + bookmarklet)
+### 6 · Capture from anywhere (share-target + bookmarklet)
 Two low-cost ways to get text in without a file:
 
 - **PWA share-target** — Tippani already installs as a PWA, so register it as a
@@ -298,7 +311,7 @@ Two low-cost ways to get text in without a file:
   importers. Deliberately minimal: just the page, no Bookcision-style JSON layer to
   install or keep working.
 
-### 8 · More import sources
+### 7 · More import sources
 Kobo (`KoboReader.sqlite`), Apple Books, a **Readwise** export, and read-later apps
 (Instapaper · Pocket · Matter), all folded into the same idempotent, cross-source
 dedupe. They surface in the Import menu **beside the still-stubbed Kindle
@@ -307,30 +320,18 @@ intended set at a glance. Kobo is unverified for now — no device here to test 
 `KoboReader.sqlite` against, so it ships only once someone can confirm it parses
 cleanly.
 
-### 9 · Backup & restore
+### 8 · Backup & restore
 A one-click **tar of the whole data directory** (SQLite DB + downloaded covers and
 posters) from inside the app, and a restore that reads it back — portability and
 disaster-recovery without shelling into the box or wiring up the `VACUUM INTO` cron.
 
-### 10 · Collections & shelves
+### 9 · Collections & shelves
 Extend tagging **to books** (tags live only on annotations today), then a **shelf**
 view that groups either books or annotations by tag — curated, named groupings
 ("Best of 2026", "to reread") that are really just tags surfaced as first-class
 shelves, so there's no new taxonomy to learn.
 
-### 11 · Multi-author separation (for metadata & people)
-A credit is a single string today, so "Gaiman & Pratchett" or "Smith, Jones and
-Lee" becomes **one** non-resolving pseudo-person — no portrait, no links, and a
-junk group-by heading. Split multi-author credits into distinct people **when data
-is fetched**: parse the separators the sources actually use (`,` · ` & ` · ` and ` ·
-`;`) into individual names, then resolve and pin **each** one independently
-(portrait + IMDb / TMDB / TheTVDB / Wikipedia / Open Library links) exactly the way
-a single author already resolves, and surface them as separate names in the
-group-by headings and the People console. Two guards: don't shatter a genuine single
-name that merely contains "and", and keep the 0.4.2 dedupe/merge tools able to
-recombine a split that shouldn't have happened.
-
-### 12 · Verbose, structured logs
+### 10 · Verbose, structured logs
 A failed request should tell you *why* from the Docker logs, not just that it
 failed. Plan: consistent structured logging across handlers (method · path ·
 user · outcome · **cause**), a `TIPPANI_LOG_LEVEL` knob (quiet by default,
@@ -360,6 +361,6 @@ it.)
 
 - **OCR of a photographed page** — building OCR into Tippani (even by spending AI
   tokens) isn't worth the weight. Every modern phone already OCRs text natively in
-  its camera/photos app, and the planned **share-target (§8)** lets you send that
+  its camera/photos app, and the planned **share-target (§6)** lets you send that
   recognised text straight in — so the use case is covered without a new dependency
   or a departure from the frugal, offline-first build.

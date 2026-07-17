@@ -423,6 +423,7 @@ export function renderShareHTML(text, fmt) {
 // the current paper/film skin (drawn locally on a <canvas>, see quoteImage.js).
 function QuoteImagePanel({ share, selected, onShared }) {
   const canvasRef = useRef(null);
+  const mobile = useIsMobileScreen();
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -455,21 +456,41 @@ function QuoteImagePanel({ share, selected, onShared }) {
     };
   }, [share, selected, imageTheme]);
 
-  function download() {
+  async function download() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const href = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = "tippani-quote.png";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(href);
-      onShared?.();
-    }, "image/png");
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    if (!blob) return setErr("couldn't render the image on this device");
+    // Phones get the native share sheet (save to Photos/Files, or share
+    // straight on) via a named File. The anchor-download path is broken on
+    // mobile two ways: iOS Safari — and installed PWAs especially — ignore
+    // a.download on blob: URLs (the file saves under the blob's UUID, the
+    // "hash" filename), and the async save races URL.revokeObjectURL (a
+    // truncated, corrupt PNG). Desktop keeps the plain download it had.
+    if (mobile && navigator.canShare && navigator.share) {
+      const file = new File([blob], "tippani-quote.png", { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          onShared?.();
+          return;
+        } catch (e) {
+          if (e?.name === "AbortError") return; // user closed the sheet — not an error
+          // anything else falls through to the anchor download below
+        }
+      }
+    }
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = "tippani-quote.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke LATER: browsers save blob URLs asynchronously (mobile especially);
+    // an immediate revoke truncates the download into a corrupt file.
+    setTimeout(() => URL.revokeObjectURL(href), 60_000);
+    onShared?.();
   }
 
   const canCopyImage =
@@ -524,7 +545,7 @@ function QuoteImagePanel({ share, selected, onShared }) {
           </GhostButton>
         )}
         <button className={PRIMARY} onClick={download}>
-          Download PNG
+          {mobile ? "Share / save PNG" : "Download PNG"}
         </button>
       </div>
     </div>

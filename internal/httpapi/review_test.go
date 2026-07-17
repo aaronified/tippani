@@ -34,16 +34,17 @@ type practiceDeckResp struct {
 }
 
 type answerResp struct {
-	OK        bool    `json:"ok"`
-	Kind      string  `json:"kind"`
-	ID        int64   `json:"id"`
-	Stability float64 `json:"stability"`
-	Status    string  `json:"status"`
-	Mode      string  `json:"mode"`
-	Answered  int     `json:"answered"`
-	Got       int     `json:"got"`
-	Forgot    int     `json:"forgot"`
-	Remaining int     `json:"remaining"`
+	OK        bool         `json:"ok"`
+	Kind      string       `json:"kind"`
+	ID        int64        `json:"id"`
+	Stability float64      `json:"stability"`
+	Status    string       `json:"status"`
+	Mode      string       `json:"mode"`
+	Answered  int          `json:"answered"`
+	Got       int          `json:"got"`
+	Forgot    int          `json:"forgot"`
+	Remaining int          `json:"remaining"`
+	States    statusCounts `json:"states"`
 }
 
 type scoresResp struct {
@@ -146,10 +147,15 @@ func TestDailyQuizMCQ(t *testing.T) {
 	}
 
 	// A correct pick counts as "got" (half-life 1 -> 2.5), the card leaves the
-	// deck, and freshly reviewed reads as remembered.
+	// deck, and freshly reviewed reads as remembered. Every answer also carries
+	// the fresh library-wide status counts (Dune 3 + the remembered Emma
+	// distractor = 4) so "Where you stand" updates live.
 	res := answer(t, c, kindBook, ids[0], "got", "daily")
 	if !res.OK || res.Stability != 2.5 || res.Status != "remembered" || res.Answered != 1 || res.Got != 1 {
 		t.Fatalf("got: %+v", res)
+	}
+	if res.States.Total != 4 || res.States.Remembered != 2 || res.States.Unseen != 2 {
+		t.Fatalf("states after got: %+v", res.States)
 	}
 	// A wrong pick counts as "forgot": floor 1, lapse recorded, and — however
 	// freshly reviewed — it reads as probably-forgotten, not remembered (a lapse
@@ -157,6 +163,9 @@ func TestDailyQuizMCQ(t *testing.T) {
 	res = answer(t, c, kindBook, ids[1], "forgot", "daily")
 	if res.Stability != 1 || res.Answered != 2 || res.Forgot != 1 || res.Status != "probably-forgotten" {
 		t.Fatalf("forgot: %+v", res)
+	}
+	if res.States.ProbablyForgotten != 1 || res.States.Unseen != 1 {
+		t.Fatalf("states after forgot: %+v", res.States)
 	}
 	var lapses int
 	if err := srv.Store.DB.QueryRow(`SELECT lapse_count FROM item_reviews WHERE kind='book' AND item_id=?`, ids[1]).Scan(&lapses); err != nil || lapses != 1 {

@@ -50,7 +50,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
     { w: user.is_admin ? 5.5 : 1.6, node: <Metadata key="meta" user={user} /> },
     { w: 3, node: <Stats key="stats" /> },
     { w: 2.8, node: <SRSettings key="sr" user={user} onPreferences={onPreferences} /> },
-    { w: 1.4, node: <Interface key="iface" user={user} onPreferences={onPreferences} /> },
+    { w: 1.5, node: <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} /> },
     user.is_admin && { w: 1.8, node: <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} /> },
   ].filter(Boolean)
   const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
@@ -76,31 +76,59 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   )
 }
 
-// Interface — the desktop nav-placement toggle (navUtilities). Persists via the
-// same partial-merge preferences PUT as Appearance, so it never disturbs theme.
-// (Password + Users moved to the Profile / User-management pop-ups on the chip.)
-function Interface({ user, onPreferences }) {
-  const [nav, setNav] = useState(user.preferences?.navUtilities === 'tabs' ? 'tabs' : 'menu')
-  function set(v) {
-    setNav(v)
-    onPreferences?.({ navUtilities: v })
-    json('PUT', '/auth/me/preferences', { navUtilities: v })
+// CreditSepsCard — which separators split a joined multi-author credit
+// ("Gaiman & Pratchett") into distinct people, across group-by headings and
+// the People console (ROADMAP §11). Stored as the creditSeparators pref
+// ("none" = splitting off). The author string stored on each book is never
+// rewritten — only the people views split — so this is safe to flip freely.
+const CREDIT_SEP_OPTIONS = [
+  ['comma', ', comma'],
+  ['semicolon', '; semicolon'],
+  ['amp', '& ampersand'],
+  ['and', '“and”'],
+]
+function CreditSepsCard({ user, onPreferences }) {
+  const parse = (v) => {
+    const t = String(v || '').trim()
+    if (!t) return new Set(CREDIT_SEP_OPTIONS.map(([k]) => k)) // unset = all on
+    if (t.toLowerCase() === 'none') return new Set()
+    return new Set(t.split(',').map((s) => s.trim()).filter((s) => CREDIT_SEP_OPTIONS.some(([k]) => k === s)))
+  }
+  const [active, setActive] = useState(() => parse(user.preferences?.creditSeparators))
+  function toggle(key) {
+    const next = new Set(active)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setActive(next)
+    // Canonical order, "none" as the explicit off switch (an empty string
+    // would read as "unset" and fall back to the default on the server).
+    const value = next.size === 0 ? 'none' : CREDIT_SEP_OPTIONS.map(([k]) => k).filter((k) => next.has(k)).join(',')
+    onPreferences?.({ creditSeparators: value })
+    json('PUT', '/auth/me/preferences', { creditSeparators: value })
   }
   return (
     <Card>
-      <SectionTitle>Interface</SectionTitle>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <MonoLabel>Metadata &amp; Tags</MonoLabel>
-          <p className="microcopy mt-1">where they sit in the desktop top bar — phones always use the menu</p>
-        </div>
-        <Toggle
-          ariaLabel="Metadata and Tags placement"
-          value={nav}
-          onChange={set}
-          options={[['tabs', 'Navbar'], ['menu', 'Menu']]}
-        />
+      <SectionTitle>Multi-author credits</SectionTitle>
+      <div className="mb-2 flex items-center gap-2">
+        <MonoLabel>Split joined credits on</MonoLabel>
+        <InfoDot text="A credit like “Gaiman & Pratchett” lists as two people — in group-by headings and the People console — split on the separators picked here. The author line stored on each book stays untouched. Turn the comma off if your library stores authors as “Last, First”." />
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {CREDIT_SEP_OPTIONS.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={'tp-filter-chip' + (active.has(key) ? ' active' : '')}
+            aria-pressed={active.has(key)}
+            onClick={() => toggle(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {active.size === 0 && (
+        <p className="microcopy mt-2">splitting is off — every credit stays one person</p>
+      )}
     </Card>
   )
 }
@@ -591,6 +619,8 @@ function Appearance({ onPreferences }) {
         })}
       </div>
 
+      {/* Accent + the two size sliders share one wrapping row on desktop;
+          flex-wrap stacks them on narrow screens. */}
       <div className="mt-7 flex flex-wrap gap-x-10 gap-y-5">
         <div>
           <MonoLabel className="mb-2 block">Accent</MonoLabel>
@@ -617,9 +647,6 @@ function Appearance({ onPreferences }) {
             })}
           </div>
         </div>
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-x-10 gap-y-5">
         <SizeSlider label="Library cover size" storageKey="tippani:size:books" def={165} />
         <SizeSlider label="Catalogue poster size" storageKey="tippani:size:movies" def={150} />
       </div>
@@ -667,8 +694,6 @@ function Metadata({ user }) {
   const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [refetch, setRefetch] = useState(null) // {fetched, failed}
-  const [refetching, setRefetching] = useState(false)
 
   async function loadStatus() {
     const r = await json('GET', '/metadata/status')
@@ -728,19 +753,6 @@ function Metadata({ user }) {
       loadKeys()
     } else {
       setError(errText(r, 'could not save keys'))
-    }
-  }
-
-  async function doRefetch() {
-    setRefetching(true)
-    setRefetch(null)
-    const r = await json('POST', '/covers/refetch')
-    setRefetching(false)
-    if (r.ok) {
-      setRefetch(r.data)
-      loadStatus()
-    } else {
-      setError(errText(r, 'could not re-fetch covers'))
     }
   }
 
@@ -866,26 +878,6 @@ function Metadata({ user }) {
           </p>
         </div>
       )}
-
-      {/* Covers */}
-      <div>
-        <div className="flex items-center gap-2">
-          <MonoLabel>Covers</MonoLabel>
-          <InfoDot text="Stored in MediaCover/ (arr-style), fetched once, served locally. Re-fetch tries every cover-less book against Open Library (ISBN) + Amazon (ASIN) — no key needed — plus any poster cached from a lookup." />
-        </div>
-        {admin && (
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <GhostButton onClick={doRefetch} disabled={refetching}>
-              {refetching ? 'Re-fetching…' : 'Re-fetch missing'}
-            </GhostButton>
-            {refetch && (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--soft)' }}>
-                {refetch.fetched} covers · {refetch.enriched || 0} enriched · {refetch.failed} failed
-              </span>
-            )}
-          </div>
-        )}
-      </div>
 
       <ErrorText>{error}</ErrorText>
     </Card>

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import Home, { QuickCapture, tzOffsetMinutes } from './Home.jsx'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
@@ -27,6 +26,7 @@ import {
   Toggle,
   frameCode,
   toast,
+  useBodyScrollLock,
   useFrameBase,
   useIsMobileScreen,
   useResolvedDark,
@@ -231,23 +231,20 @@ function Login({ onLogin }) {
 }
 
 // Desktop nav (§7 declutter): four content tabs, a divider, then the utility
-// tabs. Whether Tags + Metadata sit inline or fold into a ⋯ More menu is the
-// per-user `navUtilities` pref ("tabs" | "menu"); the account chip (Profile ·
-// User management · Log out) and the "＋ Add" button are always separate. Import
-// is no longer a permanent tab — it lives inside the "＋ Add" surface (§7 One
-// "＋ Add"). Mobile uses the drawer.
+// tabs (always inline — the old navUtilities "⋯ More" fold is retired); the
+// account chip (Profile · User management · Log out) and the "＋ Add" button
+// are always separate. Import is no longer a permanent tab — it lives inside
+// the "＋ Add" surface (§7 One "＋ Add"). Mobile uses the drawer.
 const CONTENT_TABS = [
   ['home', 'Home'],
   ['library', 'Library'],
   ['movies', 'Catalogue'],
   ['search', 'Search'],
 ]
-const UTILITY_ALWAYS = [
-  ['settings', 'Settings'],
-]
-const UTILITY_TOGGLED = [
+const UTILITY_TABS = [
   ['tags', 'Tags'],
   ['metadata', 'Metadata'],
+  ['settings', 'Settings'],
 ]
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
@@ -377,72 +374,54 @@ function tabOptions(pairs) {
   return pairs.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])
 }
 
-// DesktopNav: content tabs · divider · utility tabs. In "menu" mode Tags +
-// Metadata fold into a self-contained ⋯ More dropdown instead of sitting inline.
-function DesktopNav({ tab, onChange, navMode }) {
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [pos, setPos] = useState(null) // fixed-position coords for the portaled panel
-  const btnRef = useRef(null)
-  const menuRef = useRef(null)
-  // The dropdown is portaled to <body> and positioned via getBoundingClientRect:
-  // its natural home (the ⋯ button) lives inside <nav.topbar-nav>, which sets
-  // overflow-x:auto — and a non-visible overflow on one axis forces the other to
-  // compute to auto too, so an in-flow absolute panel was clipped by the ~48px
-  // nav and never showed. Escaping to the body sidesteps the clip entirely.
-  useEffect(() => {
-    if (!moreOpen) return
-    const place = () => {
-      const b = btnRef.current?.getBoundingClientRect()
-      if (b) setPos({ top: b.bottom + 6, right: Math.max(8, window.innerWidth - b.right) })
-    }
-    place()
-    const close = (e) => {
-      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
-      setMoreOpen(false)
-    }
-    const onKey = (e) => { if (e.key === 'Escape') setMoreOpen(false) }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [moreOpen])
-  const utility = navMode === 'tabs'
-    ? [...UTILITY_TOGGLED, ...UTILITY_ALWAYS]
-    : UTILITY_ALWAYS
+// DesktopNav: content tabs · divider · utility tabs, all inline.
+function DesktopNav({ tab, onChange }) {
   return (
     <div className="topbar-nav-group">
       <Toggle className="nav-toggle" ariaLabel="Primary" value={tab} onChange={onChange} options={tabOptions(CONTENT_TABS)} />
       <span className="nav-divider" aria-hidden="true" />
-      <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(utility)} />
-      {navMode === 'menu' && (
-        <div className="relative">
-          <button ref={btnRef} type="button" className="nav-more-btn" aria-haspopup="true" aria-expanded={moreOpen} aria-label="More" title="More" onClick={() => setMoreOpen((v) => !v)}>
-            <span aria-hidden="true">⋯</span>
-          </button>
-          {moreOpen && pos && createPortal(
-            <div
-              ref={menuRef}
-              className="hand-card hc-r2 user-menu-panel px-2 py-2 text-left"
-              style={{ position: 'fixed', top: pos.top, right: pos.right, minWidth: 168, zIndex: 60 }}
-            >
-              {UTILITY_TOGGLED.map(([key, label]) => (
-                <button key={key} type="button" className={'menu-item' + (tab === key ? ' active' : '')} aria-current={tab === key ? 'page' : undefined} onClick={() => { onChange(key); setMoreOpen(false) }}>
-                  <TabIcon name={key} /> {label}
-                </button>
-              ))}
-            </div>,
-            document.body,
-          )}
-        </div>
-      )}
+      <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(UTILITY_TABS)} />
     </div>
   )
+}
+
+// useIconOnlyNav — the intermediate-width fallback for the always-inline nav:
+// desktop windows come in every size, so the seven labelled tabs collapse to
+// icon-only WHEN they actually start clipping (scrollWidth outgrows the space
+// the bar gives the nav), not at a fixed breakpoint. The full-label width is
+// remembered so the labels come back once the bar is genuinely wide enough
+// again (with a small hysteresis margin so a boundary width can't flap).
+// Requires .topbar-nav { flex: 1 } so clientWidth tracks the AVAILABLE space
+// rather than the (already collapsed) content.
+function useIconOnlyNav() {
+  const ref = useRef(null)
+  const [iconOnly, setIconOnly] = useState(false)
+  const state = useRef({ iconOnly: false, fullWidth: 0 })
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => {
+      const s = state.current
+      if (!s.iconOnly) {
+        if (el.scrollWidth > el.clientWidth + 1) {
+          s.fullWidth = el.scrollWidth
+          s.iconOnly = true
+          setIconOnly(true)
+        }
+      } else if (el.clientWidth >= s.fullWidth + 8) {
+        s.iconOnly = false
+        setIconOnly(false)
+      }
+    }
+    check()
+    // Re-check when the available width changes, and once the bundled fonts
+    // land (they change label widths without resizing the nav element).
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    document.fonts?.ready?.then(check)
+    return () => ro.disconnect()
+  }, [])
+  return [ref, iconOnly]
 }
 
 // AccountMenu — the avatar chip and its dropdown: Profile · User management
@@ -551,14 +530,15 @@ function statePath(tab, detail) {
 }
 
 // The drawer's nav rows, in order; null marks the divider between the primary
-// screens and the utility pair. Labels reuse PRIMARY_TABS/MENU_TABS wording.
+// screens and the utility group (Tags · Metadata · Settings — the same trio,
+// in the same order, as the desktop navbar's utility cluster).
 const DRAWER_TABS = [
   ['home', 'Home'],
   ['library', 'Library'],
   ['movies', 'Catalogue'],
   ['search', 'Search'],
-  ['tags', 'Tags'],
   null,
+  ['tags', 'Tags'],
   ['metadata', 'Metadata'],
   ['settings', 'Settings'],
 ]
@@ -580,6 +560,35 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, up
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
+  // The open drawer owns the viewport — the page behind it must not scroll.
+  useBodyScrollLock(open)
+  // Swipe-to-close: a deliberate leftward drag anywhere on the drawer pushes it
+  // back out (it slides in from the left). One-shot intent detection — a
+  // mostly-vertical first movement is a nav scroll and hands the gesture back
+  // to the browser for the rest of the touch. Closing waits for pointerup so a
+  // mid-gesture unmount can't ghost-click whatever lands under the finger.
+  // Deliberately NO swipe-to-open: the left screen edge belongs to the OS back
+  // gesture on phones.
+  const swipe = useRef(null)
+  const SWIPE_CLOSE = 48 // px of leftward travel that counts as a close
+  const SWIPE_SLOP = 10 // dead zone before horizontal-vs-vertical intent is judged
+  const onSwipeStart = (e) => { swipe.current = { x: e.clientX, y: e.clientY, intent: null, hit: false } }
+  const onSwipeMove = (e) => {
+    const s = swipe.current
+    if (!s || s.intent === 'scroll') return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    if (s.intent === null) {
+      if (Math.abs(dx) < SWIPE_SLOP && Math.abs(dy) < SWIPE_SLOP) return
+      s.intent = Math.abs(dx) > Math.abs(dy) ? 'swipe' : 'scroll'
+    }
+    if (s.intent === 'swipe' && dx <= -SWIPE_CLOSE) s.hit = true
+  }
+  const onSwipeEnd = () => {
+    const hit = swipe.current?.hit
+    swipe.current = null
+    if (hit) onClose()
+  }
   if (!open) return null
 
   const badge = (key) => {
@@ -599,7 +608,14 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, up
   return (
     <>
       <button type="button" className="drawer-scrim" aria-label="Close menu" onClick={onClose} />
-      <nav className="drawer" aria-label="Primary">
+      <nav
+        className="drawer"
+        aria-label="Primary"
+        onPointerDown={onSwipeStart}
+        onPointerMove={onSwipeMove}
+        onPointerUp={onSwipeEnd}
+        onPointerCancel={() => { swipe.current = null }}
+      >
         <div className="drawer-header">
           <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
           <div className="min-w-0">
@@ -722,9 +738,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // the rest of the session.
   const [update, setUpdate] = useState(null)
   const dark = useResolvedDark()
-  // Desktop nav placement: "tabs" shows Tags+Metadata inline, "menu" folds them
-  // into the ⋯ More dropdown. Per-user pref; defaults to the decluttered menu.
-  const navMode = user.preferences?.navUtilities === 'tabs' ? 'tabs' : 'menu'
+  const [navRef, navIconOnly] = useIconOnlyNav()
 
   const refreshStats = () => {
     json('GET', '/stats').then((r) => { if (r.ok) setStats(r.data) })
@@ -784,8 +798,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="wordmark">tippani</span>
             {brandDot}
           </button>
-          <nav aria-label="Primary" className="topbar-nav">
-            <DesktopNav tab={tab} onChange={selectTab} navMode={navMode} />
+          <nav ref={navRef} aria-label="Primary" className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
+            <DesktopNav tab={tab} onChange={selectTab} />
           </nav>
           <div className="ml-auto flex items-center gap-2.5">
             {/* §7 One "＋ Add": the single way to add a book, a film, or import. */}
@@ -849,6 +863,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpen={openBook}
               onClose={() => go('library', null)}
               onOpenMovie={openMovie}
+              creditSeparators={user.preferences?.creditSeparators}
             />
           </div>
         )}
@@ -868,7 +883,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'search' && (
           <div data-screen-label="search">
-            <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} />
+            <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} creditSeparators={user.preferences?.creditSeparators} />
           </div>
         )}
         {tab === 'tags' && (

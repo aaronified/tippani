@@ -41,6 +41,7 @@ type Server struct {
 	fetchImage     func(ctx context.Context, rawURL, destDir string) (string, error)
 	fetchUserImage func(ctx context.Context, rawURL, destDir string) (string, error) // user-typed URL: no host allowlist
 	searchBooks    func(ctx context.Context, isbn, title, author, googleKey string) ([]metadata.BookCandidate, error)
+	googleVolume   func(ctx context.Context, id, key string) (*metadata.BookCandidate, error) // re-verify by pinned google_id
 	authorLinks    func(ctx context.Context, name string) (map[string]string, error)
 	actorLinks     func(ctx context.Context, t *metadata.TMDB, name string) (map[string]string, error)
 	resolveAuthor  func(ctx context.Context, name string, bookTitles []string) (metadata.AuthorResolution, error)
@@ -73,6 +74,7 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 		fetchImage:     metadata.FetchImage,
 		fetchUserImage: metadata.FetchUserImage,
 		searchBooks:    metadata.SearchBooks,
+		googleVolume:   metadata.FetchGoogleVolume,
 		authorLinks:    metadata.AuthorLinks,
 		actorLinks: func(ctx context.Context, t *metadata.TMDB, name string) (map[string]string, error) {
 			return t.PersonLinks(ctx, name)
@@ -201,6 +203,11 @@ func (s *Server) Handler() http.Handler {
 	// Library stats + metadata source status (§10).
 	mux.Handle("GET /stats", s.requireAuth(s.handleStats))
 	mux.Handle("GET /metadata/status", s.requireAuth(s.handleMetadataStatus))
+	// Force-fetch & re-verify (ROADMAP §2): preview per-field diffs against the
+	// live sources (nothing written), then apply only the approved fields. Own
+	// rows only, so requireAuth — the per-call cap bounds provider load.
+	mux.Handle("POST /metadata/reverify", s.requireAuth(s.handleMetadataReverify))
+	mux.Handle("POST /metadata/reverify/apply", s.requireAuth(s.handleMetadataReverifyApply))
 	// Metadata tab: review-and-fill overview + bulk dialogue speaker remap.
 	mux.Handle("GET /metadata/library", s.requireAuth(s.handleMetadataLibrary))
 	mux.Handle("POST /movies/{id}/remap-speakers", s.requireAuth(s.handleRemapSpeakers))
@@ -314,7 +321,9 @@ func securityHeaders(next http.Handler) http.Handler {
 				// OL covers redirect to archive.org download nodes; CSP checks
 				// redirect targets, so previews need these hosts too.
 				"https://archive.org https://*.us.archive.org "+
-				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com; "+
+				"https://images-na.ssl-images-amazon.com https://m.media-amazon.com "+
+				// Wikidata portraits (re-verify previews a fresh author photo by URL).
+				"https://commons.wikimedia.org https://upload.wikimedia.org; "+
 				"frame-ancestors 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")

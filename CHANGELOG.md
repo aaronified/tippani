@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-07-17
+
+### Added
+- **Force-fetch & re-verify metadata, review before apply (ROADMAP §2).** A
+  deliberate "re-check everything" pass over a selection of books, films/shows
+  and saved people: each item's lookup re-runs against the live sources —
+  targeting its **pinned identity** (ISBN/ASIN/Google id, TMDB/TheTVDB id, the
+  stored cast / Open Library key) so it re-checks the same entity instead of
+  re-guessing by name — and every changed field (title, author/director,
+  description, year, genres, series, cast, cover/poster/portrait, identity ids)
+  is presented stored-vs-fresh for **field-by-field approval**. Nothing is
+  written until confirmed; pure fills come pre-ticked, overwrites don't.
+  Desktop: a *Re-verify…* action on the Books/Films selections and a *Re-verify
+  saved* on the People console. Phones: one *Re-verify metadata* action over
+  every pinned item, with the same review sheet. New
+  `POST /metadata/reverify` (preview, writes nothing) and
+  `POST /metadata/reverify/apply` (approved fields only, per-item isolation; a
+  failed image download degrades to a note instead of blocking text fields).
+- **Multi-author separation (ROADMAP §11).** A joined credit like
+  "Gaiman & Pratchett" or "Smith, Jones, and Lee" now lists as **distinct
+  people** — in Library/Search author group-bys, the book detail's author line
+  (one clickable name each) and the People console — each resolving and
+  pinning their own portrait and reference links. The stored credit string on
+  the book itself stays verbatim. Guards: a single name containing "and"
+  ("Daniels and Sons") never splits, suffixes ("King, Jr.") stay attached, and
+  the Oxford comma is understood. **Settings → Multi-author credits** picks
+  which separators apply (comma · semicolon · & · "and") — turn comma off if
+  your library stores authors as "Last, First" — or turns splitting off
+  entirely. *Rename everywhere* is now component-aware: renaming one author
+  inside a joined credit splices just that name, byte-for-byte preserving
+  co-authors, separators and "et al." markers.
+- **Quick capture now captures dialogues too.** The ＋ capture sheet's book
+  dropdown is replaced by a **search picker** across every book, film and show
+  (type to filter, kind-tagged rows, keyboard navigation), with an inline
+  **"add as a new book"** quick-create when the title isn't in the library
+  yet. Capturing against a film/show saves a dialogue (character + timestamp
+  fields; the actor auto-fills from the cast).
+- **Home favourites carry the full quote toolkit.** An expanded favourite tile
+  now has the same ♥ · share · edit · delete cluster as the detail-screen
+  cards (hover-revealed on desktop, a ⋯ menu on phones), with the share sheet
+  and the real inline edit form — plus the existing *Open book/film/show*.
+- **"Where you stand" updates live.** Every Daily Quiz *and* Practice answer
+  refreshes the remembered/forgetting/probably-forgotten/unseen counts
+  immediately (`POST /review/answer` now returns the fresh counts).
+- **Icon-only top nav at intermediate widths.** When a smaller desktop window
+  would clip the labelled tabs behind the ＋ Add button, the nav collapses to
+  icons (and expands back once there's room) — measured off the actual
+  overflow, not a fixed breakpoint.
+
+### Changed
+- **Navbar simplification.** Tags and Metadata now always sit in the top bar's
+  utility group — the Settings "Interface" toggle (and its `navUtilities`
+  preference) is retired, and the mobile drawer moves Tags into the bottom
+  utility group to match. The Settings "Metadata sources" card also drops its
+  redundant single-shot *Re-fetch missing* button (the Metadata tab's chunked,
+  progress-bar version is the real tool).
+- **Settings layout.** Accent and the two cover-size sliders share one row on
+  desktop.
+- **Person popup.** The obsolete links-only "back to links" view is gone — the
+  details view already carries the clickable reference chips — and *refetch
+  links* moved into it. Long bios clamp to three lines with a *show more*.
+- **People console names are clickable**, opening the same person popup used
+  everywhere else; the mobile Metadata header gains an info-dot noting the
+  full console lives in the desktop view.
+
+### Fixed
+- **Mobile PNG share produced a corrupt file with a hash filename.** The
+  quote-card image now goes through the native share sheet on phones (a named
+  `tippani-quote.png`, save to Photos or share onward); the desktop download
+  is unchanged. Root causes fixed everywhere blobs are saved: the blob URL was
+  revoked before the (asynchronous) mobile save finished — truncating the file
+  — and iOS/PWA saves ignore the download filename on blob URLs.
+- **Daily Quiz / Practice session tallies never incremented** during a session
+  (the "N recalled · M to resurface" line and the practice round score were
+  stuck at their opening values).
+- **Mobile drawer:** the page behind it no longer scrolls while it's open, and
+  a left swipe closes it (no swipe-to-open — the screen edge stays the
+  system's back gesture).
+
+### Security
+- No new exposure: both re-verify endpoints are session-scoped to the caller's
+  own rows with whitelisted, validated fields; provider calls remain on-demand
+  only. CSP `img-src` additionally allows Wikimedia hosts so a fresh author
+  portrait can be previewed before it's approved.
+
 ## [0.6.6] - 2026-07-16
 
 ### Fixed

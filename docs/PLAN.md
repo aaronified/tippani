@@ -448,7 +448,7 @@ GET    /auth/status         POST /auth/signup    # onboarding (first user only)
 POST   /auth/login          POST /auth/logout
 POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
 PUT    /auth/me                       # {username} — change your own display name
-PUT    /auth/me/preferences          # partial merge: appearance + navUtilities + spaced-repetition
+PUT    /auth/me/preferences          # partial merge: appearance + spaced-repetition
                                      # (srDaily, srQuizLen, srQuizScope, srGrow, srShrink) (§10)
 GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin only
 PATCH  /admin/users/{id}              # {is_admin} grant/revoke (last admin protected)
@@ -486,11 +486,15 @@ GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
-GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status
+GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status;
+                                     #   joined multi-author credits list as split components (§11,
+                                     #   per-user creditSeparators pref)
 POST   /people/lookup                # {kind,name} → {links:{imdb,tmdb,tvdb,wikipedia,openlibrary}}
 POST   /people/rename                # {kind,from,to} → rename an author/actor across all books/
                                      #   dialogues + fold saved metadata onto `to` (unify duplicate
-                                     #   spellings). GET /people/names also sweeps orphaned rows on load
+                                     #   spellings); component-aware — renaming one author inside a
+                                     #   joined credit never touches the co-authors.
+                                     #   GET /people/names also sweeps orphaned rows on load
 POST   /people/portrait              # {kind,name} → resolve+store portrait & pin identity: actor from
                                      #   the film's stored cast (no extra call), author via OL
                                      #   disambiguated by their books (+Wikidata P18). {resolved,image,
@@ -500,6 +504,13 @@ GET    /covers/{file}                # local static (covers + posters, data/Medi
 POST   /covers/refetch               # admin: re-fetch missing covers/posters (all users); chunked:
                                      #   {cursor?, limit?} → {fetched, failed, enriched,
                                      #   next_cursor, done, total, remaining}; client loops until done
+POST   /metadata/reverify            # force-fetch & re-verify preview (ROADMAP §2): {book_ids?,
+                                     #   movie_ids?, people?:[{kind,name}]} (≤15/call, client chunks)
+                                     #   → per-item {status, source, diffs:[{field,stored,fresh}]};
+                                     #   targets the pinned ids, writes NOTHING
+POST   /metadata/reverify/apply      # write only the user-approved fields: {items:[{type, id|kind+
+                                     #   name, set:{field:value}}]} → per-item {ok,error,note};
+                                     #   whitelisted fields, per-item tx, image miss degrades to note
 GET    /healthz                      # public liveness probe (container HEALTHCHECK)
 ```
 

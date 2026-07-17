@@ -63,7 +63,9 @@ export async function downloadPost(url, body, filename) {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  URL.revokeObjectURL(href)
+  // Revoke LATER: browsers (mobile especially) save blob URLs asynchronously;
+  // an immediate revoke races the save and truncates the file.
+  setTimeout(() => URL.revokeObjectURL(href), 60_000)
   return true
 }
 

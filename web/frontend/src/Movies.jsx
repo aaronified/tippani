@@ -1350,7 +1350,8 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
 
 // DialogueForm serves both add (no initial) and inline edit (initial set).
 // Leaving actor blank lets the server auto-fill it from the movie's cast.
-function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [], stickers = [], reloadStickers }) {
+// Exported for Home's favourite-tile inline edit (same form, same contract).
+export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [], stickers = [], reloadStickers }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [character, setCharacter] = useState(initial?.character || '')
   const [actor, setActor] = useState(initial?.actor || '')

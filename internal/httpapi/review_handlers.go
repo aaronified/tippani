@@ -933,14 +933,22 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 }
 
 // answerResponse assembles the reply shared by the normal path and the daily
-// no-op echo: the card's new status + half-life, the mode's day tally, and (for
-// daily) how much of today's deck is left so the pending dot stays honest.
+// no-op echo: the card's new status + half-life, the mode's day tally, the
+// library-wide status counts (so the "Where you stand" row updates live on
+// every answer, quiz or practice), and (for daily) how much of today's deck is
+// left so the pending dot stays honest.
 func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int64, mode string, offset int,
 	kind string, id int64, stability float64, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
 	day, _, _ := reviewDay(offset)
 	answered, got, forgot, err := s.modeTally(uid, mode, day)
 	if err != nil {
 		internalError(w, r, "review answer response tally", err)
+		return
+	}
+	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
+	states, err := s.reviewStates(uid, incBooks, incScreen)
+	if err != nil {
+		internalError(w, r, "review answer states", err)
 		return
 	}
 	out := map[string]any{
@@ -953,6 +961,7 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		"answered":  answered,
 		"got":       got,
 		"forgot":    forgot,
+		"states":    states,
 	}
 	if mode == "daily" {
 		remaining, err := s.dailyRemaining(uid, offset, pf, answered)

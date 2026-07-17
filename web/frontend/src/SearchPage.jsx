@@ -3,7 +3,7 @@ import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
-import { PersonModal, PersonPortrait, usePeople } from './people.jsx'
+import { PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   EmptyState,
@@ -36,7 +36,7 @@ const SCOPES = [
 // by their parent book / movie, each group headed by the cover / poster —
 // annotations sit under their book, dialogues under their movie. 200 ms debounce
 // with a stale-guard; GET /search?q=&scope=.
-export default function SearchPage({ onOpenBook, onOpenMovie }) {
+export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }) {
   // Persisted so leaving Search (into a book/film, another tab) and coming back
   // restores the last query, scope, and view instead of resetting to empty.
   const [q, setQ] = usePersistedState('tippani:search:q', '')
@@ -51,6 +51,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
   const authors = usePeople('author') // name→metadata for author-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   const mobile = useIsMobileScreen()
+  const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
   useEffect(() => {
     const query = q.trim()
@@ -171,6 +172,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie }) {
               isMovie={false}
               people={authors.map}
               onOpenPerson={setPerson}
+              creditSeps={creditSeps}
               renderItem={(g) => (
                 <BookResult key={`b${g.id}`} g={g} view={view} terms={terms} onOpenBook={onOpenBook} onOpenQuote={setQuote} />
               )}
@@ -664,7 +666,7 @@ function decadeOf(year) {
 // mirroring the Library's group-by. Genre is multi-membership; the catch-all
 // bucket sinks last. Author maps to director for movies; decade uses
 // published_year for books, release_year for movies.
-function bucketGroups(groups, dim, isMovie) {
+function bucketGroups(groups, dim, isMovie, creditSeps) {
   const map = new Map()
   const add = (key, label, g, opts = {}) => {
     let b = map.get(key)
@@ -679,9 +681,17 @@ function bucketGroups(groups, dim, isMovie) {
       if (g.series) add(g.series, g.series, g)
       else add('~none', 'No series', g, { residual: true })
     } else if (dim === 'author') {
-      const a = isMovie ? g.director : g.author
-      if (a) add(a, a, g)
-      else add('~none', isMovie ? 'Unknown director' : 'Unknown author', g, { residual: true })
+      if (isMovie) {
+        // Directors are single names from TMDB/TVDB — no splitting needed.
+        if (g.director) add(g.director, g.director, g)
+        else add('~none', 'Unknown director', g, { residual: true })
+      } else {
+        // Multi-author separation (§11): a joined credit buckets the book
+        // under each author, mirroring the Library group-by.
+        const as = splitCredits(g.author, creditSeps)
+        if (as.length) as.forEach((a) => add(a, a, g))
+        else add('~none', 'Unknown author', g, { residual: true })
+      }
     } else if (dim === 'decade') {
       const d = decadeOf(isMovie ? g.release_year : g.published_year)
       if (d != null) add(String(d), `${d}s`, g, { order: d })
@@ -706,7 +716,7 @@ function bucketGroups(groups, dim, isMovie) {
 // bucketed into labelled sub-sections. renderItem(g) returns a keyed card.
 // For book author buckets, the heading shows the author portrait (people map)
 // and opens the metadata panel on click.
-function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson }) {
+function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson, creditSeps }) {
   const cols = view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'
   if (group === 'none') {
     return (
@@ -719,7 +729,7 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
   return (
     <section className="space-y-4">
       <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
-      {bucketGroups(groups, group, isMovie).map((b) => {
+      {bucketGroups(groups, group, isMovie, creditSeps).map((b) => {
         const isAuthor = group === 'author' && !isMovie && !b.residual
         const portrait = isAuthor && people ? people[b.label] : null
         return (

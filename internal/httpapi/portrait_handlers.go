@@ -149,10 +149,14 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 // headshot anywhere, it still returns the identity alone (so the person is
 // pinned). Empty strings mean "not found in any stored cast".
 func (s *Server) actorPortraitFromCast(uid int64, name string) (source, personID, imageURL string) {
+	// LIKE (not equality): a multi-actor credit stored as "A & B" is listed as
+	// its split components, and each component must still find its films. The
+	// widened candidate set is safe — the precise match below is against the
+	// cast entry's own actor name (EqualFold), not the dialogue credit.
 	rows, err := s.Store.DB.Query(`
 		SELECT COALESCE(m.cast_json, '[]'), COALESCE(m.tmdb_id, 0), COALESCE(m.tvdb_id, 0)
 		FROM movies m JOIN dialogues d ON d.movie_id = m.id
-		WHERE m.user_id = ? AND LOWER(TRIM(d.actor)) = LOWER(?)
+		WHERE m.user_id = ? AND LOWER(d.actor) LIKE '%' || LOWER(?) || '%'
 		GROUP BY m.id`, uid, name)
 	if err != nil {
 		return "", "", ""

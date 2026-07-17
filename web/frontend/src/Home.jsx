@@ -3,8 +3,12 @@
 // stat tiles, and the most recent favourites. Reached by tapping the logo
 // (every bar) or landing on "/". One narrow column on every screen size — the
 // ritual reads the same on a phone and a desktop.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { errText, json } from './api.js'
+import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
+import { DialogueForm, dialogueState } from './Movies.jsx'
+import { ShareDialog, bookShare, movieShare } from './share.jsx'
+import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
   ColorSwatches,
@@ -12,9 +16,10 @@ import {
   GhostButton,
   HandCard,
   HandNote,
+  Hearts,
   MobileSheet,
   MonoLabel,
-  Select,
+  QuoteActions,
   STATUS_META,
   toast,
   useIsMobileScreen,
@@ -147,7 +152,10 @@ function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
       setPicked(null)
       return toast('couldn’t save — check your connection and try again')
     }
-    onAnswered?.(correct, r.data)
+    // The result string, not the raw boolean — both cards' tallies compare
+    // against 'got'/'forgot' (a boolean never matched, so the session tallies
+    // silently stayed at zero).
+    onAnswered?.(correct ? 'got' : 'forgot', r.data)
   }
 
   const isSource = card.direction === 'source'
@@ -272,7 +280,7 @@ function StatesRow({ states, help, onToggleHelp }) {
 // card due today, no skips, each grade folded into the schedule. Got it / Forgot
 // move the card's half-life; the deck drains as you go and the pending dot
 // follows. Records a permanent daily score + streak.
-function DailyQuizCard({ onPending }) {
+function DailyQuizCard({ onPending, states, onStates }) {
   const [data, setData] = useState(null)
   const [phase, setPhase] = useState('loading') // loading | active | done | error
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
@@ -285,6 +293,7 @@ function DailyQuizCard({ onPending }) {
       if (!r.ok) return setPhase('error')
       setData(r.data)
       setTally({ got: r.data.got_today || 0, forgot: r.data.forgot_today || 0 })
+      onStates?.(r.data.states)
       const n = (r.data.items || []).length
       onPending(n)
       setPhase(n ? 'active' : 'done')
@@ -297,6 +306,9 @@ function DailyQuizCard({ onPending }) {
       forgot: t.forgot + (result === 'forgot' ? 1 : 0),
     }))
     if (res && typeof res.remaining === 'number') onPending(res.remaining)
+    // Every answer carries fresh library-wide status counts, so "where you
+    // stand" ticks live instead of waiting for the next Home visit.
+    if (res?.states) onStates?.(res.states)
   }
 
   const streak = data?.streak || 0
@@ -339,8 +351,8 @@ function DailyQuizCard({ onPending }) {
         </div>
       )}
 
-      {data && (
-        <StatesRow states={data.states} help={help} onToggleHelp={() => setHelp((v) => !v)} />
+      {states && (
+        <StatesRow states={states} help={help} onToggleHelp={() => setHelp((v) => !v)} />
       )}
     </HandCard>
   )
@@ -350,7 +362,7 @@ function DailyQuizCard({ onPending }) {
 // flow as the Daily Quiz, but skippable and, by default, schedule-neutral (a
 // setting opts it into moving half-lives). Its score is separate and can be
 // reset without touching learning history.
-function PracticeCard() {
+function PracticeCard({ onStates }) {
   const [phase, setPhase] = useState('idle') // idle | active | done
   const [cards, setCards] = useState([])
   const [score, setScore] = useState(null) // lifetime practice score
@@ -375,11 +387,15 @@ function PracticeCard() {
     setPhase('active')
   }
 
-  function onAnswered(result) {
+  function onAnswered(result, res) {
     setRound((t) => ({
       got: t.got + (result === 'got' ? 1 : 0),
       forgot: t.forgot + (result === 'forgot' ? 1 : 0),
     }))
+    // Practice answers refresh the Daily card's "where you stand" row too — the
+    // server returns the counts on every answer (they move when practice is set
+    // to touch the schedule, and stay honest either way).
+    if (res?.states) onStates?.(res.states)
   }
 
   async function reset() {
@@ -473,6 +489,7 @@ function bookFav(a) {
     createdAt: a.created_at,
     openLabel: 'Open book →',
     workId: a.book_id,
+    raw: a, // the untouched row — share/edit/delete need the full state
   }
 }
 
@@ -491,6 +508,8 @@ function screenFav(d, movieMap) {
     createdAt: d.created_at,
     openLabel: isShow ? 'Open show →' : 'Open film →',
     workId: d.movie_id,
+    raw: d, // the untouched row — share/edit/delete need the full state
+    movie: m, // parent title/year for the share payload
   }
 }
 
@@ -498,12 +517,20 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const [favs, setFavs] = useState([])
   const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
   const [openFav, setOpenFav] = useState(null) // favourite key expanded in place
+  const [editingFav, setEditingFav] = useState(null) // favourite key being edited in place
+  const [shareFav, setShareFav] = useState(null) // favourite being shared, or null
+  const [tagNames, setTagNames] = useState([]) // suggestions for the edit forms
+  // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
+  // every /review/answer response carries fresh counts, so the row ticks live.
+  const [states, setStates] = useState(null)
+  const { stickers, reload: reloadStickers } = useStickers()
 
-  useEffect(() => {
-    // Favourites across both media — books (annotations) and films/shows
-    // (dialogues) — merged newest-first. A few show as tiles; the rest wait
-    // behind "view more". Movies are fetched once to attribute each dialogue to
-    // its title (the dialogues list carries only movie_id).
+  // Favourites across both media — books (annotations) and films/shows
+  // (dialogues) — merged newest-first. A few show as tiles; the rest wait
+  // behind "view more". Movies are fetched once to attribute each dialogue to
+  // its title (the dialogues list carries only movie_id). Reloaded after any
+  // tile mutation (edit · delete · un-heart).
+  function loadFavs() {
     Promise.all([
       json('GET', '/annotations?favorite=1&limit=200'),
       json('GET', '/dialogues?favorite=1'),
@@ -524,7 +551,51 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     }).catch((e) => {
       console.error('favourites load failed', e)
     })
+  }
+  useEffect(() => {
+    loadFavs()
+    json('GET', '/tags').then((r) => {
+      if (r.ok && r.data) setTagNames((r.data.tags || []).map((t) => t.name))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Share/edit/delete mirror the handlers in Library/Movies/SearchPage: PUTs
+  // are full-state (annotationState/dialogueState carry every field), deletes
+  // confirm first, and every success reloads the favourites list.
+  const itemPath = (f) => (f.kind === 'book' ? '/annotations' : '/dialogues')
+  async function saveFav(f, fields) {
+    const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, fields)
+    if (!r.ok) return errText(r, 'could not save')
+    setEditingFav(null)
+    loadFavs()
+    return null
+  }
+  async function patchFav(f, fields) {
+    const stateFn = f.kind === 'book' ? annotationState : dialogueState
+    const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, { ...stateFn(f.raw), ...fields })
+    if (!r.ok) return toast(errText(r, 'could not save'))
+    loadFavs()
+  }
+  async function removeFav(f) {
+    if (!confirm(f.kind === 'book' ? 'Delete this annotation?' : 'Delete this dialogue?')) return
+    const r = await json('DELETE', `${itemPath(f)}/${f.raw.id}`)
+    if (!r.ok) return toast(errText(r, 'could not delete'))
+    if (openFav === f.key) setOpenFav(null)
+    if (editingFav === f.key) setEditingFav(null)
+    loadFavs()
+  }
+  const sharePayloadFor = (f) =>
+    f.kind === 'book'
+      ? bookShare({
+          quote: f.raw.quote, note: f.raw.note, author: f.raw.book_author, title: f.raw.book_title,
+          chapter: f.raw.chapter, location: f.raw.location, date: fmtDate(annDate(f.raw)),
+          tags: f.raw.tags, color: f.raw.color,
+        })
+      : movieShare({
+          quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
+          character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp, tags: f.raw.tags,
+        })
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 pt-4" data-screen-label="home-body">
@@ -544,9 +615,9 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         </h1>
       </div>
 
-      <DailyQuizCard onPending={onPending} />
+      <DailyQuizCard onPending={onPending} states={states} onStates={setStates} />
 
-      <PracticeCard />
+      <PracticeCard onStates={setStates} />
 
       <button
         type="button"
@@ -591,8 +662,23 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 f={f}
                 variant={i + 1}
                 open={openFav === f.key}
-                onToggle={() => setOpenFav((k) => (k === f.key ? null : f.key))}
+                editing={editingFav === f.key}
+                onToggle={() => {
+                  // Collapsing (or expanding another tile) always cancels an
+                  // in-place edit — a half-hidden form is worse than a reset one.
+                  setEditingFav(null)
+                  setOpenFav((k) => (k === f.key ? null : f.key))
+                }}
                 onOpen={() => (f.kind === 'book' ? onOpenBook(f.workId) : onOpenMovie(f.workId))}
+                onEditStart={() => setEditingFav(f.key)}
+                onEditCancel={() => setEditingFav(null)}
+                onSave={(fields) => saveFav(f, fields)}
+                onPatch={(fields) => patchFav(f, fields)}
+                onDelete={() => removeFav(f)}
+                onShare={() => setShareFav(f)}
+                tagSuggestions={tagNames}
+                stickers={stickers}
+                reloadStickers={reloadStickers}
               />
             ))}
           </div>
@@ -605,6 +691,14 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           )}
         </section>
       )}
+
+      {shareFav && (
+        <ShareDialog
+          share={sharePayloadFor(shareFav)}
+          seen={{ kind: shareFav.kind === 'book' ? 'book' : 'screen', id: shareFav.raw.id }}
+          onClose={() => setShareFav(null)}
+        />
+      )}
     </div>
   )
 }
@@ -612,10 +706,17 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 // FavouriteTile — one favourite in the Home grid, book or screen. Collapsed it
 // shows a media tag, the quote (clamped) and its source; tapping expands it in
 // place (full quote, note, tags) and widens the tile to the full row, with a
-// button to open the parent book / film / show. The colour bar is the highlight
+// button to open the parent book / film / show plus the same ♥ · share · edit ·
+// delete affordances the detail-screen cards carry (hover-revealed on desktop,
+// a ⋯ menu on phones — QuoteActions handles both). Edit swaps the tile body for
+// the same inline form the detail screens use. The colour bar is the highlight
 // colour for books, amber for screen quotes (the film voice). Tapping again
 // collapses.
-function FavouriteTile({ f, variant, open, onToggle, onOpen }) {
+function FavouriteTile({
+  f, variant, open, editing, onToggle, onOpen,
+  onEditStart, onEditCancel, onSave, onPatch, onDelete, onShare,
+  tagSuggestions, stickers, reloadStickers,
+}) {
   const isBook = f.kind === 'book'
   return (
     <HandCard
@@ -624,86 +725,292 @@ function FavouriteTile({ f, variant, open, onToggle, onOpen }) {
       className={open ? 'sm:col-span-2' : ''}
       style={{ padding: '12px 15px' }}
     >
-      <button type="button" className="block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle}>
-        <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
-          {isBook ? 'BOOK' : f.media}
-        </MonoLabel>
-        <p
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontSize: 15,
-            lineHeight: 1.5,
-            ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
-          }}
-        >
-          “{f.text}”
-        </p>
-        <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
-          {open ? f.meta : f.source}
-        </MonoLabel>
-      </button>
-      {open && (
-        <div className="mt-2.5 space-y-2">
-          {f.note && <HandNote>{f.note}</HandNote>}
-          {f.tags && f.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {f.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
+      {editing ? (
+        <div>
+          <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
+            {isBook ? 'BOOK' : f.media} · {f.source}
+          </MonoLabel>
+          {isBook ? (
+            <AnnotationForm
+              initial={f.raw}
+              onSubmit={onSave}
+              onCancel={onEditCancel}
+              submitLabel="Save"
+              tagSuggestions={tagSuggestions}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
+            />
+          ) : (
+            <DialogueForm
+              initial={f.raw}
+              onSubmit={onSave}
+              onCancel={onEditCancel}
+              submitLabel="Save"
+              tagSuggestions={tagSuggestions}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
+            />
+          )}
+        </div>
+      ) : (
+        <>
+          <button type="button" className="block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle}>
+            <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
+              {isBook ? 'BOOK' : f.media}
+            </MonoLabel>
+            <p
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+                fontSize: 15,
+                lineHeight: 1.5,
+                ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+              }}
+            >
+              “{f.text}”
+            </p>
+            <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
+              {open ? f.meta : f.source}
+            </MonoLabel>
+          </button>
+          {open && (
+            <div className="mt-2.5 space-y-2">
+              {f.note && <HandNote>{f.note}</HandNote>}
+              {f.tags && f.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {f.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+                <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpen}>
+                  {f.openLabel}
+                </button>
+                {/* Un-hearting removes the tile — this IS the favourites list. */}
+                <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
+                <span className="ml-auto flex items-center">
+                  <QuoteActions onShare={onShare} onEdit={onEditStart} onDelete={onDelete} />
+                </span>
+              </div>
             </div>
           )}
-          <div className="flex items-center gap-2 pt-1">
-            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpen}>
-              {f.openLabel}
-            </button>
-          </div>
-        </div>
+        </>
       )}
     </HandCard>
   )
 }
 
+// WorkPicker — the capture-target picker: type to filter across every book and
+// film/show in the library (rows carry a BOOK / FILM / SHOW tag), with a pinned
+// last row that quick-creates a new book from the typed title. Keyboard nav +
+// outside-click close follow TokenInput; the dropdown reuses its .token-menu
+// skin. A picked work renders as a chip with a "change" link.
+function WorkPicker({ works, value, onChange, onCreate }) {
+  const [text, setText] = useState('')
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(0)
+  const boxRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+
+  const q = text.trim().toLowerCase()
+  const matches = (works || [])
+    .filter((w) => !q || w.title.toLowerCase().includes(q) || (w.sub || '').toLowerCase().includes(q))
+    .slice(0, 8)
+  const rows = matches.length + 1 // + the pinned create row
+
+  const pick = (w) => {
+    onChange(w)
+    setText('')
+    setOpen(false)
+  }
+  const create = () => {
+    onCreate(text.trim())
+    setText('')
+    setOpen(false)
+  }
+  function onKeyDown(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (!open) setOpen(true)
+      else setHi((h) => Math.min(h + 1, rows - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHi((h) => Math.max(h - 1, 0))
+    } else if (e.key === 'Enter') {
+      // Never let Enter submit an enclosing form/footer — it picks the row.
+      e.preventDefault()
+      if (!open) return
+      if (hi < matches.length) pick(matches[hi])
+      else create()
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  if (value) {
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <span className="font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 16 }}>{value.title}</span>
+        {value.sub && <span className="microcopy">{value.sub}</span>}
+        <span className="mono-label" style={{ fontSize: 9.5, color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
+          {value.tag}
+        </span>
+        <button type="button" className="tp-link ml-auto" onClick={() => onChange(null)}>change</button>
+      </div>
+    )
+  }
+  return (
+    <div className="token-input" ref={boxRef}>
+      <input
+        className="tp-input"
+        placeholder="search your books, films & shows…"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setOpen(true)
+          setHi(0)
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+      />
+      {open && (
+        <ul className="token-menu" style={{ width: '100%' }} role="listbox">
+          {matches.map((w, i) => (
+            <li key={`${w.kind}:${w.id}`}>
+              <button
+                type="button"
+                className={'token-opt' + (hi === i ? ' hi' : '')}
+                onClick={() => pick(w)}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="truncate">
+                    {w.title}
+                    {w.sub && <span style={{ color: 'var(--soft)' }}> · {w.sub}</span>}
+                  </span>
+                  <span className="mono-label" style={{ flex: 'none', fontSize: 9.5, color: w.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
+                    {w.tag}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+          <li>
+            <button
+              type="button"
+              className={'token-opt' + (hi === matches.length ? ' hi' : '')}
+              style={{ color: 'var(--accent-ui)', fontWeight: 600 }}
+              onClick={create}
+            >
+              ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new book'} as a new book
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
+  )
+}
+
 // QuickCapture — the top-bar "+" / Home-tile capture sheet: jot a quote or
-// note against any book without leaving where you are. Full-screen sheet on a
-// phone; a centered card on desktop (same form either way). Tags are
-// comma-separated names — unknown ones are auto-created server-side.
+// note against any book, film or show without leaving where you are — or
+// quick-create the book inline when it isn't in the library yet. Full-screen
+// sheet on a phone; a centered card on desktop (same form either way). Tags
+// are comma-separated names — unknown ones are auto-created server-side.
 export function QuickCapture({ open, onClose, onSaved }) {
   const isMobile = useIsMobileScreen()
-  const [books, setBooks] = useState(null)
+  const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
   const [draft, setDraft] = useState(null)
+  const [creating, setCreating] = useState(null) // null | {title, author} — inline new-book fields
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setErr('')
-    setDraft({ bookId: '', quote: '', note: '', chapter: '', location: '', tags: '', color: 'yellow' })
-    json('GET', '/books').then((r) => {
-      const list = r.ok ? r.data.books || [] : []
-      setBooks(list)
-      setDraft((d) => (d && !d.bookId && list[0] ? { ...d, bookId: String(list[0].id) } : d))
+    setCreating(null)
+    // No default target — a search-first picker with a silently pre-filled
+    // work invites mis-filed quotes; picking is one keystroke away.
+    setDraft({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', tags: '', color: 'yellow' })
+    Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
+      const list = []
+      if (rb.ok && rb.data) {
+        for (const b of rb.data.books || []) {
+          list.push({ kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' })
+        }
+      }
+      if (rm.ok && rm.data) {
+        for (const m of rm.data.movies || []) {
+          list.push({
+            kind: 'screen',
+            id: m.id,
+            title: m.title,
+            sub: m.release_year ? String(m.release_year) : '',
+            tag: m.media_type === 'show' ? 'SHOW' : 'FILM',
+          })
+        }
+      }
+      setWorks(list)
     })
   }, [open])
 
   if (!open || !draft) return null
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
+  const isScreen = draft.target?.kind === 'screen'
 
-  async function save() {
-    if (!draft.quote.trim() && !draft.note.trim()) return setErr('quote or note is required')
-    if (!draft.bookId) return setErr('add a book first — the Library is empty')
+  async function createBook() {
+    if (!creating || !creating.title.trim()) return setErr('a title is required')
     setBusy(true)
-    const r = await json('POST', '/annotations', {
-      book_id: Number(draft.bookId),
-      quote: draft.quote.trim(),
-      note: draft.note.trim(),
-      chapter: draft.chapter.trim(),
-      location: draft.location.trim(),
-      color: draft.color,
-      tags: draft.tags.split(',').map((t) => t.trim()).filter(Boolean),
-    })
+    setErr('')
+    const r = await json('POST', '/books', { title: creating.title.trim(), author: creating.author.trim() })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
-    toast('annotation captured')
+    const b = r.data
+    const w = { kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' }
+    setWorks((list) => [w, ...(list || [])])
+    set({ target: w })
+    setCreating(null)
+    // The shell's stat tiles count books — refresh them now, not only on save.
+    onSaved?.()
+  }
+
+  async function save() {
+    const t = draft.target
+    if (!t) return setErr('pick a book, film or show — or add one')
+    if (isScreen && !draft.quote.trim()) return setErr('a dialogue needs the quote itself')
+    if (!isScreen && !draft.quote.trim() && !draft.note.trim()) return setErr('quote or note is required')
+    setBusy(true)
+    setErr('')
+    const tags = draft.tags.split(',').map((s) => s.trim()).filter(Boolean)
+    // The body is built per-kind: dialogues have character/timestamp and no
+    // colour/chapter/location (the server auto-fills actor from the cast).
+    const r = isScreen
+      ? await json('POST', '/dialogues', {
+          movie_id: t.id,
+          quote: draft.quote.trim(),
+          note: draft.note.trim(),
+          character: draft.character.trim(),
+          timestamp: draft.timestamp.trim(),
+          tags,
+        })
+      : await json('POST', '/annotations', {
+          book_id: t.id,
+          quote: draft.quote.trim(),
+          note: draft.note.trim(),
+          chapter: draft.chapter.trim(),
+          location: draft.location.trim(),
+          color: draft.color,
+          tags,
+        })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    toast(isScreen ? 'dialogue captured' : 'annotation captured')
     onSaved?.()
     onClose()
   }
@@ -711,21 +1018,40 @@ export function QuickCapture({ open, onClose, onSaved }) {
   const body = (
     <div className="flex flex-col gap-3.5">
       <label className="tp-field">
-        <MonoLabel>Book</MonoLabel>
-        {books && books.length === 0 ? (
-          <p className="microcopy mt-1">no books yet — add one in the Library first</p>
-        ) : (
-          <Select
-            ariaLabel="Book"
-            value={draft.bookId}
-            onChange={(v) => set({ bookId: v })}
-            options={(books || []).map((b) => [
-              String(b.id),
-              [b.title, b.author].filter(Boolean).join(' · '),
-            ])}
-          />
-        )}
+        <MonoLabel>Book · Film · Show</MonoLabel>
+        <WorkPicker
+          works={works}
+          value={draft.target}
+          onChange={(w) => {
+            set({ target: w })
+            // Picking a work supersedes a half-typed inline create — clearing
+            // it here keeps the stale form from resurfacing on "change".
+            if (w) setCreating(null)
+          }}
+          onCreate={(title) => {
+            setErr('')
+            setCreating({ title, author: '' })
+          }}
+        />
       </label>
+      {creating && !draft.target && (
+        <div className="grid gap-3 sm:grid-cols-2" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
+          <label className="tp-field">
+            <MonoLabel>New book · title</MonoLabel>
+            <input className="tp-input" value={creating.title} onChange={(e) => setCreating((c) => ({ ...c, title: e.target.value }))} />
+          </label>
+          <label className="tp-field">
+            <MonoLabel>Author</MonoLabel>
+            <input className="tp-input" placeholder="optional" value={creating.author} onChange={(e) => setCreating((c) => ({ ...c, author: e.target.value }))} />
+          </label>
+          <div className="flex items-center gap-3 sm:col-span-2">
+            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={createBook}>
+              Create book
+            </button>
+            <button type="button" className="tp-link" onClick={() => setCreating(null)}>cancel</button>
+          </div>
+        </div>
+      )}
       <label className="tp-field">
         <MonoLabel>Quote</MonoLabel>
         <textarea
@@ -747,16 +1073,29 @@ export function QuickCapture({ open, onClose, onSaved }) {
           onChange={(e) => set({ note: e.target.value })}
         />
       </label>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="tp-field">
-          <MonoLabel>Chapter</MonoLabel>
-          <input className="tp-input" placeholder="e.g. 3" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
-        </label>
-        <label className="tp-field">
-          <MonoLabel>Location</MonoLabel>
-          <input className="tp-input" placeholder="e.g. 142" value={draft.location} onChange={(e) => set({ location: e.target.value })} />
-        </label>
-      </div>
+      {isScreen ? (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="tp-field">
+            <MonoLabel>Character</MonoLabel>
+            <input className="tp-input" placeholder="who says it" value={draft.character} onChange={(e) => set({ character: e.target.value })} />
+          </label>
+          <label className="tp-field">
+            <MonoLabel>Timestamp</MonoLabel>
+            <input className="tp-input" placeholder="e.g. 01:12:40" value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
+          </label>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="tp-field">
+            <MonoLabel>Chapter</MonoLabel>
+            <input className="tp-input" placeholder="e.g. 3" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
+          </label>
+          <label className="tp-field">
+            <MonoLabel>Location</MonoLabel>
+            <input className="tp-input" placeholder="e.g. 142" value={draft.location} onChange={(e) => set({ location: e.target.value })} />
+          </label>
+        </div>
+      )}
       <label className="tp-field">
         <MonoLabel>Tags · comma separated</MonoLabel>
         <input
@@ -767,10 +1106,12 @@ export function QuickCapture({ open, onClose, onSaved }) {
           onChange={(e) => set({ tags: e.target.value })}
         />
       </label>
-      <div className="flex items-center gap-3">
-        <MonoLabel>colour</MonoLabel>
-        <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
-      </div>
+      {!isScreen && (
+        <div className="flex items-center gap-3">
+          <MonoLabel>colour</MonoLabel>
+          <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
+        </div>
+      )}
       <ErrorText>{err}</ErrorText>
     </div>
   )

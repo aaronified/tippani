@@ -1,11 +1,118 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { ErrorText, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, MonoLabel, Placeholder } from './ui.jsx'
+import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, MonoLabel, Placeholder } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
 export function personImgURL(path) {
   return coverImgURL(path)
+}
+
+// ---- multi-author credit splitting (ROADMAP §11) ----
+// parseCreditSeps / splitCredits mirror internal/metadata/credits.go — keep
+// the two in LOCKSTEP; the Go table in credits_test.go is the source of truth.
+// A credit stays stored verbatim ("Gaiman & Pratchett"); only people-derived
+// views (group-by headings, the People console, person links) split it.
+
+export const DEFAULT_CREDIT_SEPS = { comma: true, semicolon: true, amp: true, and: true }
+
+// parseCreditSeps reads the creditSeparators preference: a comma-separated
+// token list from {comma, semicolon, amp, and}, or "none". Empty/unknown-only
+// falls back to the default set.
+export function parseCreditSeps(pref) {
+  const v = String(pref || '').trim()
+  if (!v) return DEFAULT_CREDIT_SEPS
+  if (v.toLowerCase() === 'none') return { comma: false, semicolon: false, amp: false, and: false }
+  const seps = { comma: false, semicolon: false, amp: false, and: false }
+  let seen = false
+  for (const tok of v.split(',')) {
+    const t = tok.trim().toLowerCase()
+    if (t in seps) {
+      seps[t] = true
+      seen = true
+    }
+  }
+  return seen ? seps : DEFAULT_CREDIT_SEPS
+}
+
+const CREDIT_SUFFIXES = new Set([
+  'jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v',
+  'inc', 'inc.', 'ltd', 'ltd.', 'llc', 'llc.', 'co', 'co.',
+])
+const CREDIT_AND_RE = /\s+and\s+/i
+const CREDIT_LEADING_AND_RE = /^and\s+/i
+const MAX_CREDIT_COMPONENTS = 8
+
+function splitCreditAnd(p, listCtx) {
+  p = p.trim()
+  if (!p) return []
+  if (listCtx) {
+    // Oxford comma: ", and Lee" comma-splits into a leading-"and" token the
+    // infix regex below can't reach — strip the joiner first.
+    p = p.replace(CREDIT_LEADING_AND_RE, '').trim()
+    if (!p) return []
+  }
+  const parts = p.split(new RegExp(CREDIT_AND_RE.source, 'gi'))
+  if (parts.length < 2) return [p]
+  if (!listCtx) {
+    // Outside list context both sides must look like full names (≥ 2 words) —
+    // "Daniels and Sons" / "William and Mary" stay whole.
+    for (const q of parts) {
+      if (q.trim().split(/\s+/).filter(Boolean).length < 2) return [p]
+    }
+  }
+  return parts
+}
+
+// splitCredits splits a joined credit into individual names using the enabled
+// separators; a verbatim single name passes through as [name], '' as [].
+// Whitespace normalizes first (JS \s is Unicode-aware) to stay in lockstep
+// with Go's strings.Fields normalization.
+export function splitCredits(s, seps = DEFAULT_CREDIT_SEPS) {
+  const t = String(s || '').trim().replace(/\s+/g, ' ')
+  if (!t) return []
+  if (!seps.comma && !seps.semicolon && !seps.amp && !seps.and) return [t]
+
+  let listCtx = false
+  let parts = [t]
+  const splitOn = (list, sep) => list.flatMap((p) => p.split(sep))
+  if (seps.comma && t.includes(',')) {
+    listCtx = true
+    parts = splitOn(parts, ',')
+  }
+  if (seps.semicolon && t.includes(';')) {
+    listCtx = true
+    parts = splitOn(parts, ';')
+  }
+  if (seps.amp && t.includes('&')) {
+    listCtx = true
+    parts = splitOn(parts, '&')
+  }
+  if (seps.and) parts = parts.flatMap((p) => splitCreditAnd(p, listCtx))
+
+  const merged = []
+  for (let p of parts) {
+    p = p.trim()
+    if (!p) continue
+    const low = p.toLowerCase()
+    if (low === 'et al' || low === 'et al.') continue
+    if (CREDIT_SUFFIXES.has(low) && merged.length > 0) {
+      merged[merged.length - 1] += ', ' + p
+      continue
+    }
+    merged.push(p)
+  }
+
+  const seen = new Set()
+  const out = []
+  for (const p of merged) {
+    const k = p.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(p)
+    if (out.length === MAX_CREDIT_COMPONENTS) break
+  }
+  return out.length ? out : [t]
 }
 
 // The external references a person can link out to, in display order. A saved
@@ -132,7 +239,7 @@ function PersonView({ person, onEdit, onDelete }) {
         )}
         <div className="min-w-0 flex-1 space-y-1.5">
           {person.born && <MonoLabel className="block">{person.born}</MonoLabel>}
-          {person.bio && <p style={{ fontSize: 14, lineHeight: 1.55 }}>{person.bio}</p>}
+          {person.bio && <ExpandableDescription text={person.bio} />}
           {person.links && (
             <div className="space-y-1">
               <MonoLabel className="block" style={{ color: 'var(--faint)' }}>reference pages</MonoLabel>
@@ -322,40 +429,15 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   )
 }
 
-// PersonLinkRows — the redirect menu itself: one full-width row per saved
-// reference page, opening in a new tab. Unrecognised URLs trail as plain rows.
-function PersonLinkRows({ links }) {
-  const { known, extra } = parseLinks(links)
-  const items = PROVIDERS.filter(([slug]) => known[slug])
-  return (
-    <>
-      {items.map(([slug, label]) => (
-        <a key={slug} className="person-link-row" href={known[slug]} target="_blank" rel="noopener noreferrer">
-          <span>{label}</span>
-          <span aria-hidden="true">↗</span>
-        </a>
-      ))}
-      {extra.map((url) => (
-        <a key={url} className="person-link-row" href={url} target="_blank" rel="noopener noreferrer">
-          <span className="truncate">{url.replace(/^https?:\/\/(www\.)?/, '')}</span>
-          <span aria-hidden="true">↗</span>
-        </a>
-      ))}
-    </>
-  )
-}
-
-// PersonModal — opened by clicking any author/actor name. Primarily a redirect
-// menu: the person's saved reference pages (IMDb / TMDB / TheTVDB / Wikipedia /
-// Open Library), auto-fetched on first open when nothing is saved yet. The
-// bio/photo details live behind a secondary "Details" view.
+// PersonModal — opened by clicking any author/actor name. One details view:
+// bio · photo · born · labelled reference-page chips (IMDb / TMDB / TheTVDB /
+// Wikipedia / Open Library), auto-fetched on first open when nothing is saved
+// yet. (The old links-only redirect view is retired — the chips here already
+// link out.)
 export function PersonModal({ kind, name, onClose, onSaved }) {
   const [person, setPerson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
-  // Details (bio · photo · born · labelled links) is the default view when a
-  // name is clicked; the compact links-only redirect menu is one tap away.
-  const [details, setDetails] = useState(true)
   const [fetching, setFetching] = useState(false)
   const [fetchNote, setFetchNote] = useState('')
   const [error, setError] = useState('')
@@ -510,7 +592,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
               onClose()
             }}
           />
-        ) : details ? (
+        ) : (
           <div className="space-y-3">
             {person ? (
               <PersonView person={person} onEdit={() => setEditing(true)} onDelete={remove} />
@@ -522,22 +604,13 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
                 </div>
               </>
             )}
-            <button className="tp-link" onClick={() => setDetails(false)}>← back to links</button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <PersonLinkRows links={person?.links} />
+            {/* Auto-enrich feedback + the manual recovery path when the first
+                lookup failed or found a namesake. */}
             {fetching && <p className="microcopy">looking up reference pages…</p>}
             {!fetching && fetchNote && <p className="microcopy">{fetchNote}</p>}
-            {!fetching && !fetchNote && Object.keys(parseLinks(person?.links).known).length === 0 && (
-              <p className="microcopy">no reference pages saved yet</p>
-            )}
-            <div className="flex items-center justify-between gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-              <button className="tp-link" onClick={() => setDetails(true)}>details…</button>
-              <button className="tp-link" disabled={fetching} onClick={() => fetchLinks(person)}>
-                refetch links
-              </button>
-            </div>
+            <button className="tp-link" disabled={fetching} onClick={() => fetchLinks(person)}>
+              refetch links
+            </button>
           </div>
         )}
       </div>

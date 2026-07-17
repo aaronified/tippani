@@ -1097,26 +1097,6 @@
   .hand-card:has(.more-menu),
   .film-frame:has(.more-menu) { position: relative; z-index: 30; }
 
-  /* ---- person link menu (people.jsx): clicking a name opens a redirect menu
-     of external reference pages — full-width rows, provider label left, ↗
-     right. Rows are anchors, so they get real middle-click/new-tab behavior. ---- */
-  .person-link-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    min-height: 44px;
-    padding: 9px 13px;
-    border: 1.4px solid var(--line);
-    border-radius: 10px;
-    background: var(--card);
-    font-size: 14.5px;
-    font-weight: 600;
-    color: var(--ink);
-    transition: border-color .15s ease, color .15s ease;
-  }
-  .person-link-row:hover { border-color: var(--accent-ui); color: var(--accent-ui); }
-
   /* ---- cover-search results (CoverControls): tappable 2:3 thumbs with a
      source label; picking one stages it exactly like Paste URL. ---- */
   .cover-pick {
@@ -1312,20 +1292,25 @@
   }
   .topbar-inner nav[aria-label="Primary"]::-webkit-scrollbar,
   .topbar-inner .topbar-nav::-webkit-scrollbar { display: none; }
-  .topbar-inner .topbar-nav { display: flex; }
-  /* content tabs · divider · utility tabs (· ⋯ More) — §7 declutter */
+  /* flex:1 so clientWidth tracks the AVAILABLE space between the brand and
+     the Add/avatar cluster — useIconOnlyNav keys the icon-only collapse off
+     it (a shrink-to-fit nav would report its own collapsed width instead). */
+  .topbar-inner .topbar-nav { display: flex; flex: 1; }
+  /* Icon-only fallback (useIconOnlyNav): applied when the labelled tabs would
+     clip at an intermediate window width. Labels stay in the accessibility
+     tree via the clip pattern; the Toggle's own ResizeObserver re-seats the
+     textured thumb when the widths change. */
+  .topbar-nav.icon-only .tab-label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .topbar-nav.icon-only .nav-toggle .tp-toggle-opt { padding: 6px 10px; }
+  /* content tabs · divider · utility tabs — §7 declutter */
   .topbar-nav-group { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .nav-divider {
     width: 1px; align-self: stretch; margin: 6px 2px; flex: none;
     background: color-mix(in oklab, var(--ink) 18%, transparent);
   }
-  .nav-more-btn {
-    display: inline-flex; align-items: center; justify-content: center; flex: none;
-    min-width: 40px; height: 40px; padding: 0 10px; border-radius: 9px;
-    border: 1.4px solid transparent; background: none; color: var(--soft);
-    font-size: 20px; line-height: 1;
-  }
-  .nav-more-btn:hover { color: var(--ink); background: var(--raised); }
   /* §7 One "＋ Add": the top-bar CTA that opens the single Add surface. Wears
      the primary accent fill (this is the page's main add action) but sits a
      touch smaller than a form button so it reads as a nav control. */
@@ -1899,6 +1884,9 @@ html[data-theme="dark"] .mobile-topbar {
   border-right: 1px solid var(--line);
   box-shadow: 8px 0 30px -8px rgba(0, 0, 0, .4);
   animation: drawer-in .28s cubic-bezier(.2, .68, .28, 1);
+  /* keep native vertical panning of the nav; hand horizontal movement to the
+     swipe-to-close pointer handlers instead of firing pointercancel */
+  touch-action: pan-y;
 }
 .drawer-header {
   display: flex;
@@ -1911,6 +1899,7 @@ html[data-theme="dark"] .mobile-topbar {
 .drawer-nav {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain; /* nav scroll end must not chain to the page */
   display: flex;
   flex-direction: column;
   gap: 2px;

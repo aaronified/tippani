@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"tippani/internal/metadata"
 	"tippani/internal/olog"
 )
 
@@ -37,49 +38,99 @@ func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 
 func validPersonKind(k string) bool { return k == "author" || k == "actor" }
 
+// creditSeps loads the caller's separator configuration for multi-author
+// splitting (the creditSeparators preference). Best-effort: a prefs load
+// failure falls back to the default separator set.
+func (s *Server) creditSeps(uid int64) metadata.CreditSeps {
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		return metadata.DefaultCreditSeps
+	}
+	return metadata.ParseCreditSeps(pf.CreditSeparators)
+}
+
 // gcOrphanPeople deletes saved person rows (of one kind) whose name is no
 // longer referenced by any of the user's books (authors) or dialogues
 // (actors) — e.g. after a book's author is renamed, the old author's metadata
 // would otherwise linger in the DB and clutter the Metadata console. Called
 // from the write paths that can change a reference (never from a read).
-// Best-effort: a failure here never fails the triggering request.
+// Multi-author aware: the keep-set holds every verbatim credit AND its split
+// components under BOTH the user's current separator config and the default
+// one — splitting only ever adds names, and the superset means flipping the
+// creditSeparators setting can never turn saved bios/portraits into "orphans"
+// and delete them. Best-effort: a failure here never fails the request.
 func (s *Server) gcOrphanPeople(uid int64, kind string) {
 	if !validPersonKind(kind) {
 		return
 	}
-	// The set of names still referenced, already lowercased (the console keys
-	// names case-insensitively). Inlined LOWER/TRIM — no derived-table column
-	// alias, which SQLite's driver here doesn't accept.
-	ref := `SELECT LOWER(TRIM(author)) FROM books
+	seps := s.creditSeps(uid)
+	ref := `SELECT TRIM(author) FROM books
 	        WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
 	if kind == "actor" {
-		ref = `SELECT LOWER(TRIM(d.actor)) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		ref = `SELECT TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		       WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
 	}
-	orphan := ` FROM people WHERE user_id = ? AND kind = ? AND LOWER(name) NOT IN (` + ref + `)`
-	// Collect the orphans' image files first so they can be cleaned after the
-	// row delete.
-	rows, err := s.Store.DB.Query(`SELECT image_path`+orphan, uid, kind, uid)
+	rows, err := s.Store.DB.Query(ref, uid)
 	if err != nil {
-		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC select failed: %v", err)
+		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC referenced select failed: %v", err)
 		return
 	}
-	var images []string
+	keep := map[string]bool{}
 	for rows.Next() {
-		var img string
-		if err := rows.Scan(&img); err != nil {
-			olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC image row scan failed: %v", err)
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC referenced row scan failed: %v", err)
 			continue
 		}
+		n = strings.TrimSpace(n)
+		if n == "" {
+			continue
+		}
+		keep[strings.ToLower(n)] = true
+		for _, c := range metadata.SplitCredits(n, seps) {
+			keep[strings.ToLower(c)] = true
+		}
+		for _, c := range metadata.SplitCredits(n, metadata.DefaultCreditSeps) {
+			keep[strings.ToLower(c)] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC referenced row iteration failed: %v", err)
+	}
+	rows.Close()
+
+	prows, err := s.Store.DB.Query(
+		`SELECT id, name, image_path FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
+	if err != nil {
+		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC saved select failed: %v", err)
+		return
+	}
+	var ids []any
+	var images []string
+	for prows.Next() {
+		var id int64
+		var name, img string
+		if err := prows.Scan(&id, &name, &img); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC saved row scan failed: %v", err)
+			continue
+		}
+		if keep[strings.ToLower(strings.TrimSpace(name))] {
+			continue
+		}
+		ids = append(ids, id)
 		if img != "" {
 			images = append(images, img)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC image row iteration failed: %v", err)
+	if err := prows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC saved row iteration failed: %v", err)
 	}
-	rows.Close()
-	if _, err := s.Store.DB.Exec(`DELETE`+orphan, uid, kind, uid); err != nil {
+	prows.Close()
+	if len(ids) == 0 {
+		return
+	}
+	if _, err := s.Store.DB.Exec(
+		`DELETE FROM people WHERE id IN (?`+strings.Repeat(",?", len(ids)-1)+`)`, ids...); err != nil {
 		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC delete failed: %v", err)
 		return
 	}
@@ -239,6 +290,12 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "list referenced names", err)
 		return
 	}
+	// Multi-author separation (ROADMAP §11): a joined credit ("Gaiman &
+	// Pratchett") lists as its individual components, each fetchable and
+	// resolvable on its own. The stored credit string stays verbatim — only
+	// this people view splits. The byName map dedupes components shared
+	// across works case-insensitively.
+	seps := s.creditSeps(uid)
 	referenced := []string{}
 	for rows.Next() {
 		var n string
@@ -246,9 +303,7 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 			olog.Warnf(olog.CodePeopleRowScan, "[people] referenced names row scan failed: %v", err)
 			continue
 		}
-		if n != "" {
-			referenced = append(referenced, n)
-		}
+		referenced = append(referenced, metadata.SplitCredits(n, seps)...)
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodePeopleRowScan, "[people] referenced names row iteration failed: %v", err)
@@ -351,12 +406,13 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 
 // handleRenamePerson: POST /people/rename {kind, from, to} — rename an author or
 // actor across the caller's whole library in one shot. Every book.author (for
-// authors) or dialogue.actor (for actors) matching `from` case-insensitively is
-// rewritten to the exact `to` string, and the saved metadata is folded onto
-// `to`: the `from` row is renamed when `to` has none yet, or dropped (its photo
-// file cleaned) when `to` already carries its own. This is how two
-// transliterations ("Dostoevsky" / "Dostoyevsky") collapse into one. Returns how
-// many books/dialogues were rewritten.
+// authors) or dialogue.actor (for actors) carrying `from` — as the whole credit
+// OR as one component of a joined multi-author credit — is rewritten (the
+// co-credits untouched), and the saved metadata is folded onto `to`: the `from`
+// row is renamed when `to` has none yet, or dropped (its photo file cleaned)
+// when `to` already carries its own. This is how two transliterations
+// ("Dostoevsky" / "Dostoyevsky") collapse into one — and how a bad multi-author
+// split is recombined. Returns how many books/dialogues were rewritten.
 func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Kind string `json:"kind"`
@@ -383,6 +439,7 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[people] handleRenamePerson uid=%d kind=%s from=%q to=%q", uid, req.Kind, req.From, req.To)
+	seps := s.creditSeps(uid)
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
@@ -391,26 +448,54 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	var updated int64
-	if req.Kind == "author" {
-		res, e := tx.Exec(`UPDATE books SET author = ?
-		                   WHERE user_id = ? AND author IS NOT NULL AND LOWER(TRIM(author)) = LOWER(?)`,
-			req.To, uid, req.From)
-		if e != nil {
-			internalError(w, r, "rename books", e)
-			return
-		}
-		updated, _ = res.RowsAffected()
-	} else {
-		res, e := tx.Exec(`UPDATE dialogues SET actor = ?, updated_at = datetime('now')
-		                   WHERE LOWER(TRIM(actor)) = LOWER(?) AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`,
-			req.To, req.From, uid)
-		if e != nil {
-			internalError(w, r, "rename dialogues", e)
-			return
-		}
-		updated, _ = res.RowsAffected()
+	// Scan-and-rewrite instead of a single UPDATE: `from` may be one component
+	// inside a joined credit ("Neil Gaiman & Terry Pratchett"), which SQL string
+	// equality can't rewrite without clobbering the co-credits. A full scan is
+	// fine — libraries are hundreds of rows and rename is rare. Rewrites are
+	// collected first, then applied (no exec while the cursor is open).
+	type rewrite struct {
+		id     int64
+		credit string
 	}
+	var rewrites []rewrite
+	scanQ := `SELECT id, TRIM(author) FROM books
+	          WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
+	if req.Kind == "actor" {
+		scanQ = `SELECT d.id, TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		         WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
+	}
+	crows, err := tx.Query(scanQ, uid)
+	if err != nil {
+		internalError(w, r, "rename scan", err)
+		return
+	}
+	for crows.Next() {
+		var id int64
+		var credit string
+		if err := crows.Scan(&id, &credit); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] rename credit row scan failed: %v", err)
+			continue
+		}
+		if next, ok := metadata.ReplaceCredit(credit, req.From, req.To, seps); ok {
+			rewrites = append(rewrites, rewrite{id, next})
+		}
+	}
+	if err := crows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] rename credit row iteration failed: %v", err)
+	}
+	crows.Close()
+
+	updateQ := `UPDATE books SET author = ? WHERE id = ?`
+	if req.Kind == "actor" {
+		updateQ = `UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`
+	}
+	for _, rw := range rewrites {
+		if _, e := tx.Exec(updateQ, rw.credit, rw.id); e != nil {
+			internalError(w, r, "rename rewrite", e)
+			return
+		}
+	}
+	updated := int64(len(rewrites))
 
 	// Fold the saved metadata onto `to`. `from` rows (case-insensitive, excluding
 	// an exact `to`) either get renamed to `to` (when `to` has no row yet) or

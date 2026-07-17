@@ -187,6 +187,82 @@ func TestPeopleNames(t *testing.T) {
 	admin.mustDo("GET", "/people/names?kind=publisher", nil, 400)
 }
 
+// Multi-author separation (ROADMAP §11): a joined credit lists as split
+// components in /people/names, the orphan GC keeps rows saved under either a
+// component or the verbatim joined string, and a component rename rewrites the
+// stored credit without clobbering co-authors. The stored books.author string
+// itself stays verbatim.
+func TestPeopleMultiAuthorSplit(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	b := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Good Omens", "author": "X Alpha & Y Beta"}, http.StatusCreated))
+	// A guard case that must NOT split.
+	c.mustDo("POST", "/books", map[string]any{"title": "Ledgers", "author": "Daniels and Sons"}, http.StatusCreated)
+
+	type nameRow struct {
+		Name  string `json:"name"`
+		Saved bool   `json:"saved"`
+	}
+	names := func() map[string]bool {
+		res := decode[struct {
+			People []nameRow `json:"people"`
+		}](t, c.mustDo("GET", "/people/names?kind=author", nil, 200))
+		out := map[string]bool{}
+		for _, p := range res.People {
+			out[p.Name] = true
+		}
+		return out
+	}
+
+	got := names()
+	if !got["X Alpha"] || !got["Y Beta"] || got["X Alpha & Y Beta"] {
+		t.Fatalf("joined credit should list as components: %v", got)
+	}
+	if !got["Daniels and Sons"] || got["Daniels"] || got["Sons"] {
+		t.Fatalf("single name containing 'and' was shattered: %v", got)
+	}
+
+	// The orphan GC keeps a row saved under a component name AND one saved
+	// under the verbatim joined credit (both are "referenced").
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "X Alpha", "bio": "component"}, 200)
+	c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "X Alpha & Y Beta", "bio": "joined"}, 200)
+	got = names()
+	if !got["X Alpha"] || !got["X Alpha & Y Beta"] {
+		t.Fatalf("GC dropped a referenced saved row: %v", got)
+	}
+
+	// Component rename: rewrites the joined credit, never touches the co-author.
+	res := decode[struct {
+		Updated int `json:"updated"`
+	}](t, c.mustDo("POST", "/people/rename",
+		map[string]any{"kind": "author", "from": "X Alpha", "to": "X. Alpha"}, 200))
+	if res.Updated != 1 {
+		t.Fatalf("component rename updated %d books", res.Updated)
+	}
+	book := decode[bookDetail](t, c.mustDo("GET", "/books/"+itoa(b.ID), nil, 200))
+	if book.Author != "X. Alpha & Y Beta" {
+		t.Fatalf("rewritten credit = %q", book.Author)
+	}
+	got = names()
+	if !got["X. Alpha"] || !got["Y Beta"] || got["X Alpha"] {
+		t.Fatalf("names after component rename: %v", got)
+	}
+
+	// Splitting honours the per-user separator config: with comma disabled, a
+	// "Last, First" author stays one person.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"creditSeparators": "amp,and"}, 200)
+	c.mustDo("POST", "/books", map[string]any{"title": "LOTR", "author": "Tolkien, J.R.R."}, http.StatusCreated)
+	got = names()
+	if !got["Tolkien, J.R.R."] || got["Tolkien"] {
+		t.Fatalf("comma-off config still split: %v", got)
+	}
+	// (The earlier comma-joined rewrite now reads as one name under this
+	// config — expected: the split view follows the active separators.)
+}
+
 // /people/lookup validates input and returns provider links via the seams;
 // actor lookups without a TMDB key are a clear 503.
 func TestPersonLookup(t *testing.T) {

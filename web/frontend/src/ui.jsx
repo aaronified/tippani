@@ -149,6 +149,25 @@ export function useIsMobileScreen() {
   return mobile;
 }
 
+// useBodyScrollLock — freezes body scroll while a full-viewport overlay (the
+// drawer, a mobile sheet) is up, so touch-scrolling the overlay can't scroll
+// the page behind it. overflow:hidden rather than the position:fixed trick:
+// every overlay here owns its own scroll container, so hiding body overflow
+// removes the bleed-through without the scroll-position save/restore dance
+// (and its jump-to-top failure mode). Ref-counted so stacked overlays don't
+// unlock early. If iOS rubber-banding ever gets reported, position:fixed with
+// a stored scroll offset is the upgrade path.
+let bodyScrollLocks = 0;
+export function useBodyScrollLock(active) {
+  useEffect(() => {
+    if (!active) return;
+    if (++bodyScrollLocks === 1) document.body.style.overflow = "hidden";
+    return () => {
+      if (--bodyScrollLocks === 0) document.body.style.overflow = "";
+    };
+  }, [active]);
+}
+
 // ---- cards & buttons (§6) ----
 
 const HAND_RADII = ["", "hc-r1", "hc-r2", "hc-r3"];
@@ -1742,6 +1761,7 @@ export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false 
 // (see SheetFooter). Callers compose the filter controls inside the body;
 // on desktop the sheet is never rendered.
 export function MobileSheet({ open, onClose, title, children, footer }) {
+  useBodyScrollLock(open);
   if (!open) return null;
   return (
     <div className="mobile-sheet" onClick={onClose}>

@@ -4,7 +4,8 @@ import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
-import { ProviderChips, mergeLinks, parseLinks } from './people.jsx'
+import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
+import { ReverifyFlow } from './ReverifyReview.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -15,6 +16,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
+  // Force-fetch & re-verify (ROADMAP §2): {book_ids, movie_ids, people} or null.
+  const [reverify, setReverify] = useState(null)
 
   async function load() {
     const r = await json('GET', '/metadata/library')
@@ -115,15 +118,22 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
           title="Metadata"
           counts={mobile ? 'maintenance' : 'stats · filters · bulk actions'}
           right={
-            !mobile && user?.is_admin && (
-              <Tooltip
+            mobile ? (
+              <InfoDot
                 side="bottom"
-                label="Admin maintenance: fetches missing covers/posters (and replaces low-res ones) and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
-              >
-                <GhostButton disabled={busy} onClick={() => fetchMissingCovers(false)}>
-                  Fetch missing covers &amp; metadata
-                </GhostButton>
-              </Tooltip>
+                text="This is the trimmed-down maintenance view. Open Tippani on a desktop for the full metadata console — coverage stats, filterable book & film lists, and bulk actions."
+              />
+            ) : (
+              user?.is_admin && (
+                <Tooltip
+                  side="bottom"
+                  label="Admin maintenance: fetches missing covers/posters (and replaces low-res ones) and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
+                >
+                  <GhostButton disabled={busy} onClick={() => fetchMissingCovers(false)}>
+                    Fetch missing covers &amp; metadata
+                  </GhostButton>
+                </Tooltip>
+              )
             )
           }
       />
@@ -159,6 +169,19 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
               onClick={() => fetchMissingCovers(true)}
             />
           )}
+          <MobileAction
+            title="Re-verify metadata"
+            desc="Re-check every pinned book, film and show against the live sources and review each change before it's applied."
+            actionLabel="Re-verify"
+            busy={!!reverify}
+            onClick={() =>
+              setReverify({
+                book_ids: lib.books.filter((b) => b.has_ids).map((b) => b.id),
+                movie_ids: lib.movies.filter((m) => m.has_source).map((m) => m.id),
+                people: [],
+              })
+            }
+          />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
           <PeopleConsole onFlash={setFlash} compact />
@@ -167,12 +190,20 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie }) {
       ) : (
         <>
           <StatsStrip stats={stats} onPickBook={setBookFilter} onPickMovie={setMovieFilter} />
-          <BooksConsole books={lib.books} filter={bookFilter} setFilter={setBookFilter} onOpen={onOpenBook} onDone={load} onFlash={setFlash} />
+          <BooksConsole books={lib.books} filter={bookFilter} setFilter={setBookFilter} onOpen={onOpenBook} onDone={load} onFlash={setFlash} onReverify={(ids) => setReverify({ book_ids: ids })} />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
-          <MoviesConsole movies={lib.movies} filter={movieFilter} setFilter={setMovieFilter} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} />
-          <PeopleConsole onFlash={setFlash} />
+          <MoviesConsole movies={lib.movies} filter={movieFilter} setFilter={setMovieFilter} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} onReverify={(ids) => setReverify({ movie_ids: ids })} />
+          <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
         </>
+      )}
+      {reverify && (
+        <ReverifyFlow
+          selection={reverify}
+          onClose={() => setReverify(null)}
+          onFlash={setFlash}
+          onDone={load}
+        />
       )}
     </section>
   )
@@ -392,7 +423,7 @@ function SelectAll({ ids, sel }) {
 
 // ---- books console ----
 
-function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash }) {
+function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash, onReverify }) {
   const [q, setQ] = useState('')
   const [lookupId, setLookupId] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -484,6 +515,9 @@ function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash }) {
           <BulkBar n={selected.length} onClear={sel.clear}>
             <GhostButton disabled={busy} onClick={() => setEditing((v) => !v)}>
               {editing ? 'Close bulk edit' : 'Bulk edit…'}
+            </GhostButton>
+            <GhostButton disabled={busy} onClick={() => onReverify(selected)}>
+              Re-verify…
             </GhostButton>
             <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
               Delete
@@ -607,7 +641,7 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
 
 // ---- movies console ----
 
-function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
+function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash, onReverify }) {
   const [mediaType, setMediaType] = useState('')
   const [q, setQ] = useState('')
   const [lookupId, setLookupId] = useState(null)
@@ -711,6 +745,9 @@ function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash }) {
               onClick={fillActors}
             >
               Fill actors from cast
+            </GhostButton>
+            <GhostButton disabled={busy} onClick={() => onReverify(selected)}>
+              Re-verify…
             </GhostButton>
             <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
               Delete
@@ -1182,17 +1219,20 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
 
 // PeopleConsole — every author/actor referenced in the library, with their
 // external reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library).
-// This metadata governs the redirect menu that opens when a name is clicked
-// anywhere in the app. Links are fetched per row or in bulk for the ones
-// still missing; rows stay listed even when no longer referenced so stale
-// metadata remains manageable.
-export function PeopleConsole({ onFlash, compact = false }) {
+// This metadata backs the person popup that opens when a name is clicked
+// anywhere in the app — including right here (each row's name opens it).
+// Links are fetched per row or in bulk for the ones still missing; rows stay
+// listed even when no longer referenced so stale metadata remains manageable.
+export function PeopleConsole({ onFlash, compact = false, onReverify }) {
   const [kind, setKind] = useState('author')
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
   const [busyName, setBusyName] = useState('')
   const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')
+  // {kind, name} captured at click time, so flipping the Authors/Actors toggle
+  // while the modal is open can't re-key it.
+  const [person, setPerson] = useState(null)
 
   async function load(k = kind) {
     const r = await json('GET', `/people/names?kind=${k}`)
@@ -1299,6 +1339,15 @@ export function PeopleConsole({ onFlash, compact = false }) {
           <GhostButton disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
             Fetch missing{missing.length > 0 ? ` (${missing.length})` : ''}
           </GhostButton>
+          {!compact && onReverify && (
+            <GhostButton
+              disabled={!!bulk || !(rows || []).some((p) => p.saved)}
+              title="Re-check every saved person's identity, links and portrait against the live sources — review before anything is applied"
+              onClick={() => onReverify((rows || []).filter((p) => p.saved).map((p) => ({ kind, name: p.name })))}
+            >
+              Re-verify saved
+            </GhostButton>
+          )}
         </div>
       </div>
       <ErrorText>{err}</ErrorText>
@@ -1338,7 +1387,7 @@ export function PeopleConsole({ onFlash, compact = false }) {
                   {shown.map((p) => (
                     <tr key={p.name}>
                       <td>
-                        {p.name}
+                        <PersonName kind={kind} name={p.name} onOpen={setPerson} />
                         {p.has_image && (
                           <span className="mono-label" style={{ marginLeft: 6, color: 'var(--soft)' }} title="photo saved">· photo</span>
                         )}
@@ -1356,6 +1405,16 @@ export function PeopleConsole({ onFlash, compact = false }) {
             </div>
           )}
         </>
+      )}
+      {/* onSaved must reload: a rename/delete/photo/link change from inside the
+          modal changes this console's rows. */}
+      {person && (
+        <PersonModal
+          kind={person.kind}
+          name={person.name}
+          onClose={() => setPerson(null)}
+          onSaved={() => load()}
+        />
       )}
     </section>
   )

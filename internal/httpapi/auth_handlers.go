@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"tippani/internal/auth"
 	"tippani/internal/buildinfo"
@@ -208,9 +209,45 @@ var (
 	prefAesthetics = map[string]bool{"paper": true, "film": true}
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
-	prefNav        = map[string]bool{"tabs": true, "menu": true}
 	srScopes       = map[string]bool{"books": true, "movies": true, "both": true}
 )
+
+// defaultCreditSeps is the full roadmap separator set for multi-author
+// credit splitting (see metadata.SplitCredits).
+const defaultCreditSeps = "comma,semicolon,amp,and"
+
+// normalizeCreditSeps canonicalizes the creditSeparators pref: "none"
+// (splitting off), or a comma-separated subset of comma/semicolon/amp/and in
+// canonical order. ok=false for empty or unknown tokens.
+func normalizeCreditSeps(v string) (string, bool) {
+	v = strings.TrimSpace(v)
+	if strings.EqualFold(v, "none") {
+		return "none", true
+	}
+	set := map[string]bool{}
+	for _, tok := range strings.Split(v, ",") {
+		t := strings.ToLower(strings.TrimSpace(tok))
+		if t == "" {
+			continue
+		}
+		switch t {
+		case "comma", "semicolon", "amp", "and":
+			set[t] = true
+		default:
+			return "", false
+		}
+	}
+	if len(set) == 0 {
+		return "", false
+	}
+	out := make([]string, 0, 4)
+	for _, t := range []string{"comma", "semicolon", "amp", "and"} {
+		if set[t] {
+			out = append(out, t)
+		}
+	}
+	return strings.Join(out, ","), true
+}
 
 // clampInt returns def when v is unset (0), else v bounded to [lo, hi].
 func clampInt(v, lo, hi, def int) int {
@@ -228,17 +265,20 @@ func clampFloat(v, lo, hi, def float64) float64 {
 	return max(lo, min(v, hi))
 }
 
-// prefs is the whole preference set. The retired "home" start-page key
-// (pre-0.4 rows may still carry it) is dropped on read and on the next PUT —
-// the Home screen replaced the landing-tab choice.
+// prefs is the whole preference set. Retired keys — the pre-0.4 "home"
+// start-page and the pre-0.7 "navUtilities" nav-placement toggle (Tags +
+// Metadata are always in the navbar now) — are dropped on read and on the
+// next PUT.
 type prefs struct {
 	Aesthetic string `json:"aesthetic"`
 	Theme     string `json:"theme"`
 	Accent    string `json:"accent"`
-	// NavUtilities: where the Metadata + Tags screens live on desktop —
-	// "tabs" (in the navbar) or "menu" (a ⋯ overflow). The account chip is
-	// always separate. Empty on older rows; loadPrefs defaults it.
-	NavUtilities string `json:"navUtilities"`
+	// CreditSeparators: which separators split a joined multi-author credit
+	// ("Gaiman & Pratchett") into distinct people — a comma-separated subset
+	// of {comma, semicolon, amp, and} in canonical order, or "none" to turn
+	// splitting off. Unset (older rows) defaults to all four; libraries that
+	// store authors as "Last, First" turn comma off.
+	CreditSeparators string `json:"creditSeparators"`
 	// Spaced repetition (v0.5.0 Daily Quiz & Practice), per-user, defaults +
 	// clamps applied in loadPrefs. SRDaily (Daily Quiz deck size) is 2..10;
 	// SRReviewScope (books|movies|both) bounds BOTH modes; SRGrow (the "got it"
@@ -280,8 +320,10 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 			p.Aesthetic = "paper"
 		}
 	}
-	if !prefNav[p.NavUtilities] {
-		p.NavUtilities = "menu"
+	if norm, ok := normalizeCreditSeps(p.CreditSeparators); ok {
+		p.CreditSeparators = norm
+	} else {
+		p.CreditSeparators = defaultCreditSeps
 	}
 	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
 	if !srScopes[p.SRReviewScope] {
@@ -295,10 +337,10 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 
 // handleUpdatePreferences is a partial update: it loads the current set, overlays
 // only the fields present in the body, validates, and stores. So the Appearance
-// panel and the nav-placement toggle can each PUT just their own field(s) without
-// clobbering the other's. Any appearance field it does receive is a required
-// enum; navUtilities is optional (empty = leave as-is, so older clients that
-// don't know the field aren't rejected).
+// panel and the spaced-repetition card can each PUT just their own field(s)
+// without clobbering the other's. Any appearance field it does receive is a
+// required enum; the rest are optional (empty = leave as-is, so older clients
+// that don't know a field aren't rejected).
 func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	cur, err := s.loadPrefs(userID(r))
 	if err != nil {
@@ -306,10 +348,10 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var in struct {
-		Aesthetic     *string  `json:"aesthetic"`
-		Theme         *string  `json:"theme"`
-		Accent        *string  `json:"accent"`
-		NavUtilities  *string  `json:"navUtilities"`
+		Aesthetic        *string  `json:"aesthetic"`
+		Theme            *string  `json:"theme"`
+		Accent           *string  `json:"accent"`
+		CreditSeparators *string  `json:"creditSeparators"`
 		SRDaily          *int     `json:"srDaily"`
 		SRReviewScope    *string  `json:"srReviewScope"`
 		SRGrow           *float64 `json:"srGrow"`
@@ -332,8 +374,17 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// Optional fields: an empty/zero value means "leave unchanged", so a client
 	// PUTting only one field (or an older client omitting the newer ones) is
 	// neither rejected nor allowed to clobber the rest.
-	if in.NavUtilities != nil && *in.NavUtilities != "" {
-		cur.NavUtilities = *in.NavUtilities
+	// creditSeparators validates here rather than in the switch below — the
+	// stored form is the normalized one ("none", or a canonical-order token
+	// list), so a bad value must be rejected before it can be canonicalized.
+	if in.CreditSeparators != nil && *in.CreditSeparators != "" {
+		norm, ok := normalizeCreditSeps(*in.CreditSeparators)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				`creditSeparators must be "none" or a comma-separated subset of comma, semicolon, amp, and`)
+			return
+		}
+		cur.CreditSeparators = norm
 	}
 	if in.SRDaily != nil && *in.SRDaily != 0 {
 		cur.SRDaily = *in.SRDaily
@@ -363,9 +414,6 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case !prefAccents[cur.Accent]:
 		writeErr(w, http.StatusBadRequest, "accent must be terracotta, ochre, olive or slate")
-		return
-	case !prefNav[cur.NavUtilities]:
-		writeErr(w, http.StatusBadRequest, "navUtilities must be tabs or menu")
 		return
 	case cur.SRDaily < 2 || cur.SRDaily > 10:
 		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
