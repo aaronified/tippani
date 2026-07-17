@@ -81,3 +81,14 @@ the subsystem and the underlying error.
 | `TIP-META-011` | A provider lookup failed while previewing a re-verify; the item reported `fetch_failed`. | The source (Google Books / Open Library / Amazon / TMDB / TheTVDB) was unreachable, rejected the key, or is out of quota. | Retry later; check the key/quota in Settings → Metadata sources. The rest of the batch still previewed. |
 | `TIP-META-012` | Writing an approved re-verify change failed for one item. | A database write failed mid-apply (or an id collided with another item's). | Read the full `[error]` line; retry the apply for that item. Other items in the batch were unaffected. |
 | `TIP-META-013` | An approved cover/poster/portrait failed to download on re-verify apply. | The image URL was unreachable or blocked by the host allowlist. | The item's text fields were still applied; re-run the re-verify or set the image manually. |
+
+## BACKUP — backup & restore
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-BACKUP-001` | The backup's database snapshot (`VACUUM INTO`) failed; no archive was produced. | Disk full, or the live database is corrupt (`TIP-STORE-002`). | Free disk space; run Profile → Rebuild search index or check integrity, then retry. |
+| `TIP-BACKUP-002` | The backup archive could not be written or promoted into `backups/`. | Disk full or a permissions problem on the data volume. | Free disk space / fix volume permissions and retry. |
+| `TIP-BACKUP-003` | Restore could not extract the backup archive to staging. | Disk full (restore needs roughly the archive's expanded size free) or a truncated archive. | Free disk space; re-create the backup if the archive is damaged. |
+| `TIP-BACKUP-004` | The restore swap failed; the previous data was rolled back intact. | A file in the data dir was locked, or the restored database failed to open/migrate. | Read the full `[error]` line; nothing was lost — retry after fixing the cause. |
+| `TIP-BACKUP-005` | The restore rollback failed; the server exited so Docker restarts it cleanly. | Cascading I/O failure during rollback. | The container comes back on whatever is on disk; the previous data dir is preserved in `.pre-restore-<ts>` inside the data volume for manual recovery. |
+| `TIP-BACKUP-006` | Backup/restore temporary files could not be cleaned up. | A lingering file lock (Windows) or permissions. | Harmless to data; delete stray `.backup-*` / `.restore-*` dirs and old `backups/*.partial` files to reclaim disk. |

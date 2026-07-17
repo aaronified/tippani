@@ -486,6 +486,15 @@ GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
 GET    /stats                        # user-scoped library counts + superlatives (§10 note)
+GET    /admin/backup                 # {backup:{name,created,size}} | {backup:null} — the ONE kept
+                                     #   server-side archive (newest only, date in the name)
+POST   /admin/backup                 # build a dated tar.gz of the whole data dir (VACUUM INTO
+                                     #   snapshot + media) into <data>/backups, drop older ones
+GET    /admin/backup/download        # stream the kept archive (attachment; filename with date)
+POST   /admin/restore                # {"confirm":"RESTORE"} — replace the data dir from the kept
+                                     #   archive in-process: staged extract w/ traversal+bomb guards,
+                                     #   validate db, swap, migrate+FTS-heal; one .pre-restore-<ts>
+                                     #   safety generation kept; no Docker socket needed
 POST   /share/image                  # stage a rendered quote PNG (multipart "file") → {url}: a
                                      #   one-shot download path. For WebView wrappers with no Web
                                      #   Share API whose blob: bridges garble names/bytes.

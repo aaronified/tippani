@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { json, errText, coverImgURL, copyText } from './api.js'
+import { json, errText, coverImgURL, copyText, apiURL } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
   ErrorText,
@@ -52,6 +52,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
     { w: 2.8, node: <SRSettings key="sr" user={user} onPreferences={onPreferences} /> },
     { w: 1.5, node: <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} /> },
     user.is_admin && { w: 1.8, node: <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} /> },
+    user.is_admin && { w: 2.4, node: <BackupCard key="backup" /> },
   ].filter(Boolean)
   const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
   ;[...cards]
@@ -364,6 +365,108 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
               </div>
             )}
           </>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+// BackupCard (admin only) — server-side backup & restore (§ backup). Exactly
+// one dated tar.gz of the whole data dir is kept in <data>/backups: "Back up
+// now" builds a fresh one (older ones are dropped once it exists) and starts
+// the download; the restore block shows that backup's date and replaces
+// EVERYTHING on the server with its contents, in-process — no Docker socket.
+function BackupCard() {
+  const [backup, setBackup] = useState(null) // {name, created, size} | null
+  const [loaded, setLoaded] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState('')
+  const [restoring, setRestoring] = useState(false)
+
+  useEffect(() => {
+    json('GET', '/admin/backup').then((r) => {
+      if (r.ok) setBackup(r.data.backup)
+      setLoaded(true)
+    })
+  }, [])
+
+  async function create() {
+    setBusy(true)
+    const r = await json('POST', '/admin/backup')
+    setBusy(false)
+    if (!r.ok) return toast(errText(r, 'backup failed'))
+    setBackup(r.data.backup)
+    toast('backup created — downloading')
+    // Cookie-authed same-origin GET: the browser streams the file itself.
+    window.location.href = apiURL('/admin/backup/download')
+  }
+
+  async function restore() {
+    if (confirm !== 'RESTORE' || !backup || restoring) return
+    setRestoring(true)
+    const r = await json('POST', '/admin/restore', { confirm: 'RESTORE' })
+    if (!r.ok) {
+      setRestoring(false)
+      return toast(errText(r, 'restore failed — the current data is intact'))
+    }
+    toast('restore complete — logging you out')
+    setTimeout(() => window.location.reload(), 1200)
+  }
+
+  const fmtWhen = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+  return (
+    <Card>
+      <SectionTitle>Backup &amp; restore</SectionTitle>
+      <div className="space-y-3">
+        <p className="microcopy">
+          A complete archive of your library, images, users and settings — including password
+          hashes and API keys, so store the download somewhere safe. The server keeps only the
+          most recent backup.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <GhostButton onClick={create} disabled={busy || restoring}>
+            {busy ? 'Backing up…' : 'Back up now'}
+          </GhostButton>
+          {backup && (
+            <a className="tp-link" href={apiURL('/admin/backup/download')}>
+              download
+            </a>
+          )}
+        </div>
+        {loaded && (
+          <p className="microcopy">
+            {backup ? (
+              <>
+                last backup: <b>{fmtWhen(backup.created)}</b> · {fmtSize(backup.size)}
+              </>
+            ) : (
+              'no backup on this server yet'
+            )}
+          </p>
+        )}
+        {backup && (
+          <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+            <p className="microcopy" style={{ color: 'var(--error)' }}>
+              Restoring replaces everything on this server with the backup from{' '}
+              <b>{fmtWhen(backup.created)}</b> — all current users, libraries and settings are
+              overwritten, and everyone is logged out.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="tp-input"
+                style={{ maxWidth: 140, fontFamily: 'var(--font-mono)' }}
+                placeholder="RESTORE"
+                aria-label="Type RESTORE to confirm"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+              <StickerButton onClick={restore} disabled={confirm !== 'RESTORE' || restoring || busy}>
+                {restoring ? 'Restoring…' : 'Restore this backup'}
+              </StickerButton>
+            </div>
+          </div>
         )}
       </div>
     </Card>

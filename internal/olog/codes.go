@@ -66,6 +66,14 @@ const (
 	CodeMetaReverifyFetch Code = "TIP-META-011" // a provider lookup failed during a re-verify preview (item reported fetch_failed)
 	CodeMetaReverifyApply Code = "TIP-META-012" // an approved re-verify write failed for one item
 	CodeMetaReverifyImage Code = "TIP-META-013" // an approved cover/poster/portrait fetch failed on apply (text fields kept)
+
+	// BACKUP — server-side backup & restore (Settings, admin).
+	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
+	CodeBackupArchive  Code = "TIP-BACKUP-002" // the backup archive could not be written/promoted
+	CodeBackupExtract  Code = "TIP-BACKUP-003" // restore extraction to staging failed (server-side I/O)
+	CodeBackupSwap     Code = "TIP-BACKUP-004" // restore swap failed; the previous data was rolled back intact
+	CodeBackupRollback Code = "TIP-BACKUP-005" // restore rollback failed; the server exited for a clean boot
+	CodeBackupCleanup  Code = "TIP-BACKUP-006" // cleanup of backup/restore temp files failed (leftovers consume disk)
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -113,4 +121,11 @@ var Registry = map[Code]string{
 	CodeMetaReverifyFetch: "A provider lookup failed while previewing a re-verify; the item was reported fetch_failed.",
 	CodeMetaReverifyApply: "Writing an approved re-verify change failed for one item; the rest of the batch continued.",
 	CodeMetaReverifyImage: "An approved cover/poster/portrait failed to download on re-verify apply; text fields were kept.",
+
+	CodeBackupSnapshot: "The backup's database snapshot (VACUUM INTO) failed; no archive was produced.",
+	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory.",
+	CodeBackupExtract:  "Restore could not extract the backup archive to staging (server-side I/O).",
+	CodeBackupSwap:     "The restore swap failed; the previous data directory was rolled back intact.",
+	CodeBackupRollback: "The restore rollback failed; the server exited so Docker restarts it cleanly — previous data is in .pre-restore-<ts>.",
+	CodeBackupCleanup:  "Backup/restore temporary files could not be cleaned up; leftovers consume disk space.",
 }

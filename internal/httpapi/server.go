@@ -60,6 +60,10 @@ type Server struct {
 	// lazily initialized under the lock.
 	shareMu     sync.Mutex
 	shareImages map[string]shareEntry
+
+	// backupMu serializes backup/restore (backup_handlers.go) — concurrent runs
+	// would race on the backups dir and the swap. TryLock → 409 when busy.
+	backupMu sync.Mutex
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -123,6 +127,12 @@ func (s *Server) Handler() http.Handler {
 	// factory reset (destructive) behind Profile.
 	mux.Handle("POST /admin/search/reindex", s.requireAdmin(s.handleReindexFTS))
 	mux.Handle("POST /admin/reset", s.requireAdmin(s.handleResetDatabase))
+	// Backup & restore (backup_handlers.go): dated tar.gz of the whole data
+	// dir, newest kept server-side; restore swaps the data dir in-process.
+	mux.Handle("GET /admin/backup", s.requireAdmin(s.handleBackupStatus))
+	mux.Handle("POST /admin/backup", s.requireAdmin(s.handleBackupCreate))
+	mux.Handle("GET /admin/backup/download", s.requireAdmin(s.handleBackupDownload))
+	mux.Handle("POST /admin/restore", s.requireAdmin(s.handleRestore))
 	// Updates (admin): check GitHub for a newer release, and (Docker socket
 	// permitting) pull it and recreate this container in one click.
 	mux.Handle("GET /admin/update/check", s.requireAdmin(s.handleUpdateCheck))

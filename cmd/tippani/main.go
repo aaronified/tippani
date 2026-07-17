@@ -147,6 +147,9 @@ func serve() {
 	if err := os.MkdirAll(mediaDir, 0o700); err != nil {
 		log.Fatalf("create MediaCover dir: %v", err)
 	}
+	// A crash mid-backup/restore can leave staging dirs behind; sweep them.
+	// The .pre-restore-<ts> safety copy is deliberately kept (troubleshoot.md).
+	httpapi.CleanupBackupStaging(dataDir)
 
 	dist, err := fs.Sub(web.Dist, "dist")
 	if err != nil {
