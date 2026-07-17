@@ -831,7 +831,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               {brandDot}
             </button>
             <span className="flex-1" />
-            <button type="button" className="mobile-topbar-btn" aria-label="Capture a quote" onClick={() => setCaptureOpen(true)}>
+            {/* §7 One "＋ Add": same surface as the desktop pill — book · film ·
+                import toggle. Quote capture lives on the Home capture tile. */}
+            <button type="button" className="mobile-topbar-btn" aria-label="Add a book or film, or import highlights" onClick={() => openAdd('book')}>
               <IconPlus />
             </button>
             <button type="button" className="mobile-topbar-btn" aria-label="Search" onClick={() => selectTab('search')}>
