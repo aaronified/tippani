@@ -81,10 +81,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
 // the People console (ROADMAP §11). Stored as the creditSeparators pref
 // ("none" = splitting off). The author string stored on each book is never
 // rewritten — only the people views split — so this is safe to flip freely.
+// Chips show the bare symbol; the key doubles as the screen-reader name.
 const CREDIT_SEP_OPTIONS = [
-  ['comma', ', comma'],
-  ['semicolon', '; semicolon'],
-  ['amp', '& ampersand'],
+  ['comma', ','],
+  ['semicolon', ';'],
+  ['amp', '&'],
   ['and', '“and”'],
 ]
 function CreditSepsCard({ user, onPreferences }) {
@@ -120,6 +121,7 @@ function CreditSepsCard({ user, onPreferences }) {
             type="button"
             className={'tp-filter-chip' + (active.has(key) ? ' active' : '')}
             aria-pressed={active.has(key)}
+            aria-label={key}
             onClick={() => toggle(key)}
           >
             {label}
