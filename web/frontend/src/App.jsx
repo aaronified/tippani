@@ -529,6 +529,16 @@ function statePath(tab, detail) {
   return `/${tab}`
 }
 
+// Scroll memory: the last TWO list pages keep their scroll position, so
+// opening a detail (or hopping tabs) and coming back lands where you left.
+// Insertion order makes the Map an LRU; older pages expire to a fresh scroll.
+const scrollMem = new Map() // list path → window.scrollY
+function rememberScroll(key) {
+  scrollMem.delete(key) // re-set moves the key to newest
+  scrollMem.set(key, window.scrollY)
+  while (scrollMem.size > 2) scrollMem.delete(scrollMem.keys().next().value)
+}
+
 // The drawer's nav rows, in order; null marks the divider between the primary
 // screens and the utility group (Tags · Metadata · Settings — the same trio,
 // in the same order, as the desktop navbar's utility cluster).
@@ -754,9 +764,22 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on an unknown path rewrites the bar to the canonical one.
+  // Current route for event handlers registered once (the popstate closure
+  // below would otherwise record scroll against stale state).
+  const routeRef = useRef({ tab, detail })
+  useEffect(() => { routeRef.current = { tab, detail } })
+
+  useEffect(() => {
+    // The browser's native back/forward restoration can't work here (list
+    // heights arrive async) — the scroll-memory effect below owns it instead.
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
+  }, [])
+
   useEffect(() => {
     if (DEMO) return // no URL sync under the static subpath
     const onPop = () => {
+      const cur = routeRef.current
+      if (!cur.detail) rememberScroll(statePath(cur.tab, null))
       const s = parsePath(window.location.pathname)
       // /import via back/forward opens the Add surface over Home (no import tab).
       if (s.tab === 'import') { setTab('home'); setDetail(null); openAdd('import'); return }
@@ -769,8 +792,34 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     return () => window.removeEventListener('popstate', onPop)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Restore a remembered list scroll once the list is tall enough to hold it
+  // (its content refetches async — retry across frames, ~0.7s cap). Everything
+  // else — details, expired or never-seen lists — starts fresh at the top
+  // instead of inheriting the previous screen's (clamped) position.
+  useEffect(() => {
+    const y = detail ? null : scrollMem.get(statePath(tab, null))
+    if (y == null) {
+      window.scrollTo(0, 0)
+      return
+    }
+    let tries = 0
+    let stop = false
+    const attempt = () => {
+      if (stop) return
+      if (document.documentElement.scrollHeight - window.innerHeight >= y || tries > 40) {
+        window.scrollTo(0, y)
+        return
+      }
+      tries++
+      requestAnimationFrame(attempt)
+    }
+    requestAnimationFrame(attempt)
+    return () => { stop = true }
+  }, [tab, detail])
+
   // go() updates state AND pushes a history entry so the URL + back/forward track.
   function go(nextTab, nextDetail) {
+    if (!detail) rememberScroll(statePath(tab, null)) // leaving a list — keep its place
     setTab(nextTab)
     setDetail(nextDetail)
     if (DEMO) return
