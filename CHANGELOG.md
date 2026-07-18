@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-07-18
+
 ### Added
 - **Typo-tolerant search.** When a search finds nothing, Tippani now retries with
   the query's words corrected to the nearest ones it has actually indexed —
@@ -28,14 +30,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invariant is enforced atomically at the swap: the restore re-checks it under
   `backupMu` just before the point of no return, and signup takes the same lock
   around its insert, so a signup can never land mid-restore and be overwritten.
+- **Authors & actors have faces, bios, and birth years.** Clicking any author or
+  actor name opens a panel that auto-fetches a portrait (authors via Open
+  Library / Wikipedia; actors from the film's stored cast), a short bio, and the
+  birth year, with reference links out to IMDb / TMDB / TheTVDB / Wikipedia /
+  Open Library. The portrait is a passport-ratio photo the bio wraps around, and
+  a click opens it full screen. Small face icons sit beside author names on the
+  library grid and book detail, and on dialogue quote blocks.
+- **Film-negative views for a film/show's dialogues.** List view is a film strip
+  — sprocket rows, a "TIPPANI · SAFETY FILM" edge, and frame-code dividers —
+  while tiles view is a book-style collage of film-frame cards.
+- **One catalogue console for books, films, and shows.** The Metadata screen
+  merges the three media into a single console.
 
 ### Changed
 - **Settings help moved into info-dots.** The Metadata "Save keys" and the
   Backup & restore cards drop their standing help paragraphs for the same
   hover/focus info-dot used elsewhere, tightening both cards (removes the empty
   gap under "Save keys"). The last-backup line and the restore warning stay.
+- **Quotes expand on click — the "show more / show less" buttons are gone.**
+  Tiled quote boards (books, Home favourites, sticker quotes) and long
+  descriptions/bios clamp to a seeded 3–5 lines with a small chevron; clicking
+  the text expands it in place, one at a time. Book tiles lay out in source order
+  (newest on top, freshly-added quotes pinned until the next refresh), so the
+  clamp sizes vary the board without banding by height; Home favourites reshuffle
+  on every page load.
+- **Quote & dialogue edits open in a pop-up.** Editing opens a modal form (the
+  house `FormModal`) instead of expanding the card in place.
 
 ### Fixed
+- **Tiled quote boards no longer reshuffle.** The height-packed masonry measures
+  real card heights and freezes its column layout the first time a quote is
+  expanded, so expanding, collapsing, switching quotes, filtering, or crossing a
+  responsive breakpoint never reshuffles the board under the reader.
 - **Navbar labels no longer clip when the window narrows.** The desktop tab
   strip held its `.topbar-nav-group` at natural width (`flex: none`) so a tight
   window overflows the nav — which the icon-only collapse actually measures —
