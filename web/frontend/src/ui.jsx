@@ -226,6 +226,30 @@ export function Card({ pad = "p-6", className = "", children }) {
   return <div className={`hand-card ${pad} ${className}`.trim()}>{children}</div>;
 }
 
+// BulkBar — the accent action strip shown above a selectable list: a "N
+// selected" count, the caller's action controls (as children), and a Clear
+// button pinned to the right. Renders nothing when nothing is selected. Shared
+// by the Metadata console and Search table bulk actions.
+export function BulkBar({ n, onClear, children }) {
+  if (n === 0) return null;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 px-3 py-2"
+      style={{
+        background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--accent) 30%, var(--line))",
+        borderRadius: 9,
+      }}
+    >
+      <MonoLabel style={{ color: "var(--accent-ui)" }}>{n} selected</MonoLabel>
+      {children}
+      <GhostButton className="ml-auto" onClick={onClear}>
+        Clear
+      </GhostButton>
+    </div>
+  );
+}
+
 // PlayfulButton is the shared base: it plays a random button animation on click
 // (its own carousel) then calls through to the caller's onClick. `base` is the
 // style class (btn-sticker / btn-film / tp-btn-ghost).

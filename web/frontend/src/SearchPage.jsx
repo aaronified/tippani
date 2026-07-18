@@ -6,6 +6,7 @@ import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { CreditFaces, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useStickers } from './stickers.jsx'
 import {
+  BulkBar,
   EmptyState,
   ErrorText,
   filterChipClass,
@@ -462,7 +463,7 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
     <section className="space-y-2">
       <MonoLabel className="block">{label}</MonoLabel>
       {bulk && selectedIds.length > 0 && (
-        <BulkBar
+        <SearchBulkForm
           n={selectedIds.length}
           ids={selectedIds}
           bulk={bulk}
@@ -510,11 +511,12 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
   )
 }
 
-// BulkBar — the action strip for a table's current selection. Tag kinds add
-// tags; field kinds set author/director + series + genres. Posts to the kind's
-// bulk endpoint, then clears + reloads the search.
-function BulkBar({ n, ids, bulk, onClear, onDone }) {
-  const [text, setText] = useState('') // tags (tag kind) or "field=value; …" not used — see below
+// SearchBulkForm — the action controls for a table's current selection, hosted
+// inside the shared BulkBar strip. Tag kinds add tags; field kinds set
+// author/director + series + genres. Posts to the kind's bulk endpoint, then
+// clears + reloads the search.
+function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
+  const [text, setText] = useState('') // tags (tag kind) or genres (field kind)
   const [series, setSeries] = useState('')
   const [nameField, setNameField] = useState('') // author or director
   const [busy, setBusy] = useState(false)
@@ -544,11 +546,7 @@ function BulkBar({ n, ids, bulk, onClear, onDone }) {
   }
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2"
-      style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, var(--line))' }}
-    >
-      <MonoLabel style={{ color: 'var(--accent-ui)' }}>{n} selected</MonoLabel>
+    <BulkBar n={n} onClear={onClear}>
       {!isTag && (
         <input className="tp-input w-auto" style={{ minWidth: 130 }} placeholder={isBook ? 'set author' : 'set director'} value={nameField} onChange={(e) => setNameField(e.target.value)} />
       )}
@@ -564,9 +562,8 @@ function BulkBar({ n, ids, bulk, onClear, onDone }) {
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply() } }}
       />
       <button className="tp-btn tp-btn-primary" disabled={busy} onClick={apply}>Apply to {n}</button>
-      <GhostButton onClick={onClear}>Clear</GhostButton>
       {err && <span className="microcopy" style={{ color: 'var(--error)' }}>{err}</span>}
-    </div>
+    </BulkBar>
   )
 }
 

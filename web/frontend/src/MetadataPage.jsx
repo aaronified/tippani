@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
@@ -368,23 +368,6 @@ async function runPooled(items, limit, fn) {
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
   return out
 }
-
-function BulkBar({ n, onClear, children }) {
-  if (n === 0) return null
-  return (
-    <div
-      className="flex flex-wrap items-center gap-2 px-3 py-2"
-      style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, var(--line))', borderRadius: 9 }}
-    >
-      <MonoLabel style={{ color: 'var(--accent-ui)' }}>{n} selected</MonoLabel>
-      {children}
-      <GhostButton className="ml-auto" onClick={onClear}>
-        Clear
-      </GhostButton>
-    </div>
-  )
-}
-
 
 // ---- catalogue console (books + films + shows, merged) ----
 
