@@ -6,6 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { groupWorks } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -121,61 +122,6 @@ function useChipBudget() {
     return () => window.removeEventListener('resize', calc)
   }, [mobile])
   return n
-}
-
-// decadeOf floors a year to its decade using the full 4-digit year, so old
-// books land in the right century (1850 → 1850s, distinct from 1950s).
-function decadeOf(year) {
-  if (!year) return null
-  return Math.floor(year / 10) * 10
-}
-
-// groupBooks buckets the (already filtered + sorted) list into labelled groups
-// for the "group by" view. Order: series/author alphabetical, decade newest
-// first, genre by size; the catch-all bucket (no series/author/year/genre)
-// always sinks to the end. A book with several genres appears in each. Members
-// keep the incoming sort order, except series groups sort by index (the natural
-// reading order within a series).
-function groupBooks(list, mode, seps) {
-  const map = new Map()
-  const add = (key, label, b, opts = {}) => {
-    let g = map.get(key)
-    if (!g) {
-      g = { key, label, books: [], residual: !!opts.residual, order: opts.order }
-      map.set(key, g)
-    }
-    g.books.push(b)
-  }
-  for (const b of list) {
-    if (mode === 'series') {
-      if (b.series) add(b.series, b.series, b)
-      else add('~none', 'No series', b, { residual: true })
-    } else if (mode === 'author') {
-      // Multi-author separation (ROADMAP §11): a joined credit puts the book
-      // under EACH author's heading (like multi-genre membership); the stored
-      // credit string stays verbatim on the book itself.
-      const as = splitCredits(b.author, seps)
-      if (as.length) as.forEach((a) => add(a, a, b))
-      else add('~none', 'Unknown author', b, { residual: true })
-    } else if (mode === 'decade') {
-      const d = decadeOf(b.published_year)
-      if (d != null) add(String(d), `${d}s`, b, { order: d })
-      else add('~none', 'Unknown year', b, { residual: true })
-    } else if (mode === 'genre') {
-      const gs = bookGenres(b)
-      if (gs.length) gs.forEach((g) => add(g, g, b))
-      else add('~none', 'No genre', b, { residual: true })
-    }
-  }
-  const groups = [...map.values()]
-  groups.sort((a, b) => {
-    if (a.residual !== b.residual) return a.residual ? 1 : -1
-    if (mode === 'decade') return (b.order ?? 0) - (a.order ?? 0)
-    if (mode === 'genre') return b.books.length - a.books.length || a.label.localeCompare(b.label)
-    return a.label.localeCompare(b.label)
-  })
-  if (mode === 'series') for (const g of groups) if (!g.residual) g.books = [...g.books].sort(bySeries)
-  return groups
 }
 
 function GroupHeading({ label, count, person, onOpenPerson }) {
@@ -305,7 +251,22 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
   }, [books, genre, series, fav, sort])
 
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
-  const grouped = useMemo(() => (groupBy === 'none' ? null : groupBooks(shown, groupBy, creditSeps)), [shown, groupBy, creditSeps])
+  const grouped = useMemo(
+    () =>
+      groupBy === 'none'
+        ? null
+        : groupWorks(shown, groupBy, {
+            credit: (b) => b.author,
+            splitCredit: true,
+            creditResidual: 'Unknown author',
+            year: (b) => b.published_year,
+            genres: bookGenres,
+            series: (b) => b.series,
+            seps: creditSeps,
+            sortMembers: (items, dim) => (dim === 'series' ? [...items].sort(bySeries) : items),
+          }),
+    [shown, groupBy, creditSeps],
+  )
 
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
@@ -444,11 +405,11 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
                 <section key={g.key}>
                   <GroupHeading
                     label={g.label}
-                    count={g.books.length}
+                    count={g.items.length}
                     person={isAuthor ? authors.map[g.label] : null}
                     onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                   />
-                  <BookGrid books={g.books} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
+                  <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
                 </section>
               )
             })}

@@ -4,6 +4,7 @@ import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx
 import { Frame, dialogueState } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { CreditFaces, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   BulkBar,
@@ -683,61 +684,6 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
   )
 }
 
-// decadeOf floors a year to its full 4-digit decade (1965 → 1960).
-function decadeOf(year) {
-  if (!year) return null
-  return Math.floor(year / 10) * 10
-}
-
-// bucketGroups buckets result groups (books or movies) by the chosen dimension,
-// mirroring the Library's group-by. Genre is multi-membership; the catch-all
-// bucket sinks last. Author maps to director for movies; decade uses
-// published_year for books, release_year for movies.
-function bucketGroups(groups, dim, isMovie, creditSeps) {
-  const map = new Map()
-  const add = (key, label, g, opts = {}) => {
-    let b = map.get(key)
-    if (!b) {
-      b = { key, label, groups: [], residual: !!opts.residual, order: opts.order }
-      map.set(key, b)
-    }
-    b.groups.push(g)
-  }
-  for (const g of groups) {
-    if (dim === 'series') {
-      if (g.series) add(g.series, g.series, g)
-      else add('~none', 'No series', g, { residual: true })
-    } else if (dim === 'author') {
-      if (isMovie) {
-        // Directors are single names from TMDB/TVDB — no splitting needed.
-        if (g.director) add(g.director, g.director, g)
-        else add('~none', 'Unknown director', g, { residual: true })
-      } else {
-        // Multi-author separation (§11): a joined credit buckets the book
-        // under each author, mirroring the Library group-by.
-        const as = splitCredits(g.author, creditSeps)
-        if (as.length) as.forEach((a) => add(a, a, g))
-        else add('~none', 'Unknown author', g, { residual: true })
-      }
-    } else if (dim === 'decade') {
-      const d = decadeOf(isMovie ? g.release_year : g.published_year)
-      if (d != null) add(String(d), `${d}s`, g, { order: d })
-      else add('~none', 'Unknown year', g, { residual: true })
-    } else if (dim === 'genre') {
-      const gs = g.genres || []
-      if (gs.length) gs.forEach((x) => add(x, x, g))
-      else add('~none', 'No genre', g, { residual: true })
-    }
-  }
-  const out = [...map.values()]
-  out.sort((a, b) => {
-    if (a.residual !== b.residual) return a.residual ? 1 : -1
-    if (dim === 'decade') return (b.order ?? 0) - (a.order ?? 0)
-    if (dim === 'genre') return b.groups.length - a.groups.length || a.label.localeCompare(b.label)
-    return a.label.localeCompare(b.label)
-  })
-  return out
-}
 
 // ResultSection renders one kind's groups — flat when group === 'none', else
 // bucketed into labelled sub-sections. renderItem(g) returns a keyed card.
@@ -759,11 +705,19 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
   return (
     <section className="space-y-4">
       <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
-      {bucketGroups(groups, group, isMovie, creditSeps).map((b) => {
-        // The "by author" dimension maps to the director for movies (see
-        // bucketGroups), so the same heading opens the People panel: an author
-        // for books, a director for movies. Residual buckets ("Unknown …") stay
-        // plain text.
+      {groupWorks(groups, group, {
+        credit: (g) => (isMovie ? g.director : g.author),
+        splitCredit: !isMovie,
+        creditResidual: isMovie ? 'Unknown director' : 'Unknown author',
+        year: (g) => (isMovie ? g.release_year : g.published_year),
+        genres: (g) => g.genres || [],
+        series: (g) => g.series,
+        seps: creditSeps,
+      }).map((b) => {
+        // The "by author" dimension maps to the director for movies (see the
+        // groupWorks call above), so the same heading opens the People panel: an
+        // author for books, a director for movies. Residual buckets ("Unknown …")
+        // stay plain text.
         const isPersonGroup = group === 'author' && !b.residual
         const personKind = isMovie ? 'director' : 'author'
         const portrait = isPersonGroup && people ? people[b.label] : null
@@ -784,10 +738,10 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
               ) : (
                 <h3 className="display-title truncate" style={{ fontSize: 16.5 }}>{b.label}</h3>
               )}
-              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.groups.length}</MonoLabel>
+              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.items.length}</MonoLabel>
               <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
             </div>
-            <div className={cols}>{b.groups.map(renderItem)}</div>
+            <div className={cols}>{b.items.map(renderItem)}</div>
           </div>
         )
       })}
