@@ -26,8 +26,8 @@
 ---
 
 Built for low-powered NAS boxes that already run a hundred other things: a single static Go
-binary (~12 MB, `linux/amd64`), SQLite + FTS5, **~10 MB idle RSS** (measured; set `GOMEMLIMIT`
-to cap it — the systemd unit uses 64 MiB), and **zero background jobs** (no pollers, timers, or
+binary (~12 MB, `linux/amd64`), SQLite + FTS5, **~25 MB idle RSS** (the budget we hold it
+within; set `GOMEMLIMIT` to cap it — the systemd unit uses 64 MiB), and **zero background jobs** (no pollers, timers, or
 cron). It serves plain HTTP on port 8080 for your LAN — bring your own TLS via a reverse proxy /
 Tailscale / Netbird / Twingate when you want remote or encrypted access. No Node at runtime;
 metadata lookups are on-demand and optional (nothing external is required to run); covers and
