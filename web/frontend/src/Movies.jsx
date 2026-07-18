@@ -5,7 +5,7 @@ import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.js
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
-import { PersonCredit, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { MobileDetailBar, WorkCard, WorkHero } from './works.jsx'
 import {
   ConfirmDialog,
@@ -689,7 +689,7 @@ function MovieDetail({ id, onClose, creditSeparators }) {
           />
         </FormModal>
       )}
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
   )
@@ -848,7 +848,7 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
@@ -881,6 +881,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   const { map: actorMap } = usePeople('actor') // name→metadata, for actor face icons
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
+  const castActors = [...new Set(cast.map((c) => c.actor).filter(Boolean))] // actor-token suggestions
   const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
@@ -1062,6 +1063,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
               submitLabel="Add dialogue"
               castListId={castListId}
               tagSuggestions={Object.keys(tagMap)}
+              actorSuggestions={castActors}
               stickers={stickers}
               reloadStickers={reloadStickers}
             />
@@ -1114,6 +1116,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
                 actorMap={actorMap}
+                seps={creditSeps}
                 quoteLines={clampLines[i]}
                 expanded={expandedId === d.id}
                 onToggleExpand={() => toggleExpanded(d.id)}
@@ -1147,6 +1150,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
                 actorMap={actorMap}
+                seps={creditSeps}
                 quoteLines={5}
               />
             </Fragment>
@@ -1280,7 +1284,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1298,28 +1302,32 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   if (editInline && editing) {
     return <article className={frameClass}>{editForm}</article>
   }
-  // Credit line; the actor name is clickable (opens the metadata panel) when an
-  // onOpenPerson handler is supplied — styled to inherit the amber mono voice.
-  const actorLink = (label) =>
-    onOpenPerson ? (
-      <PersonName
-        key="actor"
-        kind="actor"
-        name={d.actor}
-        onOpen={onOpenPerson}
-        className=""
-        style={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
-      >
-        {label}
-      </PersonName>
-    ) : (
-      label
-    )
-  const creditParts = [
-    d.character || null,
-    d.actor ? actorLink(`PLAYED BY ${d.actor}`) : null,
-    d.timestamp || null,
-  ].filter(Boolean)
+  // Credit line; a dialogue can name more than one actor (entered like genres),
+  // so PLAYED BY lists each — every name clickable (opens the metadata panel)
+  // when an onOpenPerson handler is supplied, styled to inherit the amber mono
+  // voice. The stored actor string stays verbatim; splitCredits only drives the
+  // people-derived views (this list + the overlapping face chips below).
+  const actorNames = d.actor ? splitCredits(d.actor, seps) : []
+  const actorInherit = { font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }
+  const actorCredit =
+    actorNames.length > 0 ? (
+      <span key="actor">
+        PLAYED BY{' '}
+        {actorNames.map((n, i) => (
+          <Fragment key={n}>
+            {i > 0 && ', '}
+            {onOpenPerson ? (
+              <PersonName kind="actor" name={n} onOpen={onOpenPerson} className="" style={actorInherit}>
+                {n}
+              </PersonName>
+            ) : (
+              n
+            )}
+          </Fragment>
+        ))}
+      </span>
+    ) : null
+  const creditParts = [d.character || null, actorCredit, d.timestamp || null].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
   // annotations). With a seal present the favourite heart moves down beside the
   // rating so the top-right corner is free for the sticker.
@@ -1360,9 +1368,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ))}
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
-          {/* Actor face on the quote block (when a portrait is saved for them),
-              sized to match the library's author chip. */}
-          <PersonPortrait person={actorMap[d.actor]} size={24} />
+          {/* Actor face(s) on the quote block (when a portrait is saved),
+              overlapping with the first actor on top; sized to match the
+              library's author chip. */}
+          <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
           <ReviewDot item={d} />
           <span style={amberMono}>
             {creditParts.map((p, i) => (
@@ -1408,10 +1417,13 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
 // DialogueForm serves both add (no initial) and inline edit (initial set).
 // Leaving actor blank lets the server auto-fill it from the movie's cast.
 // Exported for Home's favourite-tile inline edit (same form, same contract).
-export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [], stickers = [], reloadStickers }) {
+export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [], actorSuggestions = [], stickers = [], reloadStickers }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [character, setCharacter] = useState(initial?.character || '')
-  const [actor, setActor] = useState(initial?.actor || '')
+  // A line can credit more than one actor (entered like tags); the stored
+  // `actor` stays a single verbatim string joined by ", " and is split for the
+  // token editor + the credit/chip views.
+  const [actors, setActors] = useState(initial?.actor ? splitCredits(initial.actor) : [])
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
   const [note, setNote] = useState(initial?.note || '')
   const [tags, setTags] = useState(initial?.tags || [])
@@ -1428,7 +1440,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
       quote: quote.trim(),
       note: note.trim(),
       character: character.trim(),
-      actor: actor.trim(),
+      actor: actors.join(', '),
       timestamp: timestamp.trim(),
       tags,
       // favorite/rating are edited on the frame, not in the form — but PUT is
@@ -1445,7 +1457,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
     if (!initial) {
       setQuote('')
       setCharacter('')
-      setActor('')
+      setActors([])
       setTimestamp('')
       setNote('')
       setTags([])
@@ -1462,7 +1474,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
         value={quote}
         onChange={(e) => setQuote(e.target.value)}
       />
-      <div className="grid gap-2.5 sm:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-2">
         <input
           className="tp-input"
           placeholder="Character"
@@ -1473,19 +1485,19 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
         />
         <input
           className="tp-input"
-          placeholder="Actor (auto-fills from cast)"
-          title="Actor — left blank, fills from the movie's cast"
-          value={actor}
-          onChange={(e) => setActor(e.target.value)}
-        />
-        <input
-          className="tp-input"
           placeholder="HH:MM:SS"
           title="Timestamp"
           value={timestamp}
           onChange={(e) => setTimestamp(e.target.value)}
         />
       </div>
+      <TokenInput
+        value={actors}
+        onChange={setActors}
+        suggestions={actorSuggestions}
+        placeholder="add an actor… (leave empty to auto-fill from cast)"
+        ariaLabel="Actors"
+      />
       <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
       <div>
