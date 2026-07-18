@@ -282,10 +282,23 @@ export function drawQuoteCard(canvas, model, theme) {
       const font = p.emphasis === 'bold' ? FONTS.attrBold : p.emphasis === 'italic' ? FONTS.attrItalic : FONTS.attrPlain
       runs.push({ text: p.text, font })
     })
-    const lead = authorFaces ? facesW + FACE_GAP : 0
-    const lines = flowRuns(ctx, runs, innerW - lead)
+    // With author faces, the credit reads "— (o) Author, Title": the em-dash is
+    // drawn first, the faces sit between it and the name, and the name text is
+    // indented past both. Without faces the "— " stays part of the flowed runs.
+    let pre = null
+    let preW = 0
+    let lead = 0
+    let runsForFlow = runs
+    if (authorFaces) {
+      pre = '— '
+      ctx.font = FONTS.attrPlain
+      preW = ctx.measureText(pre).width
+      lead = preW + facesW + FACE_GAP
+      runsForFlow = runs.slice(1) // the leading "— " is drawn as `pre` instead
+    }
+    const lines = flowRuns(ctx, runsForFlow, innerW - lead)
     const textH = lines.length * ALH
-    push({ kind: 'text', lines, lh: ALH, color: theme.soft, gap: 14, textH, lead, leadFaces: authorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
+    push({ kind: 'text', lines, lh: ALH, color: theme.soft, gap: 14, textH, lead, pre, preFont: FONTS.attrPlain, faceX: preW, leadFaces: authorFaces, height: Math.max(textH, authorFaces ? FACE_SIZE : 0) })
   }
   const metaText = model.meta.join('  ·  ').toUpperCase()
   if (metaText) {
@@ -413,11 +426,18 @@ export function drawQuoteCard(canvas, model, theme) {
   blocks.forEach((b, i) => {
     if (i) top += b.gap
     if (b.kind === 'text') {
-      // A block carrying leadFaces hangs the disc cluster to the left and centres
-      // its (shorter) text against the disc height, so the name sits on the same
-      // line as its face.
-      if (b.leadFaces) drawFaces(b.leadFaces, innerX, top + (b.height - FACE_SIZE) / 2)
+      // A block carrying leadFaces hangs the disc cluster inline and centres its
+      // (shorter) text against the disc height, so the name sits on the same line
+      // as its face. `pre` (the "— " marker) is drawn first, the faces sit at
+      // `faceX` after it, and the name text is indented past both.
       const textTop = top + (b.height - (b.textH ?? b.height)) / 2
+      if (b.leadFaces) drawFaces(b.leadFaces, innerX + (b.faceX || 0), top + (b.height - FACE_SIZE) / 2)
+      if (b.pre) {
+        ctx.font = b.preFont
+        ctx.fillStyle = b.color
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillText(b.pre, innerX, textTop + b.lh * 0.76)
+      }
       drawTextBlock(ctx, b.lines, innerX + (b.lead || 0), textTop, b.lh, b.color, b.ls)
     } else if (b.kind === 'note') {
       ctx.fillStyle = theme.accent
