@@ -5,7 +5,7 @@ import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
-import { CreditFaces, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -595,10 +595,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
   const metaParts = book
     ? [
         ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
-          <span key={`author-${a}`} className="inline-flex items-center gap-1.5" style={{ verticalAlign: 'middle' }}>
-            <PersonPortrait person={authorMap[a]} size={28} />
-            <PersonName kind="author" name={a} onOpen={setPerson} />
-          </span>
+          <PersonCredit key={`author-${a}`} kind="author" name={a} person={authorMap[a]} size={28} onOpen={setPerson} />
         )),
         book.published_year || null,
         seriesLabel(book) || null,

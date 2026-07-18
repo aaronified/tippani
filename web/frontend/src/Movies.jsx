@@ -5,7 +5,7 @@ import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.js
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
-import { CreditFaces, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonCredit, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -579,6 +579,7 @@ function MovieDetail({ id, onClose, creditSeparators }) {
   const [mobileAdd, setMobileAdd] = useState(false)
   // { kind:'director', name } open in the metadata panel — captured at click time.
   const [person, setPerson] = useState(null)
+  const { map: directorMap } = usePeople('director') // name→metadata, for the director/creator face chip
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
@@ -619,15 +620,15 @@ function MovieDetail({ id, onClose, creditSeparators }) {
         {dirNames.map((n, i) => (
           <Fragment key={n}>
             {i > 0 && ', '}
-            <PersonName
+            <PersonCredit
               kind="director"
               name={n}
+              person={directorMap[n]}
+              size={28}
               onOpen={setPerson}
-              className=""
-              style={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
-            >
-              {n}
-            </PersonName>
+              nameClassName=""
+              nameStyle={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
+            />
           </Fragment>
         ))}
       </span>

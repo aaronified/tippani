@@ -257,6 +257,23 @@ export function CreditFaces({ names, map = {}, size = 24, ring = 'var(--bg)', cl
   )
 }
 
+// PersonCredit — the canonical person-in-a-credit-line: a round portrait (when
+// one is saved) beside the name as a button that opens the metadata panel. ONE
+// class for every credited person, so author / actor / director / creator
+// displays place and style identically wherever a credit line names someone;
+// `kind` is the subclass handed to onOpen. `person` is the resolved metadata row
+// (a usePeople map lookup); pass nameClassName / nameStyle to match the host
+// line's type (e.g. the amber-mono voice on the film pages).
+export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassName, nameStyle, className = '' }) {
+  if (!name) return null
+  return (
+    <span className={('inline-flex items-center gap-1.5 ' + className).trim()} style={{ verticalAlign: 'middle' }}>
+      <PersonPortrait person={person} size={size} />
+      <PersonName kind={kind} name={name} onOpen={onOpen} className={nameClassName} style={nameStyle} />
+    </span>
+  )
+}
+
 function PersonView({ person, name, onEdit, onDelete }) {
   const [zoom, setZoom] = useState(false)
   // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
