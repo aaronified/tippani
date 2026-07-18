@@ -186,7 +186,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               onOpenPerson={setPerson}
               creditSeps={creditSeps}
               renderItem={(g) => (
-                <BookResult key={`b${g.id}`} g={g} view={view} terms={terms} onOpenBook={onOpenBook} onOpenQuote={setQuote} authorMap={authors.map} creditSeps={creditSeps} />
+                <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} people={authors.map} creditSeps={creditSeps} />
               )}
             />
           )}
@@ -200,7 +200,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               people={directors.map}
               onOpenPerson={setPerson}
               renderItem={(g) => (
-                <MovieResult key={`m${g.id}`} g={g} view={view} terms={terms} onOpenMovie={onOpenMovie} onOpenQuote={setQuote} directorMap={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
+                <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
               )}
             />
           )}
@@ -623,68 +623,61 @@ function ChildHit({ onClick, children }) {
   )
 }
 
-// BookResult / MovieResult: one grouped card + its matching children. Clicking a
-// child opens the quote modal; clicking the cover/title opens the parent detail.
-function BookResult({ g, view, terms, onOpenBook, onOpenQuote, authorMap = {}, creditSeps }) {
+// WorkResult: one grouped search card for a book or a film — the shared
+// MediaGroup (cover/poster + title + credit face chip) plus its matching child
+// hits (a book's annotations, a film's dialogues). `kind` is 'book' | 'movie'.
+// Clicking a child opens the quote modal; the cover/title opens the parent.
+// `people` is the credit map for the face chip (authors / directors), `actorMap`
+// the per-dialogue actor chips.
+function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, actorMap = {}, creditSeps }) {
+  const isBook = kind === 'book'
   return (
     <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
       <MediaGroup
-        kind="COVER"
-        cover={g.cover_path}
+        kind={isBook ? 'COVER' : 'POSTER'}
+        cover={isBook ? g.cover_path : g.poster_path}
         title={g.title}
         terms={terms}
-        subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
-        face={<CreditFaces names={splitCredits(g.author, creditSeps)} map={authorMap} size={24} ring="var(--card)" />}
-        onOpen={() => onOpenBook(g.id)}
+        subtitle={
+          isBook
+            ? [g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')
+            : [g.director, g.release_year || null].filter(Boolean).join('  ·  ')
+        }
+        face={<CreditFaces names={splitCredits(isBook ? g.author : g.director, creditSeps)} map={people} size={24} ring="var(--card)" />}
+        onOpen={() => onOpen(g.id)}
       >
-        {g.annotations.map((a) => (
-          <ChildHit key={a.id} onClick={() => onOpenQuote({ kind: 'book', hit: a })}>
-            {a.quote && (
-              <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
-                <Highlight text={a.quote} terms={terms} />
+        {(isBook ? g.annotations : g.dialogues).map((h) =>
+          isBook ? (
+            <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
+              {h.quote && (
+                <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
+                  <Highlight text={h.quote} terms={terms} />
+                </p>
+              )}
+              {h.note && (
+                <HandNote>
+                  <Highlight text={h.note} terms={terms} />
+                </HandNote>
+              )}
+            </ChildHit>
+          ) : (
+            <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
+              <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
+                “<Highlight text={h.quote} terms={terms} />”
               </p>
-            )}
-            {a.note && (
-              <HandNote>
-                <Highlight text={a.note} terms={terms} />
-              </HandNote>
-            )}
-          </ChildHit>
-        ))}
-      </MediaGroup>
-    </div>
-  )
-}
-
-function MovieResult({ g, view, terms, onOpenMovie, onOpenQuote, directorMap = {}, actorMap = {}, creditSeps }) {
-  return (
-    <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
-      <MediaGroup
-        kind="POSTER"
-        cover={g.poster_path}
-        title={g.title}
-        terms={terms}
-        subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
-        face={<CreditFaces names={splitCredits(g.director, creditSeps)} map={directorMap} size={24} ring="var(--card)" />}
-        onOpen={() => onOpenMovie(g.id)}
-      >
-        {g.dialogues.map((d) => (
-          <ChildHit key={d.id} onClick={() => onOpenQuote({ kind: 'movie', hit: d })}>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
-              “<Highlight text={d.quote} terms={terms} />”
-            </p>
-            <span className="mt-1 flex items-center gap-1.5">
-              {/* Actor face on the dialogue hit (when a portrait is saved). */}
-              <CreditFaces names={d.actor} map={actorMap} size={22} ring="var(--raised)" />
-              <MonoLabel className="block min-w-0 truncate">
-                {d.character && <Highlight text={d.character} terms={terms} />}
-                {d.character && d.actor ? ' · ' : ''}
-                {d.actor && <Highlight text={d.actor} terms={terms} />}
-                {d.timestamp ? `  ·  ${d.timestamp}` : ''}
-              </MonoLabel>
-            </span>
-          </ChildHit>
-        ))}
+              <span className="mt-1 flex items-center gap-1.5">
+                {/* Actor face on the dialogue hit (when a portrait is saved). */}
+                <CreditFaces names={h.actor} map={actorMap} size={22} ring="var(--raised)" />
+                <MonoLabel className="block min-w-0 truncate">
+                  {h.character && <Highlight text={h.character} terms={terms} />}
+                  {h.character && h.actor ? ' · ' : ''}
+                  {h.actor && <Highlight text={h.actor} terms={terms} />}
+                  {h.timestamp ? `  ·  ${h.timestamp}` : ''}
+                </MonoLabel>
+              </span>
+            </ChildHit>
+          ),
+        )}
       </MediaGroup>
     </div>
   )
