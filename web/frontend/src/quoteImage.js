@@ -211,14 +211,16 @@ export function buildModel(share, selected, colorHex) {
   // so unchecking Author/Actor drops the faces too. Each face is {name, url}.
   const showFaces = !share.facesFor || selected[share.facesFor]
   const faces = showFaces ? share.faces || [] : []
-  return { quote, attribution, meta, tags, note, faces, colorHex: colorHex || null }
+  // facesFor names the credit the faces hang inline beside: 'author' → the
+  // attribution line (— Author, Title), 'actor' → the meta line (played by …).
+  return { quote, attribution, meta, tags, note, faces, facesFor: share.facesFor || null, colorHex: colorHex || null }
 }
 
 // Line heights + tag metrics, shared by the measure and draw phases.
 const QLH = 38, ALH = 23, MLH = 19, NLH = 28
 const TAG_H = 24, TAG_PADX = 10, TAG_GAP = 7
 const FOOTER_H = 34 // hairline + wordmark block
-const FACE_SIZE = 40, FACE_MAX = 5 // credit portraits: disc size + how many fit
+const FACE_SIZE = 34, FACE_MAX = 5 // credit portraits: disc size + how many fit
 
 // drawTextBlock paints wrapped `lines` inside a box whose top is `top`, seating
 // each baseline within its line-height so text stays inside the block's height.
@@ -264,9 +266,15 @@ export function drawQuoteCard(canvas, model, theme) {
     quoteH = lines.length * QLH
     push({ kind: 'text', lines, lh: QLH, color: theme.ink, gap: 0, height: quoteH })
   }
-  if (model.faces && model.faces.length) {
-    push({ kind: 'faces', faces: model.faces.slice(0, FACE_MAX), gap: 18, height: FACE_SIZE })
-  }
+  // Credit faces hang inline to the LEFT of the name they belong to (the
+  // attribution line for an author, the meta line for an actor): the block that
+  // carries them indents its text past the overlapping disc cluster and grows to
+  // at least the disc height, so the faces sit on the same line as the name.
+  const faces = model.faces && model.faces.length ? model.faces.slice(0, FACE_MAX) : []
+  const facesW = faces.length ? FACE_SIZE + (faces.length - 1) * (FACE_SIZE - Math.round(FACE_SIZE * 0.34)) : 0
+  const authorFaces = faces.length && model.facesFor !== 'actor' ? faces : null
+  const actorFaces = faces.length && model.facesFor === 'actor' ? faces : null
+  const FACE_GAP = 10
   if (model.attribution.length) {
     const runs = []
     model.attribution.forEach((p, i) => {
@@ -274,15 +282,19 @@ export function drawQuoteCard(canvas, model, theme) {
       const font = p.emphasis === 'bold' ? FONTS.attrBold : p.emphasis === 'italic' ? FONTS.attrItalic : FONTS.attrPlain
       runs.push({ text: p.text, font })
     })
-    const lines = flowRuns(ctx, runs, innerW)
-    push({ kind: 'text', lines, lh: ALH, color: theme.soft, gap: 14, height: lines.length * ALH })
+    const lead = authorFaces ? facesW + FACE_GAP : 0
+    const lines = flowRuns(ctx, runs, innerW - lead)
+    const textH = lines.length * ALH
+    push({ kind: 'text', lines, lh: ALH, color: theme.soft, gap: 14, textH, lead, leadFaces: authorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
   }
   const metaText = model.meta.join('  ·  ').toUpperCase()
   if (metaText) {
+    const lead = actorFaces ? facesW + FACE_GAP : 0
     ctx.letterSpacing = '1px'
-    const lines = flowRuns(ctx, [{ text: metaText, font: FONTS.meta }], innerW)
+    const lines = flowRuns(ctx, [{ text: metaText, font: FONTS.meta }], innerW - lead)
     ctx.letterSpacing = '0px'
-    push({ kind: 'text', lines, lh: MLH, color: film ? theme.amber : theme.soft, ls: '1px', gap: 6, height: lines.length * MLH })
+    const textH = lines.length * MLH
+    push({ kind: 'text', lines, lh: MLH, color: film ? theme.amber : theme.soft, ls: '1px', gap: 6, textH, lead, leadFaces: actorFaces, height: Math.max(textH, lead ? FACE_SIZE : 0) })
   }
   if (model.note) {
     const lines = flowRuns(ctx, [{ text: model.note, font: FONTS.note }], innerW - 12)
@@ -360,45 +372,53 @@ export function drawQuoteCard(canvas, model, theme) {
     ctx.fill()
   }
 
+  // drawFaces paints the overlapping portrait cluster with its top-left at
+  // (x0, y0): right-to-left so the FIRST credited face lands on top (matching
+  // the app's chips), each disc ringed in the surface colour to cut it out of
+  // the one beneath, plus a faint ink hairline for definition.
+  const drawFaces = (list, x0, y0) => {
+    const fs = FACE_SIZE
+    const overlap = Math.round(fs * 0.34)
+    for (let j = list.length - 1; j >= 0; j--) {
+      const x = x0 + j * (fs - overlap)
+      const cx = x + fs / 2
+      const cy = y0 + fs / 2
+      const img = faceCache.get(list[j].url)
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(cx, cy, fs / 2, 0, Math.PI * 2)
+      ctx.closePath()
+      ctx.clip()
+      if (img) drawImageCover(ctx, img, x, y0, fs, fs)
+      else {
+        ctx.fillStyle = hexToRgba(theme.ink, 0.08)
+        ctx.fillRect(x, y0, fs, fs)
+      }
+      ctx.restore()
+      ctx.beginPath()
+      ctx.arc(cx, cy, fs / 2, 0, Math.PI * 2)
+      ctx.lineWidth = 3
+      ctx.strokeStyle = theme.cardTop
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(cx, cy, fs / 2 - 0.5, 0, Math.PI * 2)
+      ctx.lineWidth = 1
+      ctx.strokeStyle = hexToRgba(theme.ink, 0.22)
+      ctx.stroke()
+    }
+  }
+
   // walk the blocks
   let top = M + sprocket + CP
   blocks.forEach((b, i) => {
     if (i) top += b.gap
     if (b.kind === 'text') {
-      drawTextBlock(ctx, b.lines, innerX, top, b.lh, b.color, b.ls)
-    } else if (b.kind === 'faces') {
-      const fs = FACE_SIZE
-      const overlap = Math.round(fs * 0.34)
-      // Draw right-to-left so the FIRST credited face lands on top (matching the
-      // app's overlapping chips); each disc gets a surface-coloured ring to cut
-      // it out of the one beneath, plus a faint ink hairline for definition.
-      for (let j = b.faces.length - 1; j >= 0; j--) {
-        const x = innerX + j * (fs - overlap)
-        const cx = x + fs / 2
-        const cy = top + fs / 2
-        const img = faceCache.get(b.faces[j].url)
-        ctx.save()
-        ctx.beginPath()
-        ctx.arc(cx, cy, fs / 2, 0, Math.PI * 2)
-        ctx.closePath()
-        ctx.clip()
-        if (img) drawImageCover(ctx, img, x, top, fs, fs)
-        else {
-          ctx.fillStyle = hexToRgba(theme.ink, 0.08)
-          ctx.fillRect(x, top, fs, fs)
-        }
-        ctx.restore()
-        ctx.beginPath()
-        ctx.arc(cx, cy, fs / 2, 0, Math.PI * 2)
-        ctx.lineWidth = 3
-        ctx.strokeStyle = theme.cardTop
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(cx, cy, fs / 2 - 0.5, 0, Math.PI * 2)
-        ctx.lineWidth = 1
-        ctx.strokeStyle = hexToRgba(theme.ink, 0.22)
-        ctx.stroke()
-      }
+      // A block carrying leadFaces hangs the disc cluster to the left and centres
+      // its (shorter) text against the disc height, so the name sits on the same
+      // line as its face.
+      if (b.leadFaces) drawFaces(b.leadFaces, innerX, top + (b.height - FACE_SIZE) / 2)
+      const textTop = top + (b.height - (b.textH ?? b.height)) / 2
+      drawTextBlock(ctx, b.lines, innerX + (b.lead || 0), textTop, b.lh, b.color, b.ls)
     } else if (b.kind === 'note') {
       ctx.fillStyle = theme.accent
       ctx.fillRect(innerX, top + 4, 3, b.lh * 0.62)
