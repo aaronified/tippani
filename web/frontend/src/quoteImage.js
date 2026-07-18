@@ -199,9 +199,11 @@ export function drawQuoteCard(canvas, model, theme) {
   const blocks = []
   const push = (b) => { if (b.height > 0) blocks.push(b) }
 
+  let quoteH = 0 // the quote block's height — the colour edge spans only this
   if (model.quote) {
     const lines = flowRuns(ctx, [{ text: `“${model.quote}”`, font: FONTS.quote }], innerW)
-    push({ kind: 'text', lines, lh: QLH, color: theme.ink, gap: 0, height: lines.length * QLH })
+    quoteH = lines.length * QLH
+    push({ kind: 'text', lines, lh: QLH, color: theme.ink, gap: 0, height: quoteH })
   }
   if (model.attribution.length) {
     const runs = []
@@ -288,10 +290,11 @@ export function drawQuoteCard(canvas, model, theme) {
     }
   }
 
-  // colour edge (book annotation colour)
-  if (hasBar) {
+  // colour edge (book annotation colour) — spans the QUOTE only, not the whole
+  // card, so the attribution/meta/footer below it sit clear of the bar.
+  if (hasBar && quoteH > 0) {
     ctx.fillStyle = model.colorHex
-    roundRectPath(ctx, cardX + CP - 2, M + sprocket + CP, 6, cardH - sprocket * 2 - CP * 2, 3)
+    roundRectPath(ctx, cardX + CP - 2, M + sprocket + CP, 6, quoteH, 3)
     ctx.fill()
   }
 
