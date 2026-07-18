@@ -456,7 +456,7 @@ export function ManualTab({ onAdded }) {
       published_year: publishedYear,
     })
     setBusy(false)
-    if (r.ok) onAdded()
+    if (r.ok) onAdded(r.data) // hand back the created book (capture targets it)
     else setError(errText(r, 'could not add book'))
   }
 

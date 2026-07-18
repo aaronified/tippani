@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
+import { AddLookup } from './AddSurface.jsx'
 import { usePeople } from './people.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { useStickers } from './stickers.jsx'
@@ -16,7 +17,6 @@ import {
   clampSequence,
   ColorSwatches,
   ErrorText,
-  filterChipClass,
   GhostButton,
   FormModal,
   HandCard,
@@ -984,31 +984,13 @@ export function QuickCapture({ open, onClose, onSaved }) {
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
   const isScreen = draft.target?.kind === 'screen'
 
-  // createWork quick-adds the picked kind (book / film / show) inline and
-  // targets it. Films + shows are one endpoint (media_type), books another; the
-  // second field is the author / director / creator per kind.
-  async function createWork() {
-    if (!creating || !creating.title.trim()) return setErr('a title is required')
-    const kind = creating.kind || 'book'
-    setBusy(true)
-    setErr('')
-    let w
-    if (kind === 'book') {
-      const r = await json('POST', '/books', { title: creating.title.trim(), author: creating.author.trim() })
-      if (!r.ok) { setBusy(false); return setErr(errText(r)) }
-      w = { kind: 'book', id: r.data.id, title: r.data.title, sub: r.data.author || '', tag: 'BOOK' }
-    } else {
-      const media = kind === 'show' ? 'show' : 'movie'
-      const r = await json('POST', '/movies', { title: creating.title.trim(), director: creating.author.trim() || undefined, media_type: media })
-      if (!r.ok) { setBusy(false); return setErr(errText(r)) }
-      const m = r.data
-      w = { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', tag: media === 'show' ? 'SHOW' : 'FILM' }
-    }
-    setBusy(false)
-    setWorks((list) => [w, ...(list || [])])
-    set({ target: w })
+  // targetCreated adopts a freshly-added work (from the look-up card) as the
+  // capture target and slots it into the picker list. The shell's stat tiles
+  // count works, so refresh them now rather than only on save.
+  function targetCreated(work) {
+    setWorks((list) => [work, ...(list || [])])
+    set({ target: work })
     setCreating(null)
-    // The shell's stat tiles count works — refresh them now, not only on save.
     onSaved?.()
   }
 
@@ -1062,39 +1044,20 @@ export function QuickCapture({ open, onClose, onSaved }) {
           }}
           onCreate={(title) => {
             setErr('')
-            setCreating({ title, kind: 'book', author: '' })
+            setCreating({ title })
           }}
         />
       </label>
       {creating && !draft.target && (
-        <div className="grid gap-3 sm:grid-cols-2" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
-          <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
-            <MonoLabel>New</MonoLabel>
-            {[['book', 'Book'], ['movie', 'Film'], ['show', 'Show']].map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                className={filterChipClass((creating.kind || 'book') === k)}
-                onClick={() => setCreating((c) => ({ ...c, kind: k }))}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <label className="tp-field">
-            <MonoLabel>Title</MonoLabel>
-            <input className="tp-input" value={creating.title} onChange={(e) => setCreating((c) => ({ ...c, title: e.target.value }))} />
-          </label>
-          <label className="tp-field">
-            <MonoLabel>{(creating.kind || 'book') === 'book' ? 'Author' : creating.kind === 'show' ? 'Creator' : 'Director'}</MonoLabel>
-            <input className="tp-input" placeholder="optional" value={creating.author} onChange={(e) => setCreating((c) => ({ ...c, author: e.target.value }))} />
-          </label>
-          <div className="flex items-center gap-3 sm:col-span-2">
-            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={createWork}>
-              Create {(creating.kind || 'book') === 'book' ? 'book' : creating.kind === 'show' ? 'show' : 'film'}
-            </button>
+        <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
+          <div className="flex items-center justify-between gap-2">
+            <MonoLabel>Add a new book, film or show</MonoLabel>
             <button type="button" className="tp-link" onClick={() => setCreating(null)}>cancel</button>
           </div>
+          {/* The app's canonical look-up / add card, embedded: search a source to
+              auto-fill cover + year + genres, or add by hand. On add it becomes
+              the capture target. */}
+          <AddLookup initialQuery={creating.title} onCreated={targetCreated} />
         </div>
       )}
       <label className="tp-field">

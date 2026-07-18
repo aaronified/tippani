@@ -483,7 +483,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
       description: description.trim() || undefined,
     })
     setBusy(false)
-    if (r.ok) onAdded()
+    if (r.ok) onAdded(r.data) // hand back the created title (capture targets it)
     else setError(errText(r, 'could not add title'))
   }
 

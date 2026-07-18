@@ -17,9 +17,27 @@ import { EmptyState, ErrorText, GhostButton, HandCard, Placeholder, Toggle } fro
 // which opens the right hand-entry popup for the chosen kind.
 const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show']]
 
-function AddLookup({ initialKind = 'book', onAdded }) {
+// workFromBook / workFromMovie normalise a freshly-created record into the lean
+// {kind,id,title,sub,tag} shape the capture picker (and WorkPicker) speak, so an
+// add made through the look-up card can immediately become the capture target.
+export function workFromBook(b) {
+  return { kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' }
+}
+export function workFromMovie(m) {
+  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', tag: m.media_type === 'show' ? 'SHOW' : 'FILM' }
+}
+
+// AddLookup — the canonical "look up / add a Book, Film or Show" card: a kind
+// toggle, a search that queries the metadata sources, a candidate list that
+// creates the work (with cover + genres + source pinning) on pick, and an "add
+// manually" popup escape hatch. Used standalone inside AddSurface AND embedded
+// in the capture sheet. `onAdded(what)` fires after any add; `onCreated(work)`
+// additionally hands back the normalised work so an embedder can target it.
+// `initialQuery` seeds (and, for books, auto-runs) the search; `hideManual`
+// drops the manual link where the host offers its own.
+export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false }) {
   const [kind, setKind] = useState(initialKind === 'film' || initialKind === 'show' ? initialKind : 'book')
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(initialQuery || '')
   const [year, setYear] = useState('')
   const [candidates, setCandidates] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -45,8 +63,23 @@ function AddLookup({ initialKind = 'book', onAdded }) {
     setConfirm(null)
   }
 
-  async function search(e) {
-    e.preventDefault()
+  // finish routes every successful add (look-up or manual) through one place:
+  // hand the normalised work to an embedder (capture targets it) then report the
+  // add up to the host.
+  function finish(what, rec) {
+    if (rec && onCreated) onCreated(what === 'book' ? workFromBook(rec) : workFromMovie(rec))
+    onAdded?.(what)
+  }
+
+  // Auto-run the search when opened with a seeded query — but only for books,
+  // whose look-up needs no key (a keyless film/show search 503s straight into
+  // the manual popup, which is jarring on open).
+  useEffect(() => {
+    if (initialQuery && initialQuery.trim() && kind === 'book') doSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function doSearch() {
     const v = q.trim()
     if (!v) return
     setBusy(true)
@@ -84,7 +117,7 @@ function AddLookup({ initialKind = 'book', onAdded }) {
       source: c.source,
       source_id: c.source_id,
     })
-    if (r.ok) onAdded('book')
+    if (r.ok) finish('book', r.data)
     else setError(errText(r, 'could not add book')) // 409 duplicate lands here
   }
 
@@ -94,7 +127,7 @@ function AddLookup({ initialKind = 'book', onAdded }) {
   async function addMovie(c, confirmNew = false) {
     setError('')
     const r = await json('POST', '/movies', { ...sourceRef(c, mediaType), confirm_new: confirmNew })
-    if (r.ok) return onAdded('film')
+    if (r.ok) return finish('film', r.data)
     if (r.status === 409 && r.data?.needs_confirm) return setConfirm({ cand: c, existing: r.data.existing || [] })
     setError(errText(r, 'could not add title'))
   }
@@ -104,7 +137,7 @@ function AddLookup({ initialKind = 'book', onAdded }) {
     setError('')
     const r = await json('PUT', `/movies/${existingId}`, sourceRef(c, mediaType))
     setBusy(false)
-    if (r.ok) return onAdded('film')
+    if (r.ok) return finish('film', r.data)
     setError(errText(r, 'could not enrich that title'))
   }
 
@@ -113,7 +146,7 @@ function AddLookup({ initialKind = 'book', onAdded }) {
   return (
     <div className="space-y-3">
       <Toggle ariaLabel="What to add" value={kind} onChange={switchKind} options={KINDS} />
-      <form onSubmit={search} className="flex flex-wrap gap-2">
+      <form onSubmit={(e) => { e.preventDefault(); doSearch() }} className="flex flex-wrap gap-2">
         <input
           className="tp-input min-w-0 flex-1"
           style={{ minWidth: 180 }}
@@ -183,11 +216,13 @@ function AddLookup({ initialKind = 'book', onAdded }) {
         </ul>
       )}
 
-      <button type="button" className="tp-link" onClick={() => setManual(true)}>
-        ＋ Can’t find it? Add manually
-      </button>
+      {!hideManual && (
+        <button type="button" className="tp-link" onClick={() => setManual(true)}>
+          ＋ Can’t find it? Add manually
+        </button>
+      )}
 
-      {manual && <ManualPopup kind={kind} year={year} onClose={() => setManual(false)} onAdded={onAdded} />}
+      {manual && <ManualPopup kind={kind} year={year} onClose={() => setManual(false)} onAdded={finish} />}
     </div>
   )
 }
@@ -220,14 +255,14 @@ function ManualPopup({ kind, onClose, onAdded }) {
           <GhostButton onClick={onClose}>Close</GhostButton>
         </div>
         {kind === 'book' ? (
-          <ManualTab onAdded={() => { onAdded('book'); onClose() }} />
+          <ManualTab onAdded={(rec) => { onAdded('book', rec); onClose() }} />
         ) : (
           <ManualMovie
             mediaType={mt}
             setMediaType={setMt}
             title={title}
             setTitle={setTitle}
-            onAdded={() => { onAdded('film'); onClose() }}
+            onAdded={(rec) => { onAdded('film', rec); onClose() }}
           />
         )}
       </HandCard>
