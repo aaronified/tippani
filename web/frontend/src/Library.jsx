@@ -1180,6 +1180,17 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   // other, and the masonry order locks while one is open so columns don't jump.
   const [expandedId, setExpandedId] = useState(null)
   const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
+  // Keep expandedId honest: if the open quote leaves the set (un-favourited or
+  // edited out of the active filter via patch/save, which don't reset it), clear
+  // it — a dangling id keeps the board's lockOrder stuck true and defeats the
+  // masonry's rising-edge freeze on the next expand.
+  useEffect(() => {
+    if (expandedId != null && items && !items.some((x) => x.id === expandedId)) setExpandedId(null)
+  }, [items, expandedId])
+  // A column-count change (responsive breakpoint / rotation) re-opens masonry
+  // packing; collapse any open quote at the cross so the board re-packs and
+  // re-freezes off collapsed heights, not around the still-expanded card.
+  useEffect(() => { setExpandedId(null) }, [tileCols])
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -1201,6 +1212,10 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     } else setError(errText(r))
   }
   useEffect(() => {
+    // A book switch or filter change swaps the tile set, so collapse any open
+    // quote first: it keeps the masonry's column lock from being latched around
+    // an expanded card while the set changes underneath it (see Masonry).
+    setExpandedId(null)
     load()
   }, [bookId, color, tag, fav])
   useEffect(() => {
@@ -1212,6 +1227,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     if (!r.ok) return errText(r, 'could not add annotation')
     const newId = r.data?.id
     setTotal((t) => (t == null ? t : t + 1))
+    setExpandedId(null) // collapse before the pinned new quote reshapes the board
     // Pin the new quote to the top of the pile until the user next sorts.
     if (newId != null) setPinned((p) => [newId, ...p.filter((x) => x !== newId)])
     load()
@@ -1233,6 +1249,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     const r = await json('DELETE', `/annotations/${a.id}`)
     if (r.ok) {
       setTotal((t) => (t == null ? t : t - 1))
+      setExpandedId(null) // collapse before the shorter set re-packs
       load()
     } else setError(errText(r))
   }

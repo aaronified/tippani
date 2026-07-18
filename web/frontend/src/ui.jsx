@@ -618,41 +618,78 @@ export function mulberry32(seed) {
 // version orphaned the observer whenever a re-pack moved a card, freezing the
 // layout on stale full-text heights — the "one lonely card, rest piled up" bug.)
 //
-// `lockOrder` freezes the column assignment: while it's true the board reuses the
-// order + per-card column from the last free pack and only re-flows the vertical
-// tops. The tiles board raises it while a quote is expanded, so a card grows in
-// place and pushes its own column down without the whole board reshuffling
-// columns underneath the reader (the "show-more jumped everything" bug).
+// The column assignment (which card lands in which column, and in what order) is
+// computed while the board is still settling — early re-packs let late web-font
+// and sticker loads land a balanced board — and is then LATCHED on the rising
+// edge of `lockOrder`, i.e. the first expand of a settled board. Once latched it
+// is frozen for the life of this card set: expanding OR collapsing a quote only
+// re-flows the vertical tops within the fixed columns, so a card grows/shrinks in
+// place and nothing ever reshuffles under the reader. A genuine layout change —
+// the card set or its identities, the column count crossing a breakpoint, a new
+// seed, a change in the pinned count — re-opens free packing (a fresh signature).
+// Latching only on the rising edge is what keeps a structural change that lands
+// WHILE a quote is open (add / filter / breakpoint) from freezing the columns
+// around that one card's expanded height. Heights are rounded for the ordering so
+// sub-pixel jitter can't flip a tie and shuffle the board.
 export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lockOrder = false, className = "", children }) {
   const items = useMemo(() => Children.toArray(children), [children]);
   const n = items.length;
   const cols = Math.max(1, columns);
   const refs = useRef([]);
-  // The last free pack's placement: order = card indices in placement sequence,
-  // colOf[i] = card i's column. Reused verbatim while lockOrder holds.
+  // A cheap rolling hash of the child keys: it folds the card IDENTITIES into the
+  // signature, so swapping the set for a same-size one (e.g. a filter that keeps
+  // the count) still re-opens packing instead of reusing a stale assignment.
+  const keyHash = useMemo(() => {
+    let hprime = 0;
+    for (const it of items) {
+      const k = String(it.key);
+      for (let j = 0; j < k.length; j++) hprime = (Math.imul(hprime, 31) + k.charCodeAt(j)) | 0;
+    }
+    return hprime;
+  }, [items]);
+  // The frozen placement: order = card indices in placement sequence, colOf[i] =
+  // card i's column. assignRef holds it; frozenRef latches once expanded; sigRef
+  // is the structural signature whose change re-opens free packing; prevLockRef
+  // remembers the last lockOrder so we latch only on its rising edge.
   const assignRef = useRef(null);
+  const frozenRef = useRef(false);
+  const sigRef = useRef("");
+  const prevLockRef = useRef(false);
   // pos[i] = { col, top } for card i (left derives from col via CSS calc).
   // height = the tallest column, so the relative container reserves the space.
   const [pos, setPos] = useState([]);
   const [height, setHeight] = useState(0);
 
   useLayoutEffect(() => {
+    // A real layout change (card set/identity, columns, seed, pin count) — not an
+    // expand/collapse — re-opens free packing.
+    const sig = `${n}|${cols}|${seed}|${pinnedCount}|${keyHash}`;
+    const sigChanged = sigRef.current !== sig;
+    if (sigChanged) {
+      sigRef.current = sig;
+      frozenRef.current = false;
+      assignRef.current = null;
+    }
+    // Latch the assignment on the RISING EDGE of lockOrder (the first expand of a
+    // settled board) — never on a pass where a structural change just re-opened
+    // packing, or we'd freeze the columns around the currently-expanded (tall)
+    // card. If the set changes while a quote stays open, the board keeps free-
+    // packing off the live heights and re-latches only when the next expand
+    // begins (by then the earlier one has collapsed back to its true height).
+    if (lockOrder && !prevLockRef.current && !sigChanged) frozenRef.current = true;
+    prevLockRef.current = lockOrder;
     const repack = () => {
       const els = refs.current.slice(0, n);
       const h = els.map((el) => (el ? el.getBoundingClientRect().height : 0));
       const pc = Math.max(0, Math.min(pinnedCount, n));
 
-      // Column assignment + placement order. While locked (a card is expanded),
-      // reuse the assignment measured on the collapsed board so the expanding
-      // card only grows within its own column — columns never reshuffle.
-      let order, colOf;
-      const cached = assignRef.current;
-      if (lockOrder && cached && cached.colOf.length === n) {
-        order = cached.order;
-        colOf = cached.colOf;
-      } else {
+      let assign = assignRef.current;
+      if (!assign || assign.colOf.length !== n || !frozenRef.current) {
+        // Round heights for the ORDERING only (tops still flow from exact px) so
+        // sub-pixel measurement noise can't reorder the tallest-first sort.
+        const hr = h.map((x) => Math.round(x));
         // (1) tallest first — only the non-pinned tail (ties → index).
-        const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => h[b] - h[a] || a - b);
+        const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => hr[b] - hr[a] || a - b);
         const rankOf = new Array(n);
         rest0.forEach((i, r) => (rankOf[i] = r));
         // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
@@ -668,26 +705,27 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
         }
         const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
         // Pinned prefix stays on top in its given order, then the height-packed tail.
-        order = [];
+        const order = [];
         for (let i = 0; i < pc; i++) order.push(i);
         for (const i of rest) order.push(i);
         // (3) greedy by rows: each card, in that order, onto the shortest column —
-        // this FIXES each card's column; a later locked re-flow only moves tops.
-        colOf = new Array(n);
+        // this FIXES each card's column; every later re-flow only moves tops.
+        const colOf = new Array(n);
         const colH0 = Array(cols).fill(0);
         for (const i of order) {
           let t = 0;
           for (let c = 1; c < cols; c++) if (colH0[c] < colH0[t]) t = c;
           colOf[i] = t;
-          colH0[t] += h[i] + gap;
+          colH0[t] += hr[i] + gap;
         }
-        assignRef.current = { order, colOf };
+        assign = { order, colOf };
+        assignRef.current = assign;
       }
-      // Flow tops from the live heights, following the fixed order + columns.
+      // Flow tops from the live (exact) heights, following the frozen columns.
       const colH = Array(cols).fill(0);
       const next = new Array(n);
-      for (const i of order) {
-        const t = colOf[i];
+      for (const i of assign.order) {
+        const t = assign.colOf[i];
         next[i] = { col: t, top: colH[t] };
         colH[t] += h[i] + gap;
       }
@@ -701,7 +739,7 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
     const ro = new ResizeObserver(repack);
     refs.current.slice(0, n).forEach((el) => el && ro.observe(el));
     return () => ro.disconnect();
-  }, [n, cols, gap, seed, pinnedCount, lockOrder]);
+  }, [n, cols, gap, seed, pinnedCount, lockOrder, keyHash]);
 
   // Column width and each column's left edge as CSS calc, so they track the
   // container width with no JS: colW = (100% − gutters) / cols; left = col share.
