@@ -356,6 +356,20 @@ line — without ever leaking internals into the HTTP response. (A first step is
 already in: the book-save 500s now log their real cause instead of swallowing
 it.)
 
+### 10 · Grimmory sync (self-hosted, direct MariaDB)
+A pull source for anyone already running **Grimmory** self-hosted: point Tippani
+at that instance's hosted **MariaDB** database and sync straight from its tables
+— no export file in the loop. It reads book covers, edition metadata, and
+annotations directly from Grimmory's schema and folds them into the same
+idempotent, cross-source dedupe as the file importers, so a re-sync never doubles
+a passage. Covers come across too, which needs read access to Grimmory's cover
+store — so the plan assumes both services sit in the **same `docker-compose`**:
+Tippani is handed the Grimmory DB DSN plus the relevant Grimmory config (the media
+path / cover location), wired through the environment. Read-only and opt-in
+(nothing runs without a configured DSN); a first pass is a one-shot pull, with a
+scheduled re-sync as the follow-up. Unverified until tested against a real
+Grimmory box.
+
 ## Later / maybe (being considered)
 
 - **Anki export/import** — bridge the daily review to and from Anki decks (`.apkg`),
