@@ -90,14 +90,24 @@ func (s *Server) handleShareImageUpload(w http.ResponseWriter, r *http.Request) 
 }
 
 // handleShareImageDownload: GET /share/image/{token} — serves the staged PNG
-// once (the entry is consumed even on a mid-flight token) and 404s otherwise.
+// for the life of its short TTL. NOT single-use: a phone's WebView download
+// (an <a download> handed to Android's DownloadManager) commonly fetches the
+// URL more than once — the WebView's own navigation plus the DownloadManager
+// fetch, or a probe followed by a ranged fetch — so consuming the token on the
+// first hit made the real download 404. The token is still an unguessable
+// 128-bit value that expires in minutes from a capped store, so serving it a
+// few times over its short life is safe. Expired entries 404 and are swept
+// here and on the next upload.
 func (s *Server) handleShareImageDownload(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	s.shareMu.Lock()
 	e, ok := s.shareImages[token]
-	delete(s.shareImages, token)
+	if ok && time.Now().After(e.expires) {
+		delete(s.shareImages, token)
+		ok = false
+	}
 	s.shareMu.Unlock()
-	if !ok || time.Now().After(e.expires) {
+	if !ok {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
