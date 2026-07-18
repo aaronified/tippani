@@ -640,7 +640,7 @@ function MovieDetail({ id, onClose, creditSeparators }) {
       )}
       <ErrorText>{error}</ErrorText>
       {movie && (
-        <Reveal className="flex flex-wrap items-start gap-6">
+        <Reveal>
           <WorkHero
             cover={<Poster path={movie.poster_path} title={movie.title} zoomable />}
             title={movie.title}

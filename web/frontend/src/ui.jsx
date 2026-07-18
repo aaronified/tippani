@@ -1382,13 +1382,18 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
   }, [open, onClose]);
   if (!open) return null;
   if (mobile) {
-    return (
+    return createPortal(
       <MobileSheet open={open} onClose={onClose} title={title}>
         {children}
-      </MobileSheet>
+      </MobileSheet>,
+      document.body,
     );
   }
-  return (
+  // Portal to <body> so the overlay escapes any card's stacking context — an
+  // edit modal opened from a masonry tile must sit above every sibling tile
+  // (a .hand-card is `isolation: isolate`, so an in-tree modal is trapped and
+  // later tiles paint over it).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       style={{ background: "rgba(21,16,12,.55)" }}
@@ -1419,7 +1424,8 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

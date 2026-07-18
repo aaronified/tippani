@@ -566,7 +566,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
       )}
       <ErrorText>{error}</ErrorText>
       {book && (
-        <div className="flex flex-wrap items-start gap-6">
+        <div>
           <WorkHero
             cover={<Cover path={book.cover_path} title={book.title} hero zoomable />}
             shadow="drop-shadow(0 12px 22px rgba(0,0,0,.34))"

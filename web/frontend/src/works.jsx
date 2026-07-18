@@ -200,33 +200,43 @@ export function WorkHero({
   description,
   actions,
 }) {
+  // Float layout (not flex): the cover floats left and the actions float right,
+  // so the title / meta / favourite / genres / description flow in normal order
+  // — beside the cover while short, and wrapping full-width UNDER it once the
+  // description is expanded. Native rectangular text-wrap: it reflows on resize
+  // and keeps the text selectable, no measuring needed. `display:flow-root`
+  // clears the floats without clipping the cover's drop-shadow (overflow:hidden
+  // would). A collapsed (clamped) description is its own block beside the cover;
+  // expanding it drops the clamp so its lines wrap around the cover.
   return (
-    <>
-      <div className="w-36 shrink-0 sm:w-44" style={{ filter: shadow }}>
+    <div style={{ display: 'flow-root' }}>
+      {actions && (
+        <div className="flex flex-wrap justify-end gap-2" style={{ float: 'right', marginLeft: 20, marginBottom: 10 }}>
+          {actions}
+        </div>
+      )}
+      <div className="w-36 sm:w-44" style={{ float: 'left', marginRight: 24, marginBottom: 14, filter: shadow }}>
         {cover}
       </div>
-      <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
-        <h1 className="display-title" style={{ fontSize: titleSize, ...titleStyle }}>
-          {title}
-        </h1>
-        {meta}
-        <div className="flex flex-wrap items-center gap-3">
-          <Hearts value={!!favorite} onChange={onFavorite} />
-        </div>
-        {genres.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {genres.map((g) => (
-              <span key={g} className="tp-chip">
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="max-w-prose pt-1">
-          <ExpandableDescription text={description} />
-        </div>
+      <h1 className="display-title" style={{ fontSize: titleSize, ...titleStyle }}>
+        {title}
+      </h1>
+      {meta && <div className="mt-2.5">{meta}</div>}
+      <div className="mt-2.5 flex flex-wrap items-center gap-3">
+        <Hearts value={!!favorite} onChange={onFavorite} />
       </div>
-      <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
-    </>
+      {genres.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {genres.map((g) => (
+            <span key={g} className="tp-chip">
+              {g}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-2.5 max-w-prose">
+        <ExpandableDescription text={description} />
+      </div>
+    </div>
   )
 }
