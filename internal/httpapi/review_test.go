@@ -625,3 +625,36 @@ func TestAnnotationListLimit(t *testing.T) {
 	c.mustDo("GET", "/annotations?limit=0", nil, http.StatusBadRequest)
 	c.mustDo("GET", "/annotations?limit=nope", nil, http.StatusBadRequest)
 }
+
+// TestQuizChoicesSeedDeterministic locks the Daily Quiz fix: a given seed must
+// produce byte-identical options + order, so two browsers viewing the same
+// day's card see the same choices (not just the same right answer). A nil rng
+// (practice) is allowed to vary, so it's only checked for a well-formed result.
+func TestQuizChoicesSeedDeterministic(t *testing.T) {
+	answer := "The Correct One"
+	distractors := []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"}
+	eq := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	o1, a1 := choicesFrom(answer, distractors, 4, seededRand(12345))
+	o2, a2 := choicesFrom(answer, distractors, 4, seededRand(12345))
+	if !eq(o1, o2) || a1 != a2 {
+		t.Fatalf("same seed must give identical options: %v(%d) vs %v(%d)", o1, a1, o2, a2)
+	}
+	if len(o1) != 4 || o1[a1] != answer {
+		t.Fatalf("malformed choices %v answer#%d", o1, a1)
+	}
+	// The answer is always present regardless of RNG.
+	on, an := choicesFrom(answer, distractors, 4, nil)
+	if len(on) != 4 || on[an] != answer {
+		t.Fatalf("nil-rng choices malformed %v answer#%d", on, an)
+	}
+}

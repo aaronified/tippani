@@ -521,33 +521,51 @@ func distractorScore(own, cand workRef) int {
 // buildQuestion turns a candidate into a multiple-choice card in its preferred
 // direction, falling back to the other. ok=false when neither can form (a
 // library with only one title can't offer a wrong answer).
-func buildQuestion(c reviewCand, preferred string, p quizPools) (reviewCard, bool) {
-	if card := finishCard(c, preferred); attachMCQ(&card, c.workKey, p) {
+// buildQuestion builds an MCQ card. `seed` is the day seed for the Daily Quiz
+// (making the whole option set deterministic per card, so every client sees the
+// same choices) or 0 for practice (varied per round).
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) (reviewCard, bool) {
+	// Fold the day seed with the card identity into one stable per-card seed;
+	// 0 stays 0 (practice → global RNG).
+	cardSeed := seed
+	if seed != 0 {
+		kindSalt := int64(1)
+		if c.card.Kind == kindScreen {
+			kindSalt = 2
+		}
+		cardSeed = seed*1000003 + c.card.ID*97 + kindSalt
+		if cardSeed == 0 {
+			cardSeed = 1
+		}
+	}
+	if card := finishCard(c, preferred); attachMCQ(&card, c.workKey, p, cardSeed) {
 		return card, true
 	}
 	other := dirQuote
 	if preferred == dirQuote {
 		other = dirSource
 	}
-	if card := finishCard(c, other); attachMCQ(&card, c.workKey, p) {
+	if card := finishCard(c, other); attachMCQ(&card, c.workKey, p, cardSeed) {
 		return card, true
 	}
 	return reviewCard{}, false
 }
 
 // attachMCQ fills a card's Options/Answer for its direction, drawing distractors
-// most-similar-first. Returns false if there isn't enough material for a choice.
-func attachMCQ(card *reviewCard, ownKey string, p quizPools) bool {
+// most-similar-first. `seed` (non-zero) makes the choice + order deterministic.
+// Returns false if there isn't enough material for a choice.
+func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 	own := p.byKey[ownKey]
+	rng := seededRand(seed)
 	if card.Direction == dirSource {
 		// options = work titles, ranked by similarity; answer = own title.
 		var distractors []string
-		for _, w := range rankWorks(own, p.works) {
+		for _, w := range rankWorks(own, p.works, rng) {
 			if w.title != card.Title {
 				distractors = append(distractors, w.title)
 			}
 		}
-		opts, ans := choicesFrom(card.Title, distractors, quizOptions)
+		opts, ans := choicesFrom(card.Title, distractors, quizOptions, rng)
 		if len(opts) < 2 {
 			return false
 		}
@@ -564,13 +582,13 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools) bool {
 		return false
 	}
 	var distractors []string
-	for _, q := range rankQuotes(own, p.quotes) {
+	for _, q := range rankQuotes(own, p.quotes, rng) {
 		if q.work.key == ownKey || q.work.title == card.Title {
 			continue // never a quote from the same work
 		}
 		distractors = append(distractors, clip(q.text, quizQuoteClip))
 	}
-	opts, ans := choicesFrom(clip(correct, quizQuoteClip), distractors, quizOptions)
+	opts, ans := choicesFrom(clip(correct, quizQuoteClip), distractors, quizOptions, rng)
 	if len(opts) < 2 {
 		return false
 	}
@@ -578,25 +596,49 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools) bool {
 	return true
 }
 
+// seededRand returns a PRNG for a stable per-(day, card) seed, or nil to mean
+// "use the global RNG" (practice, where varying between rounds is fine). The
+// Daily Quiz seeds every shuffle so the exact options — distractor choice AND
+// order — are identical for every client viewing the same day's card, instead
+// of being re-randomised on each request (which changed the wrong options
+// between browsers, leaving only the right answer stable).
+func seededRand(seed int64) *rand.Rand {
+	if seed == 0 {
+		return nil
+	}
+	return rand.New(rand.NewPCG(uint64(seed), uint64(seed)*0x9e3779b97f4a7c15+1))
+}
+
+// shuffleN shuffles via the seeded RNG when one is given, else the global RNG.
+func shuffleN(rng *rand.Rand, n int, swap func(i, j int)) {
+	if rng != nil {
+		rng.Shuffle(n, swap)
+	} else {
+		rand.Shuffle(n, swap)
+	}
+}
+
 // rankWorks / rankQuotes order distractors most-similar-first, shuffling first
-// so equally-similar candidates vary between rounds.
-func rankWorks(own workRef, works []workRef) []workRef {
+// so equally-similar candidates vary (per `rng`: seeded ⇒ stable for the day,
+// nil ⇒ varied per round).
+func rankWorks(own workRef, works []workRef, rng *rand.Rand) []workRef {
 	out := append([]workRef(nil), works...)
-	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	shuffleN(rng, len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
 	sort.SliceStable(out, func(i, j int) bool { return distractorScore(own, out[i]) > distractorScore(own, out[j]) })
 	return out
 }
 
-func rankQuotes(own workRef, quotes []quoteRef) []quoteRef {
+func rankQuotes(own workRef, quotes []quoteRef, rng *rand.Rand) []quoteRef {
 	out := append([]quoteRef(nil), quotes...)
-	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	shuffleN(rng, len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
 	sort.SliceStable(out, func(i, j int) bool { return distractorScore(own, out[i].work) > distractorScore(own, out[j].work) })
 	return out
 }
 
 // choicesFrom assembles up to n options (the answer + distinct distractors,
-// which arrive best-first), shuffles them, and reports the answer's index.
-func choicesFrom(answer string, distractors []string, n int) ([]string, int) {
+// which arrive best-first), shuffles them (per `rng`), and reports the answer's
+// index.
+func choicesFrom(answer string, distractors []string, n int, rng *rand.Rand) ([]string, int) {
 	opts := []string{answer}
 	seen := map[string]bool{answer: true}
 	for _, d := range distractors {
@@ -608,7 +650,7 @@ func choicesFrom(answer string, distractors []string, n int) ([]string, int) {
 			opts = append(opts, d)
 		}
 	}
-	rand.Shuffle(len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
+	shuffleN(rng, len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
 	for i, o := range opts {
 		if o == answer {
 			return opts, i
@@ -693,7 +735,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			if len(items) >= slots {
 				break
 			}
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools); ok {
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools, seed); ok {
 				items = append(items, card)
 			}
 		}
@@ -758,7 +800,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	dirs := []string{dirSource, dirQuote}
 	items := make([]reviewCard, 0, len(cands))
 	for _, c := range cands {
-		if card, ok := buildQuestion(c, dirs[rand.IntN(2)], pools); ok {
+		if card, ok := buildQuestion(c, dirs[rand.IntN(2)], pools, 0); ok {
 			items = append(items, card)
 		}
 	}
