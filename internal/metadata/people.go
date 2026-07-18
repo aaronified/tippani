@@ -134,8 +134,10 @@ func (t *TMDB) PersonLinks(ctx context.Context, name string) (map[string]string,
 type AuthorResolution struct {
 	Key         string            // OL author key, e.g. "OL23919A" (bare, no "/authors/")
 	Name        string            // OL's canonical display name for the match
-	ImageURL    string            // portrait URL (OL photo, else Wikidata P18); "" if none exists
+	ImageURL    string            // portrait URL (OL photo → Wikipedia → Wikidata P18); "" if none
 	WikidataQID string            // "" when the author has no wikidata link
+	Bio         string            // Open Library biography (typed-text or plain); "" if none
+	Born        string            // 4-digit birth year from OL birth_date; "" if none
 	Links       map[string]string // openlibrary + wikipedia reference pages
 }
 
@@ -170,18 +172,31 @@ func ResolveAuthor(ctx context.Context, name string, bookTitles []string) (Autho
 		Name:  best.name,
 		Links: map[string]string{"openlibrary": openLibraryBase + "/authors/" + url.PathEscape(best.key)},
 	}
-	// The author detail carries the photo ids + the wikidata remote id (the hop
-	// to both the Wikipedia link and the P18 fallback portrait).
-	photoID, qid := authorDetail(ctx, best.key)
+	// The author detail carries the photo ids, a Wikipedia link, bio + birth year,
+	// and the wikidata remote id (the hop to the P18 fallback portrait).
+	photoID, qid, wikiURL, bio, born := authorDetail(ctx, best.key)
 	res.WikidataQID = qid
+	res.Bio = bio
+	res.Born = born
+	if wikiURL != "" {
+		res.Links["wikipedia"] = wikiURL
+	}
 	if photoID > 0 {
 		res.ImageURL = fmt.Sprintf("https://covers.openlibrary.org/a/id/%d-L.jpg", photoID)
 	}
+	// Wikipedia lead image right after the OL photo (owner's call): a Wikipedia
+	// article Open Library itself lists is high-confidence, so prefer its portrait
+	// over the fuzzier Wikidata fallbacks below.
+	if res.ImageURL == "" && wikiURL != "" {
+		res.ImageURL = WikipediaImageURL(ctx, wikiURL)
+	}
 	if qid != "" {
-		if w := wikipediaFromWikidata(ctx, qid); w != "" {
-			res.Links["wikipedia"] = w
+		if res.Links["wikipedia"] == "" {
+			if w := wikipediaFromWikidata(ctx, qid); w != "" {
+				res.Links["wikipedia"] = w
+			}
 		}
-		if res.ImageURL == "" { // no OL photo — try the richer Wikidata image
+		if res.ImageURL == "" { // still nothing — the richer Wikidata P18 image
 			res.ImageURL = WikidataImageURL(ctx, qid)
 		}
 	}
@@ -446,20 +461,27 @@ func authorWorks(ctx context.Context, key string) ([]string, error) {
 }
 
 // authorDetail reads the OL author record for a positive photo id (photos may be
-// absent or [-1] when none) and the wikidata remote id. Best-effort zero values.
-func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID string) {
+// absent or [-1] when none), the wikidata remote id, a Wikipedia article URL,
+// and the biography + birth year. Best-effort zero values.
+func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID, wikipediaURL, bio, born string) {
 	body, status, err := httpGet(ctx, openLibraryBase+"/authors/"+url.PathEscape(key)+".json", "")
 	if err != nil || status != 200 {
-		return 0, ""
+		return 0, "", "", "", ""
 	}
 	var a struct {
 		Photos    []int64 `json:"photos"`
 		RemoteIDs struct {
 			Wikidata string `json:"wikidata"`
 		} `json:"remote_ids"`
+		Links []struct {
+			URL string `json:"url"`
+		} `json:"links"`
+		Wikipedia string          `json:"wikipedia"`  // OL sometimes carries a direct URL
+		Bio       json.RawMessage `json:"bio"`        // string OR {type,value}
+		BirthDate string          `json:"birth_date"` // "11 March 1952" | "1952" | "1952-03-11"
 	}
 	if json.Unmarshal(body, &a) != nil {
-		return 0, ""
+		return 0, "", "", "", ""
 	}
 	for _, p := range a.Photos {
 		if p > 0 {
@@ -467,7 +489,95 @@ func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID s
 			break
 		}
 	}
-	return photoID, a.RemoteIDs.Wikidata
+	// Wikipedia URL: OL's top-level field first, else the first wikipedia.org
+	// article in the links array (both forms occur in the wild).
+	wikipediaURL = strings.TrimSpace(a.Wikipedia)
+	if wikipediaURL == "" {
+		for _, l := range a.Links {
+			if strings.Contains(l.URL, "wikipedia.org/wiki/") {
+				wikipediaURL = strings.TrimSpace(l.URL)
+				break
+			}
+		}
+	}
+	return photoID, a.RemoteIDs.Wikidata, wikipediaURL, parseOLBio(a.Bio), birthYear(a.BirthDate)
+}
+
+// parseOLBio pulls the text out of an Open Library bio value, which is either a
+// plain string or a {"type","value"} typed-text object.
+func parseOLBio(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return strings.TrimSpace(s)
+	}
+	var o struct {
+		Value string `json:"value"`
+	}
+	if json.Unmarshal(raw, &o) == nil {
+		return strings.TrimSpace(o.Value)
+	}
+	return ""
+}
+
+// birthYear extracts the first run of 4 consecutive digits from a date string
+// ("11 March 1952" | "1952-03-11" | "1952" → "1952"); returns the trimmed input
+// unchanged when there's no such run. Shared by author (OL) and actor (TMDB).
+func birthYear(s string) string {
+	s = strings.TrimSpace(s)
+	run := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			if run++; run == 4 {
+				return s[i-3 : i+1]
+			}
+		} else {
+			run = 0
+		}
+	}
+	return s
+}
+
+// WikipediaImageURL resolves a Wikipedia article URL (e.g. one Open Library lists
+// in an author's links) to that page's lead image via the MediaWiki pageimages
+// API on the article's own language host. The API returns an upload.wikimedia.org
+// URL — already on the cover allowlist. Best-effort: "" when the URL isn't a
+// Wikipedia article or the page has no lead image.
+func WikipediaImageURL(ctx context.Context, pageURL string) string {
+	u, err := url.Parse(strings.TrimSpace(pageURL))
+	if err != nil || u.Host == "" || !strings.HasSuffix(u.Host, "wikipedia.org") {
+		return ""
+	}
+	title := strings.TrimPrefix(u.Path, "/wiki/")
+	if title == "" {
+		return ""
+	}
+	if t, derr := url.PathUnescape(title); derr == nil {
+		title = t
+	}
+	q := url.Values{
+		"action": {"query"}, "prop": {"pageimages"}, "piprop": {"original"},
+		"titles": {title}, "format": {"json"}, "formatversion": {"2"}, "redirects": {"1"},
+	}
+	body, status, err := httpGet(ctx, "https://"+u.Host+"/w/api.php?"+q.Encode(), "")
+	if err != nil || status != 200 {
+		return ""
+	}
+	var r struct {
+		Query struct {
+			Pages []struct {
+				Original struct {
+					Source string `json:"source"`
+				} `json:"original"`
+			} `json:"pages"`
+		} `json:"query"`
+	}
+	if json.Unmarshal(body, &r) != nil || len(r.Query.Pages) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(r.Query.Pages[0].Original.Source)
 }
 
 // normalizeWork folds a title for equality-matching a library book against an

@@ -43,6 +43,60 @@ func TMDBProfileURL(path string) string {
 	return tmdbImageFetchBase + path
 }
 
+// PersonMeta is TMDB's person record — the headshot, biography and birth year we
+// enrich an actor with. bio/born aren't in the movie credits payload, so this is
+// a dedicated /person call (the actor portrait path's one live lookup).
+type PersonMeta struct {
+	Name     string
+	ImageURL string // full profile image URL ("" if the person has no headshot)
+	Bio      string
+	Born     string // 4-digit birth year
+}
+
+// PersonDetails fetches /person/{id} for an actor's headshot, biography and
+// birthday. A hard API error (auth/network) is returned; a person with empty
+// fields is not an error.
+func (t *TMDB) PersonDetails(ctx context.Context, id string) (*PersonMeta, error) {
+	body, err := t.get(ctx, "/person/"+url.PathEscape(id), url.Values{})
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		Name        string `json:"name"`
+		Biography   string `json:"biography"`
+		Birthday    string `json:"birthday"`
+		ProfilePath string `json:"profile_path"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return nil, fmt.Errorf("tmdb: %w", err)
+	}
+	return &PersonMeta{
+		Name:     r.Name,
+		ImageURL: TMDBProfileURL(r.ProfilePath),
+		Bio:      strings.TrimSpace(r.Biography),
+		Born:     birthYear(r.Birthday),
+	}, nil
+}
+
+// PersonSearchID returns TMDB's top person-search hit id for a name ("" when
+// none). Namesake-prone, so callers prefer a person id pinned from a film's
+// stored cast and fall back to this only for actors that have none.
+func (t *TMDB) PersonSearchID(ctx context.Context, name string) string {
+	body, err := t.get(ctx, "/search/person", url.Values{"query": {name}})
+	if err != nil {
+		return ""
+	}
+	var r struct {
+		Results []struct {
+			ID int64 `json:"id"`
+		} `json:"results"`
+	}
+	if json.Unmarshal(body, &r) != nil || len(r.Results) == 0 || r.Results[0].ID == 0 {
+		return ""
+	}
+	return strconv.FormatInt(r.Results[0].ID, 10)
+}
+
 // CastMember is one billed actor, stored per movie in movies.cast_json. Beyond
 // the display pair (character/actor) it carries the source-agnostic identity we
 // harvest from the SAME credits call the details fetch already makes — the

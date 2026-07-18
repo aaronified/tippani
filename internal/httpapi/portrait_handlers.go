@@ -54,7 +54,7 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[people] handlePersonPortrait uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
 
-	source, sourceID, imageURL, links, rerr := s.resolvePersonPortrait(r.Context(), uid, req.Kind, req.Name)
+	source, sourceID, imageURL, bio, born, links, rerr := s.resolvePersonPortrait(r.Context(), uid, req.Kind, req.Name)
 	if rerr != nil {
 		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
 		return
@@ -70,9 +70,9 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Nothing pinned (no identity, no image): report it and hand back the current
-	// row (or a shell) so the UI can offer manual entry, without writing anything.
-	if source == "" && newImage == "" {
+	// Nothing pinned (no identity, no image, no bio/born): report it and hand back
+	// the current row (or a shell) so the UI can offer manual entry, writing nothing.
+	if source == "" && newImage == "" && bio == "" && born == "" {
 		if p, ok := s.getPerson(uid, req.Kind, req.Name); ok {
 			writeJSON(w, http.StatusOK, map[string]any{"resolved": false, "image": false, "person": p, "links": links})
 			return
@@ -87,15 +87,18 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 		`SELECT image_path FROM people WHERE user_id = ? AND kind = ? AND name = ?`,
 		uid, req.Kind, req.Name).Scan(&oldImage)
 
-	// Upsert identity + image. A blank newImage keeps any existing photo (identity
-	// still refreshed), so re-running never wipes a good portrait.
+	// Upsert identity + image + bio/born. A blank newImage keeps any existing photo
+	// (identity still refreshed) so re-running never wipes a good portrait; bio/born
+	// fill only when empty, so a user's manual edits are never clobbered.
 	if _, err := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, kind, name, image_path, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO people (user_id, kind, name, image_path, bio, born, source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, kind, name) DO UPDATE SET
 			image_path = CASE WHEN excluded.image_path <> '' THEN excluded.image_path ELSE people.image_path END,
+			bio = CASE WHEN people.bio = '' AND excluded.bio <> '' THEN excluded.bio ELSE people.bio END,
+			born = CASE WHEN people.born = '' AND excluded.born <> '' THEN excluded.born ELSE people.born END,
 			source = excluded.source, source_id = excluded.source_id`,
-		uid, req.Kind, req.Name, newImage, source, sourceID); err != nil {
+		uid, req.Kind, req.Name, newImage, bio, born, source, sourceID); err != nil {
 		s.removeCoverFile(newImage) // roll back the just-fetched file on write failure
 		internalError(w, r, "portrait upsert", err)
 		return
@@ -120,27 +123,71 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 // source/imageURL means nothing confident was found. A non-nil err is only a
 // hard author-lookup failure (the caller surfaces it as 502); actor resolution
 // never errors. Shared by the portrait endpoint and the bulk refetch.
-func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, name string) (source, sourceID, imageURL string, links map[string]string, err error) {
+func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, name string) (source, sourceID, imageURL, bio, born string, links map[string]string, err error) {
 	links = map[string]string{}
 	if kind == "actor" {
-		source, sourceID, imageURL = s.actorPortraitFromCast(uid, name)
-		return source, sourceID, imageURL, links, nil
+		source, sourceID, imageURL, bio, born = s.resolveActorMeta(ctx, uid, name)
+		return source, sourceID, imageURL, bio, born, links, nil
 	}
 	titles, terr := s.authorBookTitles(uid, name)
 	if terr != nil {
-		return "", "", "", links, terr
+		return "", "", "", "", "", links, terr
 	}
 	res, rerr := s.resolveAuthor(ctx, name, titles)
 	if rerr != nil {
-		return "", "", "", links, rerr
+		return "", "", "", "", "", links, rerr
 	}
 	if res.Key != "" {
-		source, sourceID, imageURL = "openlibrary", res.Key, res.ImageURL
+		source, sourceID, imageURL, bio, born = "openlibrary", res.Key, res.ImageURL, res.Bio, res.Born
 		if res.Links != nil {
 			links = res.Links
 		}
 	}
-	return source, sourceID, imageURL, links, nil
+	return source, sourceID, imageURL, bio, born, links, nil
+}
+
+// resolveActorMeta resolves an actor's portrait, TMDB identity, biography and
+// birth year. It starts from the stored cast — the film IS the disambiguator, so
+// a person id harvested there is exact — then makes ONE live TMDB /person call to
+// (a) fill a headshot for films synced before headshots were captured and (b)
+// pull the bio + birthday the credits payload never carried. When no stored cast
+// pins a TMDB id (old rows, or a TVDB-only show) it falls back to a by-name
+// person search, which is namesake-prone — so the stored id always wins. Degrades
+// to the stored headshot + identity when there is no TMDB key. This is the one
+// place the actor path reaches out to a provider (see the package comment).
+func (s *Server) resolveActorMeta(ctx context.Context, uid int64, name string) (source, sourceID, imageURL, bio, born string) {
+	source, sourceID, imageURL = s.actorPortraitFromCast(uid, name)
+	tmdb, _ := s.resolveTMDB()
+	if tmdb == nil {
+		return source, sourceID, imageURL, "", "" // no key — keep the stored headshot
+	}
+	id := ""
+	switch {
+	case source == "tmdb" && sourceID != "":
+		id = sourceID // exact: this actor's id, pinned from one of their TMDB films
+	case source == "tvdb":
+		// A TVDB-only show already has a correct headshot + identity; a by-name
+		// TMDB search could pin a namesake, so leave it (TVDB carries no bio here).
+		return source, sourceID, imageURL, "", ""
+	default:
+		// Old TMDB film that stored no person id, or nothing stored → by-name search.
+		id = tmdb.PersonSearchID(ctx, name)
+	}
+	if id == "" {
+		return source, sourceID, imageURL, "", ""
+	}
+	pm, err := tmdb.PersonDetails(ctx, id)
+	if err != nil || pm == nil {
+		olog.Tracef("[people] actor %q person details miss: %v", name, err)
+		return source, sourceID, imageURL, "", ""
+	}
+	// Pin to the TMDB identity we used, fill a missing headshot, always take the
+	// freshly-fetched bio/born (the stored cast never had them).
+	source, sourceID = "tmdb", id
+	if imageURL == "" {
+		imageURL = pm.ImageURL
+	}
+	return source, sourceID, imageURL, pm.Bio, pm.Born
 }
 
 // actorPortraitFromCast finds an actor's portrait + supplier identity in the
