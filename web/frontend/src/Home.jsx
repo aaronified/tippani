@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
+import { usePeople } from './people.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { useStickers } from './stickers.jsx'
 import {
@@ -527,6 +528,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const [editingFav, setEditingFav] = useState(null) // favourite key being edited in place
   const [shareFav, setShareFav] = useState(null) // favourite being shared, or null
   const [tagNames, setTagNames] = useState([]) // suggestions for the edit forms
+  const { map: authorMap } = usePeople('author') // for author faces on shared book quotes
+  const { map: actorMap } = usePeople('actor') // for actor faces on shared film dialogues
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
   // every /review/answer response carries fresh counts, so the row ticks live.
   const [states, setStates] = useState(null)
@@ -607,11 +610,12 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       ? bookShare({
           quote: f.raw.quote, note: f.raw.note, author: f.raw.book_author, title: f.raw.book_title,
           chapter: f.raw.chapter, location: f.raw.location, date: fmtDate(annDate(f.raw)),
-          tags: f.raw.tags, color: f.raw.color,
+          tags: f.raw.tags, color: f.raw.color, people: authorMap,
         })
       : movieShare({
           quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
           character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp, tags: f.raw.tags,
+          people: actorMap,
         })
 
   return (

@@ -620,7 +620,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
           />
         </FormModal>
       )}
-      {book && <Annotations bookId={book.id} book={book} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
   )
@@ -1015,7 +1015,7 @@ function pinToTop(arr, pinnedIds) {
   return [...top, ...arr.filter((x) => !pset.has(x.id))]
 }
 
-function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // annotation being shared
@@ -1205,6 +1205,8 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
       rating: a.rating,
       tags: a.tags,
       color: a.color,
+      people: authorMap,
+      seps,
     })
 
   const countsLabel = !items

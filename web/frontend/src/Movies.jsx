@@ -980,6 +980,8 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
       tags: d.tags,
       tmdbId: movie?.tmdb_id,
       tvdbId: movie?.tvdb_id,
+      people: actorMap,
+      seps: creditSeps,
     })
 
   return (

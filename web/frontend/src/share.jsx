@@ -1,8 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ANNOTATION_HEX, GhostButton, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
-import { buildModel, drawQuoteCard, ensureFonts, readTheme } from "./quoteImage.js";
+import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
+import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { paletteTheme } from "./theme.js";
-import { DEMO, apiURL, copyText, json } from "./api.js";
+import { DEMO, apiURL, copyText, coverImgURL, json } from "./api.js";
+
+// resolveFaces turns a credit string + a name→metadata map into the portrait
+// chips drawn on the quote-card image: one per credited name that has a saved
+// photo, first credited first (the image draws them overlapping, first on top).
+// The url is the same-origin cover route, so the canvas stays untainted.
+function resolveFaces(credit, people, seps) {
+  if (!credit || !people) return [];
+  return splitCredits(credit, seps || DEFAULT_CREDIT_SEPS)
+    .map((n) => people[n])
+    .filter((p) => p && p.image_path)
+    .map((p) => ({ name: p.name, url: coverImgURL(p.image_path) }));
+}
 
 // Image themes for the share card — the app's four skins, chosen independently
 // of the live app theme (an export choice, persisted per device). Value is the
@@ -81,12 +94,17 @@ export function bookShare({
   date,
   tags,
   color,
+  people,
+  seps,
 }) {
   return {
     quote: quote || "",
     // The annotation colour (yellow|blue|pink|orange), for the quote-card
     // image's coloured edge. Ignored by the text formats.
     color: color || "",
+    // Author face(s) for the image, gated by the "Author" toggle (facesFor).
+    faces: resolveFaces(author, people, seps),
+    facesFor: "author",
     // Author-first (bold), work italic, then the publication year — the classic
     // epigraph order ("— **Author**, *Title*, 1965").
     attribution: [
@@ -129,9 +147,14 @@ export function movieShare({
   tags,
   tmdbId,
   tvdbId,
+  people,
+  seps,
 }) {
   return {
     quote: quote || "",
+    // Actor face(s) for the image, gated by the "Actor" toggle (facesFor).
+    faces: resolveFaces(actor, people, seps),
+    facesFor: "actor",
     attribution: [
       { id: "work", label: "Title", value: title || "", emphasis: "italic" },
       { id: "year", label: "Released", value: year ? String(year) : "" },
@@ -454,6 +477,9 @@ function QuoteImagePanel({ share, selected, onShared }) {
     // whenever the app accent flips (the chosen skin follows the picker, but the
     // accent still tracks the app).
     ensureFonts().then(redraw);
+    // Author / actor portraits load lazily; redraw once they're in so the faces
+    // fill the (already reserved) chip row.
+    loadFaceImages((share.faces || []).map((f) => f.url)).then(redraw);
     window.addEventListener("tippani:theme", redraw);
     return () => {
       cancelled = true;

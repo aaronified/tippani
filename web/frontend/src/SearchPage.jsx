@@ -212,6 +212,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
         <QuoteModal
           kind={quote.kind}
           hit={quote.hit}
+          authorMap={authors.map}
+          actorMap={actors.map}
+          seps={creditSeps}
           onOpenBook={onOpenBook}
           onOpenMovie={onOpenMovie}
           onClose={() => setQuote(null)}
@@ -239,7 +242,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 // attribution) + tags, then renders the SAME AnnotationCard / Frame used on the
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
-function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) {
+function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook, onOpenMovie, onClose, onChanged }) {
   const isBook = kind === 'book'
   const parentId = isBook ? hit.book_id : hit.movie_id
   const childPath = isBook ? `/annotations?book_id=${parentId}` : `/dialogues?movie_id=${parentId}`
@@ -305,8 +308,8 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
   const title = isBook ? parent?.title || hit.book_title : parent?.title || hit.movie_title
   const sharePayload = () =>
     isBook
-      ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color })
-      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, tags: row.tags, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id })
+      ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
+      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, tags: row.tags, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
 
   return (
     <div

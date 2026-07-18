@@ -140,6 +140,59 @@ function flowRuns(ctx, runs, maxWidth) {
   return lines
 }
 
+// ---- credit-face portraits ---------------------------------------------
+// The author / actor faces drawn on the card mirror the app's overlapping
+// face chips (first credited on top). Images are same-origin cover-route URLs
+// (see coverImgURL), so drawing them never taints the canvas. They load lazily
+// into a module cache; the share panel awaits loadFaceImages() then redraws, so
+// the first paint may lack faces and the redraw fills them in without shifting
+// the layout — the row's height is reserved whenever there are faces to show.
+const faceCache = new Map() // url -> HTMLImageElement | null (null = failed)
+
+// loadFaceImages resolves once every not-yet-cached url has loaded (or failed);
+// best-effort and never rejects, so a blocked portrait just leaves a blank disc.
+export function loadFaceImages(urls) {
+  const missing = (urls || []).filter((u) => u && !faceCache.has(u))
+  if (!missing.length) return Promise.resolve()
+  return Promise.all(
+    missing.map(
+      (u) =>
+        new Promise((res) => {
+          const img = new Image()
+          img.onload = () => {
+            faceCache.set(u, img)
+            res()
+          }
+          img.onerror = () => {
+            faceCache.set(u, null)
+            res()
+          }
+          img.src = u
+        }),
+    ),
+  ).then(() => {})
+}
+
+// drawImageCover paints img into the dx,dy,dw,dh box with object-fit: cover
+// (centre-cropped to fill), used inside a circular clip for each face.
+function drawImageCover(ctx, img, dx, dy, dw, dh) {
+  const ir = img.width / img.height
+  const r = dw / dh
+  let sw, sh, sx, sy
+  if (ir > r) {
+    sh = img.height
+    sw = sh * r
+    sx = (img.width - sw) / 2
+    sy = 0
+  } else {
+    sw = img.width
+    sh = sw / r
+    sx = 0
+    sy = (img.height - sh) / 2
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh)
+}
+
 // buildModel turns the share payload + the chosen fields into the drawable
 // blocks — mirroring buildShareText's selection so the image shows exactly what
 // the text formats would. colorHex (books) draws the annotation-colour edge.
@@ -153,13 +206,19 @@ export function buildModel(share, selected, colorHex) {
     .map((m) => (m.prefix || '') + m.value)
   const tags = selected.tags && share.tags ? share.tags : []
   const note = selected.note && share.note ? share.note : ''
-  return { quote, attribution, meta, tags, note, colorHex: colorHex || null }
+  // Credit faces (author / actor portraits) ride with their credit toggle:
+  // `facesFor` names the field ('author' | 'actor') whose checkbox gates them,
+  // so unchecking Author/Actor drops the faces too. Each face is {name, url}.
+  const showFaces = !share.facesFor || selected[share.facesFor]
+  const faces = showFaces ? share.faces || [] : []
+  return { quote, attribution, meta, tags, note, faces, colorHex: colorHex || null }
 }
 
 // Line heights + tag metrics, shared by the measure and draw phases.
 const QLH = 38, ALH = 23, MLH = 19, NLH = 28
 const TAG_H = 24, TAG_PADX = 10, TAG_GAP = 7
 const FOOTER_H = 34 // hairline + wordmark block
+const FACE_SIZE = 40, FACE_MAX = 5 // credit portraits: disc size + how many fit
 
 // drawTextBlock paints wrapped `lines` inside a box whose top is `top`, seating
 // each baseline within its line-height so text stays inside the block's height.
@@ -204,6 +263,9 @@ export function drawQuoteCard(canvas, model, theme) {
     const lines = flowRuns(ctx, [{ text: `“${model.quote}”`, font: FONTS.quote }], innerW)
     quoteH = lines.length * QLH
     push({ kind: 'text', lines, lh: QLH, color: theme.ink, gap: 0, height: quoteH })
+  }
+  if (model.faces && model.faces.length) {
+    push({ kind: 'faces', faces: model.faces.slice(0, FACE_MAX), gap: 18, height: FACE_SIZE })
   }
   if (model.attribution.length) {
     const runs = []
@@ -304,6 +366,39 @@ export function drawQuoteCard(canvas, model, theme) {
     if (i) top += b.gap
     if (b.kind === 'text') {
       drawTextBlock(ctx, b.lines, innerX, top, b.lh, b.color, b.ls)
+    } else if (b.kind === 'faces') {
+      const fs = FACE_SIZE
+      const overlap = Math.round(fs * 0.34)
+      // Draw right-to-left so the FIRST credited face lands on top (matching the
+      // app's overlapping chips); each disc gets a surface-coloured ring to cut
+      // it out of the one beneath, plus a faint ink hairline for definition.
+      for (let j = b.faces.length - 1; j >= 0; j--) {
+        const x = innerX + j * (fs - overlap)
+        const cx = x + fs / 2
+        const cy = top + fs / 2
+        const img = faceCache.get(b.faces[j].url)
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(cx, cy, fs / 2, 0, Math.PI * 2)
+        ctx.closePath()
+        ctx.clip()
+        if (img) drawImageCover(ctx, img, x, top, fs, fs)
+        else {
+          ctx.fillStyle = hexToRgba(theme.ink, 0.08)
+          ctx.fillRect(x, top, fs, fs)
+        }
+        ctx.restore()
+        ctx.beginPath()
+        ctx.arc(cx, cy, fs / 2, 0, Math.PI * 2)
+        ctx.lineWidth = 3
+        ctx.strokeStyle = theme.cardTop
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(cx, cy, fs / 2 - 0.5, 0, Math.PI * 2)
+        ctx.lineWidth = 1
+        ctx.strokeStyle = hexToRgba(theme.ink, 0.22)
+        ctx.stroke()
+      }
     } else if (b.kind === 'note') {
       ctx.fillStyle = theme.accent
       ctx.fillRect(innerX, top + 4, 3, b.lh * 0.62)
