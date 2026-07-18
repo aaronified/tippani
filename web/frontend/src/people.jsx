@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, MonoLabel, Placeholder } from './ui.jsx'
+import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, Lightbox, MonoLabel, Placeholder } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -223,23 +223,36 @@ export function PersonPortrait({ person, size = 30 }) {
   )
 }
 
-function PersonView({ person, onEdit, onDelete }) {
+function PersonView({ person, name, onEdit, onDelete }) {
+  const [zoom, setZoom] = useState(false)
+  // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
+  // and continue below — no dead space beside a short photo. Click → full screen.
+  const photo = person.image_path ? (
+    <button
+      type="button"
+      className="person-photo-btn"
+      onClick={() => setZoom(true)}
+      aria-label={`View photo of ${name} full screen`}
+      style={{ float: 'left', width: 104, margin: '2px 14px 8px 0', padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
+    >
+      <img
+        src={personImgURL(person.image_path)}
+        alt={name}
+        style={{ display: 'block', width: '100%', aspectRatio: '7 / 9', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--ink-border)' }}
+      />
+    </button>
+  ) : (
+    <div style={{ float: 'left', width: 104, margin: '2px 14px 8px 0' }}>
+      <Placeholder kind="" style={{ width: '100%', aspectRatio: '7 / 9' }} />
+    </div>
+  )
   return (
     <div className="space-y-3">
-      <div className="flex gap-4">
-        {person.image_path ? (
-          <img
-            src={personImgURL(person.image_path)}
-            alt=""
-            className="w-24 shrink-0 rounded-lg object-cover"
-            style={{ aspectRatio: '3 / 4', border: '1px solid var(--ink-border)' }}
-          />
-        ) : (
-          <Placeholder kind="" className="w-24 shrink-0" />
-        )}
-        <div className="min-w-0 flex-1 space-y-1.5">
+      <div style={{ overflow: 'hidden' }}> {/* establishes a float context (clears) */}
+        {photo}
+        <div className="min-w-0 space-y-1.5">
           {person.born && <MonoLabel className="block">{person.born}</MonoLabel>}
-          {person.bio && <ExpandableDescription text={person.bio} />}
+          {person.bio && <ExpandableDescription text={person.bio} lines={5} />}
           {person.links && (
             <div className="space-y-1">
               <MonoLabel className="block" style={{ color: 'var(--faint)' }}>reference pages</MonoLabel>
@@ -251,6 +264,7 @@ function PersonView({ person, onEdit, onDelete }) {
           )}
         </div>
       </div>
+      {zoom && <Lightbox path={person.image_path} title={name} onClose={() => setZoom(false)} />}
       <div className="flex justify-end gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
         <GhostButton
           onClick={onDelete}
@@ -595,7 +609,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         ) : (
           <div className="space-y-3">
             {person ? (
-              <PersonView person={person} onEdit={() => setEditing(true)} onDelete={remove} />
+              <PersonView person={person} name={name} onEdit={() => setEditing(true)} onDelete={remove} />
             ) : (
               <>
                 <p className="microcopy">nothing saved yet</p>

@@ -5,7 +5,7 @@ import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.js
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
-import { PersonModal, PersonName } from './people.jsx'
+import { PersonModal, PersonName, PersonPortrait, usePeople } from './people.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -894,6 +894,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   const mobile = useIsMobileScreen()
 
   const { stickers, reload: reloadStickers } = useStickers()
+  const { map: actorMap } = usePeople('actor') // name→metadata, for actor face icons
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
   const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
@@ -1099,6 +1100,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 onDelete={() => remove(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
+              actorMap={actorMap}
               />
             ))}
           </Masonry>
@@ -1128,6 +1130,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 onDelete={() => remove(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
+              actorMap={actorMap}
               />
             </Fragment>
           ))}
@@ -1260,7 +1263,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5' }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5' }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1326,6 +1329,8 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ))}
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
+          {/* Actor face on the quote block (when a portrait is saved for them). */}
+          <PersonPortrait person={actorMap[d.actor]} size={20} />
           <ReviewDot item={d} />
           <span style={amberMono}>
             {creditParts.map((p, i) => (

@@ -1499,9 +1499,9 @@ export function ReviewDot({ item, side = "top" }) {
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.
-export function Placeholder({ kind = "COVER", className = "" }) {
+export function Placeholder({ kind = "COVER", className = "", style }) {
   return (
-    <span className={"ph " + className} aria-hidden="true">
+    <span className={"ph " + className} aria-hidden="true" style={style}>
       <span className="mono-label ph-label">{kind}</span>
     </span>
   );

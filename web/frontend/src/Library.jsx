@@ -554,6 +554,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
   const [mobileAdd, setMobileAdd] = useState(false)
+  const { map: authorMap } = usePeople('author') // name→metadata, for author face icons
   const reveal = useReveal()
   const mobile = useIsMobileScreen()
 
@@ -589,7 +590,10 @@ function BookDetail({ id, onClose, creditSeparators }) {
   const metaParts = book
     ? [
         ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
-          <PersonName key={`author-${a}`} kind="author" name={a} onOpen={setPerson} />
+          <span key={`author-${a}`} className="inline-flex items-center gap-1.5" style={{ verticalAlign: 'middle' }}>
+            <PersonPortrait person={authorMap[a]} size={19} />
+            <PersonName kind="author" name={a} onOpen={setPerson} />
+          </span>
         )),
         book.published_year || null,
         seriesLabel(book) || null,
