@@ -6,7 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { MobileDetailBar, WorkCard, WorkHero, groupWorks } from './works.jsx'
+import { MobileDetailBar, WorkCard, WorkHero, WorkListScaffold, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -173,7 +173,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
   const chipBudget = useChipBudget()
   const mobile = useIsMobileScreen()
-  const [mobileFilter, setMobileFilter] = useState(false)
   const authors = usePeople('author') // name→metadata, for author-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
 
@@ -236,183 +235,108 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
   const quoteTotal = (books || []).reduce((n, b) => n + (b.annotation_count || 0), 0)
 
   return (
-    <section>
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader
-          title="Books"
-          counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
-          right={
+    <WorkListScaffold
+      mobile={mobile}
+      title="Books"
+      counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
+      error={error}
+      add={{ label: '＋ Add book', aria: 'Add book', onClick: () => setAdding(true) }}
+      onExport={() => setExporting(true)}
+      headerAside={<MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>}
+      loaded={books != null}
+      hasItems={!!(books && books.length > 0)}
+      shownCount={shown.length}
+      emptyText="no books yet — add one, or bring highlights in from ＋ Add › Import"
+      noMatchText="no books match these filters"
+      genres={genres}
+      genre={genre}
+      setGenre={setGenre}
+      chipBudget={chipBudget}
+      fav={fav}
+      setFav={setFav}
+      seriesNames={seriesNames}
+      series={series}
+      setSeries={setSeries}
+      sort={sort}
+      setSort={setSort}
+      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series']]}
+      trailing={
+        <label className="flex items-center gap-2">
+          <MonoLabel>group</MonoLabel>
+          <Select
+            ariaLabel="Group by"
+            value={groupBy}
+            onChange={setGroupBy}
+            options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+          />
+        </label>
+      }
+      trailingMobile={
+        <div>
+          <MonoLabel className="mb-2 block">group</MonoLabel>
+          <Select
+            ariaLabel="Group by"
+            value={groupBy}
+            onChange={setGroupBy}
+            options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+          />
+        </div>
+      }
+      onReset={() => { setGenre(''); setFav(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
+      addSurface={
+        <AddSurface
+          open={adding}
+          initialSection="book"
+          onClose={() => setAdding(false)}
+          onAdded={() => { setAdding(false); load() }}
+          onOpenMovie={onOpenMovie}
+        />
+      }
+      exportDialog={
+        <ConfirmDialog
+          open={exporting}
+          title="Export library"
+          body={
             <>
-              {mobile && (
-                <div className="flex items-center gap-2">
-                  <IconButton icon={<IconPlus />} ariaLabel="Add book" onClick={() => setAdding(true)} />
-                  <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />}
-                </div>
-              )}
-              {!mobile && <MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>}
-              {!mobile && !DEMO && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
-              {!mobile && <button className={PRIMARY} onClick={() => setAdding(true)}>
-                ＋ Add book
-              </button>}
+              {plural(shown.length, 'book')} · {plural(shown.reduce((n, b) => n + (b.annotation_count || 0), 0), 'quote')} in view will
+              be exported as a single Markdown file (re-importable into Tippani).
             </>
           }
+          confirmLabel="Export"
+          onCancel={() => setExporting(false)}
+          onConfirm={async () => {
+            setExporting(false)
+            await downloadPost('/export/books', { ids: shown.map((b) => b.id) }, 'tippani-books.md')
+          }}
         />
-      </div>
-      <ErrorText>{error}</ErrorText>
-
-      {books && books.length > 0 && !mobile && (
-        <div className="filter-row mb-5">
-          <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-              ♥ favourites
-            </button>
-            {seriesNames.length > 0 && (
-              <Select
-                ariaLabel="Filter by series"
-                value={series}
-                onChange={setSeries}
-                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
-              />
-            )}
-            <label className="flex items-center gap-2">
-              <MonoLabel>group</MonoLabel>
-              <Select
-                ariaLabel="Group by"
-                value={groupBy}
-                onChange={setGroupBy}
-                options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <MonoLabel>sort</MonoLabel>
-              <Select
-                ariaLabel="Sort"
-                value={sort}
-                onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series']]}
-              />
-            </label>
-          </div>
-        </div>
-      )}
-
-      {mobile && (
-        <MobileSheet
-          open={mobileFilter}
-          onClose={() => setMobileFilter(false)}
-          title="Filters"
-          footer={
-            <SheetFooter
-              count={books ? `${shown.length} shown` : ''}
-              onReset={() => { setGenre(''); setFav(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
-              onDone={() => setMobileFilter(false)}
-            />
-          }
-        >
-          <div className="space-y-5">
-            <div>
-              <MonoLabel className="mb-2 block">genre</MonoLabel>
-              <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
-            </div>
-            <div>
-              <MonoLabel className="mb-2 block">show only</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-                  ♥ favourites
-                </button>
-              </div>
-            </div>
-            {seriesNames.length > 0 && (
-              <div>
-                <MonoLabel className="mb-2 block">series</MonoLabel>
-                <Select
-                  ariaLabel="Filter by series"
-                  value={series}
-                  onChange={setSeries}
-                  options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+      }
+      extraModals={
+        person && (
+          <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
+        )
+      }
+    >
+      {grouped ? (
+        <div className="space-y-10">
+          {grouped.map((g) => {
+            const isAuthor = groupBy === 'author' && !g.residual
+            return (
+              <section key={g.key}>
+                <GroupHeading
+                  label={g.label}
+                  count={g.items.length}
+                  person={isAuthor ? authors.map[g.label] : null}
+                  onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                 />
-              </div>
-            )}
-            <div>
-              <MonoLabel className="mb-2 block">group</MonoLabel>
-              <Select
-                ariaLabel="Group by"
-                value={groupBy}
-                onChange={setGroupBy}
-                options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
-              />
-            </div>
-            <div>
-              <MonoLabel className="mb-2 block">sort</MonoLabel>
-              <Select
-                ariaLabel="Sort"
-                value={sort}
-                onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series']]}
-              />
-            </div>
-          </div>
-        </MobileSheet>
+                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
+              </section>
+            )
+          })}
+        </div>
+      ) : (
+        <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
       )}
-
-      {books && books.length === 0 && (
-        <EmptyState>no books yet — add one, or bring highlights in from ＋ Add › Import</EmptyState>
-      )}
-      {books && books.length > 0 && shown.length === 0 && <EmptyState>no books match these filters</EmptyState>}
-      {shown.length > 0 &&
-        (grouped ? (
-          <div className="space-y-10">
-            {grouped.map((g) => {
-              const isAuthor = groupBy === 'author' && !g.residual
-              return (
-                <section key={g.key}>
-                  <GroupHeading
-                    label={g.label}
-                    count={g.items.length}
-                    person={isAuthor ? authors.map[g.label] : null}
-                    onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
-                  />
-                  <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
-                </section>
-              )
-            })}
-          </div>
-        ) : (
-          <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
-        ))}
-
-      <AddSurface
-        open={adding}
-        initialSection="book"
-        onClose={() => setAdding(false)}
-        onAdded={() => {
-          setAdding(false)
-          load()
-        }}
-        onOpenMovie={onOpenMovie}
-      />
-      {person && (
-        <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
-      )}
-      <ConfirmDialog
-        open={exporting}
-        title="Export library"
-        body={
-          <>
-            {plural(shown.length, 'book')} · {plural(shown.reduce((n, b) => n + (b.annotation_count || 0), 0), 'quote')} in view will
-            be exported as a single Markdown file (re-importable into Tippani).
-          </>
-        }
-        confirmLabel="Export"
-        onCancel={() => setExporting(false)}
-        onConfirm={async () => {
-          setExporting(false)
-          await downloadPost('/export/books', { ids: shown.map((b) => b.id) }, 'tippani-books.md')
-        }}
-      />
-    </section>
+    </WorkListScaffold>
   )
 }
 

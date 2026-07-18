@@ -6,7 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { MobileDetailBar, WorkCard, WorkHero } from './works.jsx'
+import { MobileDetailBar, WorkCard, WorkHero, WorkListScaffold } from './works.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -153,7 +153,6 @@ function MovieList({ onOpen, creditSeparators }) {
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
   const mobile = useIsMobileScreen()
-  const [mobileFilter, setMobileFilter] = useState(false)
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -202,182 +201,94 @@ function MovieList({ onOpen, creditSeparators }) {
     : null
 
   return (
-    <section>
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader
-          title="Movies & Shows"
-          counts={counts}
-          right={
-            <>
-              {mobile && (
-                <div className="flex items-center gap-2">
-                  <IconButton icon={<IconPlus />} ariaLabel="Add title" onClick={() => setAdding(true)} />
-                  <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: () => setExporting(true) }]} />}
-                </div>
-              )}
-              {!mobile && (
-                <MonoLabel className="hidden sm:inline">
-                  {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
-                </MonoLabel>
-              )}
-              {!mobile && !DEMO && <GhostButton onClick={() => setExporting(true)}>Export all</GhostButton>}
-              {!mobile && (
-                <button className="tp-btn tp-btn-primary" onClick={() => setAdding(true)}>
-                  ＋ Add title
-                </button>
-              )}
-            </>
-          }
-        />
-      </div>
-      <ErrorText>{error}</ErrorText>
-
-      {movies && movies.length > 0 && !mobile && (
-        <div className="filter-row mb-5">
-          <GenreFilter genres={genres} value={genre} onChange={setGenre} />
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {hasShows &&
-              [
-                ['', 'All'],
-                ['movie', 'Movies'],
-                ['show', 'Shows'],
-              ].map(([k, label]) => (
+    <WorkListScaffold
+      mobile={mobile}
+      title="Movies & Shows"
+      counts={counts}
+      error={error}
+      add={{ label: '＋ Add title', aria: 'Add title', onClick: () => setAdding(true) }}
+      onExport={() => setExporting(true)}
+      headerAside={
+        <MonoLabel className="hidden sm:inline">
+          {tmdbSource === 'none' ? 'no TMDB key — manual entry' : 'lookup: title + year'}
+        </MonoLabel>
+      }
+      loaded={movies != null}
+      hasItems={!!(movies && movies.length > 0)}
+      shownCount={shown.length}
+      emptyText="No titles yet — look one up on TMDB/TVDB or add it manually."
+      noMatchText="no titles match these filters"
+      genres={genres}
+      genre={genre}
+      setGenre={setGenre}
+      fav={fav}
+      setFav={setFav}
+      seriesNames={seriesNames}
+      series={series}
+      setSeries={setSeries}
+      sort={sort}
+      setSort={setSort}
+      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Series']]}
+      leading={
+        hasShows &&
+        [['', 'All'], ['movie', 'Movies'], ['show', 'Shows']].map(([k, label]) => (
+          <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
+            {label}
+          </button>
+        ))
+      }
+      leadingMobile={
+        hasShows && (
+          <div>
+            <MonoLabel className="mb-2 block">type</MonoLabel>
+            <div className="flex flex-wrap items-center gap-2">
+              {[['', 'All'], ['movie', 'Movies'], ['show', 'Shows']].map(([k, label]) => (
                 <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
                   {label}
                 </button>
               ))}
-            <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-              ♥ favourites
-            </button>
-            {seriesNames.length > 0 && (
-              <Select
-                ariaLabel="Filter by series"
-                value={series}
-                onChange={setSeries}
-                options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
-              />
-            )}
-            <label className="flex items-center gap-2">
-              <MonoLabel>sort</MonoLabel>
-              <Select
-                ariaLabel="Sort"
-                value={sort}
-                onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Series']]}
-              />
-            </label>
-          </div>
-        </div>
-      )}
-
-      {mobile && (
-        <MobileSheet
-          open={mobileFilter}
-          onClose={() => setMobileFilter(false)}
-          title="Filters"
-          footer={
-            <SheetFooter
-              count={movies ? `${shown.length} shown` : ''}
-              onReset={() => { setGenre(''); setMediaType(''); setFav(false); setSeries(''); setSort('recent') }}
-              onDone={() => setMobileFilter(false)}
-            />
-          }
-        >
-          <div className="space-y-5">
-            <div>
-              <MonoLabel className="mb-2 block">genre</MonoLabel>
-              <GenreFilter genres={genres} value={genre} onChange={setGenre} />
-            </div>
-            {hasShows && (
-              <div>
-                <MonoLabel className="mb-2 block">type</MonoLabel>
-                <div className="flex flex-wrap items-center gap-2">
-                  {[
-                    ['', 'All'],
-                    ['movie', 'Movies'],
-                    ['show', 'Shows'],
-                  ].map(([k, label]) => (
-                    <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div>
-              <MonoLabel className="mb-2 block">show only</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-                  ♥ favourites
-                </button>
-                  </div>
-            </div>
-            {seriesNames.length > 0 && (
-              <div>
-                <MonoLabel className="mb-2 block">series</MonoLabel>
-                <Select
-                  ariaLabel="Filter by series"
-                  value={series}
-                  onChange={setSeries}
-                  options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
-                />
-              </div>
-            )}
-            <div>
-              <MonoLabel className="mb-2 block">sort</MonoLabel>
-              <Select
-                ariaLabel="Sort"
-                value={sort}
-                onChange={setSort}
-                options={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Series']]}
-              />
             </div>
           </div>
-        </MobileSheet>
-      )}
-
-      {movies && movies.length === 0 && (
-        <EmptyState>No titles yet — look one up on TMDB/TVDB or add it manually.</EmptyState>
-      )}
-      {movies && movies.length > 0 && shown.length === 0 && <EmptyState>no titles match these filters</EmptyState>}
-      {shown.length > 0 && (
-        <Reveal
-          className="grid gap-x-5 gap-y-8"
-          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
-        >
-          {shown.map((m) => (
-            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
-          ))}
-        </Reveal>
-      )}
-      <AddSurface
-        open={adding}
-        initialSection="film"
-        onClose={() => setAdding(false)}
-        onAdded={() => {
-          setAdding(false)
-          load()
-        }}
-        onOpenMovie={onOpen}
-      />
-      <ConfirmDialog
-        open={exporting}
-        title="Export catalogue"
-        body={(() => {
-          const shows = shown.filter((m) => (m.media_type || 'movie') === 'show').length
-          const films = shown.length - shows
-          const parts = [films > 0 && `${films} movie${films === 1 ? '' : 's'}`, shows > 0 && `${shows} show${shows === 1 ? '' : 's'}`].filter(Boolean)
-          return <>{parts.join(' · ') || '0 titles'} in view will be exported as a single Markdown file.</>
-        })()}
-        confirmLabel="Export"
-        onCancel={() => setExporting(false)}
-        onConfirm={async () => {
-          setExporting(false)
-          await downloadPost('/export/movies', { ids: shown.map((m) => m.id) }, 'tippani-titles.md')
-        }}
-      />
-    </section>
+        )
+      }
+      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setSeries(''); setSort('recent') }}
+      addSurface={
+        <AddSurface
+          open={adding}
+          initialSection="film"
+          onClose={() => setAdding(false)}
+          onAdded={() => { setAdding(false); load() }}
+          onOpenMovie={onOpen}
+        />
+      }
+      exportDialog={
+        <ConfirmDialog
+          open={exporting}
+          title="Export catalogue"
+          body={(() => {
+            const shows = shown.filter((m) => (m.media_type || 'movie') === 'show').length
+            const films = shown.length - shows
+            const parts = [films > 0 && `${films} movie${films === 1 ? '' : 's'}`, shows > 0 && `${shows} show${shows === 1 ? '' : 's'}`].filter(Boolean)
+            return <>{parts.join(' · ') || '0 titles'} in view will be exported as a single Markdown file.</>
+          })()}
+          confirmLabel="Export"
+          onCancel={() => setExporting(false)}
+          onConfirm={async () => {
+            setExporting(false)
+            await downloadPost('/export/movies', { ids: shown.map((m) => m.id) }, 'tippani-titles.md')
+          }}
+        />
+      }
+    >
+      <Reveal
+        className="grid gap-x-5 gap-y-8"
+        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
+      >
+        {shown.map((m) => (
+          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
+        ))}
+      </Reveal>
+    </WorkListScaffold>
   )
 }
 

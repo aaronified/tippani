@@ -3,9 +3,33 @@
 // Search and Metadata screens. Kept in their own module so both sides compose
 // the same pieces instead of re-deriving them (and to avoid a ui ↔ people
 // import cycle — this layer is free to import from both).
-import { coverImgURL } from './api.js'
+import { useState } from 'react'
+import { DEMO, coverImgURL } from './api.js'
 import { CreditFaces, splitCredits } from './people.jsx'
-import { ExpandableDescription, FavBadge, HandCard, Hearts, IconBack, MonoLabel, Placeholder, seriesLabel } from './ui.jsx'
+import {
+  EmptyState,
+  ErrorText,
+  ExpandableDescription,
+  FavBadge,
+  GenreFilter,
+  GhostButton,
+  HandCard,
+  Hearts,
+  IconBack,
+  IconButton,
+  IconExport,
+  IconFilter,
+  IconPlus,
+  MobileSheet,
+  MonoLabel,
+  MoreMenu,
+  PageHeader,
+  Placeholder,
+  Select,
+  SheetFooter,
+  filterChipClass,
+  seriesLabel,
+} from './ui.jsx'
 
 // decadeOf floors a year to its decade using the full 4-digit year, so old
 // works land in the right century (1850 → 1850s, distinct from 1950s).
@@ -238,5 +262,157 @@ export function WorkHero({
         <ExpandableDescription text={description} />
       </div>
     </div>
+  )
+}
+
+// WorkListScaffold — the shared catalogue list-page shell (Library + Movies):
+// header (title · counts · add / export / lookup aside), the desktop filter row
+// and mobile filter sheet (genre · [leading] · favourites · series · [trailing]
+// · sort), the empty states, the grid (children), and the trailing surfaces
+// (add surface, export dialog, extra modals). The page owns its data + the
+// page-specific filter — a film's media-type via the `leading` slots, a book's
+// group-by via the `trailing` slots — and the derived `shown` list; the
+// scaffold owns the mobile-sheet open state and renders the shared favourites /
+// series / sort controls so those live in one place.
+export function WorkListScaffold({
+  mobile,
+  title,
+  counts,
+  error,
+  add, // { label, aria, onClick }
+  onExport,
+  headerAside,
+  loaded, // items != null (data has arrived)
+  hasItems, // items && items.length > 0
+  shownCount,
+  emptyText,
+  noMatchText,
+  genres,
+  genre,
+  setGenre,
+  chipBudget,
+  fav,
+  setFav,
+  seriesNames,
+  series,
+  setSeries,
+  sort,
+  setSort,
+  sortOptions,
+  leading, // desktop extra control before favourites (film media-type)
+  trailing, // desktop extra control before sort (book group-by)
+  leadingMobile, // mobile-sheet section for `leading`
+  trailingMobile, // mobile-sheet section for `trailing`
+  onReset,
+  children, // the grid (flat or grouped)
+  addSurface,
+  exportDialog,
+  extraModals,
+}) {
+  const [mobileFilter, setMobileFilter] = useState(false)
+  const favChip = (
+    <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+      ♥ favourites
+    </button>
+  )
+  const seriesSelect = seriesNames.length > 0 && (
+    <Select
+      ariaLabel="Filter by series"
+      value={series}
+      onChange={setSeries}
+      options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+    />
+  )
+  const sortSelect = <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
+  return (
+    <section>
+      <div className={mobile ? 'mobile-sticky-bar' : ''}>
+        <PageHeader
+          title={title}
+          counts={counts}
+          right={
+            <>
+              {mobile && (
+                <div className="flex items-center gap-2">
+                  <IconButton icon={<IconPlus />} ariaLabel={add.aria} onClick={add.onClick} />
+                  <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: onExport }]} />}
+                </div>
+              )}
+              {!mobile && headerAside}
+              {!mobile && !DEMO && <GhostButton onClick={onExport}>Export all</GhostButton>}
+              {!mobile && (
+                <button className="tp-btn tp-btn-primary" onClick={add.onClick}>
+                  {add.label}
+                </button>
+              )}
+            </>
+          }
+        />
+      </div>
+      <ErrorText>{error}</ErrorText>
+
+      {hasItems && !mobile && (
+        <div className="filter-row mb-5">
+          <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {leading}
+            {favChip}
+            {seriesSelect}
+            {trailing}
+            <label className="flex items-center gap-2">
+              <MonoLabel>sort</MonoLabel>
+              {sortSelect}
+            </label>
+          </div>
+        </div>
+      )}
+
+      {mobile && (
+        <MobileSheet
+          open={mobileFilter}
+          onClose={() => setMobileFilter(false)}
+          title="Filters"
+          footer={
+            <SheetFooter
+              count={loaded ? `${shownCount} shown` : ''}
+              onReset={onReset}
+              onDone={() => setMobileFilter(false)}
+            />
+          }
+        >
+          <div className="space-y-5">
+            <div>
+              <MonoLabel className="mb-2 block">genre</MonoLabel>
+              <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
+            </div>
+            {leadingMobile}
+            <div>
+              <MonoLabel className="mb-2 block">show only</MonoLabel>
+              <div className="flex flex-wrap items-center gap-2">{favChip}</div>
+            </div>
+            {seriesNames.length > 0 && (
+              <div>
+                <MonoLabel className="mb-2 block">series</MonoLabel>
+                {seriesSelect}
+              </div>
+            )}
+            {trailingMobile}
+            <div>
+              <MonoLabel className="mb-2 block">sort</MonoLabel>
+              {sortSelect}
+            </div>
+          </div>
+        </MobileSheet>
+      )}
+
+      {loaded && !hasItems && <EmptyState>{emptyText}</EmptyState>}
+      {hasItems && shownCount === 0 && <EmptyState>{noMatchText}</EmptyState>}
+      {shownCount > 0 && children}
+
+      {addSurface}
+      {extraModals}
+      {exportDialog}
+    </section>
   )
 }
