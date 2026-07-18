@@ -5,14 +5,14 @@ import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.js
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
-import { CreditFaces, PersonCredit, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { PersonCredit, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { WorkCard } from './works.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
   EmptyState,
   ExpandableDescription,
   ErrorText,
-  FavBadge,
   FormModal,
   FrameCode,
   GenreFilter,
@@ -349,7 +349,7 @@ function MovieList({ onOpen, creditSeparators }) {
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
         >
           {shown.map((m) => (
-            <PosterCard key={m.id} movie={m} onOpen={onOpen} directorMap={directorMap} seps={creditSeps} />
+            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
           ))}
         </Reveal>
       )}
@@ -383,50 +383,6 @@ function MovieList({ onOpen, creditSeparators }) {
   )
 }
 
-function PosterCard({ movie: m, onOpen, directorMap = {}, seps }) {
-  const n = m.dialogue_count || 0
-  const isShow = (m.media_type || 'movie') === 'show'
-  return (
-    <button type="button" className="cover-tile block w-full text-left" title={m.title} onClick={() => onOpen(m.id)}>
-      <div className="relative cover-lift">
-        <Poster path={m.poster_path} title={m.title} />
-        {isShow && (
-          <span
-            className="tp-chip absolute left-1.5 top-1.5"
-            style={{ fontSize: 9.5, background: 'rgba(21,16,12,.72)', color: '#fff', borderColor: 'transparent' }}
-          >
-            SERIES
-          </span>
-        )}
-        {m.favorite && <FavBadge />}
-      </div>
-      <span
-        className="mt-2.5 block truncate"
-        style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}
-      >
-        {m.title}
-      </span>
-      <span className="flex items-center gap-1.5">
-        {/* Director/creator face(s), matching the book library's author chip;
-            co-directors overlap with the first on top (CreditFaces). */}
-        <CreditFaces names={splitCredits(m.director, seps)} map={directorMap} size={24} ring="var(--bg)" />
-        <span className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
-        {[m.director, m.release_year].filter(Boolean).join(' · ') || ' '}
-        </span>
-      </span>
-      {m.series && (
-        <span className="block truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
-          {seriesLabel(m)}
-        </span>
-      )}
-      <span className="mt-0.5 flex items-center gap-2">
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
-          {n} dialogue{n === 1 ? '' : 's'}
-        </span>
-      </span>
-    </button>
-  )
-}
 
 // ---- add movie (§8.4): look-up / manual forms, now hosted by AddSurface (§7).
 // The old modal wrapper lives in AddSurface; the forms below are exported. ----

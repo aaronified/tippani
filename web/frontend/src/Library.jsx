@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
+import { DEMO, json, errText, downloadPost } from './api.js'
 import AddSurface from './AddSurface.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
-import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { groupWorks } from './works.jsx'
+import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { WorkCard, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
   Cover,
   EmptyState,
   ErrorText,
-  FavBadge,
   Field,
   FormModal,
   GenreFilter,
@@ -37,7 +36,6 @@ import {
   mulberry32,
   clampSequence,
   PageHeader,
-  Placeholder,
   QuoteActions,
   ReviewDot,
   Select,
@@ -155,38 +153,7 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
     <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
       {books.map((b, i) => (
         <li key={b.id}>
-          <button onClick={() => onOpen(b.id)} className="cover-tile block w-full text-left" title={b.title}>
-            <HandCard variant={i % 4} className="relative overflow-hidden cover-lift">
-              {b.cover_path ? (
-                <img
-                  src={coverImgURL(b.cover_path)}
-                  alt={`Cover of ${b.title}`}
-                  className="block aspect-[2/3] w-full object-cover"
-                />
-              ) : (
-                <Placeholder kind="COVER" className="w-full rounded-none border-0" />
-              )}
-              {b.favorite && <FavBadge />}
-            </HandCard>
-            <p className="mt-2.5 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}>
-              {b.title}
-            </p>
-            <div className="flex items-center gap-1.5">
-              {/* Author face(s): a portrait per credited author, co-authors
-                  overlapping with the first on top (CreditFaces). */}
-              <CreditFaces names={splitCredits(b.author, seps)} map={authorMap} size={24} ring="var(--bg)" />
-              <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
-                {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
-              </p>
-            </div>
-            {b.series && (
-              <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
-                {seriesLabel(b)}
-              </p>
-            )}
-            <div className="mt-0.5 flex items-center gap-2">
-              <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(b.annotation_count, 'quote')}</MonoLabel>            </div>
-          </button>
+          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} />
         </li>
       ))}
     </ul>

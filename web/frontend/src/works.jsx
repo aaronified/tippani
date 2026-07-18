@@ -3,7 +3,9 @@
 // Search and Metadata screens. Kept in their own module so both sides compose
 // the same pieces instead of re-deriving them (and to avoid a ui ↔ people
 // import cycle — this layer is free to import from both).
-import { splitCredits } from './people.jsx'
+import { coverImgURL } from './api.js'
+import { CreditFaces, splitCredits } from './people.jsx'
+import { FavBadge, HandCard, MonoLabel, Placeholder, seriesLabel } from './ui.jsx'
 
 // decadeOf floors a year to its decade using the full 4-digit year, so old
 // works land in the right century (1850 → 1850s, distinct from 1950s).
@@ -78,4 +80,76 @@ export function groupWorks(list, dim, opts = {}) {
   })
   if (sortMembers) for (const g of out) if (!g.residual) g.items = sortMembers(g.items, dim)
   return out
+}
+
+// WorkCard — one catalogue tile for a book or a film/show: cover/poster (2:3)
+// with the favourite badge, title, a credit face-chip + line, an optional
+// series line, and a count. `kind` ('book' | 'movie') selects the book's
+// hand-drawn card frame + "quotes" vs the film's plain poster + "dialogues".
+// The book grid (Library) and poster grid (Movies) both deal these; each keeps
+// its own <ul>/grid wrapper and gap, sharing only the tile.
+export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
+  const isBook = kind === 'book'
+  const isShow = !isBook && (item.media_type || 'movie') === 'show'
+  const credit = isBook ? item.author : item.director
+  const coverPath = isBook ? item.cover_path : item.poster_path
+  const year = isBook ? item.published_year : item.release_year
+  const count = isBook ? item.annotation_count || 0 : item.dialogue_count || 0
+  const image = coverPath ? (
+    <img
+      src={coverImgURL(coverPath)}
+      alt={`${isBook ? 'Cover' : 'Poster'} of ${item.title}`}
+      className="block aspect-[2/3] w-full object-cover"
+      style={isBook ? undefined : { border: '1px solid var(--line)', borderRadius: 8 }}
+    />
+  ) : (
+    <Placeholder kind={isBook ? 'COVER' : 'POSTER'} className={isBook ? 'w-full rounded-none border-0' : 'w-full'} />
+  )
+  return (
+    <button type="button" onClick={() => onOpen(item.id)} className="cover-tile block w-full text-left" title={item.title}>
+      {isBook ? (
+        <HandCard variant={index % 4} className="relative overflow-hidden cover-lift">
+          {image}
+          {item.favorite && <FavBadge />}
+        </HandCard>
+      ) : (
+        <div className="relative cover-lift">
+          {image}
+          {isShow && (
+            <span
+              className="tp-chip absolute left-1.5 top-1.5"
+              style={{ fontSize: 9.5, background: 'rgba(21,16,12,.72)', color: '#fff', borderColor: 'transparent' }}
+            >
+              SERIES
+            </span>
+          )}
+          {item.favorite && <FavBadge />}
+        </div>
+      )}
+      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>
+        {item.title}
+      </p>
+      <div className="flex items-center gap-1.5">
+        {/* Credit face(s): authors / directors, co-credits overlapping (first on top). */}
+        <CreditFaces names={splitCredits(credit, seps)} map={people} size={24} ring="var(--bg)" />
+        <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+          {[credit, year || null].filter(Boolean).join(' · ') || ' '}
+        </p>
+      </div>
+      {item.series && (
+        <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
+          {seriesLabel(item)}
+        </p>
+      )}
+      <div className="mt-0.5 flex items-center gap-2">
+        {isBook ? (
+          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{`${count} quote${count === 1 ? '' : 's'}`}</MonoLabel>
+        ) : (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
+            {count} dialogue{count === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+    </button>
+  )
 }
