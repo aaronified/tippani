@@ -976,18 +976,27 @@
 
   /* Inline WhatsApp-style show more/less — coloured text, not a button. Forced
      back to the UI font so it doesn't inherit a quote's italic display face. */
-  .show-toggle {
-    display: inline-block;
-    margin-top: 3px;
-    color: var(--accent-ui);
-    font-family: var(--font-ui);
-    font-style: normal;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    user-select: none;
+  /* Clamped text is its own click target now (no "show more" buttons anywhere).
+     The chevron (.clamp-more) is the only affordance: down = more below, up =
+     expanded. It flips on data-open and brightens on hover/focus. */
+  .clampable.is-clickable { cursor: pointer; }
+  .clamp-more {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 2px;
+    color: var(--faint);
+    opacity: .72;
+    transition: transform .2s ease, opacity .15s ease, color .15s ease;
   }
-  .show-toggle:hover { text-decoration: underline; }
+  .clamp-more[data-open="1"] { transform: rotate(180deg); }
+  .clampable.is-clickable:hover .clamp-more { opacity: 1; color: var(--soft); }
+  .clampable.is-clickable:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent-ui) 50%, transparent);
+    outline-offset: 3px;
+    border-radius: 5px;
+  }
+  .clampable.is-clickable:focus-visible .clamp-more { opacity: 1; color: var(--soft); }
 
   /* ---- TokenInput (tags / genres): pills + type-ahead suggestions ---- */
   .token-input { position: relative; }

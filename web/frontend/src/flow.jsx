@@ -13,6 +13,7 @@
 // import() (its own chunk); until it loads — and under prefers-reduced-motion, or
 // with no seal — we fall back to a plain paragraph with the seal floated.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ClampMore } from './ui.jsx'
 
 // How far a seal may spill past the quote block into the inter-card gutter —
 // roughly half the gap between cards, so it breathes without touching a neighbour.
@@ -234,7 +235,16 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   const canToggle = !!state && state.clampable
   const canDrag = !!onMove && !collapsed
   return (
-    <div ref={ref} className={`flow ${className}`} style={{ position: 'relative', ...quoteStyle }}>
+    <div
+      ref={ref}
+      className={`flow ${canToggle ? 'clampable is-clickable' : ''} ${className}`.trim()}
+      style={{ position: 'relative', ...quoteStyle }}
+      role={canToggle ? 'button' : undefined}
+      tabIndex={canToggle ? 0 : undefined}
+      aria-expanded={canToggle ? open : undefined}
+      onClick={canToggle ? toggle : undefined}
+      onKeyDown={canToggle ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } } : undefined}
+    >
       {state ? (
         <>
           <span
@@ -270,22 +280,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
               </div>
             ))}
           </div>
-          {canToggle && (
-            <span
-              role="button"
-              tabIndex={0}
-              className="show-toggle"
-              onClick={toggle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  toggle()
-                }
-              }}
-            >
-              {open ? 'show less' : 'show more'}
-            </span>
-          )}
+          {canToggle && <ClampMore open={open} />}
         </>
       ) : (
         <p className="flow-fallback" style={{ margin: 0 }}>

@@ -34,6 +34,7 @@ import {
   MoreMenu,
   MonoLabel,
   mulberry32,
+  clampSequence,
   PageHeader,
   Placeholder,
   QuoteActions,
@@ -1176,6 +1177,14 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   // One board seed drives both the masonry jitter and each card's clamp height,
   // so the two stay in step and a given book always lays out the same way.
   const boardSeed = book?.id || bookId || 1
+  // Per-card clamp: uniform 3–5 lines with no three-adjacent the same, seeded off
+  // the book so it's stable across reloads. The tiles board is laid out in source
+  // order (newest first, new pins on top), so these clamp sizes land in that same
+  // order — the no-3-in-a-row rule reads that way on the board too.
+  const clampLines = useMemo(
+    () => clampSequence(displayRows.length, mulberry32(boardSeed)),
+    [displayRows.length, boardSeed],
+  )
   // Tiles run a one-open-at-a-time accordion: expanding a quote collapses any
   // other, and the masonry order locks while one is open so columns don't jump.
   const [expandedId, setExpandedId] = useState(null)
@@ -1430,15 +1439,15 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
         </div>
       )}
       {items && items.length > 0 && view === 'tiles' && (
-        // Height-packed masonry board (measured, seeded off the book so it never
-        // wobbles): equal-width columns packed tallest-first, so the sticker
-        // quotes read as an uneven collage. Each card clamps to a per-card 3–5
-        // lines — drawn from the same board seed as the masonry jitter — before
-        // show-more, keeping heights varied; a quote shorter than its clamp just
-        // shows in full. Expanding a quote collapses any other and locks the
-        // column order so the board doesn't reshuffle. Newly-added quotes ride on
-        // top via the pinned prefix.
-        <Masonry columns={tileCols} gap={16} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null}>
+        // Masonry board in SOURCE order (newest first; newly-added quotes ride on
+        // top via the pinned prefix until refresh) — equal-width columns dealt onto
+        // the shortest pile. Each card clamps to a seeded per-card 3–5 lines with no
+        // three-in-a-row the same (clampLines); since the layout keeps source order,
+        // those sizes vary the board without banding by height, and a quote shorter
+        // than its clamp just shows in full. Clicking a quote expands it (chevron
+        // affordance, no button); doing so collapses any other and locks the column
+        // order so the board never reshuffles under the reader.
+        <Masonry columns={tileCols} gap={16} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null} order="source">
           {displayRows.map((a, i) => (
             <AnnotationCard
               key={a.id}
@@ -1454,7 +1463,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
               patch={patch}
               remove={remove}
               onShare={setShareTarget}
-              quoteLines={3 + Math.floor(mulberry32(boardSeed + a.id)() * 3)}
+              quoteLines={clampLines[i]}
               tagSuggestions={Object.keys(tagMap)}
               expanded={expandedId === a.id}
               onToggleExpand={() => toggleExpanded(a.id)}

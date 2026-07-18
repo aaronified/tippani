@@ -430,42 +430,74 @@ export function useCoverSize(key, def = 150, min = 96, max = 240) {
   return [size, setSize];
 }
 
-// ExpandableDescription clamps body text to 3 lines with a show-more/less toggle
-// (the toggle only appears when the text actually overflows). Used in the detail
-// hero so the poster beside it keeps a stable height.
-export function ExpandableDescription({ text, style }) {
+// ClampMore — the ONLY affordance for a clamped/expandable block now that the
+// "show more / show less" text buttons are gone everywhere. A small muted chevron
+// that points down when text is hidden and flips up when expanded; the block
+// itself is the click target (see .clampable). aria-hidden — the wrapping block
+// carries role="button" + aria-expanded for assistive tech.
+export function ClampMore({ open }) {
+  return (
+    <span aria-hidden="true" className="clamp-more" data-open={open ? "1" : "0"}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </span>
+  );
+}
+
+// clampProps builds the shared "click anywhere on the text to toggle" wiring for
+// a clamped block: role/tabindex/handlers only when it can actually toggle
+// (overflowing, or already open so it can collapse).
+function clampProps(canToggle, toggle) {
+  if (!canToggle) return {};
+  return {
+    role: "button",
+    tabIndex: 0,
+    onClick: toggle,
+    onKeyDown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    },
+  };
+}
+
+// ExpandableDescription clamps body text to `lines` (3 by default) and reveals a
+// chevron only when it overflows. Click the text (no button) to expand/collapse.
+// Used in the detail hero + person bios so a poster/photo beside it keeps a
+// stable height until the reader opens it.
+export function ExpandableDescription({ text, style, lines = 3, className = "" }) {
   const [open, setOpen] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
-    if (el) setOverflows(el.scrollHeight > el.clientHeight + 2);
-  }, [text]);
+    if (!el) return;
+    const check = () => setOverflows(el.scrollHeight > el.clientHeight + 2);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, open, lines]);
   if (!text) return null;
+  const canToggle = overflows || open;
+  const clamp = open
+    ? null
+    : { display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" };
   return (
-    <div>
+    <div
+      className={`clampable${canToggle ? " is-clickable" : ""} ${className}`.trim()}
+      aria-expanded={canToggle ? open : undefined}
+      {...clampProps(canToggle, () => setOpen((o) => !o))}
+    >
       <p
         ref={ref}
-        className={open ? "" : "line-clamp-3"}
-        style={{
-          whiteSpace: "pre-wrap",
-          color: "var(--soft)",
-          fontSize: 14,
-          lineHeight: 1.55,
-          ...style,
-        }}
+        style={{ whiteSpace: "pre-wrap", color: "var(--soft)", fontSize: 14, lineHeight: 1.55, margin: 0, ...style, ...clamp }}
       >
         {text}
       </p>
-      {(overflows || open) && (
-        <button
-          className="tp-link"
-          style={{ marginTop: 4 }}
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? "show less" : "show more"}
-        </button>
-      )}
+      {canToggle && <ClampMore open={open} />}
     </div>
   );
 }
@@ -492,11 +524,11 @@ export function usePersistedState(key, def) {
   return [v, setV];
 }
 
-// ExpandableText clamps `text` to `lines` and reveals a WhatsApp-style inline
-// colour toggle ("show more"/"show less") only when the text actually overflows.
+// ExpandableText clamps `text` to `lines` and, when it overflows, becomes a click
+// target that expands/collapses in place — a small chevron (ClampMore) is the
+// only affordance; there are no "show more / show less" text buttons anywhere.
 // The clamp is width-adaptive (CSS line-clamp), so a wider tile shows more text
-// before clamping — the "define dynamically based on width available" ask; a
-// ResizeObserver re-checks when a resizable tile changes width.
+// before clamping; a ResizeObserver re-checks when a resizable tile changes width.
 //
 // Expansion is uncontrolled by default (own state). Pass `open` + `onToggle` to
 // drive it from the parent — that's how the tiles board runs a one-open-at-a-time
@@ -518,6 +550,7 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
     return () => ro.disconnect();
   }, [text, open, lines]);
   if (!text) return null;
+  const canToggle = overflows || open;
   const clamp = open
     ? null
     : {
@@ -527,29 +560,18 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
         overflow: "hidden",
       };
   return (
-    <div className={className}>
+    <div
+      className={`clampable${canToggle ? " is-clickable" : ""} ${className}`.trim()}
+      aria-expanded={canToggle ? open : undefined}
+      {...clampProps(canToggle, toggle)}
+    >
       <p
         ref={ref}
         style={{ whiteSpace: "pre-wrap", margin: 0, ...style, ...clamp }}
       >
         {text}
       </p>
-      {(overflows || open) && (
-        <span
-          role="button"
-          tabIndex={0}
-          className="show-toggle"
-          onClick={toggle}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              toggle();
-            }
-          }}
-        >
-          {open ? "show less" : "show more"}
-        </span>
-      )}
+      {canToggle && <ClampMore open={open} />}
     </div>
   );
 }
@@ -598,14 +620,36 @@ export function mulberry32(seed) {
   };
 }
 
-// Masonry — packs heterogeneous-height cards into `columns` equal-width columns
-// to minimise total height, but with an organic, non-mechanical order:
-//   1. sort every card tallest-first (classic best-balance ordering),
-//   2. nudge ~20% of them 2–3 slots up/down — seeded off `seed` so a given board
-//      always lays out the same way (pass a book/show id to vary boards; a fixed
-//      seed keeps a board like Settings stable across loads),
-//   3. deal that sequence out row by row, each card onto the currently-shortest
-//      column ("go horizontal, drop the next card on the least-tall pile").
+// clampSequence returns `count` clamp-line values in [min, max], drawn uniformly
+// from `rng` (pass mulberry32(seed) for a stable board, Math.random for per-load
+// variety) with ONE rule: no value repeats three times in a row. When the two
+// prior values already match a fresh roll, it re-rolls uniformly among the OTHER
+// values — so 3/4/5 stay near-equal in frequency AND the board never shows a run
+// of three same-height clamps. The masonry sorts by full text length (not clamped
+// height), so these values scatter across the board instead of banding by size.
+export function clampSequence(count, rng, min = 3, max = 5) {
+  const span = max - min + 1;
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    let v = min + Math.floor(rng() * span);
+    if (i >= 2 && out[i - 1] === out[i - 2] && out[i - 1] === v) {
+      const k = Math.floor(rng() * (span - 1)); // pick among the other span-1 values
+      v = min + (k >= v - min ? k + 1 : k);
+    }
+    out.push(v);
+  }
+  return out;
+}
+
+// Masonry — packs heterogeneous-height cards into `columns` equal-width columns.
+// Two placement orders (`order`):
+//   • "height" (default) — an organic collage: sort tallest-first, nudge ~20% of
+//     cards 2–3 slots (seeded off `seed`), then deal onto the shortest column.
+//   • "source" — keep the children AS GIVEN (newest-first, pinned prefix on top),
+//     dealing each in turn onto the shortest column. No height sort, no jitter, so
+//     the per-card 3–5 clamp — not a size sort — is what varies the board, and a
+//     card's clamp lands exactly where its source position puts it (so a
+//     no-3-in-a-row clamp sequence reads that way on the board too).
 // `pinnedCount` keeps the first N children glued to the top (skipping the sort).
 //
 // Rendering matters as much as the algorithm here: every card lives in a FIXED
@@ -631,7 +675,7 @@ export function mulberry32(seed) {
 // WHILE a quote is open (add / filter / breakpoint) from freezing the columns
 // around that one card's expanded height. Heights are rounded for the ordering so
 // sub-pixel jitter can't flip a tie and shuffle the board.
-export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lockOrder = false, className = "", children }) {
+export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lockOrder = false, order = "height", className = "", children }) {
   const items = useMemo(() => Children.toArray(children), [children]);
   const n = items.length;
   const cols = Math.max(1, columns);
@@ -686,39 +730,46 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
       let assign = assignRef.current;
       if (!assign || assign.colOf.length !== n || !frozenRef.current) {
         // Round heights for the ORDERING only (tops still flow from exact px) so
-        // sub-pixel measurement noise can't reorder the tallest-first sort.
+        // sub-pixel measurement noise can't reorder a tallest-first sort.
         const hr = h.map((x) => Math.round(x));
-        // (1) tallest first — only the non-pinned tail (ties → index).
-        const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => hr[b] - hr[a] || a - b);
-        const rankOf = new Array(n);
-        rest0.forEach((i, r) => (rankOf[i] = r));
-        // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
-        // re-sort (ties → original rank). Draw a fixed 3 rolls per card so the
-        // sequence stays deterministic whether or not a card actually moves.
-        const rng = mulberry32(seed);
-        const key = new Array(n);
-        for (let r = 0; r < rest0.length; r++) {
-          const move = rng() < 0.2;
-          const step = rng() < 0.5 ? 2 : 3;
-          const up = rng() < 0.5;
-          key[rest0[r]] = r + (move ? (up ? -step : step) : 0);
+        // Placement sequence: "source" keeps children as given (newest-first,
+        // pinned prefix on top); "height" sorts tallest-first with a seeded nudge.
+        let placeOrder;
+        if (order === "source") {
+          placeOrder = Array.from({ length: n }, (_, i) => i);
+        } else {
+          // (1) tallest first — only the non-pinned tail (ties → index).
+          const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => hr[b] - hr[a] || a - b);
+          const rankOf = new Array(n);
+          rest0.forEach((i, r) => (rankOf[i] = r));
+          // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
+          // re-sort (ties → original rank). Draw a fixed 3 rolls per card so the
+          // sequence stays deterministic whether or not a card actually moves.
+          const rng = mulberry32(seed);
+          const key = new Array(n);
+          for (let r = 0; r < rest0.length; r++) {
+            const move = rng() < 0.2;
+            const step = rng() < 0.5 ? 2 : 3;
+            const up = rng() < 0.5;
+            key[rest0[r]] = r + (move ? (up ? -step : step) : 0);
+          }
+          const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
+          // Pinned prefix stays on top in its given order, then the height-packed tail.
+          placeOrder = [];
+          for (let i = 0; i < pc; i++) placeOrder.push(i);
+          for (const i of rest) placeOrder.push(i);
         }
-        const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
-        // Pinned prefix stays on top in its given order, then the height-packed tail.
-        const order = [];
-        for (let i = 0; i < pc; i++) order.push(i);
-        for (const i of rest) order.push(i);
         // (3) greedy by rows: each card, in that order, onto the shortest column —
         // this FIXES each card's column; every later re-flow only moves tops.
         const colOf = new Array(n);
         const colH0 = Array(cols).fill(0);
-        for (const i of order) {
+        for (const i of placeOrder) {
           let t = 0;
           for (let c = 1; c < cols; c++) if (colH0[c] < colH0[t]) t = c;
           colOf[i] = t;
           colH0[t] += hr[i] + gap;
         }
-        assign = { order, colOf };
+        assign = { order: placeOrder, colOf };
         assignRef.current = assign;
       }
       // Flow tops from the live (exact) heights, following the frozen columns.
@@ -739,7 +790,7 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
     const ro = new ResizeObserver(repack);
     refs.current.slice(0, n).forEach((el) => el && ro.observe(el));
     return () => ro.disconnect();
-  }, [n, cols, gap, seed, pinnedCount, lockOrder, keyHash]);
+  }, [n, cols, gap, seed, pinnedCount, lockOrder, keyHash, order]);
 
   // Column width and each column's left edge as CSS calc, so they track the
   // container width with no JS: colW = (100% − gutters) / cols; left = col share.

@@ -3,7 +3,7 @@
 // stat tiles, and the most recent favourites. Reached by tapping the logo
 // (every bar) or landing on "/". One narrow column on every screen size — the
 // ritual reads the same on a phone and a desktop.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
@@ -11,6 +11,8 @@ import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
+  ClampMore,
+  clampSequence,
   ColorSwatches,
   ErrorText,
   GhostButton,
@@ -550,7 +552,12 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       const list = []
       if (ra.ok && ra.data) for (const a of ra.data.annotations || []) list.push(bookFav(a))
       if (rd.ok && rd.data) for (const d of rd.data.dialogues || []) list.push(screenFav(d, movieMap))
-      list.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''))
+      // Favourites shuffle on every load (Fisher–Yates) — the section is a
+      // re-surfacing wall, not a chronological feed, so each visit reorders it.
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[list[i], list[j]] = [list[j], list[i]]
+      }
       setFavs(list)
     }).catch((e) => {
       console.error('favourites load failed', e)
@@ -563,6 +570,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Per-load clamp sizes (3–5 lines, no three-in-a-row). Favourites are shuffled
+  // each load and laid out in that (source) order, so the clamps land in the same
+  // order the reader sees. Recomputed each load (favs identity changes).
+  const favClamps = useMemo(() => clampSequence(favs.length, Math.random), [favs])
 
   // Share/edit/delete mirror the handlers in Library/Movies/SearchPage: PUTs
   // are full-state (annotationState/dialogueState carry every field), deletes
@@ -659,12 +671,13 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
             <MonoLabel>♥ {favs.length}</MonoLabel>
           </div>
-          <Masonry columns={favCols} gap={10}>
+          <Masonry columns={favCols} gap={10} order="source">
             {favs.slice(0, favsShown).map((f, i) => (
               <FavouriteTile
                 key={f.key}
                 f={f}
                 variant={i + 1}
+                clampLines={favClamps[i] || 3}
                 open={openFav === f.key}
                 editing={editingFav === f.key}
                 onToggle={() => {
@@ -718,7 +731,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 // colour for books, amber for screen quotes (the film voice). Tapping again
 // collapses.
 function FavouriteTile({
-  f, variant, open, editing, onToggle, onOpen,
+  f, variant, clampLines = 3, open, editing, onToggle, onOpen,
   onEditStart, onEditCancel, onSave, onPatch, onDelete, onShare,
   tagSuggestions, stickers, reloadStickers,
 }) {
@@ -753,7 +766,9 @@ function FavouriteTile({
         )}
       </FormModal>
         <>
-          <button type="button" className="block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle}>
+          {/* Click anywhere on the tile head to expand — a chevron is the only
+              affordance (no "show more"); the quote clamps to a per-card 3–5. */}
+          <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
             <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
               {isBook ? 'BOOK' : f.media}
             </MonoLabel>
@@ -763,7 +778,8 @@ function FavouriteTile({
                 fontStyle: 'italic',
                 fontSize: 15,
                 lineHeight: 1.5,
-                ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+                margin: 0,
+                ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
               }}
             >
               “{f.text}”
@@ -771,6 +787,7 @@ function FavouriteTile({
             <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
               {open ? f.meta : f.source}
             </MonoLabel>
+            <ClampMore open={open} />
           </button>
           {open && (
             <div className="mt-2.5 space-y-2">
