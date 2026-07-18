@@ -1098,75 +1098,7 @@ function Stats() {
   )
 }
 
-// ---- 4. Change password (§8.11) ----
-
-function PasswordForm() {
-  const [current, setCurrent] = useState('')
-  const [next, setNext] = useState('')
-  const [repeat, setRepeat] = useState('')
-  const [error, setError] = useState('')
-  const [done, setDone] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  async function submit(e) {
-    e.preventDefault()
-    setError('')
-    setDone(false)
-    if (next !== repeat) {
-      setError('new passwords do not match')
-      return
-    }
-    setBusy(true)
-    const r = await json('POST', '/auth/password', { current, new: next })
-    setBusy(false)
-    if (r.ok) {
-      setCurrent('')
-      setNext('')
-      setRepeat('')
-      setDone(true)
-    } else {
-      setError(errText(r, 'could not change password'))
-    }
-  }
-
-  return (
-    <Card>
-      <SectionTitle>Change password</SectionTitle>
-      <form onSubmit={submit} className="space-y-3">
-        <input
-          className="tp-input"
-          placeholder="current password"
-          type="password"
-          value={current}
-          autoComplete="current-password"
-          onChange={(e) => setCurrent(e.target.value)}
-        />
-        <input
-          className="tp-input"
-          placeholder="new password (min 8)"
-          type="password"
-          value={next}
-          autoComplete="new-password"
-          onChange={(e) => setNext(e.target.value)}
-        />
-        <input
-          className="tp-input"
-          placeholder="repeat new password"
-          type="password"
-          value={repeat}
-          autoComplete="new-password"
-          onChange={(e) => setRepeat(e.target.value)}
-        />
-        <ErrorText>{error}</ErrorText>
-        {done && <p style={{ fontSize: 13.5, color: 'var(--soft)' }}>Password updated.</p>}
-        <StickerButton className="w-full" disabled={busy}>Update password</StickerButton>
-        <p className="microcopy">changing your password signs out every other session</p>
-      </form>
-    </Card>
-  )
-}
-
-// ---- 5. Users (§8.11, admin only) ----
+// ---- 4. Users (§8.11, admin only) ----
 
 function AdminUsers({ me }) {
   const [users, setUsers] = useState([])
