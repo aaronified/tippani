@@ -584,16 +584,21 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   }
 
   // Auto-enrich on first open, sequenced so the links save can't clobber the
-  // identity the portrait fetch just pinned: fetch the photo first (only when
-  // one isn't saved), then fill links (only when none are), preferring the
-  // identity-resolved links the portrait returned.
+  // identity the portrait fetch just pinned: fetch the portrait first (when the
+  // photo OR the bio is still missing), then fill links (only when none are),
+  // preferring the identity-resolved links the portrait returned. The bio check
+  // matters for actors: their photo comes from the stored cast (no bio), while
+  // the bio needs the one TMDB person call inside the portrait fetch — so an
+  // actor with a cast photo but no bio would never get one if we only gated on
+  // a missing photo. The backend upsert fills an empty bio and never overwrites
+  // a set one, so re-running is safe.
   useEffect(() => {
     if (loading || enriched.current) return
     enriched.current = true
     ;(async () => {
       let p = person
       let resolvedLinks = null
-      if (!p?.image_path) {
+      if (!p?.image_path || !p?.bio) {
         const out = await fetchPortrait()
         if (out.person && out.person.id) p = out.person
         if (out.links && Object.keys(out.links).length > 0) resolvedLinks = out.links
