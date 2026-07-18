@@ -792,7 +792,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
   const { map: actorMap } = usePeople('actor') // name→metadata, for actor face icons
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
-  const castActors = [...new Set(cast.map((c) => c.actor).filter(Boolean))] // actor-token suggestions
   const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
@@ -974,9 +973,9 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
               onSubmit={add}
               onCancel={() => setAdding(false)}
               submitLabel="Add dialogue"
-              castListId={castListId}
+              cast={cast}
+              actorMap={actorMap}
               tagSuggestions={Object.keys(tagMap)}
-              actorSuggestions={castActors}
               stickers={stickers}
               reloadStickers={reloadStickers}
             />
@@ -989,7 +988,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
             style={{ background: 'transparent', border: '1.6px dashed var(--ink-border)', borderRadius: 12, minHeight: 56 }}
           >
             <span style={{ color: 'var(--accent-ui)', fontWeight: 600, fontSize: 14.5 }}>＋ Add dialogue</span>
-            <span className="microcopy">character picker from cast · actor auto-fills · timestamp HH:MM:SS</span>
+            <span className="microcopy">pick the character(s) from the cast · actors auto-fill · timestamp HH:MM:SS</span>
           </button>
         )}
       </div>
@@ -1020,7 +1019,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
                 stickers={stickers}
                 reloadStickers={reloadStickers}
                 editing={editingId === d.id}
-                castListId={castListId}
+                cast={cast}
                 onEdit={() => setEditingId(d.id)}
                 onCancelEdit={() => setEditingId(null)}
                 onSave={(fields) => save(d.id, fields)}
@@ -1054,7 +1053,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
                 stickers={stickers}
                 reloadStickers={reloadStickers}
                 editing={editingId === d.id}
-                castListId={castListId}
+                cast={cast}
                 onEdit={() => setEditingId(d.id)}
                 onCancelEdit={() => setEditingId(null)}
                 onSave={(fields) => save(d.id, fields)}
@@ -1083,7 +1082,8 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
           setEditingId={setEditingId}
           save={save}
           remove={remove}
-          castListId={castListId}
+          cast={cast}
+          actorMap={actorMap}
           onShare={setShareTarget}
         />
       )}
@@ -1134,7 +1134,7 @@ function sortDialogues(rows, sort) {
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥/★ are shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, castListId, onShare }) {
+function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, cast = [], actorMap = {}, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((d) => d.id === editingId)
   return (
@@ -1188,7 +1188,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
       </table>
       <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit dialogue">
         {editingRow && (
-          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
         )}
       </FormModal>
     </div>
@@ -1197,7 +1197,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1208,7 +1208,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // (click the text to expand — no button), mirroring book annotations.
   const accordion = typeof onToggleExpand === 'function'
   const editForm = (
-    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // editInline renders the form in place of the frame — used inside the search
   // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
@@ -1328,21 +1328,52 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
 }
 
 // DialogueForm serves both add (no initial) and inline edit (initial set).
-// Leaving actor blank lets the server auto-fill it from the movie's cast.
+// You pick the CHARACTER(S) speaking the line (from the movie's cast); the
+// actor(s) who play them are derived from the cast metadata — shown live as a
+// "played by" preview and stored server-side (leaving `actor` blank lets the
+// server fill it from the character↔cast mapping).
 // Exported for Home's favourite-tile inline edit (same form, same contract).
-export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castListId, tagSuggestions = [], actorSuggestions = [], stickers = [], reloadStickers }) {
+export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = [], actorMap = {}, tagSuggestions = [], stickers = [], reloadStickers }) {
+  // character↔actor lookups from the movie's cast (case-insensitive keys).
+  const charActor = useMemo(() => {
+    const m = new Map()
+    for (const c of cast) if (c.character) m.set(c.character.trim().toLowerCase(), (c.actor || '').trim())
+    return m
+  }, [cast])
+  const charSuggestions = useMemo(() => [...new Set(cast.map((c) => c.character).filter(Boolean))], [cast])
+
   const [quote, setQuote] = useState(initial?.quote || '')
-  const [character, setCharacter] = useState(initial?.character || '')
-  // A line can credit more than one actor (entered like tags); the stored
-  // `actor` stays a single verbatim string joined by ", " and is split for the
-  // token editor + the credit/chip views.
-  const [actors, setActors] = useState(initial?.actor ? splitCredits(initial.actor) : [])
+  // A line can be spoken by more than one character (entered like tags). Seed
+  // from the stored character string; for legacy rows that only carry actors
+  // (character empty), reverse-map each actor back to its cast character so the
+  // form reflects what's shown on the frame.
+  const [characters, setCharacters] = useState(() => {
+    if (initial?.character) return splitCredits(initial.character)
+    if (initial?.actor && cast.length) {
+      const actorToChar = new Map()
+      for (const c of cast) if (c.actor) actorToChar.set(c.actor.trim().toLowerCase(), c.character)
+      return splitCredits(initial.actor).map((a) => actorToChar.get(a.trim().toLowerCase())).filter(Boolean)
+    }
+    return []
+  })
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
   const [note, setNote] = useState(initial?.note || '')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // The actor(s) implied by the chosen characters (unique, in order) — the
+  // "played by" preview, and what the server derives on save.
+  const derivedActors = useMemo(() => {
+    const out = []
+    const seen = new Set()
+    for (const ch of characters) {
+      const a = charActor.get(String(ch).trim().toLowerCase())
+      if (a && !seen.has(a.toLowerCase())) { seen.add(a.toLowerCase()); out.push(a) }
+    }
+    return out
+  }, [characters, charActor])
 
   async function submit(e) {
     e.preventDefault()
@@ -1352,8 +1383,11 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
     const err = await onSubmit({
       quote: quote.trim(),
       note: note.trim(),
-      character: character.trim(),
-      actor: actors.join(', '),
+      character: characters.map((c) => c.trim()).filter(Boolean).join(', '),
+      // Actor is derived from the characters via the cast, server-side. Send it
+      // empty so the server maps it; but if no character is chosen, carry any
+      // existing actor through untouched (don't silently wipe a legacy credit).
+      actor: characters.length ? '' : (initial?.actor || ''),
       timestamp: timestamp.trim(),
       tags,
       // favorite/rating are edited on the frame, not in the form — but PUT is
@@ -1369,8 +1403,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
     if (err) return setError(err)
     if (!initial) {
       setQuote('')
-      setCharacter('')
-      setActors([])
+      setCharacters([])
       setTimestamp('')
       setNote('')
       setTags([])
@@ -1387,29 +1420,29 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, castLis
         value={quote}
         onChange={(e) => setQuote(e.target.value)}
       />
-      <div className="grid gap-2.5 sm:grid-cols-2">
-        <input
-          className="tp-input"
-          placeholder="Character"
-          title="Character — picks from the stored cast"
-          list={castListId}
-          value={character}
-          onChange={(e) => setCharacter(e.target.value)}
+      <div>
+        <TokenInput
+          value={characters}
+          onChange={setCharacters}
+          suggestions={charSuggestions}
+          placeholder="add a character… (picks from the cast)"
+          ariaLabel="Characters"
         />
-        <input
-          className="tp-input"
-          placeholder="HH:MM:SS"
-          title="Timestamp"
-          value={timestamp}
-          onChange={(e) => setTimestamp(e.target.value)}
-        />
+        {/* The cast maps each character to who plays them — shown here so the
+            credit is what you see. Derived, not editable. */}
+        {derivedActors.length > 0 && (
+          <div className="mt-1.5 flex items-center gap-2">
+            <CreditFaces names={derivedActors} map={actorMap} size={20} ring="var(--card)" />
+            <span style={{ ...amberMono, fontSize: 11 }}>played by {derivedActors.join(', ')}</span>
+          </div>
+        )}
       </div>
-      <TokenInput
-        value={actors}
-        onChange={setActors}
-        suggestions={actorSuggestions}
-        placeholder="add an actor… (leave empty to auto-fill from cast)"
-        ariaLabel="Actors"
+      <input
+        className="tp-input"
+        placeholder="HH:MM:SS"
+        title="Timestamp"
+        value={timestamp}
+        onChange={(e) => setTimestamp(e.target.value)}
       />
       <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />

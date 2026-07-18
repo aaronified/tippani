@@ -53,23 +53,39 @@ func (d *dialogueReq) validate() string {
 	return ""
 }
 
-// autofillActor implements the PLAN §3b rule: when actor is empty and the
-// character matches the movie's stored cast (case-insensitive, trimmed),
-// fill in who plays them. character arrives already trimmed.
+// autofillActor implements the PLAN §3b rule: when actor is empty, map each
+// character named on the line to who plays them in the movie's stored cast
+// (case-insensitive, trimmed). A line can now credit several characters (the
+// client picks them as comma-joined tokens), so we split on commas, resolve
+// each against the cast, and join the unique actors in order. Characters with
+// no cast match contribute nothing; a fully unmatched line yields "".
 func autofillActor(castJSON, character, actor string) string {
-	if actor != "" || character == "" {
+	if actor != "" || strings.TrimSpace(character) == "" {
 		return actor
 	}
 	var cast []metadata.CastMember
 	if json.Unmarshal([]byte(castJSON), &cast) != nil {
 		return actor
 	}
-	for _, c := range cast {
-		if strings.EqualFold(strings.TrimSpace(c.Character), character) {
-			return strings.TrimSpace(c.Actor)
+	var actors []string
+	seen := map[string]bool{}
+	for _, ch := range strings.Split(character, ",") {
+		ch = strings.TrimSpace(ch)
+		if ch == "" {
+			continue
+		}
+		for _, c := range cast {
+			if strings.EqualFold(strings.TrimSpace(c.Character), ch) {
+				a := strings.TrimSpace(c.Actor)
+				if a != "" && !seen[strings.ToLower(a)] {
+					seen[strings.ToLower(a)] = true
+					actors = append(actors, a)
+				}
+				break
+			}
 		}
 	}
-	return actor
+	return strings.Join(actors, ", ")
 }
 
 // refillMovieActors applies the auto-fill rule retroactively: for the movie's

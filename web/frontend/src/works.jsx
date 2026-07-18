@@ -258,7 +258,7 @@ export function WorkHero({
           ))}
         </div>
       )}
-      <div className="mt-2.5 max-w-prose">
+      <div className="mt-2.5">
         <ExpandableDescription text={description} />
       </div>
     </div>

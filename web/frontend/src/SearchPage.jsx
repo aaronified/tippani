@@ -359,7 +359,6 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
             stickers={stickers}
             reloadStickers={reloadStickers}
             editing={editing}
-            castListId={`quote-cast-${parentId}`}
             onEdit={() => setEditing(true)}
             onCancelEdit={() => setEditing(false)}
             onSave={(fields) => save(row.id, fields)}
