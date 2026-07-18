@@ -155,6 +155,11 @@ export function movieShare({
   };
 }
 
+// Parts that start unchecked in the share dialog (present only on book quotes):
+// the page "Location" and the "Noted" save-date. See ShareDialog's initial
+// `selected` state.
+const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted"]);
+
 // fieldsOf lists the toggleable parts present in a payload, in output order.
 function fieldsOf(share) {
   const f = [];
@@ -581,8 +586,12 @@ function QuoteImagePanel({ share, selected, onShared }) {
 export function ShareDialog({ share, seen, onClose }) {
   const [format, setFormat] = useState("whatsapp");
   const fields = useMemo(() => fieldsOf(share), [share]);
+  // Location (page/timestamp) and Noted (the date you saved it) are the two
+  // least-wanted parts in a shared quote — factual noise for most readers — so
+  // they start unchecked. Everything else defaults on; the user can flip any of
+  // them per share.
   const [selected, setSelected] = useState(() =>
-    Object.fromEntries(fields.map((f) => [f.id, true])),
+    Object.fromEntries(fields.map((f) => [f.id, !SHARE_OFF_BY_DEFAULT.has(f.id)])),
   );
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);

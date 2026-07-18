@@ -14,6 +14,7 @@ import {
   ErrorText,
   FavBadge,
   Field,
+  FormModal,
   GenreFilter,
   GhostButton,
   ExpandableDescription,
@@ -28,6 +29,7 @@ import {
   IconExport,
   IconFilter,
   IconPlus,
+  Masonry,
   MobileSheet,
   MoreMenu,
   MonoLabel,
@@ -40,12 +42,12 @@ import {
   TagChip,
   titleCaseGenre,
   TokenInput,
-  EditReveal,
   ViewToggle,
   bySeries,
   filterChipClass,
   seriesLabel,
   splitCommas,
+  useColumnsAt,
   useCoverSize,
   useIsMobileScreen,
   usePersistedState,
@@ -633,69 +635,69 @@ function BookDetail({ id, onClose, creditSeparators }) {
         </button>
       )}
       <ErrorText>{error}</ErrorText>
-      {book &&
-        (editing ? (
-          <HandCard className="edit-fade px-6 py-5">
-            <EditBook
-              book={book}
-              onSaved={() => {
-                setEditing(false)
-                load()
-              }}
-              onCancel={() => setEditing(false)}
-            />
-          </HandCard>
-        ) : (
-          <div className="flex flex-wrap items-start gap-6">
-            <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.34))' }}>
-              <Cover path={book.cover_path} title={book.title} hero zoomable />
+      {book && (
+        <div className="flex flex-wrap items-start gap-6">
+          <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.34))' }}>
+            <Cover path={book.cover_path} title={book.title} hero zoomable />
+          </div>
+          <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
+            <h1 className="display-title" style={{ fontSize: 28, lineHeight: 1.15 }}>
+              {book.title}
+            </h1>
+            {metaParts.length > 0 && (
+              <MonoLabel className="block" style={{ fontSize: 11.5 }}>
+                {metaParts.map((p, i) => (
+                  <span key={i}>
+                    {i > 0 ? ' · ' : ''}
+                    {p}
+                  </span>
+                ))}
+              </MonoLabel>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Hearts value={!!book.favorite} onChange={(v) => patch({ favorite: v })} />
             </div>
-            <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
-              <h1 className="display-title" style={{ fontSize: 28, lineHeight: 1.15 }}>
-                {book.title}
-              </h1>
-              {metaParts.length > 0 && (
-                <MonoLabel className="block" style={{ fontSize: 11.5 }}>
-                  {metaParts.map((p, i) => (
-                    <span key={i}>
-                      {i > 0 ? ' · ' : ''}
-                      {p}
-                    </span>
-                  ))}
-                </MonoLabel>
-              )}
-              <div className="flex flex-wrap items-center gap-3">
-                <Hearts value={!!book.favorite} onChange={(v) => patch({ favorite: v })} />
+            {bookGenres(book).length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {bookGenres(book).map((g) => (
+                  <span key={g} className="tp-chip">
+                    {g}
+                  </span>
+                ))}
               </div>
-              {bookGenres(book).length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {bookGenres(book).map((g) => (
-                    <span key={g} className="tp-chip">
-                      {g}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="max-w-prose pt-1">
-                <ExpandableDescription text={book.description} />
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {!DEMO && (
-                <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
-                  Export .md
-                </GhostButton>
-              )}
-              <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-              <GhostButton
-                style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
-                onClick={remove}
-              >
-                Delete
-              </GhostButton>
+            )}
+            <div className="max-w-prose pt-1">
+              <ExpandableDescription text={book.description} />
             </div>
           </div>
-        ))}
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {!DEMO && (
+              <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
+                Export .md
+              </GhostButton>
+            )}
+            <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+            <GhostButton
+              style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
+              onClick={remove}
+            >
+              Delete
+            </GhostButton>
+          </div>
+        </div>
+      )}
+      {book && (
+        <FormModal open={editing} onClose={() => setEditing(false)} title="Edit book">
+          <EditBook
+            book={book}
+            onSaved={() => {
+              setEditing(false)
+              load()
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </FormModal>
+      )}
       {book && <Annotations bookId={book.id} book={book} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
@@ -930,15 +932,29 @@ function ActionRow({ a, patch, setEditingId, remove, onShare, actionsAlwaysVisib
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
 // quote clamps to `quoteLines` with an inline show-more.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   const d = fmtDate(annDate(a))
+  const editForm = (
+    <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
+  )
+  // editInline renders the form in place of the card body — used inside the
+  // search QuoteModal, which is itself a pop-up (avoids stacking two overlays).
+  // Everywhere else the edit opens in a FormModal, the house style.
+  if (editInline && editing) {
+    return (
+      <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
+        {editForm}
+      </HandCard>
+    )
+  }
   return (
     <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
-      <EditReveal open={editing}>
-      {editing ? (
-        <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
-      ) : (
+      {!editInline && (
+        <FormModal open={editing} onClose={() => setEditingId(null)} title="Edit quote">
+          {editForm}
+        </FormModal>
+      )}
         <div className="space-y-2">
           {a.quote &&
             (sticker ? (
@@ -978,8 +994,6 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           )}
           <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
         </div>
-      )}
-      </EditReveal>
     </HandCard>
   )
 }
@@ -994,6 +1008,7 @@ const TABLE_COLS = [
 
 function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
+  const editingRow = rows.find((a) => a.id === editingId)
   return (
     <div className="ann-table-wrap">
       <table className="ann-table">
@@ -1009,50 +1024,64 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           </tr>
         </thead>
         <tbody>
-          {rows.map((a) =>
-            editingId === a.id ? (
-              <tr key={a.id} className="editing-row">
-                <td colSpan={TABLE_COLS.length + 1}>
-                  <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
-                </td>
-              </tr>
-            ) : (
-              <tr key={a.id}>
-                <td className="col-quote">
-                  <ExpandableText text={a.quote || a.note} lines={2} style={QUOTE_STYLE} />
-                  {a.tags && a.tags.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {a.tags.map((name) => {
-                        const t = tagMap[name]
-                        return (
-                          <TagChip key={name} color={t?.color} style={t?.style}>
-                            {name}
-                          </TagChip>
-                        )
-                      })}
-                    </div>
-                  )}
-                </td>
-                <td className="col-mono">{a.chapter || '—'}</td>
-                <td className="col-mono">{a.location || '—'}</td>
-                <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
-                <td className="col-center">{a.favorite ? '♥' : '—'}</td>
-                <td className="col-actions">
-                  {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
-                  <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
-                  <button className="tp-link tp-link-danger" onClick={() => remove(a)}>del</button>
-                </td>
-              </tr>
-            ),
-          )}
+          {rows.map((a) => (
+            <tr key={a.id}>
+              <td className="col-quote">
+                <ExpandableText text={a.quote || a.note} lines={2} style={QUOTE_STYLE} />
+                {a.tags && a.tags.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {a.tags.map((name) => {
+                      const t = tagMap[name]
+                      return (
+                        <TagChip key={name} color={t?.color} style={t?.style}>
+                          {name}
+                        </TagChip>
+                      )
+                    })}
+                  </div>
+                )}
+              </td>
+              <td className="col-mono">{a.chapter || '—'}</td>
+              <td className="col-mono">{a.location || '—'}</td>
+              <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
+              <td className="col-center">{a.favorite ? '♥' : '—'}</td>
+              <td className="col-actions">
+                {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
+                <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
+                <button className="tp-link tp-link-danger" onClick={() => remove(a)}>del</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit quote">
+        {editingRow && (
+          <AnnotationForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+        )}
+      </FormModal>
     </div>
   )
 }
 
 // Annotations is the per-book annotation section: filter row, hand-drawn
 // cards, and the dashed ＋ Add annotation tile (§8.5).
+// pinToTop floats just-added annotations to the front of whatever order the
+// view is currently in, preserving pinnedIds' order (most-recent add first) and
+// leaving the rest untouched. Ids that aren't present (filtered out, or a stale
+// pin) are simply skipped. Returns the input unchanged when there's nothing to
+// pin so identity is preserved for memo consumers.
+function pinToTop(arr, pinnedIds) {
+  if (!pinnedIds.length || !arr || !arr.length) return arr
+  const pset = new Set(pinnedIds)
+  const top = []
+  for (const id of pinnedIds) {
+    const found = arr.find((x) => x.id === id)
+    if (found) top.push(found)
+  }
+  if (!top.length) return arr
+  return [...top, ...arr.filter((x) => !pset.has(x.id))]
+}
+
 function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
@@ -1066,6 +1095,10 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
   const [sort, setSort] = useState({ col: 'default', dir: 'asc' }) // table only; default = server (recent)
+  // Ids of annotations added this session, most-recent first. They're floated to
+  // the top of the pile (overriding the current order) so the user sees their
+  // addition — until they sort, which clears the pin (see toggleSort).
+  const [pinned, setPinned] = useState([])
   const reqSeq = useRef(0)
   const mobile = useIsMobileScreen()
 
@@ -1088,6 +1121,9 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
   function toggleSort(col) {
+    // Sorting is the user taking control of the order, so drop the just-added
+    // pin and let the new sort decide where those items land.
+    setPinned([])
     setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
   }
   // Client-side sort for the table view only; list/tiles keep server (recent) order.
@@ -1113,6 +1149,18 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     })
     return arr
   }, [items, view, sort])
+  // What every view actually renders: the current order (server-recent for
+  // list/tiles, the chosen column for table) with freshly-added items pinned on
+  // top. sortedRows already returns a server-order copy of items for non-table
+  // views, so this is the single source of truth for all three.
+  const displayRows = useMemo(() => pinToTop(sortedRows, pinned), [sortedRows, pinned])
+  // Tiles are a height-packed masonry (1/2/3 cols by width). Newly-added quotes
+  // (the pinned prefix of displayRows) stay glued to the top of the board.
+  const tileCols = useColumnsAt([[1280, 3], [640, 2]])
+  const pinnedShown = useMemo(
+    () => (!pinned.length || !items ? 0 : pinned.filter((id) => items.some((x) => x.id === id)).length),
+    [pinned, items],
+  )
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -1143,7 +1191,10 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
   async function add(fields) {
     const r = await json('POST', '/annotations', { book_id: bookId, ...fields })
     if (!r.ok) return errText(r, 'could not add annotation')
+    const newId = r.data?.id
     setTotal((t) => (t == null ? t : t + 1))
+    // Pin the new quote to the top of the pile until the user next sorts.
+    if (newId != null) setPinned((p) => [newId, ...p.filter((x) => x !== newId)])
     load()
     loadTags()
     return null
@@ -1306,7 +1357,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
       )}
       {items && items.length > 0 && view === 'table' && (
         <AnnotationTable
-          rows={sortedRows}
+          rows={displayRows}
           tagMap={tagMap}
           stickers={stickers}
           reloadStickers={reloadStickers}
@@ -1321,7 +1372,7 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
       )}
       {items && items.length > 0 && view === 'list' && (
         <div className="space-y-4">
-          {items.map((a, i) => (
+          {displayRows.map((a, i) => (
             <AnnotationCard
               key={a.id}
               a={a}
@@ -1343,32 +1394,32 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
         </div>
       )}
       {items && items.length > 0 && view === 'tiles' && (
-        // Packed masonry board: equal-width columns that pack by height, so the
-        // sticker quotes read as an uneven collage. Each card clamps to a
-        // per-card 3–5 lines (deterministic from its id) before show-more, so
-        // heights stay varied rather than uniform.
-        <ul className="columns-1 gap-4 sm:columns-2 xl:columns-3">
-          {items.map((a, i) => (
-            <li key={a.id} className="mb-4 break-inside-avoid">
-              <AnnotationCard
-                a={a}
-                variant={i % 4}
-                tagMap={tagMap}
-                stickerMap={stickerMap}
-                stickers={stickers}
-                reloadStickers={reloadStickers}
-                editing={editingId === a.id}
-                setEditingId={setEditingId}
-                save={save}
-                patch={patch}
-                remove={remove}
-                onShare={setShareTarget}
-                quoteLines={3 + (a.id % 3)}
-                tagSuggestions={Object.keys(tagMap)}
-              />
-            </li>
+        // Height-packed masonry board (measured, seeded off the book so it never
+        // wobbles): equal-width columns packed tallest-first, so the sticker
+        // quotes read as an uneven collage. Each card clamps to a per-card 3–5
+        // lines (deterministic from its id) before show-more, keeping heights
+        // varied. Newly-added quotes ride on top via the pinned prefix.
+        <Masonry columns={tileCols} gap={16} seed={book?.id || bookId || 1} pinnedCount={pinnedShown}>
+          {displayRows.map((a, i) => (
+            <AnnotationCard
+              key={a.id}
+              a={a}
+              variant={i % 4}
+              tagMap={tagMap}
+              stickerMap={stickerMap}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
+              editing={editingId === a.id}
+              setEditingId={setEditingId}
+              save={save}
+              patch={patch}
+              remove={remove}
+              onShare={setShareTarget}
+              quoteLines={3 + (a.id % 3)}
+              tagSuggestions={Object.keys(tagMap)}
+            />
           ))}
-        </ul>
+        </Masonry>
       )}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'book', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}

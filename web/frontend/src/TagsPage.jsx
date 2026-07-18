@@ -4,6 +4,7 @@ import {
   ColorSwatches,
   EmptyState,
   ErrorText,
+  FormModal,
   GhostButton,
   HandCard,
   MonoLabel,
@@ -105,7 +106,7 @@ function CompactTagCard({ tag, index, onChanged }) {
 
   return (
     <HandCard variant={index % 4} className="flex flex-col gap-2 p-3">
-      {editing ? (
+      <FormModal open={editing} onClose={() => setEditing(false)} title="Edit tag" maxWidth={460}>
         <TagForm
           initial={tag}
           submitLabel="Save"
@@ -118,22 +119,19 @@ function CompactTagCard({ tag, index, onChanged }) {
             return null
           }}
         />
-      ) : (
-        <>
-          <TagChip color={tag.color} style={tag.style}>
-            {tag.name} · {uses}
-          </TagChip>
-          <ErrorText>{error}</ErrorText>
-          <div className="mt-auto flex gap-3 pt-0.5">
-            <button className="tp-link" onClick={() => setEditing(true)}>
-              edit
-            </button>
-            <button className="tp-link tp-link-danger" onClick={() => deleteTag(tag, onChanged, setError)}>
-              delete
-            </button>
-          </div>
-        </>
-      )}
+      </FormModal>
+      <TagChip color={tag.color} style={tag.style}>
+        {tag.name} · {uses}
+      </TagChip>
+      <ErrorText>{error}</ErrorText>
+      <div className="mt-auto flex gap-3 pt-0.5">
+        <button className="tp-link" onClick={() => setEditing(true)}>
+          edit
+        </button>
+        <button className="tp-link tp-link-danger" onClick={() => deleteTag(tag, onChanged, setError)}>
+          delete
+        </button>
+      </div>
     </HandCard>
   )
 }
@@ -149,6 +147,7 @@ function TagTable({ tags, onChanged }) {
     style: (t) => t.style,
     uses: (t) => t.annotations + t.dialogues,
   })
+  const editingRow = rows.find((t) => t.id === editingId)
   return (
     <>
       <ErrorText>{error}</ErrorText>
@@ -163,39 +162,36 @@ function TagTable({ tags, onChanged }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) =>
-              editingId === t.id ? (
-                <tr key={t.id} className="editing-row">
-                  <td colSpan={4}>
-                    <TagForm
-                      initial={t}
-                      submitLabel="Save"
-                      onCancel={() => setEditingId(null)}
-                      onSubmit={async (fields) => {
-                        const r = await json('PUT', `/tags/${t.id}`, fields)
-                        if (!r.ok) return errText(r, 'could not save tag')
-                        setEditingId(null)
-                        onChanged()
-                        return null
-                      }}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                <tr key={t.id}>
-                  <td><TagChip color={t.color} style={t.style}>{t.name}</TagChip></td>
-                  <td className="col-mono">{t.style}</td>
-                  <td className="col-mono">{t.annotations + t.dialogues}</td>
-                  <td className="col-actions">
-                    <button className="tp-link" onClick={() => setEditingId(t.id)}>edit</button>
-                    <button className="tp-link tp-link-danger" onClick={() => deleteTag(t, onChanged, setError)}>del</button>
-                  </td>
-                </tr>
-              ),
-            )}
+            {rows.map((t) => (
+              <tr key={t.id}>
+                <td><TagChip color={t.color} style={t.style}>{t.name}</TagChip></td>
+                <td className="col-mono">{t.style}</td>
+                <td className="col-mono">{t.annotations + t.dialogues}</td>
+                <td className="col-actions">
+                  <button className="tp-link" onClick={() => setEditingId(t.id)}>edit</button>
+                  <button className="tp-link tp-link-danger" onClick={() => deleteTag(t, onChanged, setError)}>del</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit tag" maxWidth={460}>
+        {editingRow && (
+          <TagForm
+            initial={editingRow}
+            submitLabel="Save"
+            onCancel={() => setEditingId(null)}
+            onSubmit={async (fields) => {
+              const r = await json('PUT', `/tags/${editingRow.id}`, fields)
+              if (!r.ok) return errText(r, 'could not save tag')
+              setEditingId(null)
+              onChanged()
+              return null
+            }}
+          />
+        )}
+      </FormModal>
     </>
   )
 }

@@ -331,6 +331,7 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
             quoteLines={40}
             tagSuggestions={Object.keys(tagMap)}
             actionsAlwaysVisible
+            editInline
           />
         ) : (
           <Frame
@@ -348,6 +349,7 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
             onDelete={() => remove(row)}
             onShare={() => setShareOpen(true)}
             actionsAlwaysVisible
+            editInline
           />
         )}
       </div>
@@ -726,6 +728,9 @@ function bucketGroups(groups, dim, isMovie, creditSeps) {
 // For book author buckets, the heading shows the author portrait (people map)
 // and opens the metadata panel on click.
 function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson, creditSeps }) {
+  // Results stay in bm25 relevance order — NO height masonry here (unlike the
+  // other tiled boards). tiles just wraps into CSS columns (relevance preserved
+  // column-major); list is a plain vertical stack.
   const cols = view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'
   if (group === 'none') {
     return (

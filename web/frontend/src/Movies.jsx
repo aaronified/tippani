@@ -13,6 +13,7 @@ import {
   ExpandableDescription,
   ErrorText,
   FavBadge,
+  FormModal,
   FrameCode,
   GenreFilter,
   GhostButton,
@@ -41,7 +42,6 @@ import {
   TagChip,
   Toggle,
   TokenInput,
-  EditReveal,
   ViewToggle,
   bySeries,
   filterChipClass,
@@ -653,57 +653,57 @@ function MovieDetail({ id, onClose }) {
         </button>
       )}
       <ErrorText>{error}</ErrorText>
-      {movie &&
-        (editing ? (
-          <HandCard variant={1} className="edit-fade p-5">
-            <EditMovie
-              movie={movie}
-              onSaved={() => {
-                setEditing(false)
-                load()
-              }}
-              onCancel={() => setEditing(false)}
-            />
-          </HandCard>
-        ) : (
-          <Reveal className="flex flex-wrap items-start gap-6">
-            <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.4))' }}>
-              <Poster path={movie.poster_path} title={movie.title} zoomable />
+      {movie && (
+        <Reveal className="flex flex-wrap items-start gap-6">
+          <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.4))' }}>
+            <Poster path={movie.poster_path} title={movie.title} zoomable />
+          </div>
+          <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
+            <h1 className="display-title" style={{ fontSize: 27 }}>
+              {movie.title}
+            </h1>
+            {metaLine && <p style={amberMono}>{metaLine}</p>}
+            <div className="flex flex-wrap items-center gap-3">
+              <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
             </div>
-            <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
-              <h1 className="display-title" style={{ fontSize: 27 }}>
-                {movie.title}
-              </h1>
-              {metaLine && <p style={amberMono}>{metaLine}</p>}
-              <div className="flex flex-wrap items-center gap-3">
-                <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
-              </div>
-              {movie.genres?.length > 0 && (
-                <p className="flex flex-wrap gap-1.5">
-                  {movie.genres.map((g) => (
-                    <span key={g} className="tp-chip">
-                      {g}
-                    </span>
-                  ))}
-                </p>
-              )}
-              <div className="max-w-prose">
-                <ExpandableDescription text={movie.description} />
-              </div>
+            {movie.genres?.length > 0 && (
+              <p className="flex flex-wrap gap-1.5">
+                {movie.genres.map((g) => (
+                  <span key={g} className="tp-chip">
+                    {g}
+                  </span>
+                ))}
+              </p>
+            )}
+            <div className="max-w-prose">
+              <ExpandableDescription text={movie.description} />
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {!DEMO && (
-                <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
-                  Export .md
-                </GhostButton>
-              )}
-              <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-              <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
-                Delete
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {!DEMO && (
+              <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
+                Export .md
               </GhostButton>
-            </div>
-          </Reveal>
-        ))}
+            )}
+            <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+            <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
+              Delete
+            </GhostButton>
+          </div>
+        </Reveal>
+      )}
+      {movie && (
+        <FormModal open={editing} onClose={() => setEditing(false)} title="Edit title">
+          <EditMovie
+            movie={movie}
+            onSaved={() => {
+              setEditing(false)
+              load()
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </FormModal>
+      )}
       {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
     </section>
   )
@@ -1187,6 +1187,7 @@ function sortDialogues(rows, sort) {
 // ♥/★ are shown read-only here and toggled from the tiles/list views.
 function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, castListId, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
+  const editingRow = rows.find((d) => d.id === editingId)
   return (
     <div className="ann-table-wrap">
       <table className="ann-table">
@@ -1207,56 +1208,54 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
           </tr>
         </thead>
         <tbody>
-          {rows.map((d) =>
-            editingId === d.id ? (
-              <tr key={d.id} className="editing-row">
-                <td colSpan={DIALOGUE_COLS.length + 1}>
-                  <DialogueForm initial={d} onSubmit={(fields) => save(d.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
-                </td>
-              </tr>
-            ) : (
-              <tr key={d.id}>
-                <td className="col-quote">
-                  <ExpandableText text={d.quote} lines={2} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }} />
-                  {d.tags?.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {d.tags.map((name) => {
-                        const t = tagMap[name]
-                        return (
-                          <TagChip key={name} color={t?.color} style={t?.style}>
-                            {name}
-                          </TagChip>
-                        )
-                      })}
-                    </div>
-                  )}
-                </td>
-                <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
-                <td className="col-mono">{d.timestamp || '—'}</td>
-                <td className="col-center">{d.favorite ? '♥' : '—'}</td>
-                <td className="col-actions">
-                  {onShare && <button className="tp-link" onClick={() => onShare(d)}>share</button>}
-                  <button className="tp-link" onClick={() => setEditingId(d.id)}>edit</button>
-                  <button className="tp-link tp-link-danger" onClick={() => remove(d)}>del</button>
-                </td>
-              </tr>
-            ),
-          )}
+          {rows.map((d) => (
+            <tr key={d.id}>
+              <td className="col-quote">
+                <ExpandableText text={d.quote} lines={2} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }} />
+                {d.tags?.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {d.tags.map((name) => {
+                      const t = tagMap[name]
+                      return (
+                        <TagChip key={name} color={t?.color} style={t?.style}>
+                          {name}
+                        </TagChip>
+                      )
+                    })}
+                  </div>
+                )}
+              </td>
+              <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
+              <td className="col-mono">{d.timestamp || '—'}</td>
+              <td className="col-center">{d.favorite ? '♥' : '—'}</td>
+              <td className="col-actions">
+                {onShare && <button className="tp-link" onClick={() => onShare(d)}>share</button>}
+                <button className="tp-link" onClick={() => setEditingId(d.id)}>edit</button>
+                <button className="tp-link tp-link-danger" onClick={() => remove(d)}>del</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit dialogue">
+        {editingRow && (
+          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+        )}
+      </FormModal>
     </div>
   )
 }
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actionsAlwaysVisible = false }) {
-  if (editing) {
-    return (
-      <article className="film-frame edit-fade mx-4 my-1.5 px-5 py-4">
-        <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
-      </article>
-    )
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actionsAlwaysVisible = false, editInline = false }) {
+  const editForm = (
+    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+  )
+  // editInline renders the form in place of the frame — used inside the search
+  // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
+  if (editInline && editing) {
+    return <article className="film-frame mx-4 my-1.5 px-5 py-4">{editForm}</article>
   }
   // Credit line; the actor name is clickable (opens the metadata panel) when an
   // onOpenPerson handler is supplied — styled to inherit the amber mono voice.
@@ -1286,6 +1285,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   const sticker = d.sticker_id != null ? stickerMap[d.sticker_id] : null
   const quoteStyle = { fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }
   return (
+    <>
+      <FormModal open={editing} onClose={onCancelEdit} title="Edit dialogue">
+        {editForm}
+      </FormModal>
     <article className="film-frame mx-4 my-1.5 px-5 py-4">
       {d.quote &&
         (sticker ? (
@@ -1345,6 +1348,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         />
       </div>
     </article>
+    </>
   )
 }
 

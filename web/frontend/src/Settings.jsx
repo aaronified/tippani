@@ -5,6 +5,7 @@ import {
   ErrorText,
   GhostButton,
   InfoDot,
+  Masonry,
   MonoLabel,
   PageHeader,
   StickerButton,
@@ -38,41 +39,27 @@ function useColumnCount() {
 
 export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
   const mobile = useIsMobileScreen()
-  // Masonry that minimises page height. The tall Metadata card is ~40% of the
-  // total, so any 2-column split leaves it dominating one column with a long
-  // empty gap (the CSS-multicol balancer and a naive round-robin both did this,
-  // or worse). Instead: on wide screens use 3 columns and hand-pack the cards
-  // greedily — tallest first into the currently-shortest column — so Metadata
-  // sits alone while the three short cards fill the other two. Weights are rough
-  // relative heights (Metadata collapses for non-admins, who also lack Users).
+  // Height-minimising masonry: on wide screens the cards are packed into 3/2/1
+  // columns by their real rendered heights (Masonry measures and drops each card
+  // onto the currently-shortest column), so the tall Metadata card sits beside
+  // the short ones with no dead gap instead of dominating a column. Non-admins
+  // lose Metadata's bulk plus the Updates/Backup cards.
   const ncols = useColumnCount()
   const cards = [
-    { w: user.is_admin ? 5.5 : 1.6, node: <Metadata key="meta" user={user} /> },
-    { w: 3, node: <Stats key="stats" /> },
-    { w: 2.8, node: <SRSettings key="sr" user={user} onPreferences={onPreferences} /> },
-    { w: 1.5, node: <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} /> },
-    user.is_admin && { w: 1.8, node: <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} /> },
-    user.is_admin && { w: 2.4, node: <BackupCard key="backup" /> },
+    <Metadata key="meta" user={user} />,
+    <Stats key="stats" />,
+    <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
+    <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
+    user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
+    user.is_admin && <BackupCard key="backup" />,
   ].filter(Boolean)
-  const cols = Array.from({ length: ncols }, () => ({ h: 0, nodes: [] }))
-  ;[...cards]
-    .sort((a, b) => b.w - a.w)
-    .forEach((c) => {
-      const target = cols.reduce((m, x) => (x.h < m.h ? x : m), cols[0])
-      target.nodes.push(c.node)
-      target.h += c.w
-    })
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       </div>
       <Appearance onPreferences={onPreferences} />
-      <div className="grid items-start gap-6" style={{ gridTemplateColumns: `repeat(${ncols}, minmax(0, 1fr))` }}>
-        {cols.map((col, i) => (
-          <div key={i} className="space-y-6">{col.nodes}</div>
-        ))}
-      </div>
+      <Masonry columns={ncols} gap={24}>{cards}</Masonry>
     </section>
   )
 }

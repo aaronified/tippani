@@ -14,14 +14,17 @@ import {
   ColorSwatches,
   ErrorText,
   GhostButton,
+  FormModal,
   HandCard,
   HandNote,
   Hearts,
+  Masonry,
   MobileSheet,
   MonoLabel,
   QuoteActions,
   STATUS_META,
   toast,
+  useColumnsAt,
   useIsMobileScreen,
 } from './ui.jsx'
 
@@ -515,6 +518,7 @@ function screenFav(d, movieMap) {
 
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onCapture, onPending }) {
   const [favs, setFavs] = useState([])
+  const favCols = useColumnsAt([[640, 2]]) // favourites masonry: 1 col < sm, 2 ≥ sm
   const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
   const [openFav, setOpenFav] = useState(null) // favourite key expanded in place
   const [editingFav, setEditingFav] = useState(null) // favourite key being edited in place
@@ -655,7 +659,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
             <MonoLabel>♥ {favs.length}</MonoLabel>
           </div>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <Masonry columns={favCols} gap={10}>
             {favs.slice(0, favsShown).map((f, i) => (
               <FavouriteTile
                 key={f.key}
@@ -681,7 +685,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 reloadStickers={reloadStickers}
               />
             ))}
-          </div>
+          </Masonry>
           {favsShown < favs.length && (
             <div className="mt-3 text-center">
               <GhostButton onClick={() => setFavsShown((n) => n + 8)}>
@@ -703,10 +707,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   )
 }
 
-// FavouriteTile — one favourite in the Home grid, book or screen. Collapsed it
-// shows a media tag, the quote (clamped) and its source; tapping expands it in
-// place (full quote, note, tags) and widens the tile to the full row, with a
-// button to open the parent book / film / show plus the same ♥ · share · edit ·
+// FavouriteTile — one favourite in the Home masonry, book or screen. Collapsed
+// it shows a media tag, the quote (clamped) and its source; tapping expands it
+// in place (full quote, note, tags) within its column — the board re-packs
+// around the taller tile — with a button to open the parent book / film / show
+// plus the same ♥ · share · edit ·
 // delete affordances the detail-screen cards carry (hover-revealed on desktop,
 // a ⋯ menu on phones — QuoteActions handles both). Edit swaps the tile body for
 // the same inline form the detail screens use. The colour bar is the highlight
@@ -722,37 +727,31 @@ function FavouriteTile({
     <HandCard
       variant={variant}
       colorBar={isBook ? f.color : 'var(--amber)'}
-      className={open ? 'sm:col-span-2' : ''}
       style={{ padding: '12px 15px' }}
     >
-      {editing ? (
-        <div>
-          <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
-            {isBook ? 'BOOK' : f.media} · {f.source}
-          </MonoLabel>
-          {isBook ? (
-            <AnnotationForm
-              initial={f.raw}
-              onSubmit={onSave}
-              onCancel={onEditCancel}
-              submitLabel="Save"
-              tagSuggestions={tagSuggestions}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-            />
-          ) : (
-            <DialogueForm
-              initial={f.raw}
-              onSubmit={onSave}
-              onCancel={onEditCancel}
-              submitLabel="Save"
-              tagSuggestions={tagSuggestions}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-            />
-          )}
-        </div>
-      ) : (
+      <FormModal open={editing} onClose={onEditCancel} title={isBook ? 'Edit quote' : 'Edit dialogue'} maxWidth={520}>
+        {isBook ? (
+          <AnnotationForm
+            initial={f.raw}
+            onSubmit={onSave}
+            onCancel={onEditCancel}
+            submitLabel="Save"
+            tagSuggestions={tagSuggestions}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
+          />
+        ) : (
+          <DialogueForm
+            initial={f.raw}
+            onSubmit={onSave}
+            onCancel={onEditCancel}
+            submitLabel="Save"
+            tagSuggestions={tagSuggestions}
+            stickers={stickers}
+            reloadStickers={reloadStickers}
+          />
+        )}
+      </FormModal>
         <>
           <button type="button" className="block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle}>
             <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
@@ -794,7 +793,6 @@ function FavouriteTile({
             </div>
           )}
         </>
-      )}
     </HandCard>
   )
 }

@@ -1,7 +1,7 @@
 // Shared visual primitives for the tippani UI (instructions §5–§6), plus thin
 // compatibility exports the pre-redesign pages still import — the page pass
 // replaces those call sites, then the compat block can shrink.
-import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
@@ -147,6 +147,28 @@ export function useIsMobileScreen() {
     return () => media.removeListener?.(sync);
   }, []);
   return mobile;
+}
+
+// useColumnsAt — the live column count for a Masonry, from a [minWidthPx, cols]
+// ladder (largest breakpoint first; below the smallest ⇒ 1 column). Mirrors the
+// Tailwind breakpoints the old CSS-column boards used, e.g. [[1280,3],[640,2]].
+export function useColumnsAt(ladder) {
+  const read = () => {
+    if (typeof window === "undefined") return 1;
+    const w = window.innerWidth;
+    for (const [min, cols] of ladder) if (w >= min) return cols;
+    return 1;
+  };
+  const [n, setN] = useState(read);
+  useEffect(() => {
+    const fn = () => setN(read());
+    window.addEventListener("resize", fn);
+    fn();
+    return () => window.removeEventListener("resize", fn);
+    // ladder is a static literal per call site; intentionally not a dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return n;
 }
 
 // useBodyScrollLock — freezes body scroll while a full-viewport overlay (the
@@ -553,6 +575,125 @@ export function initTactile() {
       window.addEventListener("pointercancel", release);
     },
     true,
+  );
+}
+
+// mulberry32 — a tiny deterministic PRNG. Same seed ⇒ same sequence, so the
+// Masonry jitter below is stable across renders and reloads (no per-refresh
+// wobble). Seed 0 is degenerate for this generator, so bump it to 1.
+function mulberry32(seed) {
+  let a = (seed >>> 0) || 1;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Masonry — packs heterogeneous-height cards into `columns` equal-width columns
+// to minimise total height, but with an organic, non-mechanical order:
+//   1. sort every card tallest-first (classic best-balance ordering),
+//   2. nudge ~20% of them 2–3 slots up/down — seeded off `seed` so a given board
+//      always lays out the same way (pass a book/show id to vary boards; a fixed
+//      seed keeps a board like Settings stable across loads),
+//   3. deal that sequence out row by row, each card onto the currently-shortest
+//      column ("go horizontal, drop the next card on the least-tall pile").
+// It measures real rendered heights (unlike CSS multi-column, which fills a
+// column top-to-bottom then balances), so a lone tall card sits beside several
+// short ones instead of leaving a gap. Re-packs on resize / height change
+// (ResizeObserver per card). columns<=1 just stacks. `gap` is the px gutter.
+// `pinnedCount` keeps the first N children glued to the top of the board in the
+// order given (skipping the height sort) — used so a just-added quote stays on
+// top of the collage even though everything else is height-packed.
+export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, className = "", children }) {
+  const items = useMemo(() => Children.toArray(children), [children]);
+  const n = items.length;
+  const cols = Math.max(1, columns);
+  const refs = useRef([]);
+  // layout.order = sequence cards are dealt in; layout.col[i] = column original
+  // card i lands in. Pre-measure fallback is reading-order round-robin; the
+  // layout effect overwrites it (height-packed) before the browser paints.
+  const [layout, setLayout] = useState(() => ({
+    order: items.map((_, i) => i),
+    col: items.map((_, i) => i % cols),
+  }));
+
+  useLayoutEffect(() => {
+    const els = refs.current.slice(0, n);
+    const pack = () => {
+      const h = els.map((el) => (el ? el.getBoundingClientRect().height : 0));
+      const pc = Math.max(0, Math.min(pinnedCount, n));
+      // (1) tallest first — but only the non-pinned tail (ties → index).
+      const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => h[b] - h[a] || a - b);
+      const rankOf = new Array(n);
+      rest0.forEach((i, r) => (rankOf[i] = r));
+      // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
+      // re-sort (ties → original rank). Draw a fixed 3 rolls per card so the
+      // sequence stays deterministic whether or not a card actually moves.
+      const rng = mulberry32(seed);
+      const key = new Array(n);
+      for (let r = 0; r < rest0.length; r++) {
+        const move = rng() < 0.2;
+        const step = rng() < 0.5 ? 2 : 3;
+        const up = rng() < 0.5;
+        key[rest0[r]] = r + (move ? (up ? -step : step) : 0);
+      }
+      const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
+      // Pinned prefix stays on top in its given order, then the height-packed tail.
+      const order = [];
+      for (let i = 0; i < pc; i++) order.push(i);
+      for (const i of rest) order.push(i);
+      // (3) greedy by rows: each card, in that order, onto the shortest column.
+      const colH = Array(cols).fill(0);
+      const col = new Array(n);
+      for (const i of order) {
+        let t = 0;
+        for (let c = 1; c < cols; c++) if (colH[c] < colH[t]) t = c;
+        col[i] = t;
+        colH[t] += h[i] + gap;
+      }
+      setLayout((prev) =>
+        prev.order.length === n &&
+        prev.order.every((v, k) => v === order[k]) &&
+        prev.col.every((v, k) => v === col[k])
+          ? prev
+          : { order, col },
+      );
+    };
+    pack();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(pack);
+    els.forEach((el) => el && ro.observe(el));
+    return () => ro.disconnect();
+  }, [n, cols, gap, seed, pinnedCount]);
+
+  // Deal cards into columns following the placement order, so within-column
+  // sequence matches the packing. order/col can lag `n`/`cols` for one render
+  // after the set or column count changes (the layout effect re-packs before
+  // paint), so fall back to round-robin and clamp any stale index.
+  const seq = layout.order.length === n ? layout.order : items.map((_, i) => i);
+  const place = layout.col.length === n ? layout.col : items.map((_, i) => i % cols);
+  const buckets = Array.from({ length: cols }, () => []);
+  for (const i of seq) {
+    const c = place[i];
+    buckets[c == null || c >= cols ? i % cols : c].push({ child: items[i], i });
+  }
+  return (
+    <div
+      className={className}
+      style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap, alignItems: "start" }}
+    >
+      {buckets.map((bucket, c) => (
+        <div key={c} style={{ display: "flex", flexDirection: "column", gap }}>
+          {bucket.map(({ child, i }) => (
+            <div key={i} ref={(el) => (refs.current[i] = el)}>
+              {child}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1063,6 +1204,64 @@ export function ConfirmDialog({
           <GhostButton onClick={onCancel}>Cancel</GhostButton>
           <StickerButton onClick={onConfirm}>{confirmLabel}</StickerButton>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// FormModal — the shared shell every edit form now opens in (pop-up edits are
+// the house style). Desktop: a centred, scrollable dialog over a dimmed page,
+// dismissed by Escape, the × , or a backdrop click. Mobile: a full-screen
+// MobileSheet, so the on-screen keyboard has room. The form itself supplies its
+// Save/Cancel row (Cancel should call onClose); this only frames it. Body scroll
+// is locked while open so the page behind can't scroll under the overlay.
+export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
+  const mobile = useIsMobileScreen();
+  useBodyScrollLock(open);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  if (mobile) {
+    return (
+      <MobileSheet open={open} onClose={onClose} title={title}>
+        {children}
+      </MobileSheet>
+    );
+  }
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      style={{ background: "rgba(21,16,12,.55)" }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="hand-card hc-r2 w-full"
+        style={{ maxWidth, padding: "18px 20px 20px" }}
+      >
+        <div className="mb-3 flex items-center gap-3">
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
+            {title}
+          </h2>
+          <button
+            type="button"
+            className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
+            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <IconClose />
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   );
