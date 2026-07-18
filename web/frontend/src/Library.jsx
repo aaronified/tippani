@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import AddSurface from './AddSurface.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
@@ -33,6 +33,7 @@ import {
   MobileSheet,
   MoreMenu,
   MonoLabel,
+  mulberry32,
   PageHeader,
   Placeholder,
   QuoteActions,
@@ -932,8 +933,11 @@ function ActionRow({ a, patch, setEditingId, remove, onShare, actionsAlwaysVisib
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
 // quote clamps to `quoteLines` with an inline show-more.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
+  // Accordion mode (tiles board): the parent owns which quote is open, so one
+  // expands at a time. Elsewhere (list, search modal) each card keeps its own.
+  const accordion = typeof onToggleExpand === 'function'
   const d = fmtDate(annDate(a))
   const editForm = (
     <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
@@ -967,9 +971,17 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 pos={a.sticker_x != null ? { x: a.sticker_x, y: a.sticker_y } : null}
                 onMove={(x, y) => patch(a, { sticker_x: x, sticker_y: y })}
                 sticker={<StickerImg sticker={sticker} />}
+                open={accordion ? !!expanded : undefined}
+                onToggle={accordion ? onToggleExpand : undefined}
               />
             ) : (
-              <ExpandableText text={a.quote} lines={quoteLines} style={QUOTE_STYLE} />
+              <ExpandableText
+                text={a.quote}
+                lines={quoteLines}
+                style={QUOTE_STYLE}
+                open={accordion ? !!expanded : undefined}
+                onToggle={accordion ? onToggleExpand : undefined}
+              />
             ))}
           <div className="flex items-center gap-2">
             <ReviewDot item={a} />
@@ -1161,6 +1173,13 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
     () => (!pinned.length || !items ? 0 : pinned.filter((id) => items.some((x) => x.id === id)).length),
     [pinned, items],
   )
+  // One board seed drives both the masonry jitter and each card's clamp height,
+  // so the two stay in step and a given book always lays out the same way.
+  const boardSeed = book?.id || bookId || 1
+  // Tiles run a one-open-at-a-time accordion: expanding a quote collapses any
+  // other, and the masonry order locks while one is open so columns don't jump.
+  const [expandedId, setExpandedId] = useState(null)
+  const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
 
   async function loadTags() {
     const r = await json('GET', '/tags')
@@ -1397,9 +1416,12 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
         // Height-packed masonry board (measured, seeded off the book so it never
         // wobbles): equal-width columns packed tallest-first, so the sticker
         // quotes read as an uneven collage. Each card clamps to a per-card 3–5
-        // lines (deterministic from its id) before show-more, keeping heights
-        // varied. Newly-added quotes ride on top via the pinned prefix.
-        <Masonry columns={tileCols} gap={16} seed={book?.id || bookId || 1} pinnedCount={pinnedShown}>
+        // lines — drawn from the same board seed as the masonry jitter — before
+        // show-more, keeping heights varied; a quote shorter than its clamp just
+        // shows in full. Expanding a quote collapses any other and locks the
+        // column order so the board doesn't reshuffle. Newly-added quotes ride on
+        // top via the pinned prefix.
+        <Masonry columns={tileCols} gap={16} seed={boardSeed} pinnedCount={pinnedShown} lockOrder={expandedId != null}>
           {displayRows.map((a, i) => (
             <AnnotationCard
               key={a.id}
@@ -1415,8 +1437,10 @@ function Annotations({ bookId, book, mobileFilterOpen, onMobileFilterOpen, mobil
               patch={patch}
               remove={remove}
               onShare={setShareTarget}
-              quoteLines={3 + (a.id % 3)}
+              quoteLines={3 + Math.floor(mulberry32(boardSeed + a.id)() * 3)}
               tagSuggestions={Object.keys(tagMap)}
+              expanded={expandedId === a.id}
+              onToggleExpand={() => toggleExpanded(a.id)}
             />
           ))}
         </Masonry>

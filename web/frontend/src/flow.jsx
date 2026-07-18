@@ -106,10 +106,15 @@ function computeLines(mod, text, font, lh, W, circle, gap) {
 // saved centre { x, y } in width-normalised units (null ⇒ top-right default).
 // `onMove(x, y)` — when provided the seal is draggable and this fires on release
 // so the caller can persist the new position. radius is the seal radius in px.
-export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius = 42, gap = 12, maxLines = 0, pos = null, onMove, className = '' }) {
+export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius = 42, gap = 12, maxLines = 0, pos = null, onMove, open: openProp, onToggle, className = '' }) {
   const ref = useRef(null)
   const [state, setState] = useState(null) // { lines, lh, r, W, cx, cy } | null (=> fallback)
-  const [open, setOpen] = useState(false) // show-more expansion (when maxLines set)
+  // show-more expansion (when maxLines set). Uncontrolled by default; pass
+  // open + onToggle to run it as part of the tiles board's one-open accordion.
+  const [openState, setOpenState] = useState(false)
+  const controlled = openProp !== undefined
+  const open = controlled ? openProp : openState
+  const toggle = () => (controlled ? onToggle?.() : setOpenState((o) => !o))
   const reduce = usePrefersReducedMotion()
   const hasSticker = !!sticker
 
@@ -124,7 +129,8 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   onMoveRef.current = onMove
 
   // A different annotation (new text/seal) collapses the clamp and resets pos.
-  useEffect(() => { setOpen(false); posRef.current = pos }, [text, stickerKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // (setOpenState is a no-op when the parent controls `open`.)
+  useEffect(() => { setOpenState(false); posRef.current = pos }, [text, stickerKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // A pos change from outside (e.g. after a save round-trips) resyncs when idle.
   useEffect(() => {
     if (!dragRef.current) { posRef.current = pos; relayoutRef.current && relayoutRef.current() }
@@ -269,11 +275,11 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
               role="button"
               tabIndex={0}
               className="show-toggle"
-              onClick={() => setOpen((o) => !o)}
+              onClick={toggle}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  setOpen((o) => !o)
+                  toggle()
                 }
               }}
             >

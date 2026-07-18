@@ -497,8 +497,15 @@ export function usePersistedState(key, def) {
 // The clamp is width-adaptive (CSS line-clamp), so a wider tile shows more text
 // before clamping — the "define dynamically based on width available" ask; a
 // ResizeObserver re-checks when a resizable tile changes width.
-export function ExpandableText({ text, lines = 5, style, className = "" }) {
-  const [open, setOpen] = useState(false);
+//
+// Expansion is uncontrolled by default (own state). Pass `open` + `onToggle` to
+// drive it from the parent — that's how the tiles board runs a one-open-at-a-time
+// accordion (expanding one quote collapses the rest).
+export function ExpandableText({ text, lines = 5, style, className = "", open: openProp, onToggle }) {
+  const [openState, setOpenState] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const toggle = () => (controlled ? onToggle?.() : setOpenState((o) => !o));
   const [overflows, setOverflows] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -532,11 +539,11 @@ export function ExpandableText({ text, lines = 5, style, className = "" }) {
           role="button"
           tabIndex={0}
           className="show-toggle"
-          onClick={() => setOpen((o) => !o)}
+          onClick={toggle}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setOpen((o) => !o);
+              toggle();
             }
           }}
         >
@@ -581,7 +588,7 @@ export function initTactile() {
 // mulberry32 — a tiny deterministic PRNG. Same seed ⇒ same sequence, so the
 // Masonry jitter below is stable across renders and reloads (no per-refresh
 // wobble). Seed 0 is degenerate for this generator, so bump it to 1.
-function mulberry32(seed) {
+export function mulberry32(seed) {
   let a = (seed >>> 0) || 1;
   return function () {
     a = (a + 0x6d2b79f5) | 0;
@@ -610,11 +617,20 @@ function mulberry32(seed) {
 // measured at the true width from the first frame. (The earlier column-<div>
 // version orphaned the observer whenever a re-pack moved a card, freezing the
 // layout on stale full-text heights — the "one lonely card, rest piled up" bug.)
-export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, className = "", children }) {
+//
+// `lockOrder` freezes the column assignment: while it's true the board reuses the
+// order + per-card column from the last free pack and only re-flows the vertical
+// tops. The tiles board raises it while a quote is expanded, so a card grows in
+// place and pushes its own column down without the whole board reshuffling
+// columns underneath the reader (the "show-more jumped everything" bug).
+export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lockOrder = false, className = "", children }) {
   const items = useMemo(() => Children.toArray(children), [children]);
   const n = items.length;
   const cols = Math.max(1, columns);
   const refs = useRef([]);
+  // The last free pack's placement: order = card indices in placement sequence,
+  // colOf[i] = card i's column. Reused verbatim while lockOrder holds.
+  const assignRef = useRef(null);
   // pos[i] = { col, top } for card i (left derives from col via CSS calc).
   // height = the tallest column, so the relative container reserves the space.
   const [pos, setPos] = useState([]);
@@ -625,32 +641,53 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, clas
       const els = refs.current.slice(0, n);
       const h = els.map((el) => (el ? el.getBoundingClientRect().height : 0));
       const pc = Math.max(0, Math.min(pinnedCount, n));
-      // (1) tallest first — only the non-pinned tail (ties → index).
-      const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => h[b] - h[a] || a - b);
-      const rankOf = new Array(n);
-      rest0.forEach((i, r) => (rankOf[i] = r));
-      // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
-      // re-sort (ties → original rank). Draw a fixed 3 rolls per card so the
-      // sequence stays deterministic whether or not a card actually moves.
-      const rng = mulberry32(seed);
-      const key = new Array(n);
-      for (let r = 0; r < rest0.length; r++) {
-        const move = rng() < 0.2;
-        const step = rng() < 0.5 ? 2 : 3;
-        const up = rng() < 0.5;
-        key[rest0[r]] = r + (move ? (up ? -step : step) : 0);
+
+      // Column assignment + placement order. While locked (a card is expanded),
+      // reuse the assignment measured on the collapsed board so the expanding
+      // card only grows within its own column — columns never reshuffle.
+      let order, colOf;
+      const cached = assignRef.current;
+      if (lockOrder && cached && cached.colOf.length === n) {
+        order = cached.order;
+        colOf = cached.colOf;
+      } else {
+        // (1) tallest first — only the non-pinned tail (ties → index).
+        const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => h[b] - h[a] || a - b);
+        const rankOf = new Array(n);
+        rest0.forEach((i, r) => (rankOf[i] = r));
+        // (2) seeded ±2–3 nudge on ~20% of cards: shift the mover's sort key, then
+        // re-sort (ties → original rank). Draw a fixed 3 rolls per card so the
+        // sequence stays deterministic whether or not a card actually moves.
+        const rng = mulberry32(seed);
+        const key = new Array(n);
+        for (let r = 0; r < rest0.length; r++) {
+          const move = rng() < 0.2;
+          const step = rng() < 0.5 ? 2 : 3;
+          const up = rng() < 0.5;
+          key[rest0[r]] = r + (move ? (up ? -step : step) : 0);
+        }
+        const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
+        // Pinned prefix stays on top in its given order, then the height-packed tail.
+        order = [];
+        for (let i = 0; i < pc; i++) order.push(i);
+        for (const i of rest) order.push(i);
+        // (3) greedy by rows: each card, in that order, onto the shortest column —
+        // this FIXES each card's column; a later locked re-flow only moves tops.
+        colOf = new Array(n);
+        const colH0 = Array(cols).fill(0);
+        for (const i of order) {
+          let t = 0;
+          for (let c = 1; c < cols; c++) if (colH0[c] < colH0[t]) t = c;
+          colOf[i] = t;
+          colH0[t] += h[i] + gap;
+        }
+        assignRef.current = { order, colOf };
       }
-      const rest = rest0.slice().sort((a, b) => key[a] - key[b] || rankOf[a] - rankOf[b]);
-      // Pinned prefix stays on top in its given order, then the height-packed tail.
-      const order = [];
-      for (let i = 0; i < pc; i++) order.push(i);
-      for (const i of rest) order.push(i);
-      // (3) greedy by rows: each card, in that order, onto the shortest column.
+      // Flow tops from the live heights, following the fixed order + columns.
       const colH = Array(cols).fill(0);
       const next = new Array(n);
       for (const i of order) {
-        let t = 0;
-        for (let c = 1; c < cols; c++) if (colH[c] < colH[t]) t = c;
+        const t = colOf[i];
         next[i] = { col: t, top: colH[t] };
         colH[t] += h[i] + gap;
       }
@@ -664,7 +701,7 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, clas
     const ro = new ResizeObserver(repack);
     refs.current.slice(0, n).forEach((el) => el && ro.observe(el));
     return () => ro.disconnect();
-  }, [n, cols, gap, seed, pinnedCount]);
+  }, [n, cols, gap, seed, pinnedCount, lockOrder]);
 
   // Column width and each column's left edge as CSS calc, so they track the
   // container width with no JS: colW = (100% − gutters) / cols; left = col share.

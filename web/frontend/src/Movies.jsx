@@ -29,6 +29,7 @@ import {
   IconMore,
   IconPlus,
   Lightbox,
+  Masonry,
   MobileSheet,
   MoreMenu,
   MonoLabel,
@@ -49,6 +50,7 @@ import {
   seriesLabel,
   splitCommas,
   titleCaseGenre,
+  useColumnsAt,
   useCoverSize,
   useFrameBase,
   useIsMobileScreen,
@@ -885,6 +887,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
   const [sort, setSort] = useState({ col: 'timestamp', dir: 'asc' })
+  const tileCols = useColumnsAt([[1280, 3], [640, 2]]) // tiles: book-style collage (§8.6)
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
   const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
@@ -1072,6 +1075,38 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'tiles' && (
+        // Tiles read like the book board (§8.6): a height-packed masonry collage
+        // (1/2/3 cols by width, seeded off the movie so it never wobbles) whose
+        // cards keep the film-frame skin — book layout, film-negative theme. The
+        // strip decoration (sprockets/edge/dividers) belongs to the list view.
+        <Reveal>
+          <Masonry columns={tileCols} gap={16} seed={Number(movieId) || 1}>
+            {items.map((d, i) => (
+              <Frame
+                key={d.id}
+                d={d}
+                wrapClass=""
+                tagMap={tagMap}
+                stickerMap={stickerMap}
+                stickers={stickers}
+                reloadStickers={reloadStickers}
+                editing={editingId === d.id}
+                castListId={castListId}
+                onEdit={() => setEditingId(d.id)}
+                onCancelEdit={() => setEditingId(null)}
+                onSave={(fields) => save(d.id, fields)}
+                onPatch={(fields) => patch(d, fields)}
+                onDelete={() => remove(d)}
+                onShare={() => setShareTarget(d)}
+                onOpenPerson={setPerson}
+              />
+            ))}
+          </Masonry>
+        </Reveal>
+      )}
+      {items && items.length > 0 && view === 'list' && (
+        // List is the FILM STRIP (§6): strip container → sprockets → edge row →
+        // frames stacked vertically, divided by rows carrying the next frame code.
         <Reveal className="film-strip">
           <Sprockets count={15} />
           <EdgeRow code={frameCode(base)} />
@@ -1098,29 +1133,6 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
           ))}
           <Sprockets count={15} />
         </Reveal>
-      )}
-      {items && items.length > 0 && view === 'list' && (
-        <div className="space-y-3">
-          {items.map((d) => (
-            <Frame
-              key={d.id}
-              d={d}
-              tagMap={tagMap}
-              stickerMap={stickerMap}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-              editing={editingId === d.id}
-              castListId={castListId}
-              onEdit={() => setEditingId(d.id)}
-              onCancelEdit={() => setEditingId(null)}
-              onSave={(fields) => save(d.id, fields)}
-              onPatch={(fields) => patch(d, fields)}
-              onDelete={() => remove(d)}
-              onShare={() => setShareTarget(d)}
-              onOpenPerson={setPerson}
-            />
-          ))}
-        </div>
       )}
       {items && items.length > 0 && view === 'table' && (
         <DialogueTable
@@ -1248,14 +1260,18 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actionsAlwaysVisible = false, editInline = false }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5' }) {
+  // wrapClass carries the frame's outer spacing: the strip (list) view indents
+  // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
+  // so the card fills its column slot and the masonry gap does the spacing.
+  const frameClass = ['film-frame', wrapClass, 'px-5 py-4'].filter(Boolean).join(' ')
   const editForm = (
     <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // editInline renders the form in place of the frame — used inside the search
   // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
   if (editInline && editing) {
-    return <article className="film-frame mx-4 my-1.5 px-5 py-4">{editForm}</article>
+    return <article className={frameClass}>{editForm}</article>
   }
   // Credit line; the actor name is clickable (opens the metadata panel) when an
   // onOpenPerson handler is supplied — styled to inherit the amber mono voice.
@@ -1289,7 +1305,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       <FormModal open={editing} onClose={onCancelEdit} title="Edit dialogue">
         {editForm}
       </FormModal>
-    <article className="film-frame mx-4 my-1.5 px-5 py-4">
+    <article className={frameClass}>
       {d.quote &&
         (sticker ? (
           <FlowQuote

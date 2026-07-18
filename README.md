@@ -241,6 +241,16 @@ TMDB alone covers most catalogues). There is also an optional built-in TMDB slot
 empty**, so until a key is saved (or that constant is filled) movie lookup answers `503` and manual
 entry still works. Everything else works with no key.
 
+> [!CAUTION]
+> **Amazon cookie (optional, use at your own risk).** Under **Settings → Amazon (advanced)** an admin
+> may paste an Amazon session cookie to enrich book metadata (description + genres) by scraping the
+> product page. This is **off by default and entirely optional** — book covers (keyless image CDN) and
+> Kindle highlight import (a file *you* export) both work with no cookie. The cookie is stored
+> write-only and never shown back, but be aware it **grants access to your Amazon account** and that
+> automated scraping is **against Amazon's Conditions of Use**: the account whose cookie you supply
+> bears that risk, so only you can decide to enable it. Tippani never ships, shares, or centralises the
+> cookie, and only ever uses it on your own behalf.
+
 Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.service)):
 `GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200`.
 
