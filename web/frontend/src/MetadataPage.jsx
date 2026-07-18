@@ -77,8 +77,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
     }
   }
 
-  const [bookFilter, setBookFilter] = useState('flagged')
-  const [movieFilter, setMovieFilter] = useState('flagged')
+  // Unified catalogue console: a type (all/book/movie/show) that drives which
+  // filters the second dropdown offers, plus the chosen filter.
+  const [catType, setCatType] = useState('all')
+  const [catFilter, setCatFilter] = useState('flagged')
   const mobile = useIsMobileScreen()
 
   const stats = useMemo(() => {
@@ -189,10 +191,21 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
         </>
       ) : (
         <>
-          <StatsStrip stats={stats} onPickBook={setBookFilter} onPickMovie={setMovieFilter} />
-          <BooksConsole books={lib.books} filter={bookFilter} setFilter={setBookFilter} onOpen={onOpenBook} onDone={load} onFlash={setFlash} onReverify={(ids) => setReverify({ book_ids: ids })} />
+          <StatsStrip stats={stats} onPick={(t, f) => { setCatType(t); setCatFilter(f) }} />
+          <CatalogueConsole
+            books={lib.books}
+            movies={lib.movies}
+            type={catType}
+            setType={setCatType}
+            filter={catFilter}
+            setFilter={setCatFilter}
+            onOpenBook={onOpenBook}
+            onOpenMovie={onOpenMovie}
+            onDone={load}
+            onFlash={setFlash}
+            onReverify={(selection) => setReverify(selection)}
+          />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
-          <MoviesConsole movies={lib.movies} filter={movieFilter} setFilter={setMovieFilter} onOpen={onOpenMovie} onDone={load} onFlash={setFlash} onReverify={(ids) => setReverify({ movie_ids: ids })} />
           <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
           <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
         </>
@@ -282,7 +295,7 @@ function Stat({ n, label, warn, onClick }) {
   )
 }
 
-function StatsStrip({ stats, onPickBook, onPickMovie }) {
+function StatsStrip({ stats, onPick }) {
   const group = (label, tiles) => (
     <div>
       <MonoLabel className="mb-2 block">{label}</MonoLabel>
@@ -295,24 +308,24 @@ function StatsStrip({ stats, onPickBook, onPickMovie }) {
     <HandCard className="p-5">
       <div className="flex flex-wrap gap-x-8 gap-y-4">
         {group('Books', [
-          <Stat key="t" n={b.total} label="total" onClick={() => onPickBook('all')} />,
-          <Stat key="c" n={b.no_cover} label="no cover" warn onClick={() => onPickBook('no_cover')} />,
-          <Stat key="lr" n={b.low_res} label="low-res" warn onClick={() => onPickBook('low_res')} />,
-          <Stat key="au" n={b.no_author} label="no author" warn onClick={() => onPickBook('no_author')} />,
-          <Stat key="se" n={b.no_series} label="no series" warn onClick={() => onPickBook('no_series')} />,
-          <Stat key="y" n={b.no_year} label="no year" warn onClick={() => onPickBook('no_year')} />,
-          <Stat key="g" n={b.no_genre} label="no genre" warn onClick={() => onPickBook('no_genre')} />,
-          <Stat key="s" n={b.no_source} label="no source" warn onClick={() => onPickBook('no_source')} />,
+          <Stat key="t" n={b.total} label="total" onClick={() => onPick('book', 'all')} />,
+          <Stat key="c" n={b.no_cover} label="no cover" warn onClick={() => onPick('book', 'no_cover')} />,
+          <Stat key="lr" n={b.low_res} label="low-res" warn onClick={() => onPick('book', 'low_res')} />,
+          <Stat key="au" n={b.no_author} label="no author" warn onClick={() => onPick('book', 'no_author')} />,
+          <Stat key="se" n={b.no_series} label="no series" warn onClick={() => onPick('book', 'no_series')} />,
+          <Stat key="y" n={b.no_year} label="no year" warn onClick={() => onPick('book', 'no_year')} />,
+          <Stat key="g" n={b.no_genre} label="no genre" warn onClick={() => onPick('book', 'no_genre')} />,
+          <Stat key="s" n={b.no_source} label="no source" warn onClick={() => onPick('book', 'no_source')} />,
         ])}
         {group('Films & shows', [
-          <Stat key="t" n={m.total} label="total" onClick={() => onPickMovie('all')} />,
-          <Stat key="p" n={m.no_poster} label="no poster" warn onClick={() => onPickMovie('no_poster')} />,
-          <Stat key="lr" n={m.low_res} label="low-res" warn onClick={() => onPickMovie('low_res')} />,
-          <Stat key="c" n={m.no_cast} label="no cast" warn onClick={() => onPickMovie('no_cast')} />,
-          <Stat key="d" n={m.no_director} label="no director" warn onClick={() => onPickMovie('no_director')} />,
-          <Stat key="y" n={m.no_year} label="no year" warn onClick={() => onPickMovie('no_year')} />,
-          <Stat key="g" n={m.no_genre} label="no genre" warn onClick={() => onPickMovie('no_genre')} />,
-          <Stat key="s" n={m.no_source} label="no source" warn onClick={() => onPickMovie('no_source')} />,
+          <Stat key="t" n={m.total} label="total" onClick={() => onPick('movie', 'all')} />,
+          <Stat key="p" n={m.no_poster} label="no poster" warn onClick={() => onPick('movie', 'no_poster')} />,
+          <Stat key="lr" n={m.low_res} label="low-res" warn onClick={() => onPick('movie', 'low_res')} />,
+          <Stat key="c" n={m.no_cast} label="no cast" warn onClick={() => onPick('movie', 'no_cast')} />,
+          <Stat key="d" n={m.no_director} label="no director" warn onClick={() => onPick('movie', 'no_director')} />,
+          <Stat key="y" n={m.no_year} label="no year" warn onClick={() => onPick('movie', 'no_year')} />,
+          <Stat key="g" n={m.no_genre} label="no genre" warn onClick={() => onPick('movie', 'no_genre')} />,
+          <Stat key="s" n={m.no_source} label="no source" warn onClick={() => onPick('movie', 'no_source')} />,
         ])}
         {group('Dialogues', [
           <Stat key="t" n={stats.dialogues.total} label="total" />,
@@ -356,46 +369,6 @@ async function runPooled(items, limit, fn) {
   return out
 }
 
-// useSelection — a Set of ids; pruned to what's shown when filters change so the
-// visible checkbox state and the stored selection never diverge.
-function useSelection() {
-  const [sel, setSel] = useState(() => new Set())
-  return {
-    sel,
-    has: (id) => sel.has(id),
-    toggle: (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n }),
-    setAll: (ids, on) => setSel(() => (on ? new Set(ids) : new Set())),
-    prune: (ids) => setSel((s) => new Set([...s].filter((id) => ids.includes(id)))),
-    clear: () => setSel(new Set()),
-  }
-}
-
-function Toolbar({ shownCount, filter, setFilter, filterOptions, mediaType, setMediaType, q, setQ }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <h2 style={H2}>{filterOptions.title}</h2>
-      <MonoLabel>{shownCount} shown</MonoLabel>
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        {setMediaType && (
-          <select className="tp-input w-auto" title="Media type" value={mediaType} onChange={(e) => setMediaType(e.target.value)}>
-            <option value="">all types</option>
-            <option value="movie">movies</option>
-            <option value="show">shows</option>
-          </select>
-        )}
-        <select className="tp-input w-auto" title="Filter" value={filter} onChange={(e) => setFilter(e.target.value)}>
-          {filterOptions.options.map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </select>
-        <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
-    </div>
-  )
-}
-
 function BulkBar({ n, onClear, children }) {
   if (n === 0) return null
   return (
@@ -412,139 +385,240 @@ function BulkBar({ n, onClear, children }) {
   )
 }
 
-function SelectAll({ ids, sel }) {
-  const all = ids.length > 0 && ids.every((id) => sel.has(id))
-  return (
-    <label className="flex items-center gap-2 microcopy" style={{ cursor: 'pointer' }}>
-      <input type="checkbox" checked={all} onChange={() => sel.setAll(ids, !all)} /> select all shown
-    </label>
-  )
+
+// ---- catalogue console (books + films + shows, merged) ----
+
+// The type selector drives which filters the second dropdown offers. "all types"
+// gets the filters common to books and films; a specific type gets that kind's
+// full set. Keep the shared keys (flagged/low_res/no_year/no_genre/no_source)
+// spelled the same across both so an "all types" filter applies to either kind.
+const CATALOGUE_TYPES = [
+  ['all', 'all types'],
+  ['book', 'books'],
+  ['movie', 'films'],
+  ['show', 'shows'],
+]
+const BOOK_FILTERS = [
+  ['flagged', 'flagged'], ['no_cover', 'no cover'], ['low_res', 'low-res'],
+  ['no_author', 'no author'], ['no_series', 'no series'], ['no_year', 'no year'],
+  ['no_genre', 'no genre'], ['no_source', 'no source'], ['all', 'all'],
+]
+const MOVIE_FILTERS = [
+  ['flagged', 'flagged'], ['no_poster', 'no poster'], ['low_res', 'low-res'],
+  ['no_cast', 'no cast'], ['no_director', 'no director'], ['no_year', 'no year'],
+  ['no_genre', 'no genre'], ['no_source', 'no source'], ['all', 'all'],
+]
+const ALL_FILTERS = [
+  ['flagged', 'flagged'], ['low_res', 'low-res'], ['no_year', 'no year'],
+  ['no_genre', 'no genre'], ['no_source', 'no source'], ['all', 'all'],
+]
+function filtersForType(type) {
+  if (type === 'book') return BOOK_FILTERS
+  if (type === 'movie' || type === 'show') return MOVIE_FILTERS
+  return ALL_FILTERS
+}
+const catKey = (kind, id) => `${kind}:${id}`
+function bookPasses(b, filter) {
+  const p = {
+    flagged: (b) => !b.has_cover || !b.has_ids, no_cover: (b) => !b.has_cover,
+    low_res: (b) => b.low_res_cover, no_author: (b) => !b.has_author,
+    no_series: (b) => !b.has_series, no_year: (b) => !b.has_year,
+    no_genre: (b) => !b.has_genre, no_source: (b) => !b.has_ids,
+  }[filter]
+  return p ? p(b) : true
+}
+function moviePasses(m, filter) {
+  const p = {
+    flagged: (m) => !m.has_poster || !m.has_cast || !m.has_source, no_poster: (m) => !m.has_poster,
+    low_res: (m) => m.low_res_poster, no_cast: (m) => !m.has_cast,
+    no_director: (m) => !m.has_director, no_year: (m) => !m.has_year,
+    no_genre: (m) => !m.has_genre, no_source: (m) => !m.has_source,
+  }[filter]
+  return p ? p(m) : true
 }
 
-// ---- books console ----
-
-function BooksConsole({ books, filter, setFilter, onOpen, onDone, onFlash, onReverify }) {
+// CatalogueConsole — one section (styled like the People console: no card,
+// its own scroll box) listing books, films and shows together. The first
+// dropdown picks the type and reshapes the second (filter) dropdown; rows render
+// as BookRow / MovieRow by kind, and the bulk bar splits the (kind-namespaced)
+// selection back into per-kind actions.
+function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onOpenBook, onOpenMovie, onDone, onFlash, onReverify }) {
   const [q, setQ] = useState('')
-  const [lookupId, setLookupId] = useState(null)
+  const [lookupKey, setLookupKey] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [editing, setEditing] = useState(false) // bulk-edit form open
-  const sel = useSelection()
+  const [editing, setEditing] = useState(false) // book bulk-edit form open
+  const [sel, setSel] = useState(() => new Set()) // "book:id" / "movie:id" keys
+
+  // Guard against a filter that isn't valid for the current type (e.g. after a
+  // type switch) so the <select> and predicates always agree.
+  const filterOpts = filtersForType(type)
+  const filterVal = filterOpts.some(([v]) => v === filter) ? filter : 'flagged'
 
   const shown = useMemo(() => {
-    const pred = {
-      flagged: (b) => !b.has_cover || !b.has_ids,
-      no_cover: (b) => !b.has_cover,
-      low_res: (b) => b.low_res_cover,
-      no_author: (b) => !b.has_author,
-      no_series: (b) => !b.has_series,
-      no_year: (b) => !b.has_year,
-      no_genre: (b) => !b.has_genre,
-      no_source: (b) => !b.has_ids,
-    }[filter]
-    let list = pred ? books.filter(pred) : books
     const s = q.trim().toLowerCase()
-    if (s) list = list.filter((b) => b.title.toLowerCase().includes(s) || (b.author || '').toLowerCase().includes(s))
-    return list
-  }, [books, filter, q])
-  const ids = shown.map((b) => b.id)
-  const selected = ids.filter((id) => sel.has(id))
+    const out = []
+    if (type === 'all' || type === 'book') {
+      for (const b of books) {
+        if (!bookPasses(b, filterVal)) continue
+        if (s && !(b.title.toLowerCase().includes(s) || (b.author || '').toLowerCase().includes(s))) continue
+        out.push({ kind: 'book', item: b })
+      }
+    }
+    if (type === 'all' || type === 'movie' || type === 'show') {
+      for (const m of movies) {
+        const mt = m.media_type || 'movie'
+        if (type === 'movie' && mt !== 'movie') continue
+        if (type === 'show' && mt !== 'show') continue
+        if (!moviePasses(m, filterVal)) continue
+        if (s && !m.title.toLowerCase().includes(s)) continue
+        out.push({ kind: 'movie', item: m })
+      }
+    }
+    return out
+  }, [books, movies, type, filterVal, q])
+
+  const keys = shown.map((x) => catKey(x.kind, x.item.id))
+  const selectedKeys = keys.filter((k) => sel.has(k))
+  const selBookIds = selectedKeys.filter((k) => k.startsWith('book:')).map((k) => Number(k.slice(5)))
+  const selMovieIds = selectedKeys.filter((k) => k.startsWith('movie:')).map((k) => Number(k.slice(6)))
+  const selMoviesWithCast = shown.filter((x) => x.kind === 'movie' && sel.has(catKey('movie', x.item.id)) && x.item.has_cast).length
+  const allChecked = keys.length > 0 && keys.every((k) => sel.has(k))
+
   useEffect(() => {
-    sel.prune(ids)
+    setSel((s) => new Set([...s].filter((k) => keys.includes(k))))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, q])
+  }, [type, filterVal, q])
+
+  const toggle = (k) => setSel((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })
+  const clearSel = () => setSel(new Set())
 
   async function del() {
-    if (!confirm(`Delete ${selected.length} book(s) and all their annotations?`)) return
+    const total = selectedKeys.length
+    if (!confirm(`Delete ${total} item(s) and all their quotes/dialogues?`)) return
     setBusy(true)
     setErr('')
     try {
-      const rs = await runPooled(selected, 4, (id) => json('DELETE', `/books/${id}`))
+      const rs = await runPooled(selectedKeys, 4, (k) => {
+        const [kind, id] = k.split(':')
+        return json('DELETE', `/${kind === 'book' ? 'books' : 'movies'}/${id}`)
+      })
       const fail = rs.filter((r) => !r.ok).length
-      onFlash(`deleted ${selected.length - fail} book(s)${fail ? `, ${fail} failed` : ''}`)
+      onFlash(`deleted ${total - fail} item(s)${fail ? `, ${fail} failed` : ''}`)
     } finally {
       setBusy(false)
-      sel.clear()
+      clearSel()
       onDone()
     }
   }
 
-  // bulkEdit sends one targeted PATCH for the whole selection (POST /books/bulk).
+  // bulkEdit is books-only (POST /books/bulk); the button only shows when books
+  // are in the selection.
   async function bulkEdit(fields) {
     setBusy(true)
     setErr('')
-    const r = await json('POST', '/books/bulk', { ids: selected, ...fields })
+    const r = await json('POST', '/books/bulk', { ids: selBookIds, ...fields })
     setBusy(false)
     if (!r.ok) return setErr(errText(r, 'bulk edit failed'))
     onFlash(`updated ${r.data.updated} book(s)`)
     setEditing(false)
-    sel.clear()
+    clearSel()
     onDone()
   }
 
+  async function fillActors() {
+    setBusy(true)
+    setErr('')
+    try {
+      const rs = await runPooled(selMovieIds, 4, (id) => json('POST', `/movies/${id}/remap-speakers`, { mappings: [], refill: true }))
+      const filled = rs.reduce((n, r) => n + (r.ok ? r.data.refilled || 0 : 0), 0)
+      const fail = rs.filter((r) => !r.ok).length
+      onFlash(`filled ${filled} actor(s) across ${selMovieIds.length} title(s)${fail ? `, ${fail} failed` : ''}`)
+    } finally {
+      setBusy(false)
+      clearSel()
+      onDone()
+    }
+  }
+
   return (
-    <HandCard className="space-y-3 p-5">
-      <Toolbar
-        shownCount={shown.length}
-        filter={filter}
-        setFilter={setFilter}
-        q={q}
-        setQ={setQ}
-        filterOptions={{
-          title: 'Books',
-          options: [
-            ['flagged', 'flagged'],
-            ['no_cover', 'no cover'],
-            ['low_res', 'low-res'],
-            ['no_author', 'no author'],
-            ['no_series', 'no series'],
-            ['no_year', 'no year'],
-            ['no_genre', 'no genre'],
-            ['no_source', 'no source'],
-            ['all', 'all'],
-          ],
-        }}
-      />
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 style={H2}>Catalogue</h2>
+        <MonoLabel>{shown.length} shown</MonoLabel>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <select className="tp-input w-auto" title="Type" value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
+            {CATALOGUE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <select className="tp-input w-auto" title="Filter" value={filterVal} onChange={(e) => setFilter(e.target.value)}>
+            {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+      </div>
       {shown.length === 0 ? (
         <p className="microcopy">nothing matches.</p>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <SelectAll ids={ids} sel={sel} />
+            <label className="flex items-center gap-2 microcopy" style={{ cursor: 'pointer' }}>
+              <input type="checkbox" checked={allChecked} onChange={() => setSel(allChecked ? new Set() : new Set(keys))} /> select all shown
+            </label>
           </div>
-          <BulkBar n={selected.length} onClear={sel.clear}>
-            <GhostButton disabled={busy} onClick={() => setEditing((v) => !v)}>
-              {editing ? 'Close bulk edit' : 'Bulk edit…'}
-            </GhostButton>
-            <GhostButton disabled={busy} onClick={() => onReverify(selected)}>
+          <BulkBar n={selectedKeys.length} onClear={clearSel}>
+            {selBookIds.length > 0 && (
+              <GhostButton disabled={busy} onClick={() => setEditing((v) => !v)}>
+                {editing ? 'Close bulk edit' : 'Bulk edit books…'}
+              </GhostButton>
+            )}
+            {selMovieIds.length > 0 && (
+              <GhostButton
+                disabled={busy || selMoviesWithCast === 0}
+                title={selMoviesWithCast === 0 ? 'none of the selected titles have a cast to fill from' : undefined}
+                onClick={fillActors}
+              >
+                Fill actors from cast
+              </GhostButton>
+            )}
+            <GhostButton disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
               Re-verify…
             </GhostButton>
             <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
               Delete
             </GhostButton>
           </BulkBar>
-          {editing && selected.length > 0 && <BulkEditForm n={selected.length} busy={busy} onApply={bulkEdit} />}
+          {editing && selBookIds.length > 0 && <BulkEditForm n={selBookIds.length} busy={busy} onApply={bulkEdit} />}
           <ErrorText>{err}</ErrorText>
-          <div>
-            {shown.map((b) => (
-              <BookRow
-                key={b.id}
-                book={b}
-                checked={sel.has(b.id)}
-                onCheck={() => sel.toggle(b.id)}
-                open={lookupId === b.id}
-                onToggleLookup={() => setLookupId((id) => (id === b.id ? null : b.id))}
-                onOpen={onOpen}
-                onDone={() => {
-                  setLookupId(null)
-                  onDone()
-                }}
-              />
-            ))}
+          <div className="ann-table-wrap" style={{ maxHeight: 460, overflowY: 'auto' }}>
+            {shown.map((x) =>
+              x.kind === 'book' ? (
+                <BookRow
+                  key={catKey('book', x.item.id)}
+                  book={x.item}
+                  checked={sel.has(catKey('book', x.item.id))}
+                  onCheck={() => toggle(catKey('book', x.item.id))}
+                  open={lookupKey === catKey('book', x.item.id)}
+                  onToggleLookup={() => setLookupKey((k) => (k === catKey('book', x.item.id) ? null : catKey('book', x.item.id)))}
+                  onOpen={onOpenBook}
+                  onDone={() => { setLookupKey(null); onDone() }}
+                />
+              ) : (
+                <MovieRow
+                  key={catKey('movie', x.item.id)}
+                  movie={x.item}
+                  checked={sel.has(catKey('movie', x.item.id))}
+                  onCheck={() => toggle(catKey('movie', x.item.id))}
+                  open={lookupKey === catKey('movie', x.item.id)}
+                  onToggleLookup={() => setLookupKey((k) => (k === catKey('movie', x.item.id) ? null : catKey('movie', x.item.id)))}
+                  onOpen={onOpenMovie}
+                  onDone={() => { setLookupKey(null); onDone() }}
+                />
+              ),
+            )}
           </div>
         </>
       )}
-    </HandCard>
+    </section>
   )
 }
 
@@ -636,144 +710,6 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
         </div>
       )}
     </div>
-  )
-}
-
-// ---- movies console ----
-
-function MoviesConsole({ movies, filter, setFilter, onOpen, onDone, onFlash, onReverify }) {
-  const [mediaType, setMediaType] = useState('')
-  const [q, setQ] = useState('')
-  const [lookupId, setLookupId] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const sel = useSelection()
-
-  const shown = useMemo(() => {
-    let list = movies
-    if (mediaType) list = list.filter((m) => (m.media_type || 'movie') === mediaType)
-    const pred = {
-      flagged: (m) => !m.has_poster || !m.has_cast || !m.has_source,
-      no_poster: (m) => !m.has_poster,
-      low_res: (m) => m.low_res_poster,
-      no_cast: (m) => !m.has_cast,
-      no_director: (m) => !m.has_director,
-      no_year: (m) => !m.has_year,
-      no_genre: (m) => !m.has_genre,
-      no_source: (m) => !m.has_source,
-    }[filter]
-    if (pred) list = list.filter(pred)
-    const s = q.trim().toLowerCase()
-    if (s) list = list.filter((m) => m.title.toLowerCase().includes(s))
-    return list
-  }, [movies, filter, mediaType, q])
-  const ids = shown.map((m) => m.id)
-  const selected = ids.filter((id) => sel.has(id))
-  // "Fill actors from cast" only does anything for titles that HAVE a cast.
-  const selectedWithCast = shown.filter((m) => sel.has(m.id) && m.has_cast).length
-  useEffect(() => {
-    sel.prune(ids)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, mediaType, q])
-
-  async function fillActors() {
-    setBusy(true)
-    setErr('')
-    try {
-      const rs = await runPooled(selected, 4, (id) => json('POST', `/movies/${id}/remap-speakers`, { mappings: [], refill: true }))
-      const filled = rs.reduce((n, r) => n + (r.ok ? r.data.refilled || 0 : 0), 0)
-      const fail = rs.filter((r) => !r.ok).length
-      onFlash(`filled ${filled} actor(s) across ${selected.length} title(s)${fail ? `, ${fail} failed` : ''}`)
-    } finally {
-      setBusy(false)
-      sel.clear()
-      onDone()
-    }
-  }
-
-  async function del() {
-    if (!confirm(`Delete ${selected.length} title(s) and all their dialogues?`)) return
-    setBusy(true)
-    setErr('')
-    try {
-      const rs = await runPooled(selected, 4, (id) => json('DELETE', `/movies/${id}`))
-      const fail = rs.filter((r) => !r.ok).length
-      onFlash(`deleted ${selected.length - fail} title(s)${fail ? `, ${fail} failed` : ''}`)
-    } finally {
-      setBusy(false)
-      sel.clear()
-      onDone()
-    }
-  }
-
-  return (
-    <HandCard className="space-y-3 p-5">
-      <Toolbar
-        shownCount={shown.length}
-        filter={filter}
-        setFilter={setFilter}
-        mediaType={mediaType}
-        setMediaType={setMediaType}
-        q={q}
-        setQ={setQ}
-        filterOptions={{
-          title: 'Films & shows',
-          options: [
-            ['flagged', 'flagged'],
-            ['no_poster', 'no poster'],
-            ['low_res', 'low-res'],
-            ['no_cast', 'no cast'],
-            ['no_director', 'no director'],
-            ['no_year', 'no year'],
-            ['no_genre', 'no genre'],
-            ['no_source', 'no source'],
-            ['all', 'all'],
-          ],
-        }}
-      />
-      {shown.length === 0 ? (
-        <p className="microcopy">nothing matches.</p>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-3">
-            <SelectAll ids={ids} sel={sel} />
-          </div>
-          <BulkBar n={selected.length} onClear={sel.clear}>
-            <GhostButton
-              disabled={busy || selectedWithCast === 0}
-              title={selectedWithCast === 0 ? 'none of the selected titles have a cast to fill from' : undefined}
-              onClick={fillActors}
-            >
-              Fill actors from cast
-            </GhostButton>
-            <GhostButton disabled={busy} onClick={() => onReverify(selected)}>
-              Re-verify…
-            </GhostButton>
-            <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
-              Delete
-            </GhostButton>
-          </BulkBar>
-          <ErrorText>{err}</ErrorText>
-          <div>
-            {shown.map((m) => (
-              <MovieRow
-                key={m.id}
-                movie={m}
-                checked={sel.has(m.id)}
-                onCheck={() => sel.toggle(m.id)}
-                open={lookupId === m.id}
-                onToggleLookup={() => setLookupId((id) => (id === m.id ? null : m.id))}
-                onOpen={onOpen}
-                onDone={() => {
-                  setLookupId(null)
-                  onDone()
-                }}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </HandCard>
   )
 }
 
