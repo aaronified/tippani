@@ -599,32 +599,33 @@ function mulberry32(seed) {
 //      seed keeps a board like Settings stable across loads),
 //   3. deal that sequence out row by row, each card onto the currently-shortest
 //      column ("go horizontal, drop the next card on the least-tall pile").
-// It measures real rendered heights (unlike CSS multi-column, which fills a
-// column top-to-bottom then balances), so a lone tall card sits beside several
-// short ones instead of leaving a gap. Re-packs on resize / height change
-// (ResizeObserver per card). columns<=1 just stacks. `gap` is the px gutter.
-// `pinnedCount` keeps the first N children glued to the top of the board in the
-// order given (skipping the height sort) — used so a just-added quote stays on
-// top of the collage even though everything else is height-packed.
+// `pinnedCount` keeps the first N children glued to the top (skipping the sort).
+//
+// Rendering matters as much as the algorithm here: every card lives in a FIXED
+// DOM slot (a direct child of the container, keyed by index) and is placed with
+// absolute left/top. It is NEVER moved between parents, so (a) a card that
+// clamps its text or loads an image after mount keeps its ResizeObserver alive
+// and the board re-packs on the *real* height, and (b) cards don't lose their
+// own state on a re-pack. Column width comes from a CSS calc so heights are
+// measured at the true width from the first frame. (The earlier column-<div>
+// version orphaned the observer whenever a re-pack moved a card, freezing the
+// layout on stale full-text heights — the "one lonely card, rest piled up" bug.)
 export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, className = "", children }) {
   const items = useMemo(() => Children.toArray(children), [children]);
   const n = items.length;
   const cols = Math.max(1, columns);
   const refs = useRef([]);
-  // layout.order = sequence cards are dealt in; layout.col[i] = column original
-  // card i lands in. Pre-measure fallback is reading-order round-robin; the
-  // layout effect overwrites it (height-packed) before the browser paints.
-  const [layout, setLayout] = useState(() => ({
-    order: items.map((_, i) => i),
-    col: items.map((_, i) => i % cols),
-  }));
+  // pos[i] = { col, top } for card i (left derives from col via CSS calc).
+  // height = the tallest column, so the relative container reserves the space.
+  const [pos, setPos] = useState([]);
+  const [height, setHeight] = useState(0);
 
   useLayoutEffect(() => {
-    const els = refs.current.slice(0, n);
-    const pack = () => {
+    const repack = () => {
+      const els = refs.current.slice(0, n);
       const h = els.map((el) => (el ? el.getBoundingClientRect().height : 0));
       const pc = Math.max(0, Math.min(pinnedCount, n));
-      // (1) tallest first — but only the non-pinned tail (ties → index).
+      // (1) tallest first — only the non-pinned tail (ties → index).
       const rest0 = Array.from({ length: n - pc }, (_, k) => k + pc).sort((a, b) => h[b] - h[a] || a - b);
       const rankOf = new Array(n);
       rest0.forEach((i, r) => (rankOf[i] = r));
@@ -646,53 +647,50 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, clas
       for (const i of rest) order.push(i);
       // (3) greedy by rows: each card, in that order, onto the shortest column.
       const colH = Array(cols).fill(0);
-      const col = new Array(n);
+      const next = new Array(n);
       for (const i of order) {
         let t = 0;
         for (let c = 1; c < cols; c++) if (colH[c] < colH[t]) t = c;
-        col[i] = t;
+        next[i] = { col: t, top: colH[t] };
         colH[t] += h[i] + gap;
       }
-      setLayout((prev) =>
-        prev.order.length === n &&
-        prev.order.every((v, k) => v === order[k]) &&
-        prev.col.every((v, k) => v === col[k])
-          ? prev
-          : { order, col },
+      setPos((prev) =>
+        prev.length === n && prev.every((p, i) => p.col === next[i].col && p.top === next[i].top) ? prev : next,
       );
+      setHeight(Math.max(0, ...colH.map((x) => x - gap)));
     };
-    pack();
+    repack();
     if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(pack);
-    els.forEach((el) => el && ro.observe(el));
+    const ro = new ResizeObserver(repack);
+    refs.current.slice(0, n).forEach((el) => el && ro.observe(el));
     return () => ro.disconnect();
   }, [n, cols, gap, seed, pinnedCount]);
 
-  // Deal cards into columns following the placement order, so within-column
-  // sequence matches the packing. order/col can lag `n`/`cols` for one render
-  // after the set or column count changes (the layout effect re-packs before
-  // paint), so fall back to round-robin and clamp any stale index.
-  const seq = layout.order.length === n ? layout.order : items.map((_, i) => i);
-  const place = layout.col.length === n ? layout.col : items.map((_, i) => i % cols);
-  const buckets = Array.from({ length: cols }, () => []);
-  for (const i of seq) {
-    const c = place[i];
-    buckets[c == null || c >= cols ? i % cols : c].push({ child: items[i], i });
-  }
+  // Column width and each column's left edge as CSS calc, so they track the
+  // container width with no JS: colW = (100% − gutters) / cols; left = col share.
+  const colW = `calc((100% - ${(cols - 1) * gap}px) / ${cols})`;
+  const leftOf = (col) => (cols <= 1 ? "0px" : `calc(${col} * (100% + ${gap}px) / ${cols})`);
   return (
-    <div
-      className={className}
-      style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap, alignItems: "start" }}
-    >
-      {buckets.map((bucket, c) => (
-        <div key={c} style={{ display: "flex", flexDirection: "column", gap }}>
-          {bucket.map(({ child, i }) => (
-            <div key={i} ref={(el) => (refs.current[i] = el)}>
-              {child}
-            </div>
-          ))}
-        </div>
-      ))}
+    <div className={className} style={{ position: "relative", height: height || undefined }}>
+      {items.map((child, i) => {
+        const p = pos[i];
+        return (
+          <div
+            key={i}
+            ref={(el) => (refs.current[i] = el)}
+            style={{
+              position: "absolute",
+              width: cols <= 1 ? "100%" : colW,
+              left: p ? leftOf(p.col) : 0,
+              top: p ? p.top : 0,
+              // Hidden only until the first (pre-paint) measurement positions it.
+              visibility: p ? "visible" : "hidden",
+            }}
+          >
+            {child}
+          </div>
+        );
+      })}
     </div>
   );
 }
