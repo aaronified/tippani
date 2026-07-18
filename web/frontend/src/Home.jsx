@@ -15,6 +15,7 @@ import {
   clampSequence,
   ColorSwatches,
   ErrorText,
+  filterChipClass,
   GhostButton,
   FormModal,
   HandCard,
@@ -923,7 +924,7 @@ function WorkPicker({ works, value, onChange, onCreate }) {
               style={{ color: 'var(--accent-ui)', fontWeight: 600 }}
               onClick={create}
             >
-              ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new book'} as a new book
+              ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new work'} — book, film or show
             </button>
           </li>
         </ul>
@@ -979,19 +980,31 @@ export function QuickCapture({ open, onClose, onSaved }) {
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
   const isScreen = draft.target?.kind === 'screen'
 
-  async function createBook() {
+  // createWork quick-adds the picked kind (book / film / show) inline and
+  // targets it. Films + shows are one endpoint (media_type), books another; the
+  // second field is the author / director / creator per kind.
+  async function createWork() {
     if (!creating || !creating.title.trim()) return setErr('a title is required')
+    const kind = creating.kind || 'book'
     setBusy(true)
     setErr('')
-    const r = await json('POST', '/books', { title: creating.title.trim(), author: creating.author.trim() })
+    let w
+    if (kind === 'book') {
+      const r = await json('POST', '/books', { title: creating.title.trim(), author: creating.author.trim() })
+      if (!r.ok) { setBusy(false); return setErr(errText(r)) }
+      w = { kind: 'book', id: r.data.id, title: r.data.title, sub: r.data.author || '', tag: 'BOOK' }
+    } else {
+      const media = kind === 'show' ? 'show' : 'movie'
+      const r = await json('POST', '/movies', { title: creating.title.trim(), director: creating.author.trim() || undefined, media_type: media })
+      if (!r.ok) { setBusy(false); return setErr(errText(r)) }
+      const m = r.data
+      w = { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', tag: media === 'show' ? 'SHOW' : 'FILM' }
+    }
     setBusy(false)
-    if (!r.ok) return setErr(errText(r))
-    const b = r.data
-    const w = { kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' }
     setWorks((list) => [w, ...(list || [])])
     set({ target: w })
     setCreating(null)
-    // The shell's stat tiles count books — refresh them now, not only on save.
+    // The shell's stat tiles count works — refresh them now, not only on save.
     onSaved?.()
   }
 
@@ -1045,23 +1058,36 @@ export function QuickCapture({ open, onClose, onSaved }) {
           }}
           onCreate={(title) => {
             setErr('')
-            setCreating({ title, author: '' })
+            setCreating({ title, kind: 'book', author: '' })
           }}
         />
       </label>
       {creating && !draft.target && (
         <div className="grid gap-3 sm:grid-cols-2" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
+          <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+            <MonoLabel>New</MonoLabel>
+            {[['book', 'Book'], ['movie', 'Film'], ['show', 'Show']].map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                className={filterChipClass((creating.kind || 'book') === k)}
+                onClick={() => setCreating((c) => ({ ...c, kind: k }))}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <label className="tp-field">
-            <MonoLabel>New book · title</MonoLabel>
+            <MonoLabel>Title</MonoLabel>
             <input className="tp-input" value={creating.title} onChange={(e) => setCreating((c) => ({ ...c, title: e.target.value }))} />
           </label>
           <label className="tp-field">
-            <MonoLabel>Author</MonoLabel>
+            <MonoLabel>{(creating.kind || 'book') === 'book' ? 'Author' : creating.kind === 'show' ? 'Creator' : 'Director'}</MonoLabel>
             <input className="tp-input" placeholder="optional" value={creating.author} onChange={(e) => setCreating((c) => ({ ...c, author: e.target.value }))} />
           </label>
           <div className="flex items-center gap-3 sm:col-span-2">
-            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={createBook}>
-              Create book
+            <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={createWork}>
+              Create {(creating.kind || 'book') === 'book' ? 'book' : creating.kind === 'show' ? 'show' : 'film'}
             </button>
             <button type="button" className="tp-link" onClick={() => setCreating(null)}>cancel</button>
           </div>
