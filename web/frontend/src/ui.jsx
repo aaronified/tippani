@@ -218,6 +218,14 @@ export function HandCard({
   );
 }
 
+// Card — the plain settings/account panel: a hand-card with uniform padding and
+// nothing else (no variant rotation or colour bar, unlike HandCard). `pad` is a
+// Tailwind padding class so each surface keeps its own rhythm (Settings p-6,
+// Account p-5).
+export function Card({ pad = "p-6", className = "", children }) {
+  return <div className={`hand-card ${pad} ${className}`.trim()}>{children}</div>;
+}
+
 // PlayfulButton is the shared base: it plays a random button animation on click
 // (its own carousel) then calls through to the caller's onClick. `base` is the
 // style class (btn-sticker / btn-film / tp-btn-ghost).

@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { ErrorText, GhostButton, MonoLabel, StickerButton } from './ui.jsx'
+import { Card, ErrorText, GhostButton, MonoLabel, StickerButton } from './ui.jsx'
 
 // Account.jsx — the chip-reached account surfaces: Profile (photo · display name
 // · password) and User management (admin roles). On desktop these render inside
 // a pop-up (see AccountOverlay in App.jsx); on mobile they fill a page. Both are
 // plain content components; the overlay owns the framing + close.
-
-function Card({ children }) {
-  return <div className="hand-card p-5">{children}</div>
-}
 
 function FieldLabel({ children }) {
   return <MonoLabel className="mb-1.5 block">{children}</MonoLabel>
@@ -190,7 +186,7 @@ function MaintenanceCard() {
   }
 
   return (
-    <Card>
+    <Card pad="p-5">
       <FieldLabel>Maintenance</FieldLabel>
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -259,9 +255,9 @@ function MaintenanceCard() {
 export function Profile({ user, onUser }) {
   return (
     <div className="space-y-5">
-      <Card><AvatarRow user={user} onUser={onUser} /></Card>
-      <Card><NameForm user={user} onUser={onUser} /></Card>
-      <Card><PasswordForm /></Card>
+      <Card pad="p-5"><AvatarRow user={user} onUser={onUser} /></Card>
+      <Card pad="p-5"><NameForm user={user} onUser={onUser} /></Card>
+      <Card pad="p-5"><PasswordForm /></Card>
       {user?.is_admin && <MaintenanceCard />}
     </div>
   )
@@ -316,7 +312,7 @@ export function UserManagement({ me }) {
   }
 
   return (
-    <Card>
+    <Card pad="p-5">
       <ul className="space-y-1">
         {users.map((u) => {
           const isMe = u.id === me.id

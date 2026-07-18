@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, copyText, apiURL } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
+  Card,
   ErrorText,
   GhostButton,
   InfoDot,
@@ -463,10 +464,6 @@ function BackupCard() {
 }
 
 // ---- shared bits ----
-
-function Card({ className = '', children }) {
-  return <div className={'hand-card p-6 ' + className}>{children}</div>
-}
 
 function SectionTitle({ children, right }) {
   return (
