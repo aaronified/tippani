@@ -571,44 +571,68 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
   )
 }
 
-// MediaGroup: one book / movie as a card — cover or poster on the left, title +
-// subtitle (with an optional author/director face chip), and its matching
-// children (annotations / dialogues) stacked below.
-function MediaGroup({ kind, cover, title, subtitle, face, terms, onOpen, children }) {
+// MediaGroup: one book / movie as a card. TOP ROW — cover/poster on the left,
+// then the work title with the author/director credit line (+ face chip) beside
+// it, and a single clipped row of genre chips below (cut off at the card edge,
+// not wrapped). Its matching children (annotations / dialogues) sit BELOW that
+// header, spanning the FULL card width — the quote cards, not indented under the
+// cover.
+function MediaGroup({ kind, cover, title, subtitle, genres = [], face, terms, onOpen, children }) {
   const hasChildren = Array.isArray(children) ? children.some(Boolean) : Boolean(children)
   return (
-    <HandCard className="flex gap-4 p-4">
-      <button type="button" onClick={onOpen} className="shrink-0" title={title} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-        {cover ? (
-          <img
-            src={coverImgURL(cover)}
-            alt=""
-            className="block w-16 object-cover"
-            style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }}
-          />
-        ) : (
-          <Placeholder kind={kind} className="w-16" />
-        )}
-      </button>
-      <div className="min-w-0 flex-1">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="block text-left"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-        >
-          <p className="display-title text-[16.5px] leading-snug">
-            <Highlight text={title} terms={terms} />
-          </p>
-          {(subtitle || face) && (
-            <span className="mt-1 flex items-center gap-1.5">
-              {face}
-              {subtitle && <MonoLabel className="block min-w-0 truncate">{subtitle}</MonoLabel>}
-            </span>
+    <HandCard className="p-4">
+      <div className="flex gap-4">
+        <button type="button" onClick={onOpen} className="shrink-0" title={title} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+          {cover ? (
+            <img
+              src={coverImgURL(cover)}
+              alt=""
+              className="block w-16 object-cover"
+              style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }}
+            />
+          ) : (
+            <Placeholder kind={kind} className="w-16" />
           )}
         </button>
-        {hasChildren && <div className="mt-2.5 space-y-2">{children}</div>}
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="block w-full text-left"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+          >
+            <p className="display-title text-[16.5px] leading-snug">
+              <Highlight text={title} terms={terms} />
+            </p>
+            {(subtitle || face) && (
+              <span className="mt-1 flex items-center gap-1.5">
+                {face}
+                {subtitle && <MonoLabel className="block min-w-0 truncate">{subtitle}</MonoLabel>}
+              </span>
+            )}
+          </button>
+          {genres.length > 0 && (
+            // One line, clipped at the card boundary (a soft fade marks the cut)
+            // rather than wrapping to many rows.
+            <div
+              className="mt-1.5 flex gap-1.5"
+              style={{
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+                WebkitMaskImage: 'linear-gradient(to right, #000 82%, transparent)',
+                maskImage: 'linear-gradient(to right, #000 82%, transparent)',
+              }}
+            >
+              {genres.map((gn) => (
+                <span key={gn} className="tp-chip" style={{ flex: 'none' }}>
+                  {gn}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+      {hasChildren && <div className="mt-3 space-y-2">{children}</div>}
     </HandCard>
   )
 }
@@ -644,9 +668,10 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
         terms={terms}
         subtitle={
           isBook
-            ? [g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')
+            ? g.author || ''
             : [g.director, g.release_year || null].filter(Boolean).join('  ·  ')
         }
+        genres={g.genres || []}
         face={<CreditFaces names={splitCredits(isBook ? g.author : g.director, creditSeps)} map={people} size={24} ring="var(--card)" />}
         onOpen={() => onOpen(g.id)}
       >
@@ -654,9 +679,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
           isBook ? (
             <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
               {h.quote && (
-                <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
-                  <Highlight text={h.quote} terms={terms} />
-                </p>
+                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
               )}
               {h.note && (
                 <HandNote>
@@ -666,9 +689,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
             </ChildHit>
           ) : (
             <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-              <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
-                “<Highlight text={h.quote} terms={terms} />”
-              </p>
+              <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
               <span className="mt-1 flex items-center gap-1.5">
                 {/* Actor face on the dialogue hit (when a portrait is saved). */}
                 <CreditFaces names={h.actor} map={actorMap} size={22} ring="var(--raised)" />
@@ -801,16 +822,63 @@ function groupMovies(r) {
   return order
 }
 
+// A quote longer than this gets windowed around the match; shorter ones show
+// whole. PAD is roughly a card line of characters each side of the term, so the
+// window reads as "a line above and below" the match.
+const WINDOW_MAX = 200
+const WINDOW_PAD = 75
+
+// escapeTerms builds the shared match pattern (also used by Highlight).
+function termPattern(terms, flags) {
+  return new RegExp('(' + terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', flags)
+}
+
+// MatchWindow shows a long quote as a context window: the run of text around
+// the first matched term (about a line either side, snapped to word bounds),
+// with a chevron above when text is hidden before the window and below when
+// hidden after — a compact "there's more, open to read it" cue. Short quotes,
+// or quotes with no visible match, render whole (opening the modal shows all).
+function MatchWindow({ text, terms, style }) {
+  const s = String(text || '')
+  const inner = <span style={style}><Highlight text={s} terms={terms} /></span>
+  if (!terms.length || s.length <= WINDOW_MAX) return inner
+  const m = termPattern(terms, 'i').exec(s)
+  if (!m) return inner
+  const mi = m.index
+  const me = mi + m[0].length
+  let start = Math.max(0, mi - WINDOW_PAD)
+  let end = Math.min(s.length, me + WINDOW_PAD)
+  // Snap the cut points to word boundaries so the window never slices a word.
+  if (start > 0) {
+    const sp = s.indexOf(' ', start)
+    if (sp !== -1 && sp < mi) start = sp + 1
+  }
+  if (end < s.length) {
+    const sp = s.lastIndexOf(' ', end)
+    if (sp !== -1 && sp > me) end = sp
+  }
+  const before = start > 0
+  const after = end < s.length
+  const chev = (dir) => (
+    <span aria-hidden="true" style={{ display: 'block', textAlign: 'center', lineHeight: 1, fontSize: 11, color: 'var(--faint)' }}>
+      {dir === 'up' ? '⌃' : '⌄'}
+    </span>
+  )
+  return (
+    <span style={{ display: 'block' }}>
+      {before && chev('up')}
+      <span style={style}><Highlight text={s.slice(start, end)} terms={terms} /></span>
+      {after && chev('down')}
+    </span>
+  )
+}
+
 // Highlight wraps query terms in the §6 accent highlight span. Pure text
 // splitting — no HTML injection. Case-insensitive; FTS accent-folding
 // (Bronte→Brontë) is server-side only, so accented matches render unhighlighted.
 function Highlight({ text, terms }) {
   if (!text || terms.length === 0) return text || null
-  const pattern = new RegExp(
-    '(' + terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')',
-    'gi'
-  )
-  const parts = String(text).split(pattern)
+  const parts = String(text).split(termPattern(terms, 'gi'))
   return parts.map((part, i) => (i % 2 === 1 ? <HighlightSpan key={i}>{part}</HighlightSpan> : part))
 }
 
