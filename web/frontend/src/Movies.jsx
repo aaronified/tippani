@@ -6,12 +6,11 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
 import { PersonCredit, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { WorkCard } from './works.jsx'
+import { MobileDetailBar, WorkCard, WorkHero } from './works.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
   EmptyState,
-  ExpandableDescription,
   ErrorText,
   FormModal,
   FrameCode,
@@ -20,7 +19,6 @@ import {
   HandCard,
   HandNote,
   Hearts,
-  IconBack,
   IconButton,
   IconDelete,
   IconEdit,
@@ -605,16 +603,12 @@ function MovieDetail({ id, onClose, creditSeparators }) {
   return (
     <section className="space-y-6 md:pt-5" data-screen-label="movie-detail">
       {mobile && (
-        <div className="mobile-sticky-bar">
-          <div className="mobile-detail-bar">
-            <button type="button" className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full" style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }} onClick={onClose} aria-label="Back">
-              <IconBack />
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className="mobile-detail-title">{detailTitle}</div>
-              {detailMeta && <div className="mobile-detail-meta">{detailMeta}</div>}
-            </div>
-            <div className="mobile-detail-actions">
+        <MobileDetailBar
+          onClose={onClose}
+          title={detailTitle}
+          meta={detailMeta}
+          actions={
+            <>
               <IconButton icon={<IconFilter />} ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
               <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => setMobileAdd(true)} />
               <MoreMenu
@@ -624,9 +618,9 @@ function MovieDetail({ id, onClose, creditSeparators }) {
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
                 ]}
               />
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
       {!mobile && (
         <button
@@ -647,50 +641,40 @@ function MovieDetail({ id, onClose, creditSeparators }) {
       <ErrorText>{error}</ErrorText>
       {movie && (
         <Reveal className="flex flex-wrap items-start gap-6">
-          <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.4))' }}>
-            <Poster path={movie.poster_path} title={movie.title} zoomable />
-          </div>
-          <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
-            <h1 className="display-title" style={{ fontSize: 27 }}>
-              {movie.title}
-            </h1>
-            {metaParts.length > 0 && (
-              <p style={amberMono}>
-                {metaParts.map((part, i) => (
-                  <Fragment key={i}>
-                    {i > 0 && ' · '}
-                    {part}
-                  </Fragment>
-                ))}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-              <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
-            </div>
-            {movie.genres?.length > 0 && (
-              <p className="flex flex-wrap gap-1.5">
-                {movie.genres.map((g) => (
-                  <span key={g} className="tp-chip">
-                    {g}
-                  </span>
-                ))}
-              </p>
-            )}
-            <div className="max-w-prose">
-              <ExpandableDescription text={movie.description} />
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {!DEMO && (
-              <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
-                Export .md
-              </GhostButton>
-            )}
-            <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-            <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
-              Delete
-            </GhostButton>
-          </div>
+          <WorkHero
+            cover={<Poster path={movie.poster_path} title={movie.title} zoomable />}
+            title={movie.title}
+            titleSize={27}
+            meta={
+              metaParts.length > 0 && (
+                <p style={amberMono}>
+                  {metaParts.map((part, i) => (
+                    <Fragment key={i}>
+                      {i > 0 && ' · '}
+                      {part}
+                    </Fragment>
+                  ))}
+                </p>
+              )
+            }
+            favorite={movie.favorite}
+            onFavorite={(v) => patch({ favorite: v })}
+            genres={movie.genres || []}
+            description={movie.description}
+            actions={
+              <>
+                {!DEMO && (
+                  <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
+                    Export .md
+                  </GhostButton>
+                )}
+                <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+                <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
+                  Delete
+                </GhostButton>
+              </>
+            }
+          />
         </Reveal>
       )}
       {movie && (

@@ -6,7 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { WorkCard, groupWorks } from './works.jsx'
+import { MobileDetailBar, WorkCard, WorkHero, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -17,12 +17,10 @@ import {
   FormModal,
   GenreFilter,
   GhostButton,
-  ExpandableDescription,
   ExpandableText,
   HandCard,
   HandNote,
   Hearts,
-  IconBack,
   IconButton,
   IconDelete,
   IconEdit,
@@ -538,16 +536,12 @@ function BookDetail({ id, onClose, creditSeparators }) {
   return (
     <section ref={reveal} className="reveal space-y-6 md:pt-4" data-screen-label="book-detail">
       {mobile && (
-        <div className="mobile-sticky-bar">
-          <div className="mobile-detail-bar">
-            <button type="button" className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full" style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }} onClick={onClose} aria-label="Back">
-              <IconBack />
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className="mobile-detail-title">{detailTitle}</div>
-              {detailAuthor && <div className="mobile-detail-meta">{detailAuthor}</div>}
-            </div>
-            <div className="mobile-detail-actions">
+        <MobileDetailBar
+          onClose={onClose}
+          title={detailTitle}
+          meta={detailAuthor}
+          actions={
+            <>
               <IconButton icon={<IconFilter />} ariaLabel="Filter annotations" onClick={() => setMobileFilter(true)} />
               <IconButton icon={<IconPlus />} ariaLabel="Add annotation" onClick={() => setMobileAdd(true)} />
               <MoreMenu
@@ -557,9 +551,9 @@ function BookDetail({ id, onClose, creditSeparators }) {
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
                 ]}
               />
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
       {!mobile && (
         <button
@@ -573,53 +567,45 @@ function BookDetail({ id, onClose, creditSeparators }) {
       <ErrorText>{error}</ErrorText>
       {book && (
         <div className="flex flex-wrap items-start gap-6">
-          <div className="w-36 shrink-0 sm:w-44" style={{ filter: 'drop-shadow(0 12px 22px rgba(0,0,0,.34))' }}>
-            <Cover path={book.cover_path} title={book.title} hero zoomable />
-          </div>
-          <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
-            <h1 className="display-title" style={{ fontSize: 28, lineHeight: 1.15 }}>
-              {book.title}
-            </h1>
-            {metaParts.length > 0 && (
-              <MonoLabel className="block" style={{ fontSize: 11.5 }}>
-                {metaParts.map((p, i) => (
-                  <span key={i}>
-                    {i > 0 ? ' · ' : ''}
-                    {p}
-                  </span>
-                ))}
-              </MonoLabel>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-              <Hearts value={!!book.favorite} onChange={(v) => patch({ favorite: v })} />
-            </div>
-            {bookGenres(book).length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {bookGenres(book).map((g) => (
-                  <span key={g} className="tp-chip">
-                    {g}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="max-w-prose pt-1">
-              <ExpandableDescription text={book.description} />
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {!DEMO && (
-              <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
-                Export .md
-              </GhostButton>
-            )}
-            <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-            <GhostButton
-              style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
-              onClick={remove}
-            >
-              Delete
-            </GhostButton>
-          </div>
+          <WorkHero
+            cover={<Cover path={book.cover_path} title={book.title} hero zoomable />}
+            shadow="drop-shadow(0 12px 22px rgba(0,0,0,.34))"
+            title={book.title}
+            titleSize={28}
+            titleStyle={{ lineHeight: 1.15 }}
+            meta={
+              metaParts.length > 0 && (
+                <MonoLabel className="block" style={{ fontSize: 11.5 }}>
+                  {metaParts.map((p, i) => (
+                    <span key={i}>
+                      {i > 0 ? ' · ' : ''}
+                      {p}
+                    </span>
+                  ))}
+                </MonoLabel>
+              )
+            }
+            favorite={book.favorite}
+            onFavorite={(v) => patch({ favorite: v })}
+            genres={bookGenres(book)}
+            description={book.description}
+            actions={
+              <>
+                {!DEMO && (
+                  <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
+                    Export .md
+                  </GhostButton>
+                )}
+                <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+                <GhostButton
+                  style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
+                  onClick={remove}
+                >
+                  Delete
+                </GhostButton>
+              </>
+            }
+          />
         </div>
       )}
       {book && (

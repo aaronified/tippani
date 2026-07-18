@@ -5,7 +5,7 @@
 // import cycle — this layer is free to import from both).
 import { coverImgURL } from './api.js'
 import { CreditFaces, splitCredits } from './people.jsx'
-import { FavBadge, HandCard, MonoLabel, Placeholder, seriesLabel } from './ui.jsx'
+import { ExpandableDescription, FavBadge, HandCard, Hearts, IconBack, MonoLabel, Placeholder, seriesLabel } from './ui.jsx'
 
 // decadeOf floors a year to its decade using the full 4-digit year, so old
 // works land in the right century (1850 → 1850s, distinct from 1950s).
@@ -151,5 +151,82 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
         )}
       </div>
     </button>
+  )
+}
+
+// MobileDetailBar — the sticky top bar on a book/film detail on mobile: a round
+// back button, the title + a meta subtitle, and a caller-supplied actions
+// cluster (filter / add / overflow — these differ per detail). Shared so the
+// bar structure lives in one place.
+export function MobileDetailBar({ onClose, title, meta, actions }) {
+  return (
+    <div className="mobile-sticky-bar">
+      <div className="mobile-detail-bar">
+        <button
+          type="button"
+          className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
+          style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
+          onClick={onClose}
+          aria-label="Back"
+        >
+          <IconBack />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="mobile-detail-title">{title}</div>
+          {meta && <div className="mobile-detail-meta">{meta}</div>}
+        </div>
+        <div className="mobile-detail-actions">{actions}</div>
+      </div>
+    </div>
+  )
+}
+
+// WorkHero — the desktop detail hero shared by books and films: cover/poster
+// column (drop-shadowed), an info column (title · meta slot · favourite hearts ·
+// genre chips · description), and an actions column. Returns the three columns
+// as a fragment so the caller owns the flex container (a plain div for books, a
+// Reveal for films). Divergent bits are slots: `cover` (Cover vs Poster), `meta`
+// (the mono/amber credit line), `actions` (Export/Edit/Delete).
+export function WorkHero({
+  cover,
+  shadow = 'drop-shadow(0 12px 22px rgba(0,0,0,.4))',
+  title,
+  titleSize = 28,
+  titleStyle,
+  meta,
+  favorite,
+  onFavorite,
+  genres = [],
+  description,
+  actions,
+}) {
+  return (
+    <>
+      <div className="w-36 shrink-0 sm:w-44" style={{ filter: shadow }}>
+        {cover}
+      </div>
+      <div className="min-w-0 flex-1 space-y-2.5" style={{ minWidth: 220 }}>
+        <h1 className="display-title" style={{ fontSize: titleSize, ...titleStyle }}>
+          {title}
+        </h1>
+        {meta}
+        <div className="flex flex-wrap items-center gap-3">
+          <Hearts value={!!favorite} onChange={onFavorite} />
+        </div>
+        {genres.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {genres.map((g) => (
+              <span key={g} className="tp-chip">
+                {g}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="max-w-prose pt-1">
+          <ExpandableDescription text={description} />
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+    </>
   )
 }
