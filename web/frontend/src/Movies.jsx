@@ -5,7 +5,7 @@ import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.js
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
-import { PersonModal, PersonName, PersonPortrait, usePeople } from './people.jsx'
+import { PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -62,8 +62,8 @@ import {
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
 // filmstrip (§8.7 + §6 recipe, mockups 15–16). Dialogues mirror annotations
 // (PLAN §3b); tags are objects now — chips take color/style from GET /tags.
-export default function Movies({ openId, onOpen, onClose }) {
-  if (openId) return <MovieDetail id={openId} onClose={onClose} />
+export default function Movies({ openId, onOpen, onClose, creditSeparators }) {
+  if (openId) return <MovieDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
   return <MovieList onOpen={onOpen} />
 }
 
@@ -562,13 +562,16 @@ export function MediaTypeToggle({ value, onChange }) {
 
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
 
-function MovieDetail({ id, onClose }) {
+function MovieDetail({ id, onClose, creditSeparators }) {
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
   const [mobileFilter, setMobileFilter] = useState(false)
   const [mobileAdd, setMobileAdd] = useState(false)
+  // { kind:'director', name } open in the metadata panel — captured at click time.
+  const [person, setPerson] = useState(null)
   const mobile = useIsMobileScreen()
+  const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
   async function load() {
     const r = await json('GET', `/movies/${id}`)
@@ -597,17 +600,38 @@ function MovieDetail({ id, onClose }) {
 
   const isShow = movie && (movie.media_type || 'movie') === 'show'
   // "DIR./CREATED BY X · YEAR · Series #n · TMDB/TVDB #id" — the mono credit line.
-  const metaLine = movie
+  // The director/creator name(s) are clickable (open the People panel), styled to
+  // inherit the amber mono voice; co-credits split like book authors do.
+  const dirNames = movie?.director ? splitCredits(movie.director, creditSeps) : []
+  const directorNode =
+    dirNames.length > 0 ? (
+      <span key="director">
+        {isShow ? 'CREATED BY ' : 'DIR. '}
+        {dirNames.map((n, i) => (
+          <Fragment key={n}>
+            {i > 0 && ', '}
+            <PersonName
+              kind="director"
+              name={n}
+              onOpen={setPerson}
+              className=""
+              style={{ font: 'inherit', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
+            >
+              {n}
+            </PersonName>
+          </Fragment>
+        ))}
+      </span>
+    ) : null
+  const metaParts = movie
     ? [
-        movie.director && `${isShow ? 'CREATED BY' : 'DIR.'} ${movie.director}`,
-        movie.release_year,
+        directorNode,
+        movie.release_year && String(movie.release_year),
         seriesLabel(movie) || null,
         movie.tmdb_id && `TMDB #${movie.tmdb_id}`,
         movie.tvdb_id && `TVDB #${movie.tvdb_id}`,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
+      ].filter(Boolean)
+    : []
 
   const detailTitle = movie ? (movie.title || 'Untitled') : ''
   const detailMeta = movie ? (movie.director || movie.release_year || '') : ''
@@ -664,7 +688,16 @@ function MovieDetail({ id, onClose }) {
             <h1 className="display-title" style={{ fontSize: 27 }}>
               {movie.title}
             </h1>
-            {metaLine && <p style={amberMono}>{metaLine}</p>}
+            {metaParts.length > 0 && (
+              <p style={amberMono}>
+                {metaParts.map((part, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && ' · '}
+                    {part}
+                  </Fragment>
+                ))}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               <Hearts value={!!movie.favorite} onChange={(v) => patch({ favorite: v })} />
             </div>
@@ -707,6 +740,7 @@ function MovieDetail({ id, onClose }) {
         </FormModal>
       )}
       {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
   )
 }

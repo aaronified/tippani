@@ -416,7 +416,7 @@ func (s *Server) getPersonFold(uid int64, kind, name string) (personRow, bool) {
 func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name string) reverifyItem {
 	it := reverifyItem{Type: "person", Kind: kind, Name: name, Title: name, Status: "ok", Diffs: []fieldDiff{}}
 	if !validPersonKind(kind) || name == "" {
-		it.Status, it.Error = "not_found", "kind must be author or actor, with a name"
+		it.Status, it.Error = "not_found", "kind must be author, actor or director, with a name"
 		return it
 	}
 	p, ok := s.getPersonFold(uid, kind, name)
@@ -941,7 +941,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 
 func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name string, set map[string]json.RawMessage) (note string, err error) {
 	if !validPersonKind(kind) || name == "" {
-		return "", errors.New("kind must be author or actor, with a name")
+		return "", errors.New("kind must be author, actor or director, with a name")
 	}
 	allowed := map[string]bool{"links": true, "identity": true, "source": true, "source_id": true, "portrait": true, "bio": true, "born": true}
 	for k := range set {

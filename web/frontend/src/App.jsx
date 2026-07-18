@@ -974,6 +974,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               openId={detail?.type === 'movie' ? detail.id : null}
               onOpen={openMovie}
               onClose={() => go('movies', null)}
+              creditSeparators={user.preferences?.creditSeparators}
             />
           </div>
         )}

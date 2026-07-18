@@ -280,6 +280,75 @@ func TestPeopleMultiAuthorSplit(t *testing.T) {
 	// config — expected: the split view follows the active separators.)
 }
 
+// Directors are the third person kind, sourced from movies.director (a movie's
+// director / a show's creator). /people/names tallies the films crediting each,
+// CRUD works like authors/actors (previously a hard 400), and rename rewrites the
+// FTS-indexed director column in place across the library. User-scoped.
+func TestPeopleDirectors(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+
+	mk := func(title, director string) {
+		admin.mustDo("POST", "/movies", map[string]any{"title": title, "director": director}, 201)
+	}
+	mk("Inception", "Christopher Nolan")
+	mk("Interstellar", "Christopher Nolan")
+	mk("Lady Bird", "Greta Gerwig")
+
+	type nameRow struct {
+		Name  string `json:"name"`
+		Saved bool   `json:"saved"`
+		Count int64  `json:"count"`
+	}
+	dirs := decode[struct {
+		People []nameRow `json:"people"`
+	}](t, admin.mustDo("GET", "/people/names?kind=director", nil, 200))
+	if len(dirs.People) != 2 || dirs.People[0].Name != "Christopher Nolan" || dirs.People[1].Name != "Greta Gerwig" {
+		t.Fatalf("directors = %+v", dirs.People)
+	}
+	// Count is the number of the caller's films crediting the director.
+	if dirs.People[0].Count != 2 || dirs.People[1].Count != 1 {
+		t.Fatalf("director counts wrong (want Nolan 2, Gerwig 1): %+v", dirs.People)
+	}
+
+	// CRUD on the director kind.
+	p := decode[personRow](t, admin.mustDo("PUT", "/people", map[string]any{
+		"kind": "director", "name": "Greta Gerwig", "bio": "Director of Lady Bird.", "born": "1983", "source": "manual",
+	}, 200))
+	if p.Kind != "director" || p.Born != "1983" {
+		t.Fatalf("director upsert: %+v", p)
+	}
+
+	// Rename rewrites movies.director across the library.
+	res := decode[struct {
+		Updated int `json:"updated"`
+	}](t, admin.mustDo("POST", "/people/rename",
+		map[string]any{"kind": "director", "from": "Christopher Nolan", "to": "C. Nolan"}, 200))
+	if res.Updated != 2 {
+		t.Fatalf("director rename updated %d movies, want 2", res.Updated)
+	}
+	var oldN, newN int
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM movies WHERE director = 'Christopher Nolan'`).Scan(&oldN); err != nil {
+		t.Fatal(err)
+	}
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM movies WHERE director = 'C. Nolan'`).Scan(&newN); err != nil {
+		t.Fatal(err)
+	}
+	if oldN != 0 || newN != 2 {
+		t.Fatalf("movie directors after rename: old=%d new=%d, want 0/2", oldN, newN)
+	}
+
+	// Isolation: bob sees none of admin's directors.
+	empty := decode[struct {
+		People []nameRow `json:"people"`
+	}](t, bob.mustDo("GET", "/people/names?kind=director", nil, 200))
+	if len(empty.People) != 0 {
+		t.Fatalf("bob should see no directors: %+v", empty.People)
+	}
+}
+
 // /people/lookup validates input and returns provider links via the seams;
 // actor lookups without a TMDB key are a clear 503.
 func TestPersonLookup(t *testing.T) {

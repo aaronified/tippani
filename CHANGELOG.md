@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-18
+
+### Added
+- **Directors & creators in People.** The People console (Metadata tab) gains a
+  third kind beside Authors and Actors — **Directors** — sourced from each film's
+  director (a show's creator). A film's director name is now a link on the detail
+  page, and in Search the "by director" group headings are too; both open the
+  same metadata panel (bio · photo · reference pages) as authors and actors, with
+  rename-across-the-library and duplicate-merge included. Photos and the TMDB
+  identity resolve from the crew already cached in the film's stored TMDB payload,
+  so films already in the library need no re-sync and cost no extra API call (a
+  by-name TMDB search is the fallback); like actors, director photos and links
+  need a TMDB key. The `/people` endpoints (`names`, `lookup`, `portrait`,
+  `rename`, re-verify) now accept `kind=director`. See `docs/PLAN.md` §7.
+
 ## [0.6.9] - 2026-07-18
 
 ### Added

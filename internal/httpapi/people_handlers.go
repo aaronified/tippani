@@ -36,7 +36,13 @@ func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 	return p, err
 }
 
-func validPersonKind(k string) bool { return k == "author" || k == "actor" }
+func validPersonKind(k string) bool { return k == "author" || k == "actor" || k == "director" }
+
+// personKindsList names the accepted kinds in the order the 400 messages list
+// them — keep it in step with validPersonKind above. Directors (and TV
+// "creators") are sourced from movies.director, the way authors come from
+// books.author and actors from dialogues.actor.
+const personKindsList = "author, actor or director"
 
 // creditSeps loads the caller's separator configuration for multi-author
 // splitting (the creditSeparators preference). Best-effort: a prefs load
@@ -66,9 +72,13 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 	seps := s.creditSeps(uid)
 	ref := `SELECT TRIM(author) FROM books
 	        WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
-	if kind == "actor" {
+	switch kind {
+	case "actor":
 		ref = `SELECT TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		       WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
+	case "director":
+		ref = `SELECT TRIM(director) FROM movies
+		       WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
 	}
 	rows, err := s.Store.DB.Query(ref, uid)
 	if err != nil {
@@ -146,7 +156,7 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	kind := r.URL.Query().Get("kind")
 	if !validPersonKind(kind) {
-		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
 		return
 	}
 	olog.Tracef("[people] handlePeople uid=%d kind=%s name=%q", uid, kind, r.URL.Query().Get("name"))
@@ -207,7 +217,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	req.Kind = strings.TrimSpace(req.Kind)
 	req.Name = strings.TrimSpace(req.Name)
 	if !validPersonKind(req.Kind) {
-		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
 		return
 	}
 	if req.Name == "" {
@@ -270,7 +280,7 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	kind := r.URL.Query().Get("kind")
 	if !validPersonKind(kind) {
-		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
 		return
 	}
 	olog.Tracef("[people] handlePeopleNames uid=%d kind=%s", uid, kind)
@@ -283,11 +293,18 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	q := `SELECT TRIM(author), COUNT(*) FROM books
 		WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''
 		GROUP BY TRIM(author)`
-	if kind == "actor" {
+	switch kind {
+	case "actor":
 		q = `SELECT TRIM(d.actor), COUNT(DISTINCT d.movie_id) FROM dialogues d
 			JOIN movies m ON m.id = d.movie_id
 			WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) != ''
 			GROUP BY TRIM(d.actor)`
+	case "director":
+		// One director string per movie row, so COUNT(*) grouped by director is
+		// the number of the caller's films crediting them.
+		q = `SELECT TRIM(director), COUNT(*) FROM movies
+			WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) != ''
+			GROUP BY TRIM(director)`
 	}
 	rows, err := s.Store.DB.Query(q, uid)
 	if err != nil {
@@ -389,7 +406,7 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 	req.Kind = strings.TrimSpace(req.Kind)
 	req.Name = strings.TrimSpace(req.Name)
 	if !validPersonKind(req.Kind) {
-		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
 		return
 	}
 	if req.Name == "" {
@@ -402,10 +419,11 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 	if req.Kind == "author" {
 		links, err = s.authorLinks(r.Context(), req.Name)
 	} else {
+		// Actors and directors are both TMDB people, resolved by name.
 		tmdb, _ := s.resolveTMDB()
 		if tmdb == nil {
 			writeErr(w, http.StatusServiceUnavailable,
-				"actor links come from TMDB — add a TMDB key in Settings first")
+				"these links come from TMDB — add a TMDB key in Settings first")
 			return
 		}
 		links, err = s.actorLinks(r.Context(), tmdb, req.Name)
@@ -442,7 +460,7 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	req.From = strings.TrimSpace(req.From)
 	req.To = strings.TrimSpace(req.To)
 	if !validPersonKind(req.Kind) {
-		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
 		return
 	}
 	if req.From == "" || req.To == "" {
@@ -476,9 +494,13 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	var rewrites []rewrite
 	scanQ := `SELECT id, TRIM(author) FROM books
 	          WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
-	if req.Kind == "actor" {
+	switch req.Kind {
+	case "actor":
 		scanQ = `SELECT d.id, TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		         WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
+	case "director":
+		scanQ = `SELECT id, TRIM(director) FROM movies
+		         WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
 	}
 	crows, err := tx.Query(scanQ, uid)
 	if err != nil {
@@ -502,8 +524,12 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	crows.Close()
 
 	updateQ := `UPDATE books SET author = ? WHERE id = ?`
-	if req.Kind == "actor" {
+	switch req.Kind {
+	case "actor":
 		updateQ = `UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`
+	case "director":
+		// The movies_fts triggers re-index the director column automatically.
+		updateQ = `UPDATE movies SET director = ? WHERE id = ?`
 	}
 	for _, rw := range rewrites {
 		if _, e := tx.Exec(updateQ, rw.credit, rw.id); e != nil {

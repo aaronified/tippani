@@ -514,18 +514,21 @@ POST   /share/image                  # stage a rendered quote PNG (multipart "fi
 GET    /share/image/{token}          # serve the staged PNG once (Content-Disposition names it);
                                      #   session-free BY DESIGN — DownloadManager fetches outside
                                      #   the cookie jar; the single-use random token is the credential
-GET    /people/names?kind=           # distinct referenced author/actor names + saved-link status;
-                                     #   joined multi-author credits list as split components (§11,
-                                     #   per-user creditSeparators pref); each row carries count =
-                                     #   works referencing the name (books / distinct titles)
+GET    /people/names?kind=           # kind=author|actor|director. distinct referenced names + saved-
+                                     #   link status; joined multi-credit strings list as split
+                                     #   components (§11, per-user creditSeparators pref); each row
+                                     #   carries count = works referencing the name (books authored /
+                                     #   distinct titles acted in / films directed). Director names come
+                                     #   from movies.director (a movie's director; a show's creator)
 POST   /people/lookup                # {kind,name} → {links:{imdb,tmdb,tvdb,wikipedia,openlibrary}}
-POST   /people/rename                # {kind,from,to} → rename an author/actor across all books/
-                                     #   dialogues + fold saved metadata onto `to` (unify duplicate
-                                     #   spellings); component-aware — renaming one author inside a
-                                     #   joined credit never touches the co-authors.
+POST   /people/rename                # {kind,from,to} → rename an author/actor/director across all
+                                     #   books/dialogues/movies + fold saved metadata onto `to` (unify
+                                     #   duplicate spellings); component-aware — renaming one name inside
+                                     #   a joined credit never touches the co-credits.
                                      #   GET /people/names also sweeps orphaned rows on load
 POST   /people/portrait              # {kind,name} → resolve+store portrait & pin identity: actor from
-                                     #   the film's stored cast (no extra call), author via OL
+                                     #   the film's stored cast (no extra call), director from the film's
+                                     #   cached TMDB crew (source_metadata, no extra call), author via OL
                                      #   disambiguated by their books (+Wikidata P18). {resolved,image,
                                      #   person,links}. Best-effort; manual Photo URL (PUT /people) overrides
 GET    /metadata/status              # TMDB key source, google key set?, last book-lookup outcome

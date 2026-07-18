@@ -319,7 +319,10 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   const [error, setError] = useState('')
   const [renameTo, setRenameTo] = useState(name)
   const [renaming, setRenaming] = useState(false)
-  const noun = kind === 'actor' ? 'films' : 'books'
+  const noun = kind === 'author' ? 'books' : 'films'
+  // The row that carries the credit, per kind: a book's author, a dialogue's
+  // actor, a film's director/creator.
+  const entity = kind === 'author' ? 'book' : kind === 'actor' ? 'dialogue' : 'film'
 
   // rename rewrites this name across every book/film that uses it (and folds the
   // saved metadata onto the new spelling) — the fix for two transliterations of
@@ -327,7 +330,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   async function rename() {
     const to = renameTo.trim()
     if (!to || to === name) return
-    if (!confirm(`Rename “${name}” to “${to}” across all your ${noun}? This updates every ${kind === 'actor' ? 'dialogue' : 'book'} crediting them.`)) return
+    if (!confirm(`Rename “${name}” to “${to}” across all your ${noun}? This updates every ${entity} crediting them.`)) return
     setRenaming(true)
     setError('')
     const r = await json('POST', '/people/rename', { kind, from: name, to })

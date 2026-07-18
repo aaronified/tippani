@@ -49,6 +49,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
   const authors = usePeople('author') // name→metadata for author-group portraits
+  const directors = usePeople('director') // name→metadata for movie director-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
@@ -194,6 +195,8 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               group={group}
               view={view}
               isMovie
+              people={directors.map}
+              onOpenPerson={setPerson}
               renderItem={(g) => (
                 <MovieResult key={`m${g.id}`} g={g} view={view} terms={terms} onOpenMovie={onOpenMovie} onOpenQuote={setQuote} />
               )}
@@ -213,7 +216,15 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
         />
       )}
       {person && (
-        <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
+        <PersonModal
+          kind={person.kind}
+          name={person.name}
+          onClose={() => setPerson(null)}
+          onSaved={() => {
+            authors.reload()
+            directors.reload()
+          }}
+        />
       )}
     </section>
   )
@@ -744,18 +755,23 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
     <section className="space-y-4">
       <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
       {bucketGroups(groups, group, isMovie, creditSeps).map((b) => {
-        const isAuthor = group === 'author' && !isMovie && !b.residual
-        const portrait = isAuthor && people ? people[b.label] : null
+        // The "by author" dimension maps to the director for movies (see
+        // bucketGroups), so the same heading opens the People panel: an author
+        // for books, a director for movies. Residual buckets ("Unknown …") stay
+        // plain text.
+        const isPersonGroup = group === 'author' && !b.residual
+        const personKind = isMovie ? 'director' : 'author'
+        const portrait = isPersonGroup && people ? people[b.label] : null
         return (
           <div key={b.key} className="space-y-2">
             <div className="flex items-center gap-3">
               {portrait && <PersonPortrait person={portrait} size={28} />}
-              {isAuthor && onOpenPerson ? (
+              {isPersonGroup && onOpenPerson ? (
                 <button
                   type="button"
                   className="display-title truncate"
                   style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                  onClick={() => onOpenPerson({ kind: 'author', name: b.label })}
+                  onClick={() => onOpenPerson({ kind: personKind, name: b.label })}
                   title={`${b.label} — details`}
                 >
                   {b.label}

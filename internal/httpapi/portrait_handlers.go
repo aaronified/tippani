@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/metadata"
@@ -21,6 +22,12 @@ import (
 //	         from the credits when the movie was added. The film IS the
 //	         disambiguator (it is that film's cast), so NO extra provider call is
 //	         made here.
+//	director — read from the crew in the film's cached TMDB payload
+//	         (movies.source_metadata), which carries the director's person id +
+//	         profile_path even though only their name was flattened onto the
+//	         movie. Same "the film is the disambiguator" trick as actors, but from
+//	         the raw credits.crew rather than the parsed cast; a by-name person
+//	         search is the fallback for films synced without a TMDB payload.
 //	author — resolved through Open Library, disambiguating same-name authors
 //	         (the "several David Reichs" problem) by cross-checking each
 //	         candidate's works against the books the author wrote in this library;
@@ -125,8 +132,12 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 // never errors. Shared by the portrait endpoint and the bulk refetch.
 func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, name string) (source, sourceID, imageURL, bio, born string, links map[string]string, err error) {
 	links = map[string]string{}
-	if kind == "actor" {
+	switch kind {
+	case "actor":
 		source, sourceID, imageURL, bio, born = s.resolveActorMeta(ctx, uid, name)
+		return source, sourceID, imageURL, bio, born, links, nil
+	case "director":
+		source, sourceID, imageURL, bio, born = s.resolveDirectorMeta(ctx, uid, name)
 		return source, sourceID, imageURL, bio, born, links, nil
 	}
 	titles, terr := s.authorBookTitles(uid, name)
@@ -241,6 +252,102 @@ func (s *Server) actorPortraitFromCast(uid int64, name string) (source, personID
 		olog.Warnf(olog.CodePeopleRowScan, "[people] actor cast row iteration failed: %v", err)
 	}
 	return fbSource, fbID, ""
+}
+
+// resolveDirectorMeta resolves a director's (or TV "creator's") portrait, TMDB
+// identity, biography and birth year. It mirrors resolveActorMeta: start from the
+// person id + headshot the film's cached credits already carry (no external
+// call), then make ONE live TMDB /person call to fill a missing headshot and the
+// bio/born the credits never carried. When no cached crew pins a TMDB id (a
+// manually-typed director, a TVDB-only show, or a TV creator not in credits.crew)
+// it falls back to a by-name person search — namesake-prone, so the pinned id
+// always wins. Degrades to the stored headshot + identity when there is no key.
+func (s *Server) resolveDirectorMeta(ctx context.Context, uid int64, name string) (source, sourceID, imageURL, bio, born string) {
+	source, sourceID, imageURL = s.directorPortraitFromCrew(uid, name)
+	tmdb, _ := s.resolveTMDB()
+	if tmdb == nil {
+		return source, sourceID, imageURL, "", "" // no key — keep the stored headshot
+	}
+	id := sourceID
+	if source != "tmdb" || id == "" {
+		id = tmdb.PersonSearchID(ctx, name) // no pinned crew id → by-name search
+	}
+	if id == "" {
+		return source, sourceID, imageURL, "", ""
+	}
+	pm, err := tmdb.PersonDetails(ctx, id)
+	if err != nil || pm == nil {
+		olog.Tracef("[people] director %q person details miss: %v", name, err)
+		return source, sourceID, imageURL, "", ""
+	}
+	source, sourceID = "tmdb", id
+	if imageURL == "" {
+		imageURL = pm.ImageURL
+	}
+	return source, sourceID, imageURL, pm.Bio, pm.Born
+}
+
+// directorPortraitFromCrew finds a director's TMDB identity + headshot in the
+// crew of the cached TMDB payloads (movies.source_metadata) of the caller's films
+// that credit them — no external call. Only the director's *name* is flattened
+// onto movies.director when a film is added, but the raw credits.crew the payload
+// carries still holds their person id + profile_path, so this recovers them
+// retroactively for every TMDB film already in the library. Prefers a crew entry
+// that carries a headshot; failing that returns the identity alone. Empty strings
+// mean "not found in any cached crew" (a manual/TVDB film, or a TV creator).
+func (s *Server) directorPortraitFromCrew(uid int64, name string) (source, personID, imageURL string) {
+	// LIKE (not equality): a co-directed credit stored as "A & B" lists as its
+	// split components, and each must still find its films; the precise match
+	// below is against the crew entry's own name (EqualFold + job Director).
+	rows, err := s.Store.DB.Query(`
+		SELECT source_metadata FROM movies
+		WHERE user_id = ? AND director IS NOT NULL
+		  AND LOWER(director) LIKE '%' || LOWER(?) || '%'
+		  AND tmdb_id IS NOT NULL AND source_metadata IS NOT NULL AND source_metadata <> ''`, uid, name)
+	if err != nil {
+		return "", "", ""
+	}
+	defer rows.Close()
+	var fbID string // identity-only fallback (a crew hit with no headshot)
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] director crew row scan failed: %v", err)
+			continue
+		}
+		var payload struct {
+			Credits struct {
+				Crew []struct {
+					ID          int64  `json:"id"`
+					Name        string `json:"name"`
+					Job         string `json:"job"`
+					ProfilePath string `json:"profile_path"`
+				} `json:"crew"`
+			} `json:"credits"`
+		}
+		if json.Unmarshal([]byte(raw), &payload) != nil {
+			continue
+		}
+		for _, c := range payload.Credits.Crew {
+			if c.Job != "Director" || !strings.EqualFold(strings.TrimSpace(c.Name), name) || c.ID == 0 {
+				continue
+			}
+			id := strconv.FormatInt(c.ID, 10)
+			if url := metadata.TMDBProfileURL(c.ProfilePath); url != "" {
+				return "tmdb", id, url // best: identity + headshot
+			}
+			if fbID == "" {
+				fbID = id // remember, keep looking for a headshot
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] director crew row iteration failed: %v", err)
+	}
+	if fbID != "" {
+		return "tmdb", fbID, ""
+	}
+	return "", "", ""
 }
 
 // authorBookTitles returns the titles of the caller's books whose author field
