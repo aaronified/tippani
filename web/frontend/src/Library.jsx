@@ -204,7 +204,7 @@ function GroupHeading({ label, count, person, onOpenPerson }) {
 }
 
 // BookGrid is the cover-tile board, shared by the flat list and each group.
-function BookGrid({ books, coverSize, onOpen }) {
+function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
   return (
     <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
       {books.map((b, i) => (
@@ -225,9 +225,13 @@ function BookGrid({ books, coverSize, onOpen }) {
             <p className="mt-2.5 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}>
               {b.title}
             </p>
-            <p className="truncate text-[13px]" style={{ color: 'var(--soft)' }}>
-              {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
-            </p>
+            <div className="flex items-center gap-1.5">
+              {/* Author face (when a portrait is saved), matching the book detail. */}
+              <PersonPortrait person={authorMap[splitCredits(b.author, seps)[0]]} size={16} />
+              <p className="truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+                {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
+              </p>
+            </div>
             {b.series && (
               <p className="truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
                 {seriesLabel(b)}
@@ -443,13 +447,13 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
                     person={isAuthor ? authors.map[g.label] : null}
                     onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                   />
-                  <BookGrid books={g.books} coverSize={coverSize} onOpen={onOpen} />
+                  <BookGrid books={g.books} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
                 </section>
               )
             })}
           </div>
         ) : (
-          <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} />
+          <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
         ))}
 
       <AddSurface
