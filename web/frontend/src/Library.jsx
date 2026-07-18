@@ -5,7 +5,7 @@ import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
-import { PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -226,9 +226,10 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
               {b.title}
             </p>
             <div className="flex items-center gap-1.5">
-              {/* Author face (when a portrait is saved), matching the book detail. */}
-              <PersonPortrait person={authorMap[splitCredits(b.author, seps)[0]]} size={16} />
-              <p className="truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+              {/* Author face(s): a portrait per credited author, co-authors
+                  overlapping with the first on top (CreditFaces). */}
+              <CreditFaces names={splitCredits(b.author, seps)} map={authorMap} size={24} ring="var(--bg)" />
+              <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
                 {[b.author, b.published_year || null].filter(Boolean).join(' · ')}
               </p>
             </div>
@@ -595,7 +596,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
     ? [
         ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
           <span key={`author-${a}`} className="inline-flex items-center gap-1.5" style={{ verticalAlign: 'middle' }}>
-            <PersonPortrait person={authorMap[a]} size={19} />
+            <PersonPortrait person={authorMap[a]} size={28} />
             <PersonName kind="author" name={a} onOpen={setPerson} />
           </span>
         )),

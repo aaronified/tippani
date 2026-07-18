@@ -3,7 +3,7 @@ import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
-import { PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   EmptyState,
@@ -48,8 +48,9 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
-  const authors = usePeople('author') // name→metadata for author-group portraits
-  const directors = usePeople('director') // name→metadata for movie director-group portraits
+  const authors = usePeople('author') // name→metadata for author portraits/chips
+  const directors = usePeople('director') // name→metadata for director/creator chips
+  const actors = usePeople('actor') // name→metadata for actor chips on dialogue hits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
@@ -184,7 +185,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               onOpenPerson={setPerson}
               creditSeps={creditSeps}
               renderItem={(g) => (
-                <BookResult key={`b${g.id}`} g={g} view={view} terms={terms} onOpenBook={onOpenBook} onOpenQuote={setQuote} />
+                <BookResult key={`b${g.id}`} g={g} view={view} terms={terms} onOpenBook={onOpenBook} onOpenQuote={setQuote} authorMap={authors.map} creditSeps={creditSeps} />
               )}
             />
           )}
@@ -198,7 +199,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               people={directors.map}
               onOpenPerson={setPerson}
               renderItem={(g) => (
-                <MovieResult key={`m${g.id}`} g={g} view={view} terms={terms} onOpenMovie={onOpenMovie} onOpenQuote={setQuote} />
+                <MovieResult key={`m${g.id}`} g={g} view={view} terms={terms} onOpenMovie={onOpenMovie} onOpenQuote={setQuote} directorMap={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
               )}
             />
           )}
@@ -223,6 +224,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
           onSaved={() => {
             authors.reload()
             directors.reload()
+            actors.reload()
           }}
         />
       )}
@@ -359,6 +361,7 @@ function QuoteModal({ kind, hit, onOpenBook, onOpenMovie, onClose, onChanged }) 
             onPatch={(fields) => patch(row, fields)}
             onDelete={() => remove(row)}
             onShare={() => setShareOpen(true)}
+            quoteLines={40}
             actionsAlwaysVisible
             editInline
           />
@@ -568,8 +571,9 @@ function BulkBar({ n, ids, bulk, onClear, onDone }) {
 }
 
 // MediaGroup: one book / movie as a card — cover or poster on the left, title +
-// subtitle, and its matching children (annotations / dialogues) stacked below.
-function MediaGroup({ kind, cover, title, subtitle, terms, onOpen, children }) {
+// subtitle (with an optional author/director face chip), and its matching
+// children (annotations / dialogues) stacked below.
+function MediaGroup({ kind, cover, title, subtitle, face, terms, onOpen, children }) {
   const hasChildren = Array.isArray(children) ? children.some(Boolean) : Boolean(children)
   return (
     <HandCard className="flex gap-4 p-4">
@@ -595,7 +599,12 @@ function MediaGroup({ kind, cover, title, subtitle, terms, onOpen, children }) {
           <p className="display-title text-[16.5px] leading-snug">
             <Highlight text={title} terms={terms} />
           </p>
-          {subtitle && <MonoLabel className="mt-0.5 block">{subtitle}</MonoLabel>}
+          {(subtitle || face) && (
+            <span className="mt-1 flex items-center gap-1.5">
+              {face}
+              {subtitle && <MonoLabel className="block min-w-0 truncate">{subtitle}</MonoLabel>}
+            </span>
+          )}
         </button>
         {hasChildren && <div className="mt-2.5 space-y-2">{children}</div>}
       </div>
@@ -619,7 +628,7 @@ function ChildHit({ onClick, children }) {
 
 // BookResult / MovieResult: one grouped card + its matching children. Clicking a
 // child opens the quote modal; clicking the cover/title opens the parent detail.
-function BookResult({ g, view, terms, onOpenBook, onOpenQuote }) {
+function BookResult({ g, view, terms, onOpenBook, onOpenQuote, authorMap = {}, creditSeps }) {
   return (
     <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
       <MediaGroup
@@ -628,6 +637,7 @@ function BookResult({ g, view, terms, onOpenBook, onOpenQuote }) {
         title={g.title}
         terms={terms}
         subtitle={[g.author, g.genres && g.genres.slice(0, 3).join(' · ')].filter(Boolean).join('  ·  ')}
+        face={<CreditFaces names={splitCredits(g.author, creditSeps)} map={authorMap} size={24} ring="var(--card)" />}
         onOpen={() => onOpenBook(g.id)}
       >
         {g.annotations.map((a) => (
@@ -649,7 +659,7 @@ function BookResult({ g, view, terms, onOpenBook, onOpenQuote }) {
   )
 }
 
-function MovieResult({ g, view, terms, onOpenMovie, onOpenQuote }) {
+function MovieResult({ g, view, terms, onOpenMovie, onOpenQuote, directorMap = {}, actorMap = {}, creditSeps }) {
   return (
     <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
       <MediaGroup
@@ -658,6 +668,7 @@ function MovieResult({ g, view, terms, onOpenMovie, onOpenQuote }) {
         title={g.title}
         terms={terms}
         subtitle={[g.director, g.release_year || null].filter(Boolean).join('  ·  ')}
+        face={<CreditFaces names={splitCredits(g.director, creditSeps)} map={directorMap} size={24} ring="var(--card)" />}
         onOpen={() => onOpenMovie(g.id)}
       >
         {g.dialogues.map((d) => (
@@ -665,12 +676,16 @@ function MovieResult({ g, view, terms, onOpenMovie, onOpenQuote }) {
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }}>
               “<Highlight text={d.quote} terms={terms} />”
             </p>
-            <MonoLabel className="mt-1 block">
-              {d.character && <Highlight text={d.character} terms={terms} />}
-              {d.character && d.actor ? ' · ' : ''}
-              {d.actor && <Highlight text={d.actor} terms={terms} />}
-              {d.timestamp ? `  ·  ${d.timestamp}` : ''}
-            </MonoLabel>
+            <span className="mt-1 flex items-center gap-1.5">
+              {/* Actor face on the dialogue hit (when a portrait is saved). */}
+              <CreditFaces names={d.actor} map={actorMap} size={22} ring="var(--raised)" />
+              <MonoLabel className="block min-w-0 truncate">
+                {d.character && <Highlight text={d.character} terms={terms} />}
+                {d.character && d.actor ? ' · ' : ''}
+                {d.actor && <Highlight text={d.actor} terms={terms} />}
+                {d.timestamp ? `  ·  ${d.timestamp}` : ''}
+              </MonoLabel>
+            </span>
           </ChildHit>
         ))}
       </MediaGroup>

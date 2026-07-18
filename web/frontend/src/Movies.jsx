@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import AddSurface from './AddSurface.jsx'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
-import { PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonModal, PersonName, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -45,8 +45,10 @@ import {
   TokenInput,
   ViewToggle,
   bySeries,
+  clampSequence,
   filterChipClass,
   frameCode,
+  mulberry32,
   seriesLabel,
   splitCommas,
   titleCaseGenre,
@@ -64,7 +66,7 @@ import {
 // (PLAN §3b); tags are objects now — chips take color/style from GET /tags.
 export default function Movies({ openId, onOpen, onClose, creditSeparators }) {
   if (openId) return <MovieDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
-  return <MovieList onOpen={onOpen} />
+  return <MovieList onOpen={onOpen} creditSeparators={creditSeparators} />
 }
 
 // Reveal — a div that mounts with its content, so useReveal's effect sees the
@@ -138,8 +140,10 @@ function movieState(m) {
 
 // ---- movie list: poster grid mirroring Library (§8.6) ----
 
-function MovieList({ onOpen }) {
+function MovieList({ onOpen, creditSeparators }) {
   const [movies, setMovies] = useState(null)
+  const { map: directorMap } = usePeople('director') // name→metadata, for director/creator face chips
+  const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const [status, setStatus] = useState(null) // GET /metadata/status → Add-movie is status-aware
   const [mediaType, setMediaType] = useState('') // '' = all, 'movie', 'show'
   const [genre, setGenre] = useState('')
@@ -345,7 +349,7 @@ function MovieList({ onOpen }) {
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
         >
           {shown.map((m) => (
-            <PosterCard key={m.id} movie={m} onOpen={onOpen} />
+            <PosterCard key={m.id} movie={m} onOpen={onOpen} directorMap={directorMap} seps={creditSeps} />
           ))}
         </Reveal>
       )}
@@ -379,7 +383,7 @@ function MovieList({ onOpen }) {
   )
 }
 
-function PosterCard({ movie: m, onOpen }) {
+function PosterCard({ movie: m, onOpen, directorMap = {}, seps }) {
   const n = m.dialogue_count || 0
   const isShow = (m.media_type || 'movie') === 'show'
   return (
@@ -402,8 +406,13 @@ function PosterCard({ movie: m, onOpen }) {
       >
         {m.title}
       </span>
-      <span className="block truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+      <span className="flex items-center gap-1.5">
+        {/* Director/creator face(s), matching the book library's author chip;
+            co-directors overlap with the first on top (CreditFaces). */}
+        <CreditFaces names={splitCredits(m.director, seps)} map={directorMap} size={24} ring="var(--bg)" />
+        <span className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
         {[m.director, m.release_year].filter(Boolean).join(' · ') || ' '}
+        </span>
       </span>
       {m.series && (
         <span className="block truncate text-[12px]" style={{ color: 'var(--faint)', fontStyle: 'italic' }}>
@@ -934,6 +943,26 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   const tagMap = Object.fromEntries(tags.map((t) => [t.name, t]))
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
+  // Tiles board (mirrors the Library's annotation board): one seed off the movie
+  // drives both the masonry and each card's clamp height. Cards clamp to a seeded
+  // 3–5 lines with no three-adjacent the same; the board is laid out in source
+  // order so the clamp — not a height sort — is what varies it. A one-open-at-a-
+  // time accordion expands a dialogue in place and locks the column order while
+  // one is open, so nothing reshuffles under the reader.
+  const boardSeed = Number(movieId) || 1
+  const clampLines = useMemo(() => clampSequence(items?.length || 0, mulberry32(boardSeed)), [items?.length, boardSeed])
+  const [expandedId, setExpandedId] = useState(null)
+  const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
+  // Keep expandedId honest: if the open dialogue leaves the set (filtered out via
+  // patch/save, which don't reset it), clear it — a dangling id keeps lockOrder
+  // stuck true and defeats the masonry's rising-edge freeze on the next expand.
+  useEffect(() => {
+    if (expandedId != null && items && !items.some((x) => x.id === expandedId)) setExpandedId(null)
+  }, [items, expandedId])
+  // A column-count change (breakpoint / rotation) re-opens masonry packing;
+  // collapse any open dialogue so the board re-packs off collapsed heights.
+  useEffect(() => { setExpandedId(null) }, [tileCols])
+
   async function loadTags() {
     const r = await json('GET', '/tags')
     if (r.ok) setTags(r.data.tags)
@@ -950,6 +979,10 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
     else setError(errText(r))
   }
   useEffect(() => {
+    // A movie switch or filter change swaps the tile set, so collapse any open
+    // dialogue first (keeps the masonry column lock from latching around an
+    // expanded card while the set changes underneath it).
+    setExpandedId(null)
     load()
   }, [movieId, tag, fav])
   useEffect(() => {
@@ -959,6 +992,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   async function add(fields) {
     const r = await json('POST', '/dialogues', { movie_id: movieId, ...fields })
     if (!r.ok) return errText(r, 'could not add dialogue')
+    setExpandedId(null) // collapse before the new dialogue reshapes the board
     load()
     loadTags()
     return null
@@ -976,7 +1010,7 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
   async function remove(d) {
     if (!confirm('Delete this dialogue?')) return
     const r = await json('DELETE', `/dialogues/${d.id}`)
-    if (r.ok) load()
+    if (r.ok) { setExpandedId(null); load() } // collapse before the shorter set re-packs
     else setError(errText(r))
   }
 
@@ -1110,12 +1144,16 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'tiles' && (
-        // Tiles read like the book board (§8.6): a height-packed masonry collage
-        // (1/2/3 cols by width, seeded off the movie so it never wobbles) whose
-        // cards keep the film-frame skin — book layout, film-negative theme. The
-        // strip decoration (sprockets/edge/dividers) belongs to the list view.
+        // Tiles read like the book board (§8.6): a masonry collage (1/2/3 cols by
+        // width, seeded off the movie so it never wobbles) whose cards keep the
+        // film-frame skin — book layout, film-negative theme. Laid out in SOURCE
+        // order so each card's seeded 3–5 line clamp — not a height sort — is what
+        // varies the board. Clicking a dialogue expands it in place (chevron
+        // affordance, no button); doing so collapses any other and locks the
+        // column order so the board never reshuffles. The strip decoration
+        // (sprockets/edge/dividers) belongs to the list view.
         <Reveal>
-          <Masonry columns={tileCols} gap={16} seed={Number(movieId) || 1}>
+          <Masonry columns={tileCols} gap={16} seed={boardSeed} lockOrder={expandedId != null} order="source">
             {items.map((d, i) => (
               <Frame
                 key={d.id}
@@ -1134,7 +1172,10 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 onDelete={() => remove(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
-              actorMap={actorMap}
+                actorMap={actorMap}
+                quoteLines={clampLines[i]}
+                expanded={expandedId === d.id}
+                onToggleExpand={() => toggleExpanded(d.id)}
               />
             ))}
           </Masonry>
@@ -1164,7 +1205,8 @@ function Dialogues({ movieId, cast, movie, mobileFilterOpen, onMobileFilterOpen,
                 onDelete={() => remove(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
-              actorMap={actorMap}
+                actorMap={actorMap}
+                quoteLines={5}
               />
             </Fragment>
           ))}
@@ -1297,11 +1339,16 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5' }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, castListId, onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
   const frameClass = ['film-frame', wrapClass, 'px-5 py-4'].filter(Boolean).join(' ')
+  // Accordion mode (tiles board): the parent owns which dialogue is open, so one
+  // expands at a time. Elsewhere (list, search modal) each frame keeps its own.
+  // The quote clamps to `quoteLines` and a chevron reveals only when it overflows
+  // (click the text to expand — no button), mirroring book annotations.
+  const accordion = typeof onToggleExpand === 'function'
   const editForm = (
     <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" castListId={castListId} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
   )
@@ -1349,22 +1396,32 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             text={`“${d.quote}”`}
             quoteStyle={quoteStyle}
             stickerKey={`s${sticker.id}`}
+            maxLines={quoteLines} /* collapsed → small corner badge; expanded →
+                                     full positioned/draggable seal (see flow.jsx) */
             pos={d.sticker_x != null ? { x: d.sticker_x, y: d.sticker_y } : null}
             onMove={(x, y) => onPatch({ sticker_x: x, sticker_y: y })}
             sticker={<StickerImg sticker={sticker} />}
+            open={accordion ? !!expanded : undefined}
+            onToggle={accordion ? onToggleExpand : undefined}
           />
         ) : (
           <div className="flex items-start justify-between gap-3">
-            <blockquote className="min-w-0 whitespace-pre-wrap" style={quoteStyle}>
-              &ldquo;{d.quote}&rdquo;
-            </blockquote>
+            <ExpandableText
+              text={`“${d.quote}”`}
+              lines={quoteLines}
+              style={quoteStyle}
+              className="min-w-0 flex-1"
+              open={accordion ? !!expanded : undefined}
+              onToggle={accordion ? onToggleExpand : undefined}
+            />
             <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
           </div>
         ))}
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
-          {/* Actor face on the quote block (when a portrait is saved for them). */}
-          <PersonPortrait person={actorMap[d.actor]} size={20} />
+          {/* Actor face on the quote block (when a portrait is saved for them),
+              sized to match the library's author chip. */}
+          <PersonPortrait person={actorMap[d.actor]} size={24} />
           <ReviewDot item={d} />
           <span style={amberMono}>
             {creditParts.map((p, i) => (

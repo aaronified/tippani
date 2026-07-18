@@ -223,6 +223,40 @@ export function PersonPortrait({ person, size = 30 }) {
   )
 }
 
+// CreditFaces — the round-portrait chip for a credit line, sized like a book's
+// author face. When a credit names more than one person (co-authors, a film's
+// director + creator), the portraits OVERLAP like set intersections with the
+// FIRST credited name on top; a ring in the surface colour cuts each disc out
+// from the one beneath so the overlap reads as stacked, not merged. Only names
+// with a saved photo appear, and it renders nothing when none do. `names` takes
+// a single name or an array; `map` is the usePeople name→row map; `ring` must
+// match the surface the chip sits on (a lone disc then shows no visible ring).
+export function CreditFaces({ names, map = {}, size = 24, ring = 'var(--bg)', className = '' }) {
+  const list = Array.isArray(names) ? names : names ? [names] : []
+  const people = list.map((n) => map?.[n]).filter((p) => p?.image_path)
+  if (people.length === 0) return null
+  const overlap = Math.round(size * 0.34)
+  return (
+    <span className={('inline-flex items-center ' + className).trim()} style={{ flex: 'none' }}>
+      {people.map((p, i) => (
+        <span
+          key={p.id ?? p.name ?? i}
+          style={{
+            position: 'relative',
+            marginLeft: i === 0 ? 0 : -overlap,
+            zIndex: people.length - i, // first credited name sits on top
+            borderRadius: '50%',
+            boxShadow: `0 0 0 2px ${ring}`,
+            lineHeight: 0,
+          }}
+        >
+          <PersonPortrait person={p} size={size} />
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function PersonView({ person, name, onEdit, onDelete }) {
   const [zoom, setZoom] = useState(false)
   // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
