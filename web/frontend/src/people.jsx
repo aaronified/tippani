@@ -274,6 +274,17 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
   )
 }
 
+// lifespanLabel renders a person's years: "1920 – 2001" when both are known,
+// the bare birth year when only born is set, "d. 2001" when only died is.
+function lifespanLabel(p) {
+  const b = (p?.born || '').trim()
+  const d = (p?.died || '').trim()
+  if (b && d) return `${b} – ${d}`
+  if (b) return b
+  if (d) return `d. ${d}`
+  return ''
+}
+
 function PersonView({ person, name, onEdit, onDelete }) {
   const [zoom, setZoom] = useState(false)
   // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
@@ -302,7 +313,7 @@ function PersonView({ person, name, onEdit, onDelete }) {
       <div style={{ overflow: 'hidden' }}> {/* establishes a float context (clears) */}
         {photo}
         <div className="min-w-0 space-y-1.5">
-          {person.born && <MonoLabel className="block">{person.born}</MonoLabel>}
+          {lifespanLabel(person) && <MonoLabel className="block">{lifespanLabel(person)}</MonoLabel>}
           {person.bio && <ExpandableDescription text={person.bio} lines={5} />}
           {person.links && (
             <div className="space-y-1">
@@ -363,6 +374,7 @@ function PersonLinksDetail({ links }) {
 function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   const [bio, setBio] = useState(initial?.bio || '')
   const [born, setBorn] = useState(initial?.born || '')
+  const [died, setDied] = useState(initial?.died || '')
   const [links, setLinks] = useState(initial?.links || '')
   const [imageUrl, setImageUrl] = useState('')
   const [clearImage, setClearImage] = useState(false)
@@ -392,9 +404,12 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
 
   async function submit(e) {
     e.preventDefault()
-    // Born is a year: 4 digits, or blank. (Same rule the year fields use.)
+    // Born/died are years: 4 digits, or blank. (Same rule the year fields use.)
     if (born.trim() && !/^\d{4}$/.test(born.trim())) {
       return setError('born must be a 4-digit year (e.g. 1920)')
+    }
+    if (died.trim() && !/^\d{4}$/.test(died.trim())) {
+      return setError('died must be a 4-digit year (e.g. 2001)')
     }
     setBusy(true)
     setError('')
@@ -403,6 +418,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
       name,
       bio: bio.trim(),
       born: born.trim(),
+      died: died.trim(),
       links: links.trim(),
       source: initial?.source || 'manual',
       source_id: initial?.source_id || '',
@@ -437,31 +453,39 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
           maxLength={4}
           placeholder="e.g. 1920"
         />
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <MonoLabel>Photo URL</MonoLabel>
-            {/* No keyless portrait API, so offer a web image search: find one,
-                copy its address, paste it here (this field also takes any cover
-                image URL). */}
-            <button
-              type="button"
-              className="tp-link"
-              style={{ fontSize: 11 }}
-              onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')}
-            >
-              search images ↗
-            </button>
-          </div>
-          <input
-            className="tp-input"
-            value={imageUrl}
-            onChange={(e) => {
-              setImageUrl(e.target.value)
-              setClearImage(false)
-            }}
-            placeholder="https://… paste an image link"
-          />
+        <Field
+          label="Died"
+          value={died}
+          onChange={(e) => setDied(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          inputMode="numeric"
+          maxLength={4}
+          placeholder="e.g. 2001"
+        />
+      </div>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <MonoLabel>Photo URL</MonoLabel>
+          {/* No keyless portrait API, so offer a web image search: find one,
+              copy its address, paste it here (this field also takes any cover
+              image URL). */}
+          <button
+            type="button"
+            className="tp-link"
+            style={{ fontSize: 11 }}
+            onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')}
+          >
+            search images ↗
+          </button>
         </div>
+        <input
+          className="tp-input"
+          value={imageUrl}
+          onChange={(e) => {
+            setImageUrl(e.target.value)
+            setClearImage(false)
+          }}
+          placeholder="https://… paste an image link"
+        />
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">Links</MonoLabel>
@@ -554,6 +578,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         name,
         bio: current?.bio || '',
         born: current?.born || '',
+        died: current?.died || '',
         links: merged,
         source: current?.source || 'lookup',
         source_id: current?.source_id || '',

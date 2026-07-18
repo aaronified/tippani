@@ -432,12 +432,12 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 	// the stored cast (no network), an author via Open Library disambiguated by
 	// their books. Links come back only for authors; actor links stay the
 	// People console's job (a by-name TMDB search could drift to a namesake).
-	source, sourceID, imageURL, bio, born, links, rerr := s.resolvePersonPortrait(ctx, uid, kind, name)
+	source, sourceID, imageURL, bio, born, died, links, rerr := s.resolvePersonPortrait(ctx, uid, kind, name)
 	if rerr != nil {
 		it.Status, it.Error = "fetch_failed", reverifyLookupError("person", rerr)
 		return it
 	}
-	if source == "" && imageURL == "" && len(links) == 0 && bio == "" && born == "" {
+	if source == "" && imageURL == "" && len(links) == 0 && bio == "" && born == "" && died == "" {
 		it.Error = "no confident match found"
 		return it
 	}
@@ -467,6 +467,9 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 	}
 	if born != "" && strings.TrimSpace(p.Born) == "" {
 		d = append(d, fieldDiff{Field: "born", Stored: p.Born, Fresh: born})
+	}
+	if died != "" && strings.TrimSpace(p.Died) == "" {
+		d = append(d, fieldDiff{Field: "died", Stored: p.Died, Fresh: died})
 	}
 	it.Diffs = d
 	return it
@@ -943,7 +946,7 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	if !validPersonKind(kind) || name == "" {
 		return "", errors.New("kind must be author, actor or director, with a name")
 	}
-	allowed := map[string]bool{"links": true, "identity": true, "source": true, "source_id": true, "portrait": true, "bio": true, "born": true}
+	allowed := map[string]bool{"links": true, "identity": true, "source": true, "source_id": true, "portrait": true, "bio": true, "born": true, "died": true}
 	for k := range set {
 		if !allowed[k] {
 			return "", errors.New("unknown field for a person: " + k)
@@ -995,6 +998,12 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	} else if present {
 		newBorn = strings.TrimSpace(v)
 	}
+	newDied := p.Died
+	if v, present, derr := decodeSet[string](set, "died"); derr != nil {
+		return "", derr
+	} else if present {
+		newDied = strings.TrimSpace(v)
+	}
 
 	newImage := ""
 	if hasPortrait && strings.TrimSpace(portraitURL) != "" {
@@ -1013,16 +1022,16 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	if newImage != "" {
 		image = newImage
 	}
-	// Full upsert. bio/born now flow through too (only diffed when the stored
+	// Full upsert. bio/born/died now flow through too (only diffed when the stored
 	// field was empty, so a user's own text still can't be overwritten here).
 	if _, xerr := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, kind, name, bio, image_path, born, links, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO people (user_id, kind, name, bio, image_path, born, died, links, source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, kind, name) DO UPDATE SET
 			image_path = excluded.image_path, links = excluded.links,
-			bio = excluded.bio, born = excluded.born,
+			bio = excluded.bio, born = excluded.born, died = excluded.died,
 			source = excluded.source, source_id = excluded.source_id`,
-		uid, kind, name, newBio, image, newBorn, newLinks, source, sourceID); xerr != nil {
+		uid, kind, name, newBio, image, newBorn, newDied, newLinks, source, sourceID); xerr != nil {
 		s.removeCoverFile(newImage)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, xerr)
 		return "", errors.New("write failed")

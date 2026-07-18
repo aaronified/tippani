@@ -23,16 +23,17 @@ type personRow struct {
 	Bio       string `json:"bio"`
 	ImagePath string `json:"image_path"`
 	Born      string `json:"born"`
+	Died      string `json:"died"`
 	Links     string `json:"links"`
 	Source    string `json:"source"`
 	SourceID  string `json:"source_id"`
 }
 
-const personCols = `id, kind, name, bio, image_path, born, links, source, source_id`
+const personCols = `id, kind, name, bio, image_path, born, died, links, source, source_id`
 
 func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 	var p personRow
-	err := sc.Scan(&p.ID, &p.Kind, &p.Name, &p.Bio, &p.ImagePath, &p.Born, &p.Links, &p.Source, &p.SourceID)
+	err := sc.Scan(&p.ID, &p.Kind, &p.Name, &p.Bio, &p.ImagePath, &p.Born, &p.Died, &p.Links, &p.Source, &p.SourceID)
 	return p, err
 }
 
@@ -205,6 +206,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 		Name       string `json:"name"`
 		Bio        string `json:"bio"`
 		Born       string `json:"born"`
+		Died       string `json:"died"`
 		Links      string `json:"links"`
 		Source     string `json:"source"`
 		SourceID   string `json:"source_id"`
@@ -249,13 +251,13 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, kind, name, bio, image_path, born, links, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO people (user_id, kind, name, bio, image_path, born, died, links, source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, kind, name) DO UPDATE SET
 			bio = excluded.bio, image_path = excluded.image_path, born = excluded.born,
-			links = excluded.links, source = excluded.source, source_id = excluded.source_id`,
+			died = excluded.died, links = excluded.links, source = excluded.source, source_id = excluded.source_id`,
 		uid, req.Kind, req.Name, strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
-		strings.TrimSpace(req.Links), strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID)); err != nil {
+		strings.TrimSpace(req.Died), strings.TrimSpace(req.Links), strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID)); err != nil {
 		s.removeCoverFile(newImage) // roll back a just-fetched file on write failure
 		internalError(w, r, "upsert person", err)
 		return

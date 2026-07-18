@@ -55,7 +55,8 @@ func TestAuthorDetailEnriched(t *testing.T) {
 				{"title":"wiki","url":"https://en.wikipedia.org/wiki/Douglas_Adams"}
 			],
 			"bio":{"type":"/type/text","value":"English author."},
-			"birth_date":"11 March 1952"
+			"birth_date":"11 March 1952",
+			"death_date":"11 May 2001"
 		}`))
 	}))
 	defer ol.Close()
@@ -63,7 +64,7 @@ func TestAuthorDetailEnriched(t *testing.T) {
 	openLibraryBase = ol.URL
 	t.Cleanup(func() { openLibraryBase = old })
 
-	photoID, qid, wiki, bio, born := authorDetail(context.Background(), "OL42A")
+	photoID, qid, wiki, bio, born, died := authorDetail(context.Background(), "OL42A")
 	if photoID != 7391 {
 		t.Errorf("photoID = %d, want 7391", photoID)
 	}
@@ -78,5 +79,8 @@ func TestAuthorDetailEnriched(t *testing.T) {
 	}
 	if born != "1952" {
 		t.Errorf("born = %q, want 1952", born)
+	}
+	if died != "2001" {
+		t.Errorf("died = %q, want 2001", died)
 	}
 }

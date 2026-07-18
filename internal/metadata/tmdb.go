@@ -51,6 +51,7 @@ type PersonMeta struct {
 	ImageURL string // full profile image URL ("" if the person has no headshot)
 	Bio      string
 	Born     string // 4-digit birth year
+	Died     string // 4-digit death year ("" if living / unknown)
 }
 
 // PersonDetails fetches /person/{id} for an actor's headshot, biography and
@@ -65,6 +66,7 @@ func (t *TMDB) PersonDetails(ctx context.Context, id string) (*PersonMeta, error
 		Name        string `json:"name"`
 		Biography   string `json:"biography"`
 		Birthday    string `json:"birthday"`
+		Deathday    string `json:"deathday"`
 		ProfilePath string `json:"profile_path"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -75,6 +77,7 @@ func (t *TMDB) PersonDetails(ctx context.Context, id string) (*PersonMeta, error
 		ImageURL: TMDBProfileURL(r.ProfilePath),
 		Bio:      strings.TrimSpace(r.Biography),
 		Born:     birthYear(r.Birthday),
+		Died:     birthYear(r.Deathday),
 	}, nil
 }
 

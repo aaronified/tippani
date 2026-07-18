@@ -138,6 +138,7 @@ type AuthorResolution struct {
 	WikidataQID string            // "" when the author has no wikidata link
 	Bio         string            // Open Library biography (typed-text or plain); "" if none
 	Born        string            // 4-digit birth year from OL birth_date; "" if none
+	Died        string            // 4-digit death year from OL death_date; "" if none
 	Links       map[string]string // openlibrary + wikipedia reference pages
 }
 
@@ -172,12 +173,13 @@ func ResolveAuthor(ctx context.Context, name string, bookTitles []string) (Autho
 		Name:  best.name,
 		Links: map[string]string{"openlibrary": openLibraryBase + "/authors/" + url.PathEscape(best.key)},
 	}
-	// The author detail carries the photo ids, a Wikipedia link, bio + birth year,
-	// and the wikidata remote id (the hop to the P18 fallback portrait).
-	photoID, qid, wikiURL, bio, born := authorDetail(ctx, best.key)
+	// The author detail carries the photo ids, a Wikipedia link, bio + birth/death
+	// year, and the wikidata remote id (the hop to the P18 fallback portrait).
+	photoID, qid, wikiURL, bio, born, died := authorDetail(ctx, best.key)
 	res.WikidataQID = qid
 	res.Bio = bio
 	res.Born = born
+	res.Died = died
 	if wikiURL != "" {
 		res.Links["wikipedia"] = wikiURL
 	}
@@ -462,11 +464,11 @@ func authorWorks(ctx context.Context, key string) ([]string, error) {
 
 // authorDetail reads the OL author record for a positive photo id (photos may be
 // absent or [-1] when none), the wikidata remote id, a Wikipedia article URL,
-// and the biography + birth year. Best-effort zero values.
-func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID, wikipediaURL, bio, born string) {
+// and the biography + birth/death year. Best-effort zero values.
+func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID, wikipediaURL, bio, born, died string) {
 	body, status, err := httpGet(ctx, openLibraryBase+"/authors/"+url.PathEscape(key)+".json", "")
 	if err != nil || status != 200 {
-		return 0, "", "", "", ""
+		return 0, "", "", "", "", ""
 	}
 	var a struct {
 		Photos    []int64 `json:"photos"`
@@ -479,9 +481,10 @@ func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID, 
 		Wikipedia string          `json:"wikipedia"`  // OL sometimes carries a direct URL
 		Bio       json.RawMessage `json:"bio"`        // string OR {type,value}
 		BirthDate string          `json:"birth_date"` // "11 March 1952" | "1952" | "1952-03-11"
+		DeathDate string          `json:"death_date"` // same shapes; "" for the living
 	}
 	if json.Unmarshal(body, &a) != nil {
-		return 0, "", "", "", ""
+		return 0, "", "", "", "", ""
 	}
 	for _, p := range a.Photos {
 		if p > 0 {
@@ -500,7 +503,7 @@ func authorDetail(ctx context.Context, key string) (photoID int64, wikidataQID, 
 			}
 		}
 	}
-	return photoID, a.RemoteIDs.Wikidata, wikipediaURL, parseOLBio(a.Bio), birthYear(a.BirthDate)
+	return photoID, a.RemoteIDs.Wikidata, wikipediaURL, parseOLBio(a.Bio), birthYear(a.BirthDate), birthYear(a.DeathDate)
 }
 
 // parseOLBio pulls the text out of an Open Library bio value, which is either a
