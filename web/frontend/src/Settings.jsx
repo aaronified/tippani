@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { json, errText, coverImgURL, copyText, apiURL } from './api.js'
+import { useEffect, useRef, useState } from 'react'
+import { json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import {
   Card,
@@ -364,12 +364,20 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
 // now" builds a fresh one (older ones are dropped once it exists) and starts
 // the download; the restore block shows that backup's date and replaces
 // EVERYTHING on the server with its contents, in-process — no Docker socket.
+// A second restore path uploads a backup file (from this or ANOTHER Tippani
+// server), the move-to-a-new-box / point-in-time path.
 function BackupCard() {
   const [backup, setBackup] = useState(null) // {name, created, size} | null
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState('')
   const [restoring, setRestoring] = useState(false)
+  // Upload-restore: a backup file the admin chooses from disk.
+  const [file, setFile] = useState(null)
+  const [upConfirm, setUpConfirm] = useState('')
+  const [phase, setPhase] = useState('idle') // idle | uploading | restoring
+  const [pct, setPct] = useState(0)
+  const fileRef = useRef(null)
 
   useEffect(() => {
     json('GET', '/admin/backup').then((r) => {
@@ -403,6 +411,31 @@ function BackupCard() {
     } catch {
       // A large restore can outlive the connection even when it succeeds
       // server-side; reload rather than freeze on 'Restoring…'.
+      setTimeout(() => window.location.reload(), 1200)
+    }
+  }
+
+  async function restoreUpload() {
+    if (!file || upConfirm !== 'RESTORE' || phase !== 'idle') return
+    setPhase('uploading')
+    setPct(0)
+    const form = new FormData()
+    form.append('confirm', 'RESTORE') // the admin "type RESTORE" guard, sent alongside the file
+    form.append('file', file)
+    try {
+      const r = await uploadWithProgress('/admin/restore/upload', form, (f) => {
+        setPct(Math.round(f * 100))
+        if (f >= 1) setPhase('restoring') // upload done, server applying
+      })
+      if (!r.ok) {
+        setPhase('idle')
+        return toast(errText(r, 'restore failed — the current data is intact'))
+      }
+      toast('restore complete — logging you out')
+      setTimeout(() => window.location.reload(), 1200)
+    } catch {
+      // A large restore can outlive the connection even when it succeeds
+      // server-side; reload rather than freeze on 'Applying…'.
       setTimeout(() => window.location.reload(), 1200)
     }
   }
@@ -458,6 +491,51 @@ function BackupCard() {
             </div>
           </div>
         )}
+        <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+          <p className="microcopy" style={{ color: 'var(--error)' }}>
+            Or restore from a backup <b>file</b> — one downloaded from this or another Tippani
+            server. This replaces everything here with the file's contents; everyone is logged out.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".tar.gz,.tgz,application/gzip"
+            aria-label="Choose a backup file to restore"
+            disabled={phase !== 'idle'}
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            style={{ maxWidth: '100%', fontSize: 13 }}
+          />
+          {file && (
+            <p className="microcopy">
+              {file.name} · {fmtSize(file.size)}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              className="tp-input"
+              style={{ maxWidth: 140, fontFamily: 'var(--font-mono)' }}
+              placeholder="RESTORE"
+              aria-label="Type RESTORE to confirm the upload restore"
+              value={upConfirm}
+              onChange={(e) => setUpConfirm(e.target.value)}
+              disabled={phase !== 'idle'}
+            />
+            <StickerButton
+              onClick={restoreUpload}
+              disabled={!file || upConfirm !== 'RESTORE' || phase !== 'idle' || restoring || busy}
+            >
+              {phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : 'Restore from file'}
+            </StickerButton>
+          </div>
+          {phase === 'uploading' && (
+            <div
+              aria-hidden="true"
+              style={{ height: 6, maxWidth: 280, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}
+            >
+              <div style={{ height: '100%', width: `${pct}%`, background: 'currentColor', transition: 'width .15s' }} />
+            </div>
+          )}
+        </div>
       </div>
     </Card>
   )

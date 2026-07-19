@@ -127,8 +127,11 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 💾 **Backup & restore** — one click in Settings builds a dated `tar.gz` of the whole data
   directory (a consistent snapshot of the live database plus every stored image) and downloads it;
   the newest backup is kept on the server, and restore — shown with that backup's date — swaps the
-  whole data directory back **in-process**, no Docker socket needed. The archive contains password
-  hashes and API keys, so store it somewhere safe.
+  whole data directory back **in-process**, no Docker socket needed. You can also **upload a backup
+  file** to restore — one downloaded from this or **another Tippani server** — so moving to a new
+  box is just spinning up a fresh instance and uploading your archive (available on the first-run
+  screen too, no SSH required). The archive contains password hashes and API keys, so store it
+  somewhere safe.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 

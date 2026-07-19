@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-07-19
+
+### Added
+- **Restore from an uploaded backup file — including one from another server.**
+  Restore previously only re-applied the single archive this server kept in
+  `<data>/backups`, so a backup downloaded from a _different_ Tippani box could
+  not be restored — not what "restore" should mean. You can now **upload a backup
+  file** and restore it, through the same hardened pipeline the kept-archive
+  restore uses (staged extract with path-traversal + decompression-bomb guards,
+  SQLite `quick_check`, atomic in-process data-dir swap with one `.pre-restore`
+  safety generation, migrate + FTS-heal on reopen). A backup from another server
+  is accepted as long as its schema is not newer than this build's; older schemas
+  migrate forward automatically. `POST /admin/restore/upload` (admin, Settings →
+  Backup & restore; `multipart/form-data`, a `confirm=RESTORE` field plus the
+  `file`, capped at 2 GiB with a progress bar) and `POST /auth/restore/upload` (the first-run
+  onboarding screen, so moving to a new box needs no SSH — spin up a fresh
+  instance and upload your archive). The admin upload takes a `confirm=RESTORE`
+  field alongside the file. New error code `TIP-BACKUP-007`.
+
 ## [0.8.2] - 2026-07-19
 
 ### Fixed

@@ -106,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /auth/status", s.handleStatus)
 	mux.HandleFunc("POST /auth/signup", s.handleSignup)
 	mux.HandleFunc("POST /auth/restore", s.handleOnboardRestore)
+	mux.HandleFunc("POST /auth/restore/upload", s.handleOnboardRestoreUpload)
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
@@ -130,11 +131,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/search/reindex", s.requireAdmin(s.handleReindexFTS))
 	mux.Handle("POST /admin/reset", s.requireAdmin(s.handleResetDatabase))
 	// Backup & restore (backup_handlers.go): dated tar.gz of the whole data
-	// dir, newest kept server-side; restore swaps the data dir in-process.
+	// dir, newest kept server-side; restore swaps the data dir in-process, from
+	// either that kept archive or one uploaded from another server (…/upload).
 	mux.Handle("GET /admin/backup", s.requireAdmin(s.handleBackupStatus))
 	mux.Handle("POST /admin/backup", s.requireAdmin(s.handleBackupCreate))
 	mux.Handle("GET /admin/backup/download", s.requireAdmin(s.handleBackupDownload))
 	mux.Handle("POST /admin/restore", s.requireAdmin(s.handleRestore))
+	mux.Handle("POST /admin/restore/upload", s.requireAdmin(s.handleRestoreUpload))
 	// Updates (admin): check GitHub for a newer release, and (Docker socket
 	// permitting) pull it and recreate this container in one click.
 	mux.Handle("GET /admin/update/check", s.requireAdmin(s.handleUpdateCheck))

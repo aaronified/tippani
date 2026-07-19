@@ -6,13 +6,37 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+// restoreUpload POSTs a multipart restore upload the way the frontend does: an
+// optional confirm field (empty string = omit it) written BEFORE the file part.
+func (c *testClient) restoreUpload(path, confirm string, archive []byte) *httptest.ResponseRecorder {
+	c.t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	if confirm != "" {
+		if err := mw.WriteField("confirm", confirm); err != nil {
+			c.t.Fatal(err)
+		}
+	}
+	fw, err := mw.CreateFormFile("file", "backup.tar.gz")
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	if _, err := fw.Write(archive); err != nil {
+		c.t.Fatal(err)
+	}
+	_ = mw.Close()
+	return c.doRaw("POST", path, &buf, mw.FormDataContentType())
+}
 
 type backupMetaResp struct {
 	Backup *struct {
@@ -352,5 +376,178 @@ func TestRestoreValidation(t *testing.T) {
 	// Live data untouched throughout.
 	if rec := admin.mustDo("GET", "/auth/me", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("alice")) {
 		t.Fatalf("live data damaged: %s", rec.Body)
+	}
+}
+
+// TestRestoreUpload covers the admin upload-restore path: an archive built on a
+// DIFFERENT server is uploaded and applied through the same pipeline, replacing
+// this server's data; bad/missing/out-of-order confirmations are rejected with
+// the live data untouched.
+func TestRestoreUpload(t *testing.T) {
+	// Donor server: a distinctive book + media, backed up, its archive read out.
+	donor := newTestServer(t)
+	dAdmin := signupAdmin(t, donor.Handler())
+	dAdmin.mustDo("POST", "/books", map[string]any{"title": "FromDonor", "author": "Donor"}, 201)
+	dCover := filepath.Join(donor.coversDir(), "abcabcabc1234567.png")
+	if err := os.WriteFile(dCover, pngHeader, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dAdmin.mustDo("POST", "/admin/backup", nil, 200)
+	dName, _ := donor.newestBackup()
+	archive, err := os.ReadFile(filepath.Join(donor.backupsDir(), dName))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Target server: its own admin and a book that must NOT survive the restore.
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	admin.mustDo("POST", "/books", map[string]any{"title": "TargetOnly", "author": "Target"}, 201)
+
+	// Guards: wrong confirm and missing confirm are both 400, and they swap
+	// nothing — the target's own book must still be there afterward.
+	if rec := admin.restoreUpload("/admin/restore/upload", "nope", archive); rec.Code != http.StatusBadRequest {
+		t.Fatalf("wrong confirm: %d", rec.Code)
+	}
+	if rec := admin.restoreUpload("/admin/restore/upload", "", archive); rec.Code != http.StatusBadRequest {
+		t.Fatalf("missing confirm: %d", rec.Code)
+	}
+	if rec := admin.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("TargetOnly")) {
+		t.Fatalf("a rejected upload swapped data: %s", rec.Body)
+	}
+
+	// Happy path — deliberately order-INDEPENDENT: write the file BEFORE the
+	// confirm field, which must still restore (there is no field-ordering contract).
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	fw, _ := mw.CreateFormFile("file", "backup.tar.gz")
+	_, _ = fw.Write(archive)
+	_ = mw.WriteField("confirm", "RESTORE")
+	_ = mw.Close()
+	rec := admin.doRaw("POST", "/admin/restore/upload", &body, mw.FormDataContentType())
+	if rec.Code != 200 || !bytes.Contains(rec.Body.Bytes(), []byte(`"ok":true`)) {
+		t.Fatalf("upload restore (file before confirm): %d %s", rec.Code, rec.Body)
+	}
+
+	// The server now serves the donor's data; the target-only book is gone.
+	fresh := &testClient{t: t, h: h}
+	lrec := fresh.do("POST", "/auth/login", map[string]string{"username": "alice", "password": "supersecret"})
+	if lrec.Code != 200 {
+		t.Fatalf("login after upload restore: %d %s", lrec.Code, lrec.Body)
+	}
+	fresh.cookie = cookieOf(t, lrec)
+	var books struct {
+		Books []struct {
+			Title string `json:"title"`
+		} `json:"books"`
+	}
+	_ = json.Unmarshal(fresh.mustDo("GET", "/books", nil, 200).Body.Bytes(), &books)
+	titles := map[string]bool{}
+	for _, b := range books.Books {
+		titles[b.Title] = true
+	}
+	if !titles["FromDonor"] || titles["TargetOnly"] {
+		t.Fatalf("restored books = %+v", books.Books)
+	}
+	if _, err := os.Stat(filepath.Join(srv.coversDir(), "abcabcabc1234567.png")); err != nil {
+		t.Fatalf("donor media missing after upload restore: %v", err)
+	}
+
+	// Exactly one .pre-restore safety generation, holding the pre-restore data.
+	entries, _ := os.ReadDir(srv.DataDir)
+	pre := 0
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), preRestorePrefix) {
+			pre++
+		}
+	}
+	if pre != 1 {
+		t.Fatalf("pre-restore generations: %d", pre)
+	}
+}
+
+// TestRestoreTwiceSameSecond guards the .pre-restore-<ts> uniqueness fix: two
+// restores landing in the same wall-clock second must both succeed. The safety
+// dir name previously used second precision and collided, failing the second
+// restore (and aliasing the safety generation onto the previous one).
+func TestRestoreTwiceSameSecond(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	admin.mustDo("POST", "/books", map[string]any{"title": "Keep", "author": "A"}, 201)
+	admin.mustDo("POST", "/admin/backup", nil, 200)
+
+	// Two back-to-back restores (well within one second) both succeed; the swap
+	// expires the caller's cookie, so log back in between rounds.
+	for i := 0; i < 2; i++ {
+		if rec := admin.do("POST", "/admin/restore", map[string]any{"confirm": "RESTORE"}); rec.Code != 200 {
+			t.Fatalf("restore #%d: %d %s", i+1, rec.Code, rec.Body)
+		}
+		fresh := &testClient{t: t, h: h}
+		lrec := fresh.do("POST", "/auth/login", map[string]string{"username": "alice", "password": "supersecret"})
+		if lrec.Code != 200 {
+			t.Fatalf("login after restore #%d: %d %s", i+1, lrec.Code, lrec.Body)
+		}
+		fresh.cookie = cookieOf(t, lrec)
+		admin = fresh
+	}
+
+	// Still exactly one safety generation, and the data survived both swaps.
+	entries, _ := os.ReadDir(srv.DataDir)
+	pre := 0
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), preRestorePrefix) {
+			pre++
+		}
+	}
+	if pre != 1 {
+		t.Fatalf("pre-restore generations after two restores: %d", pre)
+	}
+	if rec := admin.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("Keep")) {
+		t.Fatalf("data lost across two restores: %s", rec.Body)
+	}
+}
+
+// TestOnboardRestoreUpload covers the first-run upload path: a fresh box with no
+// users restores a backup uploaded from another server (no confirm, no SSH), and
+// the route closes once a user exists.
+func TestOnboardRestoreUpload(t *testing.T) {
+	old := newTestServer(t)
+	oAdmin := signupAdmin(t, old.Handler())
+	oAdmin.mustDo("POST", "/books", map[string]any{"title": "Original", "author": "Keeper"}, 201)
+	oAdmin.mustDo("POST", "/admin/backup", nil, 200)
+	name, _ := old.newestBackup()
+	archive, err := os.ReadFile(filepath.Join(old.backupsDir(), name))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := newTestServer(t)
+	h := srv.Handler()
+	anon := &testClient{t: t, h: h}
+
+	// Fresh box, no users: the upload restore applies with no confirmation.
+	if rec := anon.restoreUpload("/auth/restore/upload", "", archive); rec.Code != 200 {
+		t.Fatalf("onboarding upload restore: %d %s", rec.Code, rec.Body)
+	}
+
+	// Onboarding is now closed; the restored credentials log in and see the data.
+	if rec := anon.do("GET", "/auth/status", nil); !bytes.Contains(rec.Body.Bytes(), []byte(`"needs_onboarding":false`)) {
+		t.Fatalf("status after upload restore: %s", rec.Body)
+	}
+	user := &testClient{t: t, h: h}
+	lrec := user.do("POST", "/auth/login", map[string]string{"username": "alice", "password": "supersecret"})
+	if lrec.Code != 200 {
+		t.Fatalf("login after onboarding upload restore: %d %s", lrec.Code, lrec.Body)
+	}
+	user.cookie = cookieOf(t, lrec)
+	if rec := user.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("Original")) {
+		t.Fatalf("restored books: %s", rec.Body)
+	}
+
+	// With a user present the route is closed.
+	if rec := anon.restoreUpload("/auth/restore/upload", "", archive); rec.Code != http.StatusForbidden {
+		t.Fatalf("upload restore after onboarding: %d", rec.Code)
 	}
 }

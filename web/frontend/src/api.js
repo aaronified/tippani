@@ -45,6 +45,35 @@ export async function upload(url, file) {
   return parse(await fetch(apiURL(url), { method: 'POST', body: form }))
 }
 
+// uploadWithProgress POSTs a prepared FormData and reports upload progress —
+// fetch has no upload-progress event, so this uses XMLHttpRequest. onProgress
+// receives a 0..1 fraction while the body streams up (then 1 once it's fully
+// sent and the server is working). Resolves to the same {ok, status, data}
+// shape as the other helpers; a network/abort error resolves to {ok:false}
+// rather than rejecting, so callers can branch on r.ok uniformly. Same-origin,
+// so the browser attaches cookies + Sec-Fetch-Site for the auth/CSRF checks.
+export function uploadWithProgress(url, form, onProgress) {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', apiURL(url))
+    xhr.upload.onprogress = (e) => {
+      if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total)
+    }
+    xhr.upload.onload = () => onProgress && onProgress(1)
+    xhr.onload = () => {
+      let data = null
+      try {
+        data = JSON.parse(xhr.responseText)
+      } catch {
+        // non-JSON or empty body — leave data null
+      }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data })
+    }
+    xhr.onerror = () => resolve({ ok: false, status: 0, data: null })
+    xhr.send(form)
+  })
+}
+
 // downloadPost POSTs a JSON body and saves the response as a file (used for the
 // export endpoints, which stream markdown rather than JSON). Same-origin, so the
 // browser adds Sec-Fetch-Site + cookies for the CSRF/auth checks.

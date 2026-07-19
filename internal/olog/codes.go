@@ -82,6 +82,7 @@ const (
 	CodeBackupSwap     Code = "TIP-BACKUP-004" // restore swap failed; the previous data was rolled back intact
 	CodeBackupRollback Code = "TIP-BACKUP-005" // restore rollback failed; the server exited for a clean boot
 	CodeBackupCleanup  Code = "TIP-BACKUP-006" // cleanup of backup/restore temp files failed (leftovers consume disk)
+	CodeBackupUpload   Code = "TIP-BACKUP-007" // an uploaded restore archive could not be spooled to disk
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -140,4 +141,5 @@ var Registry = map[Code]string{
 	CodeBackupSwap:     "The restore swap failed; the previous data directory was rolled back intact.",
 	CodeBackupRollback: "The restore rollback failed; the server exited so Docker restarts it cleanly — previous data is in .pre-restore-<ts>.",
 	CodeBackupCleanup:  "Backup/restore temporary files could not be cleaned up; leftovers consume disk space.",
+	CodeBackupUpload:   "An uploaded restore archive could not be spooled to disk (server-side I/O, or the disk is full).",
 }

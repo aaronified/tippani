@@ -8,7 +8,7 @@ import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
-import { DEMO, apiURL, coverImgURL, json, upload } from './api.js'
+import { DEMO, apiURL, coverImgURL, json, upload, uploadWithProgress } from './api.js'
 import {
   EdgeRow,
   ErrorBoundary,
@@ -177,6 +177,11 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
 function Onboarding({ onDone, backup }) {
   const [restoring, setRestoring] = useState(false)
   const [restoreError, setRestoreError] = useState('')
+  // Upload-restore: a backup file from another (or this) server — no SSH needed.
+  const [file, setFile] = useState(null)
+  const [phase, setPhase] = useState('idle') // idle | uploading | restoring
+  const [pct, setPct] = useState(0)
+  const [uploadError, setUploadError] = useState('')
   useEffect(() => {
     applyTheme({ aesthetic: 'paper', theme: 'light' })
   }, [])
@@ -192,6 +197,31 @@ function Onboarding({ onDone, backup }) {
       }
       toast('restore complete — log in with your account from the backup')
       // Reload → /auth/status now reports onboarding closed → the login screen.
+      setTimeout(() => window.location.reload(), 1200)
+    } catch {
+      // A large restore can outlive the connection even when it succeeds
+      // server-side; reload to re-check /auth/status rather than freeze here.
+      setTimeout(() => window.location.reload(), 1200)
+    }
+  }
+
+  async function restoreFromFile() {
+    if (!file || phase !== 'idle') return
+    setPhase('uploading')
+    setPct(0)
+    setUploadError('')
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const r = await uploadWithProgress('/auth/restore/upload', form, (f) => {
+        setPct(Math.round(f * 100))
+        if (f >= 1) setPhase('restoring') // upload done, server applying
+      })
+      if (!r.ok) {
+        setPhase('idle')
+        return setUploadError((r.data && r.data.error) || 'restore failed')
+      }
+      toast('restore complete — log in with your account from the backup')
       setTimeout(() => window.location.reload(), 1200)
     } catch {
       // A large restore can outlive the connection even when it succeeds
@@ -237,6 +267,27 @@ function Onboarding({ onDone, backup }) {
           </div>
         </div>
       )}
+      <div className="hand-card w-full max-w-sm px-8 py-6 text-center">
+        <p className="mono-label mb-2">or restore from a backup file</p>
+        <p className="text-sm" style={{ color: 'var(--soft)' }}>
+          Moving from another server? Upload a backup downloaded from it to load everything —
+          accounts, libraries and settings — then log in with the credentials from that backup.
+        </p>
+        <input
+          type="file"
+          accept=".tar.gz,.tgz,application/gzip"
+          aria-label="Choose a backup file to restore"
+          disabled={phase !== 'idle'}
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="mt-3 w-full text-sm"
+        />
+        <GhostButton className="mt-4 w-full" onClick={restoreFromFile} disabled={!file || phase !== 'idle'}>
+          {phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : 'Restore from file'}
+        </GhostButton>
+        <div className="mt-2">
+          <ErrorText>{uploadError}</ErrorText>
+        </div>
+      </div>
     </main>
   )
 }

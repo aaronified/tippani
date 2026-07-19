@@ -34,6 +34,7 @@ const (
 
 	maxRestoreEntries = 200_000
 	maxRestoreBytes   = 8 << 30 // decompression-bomb guard
+	maxRestoreUpload  = 2 << 30 // 2 GiB cap on an uploaded restore archive (413 beyond)
 )
 
 func (s *Server) backupsDir() string { return filepath.Join(s.DataDir, backupsDirName) }
@@ -294,6 +295,15 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
 }
 
+// handleRestoreUpload: POST /admin/restore/upload — restore from an archive the
+// admin UPLOADS (typically a backup downloaded from another Tippani server),
+// instead of the one kept on this server. multipart/form-data with a confirm
+// field (= RESTORE) and a file part (= the .tar.gz). Same extract → validate →
+// swap pipeline; the schema-version gate is what makes a foreign server's DB safe.
+func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
+	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
+}
+
 // handleOnboardRestore: POST /auth/restore — the onboarding twin of
 // /admin/restore. Self-guards like /auth/signup: it only works while the users
 // table is empty (a fresh box whose operator dropped an archive into
@@ -328,6 +338,34 @@ func (s *Server) handleOnboardRestore(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleOnboardRestoreUpload: POST /auth/restore/upload — the upload twin of
+// /auth/restore, for the move-to-a-new-box path: a fresh server with no users,
+// where the operator restores a backup file downloaded from the old box without
+// SSHing an archive into <data>/backups first. Self-guards exactly like
+// handleOnboardRestore (users-empty gate + rate limit + last-moment re-guard);
+// no typed confirmation — there is nothing yet to lose.
+func (s *Server) handleOnboardRestoreUpload(w http.ResponseWriter, r *http.Request) {
+	if !s.loginLimiter.Allow(s.clientIP(r) + "|restore-upload") {
+		writeErr(w, http.StatusTooManyRequests, "too many attempts; try again later")
+		return
+	}
+	if exists, err := s.usersExist(); err != nil {
+		internalError(w, r, "check for existing users", err)
+		return
+	} else if exists {
+		writeErr(w, http.StatusForbidden, "onboarding is closed; log in and restore from Settings")
+		return
+	}
+	s.restoreFromUpload(w, r, false, "first-run onboarding", func() error {
+		if exists, err := s.usersExist(); err != nil {
+			return err
+		} else if exists {
+			return errOnboardingClosed
+		}
+		return nil
+	})
+}
+
 // usersExist reports whether the users table has any row — the onboarding gate.
 func (s *Server) usersExist() (bool, error) {
 	var exists bool
@@ -339,11 +377,9 @@ func (s *Server) usersExist() (bool, error) {
 // when a user appeared between the request and the swap — mapped to 409 below.
 var errOnboardingClosed = errors.New("someone finished onboarding while this restore was preparing; not overwriting the new account")
 
-// restoreFromNewest is the shared restore core behind /admin/restore and
-// /auth/restore; callers have already authorized the request. guard, if non-nil,
-// runs under backupMu immediately before the irreversible swap — the onboarding
-// path uses it to re-verify the users-empty invariant at the last moment (a
-// non-nil error there aborts the restore with 409, nothing having been touched).
+// restoreFromNewest restores from the archive kept on this server (the one "Back
+// up now" created). It authorizes nothing itself — callers have. guard is passed
+// straight through to the core's last-moment re-check (onboarding uses it).
 func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, guard func() error) {
 	if !s.backupMu.TryLock() {
 		writeErr(w, http.StatusConflict, "a backup or restore is already running")
@@ -351,17 +387,32 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 	}
 	defer s.backupMu.Unlock()
 
-	// Extract + validate + swap + reopen can outlive the server's 60s
-	// WriteTimeout on a large library; clear the write deadline so the final
-	// JSON still reaches the client (mirrors handleBackupDownload).
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-
 	name, _ := s.newestBackup()
 	if name == "" {
 		writeErr(w, http.StatusBadRequest, "no backup on the server — create one first")
 		return
 	}
-	olog.Alertf("[backup] RESTORE from %s requested by %s", name, requestedBy)
+	s.restoreArchive(w, filepath.Join(s.backupsDir(), name), name, requestedBy, guard)
+}
+
+// restoreArchive is the shared restore core behind every path — the kept archive
+// (restoreFromNewest) and an uploaded one (restoreFromUpload). It extracts
+// archive to staging with hostile-archive guards, validates the staged database,
+// then — the point of no return — closes the live DB, atomically swaps the whole
+// data dir, and reopens it (migrate + integrity + FTS heal) in-process. label
+// names the source in logs. The caller MUST already hold backupMu (which
+// serializes restore against backup, signup, and other restores). guard, if
+// non-nil, runs under that lock immediately before the swap — the onboarding
+// path uses it to re-verify users-empty at the last moment (a non-nil error
+// there aborts the restore, nothing having been touched). The previous data dir
+// is kept in ONE .pre-restore-<ts> safety generation until the next restore.
+func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requestedBy string, guard func() error) {
+	// Extract + validate + swap + reopen can outlive the server's 60s
+	// WriteTimeout on a large library; clear the write deadline so the final
+	// JSON still reaches the client (mirrors handleBackupDownload).
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+
+	olog.Alertf("[backup] RESTORE from %s requested by %s", label, requestedBy)
 
 	staging, err := os.MkdirTemp(s.DataDir, ".restore-")
 	if err != nil {
@@ -372,7 +423,7 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 	defer os.RemoveAll(staging)
 	stage := filepath.Join(staging, "stage")
 
-	if code, msg := s.extractBackup(filepath.Join(s.backupsDir(), name), stage); code != 0 {
+	if code, msg := s.extractBackup(archive, stage); code != 0 {
 		writeErr(w, code, msg)
 		return
 	}
@@ -396,15 +447,22 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 	}
 
 	// ---- point of no return: swap ----
+	// A unique per-restore safety dir. Second precision alone collides when two
+	// restores land in the same second (restore, then restore a different upload) —
+	// os.Mkdir would fail, and worse, the name would alias this generation onto the
+	// previous one so a rollback could grab the wrong directory. MkdirTemp
+	// guarantees a fresh name; the timestamp still makes it human-sortable.
+	ts := time.Now().UTC().Format(backupTimeLayout)
+	preDir, mkErr := os.MkdirTemp(s.DataDir, preRestorePrefix+ts+"-")
+	if mkErr != nil {
+		olog.Errorf(olog.CodeBackupSwap, "[backup] create pre-restore dir: %v", mkErr)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
 	if err := s.Store.CloseForSwap(); err != nil {
 		olog.Alertf("[backup] closing live db before swap returned: %v (continuing)", err)
 	}
-	ts := time.Now().UTC().Format(backupTimeLayout)
-	preDir := filepath.Join(s.DataDir, preRestorePrefix+ts)
 	swapErr := func() error {
-		if err := os.Mkdir(preDir, 0o700); err != nil {
-			return err
-		}
 		if err := s.moveTopLevel(s.DataDir, preDir); err != nil {
 			return fmt.Errorf("move current data aside: %w", err)
 		}
@@ -447,19 +505,128 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 
 	// Success: repoint sessions, keep exactly this one safety generation.
 	s.Sessions.DB = s.Store.DB
+	preBase := filepath.Base(preDir)
 	if entries, err := os.ReadDir(s.DataDir); err == nil {
 		for _, e := range entries {
-			if n := e.Name(); strings.HasPrefix(n, preRestorePrefix) && n != preRestorePrefix+ts {
+			if n := e.Name(); strings.HasPrefix(n, preRestorePrefix) && n != preBase {
 				if err := os.RemoveAll(filepath.Join(s.DataDir, n)); err != nil {
 					olog.Warnf(olog.CodeBackupCleanup, "[backup] could not drop old safety copy %s: %v", n, err)
 				}
 			}
 		}
 	}
-	olog.Alertf("[backup] RESTORE applied from %s — previous data kept in %s", name, preDir)
+	olog.Alertf("[backup] RESTORE applied from %s — previous data kept in %s", label, preDir)
 	// The caller's session may not exist in the restored database.
 	http.SetCookie(w, s.sessionCookie("", -1))
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "Restore complete — log in again."})
+}
+
+// restoreFromUpload streams an uploaded archive to disk, then runs the shared
+// restore core over it. It acquires backupMu up front (fail-fast 409) and holds
+// it across the whole upload+swap, and clears both the read and write deadlines —
+// a multi-GB upload outlives the server's 30s ReadTimeout / 60s WriteTimeout.
+// requireConfirm gates the swap on a leading confirm=RESTORE form field (the
+// admin path; onboarding has nothing to lose and skips it). guard is passed
+// through to the core's last-moment re-check.
+func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requireConfirm bool, requestedBy string, guard func() error) {
+	if !s.backupMu.TryLock() {
+		writeErr(w, http.StatusConflict, "a backup or restore is already running")
+		return
+	}
+	defer s.backupMu.Unlock()
+
+	rc := http.NewResponseController(w)
+	_ = rc.SetReadDeadline(time.Time{})
+	_ = rc.SetWriteDeadline(time.Time{})
+	r.Body = http.MaxBytesReader(w, r.Body, maxRestoreUpload)
+
+	staging, err := os.MkdirTemp(s.DataDir, ".restore-")
+	if err != nil {
+		olog.Errorf(olog.CodeBackupUpload, "[backup] restore upload staging dir: %v", err)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	defer os.RemoveAll(staging)
+	archive := filepath.Join(staging, "upload.tar.gz")
+
+	if code, msg := spoolUpload(r, archive, requireConfirm); code != 0 {
+		writeErr(w, code, msg)
+		return
+	}
+	s.restoreArchive(w, archive, "uploaded archive", requestedBy, guard)
+}
+
+// spoolUpload streams a multipart restore upload's `file` part to dest. When
+// requireConfirm, success is gated on a `confirm` field equal to RESTORE (the
+// admin "type RESTORE" guard; onboarding has nothing to lose and skips it).
+// Field order does not matter — the confirmation is evaluated once every part has
+// been read, so any client's ordering works — and the irreversible swap (in
+// restoreArchive) runs only when this returns success. Returns (0, "") on success
+// or an HTTP status + message; it writes nothing outside dest, whose contents the
+// caller validates afterward.
+func spoolUpload(r *http.Request, dest string, requireConfirm bool) (int, string) {
+	mr, err := r.MultipartReader()
+	if err != nil {
+		return http.StatusBadRequest, "expected a multipart/form-data upload with a backup file"
+	}
+	confirmed := !requireConfirm
+	gotFile := false
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if isMaxBytes(err) {
+				return http.StatusRequestEntityTooLarge, "the backup file is too large"
+			}
+			return http.StatusBadRequest, "the upload could not be read"
+		}
+		switch part.FormName() {
+		case "confirm":
+			val, _ := io.ReadAll(io.LimitReader(part, 64))
+			if strings.TrimSpace(string(val)) == "RESTORE" {
+				confirmed = true
+			}
+		case "file":
+			out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+			if err != nil {
+				_ = part.Close()
+				olog.Errorf(olog.CodeBackupUpload, "[backup] spool upload: %v", err)
+				return http.StatusInternalServerError, "internal error"
+			}
+			_, cerr := io.Copy(out, part)
+			if cerr == nil {
+				cerr = out.Close()
+			} else {
+				out.Close()
+			}
+			if cerr != nil {
+				_ = part.Close()
+				if isMaxBytes(cerr) {
+					return http.StatusRequestEntityTooLarge, "the backup file is too large"
+				}
+				olog.Errorf(olog.CodeBackupUpload, "[backup] spool upload: %v", cerr)
+				return http.StatusInternalServerError, "the uploaded file could not be saved"
+			}
+			gotFile = true
+		}
+		_ = part.Close()
+	}
+	if requireConfirm && !confirmed {
+		return http.StatusBadRequest, `confirmation required: send a "confirm" field set to RESTORE`
+	}
+	if !gotFile {
+		return http.StatusBadRequest, `no backup file uploaded (send it as the "file" field)`
+	}
+	return 0, ""
+}
+
+// isMaxBytes reports whether err is the sentinel http.MaxBytesReader raises when
+// the request body exceeds maxRestoreUpload (surfaced to the client as a 413).
+func isMaxBytes(err error) bool {
+	var mbe *http.MaxBytesError
+	return errors.As(err, &mbe)
 }
 
 // extractBackup unpacks archive into stage with hard protections. Returns a

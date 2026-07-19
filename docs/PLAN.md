@@ -456,6 +456,9 @@ GET    /auth/status         POST /auth/signup    # onboarding (first user only);
 POST   /auth/restore                 # onboarding only (users table empty): restore the kept
                                      #   <data>/backups archive — the moving-to-a-new-box path;
                                      #   no confirm needed (nothing to lose), rate-limited
+POST   /auth/restore/upload          # onboarding only: restore from an UPLOADED backup file
+                                     #   (multipart file=<tar.gz>) — the same path without SSHing
+                                     #   an archive onto the fresh box first; rate-limited
 POST   /auth/login          POST /auth/logout
 POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
 PUT    /auth/me                       # {username} — change your own display name
@@ -508,6 +511,10 @@ POST   /admin/restore                # {"confirm":"RESTORE"} — replace the dat
                                      #   archive in-process: staged extract w/ traversal+bomb guards,
                                      #   validate db, swap, migrate+FTS-heal; one .pre-restore-<ts>
                                      #   safety generation kept; no Docker socket needed
+POST   /admin/restore/upload         # multipart (confirm=RESTORE field + file=<tar.gz>, ≤2 GiB) —
+                                     #   restore from an UPLOADED archive (from this or another
+                                     #   server) via the same pipeline; foreign DBs pass iff their
+                                     #   schema ≤ this build's (then migrate forward); 413 over cap
 POST   /share/image                  # stage a rendered quote PNG (multipart "file") → {url}: a
                                      #   one-shot download path. For WebView wrappers with no Web
                                      #   Share API whose blob: bridges garble names/bytes.
@@ -546,7 +553,7 @@ POST   /metadata/reverify/apply      # write only the user-approved fields: {ite
 GET    /healthz                      # public liveness probe (container HEALTHCHECK)
 ```
 
-Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/restore` (both self-guarded: first-run only), `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` + `POST /covers/refetch` additionally require `is_admin`.
+Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/restore`, `POST /auth/restore/upload` (all self-guarded: first-run only), `POST /auth/login`, `GET /healthz`, and the embedded SPA assets sits behind session middleware; every query is scoped to the session's user, and `/admin/*` + `POST /covers/refetch` additionally require `is_admin`.
 
 ### §10 UI surface (implemented 2026-07; from the UI instruction sheet §10)
 
