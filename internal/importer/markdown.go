@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -206,10 +205,6 @@ func parseFrontmatter(lines []string) (*Result, error) {
 				}
 			case "favorite":
 				cur.Favorite = val == "true" || val == "yes" || val == "1"
-			case "rating": // out-of-range or non-numeric -> line ignored
-				if n, err := strconv.Atoi(val); err == nil && n >= 0 && n <= 5 {
-					cur.Rating = n
-				}
 			}
 		}
 		// anything else is ignored

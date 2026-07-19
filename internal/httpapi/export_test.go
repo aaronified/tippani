@@ -22,7 +22,7 @@ func seedExportBook(t *testing.T, c *testClient) bookDetail {
 		{"quote": "Chapterless quote."},
 		{"quote": "Fear is the mind-killer.\nI will face my fear.", "note": "my  note\nacross lines",
 			"color": "blue", "chapter": "Book One", "location": "p.12",
-			"tags": []string{"philosophy", "fear"}, "favorite": true, "rating": 5},
+			"tags": []string{"philosophy", "fear"}, "favorite": true},
 		{"note": "A note-only thought.", "chapter": "Book One"},
 		{"quote": "Second chapter quote.", "chapter": "Book Two"},
 	} {
@@ -55,7 +55,6 @@ genres: Classics, Science Fiction
 - loc: p.12
 - date: __DATE__
 - favorite: true
-- rating: 5
 
 > A note-only thought.
 - date: __DATE__
@@ -137,7 +136,7 @@ func TestMovieExport(t *testing.T) {
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movie.ID, "quote": "Here's looking at you, kid.",
 		"character": "Rick Blaine", "actor": "Humphrey Bogart", "timestamp": "01:15:00",
-		"note": "iconic", "tags": []string{"classic"}, "favorite": true, "rating": 5,
+		"note": "iconic", "tags": []string{"classic"}, "favorite": true,
 	}, http.StatusCreated)
 	c.mustDo("POST", "/dialogues", map[string]any{ // untimed -> sorts last
 		"movie_id": movie.ID, "quote": "Round up the usual suspects.",
@@ -157,7 +156,6 @@ genres: Drama
 - note: iconic
 - tags: classic
 - favorite: true
-- rating: 5
 
 > Round up the usual suspects.
 `
@@ -181,7 +179,7 @@ func TestImportMovieMarkdownRoundTrip(t *testing.T) {
 	}, http.StatusCreated))
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movie.ID, "quote": "Here's looking at you, kid.", "character": "Rick Blaine",
-		"actor": "Humphrey Bogart", "timestamp": "01:15:00", "favorite": true, "rating": 5,
+		"actor": "Humphrey Bogart", "timestamp": "01:15:00", "favorite": true,
 	}, http.StatusCreated)
 	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": movie.ID, "quote": "Round up the usual suspects."}, http.StatusCreated)
 

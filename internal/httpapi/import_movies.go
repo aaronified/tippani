@@ -239,10 +239,10 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 		actor := autofillActor(castJSON, d.Character, d.Actor)
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (movie_id, quote, note, character, actor, timestamp, favorite, rating, dedupe_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (movie_id, quote, note, character, actor, timestamp, favorite, dedupe_hash)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			m.ID, d.Quote, nullable(d.Note), nullable(d.Character), nullable(actor),
-			nullable(d.Timestamp), d.Favorite, d.Rating, store.DedupeHash(d.Quote))
+			nullable(d.Timestamp), d.Favorite, store.DedupeHash(d.Quote))
 		if err != nil {
 			return 0, 0, 0, false, err
 		}
@@ -254,18 +254,16 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 				  actor     = COALESCE(actor, ?),
 				  timestamp = COALESCE(timestamp, ?),
 				  favorite  = MAX(favorite, ?),
-				  rating    = CASE WHEN rating = 0 THEN ? ELSE rating END,
 				  updated_at = datetime('now')
 				WHERE movie_id = ? AND dedupe_hash = ?
 				  AND (   (note IS NULL AND ? IS NOT NULL)
 				       OR (character IS NULL AND ? IS NOT NULL)
 				       OR (actor IS NULL AND ? IS NOT NULL)
 				       OR (timestamp IS NULL AND ? IS NOT NULL)
-				       OR (favorite = 0 AND ?)
-				       OR (rating = 0 AND ? > 0))`,
-				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), d.Favorite, d.Rating,
+				       OR (favorite = 0 AND ?))`,
+				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), d.Favorite,
 				m.ID, store.DedupeHash(d.Quote),
-				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), d.Favorite, d.Rating)
+				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), d.Favorite)
 			if err != nil {
 				return 0, 0, 0, false, err
 			}

@@ -414,13 +414,13 @@ function TabIcon({ name }) {
           <circle cx="8.8" cy="8.8" r="1.2" />
         </svg>
       )
-    case 'stats': // bar chart
+    case 'stats': // bar chart — baseline lifted so the glyph's mass centers in the box
       return (
         <svg {...p}>
-          <path d="M4 20h16" />
-          <path d="M7.5 20v-5.5" />
-          <path d="M12 20v-9.5" />
-          <path d="M16.5 20v-3.5" />
+          <path d="M4 17h16" />
+          <path d="M7.5 17v-5.5" />
+          <path d="M12 17v-9.5" />
+          <path d="M16.5 17v-3.5" />
         </svg>
       )
     case 'settings': // sliders

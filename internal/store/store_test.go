@@ -182,6 +182,29 @@ func TestMigrateAndFTS(t *testing.T) {
 	if n := count(`SELECT count(*) FROM movies_fts WHERE movies_fts MATCH ?`, `"star"`); n != 1 {
 		t.Fatalf("movies_fts series (star): got %d", n)
 	}
+
+	// 0018: ratings retired. The rating column is gone from annotations +
+	// dialogues (rebuilt), kept as an inert column on books, and the 0015
+	// item_reviews delete-trigger still fires after the annotations rebuild.
+	if _, err := st.DB.Exec(`SELECT rating FROM annotations LIMIT 1`); err == nil {
+		t.Fatal("annotations.rating should be dropped by 0018")
+	}
+	if _, err := st.DB.Exec(`SELECT rating FROM dialogues LIMIT 1`); err == nil {
+		t.Fatal("dialogues.rating should be dropped by 0018")
+	}
+	if _, err := st.DB.Exec(`SELECT rating FROM books LIMIT 1`); err != nil {
+		t.Fatalf("books.rating should remain (inert): %v", err)
+	}
+	mustExec(`INSERT INTO annotations (book_id, quote, source, dedupe_hash) VALUES (1, 'reviewed line', 'manual', 'h-rev')`)
+	var aid int64
+	if err := st.DB.QueryRow(`SELECT id FROM annotations WHERE dedupe_hash = 'h-rev'`).Scan(&aid); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(`INSERT INTO item_reviews (kind, item_id, last_touched_at) VALUES ('book', ?, '2026-01-01T00:00:00Z')`, aid)
+	mustExec(`DELETE FROM annotations WHERE id = ?`, aid)
+	if n := count(`SELECT count(*) FROM item_reviews WHERE kind = 'book' AND item_id = ?`, aid); n != 0 {
+		t.Fatalf("item_reviews_book_del should clear the review row after the rebuild: got %d", n)
+	}
 }
 
 // TestSettings exercises the settings-table helpers: missing key reads "",

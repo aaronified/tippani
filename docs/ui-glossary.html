@@ -533,12 +533,6 @@
         <div class="g-src">Hearts — ui.jsx</div>
         <div class="g-desc">Favourite toggle. Hearts for favourites — never stars.</div>
       </div>
-      <div class="g-item">
-        <div class="g-demo center"><span style="color:var(--rating,var(--accent-ui));font-size:20px;letter-spacing:2px"><span style="display:inline-block;transform:rotate(-8deg)">★</span><span style="display:inline-block;transform:rotate(5deg)">★</span><span style="display:inline-block;transform:rotate(-4deg)">★</span><span style="display:inline-block;transform:rotate(7deg)">★</span><span style="display:inline-block;transform:rotate(-6deg);opacity:.3">★</span></span></div>
-        <div class="g-name">TiltStars (rating)</div>
-        <div class="g-src">TiltStars — ui.jsx</div>
-        <div class="g-desc">0–5 rating. Each star jitters its own rotation/scale.</div>
-      </div>
     </div>
   </section>
 
@@ -680,7 +674,6 @@
               <span class="tp-select-thumb" aria-hidden="true"></span>
               <button class="tp-select-opt tactile is-hi" role="option" aria-selected="true">Recent</button>
               <button class="tp-select-opt tactile" role="option">Title A–Z</button>
-              <button class="tp-select-opt tactile" role="option">Rating</button>
             </div>
           </div>
         </div>
@@ -771,17 +764,6 @@
 
       <div class="g-item">
         <div class="g-demo center">
-          <div class="tp-select" style="width:150px">
-            <button class="tp-select-trigger tactile" aria-haspopup="listbox" aria-expanded="false"><span>Any rating</span><svg class="tp-select-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
-          </div>
-        </div>
-        <div class="g-name">MinRatingSelect</div>
-        <div class="g-src">MinRatingSelect — ui.jsx</div>
-        <div class="g-desc">The minimum-rating filter — a Select offering Any rating / 1+ … 5 — that appears in every filter row and filter sheet.</div>
-      </div>
-
-      <div class="g-item">
-        <div class="g-demo center">
           <button class="color-dot dot-yellow active" title="yellow"></button>
           <button class="color-dot dot-blue" title="blue"></button>
           <button class="color-dot dot-pink" title="pink"></button>
@@ -794,7 +776,7 @@
 
       <div class="g-item">
         <div class="g-demo center">
-          <table class="ann-table" style="width:auto"><thead><tr><th class="sortable" aria-sort="ascending">Title ▲</th><th class="sortable" aria-sort="none">Rating</th><th>Tags</th></tr></thead></table>
+          <table class="ann-table" style="width:auto"><thead><tr><th class="sortable" aria-sort="ascending">Title ▲</th><th>Tags</th></tr></thead></table>
         </div>
         <div class="g-name">SortableTh / useSort</div>
         <div class="g-src">SortableTh + useSort — ui.jsx · .ann-table th.sortable — index.css</div>
@@ -1079,10 +1061,10 @@
   // inlined app stylesheet renders truthfully under each aesthetic/theme/accent.
   const ACCENTS = { terracotta: '#B4482D', ochre: '#C8992B', olive: '#3F7D5A', slate: '#2F6D8F' };
   const PALETTES = {
-    'paper-light': { bg:'#F4EDDE', raised:'#FBF6EA', card:'#FFFEF9', 'card-top':'#FFFFFC', 'card-bottom':'#FCF8ED', 'topbar-top':'#F3EBDB', 'topbar-bottom':'#EDE3D1', ink:'#221C16', soft:'#6A5F50', faint:'#8A7C68', line:'#E4DAC7', 'ink-border':'rgba(41,38,29,.6)', 'frame-border':'rgba(41,38,29,.35)', amber:'#BE8A4E', note:'#221C16', error:'#A93B26', strip:'#E9E1CC', holes:'#F7F2E6', 'holes-border':'#D3C7AB', 'holes-glow':'none', rating:'var(--accent-ui)' },
-    'paper-dark': { bg:'#262019', raised:'#2A231C', card:'#2F2820', 'card-top':'#352D23', 'card-bottom':'#2C251E', 'topbar-top':'#2B241C', 'topbar-bottom':'#241E17', ink:'#EFE6D4', soft:'#B3A48C', faint:'#9A8C74', line:'#453B2D', 'ink-border':'rgba(239,230,212,.4)', 'frame-border':'rgba(214,162,92,.3)', amber:'#D6A25C', note:'#E8DCC2', error:'#C96B5B', strip:'#1C1710', holes:'rgba(239,230,212,.4)', 'holes-border':'transparent', 'holes-glow':'none', rating:'var(--accent-ui)' },
-    'film-light': { bg:'#F1ECE1', raised:'#F7F2E6', card:'#FAF6EC', 'card-top':'#FDFAF3', 'card-bottom':'#F7F2E4', 'topbar-top':'#F0EADB', 'topbar-bottom':'#EAE2CF', ink:'#2A241C', soft:'#6A5F50', faint:'#8A7C68', line:'#DFD6C4', 'ink-border':'rgba(42,36,28,.55)', 'frame-border':'rgba(185,138,68,.4)', amber:'#B98A44', note:'#2A241C', error:'#A93B26', strip:'#E9E1CC', holes:'#F7F2E6', 'holes-border':'#D3C7AB', 'holes-glow':'none', rating:'var(--amber)' },
-    'film-dark': { bg:'#15100C', raised:'#201A13', card:'#201A13', 'card-top':'#251E16', 'card-bottom':'#1D1710', 'topbar-top':'#201913', 'topbar-bottom':'#19130D', ink:'#ECE3D1', soft:'#A2937C', faint:'#8E8069', line:'#322A20', 'ink-border':'rgba(236,227,209,.35)', 'frame-border':'rgba(214,162,92,.3)', amber:'#D6A25C', note:'#ECE3D1', error:'#C96B5B', strip:'#0F0B07', holes:'rgba(236,227,209,.5)', 'holes-border':'transparent', 'holes-glow':'0 0 6px rgba(236,227,209,.2)', rating:'var(--amber)' },
+    'paper-light': { bg:'#F4EDDE', raised:'#FBF6EA', card:'#FFFEF9', 'card-top':'#FFFFFC', 'card-bottom':'#FCF8ED', 'topbar-top':'#F3EBDB', 'topbar-bottom':'#EDE3D1', ink:'#221C16', soft:'#6A5F50', faint:'#8A7C68', line:'#E4DAC7', 'ink-border':'rgba(41,38,29,.6)', 'frame-border':'rgba(41,38,29,.35)', amber:'#BE8A4E', note:'#221C16', error:'#A93B26', strip:'#E9E1CC', holes:'#F7F2E6', 'holes-border':'#D3C7AB', 'holes-glow':'none' },
+    'paper-dark': { bg:'#262019', raised:'#2A231C', card:'#2F2820', 'card-top':'#352D23', 'card-bottom':'#2C251E', 'topbar-top':'#2B241C', 'topbar-bottom':'#241E17', ink:'#EFE6D4', soft:'#B3A48C', faint:'#9A8C74', line:'#453B2D', 'ink-border':'rgba(239,230,212,.4)', 'frame-border':'rgba(214,162,92,.3)', amber:'#D6A25C', note:'#E8DCC2', error:'#C96B5B', strip:'#1C1710', holes:'rgba(239,230,212,.4)', 'holes-border':'transparent', 'holes-glow':'none' },
+    'film-light': { bg:'#F1ECE1', raised:'#F7F2E6', card:'#FAF6EC', 'card-top':'#FDFAF3', 'card-bottom':'#F7F2E4', 'topbar-top':'#F0EADB', 'topbar-bottom':'#EAE2CF', ink:'#2A241C', soft:'#6A5F50', faint:'#8A7C68', line:'#DFD6C4', 'ink-border':'rgba(42,36,28,.55)', 'frame-border':'rgba(185,138,68,.4)', amber:'#B98A44', note:'#2A241C', error:'#A93B26', strip:'#E9E1CC', holes:'#F7F2E6', 'holes-border':'#D3C7AB', 'holes-glow':'none' },
+    'film-dark': { bg:'#15100C', raised:'#201A13', card:'#201A13', 'card-top':'#251E16', 'card-bottom':'#1D1710', 'topbar-top':'#201913', 'topbar-bottom':'#19130D', ink:'#ECE3D1', soft:'#A2937C', faint:'#8E8069', line:'#322A20', 'ink-border':'rgba(236,227,209,.35)', 'frame-border':'rgba(214,162,92,.3)', amber:'#D6A25C', note:'#ECE3D1', error:'#C96B5B', strip:'#0F0B07', holes:'rgba(236,227,209,.5)', 'holes-border':'transparent', 'holes-glow':'0 0 6px rgba(236,227,209,.2)' },
   };
   const state = { aesthetic: 'paper', dark: false, accent: 'terracotta' };
   function apply() {

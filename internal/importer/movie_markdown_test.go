@@ -25,7 +25,7 @@ func TestMovieMarkdownAll(t *testing.T) {
 	multi := "---\ntitle: Arrival\ndirector: Denis Villeneuve\nyear: 2016\ngenres: Science Fiction, Drama\n---\n\n" +
 		"> If you could see your whole life, would you change things?\n- character: Louise Banks\n- actor: Amy Adams\n- timestamp: 1:41:00\n- tags: beautiful\n- favorite: true\n\n" +
 		"---\ntitle: Andor\ntype: show\nyear: 2022\n---\n\n" +
-		"> One way out.\n- character: Kino\n- rating: 5\n"
+		"> One way out.\n- character: Kino\n"
 	res, err := MovieMarkdownAll(strings.NewReader(multi))
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestMovieMarkdownAll(t *testing.T) {
 	if res[1].Movie.Title != "Andor" || res[1].Movie.MediaType != "show" {
 		t.Fatalf("movie 1 header = %+v", res[1].Movie)
 	}
-	if len(res[1].Dialogues) != 1 || res[1].Dialogues[0].Rating != 5 {
+	if len(res[1].Dialogues) != 1 {
 		t.Fatalf("movie 1 dialogues = %+v", res[1].Dialogues)
 	}
 }

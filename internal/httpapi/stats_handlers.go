@@ -161,6 +161,22 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// People breadth: distinct actors (quoted in dialogue) and directors — the
+	// two People kinds beside authors; feed the Stats page's People dropdown.
+	var actors, directors int
+	if err := s.Store.DB.QueryRow(
+		`SELECT count(*) FROM (SELECT DISTINCT actor FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		   WHERE m.user_id = ? AND actor IS NOT NULL AND trim(actor) <> '')`, uid).Scan(&actors); err != nil {
+		internalError(w, r, "count actors", err)
+		return
+	}
+	if err := s.Store.DB.QueryRow(
+		`SELECT count(*) FROM (SELECT DISTINCT director FROM movies
+		   WHERE user_id = ? AND director IS NOT NULL AND trim(director) <> '')`, uid).Scan(&directors); err != nil {
+		internalError(w, r, "count directors", err)
+		return
+	}
+
 	// Highlight-colour breakdown of book annotations (the four fixed colours).
 	colors := map[string]int{"yellow": 0, "blue": 0, "pink": 0, "orange": 0}
 	if crows, err := s.Store.DB.Query(`
@@ -226,6 +242,23 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "top tags", err)
 		return
 	}
+	// People leaderboards: top actors by lines quoted, top directors by films.
+	topActors, err := listOf(`
+		SELECT actor, count(*) AS c FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		WHERE m.user_id = ? AND actor IS NOT NULL AND trim(actor) <> ''
+		GROUP BY actor ORDER BY c DESC, actor LIMIT 5`, uid)
+	if err != nil {
+		internalError(w, r, "top actors", err)
+		return
+	}
+	topDirectors, err := listOf(`
+		SELECT director, count(*) AS c FROM movies
+		WHERE user_id = ? AND director IS NOT NULL AND trim(director) <> ''
+		GROUP BY director ORDER BY c DESC, director LIMIT 5`, uid)
+	if err != nil {
+		internalError(w, r, "top directors", err)
+		return
+	}
 
 	// "Collecting since": the earliest saved quote/dialogue (date only, or null).
 	var firstSaved *string
@@ -255,6 +288,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"tags":             tags,
 		"favorites":        favorites,
 		"authors":          authors,
+		"actors":           actors,
+		"directors":        directors,
 		"genres":           genres,
 		"most_annotated":   mostAnnotated,
 		"most_quoted":      mostQuoted,
@@ -262,6 +297,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"monthly_activity": monthly,
 		"colors":           colors,
 		"top_authors":      topAuthors,
+		"top_actors":       topActors,
+		"top_directors":    topDirectors,
 		"top_tags":         topTags,
 		"first_saved":      firstSaved,
 	})

@@ -22,7 +22,6 @@ type Annotation struct {
 	Color    string // "" -> caller defaults to yellow
 	Tags     []string
 	Favorite bool
-	Rating   int    // 0 = unrated, else 1-5 (PLAN §3)
 	NotedAt  string // original date of the highlight/note, when the source carries one; "" otherwise
 }
 
@@ -57,7 +56,6 @@ type Dialogue struct {
 	Note      string
 	Tags      []string
 	Favorite  bool
-	Rating    int // 0 = unrated, else 1-5
 }
 
 // MovieResult groups the dialogues of one film/show (mirrors Result for books).

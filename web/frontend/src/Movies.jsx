@@ -120,7 +120,7 @@ function Poster({ path, title, className = '', zoomable = false }) {
 }
 
 // movieState is the full PUT body for a movie (PUT is full-state, and omitting
-// tmdb_id keeps it on the manual-update path) — used by the detail-header ♥/★.
+// tmdb_id keeps it on the manual-update path) — used by the detail-header ♥.
 function movieState(m) {
   return {
     title: m.title,
@@ -132,7 +132,6 @@ function movieState(m) {
     series: m.series || '',
     series_index: m.series_index || 0,
     favorite: !!m.favorite,
-    rating: m.rating || 0,
   }
 }
 
@@ -466,7 +465,7 @@ function MovieDetail({ id, onClose, creditSeparators }) {
     else setError(errText(r))
   }
 
-  // patch PUTs the movie's full current state with one field changed (♥/★).
+  // patch PUTs the movie's full current state with one field changed (♥).
   async function patch(fields) {
     const r = await json('PUT', `/movies/${id}`, { ...movieState(movie), ...fields })
     if (r.ok) setMovie(r.data)
@@ -643,9 +642,8 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
-      // favorite/rating are edited on the detail header — carry them (PUT is full-state).
+      // favorite is edited on the detail header — carry it (PUT is full-state).
       favorite: !!movie.favorite,
-      rating: movie.rating || 0,
       poster_url: posterUrl || undefined,
       clear_cover: clearCover || undefined,
     })
@@ -746,7 +744,6 @@ export function dialogueState(d) {
     timestamp: d.timestamp || '',
     tags: d.tags || [],
     favorite: !!d.favorite,
-    rating: d.rating || 0,
     // carry the attached sticker + its draggable seal position through every
     // full-state PUT (nulls = no sticker / unplaced → top-right default)
     sticker_id: d.sticker_id ?? null,
@@ -866,7 +863,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
     else setError(errText(r))
   }
 
-  // patch PUTs a row's full current state with one field changed (♥/★ clicks).
+  // patch PUTs a row's full current state with one field changed (♥ clicks).
   async function patch(d, fields) {
     const r = await json('PUT', `/dialogues/${d.id}`, { ...dialogueState(d), ...fields })
     if (!r.ok) return setError(errText(r, 'could not save dialogue'))
@@ -886,7 +883,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
       character: d.character,
       actor: d.actor,
       timestamp: d.timestamp,
-      rating: d.rating,
       tags: d.tags,
       tmdbId: movie?.tmdb_id,
       tvdbId: movie?.tvdb_id,
@@ -1113,8 +1109,8 @@ const DIALOGUE_COLS = [
   { key: 'favorite', label: '♥' },
 ]
 
-// sortDialogues orders rows for the table view: text columns collate, rating and
-// favourite compare numerically, ascending/descending per the header click.
+// sortDialogues orders rows for the table view: text columns collate, favourite
+// compares numerically, ascending/descending per the header click.
 function sortDialogues(rows, sort) {
   const dir = sort.dir === 'asc' ? 1 : -1
   return [...rows].sort((a, b) => {
@@ -1133,7 +1129,7 @@ function sortDialogues(rows, sort) {
 
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
-// ♥/★ are shown read-only here and toggled from the tiles/list views.
+// ♥ is shown read-only here and toggled from the tiles/list views.
 function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, cast = [], actorMap = {}, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((d) => d.id === editingId)
@@ -1196,7 +1192,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 }
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
-// line, tag chips, ♥ + tilted ★ (immediate PUT patches), note, edit/delete.
+// line, tag chips, ♥ (immediate PUT patches), note, edit/delete.
 export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
@@ -1242,8 +1238,8 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
     ) : null
   const creditParts = [d.character || null, actorCredit, d.timestamp || null].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
-  // annotations). With a seal present the favourite heart moves down beside the
-  // rating so the top-right corner is free for the sticker.
+  // annotations). With a seal present the favourite heart moves down so the
+  // top-right corner is free for the sticker.
   const sticker = d.sticker_id != null ? stickerMap[d.sticker_id] : null
   const quoteStyle = { fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }
   return (
@@ -1390,10 +1386,9 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
       actor: characters.length ? '' : (initial?.actor || ''),
       timestamp: timestamp.trim(),
       tags,
-      // favorite/rating are edited on the frame, not in the form — but PUT is
-      // full-state, so carry the existing values through.
+      // favorite is edited on the frame, not in the form — but PUT is
+      // full-state, so carry the existing value through.
       favorite: !!initial?.favorite,
-      rating: initial?.rating || 0,
       // sticker: id chosen here; position is dragged on the frame, carry through.
       sticker_id: stickerId,
       sticker_x: initial?.sticker_x ?? null,

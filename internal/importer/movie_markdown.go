@@ -37,7 +37,7 @@ func LooksLikeMovieMarkdown(data []byte) bool {
 // MovieMarkdownAll parses a catalogue export (renderMovieExport shape) that may
 // hold many titles — each its own "---" frontmatter block — returning one
 // MovieResult per title. Mirrors MarkdownAll (books) for the round-trip; the
-// body carries character/actor/timestamp/note/tags/favorite/rating bindings.
+// body carries character/actor/timestamp/note/tags/favorite bindings.
 func MovieMarkdownAll(r io.Reader) ([]*MovieResult, error) {
 	lines, err := readLines(r)
 	if err != nil {
@@ -171,10 +171,6 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.Tags = splitCSV(val)
 			case "favorite":
 				cur.Favorite = val == "true" || val == "yes" || val == "1"
-			case "rating":
-				if n, err := strconv.Atoi(val); err == nil && n >= 0 && n <= 5 {
-					cur.Rating = n
-				}
 			}
 		}
 	}

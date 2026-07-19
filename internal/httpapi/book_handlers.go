@@ -23,7 +23,6 @@ type bookReq struct {
 	Series        string   `json:"series"`
 	SeriesIndex   float64  `json:"series_index"`
 	Favorite      bool     `json:"favorite"`
-	Rating        int      `json:"rating"` // 0 = unrated, else 1-5 (PLAN §3)
 	CoverURL      string   `json:"cover_url"`
 	ClearCover    bool     `json:"clear_cover"` // update: drop the current cover
 	Source        string   `json:"source"`
@@ -40,9 +39,6 @@ func (b *bookReq) validate() string {
 	b.Series = strings.TrimSpace(b.Series)
 	if b.Title == "" {
 		return "title is required"
-	}
-	if b.Rating < 0 || b.Rating > 5 {
-		return "rating must be between 0 and 5"
 	}
 	if raw := strings.TrimSpace(b.ISBN); raw == "" {
 		b.ISBN = ""
@@ -69,7 +65,6 @@ type bookDetail struct {
 	Series        string   `json:"series"`
 	SeriesIndex   float64  `json:"series_index"`
 	Favorite      bool     `json:"favorite"`
-	Rating        int      `json:"rating"`
 	CreatedAt     string   `json:"created_at"`
 }
 
@@ -78,11 +73,11 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), COALESCE(isbn, ''), COALESCE(asin, ''),
 		       COALESCE(description, ''), COALESCE(published_year, 0), COALESCE(cover_path, ''),
-		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, rating, created_at
+		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.CoverPath,
-			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Rating, &b.CreatedAt)
+			&b.Series, &b.SeriesIndex, &b.Favorite, &b.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -159,12 +154,12 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		INSERT INTO books (user_id, title, author, isbn, asin, cover_path,
 		                   description, published_year, google_id, openlibrary_id, source_metadata,
-		                   series, series_index, favorite, rating)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                   series, series_index, favorite)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear),
 		googleID, openlibraryID, sourceMeta,
-		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.Rating)
+		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite)
 	if err != nil {
 		s.removeCoverFile(coverPath)
 		internalError(w, r, "insert book", err)
@@ -206,7 +201,6 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		Series          string   `json:"series"`
 		SeriesIndex     float64  `json:"series_index"`
 		Favorite        bool     `json:"favorite"`
-		Rating          int      `json:"rating"`
 		AnnotationCount int      `json:"annotation_count"`
 	}
 	uid := userID(r)
@@ -214,7 +208,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
 		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
-		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite, b.rating,
+		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite,
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id)
 		FROM books b WHERE b.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`, uid)
@@ -228,7 +222,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
 			&it.PublishedYear, &it.CoverPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Rating, &it.AnnotationCount); err != nil {
+			&it.Favorite, &it.AnnotationCount); err != nil {
 			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
 			continue
 		}
@@ -373,11 +367,11 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?,
-		                 series = ?, series_index = ?, favorite = ?, rating = ?
+		                 series = ?, series_index = ?, favorite = ?
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear),
-		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.Rating, id, uid)
+		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {
 		failErr("update book", err)
 		return

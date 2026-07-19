@@ -221,10 +221,10 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (book_id, quote, note, color, chapter, location, favorite, rating, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (book_id, quote, note, color, chapter, location, favorite, source, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			bookID, nullable(a.Quote), nullable(a.Note), color,
-			nullable(a.Chapter), nullable(a.Location), a.Favorite, a.Rating,
+			nullable(a.Chapter), nullable(a.Location), a.Favorite,
 			source, store.DedupeHash(text), nullable(a.NotedAt))
 		if err != nil {
 			return 0, 0, 0, nil, err
@@ -234,9 +234,9 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 			// incoming copy donates whatever the existing row lacks (PLAN §5).
 			// Fill-empty-only, so user edits and earlier imports always win:
 			// chapter/location/note when NULL, color when still the yellow
-			// default, favorite only upward, rating only when unrated; tags
-			// union below. updated_at bumps only when something changed (the
-			// WHERE guard also keeps no-op re-imports write-free, PLAN §8).
+			// default, favorite only upward; tags union below. updated_at bumps
+			// only when something changed (the WHERE guard also keeps no-op
+			// re-imports write-free, PLAN §8).
 			upd, err := tx.Exec(`
 				UPDATE annotations SET
 				  chapter    = COALESCE(chapter, ?),
@@ -245,7 +245,6 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 				  noted_at   = COALESCE(noted_at, ?),
 				  color      = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite   = MAX(favorite, ?),
-				  rating     = CASE WHEN rating = 0 THEN ? ELSE rating END,
 				  updated_at = datetime('now')
 				WHERE book_id = ? AND dedupe_hash = ?
 				  AND (   (chapter IS NULL AND ? IS NOT NULL)
@@ -253,13 +252,12 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 				       OR (note IS NULL AND ? IS NOT NULL)
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
 				       OR (color = 'yellow' AND ? <> 'yellow')
-				       OR (favorite = 0 AND ?)
-				       OR (rating = 0 AND ? > 0))`,
+				       OR (favorite = 0 AND ?))`,
 				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
-				color, color, a.Favorite, a.Rating,
+				color, color, a.Favorite,
 				bookID, store.DedupeHash(text),
 				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
-				color, a.Favorite, a.Rating)
+				color, a.Favorite)
 			if err != nil {
 				return 0, 0, 0, nil, err
 			}

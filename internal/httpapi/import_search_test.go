@@ -189,7 +189,7 @@ func TestImportMarkdownReadestShape(t *testing.T) {
 	}
 	for _, a := range anns.Annotations {
 		if a.Chapter == "" || !strings.HasPrefix(a.Location, "p.") ||
-			a.Color != "yellow" || a.Favorite || a.Rating != 0 { // defaults fill the gaps
+			a.Color != "yellow" || a.Favorite { // defaults fill the gaps
 			t.Fatalf("annotation: %+v", a)
 		}
 	}
@@ -330,7 +330,6 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 		"- colour: blue",
 		"- tags: alpha, beta",
 		"- favorite: true",
-		"- rating: 4",
 		"",
 	}, "\n")
 	// Keep the quote text hash-identical to import 1 (comma version).
@@ -347,13 +346,13 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 	}
 	a := anns.Annotations[0]
 	if a.Chapter != "Chapter 9" || a.Location != "p.42" || a.Note != "filled by the second import" ||
-		a.Color != "blue" || !a.Favorite || a.Rating != 4 || !sameStrings(a.Tags, []string{"alpha", "beta"}) {
+		a.Color != "blue" || !a.Favorite || !sameStrings(a.Tags, []string{"alpha", "beta"}) {
 		t.Fatalf("not enriched: %+v", a)
 	}
 
 	// Import 3: same text again with DIFFERENT metadata — must not overwrite,
 	// only union the new tag; identical re-import counts as skipped, not enriched.
-	clobber := "---\ntitle: Enrich Me\nauthor: A\n---\n\n## Chapter 1\n\n> The same passage, twice imported.\n- note: should NOT replace\n- loc: p.999\n- colour: pink\n- rating: 1\n- tags: gamma\n"
+	clobber := "---\ntitle: Enrich Me\nauthor: A\n---\n\n## Chapter 1\n\n> The same passage, twice imported.\n- note: should NOT replace\n- loc: p.999\n- colour: pink\n- tags: gamma\n"
 	r3 := decode[importResult](t, c.importFile("/import/markdown", "clobber.md", []byte(clobber)))
 	if r3.Added != 0 || r3.Skipped != 1 || r3.Enriched != 0 {
 		t.Fatalf("clobber import: %+v", r3)
@@ -363,7 +362,7 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(r1.BookID), nil, 200))
 	a = anns.Annotations[0]
 	if a.Chapter != "Chapter 9" || a.Location != "p.42" || a.Note != "filled by the second import" ||
-		a.Color != "blue" || a.Rating != 4 {
+		a.Color != "blue" {
 		t.Fatalf("existing values were clobbered: %+v", a)
 	}
 	if !sameStrings(a.Tags, []string{"alpha", "beta", "gamma"}) { // union

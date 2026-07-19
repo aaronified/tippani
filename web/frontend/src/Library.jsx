@@ -86,7 +86,7 @@ function bookGenres(b) {
 }
 
 // bookState is the full PUT body for a book (PUT is full-state) — used by the
-// detail-header ♥/★ so a single-field change carries every other field intact.
+// detail-header ♥ so a single-field change carries every other field intact.
 function bookState(b) {
   return {
     title: b.title,
@@ -99,7 +99,6 @@ function bookState(b) {
     series: b.series || '',
     series_index: b.series_index || 0,
     favorite: !!b.favorite,
-    rating: b.rating || 0,
   }
 }
 
@@ -431,7 +430,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
     else setError(errText(r))
   }
 
-  // patch PUTs the book's full current state with one field changed (♥/★ clicks
+  // patch PUTs the book's full current state with one field changed (♥ clicks
   // in the header), mirroring the annotation-card pattern.
   async function patch(fields) {
     const r = await json('PUT', `/books/${id}`, { ...bookState(book), ...fields })
@@ -625,10 +624,9 @@ export function EditBook({ book, onSaved, onCancel }) {
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
-      // favorite/rating are edited on the detail header, not here — but PUT is
-      // full-state, so carry the current values through.
+      // favorite is edited on the detail header, not here — but PUT is
+      // full-state, so carry the current value through.
       favorite: !!book.favorite,
-      rating: book.rating || 0,
       cover_url: coverUrl || undefined,
       clear_cover: clearCover || undefined,
     })
@@ -727,9 +725,8 @@ export function annotationState(a) {
     color: a.color || 'yellow',
     tags: a.tags || [],
     favorite: !!a.favorite,
-    rating: a.rating || 0,
     // carry the attached sticker + its seal position through every full-state
-    // PUT so a favourite/rating/drag patch never wipes them (nulls = no sticker /
+    // PUT so a favourite/drag patch never wipes them (nulls = no sticker /
     // unplaced → top-right default)
     sticker_id: a.sticker_id ?? null,
     sticker_x: a.sticker_x ?? null,
@@ -1107,7 +1104,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
     } else setError(errText(r))
   }
 
-  // patch PUTs a row's full current state with one field changed (♥/★ clicks).
+  // patch PUTs a row's full current state with one field changed (♥ clicks).
   async function patch(a, fields) {
     const r = await json('PUT', `/annotations/${a.id}`, { ...annotationState(a), ...fields })
     if (!r.ok) return setError(errText(r, 'could not save annotation'))
@@ -1126,7 +1123,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
       chapter: a.chapter,
       location: a.location,
       date: fmtDate(annDate(a)),
-      rating: a.rating,
       tags: a.tags,
       color: a.color,
       people: authorMap,
@@ -1349,10 +1345,9 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       location: location.trim(),
       color,
       tags,
-      // favorite/rating are edited on the card, not in the form — but PUT is
-      // full-state, so carry the existing values through.
+      // favorite is edited on the card, not in the form — but PUT is
+      // full-state, so carry the existing value through.
       favorite: !!initial?.favorite,
-      rating: initial?.rating || 0,
       // sticker: id is chosen here; position is dragged on the card, so carry
       // the existing coords through unchanged (full-state PUT).
       sticker_id: stickerId,

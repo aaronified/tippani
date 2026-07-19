@@ -18,7 +18,6 @@ const PALETTES = {
     'ink-border': 'rgba(41,38,29,.6)', 'frame-border': 'rgba(41,38,29,.35)',
     amber: '#BE8A4E', note: '#221C16', error: '#A93B26', ok: '#3E8E5A',
     strip: '#E9E1CC', holes: '#F7F2E6', 'holes-border': '#D3C7AB', 'holes-glow': 'none',
-    rating: 'var(--accent-ui)',
   },
   'paper-dark': {
     bg: '#262019', raised: '#2A231C', card: '#2F2820',
@@ -28,7 +27,6 @@ const PALETTES = {
     'ink-border': 'rgba(239,230,212,.4)', 'frame-border': 'rgba(214,162,92,.3)',
     amber: '#D6A25C', note: '#E8DCC2', error: '#C96B5B', ok: '#5FB47E',
     strip: '#1C1710', holes: 'rgba(239,230,212,.4)', 'holes-border': 'transparent', 'holes-glow': 'none',
-    rating: 'var(--accent-ui)',
   },
   'film-light': {
     bg: '#F1ECE1', raised: '#F7F2E6', card: '#FAF6EC',
@@ -38,7 +36,6 @@ const PALETTES = {
     'ink-border': 'rgba(42,36,28,.55)', 'frame-border': 'rgba(185,138,68,.4)',
     amber: '#B98A44', note: '#2A241C', error: '#A93B26', ok: '#3E8E5A',
     strip: '#E9E1CC', holes: '#F7F2E6', 'holes-border': '#D3C7AB', 'holes-glow': 'none',
-    rating: 'var(--amber)',
   },
   'film-dark': {
     bg: '#15100C', raised: '#201A13', card: '#201A13',
@@ -49,7 +46,6 @@ const PALETTES = {
     amber: '#D6A25C', note: '#ECE3D1', error: '#C96B5B', ok: '#5FB47E',
     strip: '#0F0B07', holes: 'rgba(236,227,209,.5)', 'holes-border': 'transparent',
     'holes-glow': '0 0 6px rgba(236,227,209,.2)',
-    rating: 'var(--amber)',
   },
 }
 

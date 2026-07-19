@@ -224,7 +224,7 @@ func serveMarkdown(w http.ResponseWriter, filename, body string) {
 func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), color, COALESCE(chapter, ''),
-		       COALESCE(location, ''), favorite, rating, COALESCE(noted_at, '')
+		       COALESCE(location, ''), favorite, COALESCE(noted_at, '')
 		FROM annotations WHERE book_id = ? ORDER BY id`, b.ID)
 	if err != nil {
 		return "", err
@@ -234,7 +234,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	for rows.Next() {
 		var a annotationRow
 		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Color, &a.Chapter,
-			&a.Location, &a.Favorite, &a.Rating, &a.NotedAt); err != nil {
+			&a.Location, &a.Favorite, &a.NotedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row scan failed: %v", err)
 			continue
 		}
@@ -281,7 +281,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 				writeBinding(&sb, "tags", strings.Join(tags[a.ID], ", "))
 				writeBinding(&sb, "loc", a.Location)
 				writeBinding(&sb, "date", dateOnly(a.NotedAt))
-				writeFavoriteRating(&sb, a.Favorite, a.Rating)
+				writeFavorite(&sb, a.Favorite)
 			})
 		}
 	}
@@ -293,7 +293,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, quote, COALESCE(note, ''), COALESCE(character, ''), COALESCE(actor, ''),
-		       COALESCE(timestamp, ''), favorite, rating
+		       COALESCE(timestamp, ''), favorite
 		FROM dialogues WHERE movie_id = ?
 		ORDER BY (timestamp IS NULL), timestamp, id`, m.ID)
 	if err != nil {
@@ -304,7 +304,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	for rows.Next() {
 		var d dialogueRow
 		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Character, &d.Actor,
-			&d.Timestamp, &d.Favorite, &d.Rating); err != nil {
+			&d.Timestamp, &d.Favorite); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
 			continue
 		}
@@ -334,7 +334,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 			writeBinding(&sb, "timestamp", d.Timestamp)
 			writeBinding(&sb, "note", note)
 			writeBinding(&sb, "tags", strings.Join(tags[d.ID], ", "))
-			writeFavoriteRating(&sb, d.Favorite, d.Rating)
+			writeFavorite(&sb, d.Favorite)
 		})
 	}
 	return sb.String(), nil
@@ -417,14 +417,9 @@ func writeBinding(sb *strings.Builder, key, val string) {
 	}
 }
 
-func writeFavoriteRating(sb *strings.Builder, favorite bool, rating int) {
+func writeFavorite(sb *strings.Builder, favorite bool) {
 	if favorite {
 		sb.WriteString("- favorite: true\n")
-	}
-	if rating > 0 {
-		sb.WriteString("- rating: ")
-		sb.WriteString(strconv.Itoa(rating))
-		sb.WriteString("\n")
 	}
 }
 

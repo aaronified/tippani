@@ -183,8 +183,9 @@ Have a request or a strong opinion on ordering? Open an issue.
   **photo · display name · password**, and (admin) add/remove users +
   **grant / revoke / transfer admin** with the last admin protected.
   New `PUT /auth/me`, `PATCH /admin/users/{id}`.
-- **Favourite-only** — the 1–5 star rating is retired from the UI (the favourite
-  ♥ is the single quick signal); stored ratings are kept but hidden.
+- **Favourite-only** — the 1–5 star rating is fully retired: removed from the UI,
+  the API, and the database (the column is dropped from annotations and dialogues),
+  leaving the favourite ♥ as the single keep/love signal.
 - **Configurable spaced repetition** — Settings › *Daily review & quiz*: cards/day
   (2–10), quiz length (2–10) + scope (books/films/both), and the half-life
   growth/lapse factors, all per-user (narrow ranges).

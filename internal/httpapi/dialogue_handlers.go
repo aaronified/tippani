@@ -22,7 +22,6 @@ type dialogueReq struct {
 	Timestamp string   `json:"timestamp"`
 	Tags      []string `json:"tags"`
 	Favorite  bool     `json:"favorite"`
-	Rating    int      `json:"rating"` // 0 = unrated, else 1-5 (PLAN §3)
 	// Attached sticker (uploaded image), or nil for none. StickerX/StickerY are
 	// its centre as a fraction of the quote block width; nil ⇒ top-right default.
 	// PUT is full-state, so the client carries all three through on every save.
@@ -36,9 +35,6 @@ func (d *dialogueReq) validate() string {
 	d.Note = strings.TrimSpace(d.Note)
 	if d.Quote == "" {
 		return "quote is required"
-	}
-	if d.Rating < 0 || d.Rating > 5 {
-		return "rating must be between 0 and 5"
 	}
 	var ok bool
 	if d.Character, ok = trimCap(d.Character, 128); !ok {
@@ -143,7 +139,6 @@ type dialogueRow struct {
 	Actor     string   `json:"actor"`
 	Timestamp string   `json:"timestamp"`
 	Favorite  bool     `json:"favorite"`
-	Rating    int      `json:"rating"`
 	Tags      []string `json:"tags"`
 	StickerID *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
 	StickerX  *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
@@ -163,7 +158,7 @@ type dialogueRow struct {
 // dialogueCols includes the LEFT-JOINed spaced-repetition state (see
 // dialogueReviewJoin); every SELECT using it must add that join.
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.rating, d.sticker_id, d.sticker_x, d.sticker_y, d.created_at, d.updated_at,
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.sticker_id, d.sticker_x, d.sticker_y, d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')`
 
 // dialogueReviewJoin attaches the per-line review row (kind='screen') that
@@ -178,7 +173,7 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult)
 	if err != nil {
 		return nil, err
@@ -241,10 +236,10 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		INSERT INTO dialogues (movie_id, quote, note, character, actor, timestamp,
-		                       favorite, rating, dedupe_hash, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                       favorite, dedupe_hash, sticker_id, sticker_x, sticker_y)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		req.MovieID, req.Quote, nullable(req.Note), nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating,
+		nullable(req.Actor), nullable(req.Timestamp), req.Favorite,
 		store.DedupeHash(req.Quote), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert dialogue", err)
@@ -293,7 +288,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		                   WHERE dt.dialogue_id = d.id AND t.name = ?)`
 		args = append(args, v)
 	}
-	if !favoriteRatingFilters(w, r, "d", &q, &args) {
+	if !favoriteFilter(w, r, "d", &q, &args) {
 		return
 	}
 	// Lexical timestamp order, untimed lines last (PLAN §3b — deliberate KISS).
@@ -308,7 +303,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		d := dialogueRow{Tags: []string{}}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.Rating, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
 			// SELECT/struct drift and would present as an unexplained empty list.
@@ -405,10 +400,10 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
 		UPDATE dialogues SET quote = ?, note = ?, character = ?, actor = ?, timestamp = ?,
-		       favorite = ?, rating = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
+		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
 		req.Quote, nullable(req.Note), nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Rating, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
+		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
 		internalError(w, r, "update dialogue", err)
 		return
 	}

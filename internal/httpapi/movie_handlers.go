@@ -31,7 +31,6 @@ type movieReq struct {
 	Series      string   `json:"series"`
 	SeriesIndex float64  `json:"series_index"`
 	Favorite    bool     `json:"favorite"`
-	Rating      int      `json:"rating"`       // 0 = unrated, else 1-5 (PLAN §3)
 	PosterURL   string   `json:"poster_url"`   // update: set/replace the poster
 	ClearCover  bool     `json:"clear_cover"`  // update: drop the current poster
 	ConfirmNew  bool     `json:"confirm_new"`  // create-from-source: add a separate title despite a same-name look-alike
@@ -47,9 +46,6 @@ func (m *movieReq) validate() string {
 	}
 	if !validYear(m.ReleaseYear) {
 		return "release_year must be between 1000 and 3000"
-	}
-	if m.Rating < 0 || m.Rating > 5 {
-		return "rating must be between 0 and 5"
 	}
 	if msg := normalizeMediaType(&m.MediaType); msg != "" {
 		return msg
@@ -86,7 +82,6 @@ type movieDetail struct {
 	Series      string                `json:"series"`
 	SeriesIndex float64               `json:"series_index"`
 	Favorite    bool                  `json:"favorite"`
-	Rating      int                   `json:"rating"`
 	Cast        []metadata.CastMember `json:"cast"`
 	CreatedAt   string                `json:"created_at"`
 }
@@ -97,11 +92,11 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), COALESCE(tmdb_id, 0),
 		       COALESCE(tvdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
-		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, rating, cast_json, created_at
+		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, cast_json, created_at
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.TMDBID,
 			&m.TVDBID, &m.MediaType, &m.PosterPath, &m.Description,
-			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Rating, &castJSON, &m.CreatedAt)
+			&m.Series, &m.SeriesIndex, &m.Favorite, &castJSON, &m.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -162,11 +157,11 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		INSERT INTO movies (user_id, title, director, release_year, description,
-		                    media_type, series, series_index, favorite, rating)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    media_type, series, series_index, favorite)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, req.Rating)
+		nullableFloat(req.SeriesIndex), req.Favorite)
 	if err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
@@ -363,7 +358,6 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		Series        string   `json:"series"`
 		SeriesIndex   float64  `json:"series_index"`
 		Favorite      bool     `json:"favorite"`
-		Rating        int      `json:"rating"`
 		DialogueCount int      `json:"dialogue_count"`
 	}
 	uid := userID(r)
@@ -371,7 +365,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`
 		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		       m.media_type, COALESCE(m.poster_path, ''),
-		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite, m.rating,
+		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite,
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
@@ -385,7 +379,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Rating, &it.DialogueCount); err != nil {
+			&it.Favorite, &it.DialogueCount); err != nil {
 			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
 			continue
 		}
@@ -495,11 +489,11 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, description = ?,
-		                  media_type = ?, series = ?, series_index = ?, favorite = ?, rating = ?
+		                  media_type = ?, series = ?, series_index = ?, favorite = ?
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, req.Rating, id, uid)
+		nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {
 		failErr("update movie: exec", err)
 		return
@@ -536,7 +530,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 
 // resyncMovieFromSource re-pulls details+credits from a supplier and overwrites
 // title/director/year/description/cast/genres/series/poster + the source ids and
-// media_type. User-owned fields (favorite, rating, series_index) are deliberately
+// media_type. User-owned fields (favorite, series_index) are deliberately
 // left untouched. Used by the edit view's "look up" picker.
 func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, id int64, source, sourceID, mediaType string) {
 	d, msg, code := s.fetchSourceDetails(r.Context(), source, sourceID, mediaType)

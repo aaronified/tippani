@@ -63,7 +63,6 @@ function Overview({ s }) {
     ['Quotes', s.annotations],
     ['Films', s.movies],
     ['Dialogues', s.dialogues],
-    ['Authors', s.authors],
     ['Genres', s.genres],
     ['Tags', s.tags],
   ]
@@ -106,7 +105,7 @@ function ActivityBars({ data }) {
   )
 }
 
-// HBar — one labelled horizontal magnitude bar (shared by colours + ratings).
+// HBar — one labelled horizontal magnitude bar (used by the colour breakdown).
 function HBar({ swatch, label, labelWidth, n, max, fill }) {
   return (
     <div className="flex items-center gap-2" title={`${label}: ${n}`}>
@@ -147,29 +146,67 @@ function Colors({ colors }) {
   )
 }
 
-// TopList — a ranked leaderboard (identity + magnitude): name, value, accent bar.
+// LeaderList — the ranked rows (name · value · accent bar) shared by the People
+// card and the Top-tags card.
+function LeaderList({ rows }) {
+  if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
+  const max = Math.max(1, ...rows.map((r) => r.count))
+  return (
+    <div className="space-y-3">
+      {rows.map((r, i) => (
+        <div key={r.name + i} title={`${r.name}: ${r.count}`}>
+          <div className="flex items-baseline justify-between gap-2">
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+            <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
+          </div>
+          <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
+            <div style={{ height: '100%', width: `${Math.round((100 * r.count) / max)}%`, background: 'var(--accent-ui)', borderRadius: 999 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// TopList — a labelled leaderboard card (Top tags).
 function TopList({ label, rows }) {
-  const max = Math.max(1, ...(rows || []).map((r) => r.count))
   return (
     <Card>
       <SectionHead label={label} />
-      {!rows || rows.length === 0 ? (
-        <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
-      ) : (
-        <div className="space-y-3">
-          {rows.map((r, i) => (
-            <div key={r.name + i} title={`${r.name}: ${r.count}`}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
-              </div>
-              <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
-                <div style={{ height: '100%', width: `${Math.round((100 * r.count) / max)}%`, background: 'var(--accent-ui)', borderRadius: 999 }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <LeaderList rows={rows} />
+    </Card>
+  )
+}
+
+// The three People kinds the Stats dropdown switches between: which count field
+// and which top-N leaderboard field to read for each.
+const PEOPLE_KINDS = [
+  { key: 'authors', label: 'Authors', count: 'authors', list: 'top_authors' },
+  { key: 'actors', label: 'Actors', count: 'actors', list: 'top_actors' },
+  { key: 'directors', label: 'Directors', count: 'directors', list: 'top_directors' },
+]
+
+// PeopleCard — the People section: a dropdown picks the kind (authors by book
+// count, actors by lines quoted, directors by films), then shows that kind's
+// count + a top-N leaderboard. The basis for the achievements feature.
+function PeopleCard({ s }) {
+  const [kind, setKind] = useState('authors')
+  const meta = PEOPLE_KINDS.find((m) => m.key === kind) || PEOPLE_KINDS[0]
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <MonoLabel>People · {s[meta.count] || 0}</MonoLabel>
+        <select
+          className="tp-input"
+          aria-label="People kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value)}
+          style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 13 }}
+        >
+          {PEOPLE_KINDS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+        </select>
+      </div>
+      <LeaderList rows={s[meta.list]} />
     </Card>
   )
 }
@@ -230,7 +267,7 @@ export default function StatsPage() {
             <Superlatives s={s} />
           </div>
           <div style={twoCol}>
-            <TopList label="Top authors" rows={s.top_authors} />
+            <PeopleCard s={s} />
             <TopList label="Top tags" rows={s.top_tags} />
           </div>
         </div>

@@ -227,6 +227,8 @@ type statsResp struct {
 	Tags          int       `json:"tags"`
 	Favorites     int       `json:"favorites"`
 	Authors       int       `json:"authors"`
+	Actors        int       `json:"actors"`
+	Directors     int       `json:"directors"`
 	Genres        int       `json:"genres"`
 	MostAnnotated *statsTop `json:"most_annotated"`
 	MostQuoted    *statsTop `json:"most_quoted"`
@@ -236,6 +238,8 @@ type statsResp struct {
 	} `json:"busiest_month"`
 	Colors          map[string]int  `json:"colors"`
 	TopAuthors      []nameCountResp `json:"top_authors"`
+	TopActors       []nameCountResp `json:"top_actors"`
+	TopDirectors    []nameCountResp `json:"top_directors"`
 	TopTags         []nameCountResp `json:"top_tags"`
 	FirstSaved      *string         `json:"first_saved"`
 	MonthlyActivity []struct {
@@ -265,10 +269,10 @@ func TestStats(t *testing.T) {
 		"book_id": b1.ID, "quote": "q1", "tags": []string{"alpha", "beta"}, "favorite": true, "color": "blue"}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": b1.ID, "quote": "q2"}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": b2.ID, "quote": "q3"}, http.StatusCreated)
-	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated))
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca", "director": "Curtiz"}, http.StatusCreated))
 	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": m.ID, "quote": "d1", "tags": []string{"alpha"}, "favorite": true}, http.StatusCreated)
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m.ID, "quote": "d2"}, http.StatusCreated)
+		"movie_id": m.ID, "quote": "d1", "actor": "Bogart", "tags": []string{"alpha"}, "favorite": true}, http.StatusCreated)
+	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m.ID, "quote": "d2", "actor": "Bergman"}, http.StatusCreated)
 
 	got := decode[statsResp](t, c.mustDo("GET", "/stats", nil, 200))
 	if got.Books != 2 || got.Annotations != 3 || got.Movies != 1 || got.Dialogues != 2 ||
@@ -277,6 +281,16 @@ func TestStats(t *testing.T) {
 	}
 	if got.Authors != 2 || got.Genres != 0 {
 		t.Fatalf("authors/genres: %+v", got)
+	}
+	// People: 2 authors, 2 distinct actors (Bogart/Bergman), 1 director (Curtiz).
+	if got.Actors != 2 || got.Directors != 1 {
+		t.Fatalf("actors/directors: %+v", got)
+	}
+	if len(got.TopActors) != 2 || got.TopActors[0].Name != "Bergman" || got.TopActors[1].Name != "Bogart" {
+		t.Fatalf("top_actors: %+v", got.TopActors)
+	}
+	if len(got.TopDirectors) != 1 || got.TopDirectors[0].Name != "Curtiz" || got.TopDirectors[0].Count != 1 {
+		t.Fatalf("top_directors: %+v", got.TopDirectors)
 	}
 	// Highlight colours: q1 blue, q2 + q3 default yellow.
 	if got.Colors["yellow"] != 2 || got.Colors["blue"] != 1 || got.Colors["pink"] != 0 || got.Colors["orange"] != 0 {

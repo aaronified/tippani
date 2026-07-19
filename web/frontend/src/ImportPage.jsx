@@ -493,7 +493,6 @@ function annotationState(a) {
     color: a.color || 'yellow',
     tags: a.tags || [],
     favorite: !!a.favorite,
-    rating: a.rating || 0,
   }
 }
 

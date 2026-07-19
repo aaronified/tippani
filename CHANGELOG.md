@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-07-19
+
+### Added
+- **People on the Stats page.** The Stats page gains a **People** card with a
+  dropdown that switches between **Authors / Actors / Directors** — each showing
+  that kind's count and a top-N leaderboard (authors by book count, actors by
+  lines quoted, directors by films). `GET /stats` now returns `actors` /
+  `directors` counts and `top_actors` / `top_directors` alongside the existing
+  authors data. This is the groundwork for the upcoming achievements feature.
+
+### Removed
+- **Ratings are fully retired.** An earlier pass removed the 1–5 star rating from
+  the UI but left it in the API and database. It is now gone entirely: dropped
+  from every request/response, the list filters (`min_rating`), the importers,
+  the Markdown bindings, and the Stats page. Migration 0018 **drops the `rating`
+  column** from `annotations` and `dialogues` (a table rebuild that preserves
+  tags, the spaced-repetition schedule, and full-text search); the `rating`
+  columns on `books`/`movies` are left as inert dead columns (those tables are
+  FK parents, so rebuilding them to drop a hidden column would risk the library).
+  **Favourites (the ♥ flag) are unchanged** — the one keep/love signal.
+
+### Fixed
+- **Stats nav icon is vertically centred.** The bar-chart glyph sat low because
+  its baseline was at the bottom of the icon box; its mass is now centred.
+- **Restore file-picker is a real button** (also shipped mid-0.8.4): the plain
+  browser file input in the restore flow is a proper "Choose backup file…"
+  button that shows the chosen filename, in Settings and the onboarding card.
+
 ## [0.8.4] - 2026-07-19
 
 ### Added

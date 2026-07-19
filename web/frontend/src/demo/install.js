@@ -48,11 +48,11 @@ const HEART = svgURI(
 
 // ---- books + annotations ----
 const BOOKS = [
-  { id: 1, title: 'The Wide Margin', author: 'A. Whitfield', published_year: 1998, genres: ['essays', 'memoir'], series: '', series_index: 0, favorite: true, rating: 4, cover_path: coverArt('#5C4A33', '#F4EDDE', 'The Wide', 'Margin') },
-  { id: 2, title: "Reaper's Gale", author: 'Steven Erikson', published_year: 2007, genres: ['fantasy', 'epic'], series: 'Malazan Book of the Fallen', series_index: 7, favorite: false, rating: 5, cover_path: coverArt('#2F3A4A', '#ECE3D1', "Reaper's", 'Gale') },
-  { id: 3, title: 'Quiet Light', author: 'M. Sinha', published_year: 2015, genres: ['poetry'], series: '', series_index: 0, favorite: false, rating: 3, cover_path: '' },
-  { id: 4, title: 'The Salt Path', author: 'R. Winn', published_year: 2018, genres: ['memoir', 'nature'], series: '', series_index: 0, favorite: true, rating: 4, cover_path: coverArt('#3F7D5A', '#F4EDDE', 'The Salt', 'Path') },
-  { id: 5, title: 'On Colour', author: '(unknown)', published_year: 0, genres: [], series: '', series_index: 0, favorite: false, rating: 0, cover_path: '' },
+  { id: 1, title: 'The Wide Margin', author: 'A. Whitfield', published_year: 1998, genres: ['essays', 'memoir'], series: '', series_index: 0, favorite: true, cover_path: coverArt('#5C4A33', '#F4EDDE', 'The Wide', 'Margin') },
+  { id: 2, title: "Reaper's Gale", author: 'Steven Erikson', published_year: 2007, genres: ['fantasy', 'epic'], series: 'Malazan Book of the Fallen', series_index: 7, favorite: false, cover_path: coverArt('#2F3A4A', '#ECE3D1', "Reaper's", 'Gale') },
+  { id: 3, title: 'Quiet Light', author: 'M. Sinha', published_year: 2015, genres: ['poetry'], series: '', series_index: 0, favorite: false, cover_path: '' },
+  { id: 4, title: 'The Salt Path', author: 'R. Winn', published_year: 2018, genres: ['memoir', 'nature'], series: '', series_index: 0, favorite: true, cover_path: coverArt('#3F7D5A', '#F4EDDE', 'The Salt', 'Path') },
+  { id: 5, title: 'On Colour', author: '(unknown)', published_year: 0, genres: [], series: '', series_index: 0, favorite: false, cover_path: '' },
 ]
 const DESCRIPTIONS = {
   1: 'A slim book of essays on attention, reading, and the room we leave in the margins.',
@@ -61,20 +61,20 @@ const DESCRIPTIONS = {
   4: 'A memoir of a long coastal walk after losing everything.',
 }
 const ANNOTATIONS = [
-  { id: 1, book_id: 1, quote: 'She kept the margins wider than the text, the way some people keep a spare room — for whoever might arrive.', note: 'the wide-margin argument, again — keep.', color: 'yellow', chapter: '3', location: '142', favorite: true, rating: 4, tags: ['memory', 'craft'], noted_at: '2026-02-11', sticker_id: 1, sticker_x: 0.84, sticker_y: 0.06 },
-  { id: 2, book_id: 1, quote: 'Quiet is not the absence of sound but the presence of attention.', note: '', color: 'blue', chapter: '1', location: '9', favorite: false, rating: 3, tags: ['craft'], noted_at: '2026-03-02' },
-  { id: 3, book_id: 1, quote: 'A margin is a promise: that there is always room to answer back.', note: '', color: 'pink', chapter: '5', location: '201', favorite: true, rating: 5, tags: ['favourite'], noted_at: '2026-05-19' },
-  { id: 4, book_id: 2, quote: 'The dead do not dream, and yet here we are, dreaming them.', note: '', color: 'orange', chapter: '', location: '', favorite: false, rating: 5, tags: ['heartbreak'], noted_at: '2026-06-08' },
-  { id: 5, book_id: 2, quote: 'Children. Confront them with a mystery and they will attack it with a hammer.', note: 'so good', color: 'yellow', chapter: '', location: '', favorite: true, rating: 5, tags: ['funny', 'wisdom'], noted_at: '2026-06-21' },
-  { id: 6, book_id: 3, quote: 'The lamp does not argue with the dark; it simply keeps its corner.', note: '', color: 'blue', chapter: '', location: '', favorite: false, rating: 3, tags: [], noted_at: '2026-07-01' },
+  { id: 1, book_id: 1, quote: 'She kept the margins wider than the text, the way some people keep a spare room — for whoever might arrive.', note: 'the wide-margin argument, again — keep.', color: 'yellow', chapter: '3', location: '142', favorite: true, tags: ['memory', 'craft'], noted_at: '2026-02-11', sticker_id: 1, sticker_x: 0.84, sticker_y: 0.06 },
+  { id: 2, book_id: 1, quote: 'Quiet is not the absence of sound but the presence of attention.', note: '', color: 'blue', chapter: '1', location: '9', favorite: false, tags: ['craft'], noted_at: '2026-03-02' },
+  { id: 3, book_id: 1, quote: 'A margin is a promise: that there is always room to answer back.', note: '', color: 'pink', chapter: '5', location: '201', favorite: true, tags: ['favourite'], noted_at: '2026-05-19' },
+  { id: 4, book_id: 2, quote: 'The dead do not dream, and yet here we are, dreaming them.', note: '', color: 'orange', chapter: '', location: '', favorite: false, tags: ['heartbreak'], noted_at: '2026-06-08' },
+  { id: 5, book_id: 2, quote: 'Children. Confront them with a mystery and they will attack it with a hammer.', note: 'so good', color: 'yellow', chapter: '', location: '', favorite: true, tags: ['funny', 'wisdom'], noted_at: '2026-06-21' },
+  { id: 6, book_id: 3, quote: 'The lamp does not argue with the dark; it simply keeps its corner.', note: '', color: 'blue', chapter: '', location: '', favorite: false, tags: [], noted_at: '2026-07-01' },
 ]
 
 // ---- movies + dialogues ----
 const MOVIES = [
-  { id: 1, title: 'Northline', director: 'R. Whitfield', release_year: 1978, genres: ['drama', 'night'], series: 'Northline Diptych', series_index: 1, favorite: true, rating: 5, media_type: 'movie', poster_path: coverArt('#1D1710', '#D6A25C', 'NORTHLINE', '1978') },
-  { id: 2, title: 'The Long Take', director: 'H. Okonkwo', release_year: 2009, genres: ['noir'], series: '', series_index: 0, favorite: false, rating: 4, media_type: 'movie', poster_path: coverArt('#15100C', '#A2937C', 'THE LONG', 'TAKE') },
-  { id: 3, title: 'Reel Seven', director: 'A. Costa', release_year: 2021, genres: ['drama'], series: '', series_index: 0, favorite: false, rating: 3, media_type: 'show', poster_path: '' },
-  { id: 4, title: 'Southline', director: 'R. Whitfield', release_year: 1982, genres: ['drama'], series: 'Northline Diptych', series_index: 2, favorite: false, rating: 4, media_type: 'movie', poster_path: '' },
+  { id: 1, title: 'Northline', director: 'R. Whitfield', release_year: 1978, genres: ['drama', 'night'], series: 'Northline Diptych', series_index: 1, favorite: true, media_type: 'movie', poster_path: coverArt('#1D1710', '#D6A25C', 'NORTHLINE', '1978') },
+  { id: 2, title: 'The Long Take', director: 'H. Okonkwo', release_year: 2009, genres: ['noir'], series: '', series_index: 0, favorite: false, media_type: 'movie', poster_path: coverArt('#15100C', '#A2937C', 'THE LONG', 'TAKE') },
+  { id: 3, title: 'Reel Seven', director: 'A. Costa', release_year: 2021, genres: ['drama'], series: '', series_index: 0, favorite: false, media_type: 'show', poster_path: '' },
+  { id: 4, title: 'Southline', director: 'R. Whitfield', release_year: 1982, genres: ['drama'], series: 'Northline Diptych', series_index: 2, favorite: false, media_type: 'movie', poster_path: '' },
 ]
 const MOVIE_DESCRIPTIONS = {
   1: 'Two strangers share a night train north; neither says where they are going.',
@@ -88,10 +88,10 @@ const CAST = {
   4: [{ character: 'Mira', actor: 'E. Sen' }],
 }
 const DIALOGUES = [
-  { id: 1, movie_id: 1, quote: "We don't remember days. We remember light, and the room it fell in.", note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:12:04', favorite: true, rating: 5, tags: ['light'], sticker_id: 2, sticker_x: 0.86, sticker_y: 0.1 },
-  { id: 2, movie_id: 1, quote: 'You came back. Nobody comes back.', note: '', character: 'Joel', actor: 'D. Kapoor', timestamp: '00:41:52', favorite: false, rating: 3, tags: [] },
-  { id: 3, movie_id: 1, quote: 'Roll the reel. Let them see what we were.', note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:48:20', favorite: true, rating: 4, tags: ['light'] },
-  { id: 4, movie_id: 2, quote: 'Every alibi is a little story we tell the clock.', note: '', character: 'Vaughn', actor: 'T. Marsh', timestamp: '00:22:10', favorite: false, rating: 4, tags: ['craft'] },
+  { id: 1, movie_id: 1, quote: "We don't remember days. We remember light, and the room it fell in.", note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:12:04', favorite: true, tags: ['light'], sticker_id: 2, sticker_x: 0.86, sticker_y: 0.1 },
+  { id: 2, movie_id: 1, quote: 'You came back. Nobody comes back.', note: '', character: 'Joel', actor: 'D. Kapoor', timestamp: '00:41:52', favorite: false, tags: [] },
+  { id: 3, movie_id: 1, quote: 'Roll the reel. Let them see what we were.', note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:48:20', favorite: true, tags: ['light'] },
+  { id: 4, movie_id: 2, quote: 'Every alibi is a little story we tell the clock.', note: '', character: 'Vaughn', actor: 'T. Marsh', timestamp: '00:22:10', favorite: false, tags: ['craft'] },
 ]
 
 const TAGS = [
@@ -388,11 +388,9 @@ function route(method, path, params, body) {
       let list = ANNOTATIONS.filter((a) => !bid || a.book_id === bid)
       const color = params.get('color')
       const tag = params.get('tag')
-      const mr = Number(params.get('min_rating'))
       if (color) list = list.filter((a) => a.color === color)
       if (tag) list = list.filter((a) => a.tags.includes(tag))
       if (params.get('favorite')) list = list.filter((a) => a.favorite)
-      if (mr) list = list.filter((a) => (a.rating || 0) >= mr)
       return [200, { annotations: list.map(annRow) }]
     }
     case path === '/movies': return [200, { movies: MOVIES.map(movieListItem) }]
@@ -401,10 +399,8 @@ function route(method, path, params, body) {
       const mid = Number(params.get('movie_id'))
       let list = DIALOGUES.filter((d) => !mid || d.movie_id === mid)
       const tag = (params.get('tag') || '').toLowerCase()
-      const mr = Number(params.get('min_rating'))
       if (tag) list = list.filter((d) => d.tags.some((t) => t.toLowerCase() === tag) || (d.character || '').toLowerCase().includes(tag))
       if (params.get('favorite')) list = list.filter((d) => d.favorite)
-      if (mr) list = list.filter((d) => (d.rating || 0) >= mr)
       return [200, { dialogues: list.map(dlgRow) }]
     }
     case path === '/tags': return [200, { tags: tagRows() }]

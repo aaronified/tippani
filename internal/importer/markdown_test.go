@@ -115,7 +115,7 @@ func TestMarkdownEdges(t *testing.T) {
 }
 
 // Committed fixture covering the PLAN 5b(a) alias keys (page/colour),
-// favorite/rating bindings, and bare quotes with no bindings at all.
+// favorite bindings, and bare quotes with no bindings at all.
 func TestMarkdownFrontmatterFixture(t *testing.T) {
 	f, err := os.Open("testdata/markdown_frontmatter.md")
 	if err != nil {
@@ -135,7 +135,7 @@ func TestMarkdownFrontmatterFixture(t *testing.T) {
 	if a := res.Annotations[0]; a.Note != "my thought about it" || a.Location != "p.142" {
 		t.Fatalf("first = %+v", a)
 	}
-	if a := res.Annotations[1]; a.Note != "" || a.Color != "" || a.Tags != nil || a.Favorite || a.Rating != 0 {
+	if a := res.Annotations[1]; a.Note != "" || a.Color != "" || a.Tags != nil || a.Favorite {
 		t.Fatalf("bare quote = %+v", a)
 	}
 	a := res.Annotations[2]
@@ -144,15 +144,15 @@ func TestMarkdownFrontmatterFixture(t *testing.T) {
 		t.Fatalf("aliases = %+v", a)
 	}
 	a = res.Annotations[3]
-	if !a.Favorite || a.Rating != 4 || a.Color != "blue" { // "colour" alias
-		t.Fatalf("favorite/rating/colour = %+v", a)
+	if !a.Favorite || a.Color != "blue" { // "colour" alias
+		t.Fatalf("favorite/colour = %+v", a)
 	}
 }
 
-func TestMarkdownFavoriteRatingParsing(t *testing.T) {
+func TestMarkdownFavoriteParsing(t *testing.T) {
 	in := "---\ntitle: T\n---\n\n" +
-		"> q1\n- favorite: yes\n- rating: 9\n\n" + // out-of-range rating ignored
-		"> q2\n- favorite: 1\n- rating: five\n\n" + // non-numeric rating ignored
+		"> q1\n- favorite: yes\n\n" +
+		"> q2\n- favorite: 1\n\n" +
 		"> q3\n- favorite: nope\n- location: loc 9\n"
 	res, err := Markdown(strings.NewReader(in))
 	if err != nil {
@@ -161,10 +161,10 @@ func TestMarkdownFavoriteRatingParsing(t *testing.T) {
 	if len(res.Annotations) != 3 {
 		t.Fatalf("got %d annotations", len(res.Annotations))
 	}
-	if a := res.Annotations[0]; !a.Favorite || a.Rating != 0 {
+	if a := res.Annotations[0]; !a.Favorite {
 		t.Fatalf("q1 = %+v", a)
 	}
-	if a := res.Annotations[1]; !a.Favorite || a.Rating != 0 {
+	if a := res.Annotations[1]; !a.Favorite {
 		t.Fatalf("q2 = %+v", a)
 	}
 	if a := res.Annotations[2]; a.Favorite || a.Location != "loc 9" { // "location" alias
@@ -208,7 +208,7 @@ func TestMarkdownAllMultiBook(t *testing.T) {
 	multi := "---\ntitle: First Book\nauthor: A. One\n---\n\n" +
 		"## Chapter 1\n\n> Quote from the first book.\n- loc: p.10\n\n" +
 		"---\ntitle: Second Book\nauthor: B. Two\nisbn: 9780000000001\n---\n\n" +
-		"> Quote from the second book.\n- rating: 4\n> Another second-book quote.\n"
+		"> Quote from the second book.\n\n> Another second-book quote.\n"
 	res, err := MarkdownAll(strings.NewReader(multi))
 	if err != nil {
 		t.Fatal(err)
@@ -227,9 +227,6 @@ func TestMarkdownAllMultiBook(t *testing.T) {
 	}
 	if len(res[1].Annotations) != 2 {
 		t.Fatalf("book 1 got %d annotations, want 2", len(res[1].Annotations))
-	}
-	if res[1].Annotations[0].Rating != 4 {
-		t.Errorf("book 1 ann0 rating = %d, want 4", res[1].Annotations[0].Rating)
 	}
 }
 

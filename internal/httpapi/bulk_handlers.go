@@ -49,12 +49,11 @@ func (s *Server) ownedChildIDs(table, parentCol, parentTable string, uid int64, 
 
 // bulkTagReq is the shared shape for tagging/flagging a set of annotations or
 // dialogues at once. Only the present fields act; add_tags unions (never
-// detaches), favorite/rating set when non-nil.
+// detaches), favorite sets when non-nil.
 type bulkTagReq struct {
 	IDs      []int64  `json:"ids"`
 	AddTags  []string `json:"add_tags"`
 	Favorite *bool    `json:"favorite"`
-	Rating   *int     `json:"rating"`
 }
 
 // bulkTag applies a bulkTagReq to owned rows of `kind` (annotation|dialogue).
@@ -73,10 +72,6 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	}
 	if len(req.IDs) > 5000 {
 		writeErr(w, http.StatusBadRequest, "too many items (max 5000)")
-		return
-	}
-	if req.Rating != nil && (*req.Rating < 0 || *req.Rating > 5) {
-		writeErr(w, http.StatusBadRequest, "rating must be between 0 and 5")
 		return
 	}
 	uid := userID(r)
@@ -109,12 +104,6 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.Favorite != nil {
 		if err := bulkSetChild(tx, table, "favorite", boolToInt(*req.Favorite), owned); err != nil {
 			internalError(w, r, "bulk tag: favorite", err)
-			return
-		}
-	}
-	if req.Rating != nil {
-		if err := bulkSetChild(tx, table, "rating", *req.Rating, owned); err != nil {
-			internalError(w, r, "bulk tag: rating", err)
 			return
 		}
 	}

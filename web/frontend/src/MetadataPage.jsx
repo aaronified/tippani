@@ -658,7 +658,6 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
       series: c.series || b.series || '',
       series_index: c.series_index || b.series_index || 0,
       favorite: !!b.favorite,
-      rating: b.rating || 0,
       source: c.source || undefined,
       source_id: c.source_id || undefined,
     }

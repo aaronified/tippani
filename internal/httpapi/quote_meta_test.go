@@ -9,9 +9,9 @@ type annList struct {
 	Annotations []annotationRow `json:"annotations"`
 }
 
-// favorite + rating on annotations: accepted on POST/PUT, echoed in
+// favorite on annotations: accepted on POST/PUT, echoed in
 // responses, filterable on GET (PLAN §3).
-func TestAnnotationFavoriteRating(t *testing.T) {
+func TestAnnotationFavorite(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -21,53 +21,38 @@ func TestAnnotationFavoriteRating(t *testing.T) {
 
 	a1 := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
 		"book_id": book.ID, "quote": "Fear is the mind-killer.",
-		"favorite": true, "rating": 4,
+		"favorite": true,
 	}, http.StatusCreated))
-	if !a1.Favorite || a1.Rating != 4 {
+	if !a1.Favorite {
 		t.Fatalf("a1: %+v", a1)
 	}
 	a2 := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "The spice must flow.", "rating": 2,
+		"book_id": book.ID, "quote": "The spice must flow.",
 	}, http.StatusCreated))
-	if a2.Favorite || a2.Rating != 2 {
+	if a2.Favorite {
 		t.Fatalf("a2: %+v", a2)
 	}
-
-	// Validation.
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "x", "rating": 6}, http.StatusBadRequest)
-	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": book.ID, "quote": "x", "rating": -1}, http.StatusBadRequest)
 
 	// Filters.
 	favs := decode[annList](t, c.mustDo("GET", "/annotations?favorite=1", nil, 200))
 	if len(favs.Annotations) != 1 || favs.Annotations[0].ID != a1.ID {
 		t.Fatalf("favorite filter: %+v", favs.Annotations)
 	}
-	rated := decode[annList](t, c.mustDo("GET", "/annotations?min_rating=3", nil, 200))
-	if len(rated.Annotations) != 1 || rated.Annotations[0].ID != a1.ID {
-		t.Fatalf("min_rating filter: %+v", rated.Annotations)
-	}
-	if all := decode[annList](t, c.mustDo("GET", "/annotations?min_rating=1", nil, 200)); len(all.Annotations) != 2 {
-		t.Fatalf("min_rating=1: %+v", all.Annotations)
-	}
 	c.mustDo("GET", "/annotations?favorite=yes", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/annotations?min_rating=0", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/annotations?min_rating=abc", nil, http.StatusBadRequest)
 
-	// Update is full state: omitting favorite/rating clears them.
+	// Update is full state: omitting favorite clears it.
 	upd := decode[annotationRow](t, c.mustDo("PUT", "/annotations/"+itoa(a1.ID), map[string]any{
 		"quote": "Fear is the mind-killer.", "color": "yellow",
 	}, 200))
-	if upd.Favorite || upd.Rating != 0 {
+	if upd.Favorite {
 		t.Fatalf("update: %+v", upd)
 	}
 }
 
-// favorite + rating + tags on dialogues; tag usage counts span both join
+// favorite + tags on dialogues; tag usage counts span both join
 // tables (PLAN §3: one tag vocabulary spans books and movies), and detached
 // tags persist in the managed vocabulary (§10 — no auto-GC).
-func TestDialogueFavoriteRatingTags(t *testing.T) {
+func TestDialogueFavoriteTags(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -82,18 +67,14 @@ func TestDialogueFavoriteRatingTags(t *testing.T) {
 
 	d1 := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movie.ID, "quote": "Here's looking at you, kid.",
-		"tags": []string{"shared", "classic", "Classic", " "}, "favorite": true, "rating": 5,
+		"tags": []string{"shared", "classic", "Classic", " "}, "favorite": true,
 	}, http.StatusCreated))
-	if !d1.Favorite || d1.Rating != 5 || !sameStrings(d1.Tags, []string{"classic", "shared"}) {
+	if !d1.Favorite || !sameStrings(d1.Tags, []string{"classic", "shared"}) {
 		t.Fatalf("d1: %+v", d1)
 	}
-	d2 := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movie.ID, "quote": "Round up the usual suspects.", "rating": 3,
-	}, http.StatusCreated))
-
-	// Validation.
 	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movie.ID, "quote": "x", "rating": 6}, http.StatusBadRequest)
+		"movie_id": movie.ID, "quote": "Round up the usual suspects.",
+	}, http.StatusCreated)
 
 	// The shared vocabulary lists both kinds' tags; "shared" is counted once
 	// per join table.
@@ -114,22 +95,13 @@ func TestDialogueFavoriteRatingTags(t *testing.T) {
 	if len(favs.Dialogues) != 1 || favs.Dialogues[0].ID != d1.ID {
 		t.Fatalf("favorite filter: %+v", favs.Dialogues)
 	}
-	rated := decode[dlgList](t, c.mustDo("GET", "/dialogues?min_rating=4", nil, 200))
-	if len(rated.Dialogues) != 1 || rated.Dialogues[0].ID != d1.ID {
-		t.Fatalf("min_rating filter: %+v", rated.Dialogues)
-	}
-	rated = decode[dlgList](t, c.mustDo("GET", "/dialogues?min_rating=3", nil, 200))
-	if len(rated.Dialogues) != 2 || rated.Dialogues[1].ID != d2.ID { // both untimed -> id order
-		t.Fatalf("min_rating=3: %+v", rated.Dialogues)
-	}
-	c.mustDo("GET", "/dialogues?min_rating=9", nil, http.StatusBadRequest)
 
 	// Update replaces the tag set; the detached "classic" stays in the
 	// vocabulary at zero usage, "shared" keeps its annotation use.
 	upd := decode[dialogueRow](t, c.mustDo("PUT", "/dialogues/"+itoa(d1.ID), map[string]any{
 		"quote": "Here's looking at you, kid.", "tags": []string{"farewell"},
 	}, 200))
-	if upd.Favorite || upd.Rating != 0 || !sameStrings(upd.Tags, []string{"farewell"}) {
+	if upd.Favorite || !sameStrings(upd.Tags, []string{"farewell"}) {
 		t.Fatalf("update: %+v", upd)
 	}
 	tg = decode[tagsResp](t, c.mustDo("GET", "/tags", nil, 200))
@@ -164,24 +136,20 @@ func TestDialogueFavoriteRatingTags(t *testing.T) {
 	}
 }
 
-// favorite/rating parsed from markdown bindings survive the import
-// (PLAN §5b: markdown/bookcision paths persist the new fields).
-func TestImportMarkdownFavoriteRating(t *testing.T) {
+// favorite parsed from a markdown binding survives the import
+// (PLAN §5b: markdown/bookcision paths persist the field).
+func TestImportMarkdownFavorite(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	md := "---\ntitle: T\n---\n\n> plain quote\n\n> starred quote\n- favorite: yes\n- rating: 3\n"
+	md := "---\ntitle: T\n---\n\n> plain quote\n\n> starred quote\n- favorite: yes\n"
 	res := decode[importResult](t, c.importFile("/import/markdown", "t.md", []byte(md)))
 	if res.Added != 2 {
 		t.Fatalf("import: %+v", res)
 	}
 	favs := decode[annList](t, c.mustDo("GET", "/annotations?favorite=1", nil, 200))
-	if len(favs.Annotations) != 1 || favs.Annotations[0].Quote != "starred quote" ||
-		favs.Annotations[0].Rating != 3 {
+	if len(favs.Annotations) != 1 || favs.Annotations[0].Quote != "starred quote" {
 		t.Fatalf("favorite after import: %+v", favs.Annotations)
-	}
-	if rated := decode[annList](t, c.mustDo("GET", "/annotations?min_rating=4", nil, 200)); len(rated.Annotations) != 0 {
-		t.Fatalf("min_rating=4: %+v", rated.Annotations)
 	}
 }

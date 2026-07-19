@@ -82,7 +82,7 @@ CREATE TABLE books (
   genre_text TEXT NOT NULL DEFAULT '',  -- denormalized, space-joined genre names (FTS input)
   source_metadata TEXT,                 -- raw API payloads (json)
   favorite INTEGER NOT NULL DEFAULT 0,  -- star flag (migration 0006, mirrors annotations)
-  rating INTEGER NOT NULL DEFAULT 0     -- 0 = unrated, else 1-5 (migration 0006)
+  rating INTEGER NOT NULL DEFAULT 0     -- inert — ratings retired (dead column; migration 0006)
     CHECK (rating BETWEEN 0 AND 5),
   series TEXT, series_index REAL,       -- series/collection name + fractional order (0006)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -113,8 +113,6 @@ CREATE TABLE annotations (
   location TEXT,                        -- free text page/loc/%; NOT part of dedupe
   source TEXT NOT NULL,                 -- 'manual'|'md'|'bookcision'|'hardcover_html'|… validated in app code (the source list grows; SQLite can't alter a CHECK, so migration 0004 dropped it)
   favorite INTEGER NOT NULL DEFAULT 0,  -- star flag (added in migration 0004)
-  rating INTEGER NOT NULL DEFAULT 0     -- 0 = unrated, else 1-5 (migration 0004)
-    CHECK (rating BETWEEN 0 AND 5),
   dedupe_hash TEXT NOT NULL,            -- sha256(lower(collapse_ws(coalesce(quote, note))))
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -180,7 +178,7 @@ Rules:
 - **ISBN:** convert ISBN-10 → ISBN-13, strip hyphens, before store/lookup/dedupe, so cross-source matches align.
 - **Colours fixed at 4**; Kindle sources carry no colour → default `yellow`; recolour in-app.
 - **Dedupe:** `location` deliberately excluded from the hash — Kindle locations shift across devices/editions and would break idempotent re-imports of an ever-growing `My Clippings.txt`. Tradeoff accepted: the same passage highlighted twice collapses to one row (usually desirable). Quote text normalized (trim, collapse internal whitespace, casefold, **fold typographic punctuation** — curly quotes/dashes/ellipsis → ASCII) before hashing, so the same passage synced through differently-formatted sources (Bookcision’s `’`/`–` vs a markdown export’s `'`/`-`) still dedupes.
-- **Favorite + rating:** annotations and dialogues carry a `favorite` flag and a `rating` (0 = unrated, 1–5), both owner-requested. UI: star toggle + rating picker per row; list filters `favorite=1` and `min_rating=N` alongside tag/color. Other candidate params (page-as-number, language, …) rejected as YAGNI.
+- **Favorite:** annotations and dialogues carry a `favorite` flag, owner-requested. UI: star toggle per row; list filters `favorite=1` alongside tag/color. Other candidate params (page-as-number, language, …) rejected as YAGNI.
 - **Tags are shared by annotations and dialogues** (`annotation_tags` / `dialogue_tags` join the same per-user `tags` table), so one tag vocabulary spans books and movies.
 - **Hard delete everywhere.** No external sync → no tombstones/soft-delete needed.
 - **`genre_text`** is maintained by app code whenever a book's genres change (denormalization so book FTS can match genre words; `book_genres` remains the source of truth for exact filtering).
@@ -207,7 +205,7 @@ CREATE TABLE movies (
   cast_json TEXT NOT NULL DEFAULT '[]',  -- [{"character":"…","actor":"…"}] from TMDB credits
   source_metadata TEXT,                  -- raw TMDB/TVDB payload (json)
   favorite INTEGER NOT NULL DEFAULT 0,   -- star flag (migration 0006, mirrors dialogues)
-  rating INTEGER NOT NULL DEFAULT 0      -- 0 = unrated, else 1-5 (migration 0006)
+  rating INTEGER NOT NULL DEFAULT 0      -- inert — ratings retired (dead column; migration 0006)
     CHECK (rating BETWEEN 0 AND 5),
   series TEXT, series_index REAL,        -- franchise/collection name + order (0006)
   media_type TEXT NOT NULL DEFAULT 'movie', -- 'movie'|'show'; TV folded into movies (0006), validated in app code
@@ -234,8 +232,6 @@ CREATE TABLE dialogues (
   timestamp TEXT,                        -- free text, like annotations.location; use HH:MM:SS
                                          --   for clean lexical ordering (no normalization — KISS)
   favorite INTEGER NOT NULL DEFAULT 0,   -- star flag, same as annotations
-  rating INTEGER NOT NULL DEFAULT 0      -- 0 = unrated, else 1-5, same as annotations
-    CHECK (rating BETWEEN 0 AND 5),
   dedupe_hash TEXT NOT NULL,             -- sha256(lower(collapse_ws(quote))), same fn as annotations
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -324,7 +320,7 @@ Frontmatter = book; `##` heading = chapter; blockquote = quote; `- key: value` l
 
 **Every binding is optional** — a bare blockquote with no `- key:` lines at all is a valid import.
 Accepted keys (aliases tolerate files produced by other tools): `note`, `color`/`colour`,
-`tags`, `loc`/`location`/`page` → location, `favorite` (`true`/`yes`/`1`), `rating` (0–5).
+`tags`, `loc`/`location`/`page` → location, `favorite` (`true`/`yes`/`1`).
 Unknown keys ignored. Fixture: `internal/importer/testdata/markdown_frontmatter.md`.
 
 **(b) Readest "Highlights & Annotations" export** (verified against a real export, 2026-07-04;
@@ -407,8 +403,8 @@ carries everything as JSON in the Inertia `data-page` attribute of `<div id="app
 
 **Duplicate enrichment (all importers):** a skipped duplicate (same dedupe hash in the same book)
 is not discarded — it **donates whatever the existing row lacks**: chapter/location/note fill when
-empty, color upgrades from the yellow default, favorite only ever turns on, rating fills only when
-unrated, tags union. Existing non-default values always win, so user edits and earlier imports are
+empty, color upgrades from the yellow default, favorite only ever turns on, tags union.
+Existing non-default values always win, so user edits and earlier imports are
 never overwritten; a re-import of identical data is a no-op (no writes). Responses report
 `added / skipped / enriched`.
 
@@ -444,7 +440,7 @@ Format: YAML frontmatter (Obsidian Properties) with the item's metadata (title, 
 isbn/year, genres); body = the §5b format **(a)** shape — `##` chapter headings (books), one
 blockquote per quote (multi-line quotes get `> ` per line), then `- key: value` lines for
 **non-default metadata only**: note, color (≠ yellow), tags, loc / timestamp, character, actor,
-favorite (true), rating (>0). Books order by insertion (id), dialogues by timestamp — reading order.
+favorite (true). Books order by insertion (id), dialogues by timestamp — reading order.
 
 Property: a book export is valid §5b(a) importer input, so **exports round-trip** — re-importing
 one is a dedupe no-op. (Movie exports are export-only; there is no movie markdown importer — YAGNI.)
@@ -470,7 +466,7 @@ GET    /admin/metadata-keys   PUT /admin/metadata-keys               # admin onl
 POST   /books/lookup
 POST   /books    GET /books    GET/PUT/DELETE /books/{id}
 POST   /annotations
-GET    /annotations?book_id=&tag=&color=&favorite=&min_rating=&limit=   # tag= takes the NAME
+GET    /annotations?book_id=&tag=&color=&favorite=&limit=   # tag= takes the NAME
 GET    /annotations/daily-review?offset=      # today's deck (≤8): due first, then unseen; offset =
                                               #   client UTC-offset minutes (timezone-aware "today");
                                               #   also returns states {unseen,soon,later,someday,total}
@@ -487,7 +483,7 @@ PUT    /annotations/{id}    DELETE /annotations/{id}
 POST   /movies/lookup                # TMDB search (title, optional year)
 POST   /movies   GET /movies   GET/PUT/DELETE /movies/{id}
 POST   /dialogues
-GET    /dialogues?movie_id=&tag=&favorite=&min_rating=
+GET    /dialogues?movie_id=&tag=&favorite=
 PUT    /dialogues/{id}    DELETE /dialogues/{id}
 GET    /genres                       # minimal management (names only)
 GET    /tags     POST /tags    PUT/DELETE /tags/{id}   # managed vocabulary (§10 note)
@@ -501,7 +497,7 @@ GET    /export                       # zip of the whole library (§6b)
 GET    /search?q=&scope=all|books|annotations|movies|dialogues&limit=
                                      #   {books,annotations,movies,dialogues}; on a zero-hit
                                      #   query a fuzzy pass may add "corrected":"<query>" (§4)
-GET    /stats                        # user-scoped library counts + superlatives (§10 note)
+GET    /stats                        # library counts, superlatives, 12-mo activity, colour + people breakdowns (§10 note)
 GET    /admin/backup                 # {backup:{name,created,size}} | {backup:null} — the ONE kept
                                      #   server-side archive (newest only, date in the name)
 POST   /admin/backup                 # build a dated tar.gz of the whole data dir (VACUUM INTO
@@ -567,9 +563,9 @@ Everything except `GET /auth/status`, `POST /auth/signup`, `POST /auth/restore`,
   (theme `system`, accent `terracotta`, aesthetic per theme: dark→film else paper); `PUT` validates
   all three enums. The 0.3.x `home` start-page key is retired (the Home screen replaced the
   landing-tab choice); stale stored keys and old clients still sending one are silently ignored.
-- **Stats:** `GET /stats` — six user-scoped counts (favorites spans annotations + dialogues) plus
-  most-annotated book, most-quoted movie, busiest month (`YYYY-MM`, annotations + dialogues by
-  `created_at`); each `null` when empty. Fixed set of aggregate queries.
+- **Stats:** `GET /stats` — user-scoped library counts, superlatives (most-annotated book,
+  most-quoted movie, busiest month), a 12-month activity series, a highlight-colour breakdown,
+  top authors/actors/directors + top tags, and "collecting since". Fixed set of aggregate queries.
 - **Settings table** (`key`/`value`, migration 0005) holds optional metadata keys. TMDB key
   resolution per request: `TIPPANI_TMDB_API_KEY` env > settings `tmdb_key` > built-in
   `defaultTMDBKey` const > none (503). Google Books key (settings `google_books_key`) is appended

@@ -353,11 +353,11 @@ export function HandNote({ className = "", children }) {
   );
 }
 
-// ---- ♥ favourite + tilted ★ rating (§6: hearts for favourites, never stars) ----
+// ---- ♥ favourite mark (§6: hearts for favourites, never stars) ----
 
 // randWobble is the ink-mark jitter (§1: user marks are "hand-drawn: tilted,
 // uneven, inked" — never machine-perfect). It returns CSS vars for a random
-// rotation, scale and vertical nudge so no two hearts or stars sit quite alike;
+// rotation, scale and vertical nudge so no two hearts sit quite alike;
 // memoise it per glyph so the jitter holds still for the life of the mount, the
 // way frame codes do. The CSS composes --grot/--gscale/--gdy into one transform
 // and reduced-motion neutralises it.
