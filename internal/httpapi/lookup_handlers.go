@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 
@@ -71,6 +70,8 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 		// Nothing found. The dominant keyless failure is Google's shared daily
 		// quota (429) — say so with the one-step remedy, not a generic error.
 		if errors.Is(searchErr, metadata.ErrQuota) {
+			olog.Errorf(olog.CodeMetaLookupFailed, "[meta] book lookup isbn=%q title=%q: google quota/key rejected (own key set=%t): %v",
+				isbn, req.Title, gkey != "", searchErr)
 			msg := "Google Books' free shared quota is used up for today, and Open Library " +
 				"had no match. Add your own free Google Books API key in Settings → Metadata " +
 				"sources — it's instant and gives you a private quota."
@@ -82,6 +83,8 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if searchErr != nil {
+			// The client only sees "book lookup failed" — log the real cause.
+			olog.Errorf(olog.CodeMetaLookupFailed, "[meta] book lookup isbn=%q title=%q failed: %v", isbn, req.Title, searchErr)
 			writeErr(w, http.StatusBadGateway, "book lookup failed")
 			return
 		}
@@ -148,12 +151,15 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 			cands = append(cands, c...)
 		}
 	}
-	log.Printf("[lookup] movie %q year=%d media=%s: tmdb=%t tvdb=%t -> %d candidate(s), err=%v",
+	olog.Tracef("[meta] movie lookup %q year=%d media=%s: tmdb=%t tvdb=%t -> %d candidate(s), err=%v",
 		req.Title, req.Year, mediaType, tmdb != nil, tvdb != nil, len(cands), firstErr)
 
 	// Only surface an error when nothing came back at all — a partial failure
 	// (one source down, the other returning hits) still yields useful results.
 	if len(cands) == 0 && firstErr != nil {
+		// The client only sees a short message; log the real provider cause.
+		olog.Errorf(olog.CodeMetaLookupFailed, "[meta] movie lookup %q year=%d media=%s failed: %v",
+			req.Title, req.Year, mediaType, firstErr)
 		switch {
 		case errors.Is(firstErr, metadata.ErrTMDBAuth):
 			writeErr(w, http.StatusBadGateway,

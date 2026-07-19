@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-07-19
+
+### Fixed
+- **Lookup 502s are no longer invisible.** When an on-demand lookup failed at the
+  provider — `POST /people/lookup`, `/people/portrait`, `/books/lookup`,
+  `/movies/lookup`, and the movie edit "look up" re-sync — the handler returned a
+  generic 502 ("lookup failed — try again in a moment") and **logged nothing**, so
+  the real cause (a rejected key, a quota, a bad HTTP status) never reached
+  `docker logs`. Every such path now logs the underlying provider error with a
+  lookup code (`TIP-META-014`, `TIP-PEOPLE-003`) before responding — errors are
+  emitted at all log levels, not just debug. A TMDB-rejected-key (401) on a person
+  lookup now says so ("re-check it in Settings → Metadata sources") instead of the
+  misleading "try again in a moment", matching how the movie lookup already
+  behaves — a bad key never fixes itself on retry.
+
+### Changed
+- **Extensive outbound tracing at `TIPPANI_LOG_LEVEL=debug`.** Every outbound
+  metadata call now emits a `[trace]` line with its URL and result status — Google
+  Books, Open Library, Wikidata/Wikipedia, TMDB, TheTVDB (login + search/details),
+  the cover/poster/portrait image fetcher, and Amazon (whose errors were otherwise
+  swallowed). Provider secrets (`api_key`/`key` query params) are redacted; bearer
+  tokens never appear (they travel in the `Authorization` header). This makes
+  "which provider, what status" visible while diagnosing a failing lookup. A no-op
+  at normal log levels.
+
 ## [0.7.0] - 2026-07-18
 
 ### Added

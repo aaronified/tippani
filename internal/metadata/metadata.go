@@ -12,9 +12,12 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"tippani/internal/olog"
 )
 
 // userAgent identifies us on all outbound calls; Open Library grants 3 req/s
@@ -40,14 +43,44 @@ func httpGet(ctx context.Context, url, bearer string) ([]byte, int, error) {
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		// TIPPANI_LOG_LEVEL=debug surfaces every outbound call and its outcome —
+		// this is how "which provider, what status" becomes visible when a lookup
+		// 502s. A no-op at normal levels.
+		olog.Tracef("[meta] GET %s failed: %v", redactURL(url), err)
 		return nil, 0, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxJSONBody))
 	if err != nil {
+		olog.Tracef("[meta] GET %s -> %d, body read failed: %v", redactURL(url), resp.StatusCode, err)
 		return nil, 0, err
 	}
+	olog.Tracef("[meta] GET %s -> %d (%d bytes)", redactURL(url), resp.StatusCode, len(body))
 	return body, resp.StatusCode, nil
+}
+
+// redactURL hides provider secrets before a URL goes into a trace line: the v3
+// TMDB key (api_key=) and Google Books key (key=) travel in the query string.
+// The v4 TMDB token and TVDB JWT travel in the Authorization header and never
+// reach a trace. Best-effort: an unparseable URL is returned as-is.
+func redactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	redacted := false
+	for _, k := range []string{"api_key", "key"} {
+		if q.Has(k) {
+			q.Set(k, "***")
+			redacted = true
+		}
+	}
+	if !redacted {
+		return raw // leave the URL byte-for-byte when there's nothing to hide
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // leadingYear extracts the year from API dates like "2004-04-14" or "2004".

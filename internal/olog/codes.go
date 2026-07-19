@@ -68,6 +68,13 @@ const (
 	CodeMetaReverifyApply Code = "TIP-META-012" // an approved re-verify write failed for one item
 	CodeMetaReverifyImage Code = "TIP-META-013" // an approved cover/poster/portrait fetch failed on apply (text fields kept)
 
+	// On-demand provider lookups (book/movie/person) that failed and were
+	// surfaced to the client as a 502. The client only ever sees a generic
+	// "lookup failed" message, so these log the real provider cause (a rejected
+	// key, a quota, a bad status) — otherwise the failure is invisible in the logs.
+	CodeMetaLookupFailed   Code = "TIP-META-014"   // a book/movie provider lookup failed (Google Books / Open Library / TMDB / TheTVDB)
+	CodePeopleLookupFailed Code = "TIP-PEOPLE-003" // a person link/portrait lookup failed (Open Library / TMDB)
+
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
 	CodeBackupArchive  Code = "TIP-BACKUP-002" // the backup archive could not be written/promoted
@@ -123,6 +130,9 @@ var Registry = map[Code]string{
 	CodeMetaReverifyFetch: "A provider lookup failed while previewing a re-verify; the item was reported fetch_failed.",
 	CodeMetaReverifyApply: "Writing an approved re-verify change failed for one item; the rest of the batch continued.",
 	CodeMetaReverifyImage: "An approved cover/poster/portrait failed to download on re-verify apply; text fields were kept.",
+
+	CodeMetaLookupFailed:   "An on-demand book/movie lookup failed at the provider (Google Books / Open Library / TMDB / TheTVDB); the client saw a generic 502.",
+	CodePeopleLookupFailed: "An on-demand person link/portrait lookup failed at the provider (Open Library / TMDB); the client saw a generic 502.",
 
 	CodeBackupSnapshot: "The backup's database snapshot (VACUUM INTO) failed; no archive was produced.",
 	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory.",

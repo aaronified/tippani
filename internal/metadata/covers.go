@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"syscall"
 	"time"
+
+	"tippani/internal/olog"
 )
 
 // coverHosts is the PLAN §6 allowlist: the only places cover/poster URLs from
@@ -183,9 +185,11 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
+		olog.Tracef("[meta] image GET %s failed: %v", u.String(), err)
 		return "", fmt.Errorf("cover fetch: %w", err)
 	}
 	defer resp.Body.Close()
+	olog.Tracef("[meta] image GET %s -> %d", u.String(), resp.StatusCode)
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("cover fetch: status %d", resp.StatusCode)
 	}

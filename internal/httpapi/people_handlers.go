@@ -431,6 +431,15 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		links, err = s.actorLinks(r.Context(), tmdb, req.Name)
 	}
 	if err != nil {
+		// The client only ever sees a generic message, so log the real provider
+		// cause here — otherwise "lookup failed" is invisible in the logs.
+		olog.Errorf(olog.CodePeopleLookupFailed, "[people] lookup kind=%s name=%q failed: %v", req.Kind, req.Name, err)
+		if errors.Is(err, metadata.ErrTMDBAuth) {
+			// A rejected key never fixes itself on retry — say so, don't tell the
+			// user to "try again in a moment".
+			writeErr(w, http.StatusBadGateway, "TMDB rejected the key — re-check it in Settings → Metadata sources.")
+			return
+		}
 		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
 		return
 	}

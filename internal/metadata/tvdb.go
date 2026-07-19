@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"tippani/internal/olog"
 )
 
 const tvdbBase = "https://api4.thetvdb.com/v4"
@@ -49,9 +51,11 @@ func (t *TVDB) login(ctx context.Context) error {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		olog.Tracef("[meta] tvdb POST /login failed: %v", err)
 		return fmt.Errorf("tvdb: %w", err)
 	}
 	defer resp.Body.Close()
+	olog.Tracef("[meta] tvdb POST /login -> %d", resp.StatusCode)
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return fmt.Errorf("tvdb: %w", ErrTVDBAuth)
 	}

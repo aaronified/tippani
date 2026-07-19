@@ -318,6 +318,8 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			d, err = tvdb.MovieDetails(ctx, sourceID)
 		}
 		if err != nil {
+			// Both callers (create + resync) only surface the message; log the cause here.
+			olog.Errorf(olog.CodeMetaLookupFailed, "[movie] tvdb details source_id=%s show=%t failed: %v", sourceID, show, err)
 			if errors.Is(err, metadata.ErrTVDBAuth) {
 				return nil, "TheTVDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
 			}
@@ -338,6 +340,8 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			d, err = tmdb.Details(ctx, id)
 		}
 		if err != nil {
+			// Both callers (create + resync) only surface the message; log the cause here.
+			olog.Errorf(olog.CodeMetaLookupFailed, "[movie] tmdb details source_id=%s show=%t failed: %v", sourceID, show, err)
 			if errors.Is(err, metadata.ErrTMDBAuth) {
 				return nil, "TMDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
 			}

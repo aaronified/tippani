@@ -63,6 +63,10 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 
 	source, sourceID, imageURL, bio, born, died, links, rerr := s.resolvePersonPortrait(r.Context(), uid, req.Kind, req.Name)
 	if rerr != nil {
+		// Only the author (Open Library) path returns a hard error here — the
+		// actor/director paths degrade to best-effort. The client sees a generic
+		// message, so log the real cause.
+		olog.Errorf(olog.CodePeopleLookupFailed, "[people] portrait kind=%s name=%q failed: %v", req.Kind, req.Name, rerr)
 		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
 		return
 	}
