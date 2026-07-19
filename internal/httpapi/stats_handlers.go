@@ -99,19 +99,20 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Monthly activity for the last 6 calendar months (annotations + dialogues
+	// Monthly activity for the last 12 calendar months (annotations + dialogues
 	// bucketed by created_at month), oldest first, zero-filled for quiet months —
-	// drives the Settings activity dots. Counts are read once and bucketed in Go.
+	// drives the Stats page activity chart. Counts are read once and bucketed in Go.
+	const activityMonths = 12
 	type monthCount struct {
 		Month string `json:"month"`
 		Count int    `json:"count"`
 	}
-	monthly := make([]monthCount, 6)
+	monthly := make([]monthCount, activityMonths)
 	first := time.Now().UTC()
 	first = time.Date(first.Year(), first.Month(), 1, 0, 0, 0, 0, time.UTC)
 	byMonth := map[string]int{}
-	for i := 0; i < 6; i++ {
-		monthly[i] = monthCount{Month: first.AddDate(0, -(5 - i), 0).Format("2006-01")}
+	for i := 0; i < activityMonths; i++ {
+		monthly[i] = monthCount{Month: first.AddDate(0, -(activityMonths-1-i), 0).Format("2006-01")}
 	}
 	arows, err := s.Store.DB.Query(`
 		SELECT substr(created_at, 1, 7) AS month, count(*)
@@ -140,6 +141,145 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		monthly[i].Count = byMonth[monthly[i].Month]
 	}
 
+	// ---- richer insights for the dedicated Stats page ----
+
+	// Breadth: distinct author lines, and genres actually attached to something.
+	var authors, genres int
+	if err := s.Store.DB.QueryRow(
+		`SELECT count(*) FROM (SELECT DISTINCT author FROM books
+		   WHERE user_id = ? AND author IS NOT NULL AND trim(author) <> '')`, uid).Scan(&authors); err != nil {
+		internalError(w, r, "count authors", err)
+		return
+	}
+	if err := s.Store.DB.QueryRow(`
+		SELECT count(*) FROM (
+		  SELECT bg.genre_id AS gid FROM book_genres bg JOIN books b ON b.id = bg.book_id WHERE b.user_id = ?
+		  UNION
+		  SELECT mg.genre_id FROM movie_genres mg JOIN movies m ON m.id = mg.movie_id WHERE m.user_id = ?
+		)`, uid, uid).Scan(&genres); err != nil {
+		internalError(w, r, "count genres", err)
+		return
+	}
+
+	// Highlight-colour breakdown of book annotations (the four fixed colours).
+	colors := map[string]int{"yellow": 0, "blue": 0, "pink": 0, "orange": 0}
+	if crows, err := s.Store.DB.Query(`
+		SELECT a.color, count(*) FROM annotations a JOIN books b ON b.id = a.book_id
+		WHERE b.user_id = ? GROUP BY a.color`, uid); err != nil {
+		internalError(w, r, "query colours", err)
+		return
+	} else {
+		for crows.Next() {
+			var c string
+			var n int
+			if err := crows.Scan(&c, &n); err != nil {
+				olog.Warnf(olog.CodeStatsRowScan, "[stats] colour row scan failed: %v", err)
+				continue
+			}
+			if _, ok := colors[c]; ok {
+				colors[c] = n
+			}
+		}
+		crows.Close()
+	}
+
+	// Rating distribution (1..5) over rated quotes + dialogues, plus the average.
+	dist := make([]int, 5)
+	if rrows, err := s.Store.DB.Query(`
+		SELECT rating, count(*) FROM (
+		  SELECT a.rating FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ? AND a.rating > 0
+		  UNION ALL
+		  SELECT d.rating FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ? AND d.rating > 0
+		) GROUP BY rating`, uid, uid); err != nil {
+		internalError(w, r, "query ratings", err)
+		return
+	} else {
+		for rrows.Next() {
+			var rt, n int
+			if err := rrows.Scan(&rt, &n); err != nil {
+				olog.Warnf(olog.CodeStatsRowScan, "[stats] rating row scan failed: %v", err)
+				continue
+			}
+			if rt >= 1 && rt <= 5 {
+				dist[rt-1] = n
+			}
+		}
+		rrows.Close()
+	}
+	rated, weighted := 0, 0
+	for i, n := range dist {
+		rated += n
+		weighted += (i + 1) * n
+	}
+	var avg float64
+	if rated > 0 {
+		avg = float64(weighted) / float64(rated)
+	}
+
+	// Leaderboards: top authors by book count, top tags by usage.
+	type nameCount struct {
+		Name  string `json:"name"`
+		Count int    `json:"count"`
+	}
+	listOf := func(query string, args ...any) ([]nameCount, error) {
+		rows, err := s.Store.DB.Query(query, args...)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		out := []nameCount{}
+		for rows.Next() {
+			var nc nameCount
+			if err := rows.Scan(&nc.Name, &nc.Count); err != nil {
+				olog.Warnf(olog.CodeStatsRowScan, "[stats] top-list row scan failed: %v", err)
+				continue
+			}
+			out = append(out, nc)
+		}
+		return out, rows.Err()
+	}
+	topAuthors, err := listOf(`
+		SELECT author, count(*) AS c FROM books
+		WHERE user_id = ? AND author IS NOT NULL AND trim(author) <> ''
+		GROUP BY author ORDER BY c DESC, author LIMIT 5`, uid)
+	if err != nil {
+		internalError(w, r, "top authors", err)
+		return
+	}
+	topTags, err := listOf(`
+		SELECT t.name, count(*) AS c FROM tags t JOIN (
+		  SELECT at.tag_id FROM annotation_tags at
+		    JOIN annotations a ON a.id = at.annotation_id JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
+		  UNION ALL
+		  SELECT dt.tag_id FROM dialogue_tags dt
+		    JOIN dialogues d ON d.id = dt.dialogue_id JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?
+		) u ON u.tag_id = t.id
+		GROUP BY t.id ORDER BY c DESC, t.name LIMIT 5`, uid, uid)
+	if err != nil {
+		internalError(w, r, "top tags", err)
+		return
+	}
+
+	// "Collecting since": the earliest saved quote/dialogue (date only, or null).
+	var firstSaved *string
+	{
+		var fs sql.NullString
+		err := s.Store.DB.QueryRow(`
+			SELECT min(created_at) FROM (
+			  SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
+			  UNION ALL
+			  SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)`,
+			uid, uid).Scan(&fs)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			internalError(w, r, "first saved", err)
+			return
+		}
+		if fs.Valid && len(fs.String) >= 10 {
+			d := fs.String[:10] // YYYY-MM-DD
+			firstSaved = &d
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"books":            books,
 		"annotations":      annotations,
@@ -147,9 +287,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"dialogues":        dialogues,
 		"tags":             tags,
 		"favorites":        favorites,
+		"authors":          authors,
+		"genres":           genres,
 		"most_annotated":   mostAnnotated,
 		"most_quoted":      mostQuoted,
 		"busiest_month":    busiest,
 		"monthly_activity": monthly,
+		"colors":           colors,
+		"ratings":          map[string]any{"dist": dist, "rated": rated, "avg": avg},
+		"top_authors":      topAuthors,
+		"top_tags":         topTags,
+		"first_saved":      firstSaved,
 	})
 }

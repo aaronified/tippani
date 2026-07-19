@@ -6,6 +6,7 @@ import MetadataPage from './MetadataPage.jsx'
 import Movies from './Movies.jsx'
 import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
+import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
 import { DEMO, apiURL, coverImgURL, json, upload, uploadWithProgress } from './api.js'
@@ -182,6 +183,7 @@ function Onboarding({ onDone, backup }) {
   const [phase, setPhase] = useState('idle') // idle | uploading | restoring
   const [pct, setPct] = useState(0)
   const [uploadError, setUploadError] = useState('')
+  const fileRef = useRef(null)
   useEffect(() => {
     applyTheme({ aesthetic: 'paper', theme: 'light' })
   }, [])
@@ -274,14 +276,17 @@ function Onboarding({ onDone, backup }) {
           accounts, libraries and settings — then log in with the credentials from that backup.
         </p>
         <input
+          ref={fileRef}
           type="file"
           accept=".tar.gz,.tgz,application/gzip"
           aria-label="Choose a backup file to restore"
-          disabled={phase !== 'idle'}
+          className="hidden"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="mt-3 w-full text-sm"
         />
-        <GhostButton className="mt-4 w-full" onClick={restoreFromFile} disabled={!file || phase !== 'idle'}>
+        <GhostButton className="mt-3 w-full" onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
+          {file ? file.name : 'Choose backup file…'}
+        </GhostButton>
+        <GhostButton className="mt-2 w-full" onClick={restoreFromFile} disabled={!file || phase !== 'idle'}>
           {phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : 'Restore from file'}
         </GhostButton>
         <div className="mt-2">
@@ -342,6 +347,7 @@ const CONTENT_TABS = [
 const UTILITY_TABS = [
   ['tags', 'Tags'],
   ['metadata', 'Metadata'],
+  ['stats', 'Stats'],
   ['settings', 'Settings'],
 ]
 
@@ -406,6 +412,15 @@ function TabIcon({ name }) {
         <svg {...p}>
           <path d="M4 12.7V5.5A1.5 1.5 0 0 1 5.5 4h7.2a2 2 0 0 1 1.4.6l6 6a1.8 1.8 0 0 1 0 2.5l-6.4 6.4a1.8 1.8 0 0 1-2.5 0l-6-6a2 2 0 0 1-.6-1.4Z" />
           <circle cx="8.8" cy="8.8" r="1.2" />
+        </svg>
+      )
+    case 'stats': // bar chart
+      return (
+        <svg {...p}>
+          <path d="M4 20h16" />
+          <path d="M7.5 20v-5.5" />
+          <path d="M12 20v-9.5" />
+          <path d="M16.5 20v-3.5" />
         </svg>
       )
     case 'settings': // sliders
@@ -604,7 +619,7 @@ function AccountOverlay({ view, user, onUser, onClose }) {
 // refresh on /books/42 is served index.html by the server, then Shell restores
 // this state from the URL — and back/forward, including the mouse back button,
 // just work.
-const ROUTE_TABS = ['search', 'tags', 'metadata', 'settings']
+const ROUTE_TABS = ['search', 'tags', 'metadata', 'stats', 'settings']
 function parsePath(pathname) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   // "/" is the Home screen (daily review); unknown paths land there too.
@@ -651,6 +666,7 @@ const DRAWER_TABS = [
   null,
   ['tags', 'Tags'],
   ['metadata', 'Metadata'],
+  ['stats', 'Stats'],
   ['settings', 'Settings'],
 ]
 
@@ -1056,6 +1072,11 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         {tab === 'tags' && (
           <div data-screen-label="tags">
             <TagsPage />
+          </div>
+        )}
+        {tab === 'stats' && (
+          <div data-screen-label="stats">
+            <StatsPage />
           </div>
         )}
         {tab === 'settings' && (

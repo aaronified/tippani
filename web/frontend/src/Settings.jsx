@@ -18,9 +18,10 @@ import {
   useIsMobileScreen,
 } from './ui.jsx'
 
-// Settings (§8.11): Appearance, Metadata sources, Library stats, Change
-// password, and (admin only) Users. Appearance applies instantly via
-// applyTheme and persists via PUT /auth/me/preferences.
+// Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
+// (admin only) Updates + Backup. Library stats now live on their own Stats page
+// (StatsPage.jsx). Appearance applies instantly via applyTheme and persists via
+// PUT /auth/me/preferences.
 // useColumnCount tracks how many masonry columns fit: 1 (mobile) / 2 / 3 (wide).
 function useColumnCount() {
   const mobile = useIsMobileScreen()
@@ -48,7 +49,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   const ncols = useColumnCount()
   const cards = [
     <Metadata key="meta" user={user} />,
-    <Stats key="stats" />,
     <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
     <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
     user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
@@ -500,16 +500,16 @@ function BackupCard() {
             ref={fileRef}
             type="file"
             accept=".tar.gz,.tgz,application/gzip"
+            className="hidden"
             aria-label="Choose a backup file to restore"
-            disabled={phase !== 'idle'}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            style={{ maxWidth: '100%', fontSize: 13 }}
           />
-          {file && (
-            <p className="microcopy">
-              {file.name} · {fmtSize(file.size)}
-            </p>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <GhostButton onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
+              {file ? 'Choose a different file…' : 'Choose backup file…'}
+            </GhostButton>
+            <span className="microcopy">{file ? `${file.name} · ${fmtSize(file.size)}` : 'no file chosen'}</span>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
               className="tp-input"
@@ -1047,128 +1047,6 @@ function Metadata({ user }) {
       )}
 
       <ErrorText>{error}</ErrorText>
-    </Card>
-  )
-}
-
-// ---- 3. Library stats (§10, mockup 27) ----
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-// formatMonth turns "YYYY-MM" into "Month YYYY".
-function formatMonth(ym) {
-  if (!ym) return ''
-  const [y, m] = ym.split('-')
-  const name = MONTHS[Number(m) - 1]
-  return name ? `${name} ${y}` : ym
-}
-
-function StatTile({ n, label, heart }) {
-  return (
-    <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
-      {/* inline-flex baseline group keeps the heart hugging the number and inside
-          the tile even in a narrow column (fixes the "favourites out of bounds"). */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>
-        {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 13, lineHeight: 1 }}>♥</span>}
-      </div>
-      <MonoLabel className="mt-2 block">{label}</MonoLabel>
-    </div>
-  )
-}
-
-// shortMonth turns "2026-02" into "Feb" for the activity dots.
-function shortMonth(ym) {
-  if (!ym) return ''
-  const m = MONTHS[Number(ym.split('-')[1]) - 1]
-  return m ? m.slice(0, 3) : ym
-}
-
-// ActivityPlot — a row of accent dots (not a grid), one per month for the last
-// six, each shaded by how much was saved that month (GitHub-contributions feel).
-function ActivityPlot({ data }) {
-  if (!data || data.length === 0) return null
-  const max = Math.max(1, ...data.map((d) => d.count))
-  return (
-    <div className="mt-5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-      <MonoLabel className="mb-3 block">Activity · last 6 months</MonoLabel>
-      <div className="flex items-end justify-between gap-2">
-        {data.map((d) => {
-          const frac = d.count / max // 0..1
-          // Shade of the accent: quiet months stay a faint ghost, busy months
-          // approach full accent. Size nudges up slightly with activity too.
-          const pct = d.count === 0 ? 10 : Math.round(28 + 62 * frac)
-          const size = d.count === 0 ? 16 : 18 + Math.round(12 * frac)
-          return (
-            <div key={d.month} className="flex flex-1 flex-col items-center gap-1.5" title={`${shortMonth(d.month)}: ${d.count} saved`}>
-              <span
-                style={{
-                  width: size,
-                  height: size,
-                  borderRadius: '50%',
-                  background: `color-mix(in oklab, var(--accent-ui) ${pct}%, transparent)`,
-                }}
-              />
-              <span className="mono-label" style={{ fontSize: 9.5 }}>{shortMonth(d.month)}</span>
-              <span className="mono-label" style={{ fontSize: 9.5, color: d.count ? 'var(--accent-ui)' : 'var(--faint)' }}>{d.count}</span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function StatRow({ label, title, count, amber }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <MonoLabel>{label}</MonoLabel>
-      <span className="text-right" style={{ fontSize: 14 }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{title || '—'}</span>
-        {count != null && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
-            {'  ·  '}{count}
-          </span>
-        )}
-      </span>
-    </div>
-  )
-}
-
-function Stats() {
-  const [s, setS] = useState(null)
-  useEffect(() => {
-    json('GET', '/stats').then((r) => r.ok && setS(r.data))
-  }, [])
-
-  return (
-    <Card>
-      <SectionTitle>Library stats</SectionTitle>
-      {!s ? (
-        <p className="tp-empty" style={{ padding: '24px 0' }}>loading…</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-3 gap-3">
-            <StatTile n={s.books} label="Books" />
-            <StatTile n={s.annotations} label="Quotes" />
-            <StatTile n={s.movies} label="Films" />
-            <StatTile n={s.dialogues} label="Dialogues" />
-            <StatTile n={s.tags} label="Tags" />
-            <StatTile n={s.favorites} label="Favourites" heart />
-          </div>
-          <div className="mt-5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-            <StatRow label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} />
-            <StatRow label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} />
-            <StatRow
-              label="Busiest month"
-              title={s.busiest_month ? formatMonth(s.busiest_month.month) : null}
-              count={s.busiest_month ? `${s.busiest_month.count} saved` : null}
-              amber
-            />
-          </div>
-          <ActivityPlot data={s.monthly_activity} />
-        </>
-      )}
     </Card>
   )
 }
