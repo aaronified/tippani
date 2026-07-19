@@ -267,7 +267,9 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	}
 	for _, ch := range order {
 		if ch != "" {
-			sb.WriteString("\n## " + ch + "\n")
+			sb.WriteString("\n## ")
+			sb.WriteString(ch)
+			sb.WriteString("\n")
 		}
 		for _, a := range grouped[ch] {
 			sb.WriteString("\n")
@@ -377,7 +379,10 @@ func writeFrontmatter(sb *strings.Builder, pairs ...kv) {
 	sb.WriteString("---\n")
 	for _, p := range pairs {
 		if p.val != "" {
-			sb.WriteString(p.key + ": " + p.val + "\n")
+			sb.WriteString(p.key)
+			sb.WriteString(": ")
+			sb.WriteString(p.val)
+			sb.WriteString("\n")
 		}
 	}
 	sb.WriteString("---\n")
@@ -393,7 +398,9 @@ func writeQuoteBlock(sb *strings.Builder, quote, note string, bindings func(note
 		text, note = note, ""
 	}
 	for _, line := range strings.Split(text, "\n") {
-		sb.WriteString("> " + line + "\n")
+		sb.WriteString("> ")
+		sb.WriteString(line)
+		sb.WriteString("\n")
 	}
 	bindings(note)
 }
@@ -402,7 +409,11 @@ func writeQuoteBlock(sb *strings.Builder, quote, note string, bindings func(note
 // value whitespace-collapsed onto the single line the importer expects.
 func writeBinding(sb *strings.Builder, key, val string) {
 	if val = strings.Join(strings.Fields(val), " "); val != "" {
-		sb.WriteString("- " + key + ": " + val + "\n")
+		sb.WriteString("- ")
+		sb.WriteString(key)
+		sb.WriteString(": ")
+		sb.WriteString(val)
+		sb.WriteString("\n")
 	}
 }
 
@@ -411,7 +422,9 @@ func writeFavoriteRating(sb *strings.Builder, favorite bool, rating int) {
 		sb.WriteString("- favorite: true\n")
 	}
 	if rating > 0 {
-		sb.WriteString("- rating: " + strconv.Itoa(rating) + "\n")
+		sb.WriteString("- rating: ")
+		sb.WriteString(strconv.Itoa(rating))
+		sb.WriteString("\n")
 	}
 }
 
