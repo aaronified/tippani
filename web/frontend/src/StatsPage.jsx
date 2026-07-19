@@ -147,33 +147,6 @@ function Colors({ colors }) {
   )
 }
 
-function Ratings({ ratings }) {
-  const dist = ratings?.dist || [0, 0, 0, 0, 0]
-  const total = ratings?.rated || 0
-  const max = Math.max(1, ...dist)
-  return (
-    <Card>
-      <SectionHead label="Ratings" right={total ? <span className="mono-label">avg {Number(ratings.avg).toFixed(1)} · {total} rated</span> : null} />
-      {total === 0 ? (
-        <p className="tp-empty" style={{ padding: '16px 0' }}>no ratings yet</p>
-      ) : (
-        <div className="space-y-2">
-          {[5, 4, 3, 2, 1].map((star) => (
-            <HBar
-              key={star}
-              label={`${star}★`}
-              labelWidth={26}
-              n={dist[star - 1]}
-              max={max}
-              fill="var(--amber)"
-            />
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}
-
 // TopList — a ranked leaderboard (identity + magnitude): name, value, accent bar.
 function TopList({ label, rows }) {
   const max = Math.max(1, ...(rows || []).map((r) => r.count))
@@ -217,11 +190,11 @@ function StatRow({ label, title, count, amber }) {
   )
 }
 
-function Highlights({ s }) {
+function Superlatives({ s }) {
   const since = s.first_saved ? new Date(s.first_saved + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' }) : null
   return (
     <Card>
-      <SectionHead label="Highlights" />
+      <SectionHead label="Superlatives" />
       <div>
         <StatRow label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} />
         <StatRow label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} />
@@ -254,13 +227,12 @@ export default function StatsPage() {
           <ActivityBars data={s.monthly_activity} />
           <div style={twoCol}>
             <Colors colors={s.colors} />
-            <Ratings ratings={s.ratings} />
+            <Superlatives s={s} />
           </div>
           <div style={twoCol}>
             <TopList label="Top authors" rows={s.top_authors} />
             <TopList label="Top tags" rows={s.top_tags} />
           </div>
-          <Highlights s={s} />
         </div>
       )}
     </section>

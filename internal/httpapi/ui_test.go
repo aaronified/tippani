@@ -234,12 +234,7 @@ type statsResp struct {
 		Month string `json:"month"`
 		Count int    `json:"count"`
 	} `json:"busiest_month"`
-	Colors  map[string]int `json:"colors"`
-	Ratings struct {
-		Dist  []int   `json:"dist"`
-		Rated int     `json:"rated"`
-		Avg   float64 `json:"avg"`
-	} `json:"ratings"`
+	Colors          map[string]int  `json:"colors"`
 	TopAuthors      []nameCountResp `json:"top_authors"`
 	TopTags         []nameCountResp `json:"top_tags"`
 	FirstSaved      *string         `json:"first_saved"`
@@ -263,16 +258,16 @@ func TestStats(t *testing.T) {
 
 	// Seed: 2 authored books (2 + 1 annotations), 1 movie with 2 dialogues,
 	// 1 favorite annotation + 1 favorite dialogue, 2 distinct tags, a blue
-	// highlight, and three ratings (5, 3 on quotes; 4 on a dialogue).
+	// highlight.
 	b1 := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Herbert"}, http.StatusCreated))
 	b2 := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Austen"}, http.StatusCreated))
 	c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": b1.ID, "quote": "q1", "tags": []string{"alpha", "beta"}, "favorite": true, "color": "blue", "rating": 5}, http.StatusCreated)
+		"book_id": b1.ID, "quote": "q1", "tags": []string{"alpha", "beta"}, "favorite": true, "color": "blue"}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": b1.ID, "quote": "q2"}, http.StatusCreated)
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": b2.ID, "quote": "q3", "rating": 3}, http.StatusCreated)
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": b2.ID, "quote": "q3"}, http.StatusCreated)
 	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated))
 	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": m.ID, "quote": "d1", "tags": []string{"alpha"}, "favorite": true, "rating": 4}, http.StatusCreated)
+		"movie_id": m.ID, "quote": "d1", "tags": []string{"alpha"}, "favorite": true}, http.StatusCreated)
 	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m.ID, "quote": "d2"}, http.StatusCreated)
 
 	got := decode[statsResp](t, c.mustDo("GET", "/stats", nil, 200))
@@ -286,12 +281,6 @@ func TestStats(t *testing.T) {
 	// Highlight colours: q1 blue, q2 + q3 default yellow.
 	if got.Colors["yellow"] != 2 || got.Colors["blue"] != 1 || got.Colors["pink"] != 0 || got.Colors["orange"] != 0 {
 		t.Fatalf("colors: %+v", got.Colors)
-	}
-	// Ratings 5, 3, 4 → three rated, average 4.0, one each in those buckets.
-	if got.Ratings.Rated != 3 || len(got.Ratings.Dist) != 5 ||
-		got.Ratings.Dist[4] != 1 || got.Ratings.Dist[3] != 1 || got.Ratings.Dist[2] != 1 ||
-		got.Ratings.Avg < 3.99 || got.Ratings.Avg > 4.01 {
-		t.Fatalf("ratings: %+v", got.Ratings)
 	}
 	// Top tags: alpha on q1 + d1 = 2, beta on q1 = 1. Top authors tie 1-1, A→H.
 	if len(got.TopTags) != 2 || got.TopTags[0].Name != "alpha" || got.TopTags[0].Count != 2 ||

@@ -183,39 +183,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		crows.Close()
 	}
 
-	// Rating distribution (1..5) over rated quotes + dialogues, plus the average.
-	dist := make([]int, 5)
-	if rrows, err := s.Store.DB.Query(`
-		SELECT rating, count(*) FROM (
-		  SELECT a.rating FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ? AND a.rating > 0
-		  UNION ALL
-		  SELECT d.rating FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ? AND d.rating > 0
-		) GROUP BY rating`, uid, uid); err != nil {
-		internalError(w, r, "query ratings", err)
-		return
-	} else {
-		for rrows.Next() {
-			var rt, n int
-			if err := rrows.Scan(&rt, &n); err != nil {
-				olog.Warnf(olog.CodeStatsRowScan, "[stats] rating row scan failed: %v", err)
-				continue
-			}
-			if rt >= 1 && rt <= 5 {
-				dist[rt-1] = n
-			}
-		}
-		rrows.Close()
-	}
-	rated, weighted := 0, 0
-	for i, n := range dist {
-		rated += n
-		weighted += (i + 1) * n
-	}
-	var avg float64
-	if rated > 0 {
-		avg = float64(weighted) / float64(rated)
-	}
-
 	// Leaderboards: top authors by book count, top tags by usage.
 	type nameCount struct {
 		Name  string `json:"name"`
@@ -294,7 +261,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"busiest_month":    busiest,
 		"monthly_activity": monthly,
 		"colors":           colors,
-		"ratings":          map[string]any{"dist": dist, "rated": rated, "avg": avg},
 		"top_authors":      topAuthors,
 		"top_tags":         topTags,
 		"first_saved":      firstSaved,

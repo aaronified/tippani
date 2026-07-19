@@ -14,11 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   onto their own screen — a new utility tab (Tags · Metadata · **Stats** ·
   Settings), a `/stats` route, and a drawer entry — with a good deal more to
   see. `GET /stats` now also reports distinct **authors** and **genres in use**,
-  a **highlight-colour breakdown**, a **1–5 rating distribution with the
-  average**, **top authors** and **top tags** leaderboards, a **"collecting
-  since"** date, and a **12-month** activity window (was 6). Everything stays in
-  the app's visual system: hero stat tiles, single-hue accent bars for the
-  activity / ratings / leaderboards, and the four real highlight colours for the
+  a **highlight-colour breakdown**, **top authors** and **top tags**
+  leaderboards, a **"collecting since"** date, and a **12-month** activity
+  window (was 6). Everything stays in the app's visual system: hero stat tiles,
+  single-hue accent bars for the activity and leaderboards, and the four real
+  highlight colours for the
   colour breakdown (each labelled + counted, so identity never rides on colour
   alone). This is the groundwork for the upcoming achievements feature.
 
