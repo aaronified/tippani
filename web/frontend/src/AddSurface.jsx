@@ -277,7 +277,11 @@ function ManualPopup({ kind, onClose, onAdded }) {
 // after a book/film/show is added (what = 'book' | 'film'); the import flow
 // reports inline and leaves the surface open. `onOpenMovie`, when supplied, lets
 // an IMDb import jump straight to the new title (closing the surface first).
-export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie }) {
+// `onCaptureQuote` puts a "Capture quote" segment in the toggle that swaps this
+// surface for the QuickCapture sheet — the top ＋ must add annotations and
+// dialogues too, not just works (the capture sheet's WorkPicker targets any
+// book, film or show).
+export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptureQuote }) {
   const [tab, setTab] = useState(initialSection === 'import' ? 'import' : 'add')
 
   useEffect(() => {
@@ -313,8 +317,16 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
           <Toggle
             ariaLabel="Add or import"
             value={tab}
-            onChange={setTab}
-            options={[['add', 'Look up / add'], ['import', 'Import files']]}
+            onChange={(v) => {
+              // "Capture quote" isn't a tab here — it swaps to the capture sheet.
+              if (v === 'quote') return onCaptureQuote?.()
+              setTab(v)
+            }}
+            options={[
+              ['add', 'Look up / add'],
+              ...(onCaptureQuote ? [['quote', 'Capture quote']] : []),
+              ['import', 'Import files'],
+            ]}
           />
         </div>
         {tab === 'add' && (

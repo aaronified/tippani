@@ -1193,6 +1193,9 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
             <MonoLabel>{countsLabel}</MonoLabel>
             <ViewToggle value={view} onChange={setView} />
+            {/* Desktop add — the mobile detail bar's ＋ has no desktop twin
+                (the shell ＋ adds works, not annotations), so this row is it. */}
+            <GhostButton onClick={() => setAddOpen(true)}>＋ Add annotation</GhostButton>
           </span>
         </div>
       )}

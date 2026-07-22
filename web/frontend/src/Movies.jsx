@@ -941,6 +941,9 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
               />
             )}
             <ViewToggle value={view} onChange={setView} />
+            {/* Desktop add — the mobile detail bar's ＋ has no desktop twin
+                (the shell ＋ adds works, not dialogues), so this row is it. */}
+            <GhostButton onClick={() => setAdding(true)}>＋ Add dialogue</GhostButton>
           </div>
         </div>
       )}

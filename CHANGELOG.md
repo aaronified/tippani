@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-07-22
+
+### Fixed
+- **Adding annotations & dialogues on desktop.** 0.8.6 made every add a pop-up
+  and removed the inline add tile, but the desktop detail toolbars never got
+  the promised ＋ — annotations and dialogues could only be added from a
+  phone's detail bar. The annotation/dialogue toolbar now carries an explicit
+  **＋ Add annotation / ＋ Add dialogue** button, and the shell's ＋ Add surface
+  gained a **Capture quote** segment that swaps to the quick-capture sheet
+  (target any book, film or show) — so the top ＋ adds quotes too, on every
+  device.
+
 ## [0.8.6] - 2026-07-22
 
 ### Added

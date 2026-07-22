@@ -764,7 +764,7 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, up
           >
             <IconPlus />
             Add
-            <span className="drawer-badge">book · film · import</span>
+            <span className="drawer-badge">book · film · quote · import</span>
           </button>
           {DRAWER_TABS.map((t, i) =>
             t === null ? (
@@ -973,7 +973,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               type="button"
               className="topbar-add-btn tactile"
               onClick={() => openAdd('book')}
-              title="Add a book or film, or import highlights"
+              title="Add a book, film or quote, or import highlights"
             >
               <IconPlus />
               <span>Add</span>
@@ -1010,7 +1010,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="flex-1" />
             {/* §7 One "＋ Add": same surface as the desktop pill — book · film ·
                 import toggle. Quote capture lives on the Home capture tile. */}
-            <button type="button" className="mobile-topbar-btn" aria-label="Add a book or film, or import highlights" onClick={() => openAdd('book')}>
+            <button type="button" className="mobile-topbar-btn" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
               <IconPlus />
             </button>
             <button type="button" className="mobile-topbar-btn" aria-label="Search" onClick={() => selectTab('search')}>
@@ -1116,6 +1116,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       <AddSurface
         open={addOpen}
         initialSection={addSection}
+        onCaptureQuote={() => { setAddOpen(false); setCaptureOpen(true) }}
         onClose={() => setAddOpen(false)}
         onAdded={(what) => {
           setAddOpen(false)
