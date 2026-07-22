@@ -189,6 +189,7 @@ type reviewCard struct {
 	Title       string  `json:"title"`      // book / film / show title
 	Author      string  `json:"author"`     // book author; "" for screen
 	Character   string  `json:"character"`  // screen speaker; "" for book
+	Actor       string  `json:"actor"`      // screen speaker's actor; "" for book
 	Chapter     string  `json:"chapter"`    // book only
 	Location    string  `json:"location"`   // book only
 	Timestamp   string  `json:"timestamp"`  // screen only
@@ -201,6 +202,17 @@ type reviewCard struct {
 	// card they are quotes (which quote is from this work?).
 	Options []string `json:"options"`
 	Answer  int      `json:"answer"`
+	// OptionMeta mirrors Options index-for-index on "source" cards: the person
+	// the UI shows as a face chip under each work title — a book's author, a
+	// screen work's dialogue actor (falling back to its director). Absent on
+	// "quote" cards (a quote option's people would name its work — the answer).
+	OptionMeta []optionMeta `json:"option_meta,omitempty"`
+}
+
+// optionMeta is the person credit for one multiple-choice work option.
+type optionMeta struct {
+	Person string `json:"person,omitempty"` // display name; "" when unknown
+	Kind   string `json:"kind,omitempty"`   // author | actor | director
 }
 
 // reviewCand wraps a card with the transient facts used to order it and build
@@ -279,7 +291,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 
 func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
 	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
-	             COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
+	             COALESCE(d.actor,''), COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
 	             COALESCE(julianday('now') - julianday(d.created_at), 1e9)
 	      FROM dialogues d
@@ -310,7 +322,7 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 		var movieID int64
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
-			&c.card.Timestamp, &c.card.MediaType,
+			&c.card.Actor, &c.card.Timestamp, &c.card.MediaType,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue
@@ -342,12 +354,34 @@ const (
 // a screen work) and its genres. Distractors are ranked by overlap with the
 // card's own work — see distractorScore.
 type workRef struct {
-	key    string // "book:12" / "screen:7"
-	kind   string
-	title  string
-	author string          // books only
-	genres map[string]bool // both
-	actors map[string]bool // screen only
+	key      string // "book:12" / "screen:7"
+	kind     string
+	title    string
+	author   string          // books only
+	director string          // screen only
+	genres   map[string]bool // both
+	actors   map[string]bool // screen only, lowercased (similarity matching)
+	// actorNames keeps the first-seen casing of each dialogue actor — the map
+	// above lowercases for matching, but option chips need a display name.
+	actorNames []string
+}
+
+// person is the credit an option chip shows for this work: a book's author,
+// a screen work's dialogue actor (falling back to its director).
+func (w workRef) person() optionMeta {
+	if w.kind == kindBook {
+		if w.author != "" {
+			return optionMeta{Person: w.author, Kind: "author"}
+		}
+		return optionMeta{}
+	}
+	if len(w.actorNames) > 0 {
+		return optionMeta{Person: w.actorNames[0], Kind: "actor"}
+	}
+	if w.director != "" {
+		return optionMeta{Person: w.director, Kind: "director"}
+	}
+	return optionMeta{}
 }
 
 // quoteRef is one quote in the distractor pool, carrying its source work so a
@@ -423,16 +457,16 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 		}
 	}
 	if incScreen {
-		if err := scan(`SELECT id, title FROM movies WHERE user_id = ? AND title <> ''`,
+		if err := scan(`SELECT id, title, COALESCE(director,'') FROM movies WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
-				var title string
-				if err := rows.Scan(&id, &title); err != nil {
+				var title, director string
+				if err := rows.Scan(&id, &title, &director); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] screen work row scan failed: %v", err)
 					return nil
 				}
 				k := kindScreen + ":" + strconv.FormatInt(id, 10)
-				p.byKey[k] = workRef{key: k, kind: kindScreen, title: title, genres: map[string]bool{}, actors: map[string]bool{}}
+				p.byKey[k] = workRef{key: k, kind: kindScreen, title: title, director: director, genres: map[string]bool{}, actors: map[string]bool{}}
 				return nil
 			}); err != nil {
 			return p, err
@@ -463,7 +497,13 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 					return nil
 				}
 				if w, ok := p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)]; ok && actor != "" {
-					w.actors[strings.ToLower(actor)] = true
+					if !w.actors[strings.ToLower(actor)] {
+						w.actors[strings.ToLower(actor)] = true
+						// Slice append doesn't flow through the map copy the way
+						// the shared actors map does — write the struct back.
+						w.actorNames = append(w.actorNames, actor)
+						p.byKey[kindScreen+":"+strconv.FormatInt(id, 10)] = w
+					}
 				}
 				return nil
 			}); err != nil {
@@ -584,18 +624,30 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 	own := p.byKey[ownKey]
 	rng := seededRand(seed)
 	if card.Direction == dirSource {
-		// options = work titles, ranked by similarity; answer = own title.
-		var distractors []string
+		// options = work titles, ranked by similarity; answer = own title. Each
+		// option keeps its workRef so the client gets a person chip per title
+		// (OptionMeta) alongside the plain Options strings.
+		answer := own
+		if answer.title == "" { // own work missing from the pool — title-only option
+			answer = workRef{key: ownKey, kind: card.Kind, title: card.Title}
+		}
+		var distractors []workRef
 		for _, w := range rankWorks(own, p.works, rng) {
 			if w.title != card.Title {
-				distractors = append(distractors, w.title)
+				distractors = append(distractors, w)
 			}
 		}
-		opts, ans := choicesFrom(card.Title, distractors, quizOptions, rng)
+		opts, ans := choicesFromWorks(answer, distractors, quizOptions, rng)
 		if len(opts) < 2 {
 			return false
 		}
-		card.Options, card.Answer = opts, ans
+		card.Options = make([]string, len(opts))
+		card.OptionMeta = make([]optionMeta, len(opts))
+		for i, o := range opts {
+			card.Options[i] = o.title
+			card.OptionMeta[i] = o.person()
+		}
+		card.Answer = ans
 		return true
 	}
 	// dirQuote: options = quotes from OTHER works, ranked by that work's
@@ -679,6 +731,30 @@ func choicesFrom(answer string, distractors []string, n int, rng *rand.Rand) ([]
 	shuffleN(rng, len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
 	for i, o := range opts {
 		if o == answer {
+			return opts, i
+		}
+	}
+	return opts, 0
+}
+
+// choicesFromWorks is choicesFrom over workRefs — same dedupe (by title),
+// shuffle and answer-index contract, but each option keeps its workRef so the
+// caller can attach a person chip per title.
+func choicesFromWorks(answer workRef, distractors []workRef, n int, rng *rand.Rand) ([]workRef, int) {
+	opts := []workRef{answer}
+	seen := map[string]bool{answer.title: true}
+	for _, d := range distractors {
+		if len(opts) >= n {
+			break
+		}
+		if d.title != "" && !seen[d.title] {
+			seen[d.title] = true
+			opts = append(opts, d)
+		}
+	}
+	shuffleN(rng, len(opts), func(i, j int) { opts[i], opts[j] = opts[j], opts[i] })
+	for i, o := range opts {
+		if o.title == answer.title {
 			return opts, i
 		}
 	}

@@ -8,7 +8,16 @@ import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
 import { AddLookup } from './AddSurface.jsx'
-import { usePeople } from './people.jsx'
+import {
+  CreditFaces,
+  DEFAULT_CREDIT_SEPS,
+  PersonCredit,
+  PersonModal,
+  PersonPortrait,
+  parseCreditSeps,
+  splitCredits,
+  usePeople,
+} from './people.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { useStickers } from './stickers.jsx'
 import {
@@ -94,17 +103,41 @@ function QuoteBlock({ card }) {
   )
 }
 
+// PersonChip — a display-only person credit (portrait + name pill) for quiz
+// prompts and options: the answer buttons own the tap, so unlike PersonCredit
+// nothing here is clickable. Renders the pill even without a saved portrait.
+function PersonChip({ name, person, size = 20 }) {
+  if (!name) return null
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 999, padding: '2px 9px 2px 4px', maxWidth: '100%' }}
+    >
+      <PersonPortrait person={person} size={size} />
+      <span className="mono-label" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {name}
+      </span>
+    </span>
+  )
+}
+
 // SourceLines — the attribution side of a card (title + author/character etc.):
-// the revealed answer for "source", the prompt for "quote".
-function SourceLines({ card }) {
+// the revealed answer for "source", the prompt for "quote". The people carry
+// face chips — a book's author(s), a screen quote's actor; `maps` are the
+// usePeople kind→(name→row) lookups for portraits.
+function SourceLines({ card, maps = {} }) {
+  const people =
+    card.kind === 'screen'
+      ? (card.actor ? [{ name: card.actor, kind: 'actor' }] : [])
+      : splitCredits(card.author, DEFAULT_CREDIT_SEPS).map((n) => ({ name: n, kind: 'author' }))
   let meta
   if (card.kind === 'screen') {
     const media = card.media_type === 'show' ? 'Show' : 'Film'
     meta = [media, card.character, card.timestamp].filter(Boolean).join(' · ')
   } else {
+    // The author lives in the chips row now; the meta line keeps the location.
     const ch = (card.chapter || '').trim()
     meta = [
-      card.author,
       ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch),
       card.location && `P. ${card.location}`,
     ]
@@ -116,6 +149,13 @@ function SourceLines({ card }) {
       <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.2 }}>
         {card.title}
       </p>
+      {people.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {people.map((p) => (
+            <PersonChip key={p.kind + p.name} name={p.name} person={maps[p.kind]?.[p.name]} />
+          ))}
+        </div>
+      )}
       {meta && <MonoLabel className="mt-1 block" style={{ fontSize: 11 }}>{meta}</MonoLabel>}
     </div>
   )
@@ -131,6 +171,12 @@ function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState(null) // chosen option index for the current card
   const [busy, setBusy] = useState(false)
+  // Portrait lookups for the person chips on prompts and options (the server
+  // names each option's author/actor/director in option_meta).
+  const { map: authorMap } = usePeople('author')
+  const { map: actorMap } = usePeople('actor')
+  const { map: directorMap } = usePeople('director')
+  const personMaps = { author: authorMap, actor: actorMap, director: directorMap }
   const card = cards[i]
   if (!card) return null
 
@@ -173,11 +219,13 @@ function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
         <MonoLabel>{askLine(card)}</MonoLabel>
         <span className="mono-label" style={{ letterSpacing: '.06em' }}>{i + 1} of {cards.length}</span>
       </div>
-      {isSource ? <QuoteBlock card={card} /> : <SourceLines card={card} />}
+      {isSource ? <QuoteBlock card={card} /> : <SourceLines card={card} maps={personMaps} />}
       <div className="mt-3 flex flex-col gap-2">
         {(card.options || []).map((opt, idx) => {
           const isAnswer = idx === card.answer
           const chosen = picked === idx
+          // Work-title options carry a person chip (author / actor / director).
+          const om = isSource ? card.option_meta?.[idx] : null
           let border = 'var(--line)'
           let bg = 'var(--raised)'
           if (answered && isAnswer) {
@@ -208,6 +256,11 @@ function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
               }}
             >
               {opt}
+              {om?.person && (
+                <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
+                  <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
+                </span>
+              )}
             </button>
           )
         })}
@@ -529,8 +582,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const [editingFav, setEditingFav] = useState(null) // favourite key being edited in place
   const [shareFav, setShareFav] = useState(null) // favourite being shared, or null
   const [tagNames, setTagNames] = useState([]) // suggestions for the edit forms
-  const { map: authorMap } = usePeople('author') // for author faces on shared book quotes
-  const { map: actorMap } = usePeople('actor') // for actor faces on shared film dialogues
+  const { map: authorMap } = usePeople('author') // author faces: favourite chips + share payloads
+  const { map: actorMap } = usePeople('actor') // actor faces: favourite chips + share payloads
+  const [person, setPerson] = useState(null) // {kind, name} open in the metadata panel
+  const seps = parseCreditSeps(user?.preferences?.creditSeparators)
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
   // every /review/answer response carries fresh counts, so the row ticks live.
   const [states, setStates] = useState(null)
@@ -702,6 +757,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 tagSuggestions={tagNames}
                 stickers={stickers}
                 reloadStickers={reloadStickers}
+                authorMap={authorMap}
+                actorMap={actorMap}
+                seps={seps}
+                onOpenPerson={setPerson}
               />
             ))}
           </Masonry>
@@ -722,6 +781,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           onClose={() => setShareFav(null)}
         />
       )}
+      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )
 }
@@ -740,8 +800,17 @@ function FavouriteTile({
   f, variant, clampLines = 3, open, editing, onToggle, onOpen,
   onEditStart, onEditCancel, onSave, onPatch, onDelete, onShare,
   tagSuggestions, stickers, reloadStickers,
+  authorMap = {}, actorMap = {}, seps, onOpenPerson,
 }) {
   const isBook = f.kind === 'book'
+  // The credited people: a book's author(s) (split per the user's separator
+  // prefs), a dialogue's actor. Faces ride the collapsed source line
+  // (display-only — the whole head is the expand button); the expanded tile
+  // makes them full clickable PersonCredit chips.
+  const peopleNames = isBook
+    ? splitCredits(f.raw.book_author, seps)
+    : (f.raw.actor ? [f.raw.actor] : [])
+  const peopleMap = isBook ? authorMap : actorMap
   return (
     <HandCard
       variant={variant}
@@ -790,14 +859,29 @@ function FavouriteTile({
             >
               “{f.text}”
             </p>
-            <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
-              {open ? f.meta : f.source}
-            </MonoLabel>
+            <span className="mt-1.5 flex items-center gap-1.5">
+              <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
+              <MonoLabel style={{ fontSize: 10.5 }}>{open ? f.meta : f.source}</MonoLabel>
+            </span>
             <ClampMore open={open} />
           </button>
           {open && (
             <div className="mt-2.5 space-y-2">
               {f.note && <HandNote>{f.note}</HandNote>}
+              {peopleNames.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {peopleNames.map((n) => (
+                    <PersonCredit
+                      key={n}
+                      kind={isBook ? 'author' : 'actor'}
+                      name={n}
+                      person={peopleMap[n]}
+                      size={24}
+                      onOpen={onOpenPerson}
+                    />
+                  ))}
+                </div>
+              )}
               {f.tags && f.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {f.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}

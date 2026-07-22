@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Onboarding & guided tour.** Settings grew an **Onboarding** card that
+  lists every feature and starts a guided step-by-step tour of them all —
+  a spotlight ring over the real control plus a walkthrough card. It runs
+  once on each user's **first launch**; every step is skippable (Next), the
+  whole tour can be skipped, or parked with **"finish later"** — a Resume
+  button in Settings picks up at the saved step (new `tour` / `tourStep`
+  preferences, partial-merge like the rest). The tour never asks for your
+  files: a public-domain book quote (*Pride and Prejudice*) and film
+  dialogue (*Casablanca*) are built in as sample content, and the admin
+  steps show and ask for the **TMDB / TheTVDB / Google Books keys and the
+  optional Amazon cookie** — with instructions on where each comes from —
+  while the highlighted Metadata card stays usable so they can be pasted
+  mid-tour.
+- **People chips on Home.** Favourite tiles wear author/actor faces on the
+  source line and, expanded, full clickable person chips (portrait + name →
+  the people panel). The quiz wears them too: a *"which quote is from this
+  work?"* prompt chips the book's author or the line's actor, and every
+  work-title option carries its person — book → author, film/show → your
+  dialogues' actor, falling back to the director (`option_meta` beside
+  `options` on source cards; screen cards now also carry `actor`).
+
+### Changed
+- **Stats: ranked, scrollable breakdowns; superlatives as tiles.** Breakdown
+  rows are ranked (#1 onward) and the list scrolls past ~10 visible rows —
+  the server now sends up to 50 per kind (was 8). Top tags gets the same
+  rank + scroll treatment past ~5 visible (cap 5 → 50). The Superlatives
+  card shrank from half a column into one row of compact tiles, and
+  Colours + Top tags stack beside the Breakdown instead.
+
 ## [0.8.7] - 2026-07-22
 
 ### Fixed
