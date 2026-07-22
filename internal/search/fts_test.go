@@ -29,4 +29,15 @@ func TestQuery(t *testing.T) {
 			t.Errorf("PrefixQuery(%q) = %s, want %s", c.in, got, c.want)
 		}
 	}
+	columnCases := []struct{ cols, in, want string }{
+		{"author", "shaw red", `{author} : ("shaw"* "red"*)`},
+		{"title series", "dune", `{title series} : ("dune"*)`},
+		// FTS operators/quotes stay neutralized inside the filtered expression.
+		{"quote", `x" OR "y`, `{quote} : ("x"""* "OR"* """y"*)`},
+	}
+	for _, c := range columnCases {
+		if got := ColumnPrefixQuery(c.cols, c.in); got != c.want {
+			t.Errorf("ColumnPrefixQuery(%q, %q) = %s, want %s", c.cols, c.in, got, c.want)
+		}
+	}
 }

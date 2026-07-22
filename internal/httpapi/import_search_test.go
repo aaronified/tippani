@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 type importResult struct {
@@ -370,14 +371,6 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 	}
 }
 
-type searchResp struct {
-	Books       []bookHit       `json:"books"`
-	Annotations []annotationHit `json:"annotations"`
-	Movies      []movieHit      `json:"movies"`
-	Dialogues   []dialogueHit   `json:"dialogues"`
-	Corrected   string          `json:"corrected"`
-}
-
 func TestSearchScopes(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -397,21 +390,31 @@ func TestSearchScopes(t *testing.T) {
 		"character": "Rick Blaine", "actor": "Humphrey Bogart", "timestamp": "01:15:00",
 	}, http.StatusCreated)
 
-	// scope=all groups hits by type.
-	res := decode[searchResp](t, c.mustDo("GET", "/search?q=herbert", nil, 200))
-	if len(res.Books) != 1 || res.Books[0].ID != book.ID || len(res.Annotations)+len(res.Movies)+len(res.Dialogues) != 0 {
+	// Results are faceted by WHAT matched: an author-name query lands in the
+	// Authors section (name + books), not as bare book rows.
+	res := decode[searchResults](t, c.mustDo("GET", "/search?q=herbert", nil, 200))
+	if len(res.Authors) != 1 || res.Authors[0].Name != "Frank Herbert" ||
+		len(res.Authors[0].Books) != 1 || res.Authors[0].Books[0].ID != book.ID {
 		t.Fatalf("q=herbert: %+v", res)
 	}
-	// Enriched grouping fields on book hits (search group-by needs these).
-	if b := res.Books[0]; len(b.Genres) != 1 || b.Genres[0] != "Science Fiction" {
-		t.Fatalf("book hit genres: %+v", b)
+	if len(res.Books)+len(res.Annotations)+len(res.Movies)+len(res.Dialogues) != 0 {
+		t.Fatalf("q=herbert leaked into plain sections: %+v", res)
 	}
-	// Genre words match books via genre_text.
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=science+fiction", nil, 200))
-	if len(res.Books) != 1 {
+	// Enriched grouping fields ride along on the faceted hits too.
+	if b := res.Authors[0].Books[0]; len(b.Genres) != 1 || b.Genres[0] != "Science Fiction" {
+		t.Fatalf("author book hit genres: %+v", b)
+	}
+	// A title query lands in Books.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=dune", nil, 200))
+	if len(res.Books) != 1 || res.Books[0].ID != book.ID || len(res.Authors) != 0 {
+		t.Fatalf("q=dune: %+v", res)
+	}
+	// Genre names land in the Genres section with the works attached.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=science+fiction", nil, 200))
+	if len(res.Genres) != 1 || res.Genres[0].Name != "Science Fiction" || len(res.Genres[0].Books) != 1 {
 		t.Fatalf("q=science fiction: %+v", res)
 	}
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=fear", nil, 200))
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=fear", nil, 200))
 	if len(res.Annotations) != 1 || res.Annotations[0].BookTitle != "Dune" {
 		t.Fatalf("q=fear: %+v", res)
 	}
@@ -420,41 +423,113 @@ func TestSearchScopes(t *testing.T) {
 	if a := res.Annotations[0]; a.BookAuthor != "Frank Herbert" || len(a.BookGenres) != 1 || a.BookGenres[0] != "Science Fiction" {
 		t.Fatalf("annotation parent fields: %+v", a)
 	}
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=curtiz&scope=movies", nil, 200))
-	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID || res.Movies[0].ReleaseYear != 1942 {
+	// Director names land in Directors.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=curtiz&scope=movies", nil, 200))
+	if len(res.Directors) != 1 || res.Directors[0].Name != "Michael Curtiz" ||
+		len(res.Directors[0].Movies) != 1 || res.Directors[0].Movies[0].ReleaseYear != 1942 {
 		t.Fatalf("q=curtiz: %+v", res)
 	}
-	// Dialogues index character + actor too ("everything Bogart says").
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=bogart&scope=dialogues", nil, 200))
-	if len(res.Dialogues) != 1 || res.Dialogues[0].MovieTitle != "Casablanca" ||
-		res.Dialogues[0].Timestamp != "01:15:00" {
+	// Actor names land in Actors ("everything Bogart says").
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=bogart&scope=dialogues", nil, 200))
+	if len(res.Actors) != 1 || res.Actors[0].Name != "Humphrey Bogart" ||
+		len(res.Actors[0].Dialogues) != 1 || res.Actors[0].Dialogues[0].Timestamp != "01:15:00" {
 		t.Fatalf("q=bogart: %+v", res)
 	}
+	// A character query stays a dialogue hit.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=blaine&scope=dialogues", nil, 200))
+	if len(res.Dialogues) != 1 || res.Dialogues[0].MovieTitle != "Casablanca" {
+		t.Fatalf("q=blaine: %+v", res)
+	}
 	// Prefix search (typeahead): every token matches by prefix, so a partial
-	// word still finds the row. Regression for the handler using exact-token
-	// Query — "shaws" never found "shawshank"; here "herb"→Herbert, "casab"→Casablanca.
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=herb", nil, 200))
-	if len(res.Books) != 1 || res.Books[0].ID != book.ID {
+	// word still finds the row — "herb"→Herbert, "casab"→Casablanca.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=herb", nil, 200))
+	if len(res.Authors) != 1 || res.Authors[0].Books[0].ID != book.ID {
 		t.Fatalf("prefix q=herb: %+v", res)
 	}
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=casab&scope=movies", nil, 200))
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=casab&scope=movies", nil, 200))
 	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID {
 		t.Fatalf("prefix q=casab: %+v", res)
 	}
-	// Multi-word prefix: BOTH tokens are prefixes, so "casab mich" finds
-	// "Casablanca" (title) by "Michael" (director) — the "shaw red" ->
-	// "Shawshank Redemption" case that a final-token-only prefix missed.
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=casab+mich&scope=movies", nil, 200))
+	// Multi-word prefix ACROSS columns: no single facet holds both tokens, so
+	// the cross-column fallback finds "Casablanca" (title) by "Michael"
+	// (director) — the pre-facet behaviour, kept as a second pass.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=casab+mich&scope=movies", nil, 200))
 	if len(res.Movies) != 1 || res.Movies[0].ID != movie.ID {
 		t.Fatalf("multi-word prefix q=casab mich: %+v", res)
 	}
 
 	// Scopes not requested come back as empty arrays.
-	res = decode[searchResp](t, c.mustDo("GET", "/search?q=fear&scope=books", nil, 200))
-	if len(res.Books)+len(res.Annotations)+len(res.Movies)+len(res.Dialogues) != 0 {
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=fear&scope=books", nil, 200))
+	if len(res.Books)+len(res.Annotations)+len(res.Movies)+len(res.Dialogues)+
+		len(res.Authors)+len(res.Directors)+len(res.Actors) != 0 {
 		t.Fatalf("scope=books: %+v", res)
 	}
 	c.mustDo("GET", "/search", nil, http.StatusBadRequest) // q required
+}
+
+// TestSearchFacets exercises the sections beyond the credit facets: tags,
+// notes, decade and date-added.
+func TestSearchFacets(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "Dune", "author": "Frank Herbert", "published_year": 1965,
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Fear is the mind-killer.",
+		"note": "litany against fear", "tags": []string{"wisdom"},
+	}, http.StatusCreated)
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Casablanca", "director": "Michael Curtiz", "release_year": 1942,
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Here's looking at you, kid.",
+		"note": "the toast", "tags": []string{"wisdom"},
+	}, http.StatusCreated)
+
+	// Tags: name match returns the tag with its quotes (both media) and count.
+	res := decode[searchResults](t, c.mustDo("GET", "/search?q=wisdom", nil, 200))
+	if len(res.Tags) != 1 || res.Tags[0].Name != "wisdom" || res.Tags[0].Count != 2 ||
+		len(res.Tags[0].Annotations) != 1 || len(res.Tags[0].Dialogues) != 1 {
+		t.Fatalf("q=wisdom tags: %+v", res.Tags)
+	}
+
+	// Notes: a note-field match lands in Notes, not Annotations/Dialogues.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=litany", nil, 200))
+	if len(res.Notes.Annotations) != 1 || res.Notes.Annotations[0].Note != "litany against fear" ||
+		len(res.Annotations) != 0 {
+		t.Fatalf("q=litany notes: %+v", res)
+	}
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=toast", nil, 200))
+	if len(res.Notes.Dialogues) != 1 || len(res.Dialogues) != 0 {
+		t.Fatalf("q=toast notes: %+v", res)
+	}
+
+	// Decade: "1960s" → books published then; "40s" → the 1940s film.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=1960s", nil, 200))
+	if res.Decade == nil || res.Decade.Label != "1960s" || len(res.Decade.Books) != 1 || res.Decade.Books[0].ID != book.ID {
+		t.Fatalf("q=1960s: %+v", res.Decade)
+	}
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=40s", nil, 200))
+	if res.Decade == nil || res.Decade.Label != "1940s" || len(res.Decade.Movies) != 1 {
+		t.Fatalf("q=40s: %+v", res.Decade)
+	}
+
+	// Date added: everything above was created today (UTC).
+	day := time.Now().UTC().Format("2006-01-02")
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q="+day, nil, 200))
+	if res.DateAdded == nil || res.DateAdded.Date != day ||
+		len(res.DateAdded.Books) != 1 || len(res.DateAdded.Movies) != 1 ||
+		len(res.DateAdded.Annotations) != 1 || len(res.DateAdded.Dialogues) != 1 {
+		t.Fatalf("q=%s date added: %+v", day, res.DateAdded)
+	}
+	// A quiet day yields no section (and no fuzzy mangling of the date).
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=1999-01-01", nil, 200))
+	if res.DateAdded != nil || res.Corrected != "" {
+		t.Fatalf("quiet day: %+v", res)
+	}
 }
 
 func TestCoversHandler(t *testing.T) {

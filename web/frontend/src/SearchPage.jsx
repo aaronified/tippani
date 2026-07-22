@@ -36,10 +36,14 @@ const SCOPES = [
   ['dialogues', 'Dialogues'],
 ]
 
-// SearchPage (§8.9): one big Newsreader box + scope chips. Results are grouped
-// by their parent book / movie, each group headed by the cover / poster —
-// annotations sit under their book, dialogues under their movie. 200 ms debounce
-// with a stale-guard; GET /search?q=&scope=.
+// SearchPage (§8.9, § sectioned search): one big Newsreader box + scope chips.
+// Results come back from the server faceted by WHAT matched and render as one
+// section per facet (only the non-empty ones): Books · Movies · Authors ·
+// Directors · Actors · Annotations · Dialogues · Notes · Tags · Genres — plus
+// "Added on …" for a date query (the Stats calendar links here) and "Decade"
+// for a "1990s" query. Work hits are grouped cards headed by the cover /
+// poster; quote hits sit under their parent work. 200 ms debounce with a
+// stale-guard; GET /search?q=&scope=.
 export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }) {
   // Persisted so leaving Search (into a book/film, another tab) and coming back
   // restores the last query, scope, and view instead of resetting to empty.
@@ -86,9 +90,30 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   // Highlight the words the results actually came from: the server-corrected
   // query on a fuzzy (zero-hit) pass, else the raw input (PLAN §4).
   const terms = queryTerms(results?.corrected || q)
-  const bookGroups = results ? groupBooks(results) : []
-  const movieGroups = results ? groupMovies(results) : []
-  const empty = results && bookGroups.length === 0 && movieGroups.length === 0
+  // One group list per facet section. groupBooks/groupMovies fold quote hits
+  // under their parent work; the work-only facets pass empty child lists.
+  const r = results || {}
+  const bookGroups = results ? groupBooks({ books: r.books, annotations: [] }) : []
+  const movieGroups = results ? groupMovies({ movies: r.movies, dialogues: [] }) : []
+  const annGroups = results ? groupBooks({ books: [], annotations: r.annotations }) : []
+  const dlgGroups = results ? groupMovies({ movies: [], dialogues: r.dialogues }) : []
+  const noteAnnGroups = results ? groupBooks({ books: [], annotations: r.notes?.annotations || [] }) : []
+  const noteDlgGroups = results ? groupMovies({ movies: [], dialogues: r.notes?.dialogues || [] }) : []
+  const total = results
+    ? [r.books, r.annotations, r.movies, r.dialogues, r.authors, r.directors, r.actors,
+       r.notes?.annotations, r.notes?.dialogues, r.tags, r.genres]
+        .reduce((n, a) => n + (a?.length || 0), 0) +
+      (r.decade ? 1 : 0) + (r.date_added ? 1 : 0)
+    : 0
+  const empty = results && total === 0
+
+  // The two card renderers every section shares (a group in, a keyed card out).
+  const renderBook = (g) => (
+    <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} people={authors.map} creditSeps={creditSeps} />
+  )
+  const renderMovie = (g) => (
+    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
+  )
 
   return (
     <section className="space-y-5">
@@ -173,11 +198,28 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 
       {/* table view flattens the raw hits into sortable tables; tiles/list keep
           the grouped media cards (masonry vs single column). Sort lives only in
-          the table view — tiles/list follow the server's bm25 relevance order. */}
+          the table view — tiles/list follow the server's bm25 relevance order.
+          One section per facet, only when it has hits. */}
       {results && !empty && view === 'table' ? (
         <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} reload={reload} />
       ) : (
         <>
+          {results?.date_added && (
+            <DateSection d={results.date_added} view={view} renderBook={renderBook} renderMovie={renderMovie} />
+          )}
+          {results?.decade && (
+            <section className="space-y-3">
+              <MonoLabel className="block">
+                Decade · {results.decade.label} · {(results.decade.books?.length || 0) + (results.decade.movies?.length || 0)}
+              </MonoLabel>
+              <Board view={view}>
+                {[
+                  ...groupBooks({ books: results.decade.books || [], annotations: [] }).map(renderBook),
+                  ...groupMovies({ movies: results.decade.movies || [], dialogues: [] }).map(renderMovie),
+                ]}
+              </Board>
+            </section>
+          )}
           {bookGroups.length > 0 && (
             <ResultSection
               label="Books"
@@ -188,9 +230,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               people={authors.map}
               onOpenPerson={setPerson}
               creditSeps={creditSeps}
-              renderItem={(g) => (
-                <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} people={authors.map} creditSeps={creditSeps} />
-              )}
+              renderItem={renderBook}
             />
           )}
           {movieGroups.length > 0 && (
@@ -202,10 +242,80 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               isMovie
               people={directors.map}
               onOpenPerson={setPerson}
-              renderItem={(g) => (
-                <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
-              )}
+              renderItem={renderMovie}
             />
+          )}
+          {results?.authors?.length > 0 && (
+            <PeopleSection
+              label="Authors"
+              kind="author"
+              entries={results.authors.map((a) => ({ name: a.name, count: a.books.length, groups: groupBooks({ books: a.books, annotations: [] }) }))}
+              people={authors.map}
+              onOpenPerson={setPerson}
+              view={view}
+              render={renderBook}
+            />
+          )}
+          {results?.directors?.length > 0 && (
+            <PeopleSection
+              label="Directors"
+              kind="director"
+              entries={results.directors.map((d) => ({ name: d.name, count: d.movies.length, groups: groupMovies({ movies: d.movies, dialogues: [] }) }))}
+              people={directors.map}
+              onOpenPerson={setPerson}
+              view={view}
+              render={renderMovie}
+            />
+          )}
+          {results?.actors?.length > 0 && (
+            <PeopleSection
+              label="Actors"
+              kind="actor"
+              entries={results.actors.map((a) => ({ name: a.name, count: a.dialogues.length, groups: groupMovies({ movies: [], dialogues: a.dialogues }) }))}
+              people={actors.map}
+              onOpenPerson={setPerson}
+              view={view}
+              render={renderMovie}
+            />
+          )}
+          {annGroups.length > 0 && (
+            <ResultSection
+              label="Annotations"
+              groups={annGroups}
+              group={group}
+              view={view}
+              isMovie={false}
+              people={authors.map}
+              onOpenPerson={setPerson}
+              creditSeps={creditSeps}
+              renderItem={renderBook}
+            />
+          )}
+          {dlgGroups.length > 0 && (
+            <ResultSection
+              label="Dialogues"
+              groups={dlgGroups}
+              group={group}
+              view={view}
+              isMovie
+              people={directors.map}
+              onOpenPerson={setPerson}
+              renderItem={renderMovie}
+            />
+          )}
+          {(noteAnnGroups.length > 0 || noteDlgGroups.length > 0) && (
+            <section className="space-y-3">
+              <MonoLabel className="block">
+                Notes · {(r.notes?.annotations?.length || 0) + (r.notes?.dialogues?.length || 0)}
+              </MonoLabel>
+              <Board view={view}>{[...noteAnnGroups.map(renderBook), ...noteDlgGroups.map(renderMovie)]}</Board>
+            </section>
+          )}
+          {results?.tags?.length > 0 && (
+            <TagSection tags={results.tags} terms={terms} onOpenQuote={setQuote} />
+          )}
+          {results?.genres?.length > 0 && (
+            <GenreSection genres={results.genres} view={view} renderBook={renderBook} renderMovie={renderMovie} />
           )}
         </>
       )}
@@ -691,6 +801,12 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
           ) : (
             <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
               <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
+              {/* The margin note (highlighted — this is what a Notes hit matched on). */}
+              {h.note && (
+                <HandNote>
+                  <Highlight text={h.note} terms={terms} />
+                </HandNote>
+              )}
               <span className="mt-1 flex items-center gap-1.5">
                 {/* Actor face on the dialogue hit (when a portrait is saved). */}
                 <CreditFaces names={h.actor} map={actorMap} size={22} ring="var(--raised)" />
@@ -777,6 +893,135 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
           </div>
         )
       })}
+    </section>
+  )
+}
+
+// Board — the shared packing for the facet sections: source-order masonry in
+// tiles view (same greedy shortest-column fill every other board uses), a
+// vertical stack in list view.
+function Board({ view, children }) {
+  const cols = useColumnsAt([[768, 2]])
+  return view === 'tiles' ? (
+    <Masonry columns={cols} gap={12} order="source">{children}</Masonry>
+  ) : (
+    <div className="space-y-3">{children}</div>
+  )
+}
+
+// PeopleSection — one facet section per credit kind (Authors · Directors ·
+// Actors): each matched person renders a portrait + name heading (opens the
+// People panel) over the works / dialogues carrying the credit.
+function PeopleSection({ label, kind, entries, people, onOpenPerson, view, render }) {
+  return (
+    <section className="space-y-4">
+      <MonoLabel className="block">{label} · {entries.length}</MonoLabel>
+      {entries.map((e) => (
+        <div key={e.name} className="space-y-2">
+          <div className="flex items-center gap-3">
+            {people?.[e.name] && <PersonPortrait person={people[e.name]} size={28} />}
+            <button
+              type="button"
+              className="display-title truncate"
+              style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+              onClick={() => onOpenPerson({ kind, name: e.name })}
+              title={`${e.name} — details`}
+            >
+              {e.name}
+            </button>
+            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{e.count}</MonoLabel>
+            <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+          </div>
+          <Board view={view}>{e.groups.map(render)}</Board>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+// TagSection — matched tags, each a chip heading over the quotes wearing it
+// (annotations and dialogues mixed); a child opens the quote modal.
+function TagSection({ tags, terms, onOpenQuote }) {
+  return (
+    <section className="space-y-4">
+      <MonoLabel className="block">Tags · {tags.length}</MonoLabel>
+      {tags.map((t) => (
+        <div key={t.name} className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="tp-chip">{t.name}</span>
+            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t.count}</MonoLabel>
+            <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+          </div>
+          <div className="space-y-2">
+            {(t.annotations || []).map((h) => (
+              <ChildHit key={`a${h.id}`} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
+                {(h.quote || h.note) && (
+                  <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
+                )}
+                <MonoLabel className="mt-1 block min-w-0 truncate">
+                  {[h.book_title, h.book_author].filter(Boolean).join(' · ')}
+                </MonoLabel>
+              </ChildHit>
+            ))}
+            {(t.dialogues || []).map((h) => (
+              <ChildHit key={`d${h.id}`} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
+                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
+                <MonoLabel className="mt-1 block min-w-0 truncate">
+                  {[h.movie_title, h.character].filter(Boolean).join(' · ')}
+                </MonoLabel>
+              </ChildHit>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+// GenreSection — matched genres, each a chip heading over the works shelved
+// under it (books + films/shows).
+function GenreSection({ genres, view, renderBook, renderMovie }) {
+  return (
+    <section className="space-y-4">
+      <MonoLabel className="block">Genres · {genres.length}</MonoLabel>
+      {genres.map((g) => (
+        <div key={g.name} className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="tp-chip">{g.name}</span>
+            <MonoLabel style={{ color: 'var(--accent-ui)' }}>{(g.books?.length || 0) + (g.movies?.length || 0)}</MonoLabel>
+            <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+          </div>
+          <Board view={view}>
+            {[
+              ...groupBooks({ books: g.books || [], annotations: [] }).map(renderBook),
+              ...groupMovies({ movies: g.movies || [], dialogues: [] }).map(renderMovie),
+            ]}
+          </Board>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+// DateSection — everything added on one day (the Stats calendar's dot target):
+// the works shelved that day, then the quotes captured that day under their
+// parent works.
+function DateSection({ d, view, renderBook, renderMovie }) {
+  const pretty = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'long' })
+  const works = [
+    ...groupBooks({ books: d.books || [], annotations: [] }).map(renderBook),
+    ...groupMovies({ movies: d.movies || [], dialogues: [] }).map(renderMovie),
+  ]
+  const quotes = [
+    ...groupBooks({ books: [], annotations: d.annotations || [] }).map(renderBook),
+    ...groupMovies({ movies: [], dialogues: d.dialogues || [] }).map(renderMovie),
+  ]
+  const n = (d.books?.length || 0) + (d.movies?.length || 0) + (d.annotations?.length || 0) + (d.dialogues?.length || 0)
+  return (
+    <section className="space-y-3">
+      <MonoLabel className="block">Added on {pretty} · {n}</MonoLabel>
+      {works.length > 0 && <Board view={view}>{works}</Board>}
+      {quotes.length > 0 && <Board view={view}>{quotes}</Board>}
     </section>
   )
 }

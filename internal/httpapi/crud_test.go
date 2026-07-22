@@ -406,12 +406,13 @@ func TestOwnershipIsolation(t *testing.T) {
 	bob.mustDo("PUT", "/dialogues/"+itoa(dlg.ID), map[string]any{"quote": "hijack"}, http.StatusNotFound)
 	bob.mustDo("DELETE", "/dialogues/"+itoa(dlg.ID), nil, http.StatusNotFound)
 
-	// Search is scoped too.
-	res := decode[map[string][]json.RawMessage](t, bob.mustDo("GET", "/search?q=dune", nil, 200))
-	for scope, hits := range res {
-		if len(hits) != 0 {
-			t.Fatalf("bob search %s: %v", scope, hits)
-		}
+	// Search is scoped too — every section comes back empty for Bob.
+	res := decode[searchResults](t, bob.mustDo("GET", "/search?q=dune", nil, 200))
+	if len(res.Books)+len(res.Annotations)+len(res.Movies)+len(res.Dialogues)+
+		len(res.Authors)+len(res.Directors)+len(res.Actors)+
+		len(res.Notes.Annotations)+len(res.Notes.Dialogues)+len(res.Tags)+len(res.Genres) != 0 ||
+		res.Decade != nil || res.DateAdded != nil {
+		t.Fatalf("bob search: %+v", res)
 	}
 
 	// Alice still owns everything.

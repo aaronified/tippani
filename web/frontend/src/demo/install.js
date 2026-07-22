@@ -326,7 +326,9 @@ function demoBreakdown() {
   }
   for (const b of BOOKS) {
     const key = `b${b.id}`
-    touch('books', b.title, key); touch('authors', b.author, key); touch('series', b.series, key)
+    const row = touch('books', b.title, key)
+    if (row && !row.cover_path && b.cover_path) row.cover_path = b.cover_path
+    touch('authors', b.author, key); touch('series', b.series, key)
   }
   for (const a of ANNOTATIONS) {
     const b = BOOKS.find((x) => x.id === a.book_id) || {}
@@ -336,7 +338,8 @@ function demoBreakdown() {
   }
   for (const m of MOVIES) {
     const key = `m${m.id}`
-    touch(m.media_type === 'show' ? 'shows' : 'films', m.title, key)
+    const row = touch(m.media_type === 'show' ? 'shows' : 'films', m.title, key)
+    if (row && !row.cover_path && m.poster_path) row.cover_path = m.poster_path
     touch('directors', m.director, key); touch('series', m.series, key)
   }
   for (const d of DIALOGUES) {
@@ -385,8 +388,8 @@ function stats() {
     tags: TAGS.length,
     favorites: ANNOTATIONS.filter((a) => a.favorite).length + DIALOGUES.filter((d) => d.favorite).length,
     genres: genreSet.size,
-    most_annotated: { id: 1, title: 'The Wide Margin', count: 3 },
-    most_quoted: { id: 1, title: 'Northline', count: 3 },
+    most_annotated: { id: 1, title: 'The Wide Margin', cover_path: BOOKS[0].cover_path, count: 3 },
+    most_quoted: { id: 1, title: 'Northline', cover_path: MOVIES[0].poster_path, count: 3 },
     busiest_month: { month: new Date().toISOString().slice(0, 7), count: 12 },
     daily_activity: demoDailyActivity(),
     colors,
@@ -415,25 +418,90 @@ function metadataLibrary() {
   }
 }
 
-// search mirrors the real hit shapes (search_handler.go): parent fields ride
-// along so the Search page's group-by (author/decade/series/genre) works.
+// search mirrors the faceted hit shapes (search_handler.go): results are
+// sectioned by WHAT matched — titles, credits, quotes, notes, tags, genres —
+// plus the structured decade and date-added facets. Parent fields ride along
+// so the Search page's group-by (author/decade/series/genre) works.
 function search(q, scope) {
   const s = (q || '').trim().toLowerCase()
   const hit = (txt) => s && String(txt || '').toLowerCase().includes(s)
   const mv = (id) => MOVIES.find((m) => m.id === id) || {}
   const bk = (id) => BOOKS.find((b) => b.id === id) || {}
+  const bookHit = (b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })
+  const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index })
+  const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note } }
+  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp } }
+
+  const wantBooks = !scope || scope === 'all' || scope === 'books'
+  const wantAnnotations = !scope || scope === 'all' || scope === 'annotations'
+  const wantMovies = !scope || scope === 'all' || scope === 'movies'
+  const wantDialogues = !scope || scope === 'all' || scope === 'dialogues'
+
   const out = {
-    books: BOOKS.filter((b) => hit(b.title) || hit(b.author) || b.genres.some(hit) || hit(b.series))
-      .map((b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })),
-    annotations: ANNOTATIONS.filter((a) => hit(a.quote) || hit(a.note))
-      .map((a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note } }),
-    movies: MOVIES.filter((m) => hit(m.title) || hit(m.director) || m.genres.some(hit) || hit(m.series))
-      .map((m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index })),
-    dialogues: DIALOGUES.filter((d) => hit(d.quote) || hit(d.character) || hit(d.actor))
-      .map((d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], quote: d.quote, character: d.character, actor: d.actor, timestamp: d.timestamp } }),
+    books: [], annotations: [], movies: [], dialogues: [],
+    authors: [], directors: [], actors: [],
+    notes: { annotations: [], dialogues: [] },
+    tags: [], genres: [], decade: null, date_added: null,
   }
-  if (scope && scope !== 'all') {
-    for (const k of Object.keys(out)) if (k !== scope) out[k] = []
+  if (!s) return out
+
+  const credit = (list, name, key, mk, row) => {
+    let g = list.find((x) => x.name === name)
+    if (!g) list.push((g = { name, [key]: [] }))
+    g[key].push(mk(row))
+  }
+  if (wantBooks) {
+    out.books = BOOKS.filter((b) => hit(b.title) || hit(b.series)).map(bookHit)
+    for (const b of BOOKS.filter((b) => hit(b.author))) credit(out.authors, b.author, 'books', bookHit, b)
+  }
+  if (wantAnnotations) {
+    out.annotations = ANNOTATIONS.filter((a) => hit(a.quote)).map(annHit)
+    out.notes.annotations = ANNOTATIONS.filter((a) => hit(a.note)).map(annHit)
+  }
+  if (wantMovies) {
+    out.movies = MOVIES.filter((m) => hit(m.title) || hit(m.series)).map(movieHit)
+    for (const m of MOVIES.filter((m) => hit(m.director))) credit(out.directors, m.director, 'movies', movieHit, m)
+  }
+  if (wantDialogues) {
+    out.dialogues = DIALOGUES.filter((d) => hit(d.quote) || hit(d.character)).map(dlgHit)
+    for (const d of DIALOGUES.filter((d) => hit(d.actor))) credit(out.actors, d.actor, 'dialogues', dlgHit, d)
+    out.notes.dialogues = DIALOGUES.filter((d) => hit(d.note)).map(dlgHit)
+  }
+  if (wantAnnotations || wantDialogues) {
+    for (const t of TAGS.filter((t) => hit(t.name))) {
+      const anns = wantAnnotations ? ANNOTATIONS.filter((a) => (a.tags || []).includes(t.name)) : []
+      const dlgs = wantDialogues ? DIALOGUES.filter((d) => (d.tags || []).includes(t.name)) : []
+      out.tags.push({ name: t.name, count: anns.length + dlgs.length, annotations: anns.map(annHit), dialogues: dlgs.map(dlgHit) })
+    }
+  }
+  if (wantBooks || wantMovies) {
+    for (const gn of GENRES.filter((g) => hit(g))) {
+      const books = wantBooks ? BOOKS.filter((b) => b.genres.includes(gn)).map(bookHit) : []
+      const movies = wantMovies ? MOVIES.filter((m) => m.genres.includes(gn)).map(movieHit) : []
+      if (books.length + movies.length) out.genres.push({ name: gn, books, movies })
+    }
+  }
+  // Structured facets: a decade query ("1990s" / "70s"); and any ISO date reads
+  // as a date-added query — the demo pretends a couple of captures landed that
+  // day so the Stats calendar's dot links demonstrate the flow.
+  const dm = /^(\d{2}|\d{4})['’]?s$/.exec(s)
+  if (dm) {
+    let n = Number(dm[1])
+    if (dm[1].length === 2) n += n <= 20 ? 2000 : 1900
+    n -= n % 10
+    const inDecade = (y) => y >= n && y <= n + 9
+    const books = wantBooks ? BOOKS.filter((b) => inDecade(b.published_year)).map(bookHit) : []
+    const movies = wantMovies ? MOVIES.filter((m) => inDecade(m.release_year)).map(movieHit) : []
+    if (books.length + movies.length) out.decade = { label: `${n}s`, books, movies }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    out.date_added = {
+      date: s,
+      books: [],
+      movies: [],
+      annotations: wantAnnotations ? ANNOTATIONS.slice(0, 2).map(annHit) : [],
+      dialogues: wantDialogues ? DIALOGUES.slice(0, 1).map(dlgHit) : [],
+    }
   }
   return out
 }

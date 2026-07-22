@@ -38,3 +38,14 @@ func PrefixQuery(q string) string {
 	}
 	return strings.Join(fields, " ")
 }
+
+// ColumnPrefixQuery scopes PrefixQuery to the given FTS columns via an FTS5
+// column filter, so a facet query matches ONLY those columns ("{author} :
+// ("orw"*)" finds Orwell in the author column, not a book titled "Orwell").
+// cols is a fixed space-separated column list written by the caller — never
+// user input; the user text still goes through PrefixQuery's quoting.
+//
+//	`author`, `shaw red` -> `{author} : ("shaw"* "red"*)`
+func ColumnPrefixQuery(cols, q string) string {
+	return "{" + cols + "} : (" + PrefixQuery(q) + ")"
+}
