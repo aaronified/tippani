@@ -109,6 +109,33 @@ func TestPreferences(t *testing.T) {
 	if me.Preferences.CreditSeparators != "none" {
 		t.Fatalf("creditSeparators after rejected PUT: %+v", me.Preferences)
 	}
+
+	// Guided-tour state (0.8.5 onboarding): partial-merge like the rest.
+	// "postponed" carries the resume step; step 0 is a valid resume point
+	// (presence-based, unlike the zero-guarded ints); bad values are rejected
+	// and leave the stored set untouched.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"tour": "postponed", "tourStep": 3}, 200)
+	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.Tour != "postponed" || me.Preferences.TourStep != 3 || me.Preferences.CreditSeparators != "none" {
+		t.Fatalf("tour postponed: %+v", me.Preferences)
+	}
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"tourStep": 0}, 200)
+	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.Tour != "postponed" || me.Preferences.TourStep != 0 {
+		t.Fatalf("tourStep 0: %+v", me.Preferences)
+	}
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"tour": "done"}, 200)
+	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.Tour != "done" {
+		t.Fatalf("tour done: %+v", me.Preferences)
+	}
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"tour": "paused"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"tourStep": -1}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"tourStep": 100}, http.StatusBadRequest)
+	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.Tour != "done" || me.Preferences.TourStep != 0 {
+		t.Fatalf("tour after rejected PUTs: %+v", me.Preferences)
+	}
 }
 
 func TestTagCRUD(t *testing.T) {

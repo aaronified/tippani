@@ -33,6 +33,7 @@ import {
   useResolvedDark,
 } from './ui.jsx'
 import { Profile, UserManagement } from './Account.jsx'
+import { FeatureTour } from './tour.jsx'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
 // install.js) serves dummy data and blocks writes; here it just suppresses URL
@@ -556,7 +557,7 @@ function AccountMenu({ user, onOpenView, logout }) {
   const openView = (v) => { setOpen(false); onOpenView(v) }
   return (
     <div className="relative user-menu" ref={ref}>
-      <button className="user-chip" title={user.username} aria-haspopup="true" aria-expanded={open} aria-label="Account" onClick={() => setOpen((m) => !m)}>
+      <button className="user-chip" data-tour="account" title={user.username} aria-haspopup="true" aria-expanded={open} aria-label="Account" onClick={() => setOpen((m) => !m)}>
         <UserAvatar user={user} />
       </button>
       {open && (
@@ -866,6 +867,16 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const [update, setUpdate] = useState(null)
   const dark = useResolvedDark()
   const [navRef, navIconOnly] = useIconOnlyNav()
+  // Guided feature tour (tour.jsx): null | {step}. Auto-opens once per user —
+  // preferences.tour is "" until they finish, skip or postpone it — and can be
+  // started/resumed from Settings → Onboarding. Not in the demo build (its
+  // read-only shim can't persist the "seen" state, so it would nag every load).
+  const [tourState, setTourState] = useState(null)
+  useEffect(() => {
+    if (DEMO || user.preferences?.tour) return
+    const t = setTimeout(() => setTourState({ step: 0 }), 800)
+    return () => clearTimeout(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshStats = () => {
     json('GET', '/stats').then((r) => { if (r.ok) setStats(r.data) })
@@ -972,6 +983,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <button
               type="button"
               className="topbar-add-btn tactile"
+              data-tour="add"
               onClick={() => openAdd('book')}
               title="Add a book, film or quote, or import highlights"
             >
@@ -983,6 +995,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <button
               type="button"
               className="topbar-add-btn tactile icon-only"
+              data-tour="search"
               onClick={() => selectTab('search')}
               title="Search"
               aria-label="Search"
@@ -1010,10 +1023,10 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="flex-1" />
             {/* §7 One "＋ Add": same surface as the desktop pill — book · film ·
                 import toggle. Quote capture lives on the Home capture tile. */}
-            <button type="button" className="mobile-topbar-btn" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
+            <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
               <IconPlus />
             </button>
-            <button type="button" className="mobile-topbar-btn" aria-label="Search" onClick={() => selectTab('search')}>
+            <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
               <IconSearch />
             </button>
             <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
@@ -1092,7 +1105,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'settings' && (
           <div data-screen-label="settings">
-            <Settings user={user} onPreferences={onPreferences} update={update} onUpdateInfo={setUpdate} />
+            <Settings
+              user={user}
+              onPreferences={onPreferences}
+              update={update}
+              onUpdateInfo={setUpdate}
+              onStartTour={(step) => setTourState({ step })}
+            />
           </div>
         )}
         </div>
@@ -1128,6 +1147,15 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       />
       {accountView && (
         <AccountOverlay view={accountView} user={user} onUser={onUser} onClose={() => setAccountView(null)} />
+      )}
+      {tourState && (
+        <FeatureTour
+          user={user}
+          startStep={tourState.step}
+          onNavigate={selectTab}
+          onPreferences={onPreferences}
+          onClose={() => setTourState(null)}
+        />
       )}
     </div>
   )

@@ -1998,6 +1998,63 @@ html[data-theme="dark"] .mobile-topbar {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* ---- guided feature tour (tour.jsx; Settings → Onboarding) ---- */
+/* The spotlight ring's giant box-shadow doubles as the scrim, and the layer is
+   pointer-events: none, so the highlighted control stays fully usable — the
+   metadata-keys step invites pasting keys mid-tour. z 80/81: above the drawer,
+   account overlay and toast (all ≤ 70), below the lightbox (90). */
+.tour-spotlight {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  border-radius: 14px;
+  border: 2px solid var(--accent-ui);
+  box-shadow: 0 0 0 200vmax color-mix(in srgb, var(--ink) 42%, transparent);
+  transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease;
+}
+.tour-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ink) 42%, transparent);
+}
+.tour-card {
+  position: fixed;
+  z-index: 81;
+  width: min(400px, calc(100vw - 24px));
+  max-height: min(72vh, 560px);
+  overflow-y: auto;
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .5);
+  animation: tour-card-in .22s ease;
+}
+.tour-card:focus { outline: none; }
+/* Opacity only — the centered placement rides on an inline transform, which an
+   animated transform would override mid-flight. */
+@keyframes tour-card-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* Phone: a bottom sheet regardless of anchor (the spotlight still points). */
+.tour-card.mobile {
+  left: 10px;
+  right: 10px;
+  top: auto;
+  width: auto;
+  max-height: 58vh;
+  bottom: 10px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+}
+/* The built-in sample quote (SAMPLE_QUOTES) rendered as a quote callout. */
+.tour-demo {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-ui);
+  border-radius: 10px;
+}
+
 /* ---- cover Lightbox (full-screen cover/poster viewer) ---- */
 /* The zoom trigger is a bare button wrapping the hero image — strip chrome so
    it reads exactly as the cover, but keep the pointer + focus ring. */

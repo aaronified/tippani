@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
+import { tourFeatures, tourSteps } from './tour.jsx'
 import {
   Card,
   ErrorText,
@@ -39,7 +40,7 @@ function useColumnCount() {
   return n
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour }) {
   const mobile = useIsMobileScreen()
   // Height-minimising masonry: on wide screens the cards are packed into 3/2/1
   // columns by their real rendered heights (Masonry measures and drops each card
@@ -48,6 +49,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   // lose Metadata's bulk plus the Updates/Backup cards.
   const ncols = useColumnCount()
   const cards = [
+    <OnboardingCard key="onboard" user={user} onStartTour={onStartTour} />,
     <Metadata key="meta" user={user} />,
     <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
     <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
@@ -366,6 +368,54 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
 // EVERYTHING on the server with its contents, in-process — no Docker socket.
 // A second restore path uploads a backup file (from this or ANOTHER Tippani
 // server), the move-to-a-new-box / point-in-time path.
+// OnboardingCard — the guided tour's home (ROADMAP: onboarding). Lists every
+// feature (the same tourFeatures the tour walks, so the list can't drift), and
+// starts / replays / resumes the tour. The tour runs by itself on a user's
+// first launch; "finish later" parks it here as a Resume button. The sample
+// content is built in — onboarding never asks for the user's files.
+function OnboardingCard({ user, onStartTour }) {
+  const state = user.preferences?.tour || ''
+  const step = user.preferences?.tourStep || 0
+  const feats = tourFeatures(user.is_admin)
+  const total = tourSteps(user.is_admin).length
+  return (
+    <Card>
+      <SectionTitle
+        right={state === 'done' && <MonoLabel style={{ color: 'var(--ok)' }}>✓ completed</MonoLabel>}
+      >
+        Onboarding
+      </SectionTitle>
+      <p className="microcopy" style={{ fontSize: 12.5 }}>
+        A guided tour of every feature — it runs once on first launch and never needs your files
+        (a sample book quote and film dialogue are built in). Skip a step with Next, park it with
+        “finish later”, and pick it back up here.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {state === 'postponed' ? (
+          <>
+            <StickerButton onClick={() => onStartTour?.(step)}>
+              Resume tour · step {Math.min(step + 1, total)} of {total}
+            </StickerButton>
+            <GhostButton onClick={() => onStartTour?.(0)}>Start over</GhostButton>
+          </>
+        ) : (
+          <StickerButton onClick={() => onStartTour?.(0)}>
+            {state ? 'Replay the tour' : 'Start the tour'}
+          </StickerButton>
+        )}
+      </div>
+      <ul className="mt-4 space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+        {feats.map((f) => (
+          <li key={f.key} style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+            <b>{f.name}</b>
+            <span style={{ color: 'var(--soft)' }}> — {f.blurb}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 function BackupCard() {
   const [backup, setBackup] = useState(null) // {name, created, size} | null
   const [loaded, setLoaded] = useState(false)
@@ -444,7 +494,7 @@ function BackupCard() {
   const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
 
   return (
-    <Card>
+    <Card data-tour="backup">
       <SectionTitle>Backup &amp; restore</SectionTitle>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -759,7 +809,7 @@ function Appearance({ onPreferences }) {
   }
 
   return (
-    <Card>
+    <Card data-tour="appearance">
       <SectionTitle>Appearance</SectionTitle>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <MonoLabel>Theme</MonoLabel>
@@ -926,7 +976,7 @@ function Metadata({ user }) {
   }
 
   return (
-    <Card>
+    <Card data-tour="metadata-keys">
       <SectionTitle>Metadata sources</SectionTitle>
 
       {/* Books */}

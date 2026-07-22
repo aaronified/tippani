@@ -460,6 +460,8 @@ POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
 PUT    /auth/me                       # {username} — change your own display name
 PUT    /auth/me/preferences          # partial merge: appearance + spaced-repetition
                                      # (srDaily, srQuizLen, srQuizScope, srGrow, srShrink) (§10)
+                                     # + guided-tour state (tour: done|skipped|postponed,
+                                     #   tourStep 0..99 — the resume point while postponed)
 GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin only
 PATCH  /admin/users/{id}              # {is_admin} grant/revoke (last admin protected)
 GET    /admin/metadata-keys   PUT /admin/metadata-keys               # admin only (§10 note)

@@ -231,6 +231,9 @@ var (
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
 	srScopes       = map[string]bool{"books": true, "movies": true, "both": true}
+	// tourStates — the guided feature tour's lifecycle ("" = never seen, so it
+	// auto-opens once on first login; the UI never writes "" back).
+	tourStates = map[string]bool{"": true, "done": true, "skipped": true, "postponed": true}
 )
 
 // defaultCreditSeps is the full roadmap separator set for multi-author
@@ -315,6 +318,11 @@ type prefs struct {
 	// so this reinforcement is entirely opt-in.
 	SRSeen           float64 `json:"srSeen"`
 	SRPracticeCounts bool    `json:"srPracticeCounts"`
+	// Guided feature tour (Settings → Onboarding). Tour is its lifecycle state
+	// (see tourStates); "postponed" keeps TourStep as the 0-based step to resume
+	// from — the Settings card shows a Resume button for it.
+	Tour     string `json:"tour"`
+	TourStep int    `json:"tourStep"`
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
@@ -353,6 +361,12 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	p.SRGrow = clampFloat(p.SRGrow, 1.5, 4.0, reviewGrowth)
 	p.SRShrink = clampFloat(p.SRShrink, 0.1, 0.6, reviewLapseShrink)
 	p.SRSeen = clampFloat(p.SRSeen, 1.0, 1.5, reviewSeen)
+	if !tourStates[p.Tour] {
+		p.Tour = ""
+	}
+	if p.TourStep < 0 || p.TourStep > 99 {
+		p.TourStep = 0
+	}
 	return p, nil
 }
 
@@ -379,6 +393,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRShrink         *float64 `json:"srShrink"`
 		SRSeen           *float64 `json:"srSeen"`
 		SRPracticeCounts *bool    `json:"srPracticeCounts"`
+		Tour             *string  `json:"tour"`
+		TourStep         *int     `json:"tourStep"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -426,6 +442,14 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.SRPracticeCounts != nil {
 		cur.SRPracticeCounts = *in.SRPracticeCounts
 	}
+	if in.Tour != nil && *in.Tour != "" {
+		cur.Tour = *in.Tour
+	}
+	// Step 0 is a real resume point (postponed on the welcome step), so presence
+	// is the signal here too — not the zero-value guard the other ints use.
+	if in.TourStep != nil {
+		cur.TourStep = *in.TourStep
+	}
 	switch {
 	case !prefAesthetics[cur.Aesthetic]:
 		writeErr(w, http.StatusBadRequest, "aesthetic must be paper or film")
@@ -450,6 +474,12 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case cur.SRSeen < 1.0 || cur.SRSeen > 1.5:
 		writeErr(w, http.StatusBadRequest, "srSeen must be between 1.0 and 1.5")
+		return
+	case !tourStates[cur.Tour]:
+		writeErr(w, http.StatusBadRequest, "tour must be done, skipped or postponed")
+		return
+	case cur.TourStep < 0 || cur.TourStep > 99:
+		writeErr(w, http.StatusBadRequest, "tourStep must be between 0 and 99")
 		return
 	}
 	raw, err := json.Marshal(cur)

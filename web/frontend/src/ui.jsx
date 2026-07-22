@@ -222,8 +222,8 @@ export function HandCard({
 // nothing else (no variant rotation or colour bar, unlike HandCard). `pad` is a
 // Tailwind padding class so each surface keeps its own rhythm (Settings p-6,
 // Account p-5).
-export function Card({ pad = "p-6", className = "", children }) {
-  return <div className={`hand-card ${pad} ${className}`.trim()}>{children}</div>;
+export function Card({ pad = "p-6", className = "", children, ...rest }) {
+  return <div className={`hand-card ${pad} ${className}`.trim()} {...rest}>{children}</div>;
 }
 
 // BulkBar — the accent action strip shown above a selectable list: a "N
