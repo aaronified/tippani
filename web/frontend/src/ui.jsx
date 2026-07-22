@@ -1141,6 +1141,15 @@ export function TokenInput({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKey}
+          onBlur={(e) => {
+            // Commit un-entered text when focus leaves the control entirely —
+            // otherwise a tag typed without Enter silently vanishes on Save.
+            // Focus moving inside the box (a suggestion click) defers to the
+            // option's own add().
+            if (boxRef.current && boxRef.current.contains(e.relatedTarget)) return;
+            if (text.trim()) add(text);
+            else setOpen(false);
+          }}
         />
       </div>
       {open && matches.length > 0 && (
@@ -1473,32 +1482,49 @@ export const STATUS_META = {
 };
 
 // fmtHalfLife renders a memory half-life (days) compactly: hours under a day,
-// then days, weeks, months.
-function fmtHalfLife(h) {
+// then days, weeks, months. (Also used by the Stats page Memory card.)
+export function fmtHalfLife(h) {
   if (h < 1) return `${Math.max(1, Math.round(h * 24))}h`;
   if (h < 14) return `${Math.round(h)}d`;
   if (h < 60) return `${Math.round(h / 7)}w`;
   return `${Math.round(h / 30)}mo`;
 }
 
+// Server constants mirrored from internal/httpapi/review_handlers.go: the
+// half-life floor (reviewMinStability) and the new-item grace week
+// (reviewNewItemDays) — keep the two in lockstep.
+const MIN_HALF_LIFE = 7;
+const NEW_ITEM_DAYS = 7;
+
+// utcDays — days elapsed since a stored UTC "YYYY-MM-DD HH:MM:SS" timestamp
+// (normalised to an ISO instant); NaN input yields the fallback.
+function utcDays(ts, fallback) {
+  if (!ts) return fallback;
+  const t = Date.parse(String(ts).replace(" ", "T") + "Z");
+  return Number.isNaN(t) ? fallback : (Date.now() - t) / 86400000;
+}
+
 // reviewStatus derives a quote's repetition status from the fields the list
-// endpoints attach (reviewed / stability / last_reviewed_at / last_result). It
-// mirrors the server's forgetting-curve model p = 2^(-elapsed/half-life):
-// remembered at p >= 0.9, forgetting down to 0.5, probably-forgotten below. A
-// card whose last answer was a lapse ("forgot") is always probably-forgotten,
-// however recently reviewed — the failed recall, not the timestamp, is the
-// honest signal (mirrors recallStatus on the server). The tooltip carries the
-// half-life and when it next comes due, like the settings InfoDots.
+// endpoints attach (reviewed / stability / last_reviewed_at / last_result /
+// created_at). It mirrors the server's forgetting-curve model
+// p = 2^(-elapsed/half-life): remembered at p >= 0.9, forgetting down to 0.5,
+// probably-forgotten below. A card whose last answer was a lapse ("forgot")
+// is always probably-forgotten, however recently reviewed — the failed
+// recall, not the timestamp, is the honest signal (mirrors recallStatus on
+// the server). A quote inside its first week (created_at) reads remembered —
+// you just wrote it down. The tooltip carries the half-life and when it next
+// comes due, like the settings InfoDots.
 export function reviewStatus(item = {}) {
-  const { reviewed, stability, last_reviewed_at, last_result } = item;
-  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: "Not yet reviewed" };
-  const h = Math.max(Number(stability) || 1, 1);
-  let elapsed = 0;
-  if (last_reviewed_at) {
-    // Stored UTC "YYYY-MM-DD HH:MM:SS" — normalise to an ISO instant.
-    const t = Date.parse(last_reviewed_at.replace(" ", "T") + "Z");
-    if (!Number.isNaN(t)) elapsed = (Date.now() - t) / 86400000;
+  const { reviewed, stability, last_reviewed_at, last_result, created_at } = item;
+  // New-item grace week (mirrors the server): remembered before any review,
+  // and not yet in the Daily Quiz — unless a recorded lapse says otherwise.
+  if (last_result !== "forgot" && utcDays(created_at, Infinity) < NEW_ITEM_DAYS) {
+    const meta = STATUS_META.remembered;
+    return { key: "remembered", ...meta, tip: `${meta.label} · added this week` };
   }
+  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: "Not yet reviewed" };
+  const h = Math.max(Number(stability) || MIN_HALF_LIFE, MIN_HALF_LIFE);
+  const elapsed = utcDays(last_reviewed_at, 0);
   const p = Math.pow(2, -elapsed / h);
   const key =
     last_result === "forgot"

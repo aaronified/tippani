@@ -77,7 +77,9 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   study for exams or a refresher — and by default it *doesn't* touch your schedule (a Settings toggle
   opts in), with its own resettable score. Every quote in the Library and Catalogue wears a **status
   dot** — 🟢 **remembered**, 🟡 **forgetting**, 🔴 **probably forgotten** (renamed from the old
-  soon/later/someday for clarity) — and hovering it shows the half-life. Two to three minutes a day,
+  soon/later/someday for clarity) — and hovering it shows the half-life. The baseline half-life is a
+  deliberately long **week**, and a quote you've **just saved counts as remembered for its first
+  week** before it joins the rotation — you did, after all, just write it down. Two to three minutes a day,
   sane defaults (deck size, scope and the half-life factors are tunable in Settings), no gamification —
   a dot on the logo marks a waiting deck.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the

@@ -1336,6 +1336,8 @@
   }
   .topbar-add-btn:hover { filter: brightness(1.05); }
   .topbar-add-btn svg { width: 18px; height: 18px; }
+  /* icon-only variant (the top-bar search): same accent texture, square footprint */
+  .topbar-add-btn.icon-only { width: 38px; padding: 0; justify-content: center; }
   .mobile-topbar { display: none; }
   @media (max-width: 768px) {
     .nav-toggle .tab-label { display: none; }

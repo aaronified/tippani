@@ -275,7 +275,8 @@ function StatesRow({ states, help, onToggleHelp }) {
             spaced repetition
           </a>. A quote is <strong>remembered</strong> while your odds of recalling it stay high,{' '}
           <strong>forgetting</strong> as they slip, and <strong>probably forgotten</strong> once they
-          fall past half — which is when the Daily Quiz brings it back. Hover a quote’s dot anywhere to
+          fall past half — which is when the Daily Quiz brings it back. A quote you’ve just saved counts
+          as remembered for its first week, then joins the rotation. Hover a quote’s dot anywhere to
           see its half-life.
         </p>
       )}

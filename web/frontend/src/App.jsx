@@ -338,11 +338,12 @@ function Login({ onLogin }) {
 // account chip (Profile · User management · Log out) and the "＋ Add" button
 // are always separate. Import is no longer a permanent tab — it lives inside
 // the "＋ Add" surface (§7 One "＋ Add"). Mobile uses the drawer.
+// Search is not a labelled tab: it lives as an icon-only button beside the
+// ＋ Add pill (both bars), mirroring the phone top bar. Still a ROUTE_TAB.
 const CONTENT_TABS = [
   ['home', 'Home'],
   ['library', 'Library'],
   ['movies', 'Catalogue'],
-  ['search', 'Search'],
 ]
 const UTILITY_TABS = [
   ['tags', 'Tags'],
@@ -414,13 +415,12 @@ function TabIcon({ name }) {
           <circle cx="8.8" cy="8.8" r="1.2" />
         </svg>
       )
-    case 'stats': // bar chart — baseline lifted so the glyph's mass centers in the box
+    case 'stats': // bar chart — outlined rectangular bars so the glyph carries the same mass as its neighbours
       return (
         <svg {...p}>
-          <path d="M4 17h16" />
-          <path d="M7.5 17v-5.5" />
-          <path d="M12 17v-9.5" />
-          <path d="M16.5 17v-3.5" />
+          <rect x="4.5" y="11" width="4" height="7.5" rx="1" />
+          <rect x="10" y="5.5" width="4" height="13" rx="1" />
+          <rect x="15.5" y="8" width="4" height="10.5" rx="1" />
         </svg>
       )
     case 'settings': // sliders
@@ -977,6 +977,17 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             >
               <IconPlus />
               <span>Add</span>
+            </button>
+            {/* Search rides beside ＋ Add as an icon-only pill in the same
+                accent texture — the phone top bar already works this way. */}
+            <button
+              type="button"
+              className="topbar-add-btn tactile icon-only"
+              onClick={() => selectTab('search')}
+              title="Search"
+              aria-label="Search"
+            >
+              <IconSearch />
             </button>
             <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
           </div>

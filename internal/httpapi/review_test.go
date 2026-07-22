@@ -10,6 +10,11 @@ package httpapi
 // Multiple choice needs at least two distinct titles for a wrong answer, so the
 // deck tests seed a "distractor" title (parked out of the deck) alongside the
 // book under test.
+//
+// Freshly created items sit inside the new-item grace week (reviewNewItemDays):
+// remembered, not yet due. Deck/status tests therefore backdate their seeds
+// past the buffer (ageSeededItems); the buffer itself is covered by
+// TestReviewNewItemBuffer.
 
 import (
 	"fmt"
@@ -95,6 +100,20 @@ func seedDistractorBook(t *testing.T, srv *Server, c *testClient, title string) 
 	}
 }
 
+// ageSeededItems backdates every annotation and dialogue past the new-item
+// grace week so deck/due tests exercise the forgetting curve, not the buffer.
+func ageSeededItems(t *testing.T, srv *Server) {
+	t.Helper()
+	for _, q := range []string{
+		`UPDATE annotations SET created_at = datetime('now', '-10 days')`,
+		`UPDATE dialogues SET created_at = datetime('now', '-10 days')`,
+	} {
+		if _, err := srv.Store.DB.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func answer(t *testing.T, c *testClient, kind string, id int64, result, mode string) answerResp {
 	t.Helper()
 	return decode[answerResp](t, c.mustDo("POST", "/review/answer",
@@ -115,6 +134,7 @@ func TestDailyQuizMCQ(t *testing.T) {
 	// A single-title library can't form a multiple-choice question (no wrong
 	// answer to offer), so its deck is empty.
 	_, ids := seedReviewBook(t, c, "Dune", 3)
+	ageSeededItems(t, srv)
 	deck = decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 	if len(deck.Items) != 0 {
 		t.Fatalf("single-title deck should be empty (no MCQ distractors): %+v", deck)
@@ -122,6 +142,7 @@ func TestDailyQuizMCQ(t *testing.T) {
 
 	// A second title unlocks the questions.
 	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
 	deck = decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 	if len(deck.Items) != 3 {
 		t.Fatalf("deck size: %d (%+v)", len(deck.Items), deck)
@@ -146,22 +167,22 @@ func TestDailyQuizMCQ(t *testing.T) {
 		}
 	}
 
-	// A correct pick counts as "got" (half-life 1 -> 2.5), the card leaves the
+	// A correct pick counts as "got" (half-life 7 -> 17.5), the card leaves the
 	// deck, and freshly reviewed reads as remembered. Every answer also carries
 	// the fresh library-wide status counts (Dune 3 + the remembered Emma
 	// distractor = 4) so "Where you stand" updates live.
 	res := answer(t, c, kindBook, ids[0], "got", "daily")
-	if !res.OK || res.Stability != 2.5 || res.Status != "remembered" || res.Answered != 1 || res.Got != 1 {
+	if !res.OK || res.Stability != 17.5 || res.Status != "remembered" || res.Answered != 1 || res.Got != 1 {
 		t.Fatalf("got: %+v", res)
 	}
 	if res.States.Total != 4 || res.States.Remembered != 2 || res.States.Unseen != 2 {
 		t.Fatalf("states after got: %+v", res.States)
 	}
-	// A wrong pick counts as "forgot": floor 1, lapse recorded, and — however
+	// A wrong pick counts as "forgot": floor 7, lapse recorded, and — however
 	// freshly reviewed — it reads as probably-forgotten, not remembered (a lapse
 	// is the honest signal about current recall).
 	res = answer(t, c, kindBook, ids[1], "forgot", "daily")
-	if res.Stability != 1 || res.Answered != 2 || res.Forgot != 1 || res.Status != "probably-forgotten" {
+	if res.Stability != 7 || res.Answered != 2 || res.Forgot != 1 || res.Status != "probably-forgotten" {
 		t.Fatalf("forgot: %+v", res)
 	}
 	if res.States.ProbablyForgotten != 1 || res.States.Unseen != 1 {
@@ -194,6 +215,7 @@ func TestDailyQuizScheduling(t *testing.T) {
 	c := signupAdmin(t, h)
 	_, ids := seedReviewBook(t, c, "Emma", 3)
 	seedDistractorBook(t, srv, c, "Dune") // a 2nd title so MCQ can form
+	ageSeededItems(t, srv)
 
 	seed := func(id int64, stability float64, daysAgo int) {
 		t.Helper()
@@ -204,9 +226,9 @@ func TestDailyQuizScheduling(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	seed(ids[0], 10, 3) // p ≈ .81 — not due
-	seed(ids[1], 2, 3)  // p ≈ .35 — due
-	seed(ids[2], 1, 3)  // p = .125 — most forgotten
+	seed(ids[0], 30, 9)  // p ≈ .81 — not due
+	seed(ids[1], 10, 12) // p ≈ .44 — due
+	seed(ids[2], 7, 21)  // p = .125 — most forgotten
 
 	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 	if len(deck.Items) != 2 {
@@ -219,10 +241,16 @@ func TestDailyQuizScheduling(t *testing.T) {
 		t.Fatalf("due item: %+v", deck.Items[0])
 	}
 
-	// Late correct recall earns elapsed credit: stability 2, 3 days -> ~5.
+	// A correct recall regrows the half-life: 10 × 2.5 = 25.
 	res := answer(t, c, kindBook, ids[1], "got", "daily")
-	if res.Stability < 4.9 || res.Stability > 5.1 {
+	if res.Stability < 24.9 || res.Stability > 25.1 {
 		t.Fatalf("regrown stability: %+v", res)
+	}
+	// A LATE correct recall earns elapsed credit instead: stability 7 but 21
+	// days survived -> 21 × 1.2 = 25.2 (beats 7 × 2.5 = 17.5).
+	res = answer(t, c, kindBook, ids[2], "got", "daily")
+	if res.Stability < 25.1 || res.Stability > 25.3 {
+		t.Fatalf("late-recall credit: %+v", res)
 	}
 	// A long-stable lapse shrinks but keeps a footing: 40 * 0.25 = 10.
 	if _, err := srv.Store.DB.Exec(`UPDATE item_reviews
@@ -242,6 +270,7 @@ func TestDailyQuizQuota(t *testing.T) {
 	c := signupAdmin(t, h)
 	seedReviewBook(t, c, "Middlemarch", reviewQuota+2)
 	seedDistractorBook(t, srv, c, "Dune")
+	ageSeededItems(t, srv)
 
 	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 	if len(deck.Items) != reviewQuota {
@@ -277,7 +306,7 @@ func TestDailyQuizIdempotentSameDay(t *testing.T) {
 
 	first := answer(t, c, kindBook, ids[0], "got", "daily")
 	again := answer(t, c, kindBook, ids[0], "got", "daily")
-	if first.Stability != 2.5 || again.Stability != 2.5 || again.Answered != 1 {
+	if first.Stability != 17.5 || again.Stability != 17.5 || again.Answered != 1 {
 		t.Fatalf("same-day repeat recompounded: %+v / %+v", first, again)
 	}
 	var reviews int
@@ -305,6 +334,7 @@ func TestDailyQuizTimezone(t *testing.T) {
 	c := signupAdmin(t, h)
 	_, ids := seedReviewBook(t, c, "Kim", 1)
 	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
 
 	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily?offset=0", nil, 200))
 	if len(deck.Items) != 1 {
@@ -325,6 +355,7 @@ func TestPracticeMode(t *testing.T) {
 	c := signupAdmin(t, h)
 	_, ids := seedReviewBook(t, c, "Dune", 3)
 	seedReviewBook(t, c, "Emma", 2) // a real 2nd title (practice draws all in scope)
+	ageSeededItems(t, srv)
 
 	pd := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
 	if pd.Pool < 3 || len(pd.Items) < 3 {
@@ -354,7 +385,7 @@ func TestPracticeMode(t *testing.T) {
 	// Opt in: a correct practice recall now moves the half-life.
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, 200)
 	res = answer(t, c, kindBook, ids[2], "got", "practice")
-	if res.Status != "remembered" || res.Stability != 2.5 {
+	if res.Status != "remembered" || res.Stability != 17.5 {
 		t.Fatalf("practice got (counting): %+v", res)
 	}
 	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM item_reviews WHERE item_id=?`, ids[2]).Scan(&n); err != nil || n != 1 {
@@ -378,6 +409,7 @@ func TestReviewScores(t *testing.T) {
 	c := signupAdmin(t, h)
 	_, ids := seedReviewBook(t, c, "Dune", 4)
 	seedReviewBook(t, c, "Emma", 2) // 2 more unseen; also a 2nd title
+	ageSeededItems(t, srv)
 
 	answer(t, c, kindBook, ids[0], "got", "daily")
 	answer(t, c, kindBook, ids[1], "got", "daily")
@@ -432,32 +464,32 @@ func TestReviewSeen(t *testing.T) {
 		t.Fatalf("seeing an unseen card created a review row")
 	}
 
-	// Quiz it right → row at 2.5. The Daily Quiz is NOT "seeing" (its grade drives
-	// the schedule in full), so no extra bump here.
+	// Quiz it right → row at 17.5 (floor 7 × 2.5). The Daily Quiz is NOT "seeing"
+	// (its grade drives the schedule in full), so no extra bump here.
 	answer(t, c, kindBook, ids[0], "got", "daily")
-	if s := stabilityOf(ids[0]); !near(s, 2.5) {
-		t.Fatalf("after daily got: %v (want 2.5)", s)
+	if s := stabilityOf(ids[0]); !near(s, 17.5) {
+		t.Fatalf("after daily got: %v (want 17.5)", s)
 	}
-	// Sharing (POST /review/seen): 2.5 × 1.2 = 3.0
+	// Sharing (POST /review/seen): 17.5 × 1.2 = 21.0
 	c.mustDo("POST", "/review/seen", map[string]any{"kind": kindBook, "id": ids[0]}, 200)
-	if s := stabilityOf(ids[0]); !near(s, 3.0) {
-		t.Fatalf("after share-seen: %v (want 3.0)", s)
+	if s := stabilityOf(ids[0]); !near(s, 21.0) {
+		t.Fatalf("after share-seen: %v (want 21.0)", s)
 	}
-	// Practising (default: not counting) still counts as seeing: 3.0 × 1.2 = 3.6
+	// Practising (default: not counting) still counts as seeing: 21.0 × 1.2 = 25.2
 	answer(t, c, kindBook, ids[0], "got", "practice")
-	if s := stabilityOf(ids[0]); !near(s, 3.6) {
-		t.Fatalf("after practice-seen: %v (want 3.6)", s)
+	if s := stabilityOf(ids[0]); !near(s, 25.2) {
+		t.Fatalf("after practice-seen: %v (want 25.2)", s)
 	}
-	// Favouriting (false→true) counts as seeing: 3.6 × 1.2 = 4.32
+	// Favouriting (false→true) counts as seeing: 25.2 × 1.2 = 30.24
 	favBody := map[string]any{"quote": "Dune passage 0", "color": "yellow", "favorite": true}
 	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
-	if s := stabilityOf(ids[0]); !near(s, 4.32) {
-		t.Fatalf("after favourite-seen: %v (want 4.32)", s)
+	if s := stabilityOf(ids[0]); !near(s, 30.24) {
+		t.Fatalf("after favourite-seen: %v (want 30.24)", s)
 	}
 	// Re-saving an already-favourite card is not a fresh "seeing".
 	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
-	if s := stabilityOf(ids[0]); !near(s, 4.32) {
-		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 4.32)", s)
+	if s := stabilityOf(ids[0]); !near(s, 30.24) {
+		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 30.24)", s)
 	}
 
 	// A skipped practice card is not "seeing".
@@ -484,6 +516,7 @@ func TestReviewScreenCards(t *testing.T) {
 	// A 2nd screen title so MCQ can form.
 	m2 := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Collateral"}, http.StatusCreated))
 	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m2.ID, "quote": "Yo Homeboy, that's my briefcase"}, http.StatusCreated)
+	ageSeededItems(t, srv)
 
 	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 	var screen *reviewCard
@@ -497,7 +530,7 @@ func TestReviewScreenCards(t *testing.T) {
 	}
 
 	res := answer(t, c, kindScreen, dlg.ID, "got", "daily")
-	if res.Stability != 2.5 || res.Status != "remembered" {
+	if res.Stability != 17.5 || res.Status != "remembered" {
 		t.Fatalf("screen answer: %+v", res)
 	}
 	list := decode[struct {
@@ -506,7 +539,7 @@ func TestReviewScreenCards(t *testing.T) {
 	var found bool
 	for _, d := range list.Dialogues {
 		if d.ID == dlg.ID {
-			found = d.Reviewed && d.Stability == 2.5
+			found = d.Reviewed && d.Stability == 17.5
 		}
 	}
 	if !found {
@@ -550,7 +583,7 @@ func TestReviewStatusInList(t *testing.T) {
 
 	list = decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
 	for _, a := range list.Annotations {
-		if a.ID == ids[0] && (!a.Reviewed || a.Stability != 2.5) {
+		if a.ID == ids[0] && (!a.Reviewed || a.Stability != 17.5) {
 			t.Fatalf("review state lost across PUT: %+v", a)
 		}
 	}
@@ -558,6 +591,49 @@ func TestReviewStatusInList(t *testing.T) {
 	var n int
 	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM item_reviews WHERE kind='book' AND item_id=?`, ids[0]).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("review row survived annotation delete: %d, %v", n, err)
+	}
+}
+
+// The new-item grace week (reviewNewItemDays): a quote saved this week reads
+// "remembered" and is not yet due; past the week it surfaces as unseen and
+// enters the Daily Quiz; a recorded lapse always beats the buffer.
+func TestReviewNewItemBuffer(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, ids := seedReviewBook(t, c, "Dune", 2)
+	seedDistractorBook(t, srv, c, "Emma")
+
+	// Fresh items: nothing due, and the whole library reads remembered (the two
+	// fresh Dune quotes via the buffer, the parked Emma quote via its half-life).
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) != 0 {
+		t.Fatalf("fresh items served in the daily deck: %+v", deck.Items)
+	}
+	if deck.States.Remembered != 3 || deck.States.Unseen != 0 || deck.States.Total != 3 {
+		t.Fatalf("states inside the grace week: %+v", deck.States)
+	}
+
+	// Past the week the same items are unseen and due.
+	ageSeededItems(t, srv)
+	deck = decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) != 2 || deck.Items[0].Status != "unseen" {
+		t.Fatalf("aged items should be due as unseen: %+v", deck.Items)
+	}
+	if deck.States.Unseen != 2 || deck.States.Remembered != 1 {
+		t.Fatalf("states past the grace week: %+v", deck.States)
+	}
+
+	// A lapse is decisive even inside the buffer: fail a card, pull its
+	// created_at back to now — it must stay probably-forgotten, not flip to
+	// remembered.
+	answer(t, c, kindBook, ids[0], "forgot", "daily")
+	if _, err := srv.Store.DB.Exec(`UPDATE annotations SET created_at = datetime('now') WHERE id = ?`, ids[0]); err != nil {
+		t.Fatal(err)
+	}
+	scores := decode[scoresResp](t, c.mustDo("GET", "/review/scores", nil, 200))
+	if scores.States.ProbablyForgotten != 1 || scores.States.Remembered != 1 || scores.States.Unseen != 1 {
+		t.Fatalf("a lapse must beat the grace week: %+v", scores.States)
 	}
 }
 

@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { json } from './api.js'
-import { Card, MonoLabel, PageHeader, useIsMobileScreen } from './ui.jsx'
+import { Card, MonoLabel, PageHeader, STATUS_META, fmtHalfLife, useIsMobileScreen } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
 // achievements. All numbers come from one GET /stats call (a handful of
-// aggregate queries). Charts stay inside the app's visual system: single-hue
-// sequential bars in the accent (one series each, so the section title names
-// them — no legend), and the highlight-colour breakdown in the four real
-// highlight colours, each paired with a label + count so identity is never
-// carried by colour alone.
+// aggregate queries). Charts stay inside the app's visual system: the activity
+// calendar is single-hue sequential (accent mixed over the line colour, GitHub
+// style), recall uses the reserved status palette (--ok/--amber/--error) and
+// every status count carries its text label so identity is never colour alone.
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -22,17 +21,12 @@ const HL = [
   ['orange', 'Orange', '#DF9A5B'],
 ]
 
-// formatMonth turns "YYYY-MM" into "Month YYYY"; shortMonth into "Feb".
+// formatMonth turns "YYYY-MM" into "Month YYYY".
 function formatMonth(ym) {
   if (!ym) return ''
   const [y, m] = ym.split('-')
   const name = MONTHS[Number(m) - 1]
   return name ? `${name} ${y}` : ym
-}
-function shortMonth(ym) {
-  if (!ym) return ''
-  const m = MONTHS[Number(ym.split('-')[1]) - 1]
-  return m ? m.slice(0, 3) : ym
 }
 
 function SectionHead({ label, right }) {
@@ -44,11 +38,13 @@ function SectionHead({ label, right }) {
   )
 }
 
-// StatTile — a hero number in mono over a mono label, on a raised chip.
-function StatTile({ n, label, heart }) {
+// StatTile — a hero number in mono over a mono label, on a raised chip. `dot`
+// pairs the number with a status colour; the label still names it.
+function StatTile({ n, label, heart, dot }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
+        {dot && <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 999, flex: '0 0 auto', background: dot.filled ? dot.color : 'transparent', border: `1.5px solid ${dot.color}` }} />}
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n ?? 0}</span>
         {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 13, lineHeight: 1 }}>♥</span>}
       </div>
@@ -76,31 +72,227 @@ function Overview({ s }) {
   )
 }
 
-// ActivityBars — one accent bar per month for the last twelve, height by count
-// (change-over-time, single series). Exact values on hover; month initials below.
-function ActivityBars({ data }) {
-  if (!data || data.length === 0) return null
-  const max = Math.max(1, ...data.map((d) => d.count))
-  const total = data.reduce((a, d) => a + d.count, 0)
-  const cols = `repeat(${data.length}, 1fr)`
+// ---- activity calendar (GitHub style) ----
+
+const DOT = 9 // dot diameter
+const GAP = 3 // gap between dots; a week column is DOT+GAP wide
+
+const localISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// calFill — sequential single hue: the accent mixed over the line colour in
+// four steps by count (magnitude only; zero days stay on the line colour).
+const CAL_STEPS = [35, 55, 78, 100]
+function calFill(count, max) {
+  if (!count) return 'var(--line)'
+  const level = Math.min(4, Math.max(1, Math.ceil((4 * count) / Math.max(1, max))))
+  return `color-mix(in srgb, var(--accent-ui) ${CAL_STEPS[level - 1]}%, var(--line))`
+}
+
+// ActivityCalendar — a year of saves, GitHub style: one dot per day, one
+// column per week (Sunday-first), only the months labelled along the x axis.
+// Scrolls horizontally on narrow screens, opened at the most recent week.
+function ActivityCalendar({ data }) {
+  const scroller = useRef(null)
+  useEffect(() => {
+    const el = scroller.current
+    if (el) el.scrollLeft = el.scrollWidth // today lives at the right edge
+  }, [data])
+
+  const counts = new Map((data || []).map((d) => [d.date, d.count]))
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const start = new Date(today)
+  start.setDate(start.getDate() - start.getDay() - 52 * 7) // the Sunday 52 full weeks back
+
+  const weeks = []
+  const monthLabels = []
+  let prevMonth = -1
+  let lastLabelAt = -9 // a label needs ~3 columns of room; the leading partial month yields
+  let total = 0
+  let max = 0
+  for (const ws = new Date(start); ws <= today; ws.setDate(ws.getDate() + 7)) {
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws)
+      d.setDate(d.getDate() + i)
+      if (d > today) {
+        days.push(null) // future pad of the current week
+        continue
+      }
+      const count = counts.get(localISO(d)) || 0
+      total += count
+      max = Math.max(max, count)
+      days.push({ count, date: new Date(d) })
+    }
+    const m = ws.getMonth()
+    let label = ''
+    if (m !== prevMonth && weeks.length - lastLabelAt >= 3) {
+      label = MONTHS[m].slice(0, 3)
+      lastLabelAt = weeks.length
+    }
+    monthLabels.push(label)
+    prevMonth = m
+    weeks.push(days)
+  }
+
   return (
     <Card>
       <SectionHead label="Activity · last 12 months" right={<span className="mono-label">{total} saved</span>} />
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 5, alignItems: 'end', height: 128 }}>
-        {data.map((d) => {
-          const h = d.count === 0 ? 3 : Math.round(10 + 108 * (d.count / max))
-          return (
-            <div key={d.month} style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '100%' }} title={`${formatMonth(d.month)}: ${d.count} saved`}>
-              <div style={{ width: '100%', maxWidth: 24, height: h, borderRadius: '4px 4px 2px 2px', background: d.count ? 'var(--accent-ui)' : 'var(--line)' }} />
-            </div>
-          )
-        })}
+      <div ref={scroller} style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ width: weeks.length * (DOT + GAP) - GAP }}>
+          <div style={{ display: 'flex', gap: GAP }}>
+            {weeks.map((days, wi) => (
+              <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
+                {days.map((d, di) =>
+                  d === null ? (
+                    <span key={di} style={{ width: DOT, height: DOT }} aria-hidden="true" />
+                  ) : (
+                    <span
+                      key={di}
+                      title={`${d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}: ${d.count} saved`}
+                      style={{ width: DOT, height: DOT, borderRadius: 999, background: calFill(d.count, max), flex: '0 0 auto' }}
+                    />
+                  ),
+                )}
+              </div>
+            ))}
+          </div>
+          {/* x axis: month names only, pinned to the week their 1st falls in */}
+          <div style={{ display: 'flex', gap: GAP, marginTop: 6 }}>
+            {monthLabels.map((label, i) => (
+              <span key={i} className="mono-label" style={{ width: DOT, flex: '0 0 auto', fontSize: 9, color: 'var(--faint)', overflow: 'visible', whiteSpace: 'nowrap' }}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 5, marginTop: 7 }}>
-        {data.map((d) => (
-          <span key={d.month} className="mono-label" style={{ fontSize: 9, textAlign: 'center', color: 'var(--faint)' }}>{shortMonth(d.month).charAt(0)}</span>
+      <div className="mt-2 flex items-center justify-end gap-1.5">
+        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>less</span>
+        {[0, 1, 2, 3, 4].map((lv) => (
+          <span key={lv} aria-hidden="true" style={{ width: DOT, height: DOT, borderRadius: 999, background: lv === 0 ? 'var(--line)' : `color-mix(in srgb, var(--accent-ui) ${CAL_STEPS[lv - 1]}%, var(--line))` }} />
         ))}
+        <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>more</span>
       </div>
+    </Card>
+  )
+}
+
+// ---- memory (the forgetting curve across the library) ----
+
+// MemoryCard — where the whole library stands on the forgetting curve: one
+// tile per recall status (the same dot colours the quotes wear), plus how many
+// quotes are in the review rotation and their average half-life.
+function MemoryCard({ recall }) {
+  const st = recall?.states || {}
+  if (!st.total) return null
+  const tiles = [
+    ['remembered', st.remembered],
+    ['forgetting', st.forgetting],
+    ['probably-forgotten', st.probably_forgotten],
+    ['unseen', st.unseen],
+  ]
+  return (
+    <Card>
+      <SectionHead label="Memory" right={<span className="mono-label">{recall.reviewed} of {st.total} in rotation</span>} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))', gap: 12 }}>
+        {tiles.map(([key, n]) => (
+          <StatTile key={key} n={n} label={STATUS_META[key].label} dot={STATUS_META[key]} />
+        ))}
+        {recall.reviewed > 0 && <StatTile n={fmtHalfLife(recall.avg_half_life)} label="Avg half-life" />}
+      </div>
+    </Card>
+  )
+}
+
+// ---- per-kind recall breakdown ----
+
+// The kinds the Breakdown dropdown switches between. `works` marks the kinds
+// where an entity spans several works (an author's books, a series' volumes) —
+// single-work kinds (a book is one work) skip the redundant count.
+const BREAKDOWN_KINDS = [
+  { key: 'authors', label: 'Authors', works: true },
+  { key: 'books', label: 'Books', works: false },
+  { key: 'series', label: 'Series', works: true },
+  { key: 'films', label: 'Films', works: false },
+  { key: 'shows', label: 'Shows', works: false },
+  { key: 'directors', label: 'Directors', works: true },
+  { key: 'actors', label: 'Actors', works: true },
+]
+
+// The status segments of a breakdown row, in curve order.
+const ROW_SEGS = [
+  ['remembered', (r) => r.remembered],
+  ['forgetting', (r) => r.forgetting],
+  ['probably-forgotten', (r) => r.probably_forgotten],
+  ['unseen', (r) => r.unseen],
+]
+
+// BreakdownRow — name · quote count, a stacked status bar (proportions), and a
+// mono sub-line spelling every non-zero status out (never colour alone).
+function BreakdownRow({ r, showWorks }) {
+  const segs = ROW_SEGS.map(([key, of]) => [key, of(r)]).filter(([, n]) => n > 0)
+  const barTip = segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')
+  return (
+    <div title={`${r.name}: ${r.quotes} quotes`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+        <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
+      </div>
+      {segs.length > 0 && (
+        <div title={barTip} style={{ display: 'flex', gap: 2, height: 6, marginTop: 3 }}>
+          {segs.map(([key, n]) => (
+            <span key={key} style={{ flex: n, minWidth: 4, borderRadius: 999, background: STATUS_META[key].color }} />
+          ))}
+        </div>
+      )}
+      <p className="mono-label" style={{ marginTop: 3, fontSize: 9.5, color: 'var(--faint)' }}>
+        {showWorks ? `${r.works} ${r.works === 1 ? 'work' : 'works'}` : ''}
+        {showWorks && segs.length > 0 ? ' · ' : ''}
+        {segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')}
+      </p>
+    </div>
+  )
+}
+
+// BreakdownCard — the People card grown up: a dropdown picks the dimension
+// (authors · books · series · films · shows · directors · actors); each shows
+// its work/quote counts and where those quotes sit on the forgetting curve,
+// headlined by the best-remembered and most-forgotten entity of that kind.
+// Joined credits ("Gaiman & Pratchett") are split server-side (§11).
+function BreakdownCard({ breakdown }) {
+  const [kind, setKind] = useState('authors')
+  const meta = BREAKDOWN_KINDS.find((m) => m.key === kind) || BREAKDOWN_KINDS[0]
+  const k = breakdown?.[kind] || { count: 0, top: [] }
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <MonoLabel>Breakdown · {k.count}</MonoLabel>
+        <select
+          className="tp-input"
+          aria-label="Breakdown kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value)}
+          style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 13 }}
+        >
+          {BREAKDOWN_KINDS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+        </select>
+      </div>
+      {(k.most_remembered || k.most_forgotten) && (
+        <p className="microcopy mb-3" style={{ lineHeight: 1.6 }}>
+          {k.most_remembered && <>best remembered: <strong>{k.most_remembered.name}</strong> · {k.most_remembered.remembered}</>}
+          {k.most_remembered && k.most_forgotten && <br />}
+          {k.most_forgotten && <>most forgotten: <strong>{k.most_forgotten.name}</strong> · {k.most_forgotten.probably_forgotten}</>}
+        </p>
+      )}
+      {!k.top || k.top.length === 0 ? (
+        <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
+      ) : (
+        <div className="space-y-3">
+          {k.top.map((r, i) => <BreakdownRow key={r.name + i} r={r} showWorks={meta.works} />)}
+        </div>
+      )}
     </Card>
   )
 }
@@ -146,8 +338,7 @@ function Colors({ colors }) {
   )
 }
 
-// LeaderList — the ranked rows (name · value · accent bar) shared by the People
-// card and the Top-tags card.
+// LeaderList — the ranked rows (name · value · accent bar) used by Top tags.
 function LeaderList({ rows }) {
   if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
   const max = Math.max(1, ...rows.map((r) => r.count))
@@ -174,39 +365,6 @@ function TopList({ label, rows }) {
     <Card>
       <SectionHead label={label} />
       <LeaderList rows={rows} />
-    </Card>
-  )
-}
-
-// The three People kinds the Stats dropdown switches between: which count field
-// and which top-N leaderboard field to read for each.
-const PEOPLE_KINDS = [
-  { key: 'authors', label: 'Authors', count: 'authors', list: 'top_authors' },
-  { key: 'actors', label: 'Actors', count: 'actors', list: 'top_actors' },
-  { key: 'directors', label: 'Directors', count: 'directors', list: 'top_directors' },
-]
-
-// PeopleCard — the People section: a dropdown picks the kind (authors by book
-// count, actors by lines quoted, directors by films), then shows that kind's
-// count + a top-N leaderboard. The basis for the achievements feature.
-function PeopleCard({ s }) {
-  const [kind, setKind] = useState('authors')
-  const meta = PEOPLE_KINDS.find((m) => m.key === kind) || PEOPLE_KINDS[0]
-  return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <MonoLabel>People · {s[meta.count] || 0}</MonoLabel>
-        <select
-          className="tp-input"
-          aria-label="People kind"
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-          style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 13 }}
-        >
-          {PEOPLE_KINDS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-        </select>
-      </div>
-      <LeaderList rows={s[meta.list]} />
     </Card>
   )
 }
@@ -261,13 +419,14 @@ export default function StatsPage() {
       ) : (
         <div className="space-y-6">
           <Overview s={s} />
-          <ActivityBars data={s.monthly_activity} />
+          <ActivityCalendar data={s.daily_activity} />
+          <MemoryCard recall={s.recall} />
           <div style={twoCol}>
-            <Colors colors={s.colors} />
+            <BreakdownCard breakdown={s.breakdown} />
             <Superlatives s={s} />
           </div>
           <div style={twoCol}>
-            <PeopleCard s={s} />
+            <Colors colors={s.colors} />
             <TopList label="Top tags" rows={s.top_tags} />
           </div>
         </div>

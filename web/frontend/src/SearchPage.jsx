@@ -15,11 +15,13 @@ import {
   HandCard,
   HandNote,
   HighlightSpan,
+  Masonry,
   MonoLabel,
   Placeholder,
   Select,
   SortableTh,
   splitCommas,
+  useColumnsAt,
   useIsMobileScreen,
   usePersistedState,
   useSort,
@@ -713,15 +715,22 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
 // For book author buckets, the heading shows the author portrait (people map)
 // and opens the metadata panel on click.
 function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson, creditSeps }) {
-  // Results stay in bm25 relevance order — NO height masonry here (unlike the
-  // other tiled boards). tiles just wraps into CSS columns (relevance preserved
-  // column-major); list is a plain vertical stack.
-  const cols = view === 'tiles' ? 'columns-1 gap-3 md:columns-2' : 'space-y-3'
+  // Results stay in bm25 relevance order (Masonry order="source" — no height
+  // sort, no jitter), but tiles pack the shared greedy way every other board
+  // does: each card lands on the SHORTEST column, so the last hit can't leave
+  // one column hanging long. list is a plain vertical stack.
+  const tileCols = useColumnsAt([[768, 2]])
+  const pack = (items) =>
+    view === 'tiles' ? (
+      <Masonry columns={tileCols} gap={12} order="source">{items.map(renderItem)}</Masonry>
+    ) : (
+      <div className="space-y-3">{items.map(renderItem)}</div>
+    )
   if (group === 'none') {
     return (
       <section className="space-y-3">
         <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
-        <div className={cols}>{groups.map(renderItem)}</div>
+        {pack(groups)}
       </section>
     )
   }
@@ -764,7 +773,7 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
               <MonoLabel style={{ color: 'var(--accent-ui)' }}>{b.items.length}</MonoLabel>
               <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
             </div>
-            <div className={cols}>{b.items.map(renderItem)}</div>
+            {pack(b.items)}
           </div>
         )
       })}

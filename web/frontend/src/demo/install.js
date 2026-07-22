@@ -146,16 +146,27 @@ function daysAgo(n) {
   return new Date(Date.now() - n * 86400000).toISOString().slice(0, 19).replace('T', ' ')
 }
 // Canned spaced-repetition state so the status dots (v0.5.0) show the full
-// spread in the demo: id 1 remembered (green), 2 forgetting (yellow), 3
-// probably-forgotten (red); everything else unseen.
+// spread in the demo: book 1 remembered (green), 2 forgetting (yellow), 3
+// probably-forgotten (red); everything else unseen. Stabilities respect the
+// 7-day half-life floor so the derived statuses match the labels.
 const DEMO_REVIEW = {
   'book:1': { reviewed: true, stability: 30, last_reviewed_at: daysAgo(1) },
-  'book:2': { reviewed: true, stability: 6, last_reviewed_at: daysAgo(3) },
-  'book:3': { reviewed: true, stability: 2, last_reviewed_at: daysAgo(5) },
+  'book:2': { reviewed: true, stability: 8, last_reviewed_at: daysAgo(4) },
+  'book:3': { reviewed: true, stability: 7, last_reviewed_at: daysAgo(20) },
   'screen:1': { reviewed: true, stability: 20, last_reviewed_at: daysAgo(2) },
 }
 function demoReview(kind, id) {
   return DEMO_REVIEW[`${kind}:${id}`] || { reviewed: false, stability: 0, last_reviewed_at: '' }
+}
+// demoStatus mirrors reviewStatus (ui.jsx) over the canned rows — floored
+// half-life, no lapses, every demo item past its new-item grace week. Uses the
+// underscore key ("probably_forgotten") the /stats shapes want.
+function demoStatus(kind, id) {
+  const r = DEMO_REVIEW[`${kind}:${id}`]
+  if (!r) return 'unseen'
+  const days = (Date.now() - Date.parse(r.last_reviewed_at.replace(' ', 'T') + 'Z')) / 86400000
+  const p = Math.pow(2, -days / Math.max(r.stability, 7))
+  return p >= 0.9 ? 'remembered' : p >= 0.5 ? 'forgetting' : 'probably_forgotten'
 }
 
 function annRow(a) {
@@ -207,7 +218,7 @@ function bookCard(a, direction) {
     quote: a.quote || '', note: a.note || '', color: a.color || 'yellow',
     title: b.title || '', author: b.author || '', character: '',
     chapter: a.chapter || '', location: a.location || '', timestamp: '', media_type: '',
-    stability: 1, review_count: 0, status: 'unseen',
+    stability: 7, review_count: 0, status: 'unseen',
   }
   return { ...card, ...demoMCQ(card) }
 }
@@ -218,7 +229,7 @@ function screenCard(d, direction) {
     quote: d.quote || '', note: d.note || '', color: '',
     title: m.title || '', author: '', character: d.character || '',
     chapter: '', location: '', timestamp: d.timestamp || '', media_type: m.media_type || 'movie',
-    stability: 1, review_count: 0, status: 'unseen',
+    stability: 7, review_count: 0, status: 'unseen',
   }
   return { ...card, ...demoMCQ(card) }
 }
@@ -227,8 +238,10 @@ function reviewItems() {
     .map((id) => bookCard(ANNOTATIONS.find((x) => x.id === id)))
 }
 function demoStates() {
-  const total = ANNOTATIONS.length + DIALOGUES.length
-  return { unseen: Math.max(0, total - 4), remembered: 2, forgetting: 1, probably_forgotten: 1, total }
+  const c = { unseen: 0, remembered: 0, forgetting: 0, probably_forgotten: 0, total: 0 }
+  for (const a of ANNOTATIONS) { c[demoStatus('book', a.id)]++; c.total++ }
+  for (const d of DIALOGUES) { c[demoStatus('screen', d.id)]++; c.total++ }
+  return c
 }
 function reviewDeck() {
   return {
@@ -253,13 +266,13 @@ function reviewAnswer(body) {
       if (result === 'got') practice.got++
       if (result === 'forgot') practice.forgot++
     }
-    return { ok: true, kind, id, stability: 2.5, status: 'unseen', mode, answered: practice.answered, got: practice.got, forgot: practice.forgot }
+    return { ok: true, kind, id, stability: 7, status: 'unseen', mode, answered: practice.answered, got: practice.got, forgot: practice.forgot }
   }
   review.touched.add(id)
   if (result === 'got') review.got++
   if (result === 'forgot') review.forgot++
   return {
-    ok: true, kind, id, stability: result === 'got' ? 2.5 : 1, status: 'remembered', mode: 'daily',
+    ok: true, kind, id, stability: result === 'got' ? 17.5 : 7, status: result === 'got' ? 'remembered' : 'probably-forgotten', mode: 'daily',
     answered: review.touched.size, got: review.got, forgot: review.forgot, remaining: reviewItems().length,
   }
 }
@@ -275,18 +288,95 @@ function dlgRow(d) {
   return { sticker_id: null, sticker_x: null, sticker_y: null, ...d, ...demoReview('screen', d.id), created_at: '2026-06-01 09:00:00', updated_at: '2026-06-01 09:00:00' }
 }
 
-function lastMonths(n) {
+// A deterministic year of save activity for the Stats calendar: a stable hash
+// scatters saves over roughly a third of the days.
+function demoDailyActivity() {
   const out = []
-  const now = new Date()
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    out.push(d.toISOString().slice(0, 7))
+  for (let i = 364; i >= 0; i--) {
+    const h = (i * 2654435761) % 100
+    if (h >= 34) continue
+    const d = new Date(Date.now() - i * 86400000)
+    out.push({
+      date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      count: 1 + (h % 4),
+    })
   }
   return out
 }
+
+// demoBreakdown mirrors statsBreakdown (stats_handlers.go): per-kind entities
+// with works, quotes, and where those quotes sit on the forgetting curve. The
+// demo credits are single names, so no multi-author splitting is needed here.
+function demoBreakdown() {
+  const kinds = { authors: {}, books: {}, series: {}, films: {}, shows: {}, directors: {}, actors: {} }
+  const touch = (kind, name, workKey) => {
+    name = (name || '').trim()
+    if (!name || name === '(unknown)') return null
+    const rows = kinds[kind]
+    const r = rows[name] || (rows[name] = {
+      name, workSet: new Set(), works: 0, quotes: 0,
+      remembered: 0, forgetting: 0, probably_forgotten: 0, unseen: 0,
+    })
+    if (workKey) r.workSet.add(workKey)
+    return r
+  }
+  const quote = (kind, name, workKey, status) => {
+    const r = touch(kind, name, workKey)
+    if (r) { r.quotes++; r[status]++ }
+  }
+  for (const b of BOOKS) {
+    const key = `b${b.id}`
+    touch('books', b.title, key); touch('authors', b.author, key); touch('series', b.series, key)
+  }
+  for (const a of ANNOTATIONS) {
+    const b = BOOKS.find((x) => x.id === a.book_id) || {}
+    const st = demoStatus('book', a.id)
+    const key = `b${b.id}`
+    quote('books', b.title, key, st); quote('authors', b.author, key, st); quote('series', b.series, key, st)
+  }
+  for (const m of MOVIES) {
+    const key = `m${m.id}`
+    touch(m.media_type === 'show' ? 'shows' : 'films', m.title, key)
+    touch('directors', m.director, key); touch('series', m.series, key)
+  }
+  for (const d of DIALOGUES) {
+    const m = MOVIES.find((x) => x.id === d.movie_id) || {}
+    const st = demoStatus('screen', d.id)
+    const key = `m${m.id}`
+    quote(m.media_type === 'show' ? 'shows' : 'films', m.title, key, st)
+    quote('directors', m.director, key, st)
+    quote('actors', d.actor, key, st)
+    quote('series', m.series, key, st)
+  }
+  const out = {}
+  for (const [kind, rows] of Object.entries(kinds)) {
+    const all = Object.values(rows).map(({ workSet, ...r }) => ({ ...r, works: workSet.size }))
+    all.sort((a, z) => z.quotes - a.quotes || z.works - a.works || a.name.localeCompare(z.name))
+    const best = (of) => all.filter((r) => of(r) > 0).sort((a, z) => of(z) - of(a))[0] || null
+    out[kind] = {
+      count: all.length,
+      top: all.slice(0, 8),
+      most_remembered: best((r) => r.remembered),
+      most_forgotten: best((r) => r.probably_forgotten),
+    }
+  }
+  return out
+}
+
 function stats() {
-  const months = lastMonths(6)
-  const counts = [3, 7, 4, 9, 6, 12]
+  const genreSet = new Set()
+  BOOKS.forEach((b) => b.genres.forEach((g) => genreSet.add(g)))
+  MOVIES.forEach((m) => m.genres.forEach((g) => genreSet.add(g)))
+  const colors = { yellow: 0, blue: 0, pink: 0, orange: 0 }
+  ANNOTATIONS.forEach((a) => { if (colors[a.color] != null) colors[a.color]++ })
+  const tagCounts = {}
+  for (const x of [...ANNOTATIONS, ...DIALOGUES]) {
+    for (const t of x.tags || []) tagCounts[t] = (tagCounts[t] || 0) + 1
+  }
+  const topTags = Object.entries(tagCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, z) => z.count - a.count || a.name.localeCompare(z.name))
+    .slice(0, 5)
   return {
     books: BOOKS.length,
     annotations: ANNOTATIONS.length,
@@ -294,10 +384,17 @@ function stats() {
     dialogues: DIALOGUES.length,
     tags: TAGS.length,
     favorites: ANNOTATIONS.filter((a) => a.favorite).length + DIALOGUES.filter((d) => d.favorite).length,
+    genres: genreSet.size,
     most_annotated: { id: 1, title: 'The Wide Margin', count: 3 },
     most_quoted: { id: 1, title: 'Northline', count: 3 },
-    busiest_month: { month: months[5], count: counts[5] },
-    monthly_activity: months.map((m, i) => ({ month: m, count: counts[i] })),
+    busiest_month: { month: new Date().toISOString().slice(0, 7), count: 12 },
+    daily_activity: demoDailyActivity(),
+    colors,
+    top_tags: topTags,
+    first_saved: '2026-02-11',
+    // stabilities floored at 7: (30 + 8 + 7 + 20) / 4
+    recall: { states: demoStates(), reviewed: Object.keys(DEMO_REVIEW).length, avg_half_life: 16.25 },
+    breakdown: demoBreakdown(),
   }
 }
 function metadataLibrary() {

@@ -26,12 +26,17 @@ package httpapi
 //
 // The memory model is the exponential forgetting curve: recall probability
 // p = 2^(-elapsed_days / stability), stability being the per-card half-life in
-// days (item_reviews, migration 0015). A card is due when p <= 0.5 (elapsed >=
-// stability). The derived status shown on every card's dot:
-//   remembered         p >= 0.9   (well inside the half-life)
+// days (item_reviews, migration 0015). The half-life is deliberately long: it
+// floors at reviewMinStability (a week), so even a first successful recall
+// schedules the next visit weeks out. A card is due when p <= 0.5 (elapsed >=
+// stability). Fresh items also get a grace week (reviewNewItemDays from the
+// item's created_at): having just written a quote down counts as knowing it,
+// so during that buffer the card reads "remembered" and is not yet due — a
+// recorded lapse still wins. The derived status shown on every card's dot:
+//   remembered         p >= 0.9, or the item is inside its first week
 //   forgetting         0.5 <= p < 0.9
 //   probably-forgotten p < 0.5     (due / overdue)
-//   unseen             never reviewed
+//   unseen             never reviewed (and past the first week)
 // Statuses are derived at read time, never stored.
 
 import (
@@ -50,14 +55,20 @@ import (
 )
 
 const (
-	reviewMinStability = 1.0   // days; half-life floor and the unseen-card default
+	reviewMinStability = 7.0   // days; half-life floor and the unseen-card default — a long baseline by design
 	reviewMaxStability = 365.0 // days; growth cap
+	reviewNewItemDays  = 7.0   // days; grace week after an item is added — reads "remembered", not yet due
 	reviewGrowth       = 2.5   // default srGrow: "got it" multiplies the half-life
 	reviewLateBonus    = 1.2   // a late recall proves stability >= elapsed — credit it
 	reviewLapseShrink  = 0.25  // default srShrink: "forgot" keeps this fraction, not zero
 	reviewSeen         = 1.0   // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
 	reviewQuota        = 8     // default srDaily deck size
 )
+
+// reviewFloorSQL is reviewMinStability for splicing into due-ness SQL — the
+// stored stability can predate a floor raise, so queries floor it the same way
+// recallStatus does (fmt %g keeps "7", not "7.000000").
+var reviewFloorSQL = fmt.Sprintf("%g", reviewMinStability)
 
 // review directions (question types). Kept as constants so the deck builder and
 // tests speak the same vocabulary the client renders against.
@@ -108,8 +119,9 @@ func scopeFlags(scope string) (books, screen bool) {
 	}
 }
 
-// recallStatus derives a card's status dot from its half-life and how long it's
-// been since the last review. Unseen cards (no review row) have no probability.
+// recallStatus derives a card's status dot from its half-life, how long it's
+// been since the last review, and how old the item itself is (ageDays, from
+// created_at). Unseen cards (no review row) have no probability.
 //
 // A lapse is decisive: a card whose most recent answer was "forgot" reads as
 // probably-forgotten however recently it was reviewed. The forgetting curve
@@ -118,12 +130,19 @@ func scopeFlags(scope string) (books, screen bool) {
 // paradoxically count the card as remembered. The failed attempt, not the
 // timestamp, is the honest signal; the card re-earns "remembered" only when a
 // later recall succeeds (flipping last_result back to "got").
-func recallStatus(seen bool, stability, elapsedDays float64, lastResult string) string {
-	if !seen {
-		return "unseen"
-	}
+//
+// A fresh item gets a grace week (reviewNewItemDays): having just saved the
+// quote counts as knowing it, so the card reads "remembered" before any
+// review — unless a recorded lapse says otherwise (the check above).
+func recallStatus(seen bool, stability, elapsedDays, ageDays float64, lastResult string) string {
 	if lastResult == "forgot" {
 		return "probably-forgotten"
+	}
+	if ageDays < reviewNewItemDays {
+		return "remembered"
+	}
+	if !seen {
+		return "unseen"
 	}
 	if stability < reviewMinStability {
 		stability = reviewMinStability
@@ -192,6 +211,7 @@ type reviewCand struct {
 	card       reviewCard
 	seen       bool
 	elapsed    float64 // days since last_reviewed_at (seen cards only)
+	age        float64 // days since the item was added (created_at) — drives the grace week
 	lastResult string  // "got" | "forgot" | "" — a lapse forces probably-forgotten
 	workKey    string  // parent book/movie, for similar-distractor ranking
 }
@@ -213,17 +233,21 @@ func elapsedDays(ts sql.NullString) float64 {
 func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
 	q := `SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,''), a.color,
 	             b.title, COALESCE(b.author,''), COALESCE(a.chapter,''), COALESCE(a.location,''),
-	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,'')
+	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
+	             COALESCE(julianday('now') - julianday(a.created_at), 1e9)
 	      FROM annotations a
 	      JOIN books b ON b.id = a.book_id
 	      LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
 	      WHERE b.user_id = ? AND (COALESCE(a.quote,'') <> '' OR COALESCE(a.note,'') <> '')`
 	args := []any{reviewMinStability, uid}
 	if dueOnly {
+		// Due-ness floors the stored stability the same way recallStatus does, so
+		// a card is due exactly when its dot reads probably-forgotten.
 		q += ` AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
-		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= r.stability)
-		       ORDER BY (r.last_reviewed_at IS NULL), (julianday(r.last_reviewed_at) - julianday('now')) / r.stability`
-		args = append(args, mod, day)
+		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
+		       AND COALESCE(julianday('now') - julianday(a.created_at), 1e9) >= ?
+		       ORDER BY (r.last_reviewed_at IS NULL), (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `)`
+		args = append(args, mod, day, reviewNewItemDays)
 		if limit > 0 {
 			q += ` LIMIT ?`
 			args = append(args, limit)
@@ -242,7 +266,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Chapter, &c.card.Location,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
 		}
@@ -256,7 +280,8 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
 	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
 	             COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
-	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,'')
+	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
+	             COALESCE(julianday('now') - julianday(d.created_at), 1e9)
 	      FROM dialogues d
 	      JOIN movies m ON m.id = d.movie_id
 	      LEFT JOIN item_reviews r ON r.kind = 'screen' AND r.item_id = d.id
@@ -264,9 +289,10 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 	args := []any{reviewMinStability, uid}
 	if dueOnly {
 		q += ` AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
-		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= r.stability)
-		       ORDER BY (r.last_reviewed_at IS NULL), (julianday(r.last_reviewed_at) - julianday('now')) / r.stability`
-		args = append(args, mod, day)
+		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
+		       AND COALESCE(julianday('now') - julianday(d.created_at), 1e9) >= ?
+		       ORDER BY (r.last_reviewed_at IS NULL), (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `)`
+		args = append(args, mod, day, reviewNewItemDays)
 		if limit > 0 {
 			q += ` LIMIT ?`
 			args = append(args, limit)
@@ -285,7 +311,7 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
 			&c.card.Timestamp, &c.card.MediaType,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue
 		}
@@ -301,7 +327,7 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 func finishCard(c reviewCand, direction string) reviewCard {
 	card := c.card
 	card.Direction = direction
-	card.Status = recallStatus(c.seen, card.Stability, c.elapsed, c.lastResult)
+	card.Status = recallStatus(c.seen, card.Stability, c.elapsed, c.age, c.lastResult)
 	return card
 }
 
@@ -868,6 +894,11 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	day, _, mod := reviewDay(offset)
+	age, err := s.itemAgeDays(req.Kind, req.ID)
+	if err != nil {
+		internalError(w, r, "review answer item age", err)
+		return
+	}
 	// Daily Quiz always drives the schedule; Practice only when opted in. Skip
 	// never moves it in either mode.
 	moveSchedule := (req.Mode == "daily" || pf.SRPracticeCounts) && req.Result != "skip"
@@ -900,7 +931,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// retried POST could, and re-applying growth would compound the half-life
 	// and double-count the tally. Treat a same-day repeat as a no-op echo.
 	if req.Mode == "daily" && found && touchedToday {
-		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, lastReviewed, lastResult, pf, found)
+		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, lastReviewed, lastResult, pf, found)
 		return
 	}
 
@@ -971,7 +1002,23 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if req.Mode == "practice" && req.Result != "skip" {
 		s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
 	}
-	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, respLastReviewed, respLastResult, pf, found || moveSchedule)
+	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, respLastReviewed, respLastResult, pf, found || moveSchedule)
+}
+
+// itemAgeDays is how many days ago the annotation/dialogue behind a card was
+// added — the clock for the new-item grace week. A missing or garbled
+// timestamp reads as very old (no accidental grace).
+func (s *Server) itemAgeDays(kind string, id int64) (float64, error) {
+	q := `SELECT COALESCE(julianday('now') - julianday(created_at), 1e9) FROM annotations WHERE id = ?`
+	if kind == kindScreen {
+		q = `SELECT COALESCE(julianday('now') - julianday(created_at), 1e9) FROM dialogues WHERE id = ?`
+	}
+	var age float64
+	err := s.Store.DB.QueryRow(q, id).Scan(&age)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 1e9, nil // ownership was already checked; a vanished row just gets no grace
+	}
+	return age, err
 }
 
 // answerResponse assembles the reply shared by the normal path and the daily
@@ -980,7 +1027,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 // every answer, quiz or practice), and (for daily) how much of today's deck is
 // left so the pending dot stays honest.
 func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int64, mode string, offset int,
-	kind string, id int64, stability float64, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
+	kind string, id int64, stability, ageDays float64, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
 	day, _, _ := reviewDay(offset)
 	answered, got, forgot, err := s.modeTally(uid, mode, day)
 	if err != nil {
@@ -998,7 +1045,7 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		"kind":      kind,
 		"id":        id,
 		"stability": stability,
-		"status":    recallStatus(seen, stability, elapsedDays(lastReviewed), lastResult),
+		"status":    recallStatus(seen, stability, elapsedDays(lastReviewed), ageDays, lastResult),
 		"mode":      mode,
 		"answered":  answered,
 		"got":       got,
@@ -1060,9 +1107,10 @@ func (s *Server) dailyRemaining(uid int64, offset int, pf prefs, answered int) (
 		      LEFT JOIN item_reviews r ON r.kind = '` + kind + `' AND r.item_id = x.id
 		      WHERE p.` + userCol + ` = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '')
 		        AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
-		        AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= r.stability)`
+		        AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
+		        AND COALESCE(julianday('now') - julianday(x.created_at), 1e9) >= ?`
 		var n int
-		if err := s.Store.DB.QueryRow(q, uid, mod, day).Scan(&n); err != nil {
+		if err := s.Store.DB.QueryRow(q, uid, mod, day, reviewNewItemDays).Scan(&n); err != nil {
 			return err
 		}
 		total += n
@@ -1096,7 +1144,8 @@ func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts
 	var c statusCounts
 	tally := func(table, parent, parentKey, userCol, kind string) error {
 		rows, err := s.Store.DB.Query(`
-			SELECT r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result, '')
+			SELECT r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result, ''),
+			       COALESCE(julianday('now') - julianday(x.created_at), 1e9)
 			FROM `+table+` x
 			JOIN `+parent+` p ON p.id = x.`+parentKey+`
 			LEFT JOIN item_reviews r ON r.kind = '`+kind+`' AND r.item_id = x.id
@@ -1108,15 +1157,15 @@ func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts
 		defer rows.Close()
 		for rows.Next() {
 			var seen bool
-			var stability float64
+			var stability, age float64
 			var lr sql.NullString
 			var lastResult string
-			if err := rows.Scan(&seen, &stability, &lr, &lastResult); err != nil {
+			if err := rows.Scan(&seen, &stability, &lr, &lastResult, &age); err != nil {
 				olog.Warnf(olog.CodeReviewRowScan, "[review] status count row scan failed: %v", err)
 				continue
 			}
 			c.Total++
-			switch recallStatus(seen, stability, elapsedDays(lr), lastResult) {
+			switch recallStatus(seen, stability, elapsedDays(lr), age, lastResult) {
 			case "unseen":
 				c.Unseen++
 			case "remembered":

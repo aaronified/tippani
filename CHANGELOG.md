@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-07-22
+
+### Added
+- **GitHub-style activity calendar on Stats.** A year of saves as one dot per
+  day, one column per week, only the months labelled on the x-axis — sequential
+  accent shading by count, horizontal scroll (opened at today) on phones.
+  `GET /stats` now returns `daily_activity` (per-day counts, last ~53 weeks)
+  and drops `monthly_activity` with the old 12-month bars.
+- **Memory card on Stats.** Where the whole library stands on the forgetting
+  curve: a tile per recall status, how many quotes are in the review rotation,
+  and their average half-life (`recall` in `GET /stats`).
+- **Breakdown card on Stats.** The People card grew a full dimension dropdown —
+  **Authors / Books / Series / Films / Shows / Directors / Actors**. Each kind
+  shows its entity count and per-entity **works · quotes · recall statuses**
+  (stacked status bar + spelled-out counts), headlined by the **best
+  remembered** and **most forgotten** entity of that kind. Author/director/actor
+  tallies run **after multi-author credit splitting** (§11), so "Gaiman &
+  Pratchett" counts each author. Replaces the flat `authors`/`actors`/
+  `directors` counts and `top_authors`/`top_actors`/`top_directors` in
+  `GET /stats` (`breakdown`).
+
+### Changed
+- **Longer memory half-life + a grace week for new quotes.** The half-life
+  floor (and unseen-card default) rises from 1 day to **7 days**, and due-ness
+  applies the floor to stored stabilities. A quote is **"remembered" for its
+  first week** after being saved — it doesn't enter the Daily Quiz until the
+  week is up (a recorded lapse still wins over the grace week).
+- **Adding annotations/dialogues is always a pop-up.** The add form opens in
+  the standard form modal on every device — a full-screen sheet on phones —
+  and the inline dashed tile is gone; the omnipresent ＋ buttons are the entry.
+- **Search moved out of the nav tabs on desktop.** It sits as an icon-only
+  button in the ＋ Add pill's accent texture, between ＋ Add and the user chip —
+  the way the phone top bar already works.
+
+### Fixed
+- **Stats nav icon** reads as outlined rectangular bars so it carries the same
+  visual mass as the neighbouring glyphs.
+- **Search tiles pack like every other board.** Result cards deal onto the
+  shortest column (shared masonry, relevance order kept) instead of CSS
+  columns, which could leave the last hit stacked on the longer column.
+- **New tags can be created from the add/edit forms reliably.** Tag text typed
+  without pressing Enter now commits when focus leaves the field instead of
+  silently vanishing on save. (Unknown tag names were already auto-created
+  with the default colour and style — editable later on the Tags page — both
+  from forms and from imports.)
+
 ## [0.8.5] - 2026-07-19
 
 ### Added

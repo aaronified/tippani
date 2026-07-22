@@ -226,9 +226,6 @@ type statsResp struct {
 	Dialogues     int       `json:"dialogues"`
 	Tags          int       `json:"tags"`
 	Favorites     int       `json:"favorites"`
-	Authors       int       `json:"authors"`
-	Actors        int       `json:"actors"`
-	Directors     int       `json:"directors"`
 	Genres        int       `json:"genres"`
 	MostAnnotated *statsTop `json:"most_annotated"`
 	MostQuoted    *statsTop `json:"most_quoted"`
@@ -236,16 +233,19 @@ type statsResp struct {
 		Month string `json:"month"`
 		Count int    `json:"count"`
 	} `json:"busiest_month"`
-	Colors          map[string]int  `json:"colors"`
-	TopAuthors      []nameCountResp `json:"top_authors"`
-	TopActors       []nameCountResp `json:"top_actors"`
-	TopDirectors    []nameCountResp `json:"top_directors"`
-	TopTags         []nameCountResp `json:"top_tags"`
-	FirstSaved      *string         `json:"first_saved"`
-	MonthlyActivity []struct {
-		Month string `json:"month"`
+	Colors        map[string]int  `json:"colors"`
+	TopTags       []nameCountResp `json:"top_tags"`
+	FirstSaved    *string         `json:"first_saved"`
+	DailyActivity []struct {
+		Date  string `json:"date"`
 		Count int    `json:"count"`
-	} `json:"monthly_activity"`
+	} `json:"daily_activity"`
+	Recall struct {
+		States      statusCounts `json:"states"`
+		Reviewed    int          `json:"reviewed"`
+		AvgHalfLife float64     `json:"avg_half_life"`
+	} `json:"recall"`
+	Breakdown map[string]statsKind `json:"breakdown"`
 }
 
 func TestStats(t *testing.T) {
@@ -260,55 +260,82 @@ func TestStats(t *testing.T) {
 		t.Fatalf("empty stats: %+v", empty)
 	}
 
-	// Seed: 2 authored books (2 + 1 annotations), 1 movie with 2 dialogues,
-	// 1 favorite annotation + 1 favorite dialogue, 2 distinct tags, a blue
-	// highlight.
+	// Seed: 3 authored books (2 + 1 + 1 annotations, one book co-authored so the
+	// breakdown must split the credit), 1 movie with 2 dialogues, 1 favorite
+	// annotation + 1 favorite dialogue, 2 distinct tags, a blue highlight.
 	b1 := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Herbert"}, http.StatusCreated))
 	b2 := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Austen"}, http.StatusCreated))
+	b3 := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Good Omens", "author": "Gaiman & Pratchett"}, http.StatusCreated))
 	c.mustDo("POST", "/annotations", map[string]any{
 		"book_id": b1.ID, "quote": "q1", "tags": []string{"alpha", "beta"}, "favorite": true, "color": "blue"}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": b1.ID, "quote": "q2"}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": b2.ID, "quote": "q3"}, http.StatusCreated)
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": b3.ID, "quote": "q4"}, http.StatusCreated)
 	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca", "director": "Curtiz"}, http.StatusCreated))
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": m.ID, "quote": "d1", "actor": "Bogart", "tags": []string{"alpha"}, "favorite": true}, http.StatusCreated)
 	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": m.ID, "quote": "d2", "actor": "Bergman"}, http.StatusCreated)
 
 	got := decode[statsResp](t, c.mustDo("GET", "/stats", nil, 200))
-	if got.Books != 2 || got.Annotations != 3 || got.Movies != 1 || got.Dialogues != 2 ||
+	if got.Books != 3 || got.Annotations != 4 || got.Movies != 1 || got.Dialogues != 2 ||
 		got.Tags != 2 || got.Favorites != 2 {
 		t.Fatalf("counts: %+v", got)
 	}
-	if got.Authors != 2 || got.Genres != 0 {
-		t.Fatalf("authors/genres: %+v", got)
+	if got.Genres != 0 {
+		t.Fatalf("genres: %+v", got)
 	}
-	// People: 2 authors, 2 distinct actors (Bogart/Bergman), 1 director (Curtiz).
-	if got.Actors != 2 || got.Directors != 1 {
-		t.Fatalf("actors/directors: %+v", got)
+	// Breakdown people: the joined "Gaiman & Pratchett" credit lists as two
+	// authors (multi-author separation), so 4 authors; Herbert leads on quotes.
+	authors := got.Breakdown["authors"]
+	if authors.Count != 4 || len(authors.Top) != 4 {
+		t.Fatalf("breakdown authors: %+v", authors)
 	}
-	if len(got.TopActors) != 2 || got.TopActors[0].Name != "Bergman" || got.TopActors[1].Name != "Bogart" {
-		t.Fatalf("top_actors: %+v", got.TopActors)
+	if authors.Top[0].Name != "Herbert" || authors.Top[0].Quotes != 2 || authors.Top[0].Works != 1 {
+		t.Fatalf("breakdown top author: %+v", authors.Top)
 	}
-	if len(got.TopDirectors) != 1 || got.TopDirectors[0].Name != "Curtiz" || got.TopDirectors[0].Count != 1 {
-		t.Fatalf("top_directors: %+v", got.TopDirectors)
+	names := map[string]bool{}
+	for _, r := range authors.Top {
+		names[r.Name] = true
 	}
-	// Highlight colours: q1 blue, q2 + q3 default yellow.
-	if got.Colors["yellow"] != 2 || got.Colors["blue"] != 1 || got.Colors["pink"] != 0 || got.Colors["orange"] != 0 {
+	if !names["Gaiman"] || !names["Pratchett"] || names["Gaiman & Pratchett"] {
+		t.Fatalf("joined credit not split: %+v", authors.Top)
+	}
+	// Every quote was saved seconds ago — the new-item grace week reads them
+	// all as remembered.
+	if authors.Top[0].Remembered != 2 || authors.Top[0].Unseen != 0 {
+		t.Fatalf("grace-week statuses: %+v", authors.Top[0])
+	}
+	actors := got.Breakdown["actors"]
+	if actors.Count != 2 || actors.Top[0].Name != "Bergman" || actors.Top[1].Name != "Bogart" {
+		t.Fatalf("breakdown actors: %+v", actors)
+	}
+	directors := got.Breakdown["directors"]
+	if directors.Count != 1 || directors.Top[0].Name != "Curtiz" || directors.Top[0].Works != 1 || directors.Top[0].Quotes != 2 {
+		t.Fatalf("breakdown directors: %+v", directors)
+	}
+	if got.Breakdown["books"].Count != 3 || got.Breakdown["books"].Top[0].Name != "Dune" ||
+		got.Breakdown["films"].Count != 1 || got.Breakdown["shows"].Count != 0 || got.Breakdown["series"].Count != 0 {
+		t.Fatalf("breakdown works: books=%+v films=%+v", got.Breakdown["books"], got.Breakdown["films"])
+	}
+	// Recall overview: 6 quotes, all inside the grace week, none reviewed yet.
+	if got.Recall.States.Total != 6 || got.Recall.States.Remembered != 6 || got.Recall.Reviewed != 0 {
+		t.Fatalf("recall: %+v", got.Recall)
+	}
+	// Highlight colours: q1 blue, q2–q4 default yellow.
+	if got.Colors["yellow"] != 3 || got.Colors["blue"] != 1 || got.Colors["pink"] != 0 || got.Colors["orange"] != 0 {
 		t.Fatalf("colors: %+v", got.Colors)
 	}
-	// Top tags: alpha on q1 + d1 = 2, beta on q1 = 1. Top authors tie 1-1, A→H.
+	// Top tags: alpha on q1 + d1 = 2, beta on q1 = 1.
 	if len(got.TopTags) != 2 || got.TopTags[0].Name != "alpha" || got.TopTags[0].Count != 2 ||
 		got.TopTags[1].Name != "beta" || got.TopTags[1].Count != 1 {
 		t.Fatalf("top_tags: %+v", got.TopTags)
 	}
-	if len(got.TopAuthors) != 2 || got.TopAuthors[0].Name != "Austen" || got.TopAuthors[1].Name != "Herbert" {
-		t.Fatalf("top_authors: %+v", got.TopAuthors)
-	}
 	if got.FirstSaved == nil || *got.FirstSaved == "" {
 		t.Fatalf("first_saved: %v", got.FirstSaved)
 	}
-	if len(got.MonthlyActivity) != 12 || got.MonthlyActivity[11].Count != 5 {
-		t.Fatalf("monthly_activity: %+v", got.MonthlyActivity)
+	// Daily activity: everything saved today, one bucket of 6.
+	if len(got.DailyActivity) != 1 || got.DailyActivity[0].Count != 6 {
+		t.Fatalf("daily_activity: %+v", got.DailyActivity)
 	}
 	if got.MostAnnotated == nil || got.MostAnnotated.ID != b1.ID ||
 		got.MostAnnotated.Title != "Dune" || got.MostAnnotated.Count != 2 {
@@ -321,8 +348,8 @@ func TestStats(t *testing.T) {
 	if err := srv.Store.DB.QueryRow(`SELECT strftime('%Y-%m', 'now')`).Scan(&month); err != nil {
 		t.Fatal(err)
 	}
-	if got.BusiestMonth == nil || got.BusiestMonth.Month != month || got.BusiestMonth.Count != 5 {
-		t.Fatalf("busiest_month: %+v (want %s/5)", got.BusiestMonth, month)
+	if got.BusiestMonth == nil || got.BusiestMonth.Month != month || got.BusiestMonth.Count != 6 {
+		t.Fatalf("busiest_month: %+v (want %s/6)", got.BusiestMonth, month)
 	}
 
 	// Stats are user-scoped.

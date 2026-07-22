@@ -770,12 +770,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
     if (mobileAddOpen) { setAdding(true); onMobileAddOpen?.(false); }
   }, [mobileAddOpen])
 
-  // The add form sits at the top of the section; when it opens while the strip
-  // is scrolled (the sticky-bar ＋ on mobile), bring it into view.
-  const addRef = useRef(null)
-  useEffect(() => {
-    if (adding && addRef.current) addRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [adding])
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
   const [sort, setSort] = useState({ col: 'timestamp', dir: 'asc' })
@@ -960,38 +954,28 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
 
       <ErrorText>{error}</ErrorText>
 
-      {/* Add-dialogue leads the section (collapsed to a slim dashed tile) so
-          capturing a line never requires scrolling past the whole strip. */}
-      <div ref={addRef}>
-        {adding ? (
-          <HandCard variant={2} className="p-5">
-            <DialogueForm
-              onSubmit={add}
-              onCancel={() => setAdding(false)}
-              submitLabel="Add dialogue"
-              cast={cast}
-              actorMap={actorMap}
-              tagSuggestions={Object.keys(tagMap)}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-            />
-          </HandCard>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3"
-            style={{ background: 'transparent', border: '1.6px dashed var(--ink-border)', borderRadius: 12, minHeight: 56 }}
-          >
-            <span style={{ color: 'var(--accent-ui)', fontWeight: 600, fontSize: 14.5 }}>＋ Add dialogue</span>
-            <span className="microcopy">pick the character(s) from the cast · actors auto-fill · timestamp HH:MM:SS</span>
-          </button>
-        )}
-      </div>
+      {/* Adding always opens in the standard pop-up form (a full-screen sheet
+          on phones) — no inline tile; the ＋ buttons up top are omnipresent. */}
+      <FormModal open={adding} onClose={() => setAdding(false)} title="Add dialogue">
+        <DialogueForm
+          onSubmit={async (fields) => {
+            const err = await add(fields)
+            if (!err) setAdding(false)
+            return err
+          }}
+          onCancel={() => setAdding(false)}
+          submitLabel="Add dialogue"
+          cast={cast}
+          actorMap={actorMap}
+          tagSuggestions={Object.keys(tagMap)}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
+        />
+      </FormModal>
 
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — capture the first line above.'}
+          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — hit ＋ up top to capture the first line.'}
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'tiles' && (

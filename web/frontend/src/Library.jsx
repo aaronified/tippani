@@ -917,8 +917,9 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
   )
 }
 
-// Annotations is the per-book annotation section: filter row, hand-drawn
-// cards, and the dashed ＋ Add annotation tile (§8.5).
+// Annotations is the per-book annotation section: filter row and hand-drawn
+// cards (§8.5). Adding opens in the standard pop-up form (FormModal) — the
+// sticky-bar ＋ on phones; the omnipresent top-bar ＋ Add elsewhere.
 // pinToTop floats just-added annotations to the front of whatever order the
 // view is currently in, preserving pinnedIds' order (most-recent add first) and
 // leaving the rest untouched. Ids that aren't present (filtered out, or a stale
@@ -959,13 +960,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
   useEffect(() => {
     if (mobileAddOpen) { setAddOpen(true); onMobileAddOpen?.(false); }
   }, [mobileAddOpen])
-
-  // The add form sits at the top of the section; when it opens while the list
-  // is scrolled (the sticky-bar ＋ on mobile), bring it into view.
-  const addRef = useRef(null)
-  useEffect(() => {
-    if (addOpen && addRef.current) addRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [addOpen])
 
   const { stickers, reload: reloadStickers } = useStickers()
   const filtering = Boolean(color || tag || fav)
@@ -1205,41 +1199,26 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
 
       <ErrorText>{error}</ErrorText>
 
-      {/* Add-annotation leads the section (collapsed to a slim dashed tile) so
-          starting a note never requires scrolling past the whole list. */}
-      <div ref={addRef}>
-        {addOpen ? (
-          <HandCard variant={1} className="px-5 py-4">
-            <AnnotationForm
-              onSubmit={async (fields) => {
-                const err = await add(fields)
-                if (!err) setAddOpen(false)
-                return err
-              }}
-              onCancel={() => setAddOpen(false)}
-              submitLabel="Add annotation"
-              tagSuggestions={Object.keys(tagMap)}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-            />
-          </HandCard>
-        ) : (
-          <button
-            className="w-full text-center"
-            style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 12, padding: '16px 18px', background: 'transparent' }}
-            onClick={() => setAddOpen(true)}
-          >
-            <span className="font-semibold" style={{ color: 'var(--accent-ui)' }}>
-              ＋ Add annotation
-            </span>
-            <span className="microcopy ml-3">quote · note · colour · tags · chapter · location</span>
-          </button>
-        )}
-      </div>
+      {/* Adding always opens in the standard pop-up form (a full-screen sheet
+          on phones) — no inline tile; the ＋ buttons up top are omnipresent. */}
+      <FormModal open={addOpen} onClose={() => setAddOpen(false)} title="Add annotation">
+        <AnnotationForm
+          onSubmit={async (fields) => {
+            const err = await add(fields)
+            if (!err) setAddOpen(false)
+            return err
+          }}
+          onCancel={() => setAddOpen(false)}
+          submitLabel="Add annotation"
+          tagSuggestions={Object.keys(tagMap)}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
+        />
+      </FormModal>
 
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'no annotations match the filters' : 'no annotations yet — add your first above'}
+          {filtering ? 'no annotations match the filters' : 'no annotations yet — hit ＋ up top to add your first'}
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'table' && (
