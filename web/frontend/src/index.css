@@ -2126,6 +2126,24 @@ html[data-theme="dark"] .mobile-topbar {
 .share-format-scroll { scrollbar-width: none; }
 .share-format-scroll::-webkit-scrollbar { display: none; }
 
+/* ---- Stats activity calendar dots (StatsPage.jsx) ---- */
+/* A dot with saves is a button that jumps to that day's additions on the
+   Search page; hovering (or keyboard focus) lifts and rings it so the link
+   affordance is visible before the pointer commits. */
+.cal-dot {
+  display: block;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.cal-dot:hover,
+.cal-dot:focus-visible {
+  transform: scale(1.4);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-ui) 55%, transparent);
+  outline: none;
+}
+
 /* ---- mobile sticky page bars (§7) ---- */
 /* With the topbar hidden on mobile, this bar IS the top of the page — it needs
    a solid backing (not transparent) so scrolled-under content doesn't show

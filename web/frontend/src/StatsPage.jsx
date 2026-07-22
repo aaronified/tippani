@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { json } from './api.js'
+import { coverImgURL, json } from './api.js'
+import { PersonPortrait, usePeople } from './people.jsx'
 import { Card, MonoLabel, PageHeader, STATUS_META, fmtHalfLife, useIsMobileScreen } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
@@ -9,6 +10,8 @@ import { Card, MonoLabel, PageHeader, STATUS_META, fmtHalfLife, useIsMobileScree
 // calendar is single-hue sequential (accent mixed over the line colour, GitHub
 // style), recall uses the reserved status palette (--ok/--amber/--error) and
 // every status count carries its text label so identity is never colour alone.
+// Everything named is a doorway: activity dots, breakdown rows, superlative
+// tiles and top tags all click through to the Search page (`onSearch`).
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -92,7 +95,9 @@ function calFill(count, max) {
 // ActivityCalendar — a year of saves, GitHub style: one dot per day, one
 // column per week (Sunday-first), only the months labelled along the x axis.
 // Scrolls horizontally on narrow screens, opened at the most recent week.
-function ActivityCalendar({ data }) {
+// A day with saves is a button: hover highlights it (.cal-dot) and clicking
+// opens that day's additions on the Search page (date-added facet).
+function ActivityCalendar({ data, onSearch }) {
   const scroller = useRef(null)
   useEffect(() => {
     const el = scroller.current
@@ -144,17 +149,25 @@ function ActivityCalendar({ data }) {
           <div style={{ display: 'flex', gap: GAP }}>
             {weeks.map((days, wi) => (
               <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-                {days.map((d, di) =>
-                  d === null ? (
-                    <span key={di} style={{ width: DOT, height: DOT }} aria-hidden="true" />
-                  ) : (
-                    <span
+                {days.map((d, di) => {
+                  if (d === null) return <span key={di} style={{ width: DOT, height: DOT }} aria-hidden="true" />
+                  const label = `${d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}: ${d.count} saved`
+                  const dot = { width: DOT, height: DOT, borderRadius: 999, background: calFill(d.count, max), flex: '0 0 auto' }
+                  // Only days with saves are doorways; quiet days stay plain dots.
+                  return d.count > 0 ? (
+                    <button
                       key={di}
-                      title={`${d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}: ${d.count} saved`}
-                      style={{ width: DOT, height: DOT, borderRadius: 999, background: calFill(d.count, max), flex: '0 0 auto' }}
+                      type="button"
+                      className="cal-dot"
+                      title={`${label} — view in search`}
+                      aria-label={`${label} — view in search`}
+                      onClick={() => onSearch?.(localISO(d.date))}
+                      style={dot}
                     />
-                  ),
-                )}
+                  ) : (
+                    <span key={di} title={label} style={dot} />
+                  )
+                })}
               </div>
             ))}
           </div>
@@ -210,15 +223,17 @@ function MemoryCard({ recall }) {
 
 // The kinds the Breakdown dropdown switches between. `works` marks the kinds
 // where an entity spans several works (an author's books, a series' volumes) —
-// single-work kinds (a book is one work) skip the redundant count.
+// single-work kinds (a book is one work) skip the redundant count. `art` kinds
+// carry a cover/poster thumb (rows send cover_path); `person` kinds wear the
+// People-console portrait chip for that credit kind.
 const BREAKDOWN_KINDS = [
-  { key: 'authors', label: 'Authors', works: true },
-  { key: 'books', label: 'Books', works: false },
+  { key: 'authors', label: 'Authors', works: true, person: 'author' },
+  { key: 'books', label: 'Books', works: false, art: true },
   { key: 'series', label: 'Series', works: true },
-  { key: 'films', label: 'Films', works: false },
-  { key: 'shows', label: 'Shows', works: false },
-  { key: 'directors', label: 'Directors', works: true },
-  { key: 'actors', label: 'Actors', works: true },
+  { key: 'films', label: 'Films', works: false, art: true },
+  { key: 'shows', label: 'Shows', works: false, art: true },
+  { key: 'directors', label: 'Directors', works: true, person: 'director' },
+  { key: 'actors', label: 'Actors', works: true, person: 'actor' },
 ]
 
 // The status segments of a breakdown row, in curve order.
@@ -229,19 +244,44 @@ const ROW_SEGS = [
   ['unseen', (r) => r.unseen],
 ]
 
-// BreakdownRow — rank · name · quote count, a stacked status bar (proportions),
-// and a mono sub-line spelling every non-zero status out (never colour alone).
-function BreakdownRow({ r, rank, showWorks }) {
+// BreakdownRow — rank · art (cover thumb or portrait chip) · name · quote
+// count, a stacked status bar (proportions), and a mono sub-line spelling
+// every non-zero status out (never colour alone). The name is a doorway: it
+// opens that entity on the Search page.
+function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
   const segs = ROW_SEGS.map(([key, of]) => [key, of(r)]).filter(([, n]) => n > 0)
   const barTip = segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')
+  const portrait = personMap ? personMap[r.name] : null
   return (
     <div className="flex gap-2" title={`#${rank} ${r.name}: ${r.quotes} quotes`}>
       <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
         {rank}
       </span>
+      {/* Art column: cover/poster for work kinds, portrait for people kinds —
+          rendered only when there's an image, so bare rows stay dense. */}
+      {art && r.cover_path && (
+        <img
+          src={coverImgURL(r.cover_path)}
+          alt=""
+          style={{ width: 22, height: 33, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ink-border)', flex: '0 0 auto' }}
+        />
+      )}
+      {portrait && (
+        <span style={{ flex: '0 0 auto', paddingTop: 1 }}>
+          <PersonPortrait person={portrait} size={24} />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+          <button
+            type="button"
+            className="truncate text-left"
+            title={`search “${r.name}”`}
+            style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+            onClick={() => onSearch?.(r.name)}
+          >
+            {r.name}
+          </button>
           <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
         </div>
         {segs.length > 0 && (
@@ -265,8 +305,9 @@ function BreakdownRow({ r, rank, showWorks }) {
 // (authors · books · series · films · shows · directors · actors); each shows
 // its work/quote counts and where those quotes sit on the forgetting curve,
 // headlined by the best-remembered and most-forgotten entity of that kind.
-// Joined credits ("Gaiman & Pratchett") are split server-side (§11).
-function BreakdownCard({ breakdown }) {
+// Joined credits ("Gaiman & Pratchett") are split server-side (§11). Rows wear
+// cover thumbs / portrait chips and click through to Search.
+function BreakdownCard({ breakdown, personMaps, onSearch }) {
   const [kind, setKind] = useState('authors')
   const meta = BREAKDOWN_KINDS.find((m) => m.key === kind) || BREAKDOWN_KINDS[0]
   const k = breakdown?.[kind] || { count: 0, top: [] }
@@ -297,7 +338,17 @@ function BreakdownCard({ breakdown }) {
         // Ranked, and ~10 rows tall — the rest scrolls (the server sends up
         // to 50 per kind).
         <div className="space-y-3" style={{ maxHeight: 560, overflowY: 'auto', paddingRight: 6 }}>
-          {k.top.map((r, i) => <BreakdownRow key={r.name + i} r={r} rank={i + 1} showWorks={meta.works} />)}
+          {k.top.map((r, i) => (
+            <BreakdownRow
+              key={r.name + i}
+              r={r}
+              rank={i + 1}
+              showWorks={meta.works}
+              art={meta.art}
+              personMap={meta.person ? personMaps?.[meta.person] : null}
+              onSearch={onSearch}
+            />
+          ))}
         </div>
       )}
     </Card>
@@ -346,8 +397,9 @@ function Colors({ colors }) {
 }
 
 // LeaderList — ranked rows (rank · name · value · accent bar) used by Top
-// tags: ~5 rows tall, the rest scrolls (the server sends up to 50).
-function LeaderList({ rows }) {
+// tags: ~5 rows tall, the rest scrolls (the server sends up to 50). Names
+// click through to Search.
+function LeaderList({ rows, onSearch }) {
   if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
   const max = Math.max(1, ...rows.map((r) => r.count))
   return (
@@ -359,7 +411,15 @@ function LeaderList({ rows }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+              <button
+                type="button"
+                className="truncate text-left"
+                title={`search “${r.name}”`}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                onClick={() => onSearch?.(r.name)}
+              >
+                {r.name}
+              </button>
               <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
             </div>
             <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
@@ -373,46 +433,71 @@ function LeaderList({ rows }) {
 }
 
 // TopList — a labelled leaderboard card (Top tags).
-function TopList({ label, rows }) {
+function TopList({ label, rows, onSearch }) {
   return (
     <Card>
       <SectionHead label={label} />
-      <LeaderList rows={rows} />
+      <LeaderList rows={rows} onSearch={onSearch} />
     </Card>
   )
 }
 
 // SuperTile — a superlative as a compact tile (the same raised-chip tiling the
-// Overview and Memory grids use): truncated headline · accent count · label.
-function SuperTile({ label, title, count, amber }) {
+// Overview and Memory grids use): cover thumb · truncated headline · accent
+// count · label. With `onOpen` the headline is a doorway (→ Search).
+function SuperTile({ label, title, count, amber, cover, onOpen }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', minWidth: 0 }}>
-      <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
-        <span
-          title={title || undefined}
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          {title || '—'}
-        </span>
-        {count != null && (
-          <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: 12, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
-            {count}
-          </span>
+      <div className="flex items-center gap-2.5" style={{ minWidth: 0 }}>
+        {cover && (
+          <img
+            src={coverImgURL(cover)}
+            alt=""
+            style={{ width: 26, height: 39, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ink-border)', flex: '0 0 auto' }}
+          />
         )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
+            {title && onOpen ? (
+              <button
+                type="button"
+                className="truncate text-left"
+                title={`search “${title}”`}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                onClick={onOpen}
+              >
+                {title}
+              </button>
+            ) : (
+              <span
+                title={title || undefined}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {title || '—'}
+              </span>
+            )}
+            {count != null && (
+              <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: 12, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
+                {count}
+              </span>
+            )}
+          </div>
+          <MonoLabel className="mt-1.5 block">{label}</MonoLabel>
+        </div>
       </div>
-      <MonoLabel className="mt-1.5 block">{label}</MonoLabel>
     </div>
   )
 }
 
-function Superlatives({ s }) {
+function Superlatives({ s, onSearch }) {
   const since = s.first_saved ? new Date(s.first_saved + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' }) : null
+  const open = (title) => (title && onSearch ? () => onSearch(title) : undefined)
   return (
     <Card>
       <SectionHead label="Superlatives" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-        <SuperTile label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} />
-        <SuperTile label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} />
+        <SuperTile label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
+        <SuperTile label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
         <SuperTile label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
         <SuperTile label="Collecting since" title={since} />
       </div>
@@ -420,9 +505,14 @@ function Superlatives({ s }) {
   )
 }
 
-export default function StatsPage() {
+export default function StatsPage({ onSearch }) {
   const [s, setS] = useState(null)
   const mobile = useIsMobileScreen()
+  // People-console portraits for the person breakdown kinds' chips.
+  const authors = usePeople('author')
+  const directors = usePeople('director')
+  const actors = usePeople('actor')
+  const personMaps = { author: authors.map, director: directors.map, actor: actors.map }
   useEffect(() => {
     json('GET', '/stats').then((r) => {
       if (r.ok) setS(r.data)
@@ -439,17 +529,17 @@ export default function StatsPage() {
       ) : (
         <div className="space-y-6">
           <Overview s={s} />
-          <ActivityCalendar data={s.daily_activity} />
+          <ActivityCalendar data={s.daily_activity} onSearch={onSearch} />
           <MemoryCard recall={s.recall} />
           {/* Superlatives as one row of tiles (they used to pad out half a
               column beside the tall Breakdown); Colours + Top tags stack in
               the Breakdown's second column instead. */}
-          <Superlatives s={s} />
+          <Superlatives s={s} onSearch={onSearch} />
           <div style={twoCol}>
-            <BreakdownCard breakdown={s.breakdown} />
+            <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} onSearch={onSearch} />
             <div className="space-y-6">
               <Colors colors={s.colors} />
-              <TopList label="Top tags" rows={s.top_tags} />
+              <TopList label="Top tags" rows={s.top_tags} onSearch={onSearch} />
             </div>
           </div>
         </div>

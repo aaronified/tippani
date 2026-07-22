@@ -13,11 +13,13 @@ import (
 )
 
 // statsTop is a "most annotated/quoted" superlative (null when the user has
-// no annotations/dialogues yet).
+// no annotations/dialogues yet). CoverPath carries the cover/poster art for
+// the Stats tile.
 type statsTop struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-	Count int    `json:"count"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	CoverPath string `json:"cover_path"`
+	Count     int    `json:"count"`
 }
 
 // ---- recall breakdown (Stats page People/works card) ----
@@ -25,7 +27,11 @@ type statsTop struct {
 // recallTally is one entity row in the per-kind breakdown: how many works and
 // quotes it accounts for, and where those quotes sit on the forgetting curve.
 type recallTally struct {
-	Name              string `json:"name"`
+	Name string `json:"name"`
+	// CoverPath is the cover/poster of the entity's (first) work — set for the
+	// work kinds (books · films · shows), empty for people/series (people art
+	// comes from the People console client-side).
+	CoverPath         string `json:"cover_path,omitempty"`
 	Works             int    `json:"works"`
 	Quotes            int    `json:"quotes"`
 	Remembered        int    `json:"remembered"`
@@ -146,24 +152,26 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 
 	// Books: register every shelved work, then walk the annotations.
 	type bookRef struct {
-		title, author, series string
+		title, author, series, cover string
 	}
 	bookRefs := map[int64]bookRef{}
 	rows, err := s.Store.DB.Query(
-		`SELECT id, title, COALESCE(author,''), COALESCE(series,'') FROM books WHERE user_id = ?`, uid)
+		`SELECT id, title, COALESCE(author,''), COALESCE(series,''), COALESCE(cover_path,'') FROM books WHERE user_id = ?`, uid)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var id int64
 		var br bookRef
-		if err := rows.Scan(&id, &br.title, &br.author, &br.series); err != nil {
+		if err := rows.Scan(&id, &br.title, &br.author, &br.series, &br.cover); err != nil {
 			olog.Warnf(olog.CodeStatsRowScan, "[stats] breakdown book row scan failed: %v", err)
 			continue
 		}
 		bookRefs[id] = br
 		key := "book:" + strconv.FormatInt(id, 10)
-		books.work(br.title, key)
+		if row := books.work(br.title, key); row != nil && row.CoverPath == "" {
+			row.CoverPath = br.cover
+		}
 		series.work(br.series, key)
 		for _, a := range metadata.SplitCredits(br.author, seps) {
 			authors.work(a, key)
@@ -211,18 +219,18 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 
 	// Screen: same two passes over movies and dialogues.
 	type movieRef struct {
-		title, mediaType, director, series string
+		title, mediaType, director, series, poster string
 	}
 	movieRefs := map[int64]movieRef{}
 	rows, err = s.Store.DB.Query(
-		`SELECT id, title, COALESCE(media_type,'movie'), COALESCE(director,''), COALESCE(series,'') FROM movies WHERE user_id = ?`, uid)
+		`SELECT id, title, COALESCE(media_type,'movie'), COALESCE(director,''), COALESCE(series,''), COALESCE(poster_path,'') FROM movies WHERE user_id = ?`, uid)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var id int64
 		var mr movieRef
-		if err := rows.Scan(&id, &mr.title, &mr.mediaType, &mr.director, &mr.series); err != nil {
+		if err := rows.Scan(&id, &mr.title, &mr.mediaType, &mr.director, &mr.series, &mr.poster); err != nil {
 			olog.Warnf(olog.CodeStatsRowScan, "[stats] breakdown movie row scan failed: %v", err)
 			continue
 		}
@@ -232,7 +240,9 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		if mr.mediaType == "show" {
 			titles = shows
 		}
-		titles.work(mr.title, key)
+		if row := titles.work(mr.title, key); row != nil && row.CoverPath == "" {
+			row.CoverPath = mr.poster
+		}
 		series.work(mr.series, key)
 		for _, d := range metadata.SplitCredits(mr.director, seps) {
 			directors.work(d, key)
@@ -325,7 +335,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	topOf := func(query string) (*statsTop, error) {
 		var t statsTop
-		err := s.Store.DB.QueryRow(query, uid).Scan(&t.ID, &t.Title, &t.Count)
+		err := s.Store.DB.QueryRow(query, uid).Scan(&t.ID, &t.Title, &t.CoverPath, &t.Count)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -335,14 +345,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return &t, nil
 	}
 	mostAnnotated, err := topOf(`
-		SELECT b.id, b.title, count(*) FROM annotations a JOIN books b ON b.id = a.book_id
+		SELECT b.id, b.title, COALESCE(b.cover_path, ''), count(*) FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE b.user_id = ? GROUP BY b.id ORDER BY count(*) DESC, b.id LIMIT 1`)
 	if err != nil {
 		internalError(w, r, "load most annotated", err)
 		return
 	}
 	mostQuoted, err := topOf(`
-		SELECT m.id, m.title, count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		SELECT m.id, m.title, COALESCE(m.poster_path, ''), count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		WHERE m.user_id = ? GROUP BY m.id ORDER BY count(*) DESC, m.id LIMIT 1`)
 	if err != nil {
 		internalError(w, r, "load most quoted", err)
