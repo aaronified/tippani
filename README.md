@@ -85,9 +85,10 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / views / filters as books.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
-  (daily quiz · quick capture · stats · recent favourites) a logo-tap away, sticky page bars,
-  full-screen filter and capture sheets with a Reset · count · Done footer, 44 px touch targets,
-  and no horizontal scroll. The same binary serves desktop and phone; nothing to install.
+  (daily quiz · practice · stats · recent favourites) a logo-tap away, quote capture one ❝ tap away
+  in every top bar and the drawer, sticky page bars, full-screen filter sheets with a
+  Reset · count · Done footer, 44 px touch targets, and no horizontal scroll. The same binary
+  serves desktop and phone; nothing to install.
 - 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
   pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
 - 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected), Kindle
@@ -101,10 +102,13 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   as a **shareable image** in your current paper/film skin, generated locally. Choose which fields to
   include, tweak the text, and copy or download it — with a live preview.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, directors, genres,
-  **series**, quotes, notes, and dialogue (find a line by its text, its character, or its actor).
-  View as tiles, a list, or sortable tables; **group by** the same axes as the Library; **open any
-  quote in place** to share/edit/delete; **select results** for a bulk tag or field edit — and your
-  last search is remembered when you come back.
+  **series**, quotes, notes, tags, and dialogue (find a line by its text, its character, or its
+  actor). Results come back **sectioned by what matched** — books · movies · authors · directors ·
+  actors · annotations · dialogues · notes · tags · genres — plus a **decade** query ("1990s") and
+  a **date-added** query ("2026-07-14", where the Stats calendar dots link). View as tiles, a
+  list, or sortable tables; **group by** the same axes as the Library; **open any quote in place**
+  to share/edit/delete; **select results** for a bulk tag or field edit — and your last search is
+  remembered when you come back.
 - 🖼 **Metadata & covers** — books from Google Books + Open Library, films and shows from
   [TMDB](https://www.themoviedb.org/) + TheTVDB. Covers, posters and portraits are fetched at full
   resolution through an SSRF-guarded fetcher and served locally, never hotlinked. A **Metadata

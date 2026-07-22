@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-23
+
+### Added
+- **Search results are sectioned by what matched.** `GET /search` now facets
+  every hit: **Books / Movies** (title · series), **Annotations / Dialogues**
+  (quote · character), **Authors / Directors / Actors** (the credit columns,
+  each person heading their works or lines), **Notes** (margin-note matches),
+  **Tags** (matching tag names with the quotes wearing them) and **Genres**
+  (matching genre names with their works) — the Search page renders one
+  section per facet, only when it has hits. Two structured facets join them:
+  a **decade** query (`1990s`, `40s`) lists the works published/released
+  then, and a **date** query (`2026-07-14`, `14 July 2026`) lists everything
+  **added that day**. A query whose tokens span columns ("casab mich" —
+  title + director) still finds its work via a cross-column fallback pass,
+  and the zero-hit typo correction covers the new facets too. Dialogue
+  search hits now carry the margin `note`.
+- **Stats is clickable — and wears art.** Activity-calendar dots highlight
+  on hover and click through to that day's additions on the Search page
+  (the new date facet). Breakdown rows carry cover/poster thumbs (books ·
+  films · shows) or People-console portraits (authors · directors · actors),
+  and every breakdown name, top tag and superlative title clicks through to
+  Search. `GET /stats` sends `cover_path` on breakdown rows and on the
+  most-annotated / most-quoted superlatives.
+
+### Changed
+- **Capture quote is a tab of the ＋ Add surface — and left the Home screen.**
+  Picking "Capture quote" now swaps the bottom of the Add pop-up in place,
+  exactly like "Import files" — look up / add, capture and import rotate
+  freely inside one surface (no more closing into a separate pop-up). The
+  Home capture tile is gone; capture lives where adding lives: a **❝ pill
+  beside ＋ Add in the top bar (desktop and phone)** opens the surface
+  straight on the capture tab, and the phone drawer gained a **Capture
+  quote** row.
+- **The look-up card's manual path is push-button on failure.** "Add
+  manually" has always been one link away (press it to skip the lookup
+  entirely); now a failed or empty lookup also surfaces a real **"＋ Add
+  manually instead"** button, so the hand-entry escape hatch steps forward
+  exactly when the lookup lets you down.
+
 ## [0.9.0] - 2026-07-22
 
 ### Added
