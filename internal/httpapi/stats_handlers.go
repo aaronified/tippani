@@ -44,7 +44,9 @@ type statsKind struct {
 	MostForgotten  *recallTally   `json:"most_forgotten"`
 }
 
-const statsTopN = 8 // rows per breakdown kind
+// statsTopN — rows per breakdown kind. The card shows ~10 and scrolls for the
+// rest (ranked), so this is the scroll depth, not the visible height.
+const statsTopN = 50
 
 // tallyMap aggregates quotes into named entities (author, series, actor, …),
 // case-insensitively — first spelling wins, works counted as a distinct set.
@@ -477,7 +479,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		  SELECT dt.tag_id FROM dialogue_tags dt
 		    JOIN dialogues d ON d.id = dt.dialogue_id JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?
 		) u ON u.tag_id = t.id
-		GROUP BY t.id ORDER BY c DESC, t.name LIMIT 5`, uid, uid)
+		GROUP BY t.id ORDER BY c DESC, t.name LIMIT 50`, uid, uid)
 	if err != nil {
 		internalError(w, r, "top tags", err)
 		return

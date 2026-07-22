@@ -229,29 +229,34 @@ const ROW_SEGS = [
   ['unseen', (r) => r.unseen],
 ]
 
-// BreakdownRow — name · quote count, a stacked status bar (proportions), and a
-// mono sub-line spelling every non-zero status out (never colour alone).
-function BreakdownRow({ r, showWorks }) {
+// BreakdownRow — rank · name · quote count, a stacked status bar (proportions),
+// and a mono sub-line spelling every non-zero status out (never colour alone).
+function BreakdownRow({ r, rank, showWorks }) {
   const segs = ROW_SEGS.map(([key, of]) => [key, of(r)]).filter(([, n]) => n > 0)
   const barTip = segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')
   return (
-    <div title={`${r.name}: ${r.quotes} quotes`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-        <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
-      </div>
-      {segs.length > 0 && (
-        <div title={barTip} style={{ display: 'flex', gap: 2, height: 6, marginTop: 3 }}>
-          {segs.map(([key, n]) => (
-            <span key={key} style={{ flex: n, minWidth: 4, borderRadius: 999, background: STATUS_META[key].color }} />
-          ))}
+    <div className="flex gap-2" title={`#${rank} ${r.name}: ${r.quotes} quotes`}>
+      <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
+        {rank}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+          <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
         </div>
-      )}
-      <p className="mono-label" style={{ marginTop: 3, fontSize: 9.5, color: 'var(--faint)' }}>
-        {showWorks ? `${r.works} ${r.works === 1 ? 'work' : 'works'}` : ''}
-        {showWorks && segs.length > 0 ? ' · ' : ''}
-        {segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')}
-      </p>
+        {segs.length > 0 && (
+          <div title={barTip} style={{ display: 'flex', gap: 2, height: 6, marginTop: 3 }}>
+            {segs.map(([key, n]) => (
+              <span key={key} style={{ flex: n, minWidth: 4, borderRadius: 999, background: STATUS_META[key].color }} />
+            ))}
+          </div>
+        )}
+        <p className="mono-label" style={{ marginTop: 3, fontSize: 9.5, color: 'var(--faint)' }}>
+          {showWorks ? `${r.works} ${r.works === 1 ? 'work' : 'works'}` : ''}
+          {showWorks && segs.length > 0 ? ' · ' : ''}
+          {segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')}
+        </p>
+      </div>
     </div>
   )
 }
@@ -289,8 +294,10 @@ function BreakdownCard({ breakdown }) {
       {!k.top || k.top.length === 0 ? (
         <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
       ) : (
-        <div className="space-y-3">
-          {k.top.map((r, i) => <BreakdownRow key={r.name + i} r={r} showWorks={meta.works} />)}
+        // Ranked, and ~10 rows tall — the rest scrolls (the server sends up
+        // to 50 per kind).
+        <div className="space-y-3" style={{ maxHeight: 560, overflowY: 'auto', paddingRight: 6 }}>
+          {k.top.map((r, i) => <BreakdownRow key={r.name + i} r={r} rank={i + 1} showWorks={meta.works} />)}
         </div>
       )}
     </Card>
@@ -338,20 +345,26 @@ function Colors({ colors }) {
   )
 }
 
-// LeaderList — the ranked rows (name · value · accent bar) used by Top tags.
+// LeaderList — ranked rows (rank · name · value · accent bar) used by Top
+// tags: ~5 rows tall, the rest scrolls (the server sends up to 50).
 function LeaderList({ rows }) {
   if (!rows || rows.length === 0) return <p className="tp-empty" style={{ padding: '16px 0' }}>nothing yet</p>
   const max = Math.max(1, ...rows.map((r) => r.count))
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" style={{ maxHeight: 220, overflowY: 'auto', paddingRight: 6 }}>
       {rows.map((r, i) => (
-        <div key={r.name + i} title={`${r.name}: ${r.count}`}>
-          <div className="flex items-baseline justify-between gap-2">
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-            <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
-          </div>
-          <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
-            <div style={{ height: '100%', width: `${Math.round((100 * r.count) / max)}%`, background: 'var(--accent-ui)', borderRadius: 999 }} />
+        <div key={r.name + i} className="flex gap-2" title={`#${i + 1} ${r.name}: ${r.count}`}>
+          <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
+            {i + 1}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+              <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
+            </div>
+            <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
+              <div style={{ height: '100%', width: `${Math.round((100 * r.count) / max)}%`, background: 'var(--accent-ui)', borderRadius: 999 }} />
+            </div>
           </div>
         </div>
       ))}
@@ -369,18 +382,25 @@ function TopList({ label, rows }) {
   )
 }
 
-function StatRow({ label, title, count, amber }) {
+// SuperTile — a superlative as a compact tile (the same raised-chip tiling the
+// Overview and Memory grids use): truncated headline · accent count · label.
+function SuperTile({ label, title, count, amber }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <MonoLabel>{label}</MonoLabel>
-      <span className="text-right" style={{ fontSize: 14 }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{title || '—'}</span>
+    <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', minWidth: 0 }}>
+      <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
+        <span
+          title={title || undefined}
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {title || '—'}
+        </span>
         {count != null && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
-            {'  ·  '}{count}
+          <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: 12, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
+            {count}
           </span>
         )}
-      </span>
+      </div>
+      <MonoLabel className="mt-1.5 block">{label}</MonoLabel>
     </div>
   )
 }
@@ -390,11 +410,11 @@ function Superlatives({ s }) {
   return (
     <Card>
       <SectionHead label="Superlatives" />
-      <div>
-        <StatRow label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} />
-        <StatRow label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} />
-        <StatRow label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
-        <StatRow label="Collecting since" title={since} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+        <SuperTile label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} />
+        <SuperTile label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} />
+        <SuperTile label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
+        <SuperTile label="Collecting since" title={since} />
       </div>
     </Card>
   )
@@ -421,13 +441,16 @@ export default function StatsPage() {
           <Overview s={s} />
           <ActivityCalendar data={s.daily_activity} />
           <MemoryCard recall={s.recall} />
+          {/* Superlatives as one row of tiles (they used to pad out half a
+              column beside the tall Breakdown); Colours + Top tags stack in
+              the Breakdown's second column instead. */}
+          <Superlatives s={s} />
           <div style={twoCol}>
             <BreakdownCard breakdown={s.breakdown} />
-            <Superlatives s={s} />
-          </div>
-          <div style={twoCol}>
-            <Colors colors={s.colors} />
-            <TopList label="Top tags" rows={s.top_tags} />
+            <div className="space-y-6">
+              <Colors colors={s.colors} />
+              <TopList label="Top tags" rows={s.top_tags} />
+            </div>
           </div>
         </div>
       )}
