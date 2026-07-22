@@ -2054,6 +2054,16 @@ export function IconEdit() { return <svg {...iconStroke}><path d="M17 3l4 4L7 19
 export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
 export function IconPlus() { return <svg {...iconStroke}><path d="M12 5v14"/><path d="M5 12h14"/></svg> }
 export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
+// IconQuote — a filled quotation-mark pair (the top-bar / drawer capture
+// entry). Filled, not stroked: outlined quote marks read as the digits "66".
+export function IconQuote() {
+  return (
+    <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+      <path d="M6.2 16.5H9L10.9 12.6V6.9H5.1V12.6H8L6.2 16.5Z" />
+      <path d="M13.3 16.5H16.1L18 12.6V6.9H12.2V12.6H15.1L13.3 16.5Z" />
+    </svg>
+  )
+}
 export function IconGrid() { return <ViewIcon kind="tiles" /> }
 export function IconList() { return <ViewIcon kind="list" /> }
 export function IconTable() { return <ViewIcon kind="table" /> }

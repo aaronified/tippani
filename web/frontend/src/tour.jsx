@@ -55,17 +55,18 @@ const TOUR_STEPS = [
   {
     key: 'add',
     name: 'Add & import',
-    blurb: 'one ＋ pill adds books, films & shows, or bulk-imports highlights',
+    blurb: 'one ＋ pill adds books, films & shows, captures quotes, or bulk-imports highlights',
     title: 'One ＋ Add for everything',
     anchor: '[data-tour="add"]',
     body: (
       <>
-        The ＋ pill is the single way in: add a <b>book</b> by title, author or ISBN (covers and
-        metadata fetched for you), a <b>film or show</b> from TMDB/TheTVDB — or <b>bulk-import</b>{' '}
-        highlights: Markdown &amp; Readest exports, Kindle Bookcision &amp; your Kindle notebook,
-        Goodreads and Hardcover pages, IMDb quote pages. Re-imports are idempotent — syncing twice
-        never duplicates. No file needed today; a built-in sample quote rides along on the next
-        steps.
+        The ＋ pill is the single way in — one surface, three tabs you can rotate between: add a{' '}
+        <b>book</b> by title, author or ISBN (covers and metadata fetched for you), a <b>film or
+        show</b> from TMDB/TheTVDB; <b>capture a quote</b> against any work (the ❝ pill beside ＋
+        jumps straight there); or <b>bulk-import</b> highlights: Markdown &amp; Readest exports,
+        Kindle Bookcision &amp; your Kindle notebook, Goodreads and Hardcover pages, IMDb quote
+        pages. Re-imports are idempotent — syncing twice never duplicates. No file needed today; a
+        built-in sample quote rides along on the next steps.
       </>
     ),
   },
@@ -125,8 +126,8 @@ const TOUR_STEPS = [
         Home deals a short multiple-choice quiz over your own quotes, scheduled on the forgetting
         curve — each card resurfaces right as you&rsquo;d forget it, and every quote wears a status
         dot (remembered · forgetting · probably forgotten). <b>Practice</b> is the unlimited,
-        skippable twin that by default never moves the schedule. The capture tile saves a stray
-        quote in seconds. Two to three minutes a day; the knobs live in Settings.
+        skippable twin that by default never moves the schedule. A stray quote is one tap away —
+        the ❝ pill in the top bar. Two to three minutes a day; the knobs live in Settings.
       </>
     ),
   },
@@ -139,9 +140,11 @@ const TOUR_STEPS = [
     body: (
       <>
         Instant, <b>typo-tolerant</b> search across titles, authors, directors, genres, series,
-        quotes, notes and dialogue — find a line by its text, its character or its actor. Group
-        results like the Library, open a hit in place to share or edit, or select a set for a bulk
-        tag/field edit. Your last search is remembered.
+        quotes, notes, tags and dialogue — results arrive <b>sectioned by what matched</b>: books,
+        films, people, annotations, dialogues, notes, tags, genres, even a decade
+        (&ldquo;1990s&rdquo;) or a day (&ldquo;2026-07-14&rdquo;). Group results like the Library,
+        open a hit in place to share or edit, or select a set for a bulk tag/field edit. Your last
+        search is remembered.
       </>
     ),
   },
@@ -183,7 +186,9 @@ const TOUR_STEPS = [
     body: (
       <>
         A GitHub-style calendar of your captures, memory health straight from the quiz, and
-        breakdowns of the people and tags your library leans on.
+        breakdowns of the people and tags your library leans on — with covers and portraits.
+        Everything is a doorway: a calendar dot opens that day&rsquo;s additions in Search, and any
+        book, author, actor, director or tag clicks through the same way.
       </>
     ),
   },

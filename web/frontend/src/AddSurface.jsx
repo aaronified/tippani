@@ -1,15 +1,17 @@
 // AddSurface — the single "＋ Add" surface (§7 declutter, One "＋ Add"). One
-// modal with two tabs: "Look up / add" — a single card that looks up (or lets
-// you hand-enter) a Book, Film, or Show — and "Import files", the drag-drop
-// source cards. The Library and Catalogue "Add" buttons and the shell's top-bar
-// "＋ Add" all open this very surface, so there's one obvious way to add anything.
-import { useEffect, useState } from 'react'
+// modal with three tabs the user rotates freely between: "Look up / add" — a
+// single card that looks up (or lets you hand-enter) a Book, Film, or Show —
+// "Capture quote" — the quote/note capture form against any work — and
+// "Import files", the drag-drop source cards. The Library and Catalogue "Add"
+// buttons, the shell's top-bar "＋ Add" / ❝ pills and the drawer rows all open
+// this very surface, so there's one obvious way to add anything.
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { ManualTab, isIsbn, sourceLabel } from './Library.jsx'
 import { ManualMovie, sourceRef, candSource, DuplicateConfirm } from './Movies.jsx'
 import ImportPage from './ImportPage.jsx'
-import { EmptyState, ErrorText, GhostButton, HandCard, Placeholder, Toggle } from './ui.jsx'
+import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Placeholder, Toggle, toast } from './ui.jsx'
 
 // One card, three kinds. "Film" and "Show" both map to the movies flow (they
 // differ only by media_type); "Book" uses the books flow. Manual entry is no
@@ -30,11 +32,13 @@ export function workFromMovie(m) {
 // AddLookup — the canonical "look up / add a Book, Film or Show" card: a kind
 // toggle, a search that queries the metadata sources, a candidate list that
 // creates the work (with cover + genres + source pinning) on pick, and an "add
-// manually" popup escape hatch. Used standalone inside AddSurface AND embedded
-// in the capture sheet. `onAdded(what)` fires after any add; `onCreated(work)`
-// additionally hands back the normalised work so an embedder can target it.
-// `initialQuery` seeds (and, for books, auto-runs) the search; `hideManual`
-// drops the manual link where the host offers its own.
+// manually" escape hatch that's visible from the start (press it to skip the
+// lookup entirely) and steps forward when a lookup fails or finds nothing.
+// Used standalone inside AddSurface AND embedded in the capture form.
+// `onAdded(what)` fires after any add; `onCreated(work)` additionally hands
+// back the normalised work so an embedder can target it. `initialQuery` seeds
+// (and, for books, auto-runs) the search; `hideManual` drops the manual
+// affordances where the host offers its own.
 export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false }) {
   const [kind, setKind] = useState(initialKind === 'film' || initialKind === 'show' ? initialKind : 'book')
   const [q, setQ] = useState(initialQuery || '')
@@ -142,6 +146,9 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
   }
 
   const placeholder = isBook ? 'ISBN or title' : mediaType === 'show' ? 'Show title' : 'Film title'
+  // The lookup let the user down (failed, or found nothing) — step the manual
+  // path forward as a real button, not just the microcopy link below.
+  const lookupFailed = !confirm && (!!error || (candidates && candidates.length === 0))
 
   return (
     <div className="space-y-3">
@@ -216,9 +223,15 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
         </ul>
       )}
 
+      {/* Lookup failed or came back empty → a real "Add manually" button so the
+          hand-entry path is one obvious press away (not only the link below). */}
+      {!hideManual && lookupFailed && (
+        <GhostButton onClick={() => setManual(true)}>＋ Add manually instead</GhostButton>
+      )}
+
       {!hideManual && (
-        <button type="button" className="tp-link" onClick={() => setManual(true)}>
-          ＋ Can’t find it? Add manually
+        <button type="button" className="tp-link block" onClick={() => setManual(true)}>
+          ＋ Skip the lookup — add manually
         </button>
       )}
 
@@ -271,21 +284,327 @@ function ManualPopup({ kind, onClose, onAdded }) {
   )
 }
 
-// AddSurface renders when `open`. `initialSection` picks the tab/kind it opens
-// on ("book" / "film" → the look-up card on that kind, "import" → the file
-// import tab); the user can switch freely once it's open. `onAdded(what)` fires
-// after a book/film/show is added (what = 'book' | 'film'); the import flow
-// reports inline and leaves the surface open. `onOpenMovie`, when supplied, lets
-// an IMDb import jump straight to the new title (closing the surface first).
-// `onCaptureQuote` puts a "Capture quote" segment in the toggle that swaps this
-// surface for the QuickCapture sheet — the top ＋ must add annotations and
-// dialogues too, not just works (the capture sheet's WorkPicker targets any
-// book, film or show).
-export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptureQuote }) {
-  const [tab, setTab] = useState(initialSection === 'import' ? 'import' : 'add')
+// WorkPicker — the capture-target picker: type to filter across every book and
+// film/show in the library (rows carry a BOOK / FILM / SHOW tag), with a pinned
+// last row that quick-creates a new work from the typed title. Keyboard nav +
+// outside-click close follow TokenInput; the dropdown reuses its .token-menu
+// skin. A picked work renders as a chip with a "change" link.
+function WorkPicker({ works, value, onChange, onCreate }) {
+  const [text, setText] = useState('')
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(0)
+  const boxRef = useRef(null)
 
   useEffect(() => {
-    if (open) setTab(initialSection === 'import' ? 'import' : 'add')
+    if (!open) return
+    const close = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
+
+  const q = text.trim().toLowerCase()
+  const matches = (works || [])
+    .filter((w) => !q || w.title.toLowerCase().includes(q) || (w.sub || '').toLowerCase().includes(q))
+    .slice(0, 8)
+  const rows = matches.length + 1 // + the pinned create row
+
+  const pick = (w) => {
+    onChange(w)
+    setText('')
+    setOpen(false)
+  }
+  const create = () => {
+    onCreate(text.trim())
+    setText('')
+    setOpen(false)
+  }
+  function onKeyDown(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (!open) setOpen(true)
+      else setHi((h) => Math.min(h + 1, rows - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHi((h) => Math.max(h - 1, 0))
+    } else if (e.key === 'Enter') {
+      // Never let Enter submit an enclosing form/footer — it picks the row.
+      e.preventDefault()
+      if (!open) return
+      if (hi < matches.length) pick(matches[hi])
+      else create()
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  if (value) {
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <span className="font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 16 }}>{value.title}</span>
+        {value.sub && <span className="microcopy">{value.sub}</span>}
+        <span className="mono-label" style={{ fontSize: 9.5, color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
+          {value.tag}
+        </span>
+        <button type="button" className="tp-link ml-auto" onClick={() => onChange(null)}>change</button>
+      </div>
+    )
+  }
+  return (
+    <div className="token-input" ref={boxRef}>
+      <input
+        className="tp-input"
+        placeholder="search your books, films & shows…"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setOpen(true)
+          setHi(0)
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+      />
+      {open && (
+        <ul className="token-menu" style={{ width: '100%' }} role="listbox">
+          {matches.map((w, i) => (
+            <li key={`${w.kind}:${w.id}`}>
+              <button
+                type="button"
+                className={'token-opt' + (hi === i ? ' hi' : '')}
+                onClick={() => pick(w)}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="truncate">
+                    {w.title}
+                    {w.sub && <span style={{ color: 'var(--soft)' }}> · {w.sub}</span>}
+                  </span>
+                  <span className="mono-label" style={{ flex: 'none', fontSize: 9.5, color: w.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
+                    {w.tag}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+          <li>
+            <button
+              type="button"
+              className={'token-opt' + (hi === matches.length ? ' hi' : '')}
+              style={{ color: 'var(--accent-ui)', fontWeight: 600 }}
+              onClick={create}
+            >
+              ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new work'} — book, film or show
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// CaptureQuote — the "Capture quote" tab body: jot a quote or note against any
+// book, film or show without leaving where you are — or quick-create the work
+// inline via the embedded look-up card when it isn't in the library yet. Tags
+// are comma-separated names — unknown ones are auto-created server-side.
+// `onCaptured` fires after a successful save; `onWorkCreated` after an inline
+// work add (the shell refreshes its counts).
+export function CaptureQuote({ onCaptured, onWorkCreated }) {
+  const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
+  const [creating, setCreating] = useState(null) // null | {title} — inline new-work lookup
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  // No default target — a search-first picker with a silently pre-filled
+  // work invites mis-filed quotes; picking is one keystroke away.
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', tags: '', color: 'yellow' })
+
+  useEffect(() => {
+    Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
+      const list = []
+      if (rb.ok && rb.data) {
+        for (const b of rb.data.books || []) {
+          list.push({ kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' })
+        }
+      }
+      if (rm.ok && rm.data) {
+        for (const m of rm.data.movies || []) {
+          list.push({
+            kind: 'screen',
+            id: m.id,
+            title: m.title,
+            sub: m.release_year ? String(m.release_year) : '',
+            tag: m.media_type === 'show' ? 'SHOW' : 'FILM',
+          })
+        }
+      }
+      setWorks(list)
+    })
+  }, [])
+
+  const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
+  const isScreen = draft.target?.kind === 'screen'
+
+  // targetCreated adopts a freshly-added work (from the look-up card) as the
+  // capture target and slots it into the picker list. The shell's stat tiles
+  // count works, so refresh them now rather than only on save.
+  function targetCreated(work) {
+    setWorks((list) => [work, ...(list || [])])
+    set({ target: work })
+    setCreating(null)
+    onWorkCreated?.()
+  }
+
+  async function save() {
+    const t = draft.target
+    if (!t) return setErr('pick a book, film or show — or add one')
+    if (isScreen && !draft.quote.trim()) return setErr('a dialogue needs the quote itself')
+    if (!isScreen && !draft.quote.trim() && !draft.note.trim()) return setErr('quote or note is required')
+    setBusy(true)
+    setErr('')
+    const tags = draft.tags.split(',').map((s) => s.trim()).filter(Boolean)
+    // The body is built per-kind: dialogues have character/timestamp and no
+    // colour/chapter/location (the server auto-fills actor from the cast).
+    const r = isScreen
+      ? await json('POST', '/dialogues', {
+          movie_id: t.id,
+          quote: draft.quote.trim(),
+          note: draft.note.trim(),
+          character: draft.character.trim(),
+          timestamp: draft.timestamp.trim(),
+          tags,
+        })
+      : await json('POST', '/annotations', {
+          book_id: t.id,
+          quote: draft.quote.trim(),
+          note: draft.note.trim(),
+          chapter: draft.chapter.trim(),
+          location: draft.location.trim(),
+          color: draft.color,
+          tags,
+        })
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    toast(isScreen ? 'dialogue captured' : 'annotation captured')
+    onCaptured?.()
+  }
+
+  return (
+    <div className="flex flex-col gap-3.5">
+      <label className="tp-field">
+        <MonoLabel>Book · Film · Show</MonoLabel>
+        <WorkPicker
+          works={works}
+          value={draft.target}
+          onChange={(w) => {
+            set({ target: w })
+            // Picking a work supersedes a half-typed inline create — clearing
+            // it here keeps the stale form from resurfacing on "change".
+            if (w) setCreating(null)
+          }}
+          onCreate={(title) => {
+            setErr('')
+            setCreating({ title })
+          }}
+        />
+      </label>
+      {creating && !draft.target && (
+        <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
+          <div className="flex items-center justify-between gap-2">
+            <MonoLabel>Add a new book, film or show</MonoLabel>
+            <button type="button" className="tp-link" onClick={() => setCreating(null)}>cancel</button>
+          </div>
+          {/* The app's canonical look-up / add card, embedded: search a source to
+              auto-fill cover + year + genres, or add by hand. On add it becomes
+              the capture target. */}
+          <AddLookup initialQuery={creating.title} onCreated={targetCreated} />
+        </div>
+      )}
+      <label className="tp-field">
+        <MonoLabel>Quote</MonoLabel>
+        <textarea
+          className="tp-input"
+          rows={4}
+          placeholder="the line worth keeping…"
+          style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16, lineHeight: 1.55 }}
+          value={draft.quote}
+          onChange={(e) => set({ quote: e.target.value })}
+        />
+      </label>
+      <label className="tp-field">
+        <MonoLabel>Note</MonoLabel>
+        <textarea
+          className="tp-input"
+          rows={2}
+          placeholder="your margin note (renders handwritten)"
+          value={draft.note}
+          onChange={(e) => set({ note: e.target.value })}
+        />
+      </label>
+      {isScreen ? (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="tp-field">
+            <MonoLabel>Character</MonoLabel>
+            <input className="tp-input" placeholder="who says it" value={draft.character} onChange={(e) => set({ character: e.target.value })} />
+          </label>
+          <label className="tp-field">
+            <MonoLabel>Timestamp</MonoLabel>
+            <input className="tp-input" placeholder="e.g. 01:12:40" value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
+          </label>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="tp-field">
+            <MonoLabel>Chapter</MonoLabel>
+            <input className="tp-input" placeholder="e.g. 3" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
+          </label>
+          <label className="tp-field">
+            <MonoLabel>Location</MonoLabel>
+            <input className="tp-input" placeholder="e.g. 142" value={draft.location} onChange={(e) => set({ location: e.target.value })} />
+          </label>
+        </div>
+      )}
+      <label className="tp-field">
+        <MonoLabel>Tags · comma separated</MonoLabel>
+        <input
+          className="tp-input"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}
+          placeholder="memory, craft"
+          value={draft.tags}
+          onChange={(e) => set({ tags: e.target.value })}
+        />
+      </label>
+      {!isScreen && (
+        <div className="flex items-center gap-3">
+          <MonoLabel>colour</MonoLabel>
+          <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
+        </div>
+      )}
+      <ErrorText>{err}</ErrorText>
+      <div className="flex">
+        <button type="button" className="tp-btn tp-btn-primary tactile ml-auto" style={{ minWidth: 120 }} disabled={busy} onClick={save}>
+          Save
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// AddSurface renders when `open`. `initialSection` picks the tab/kind it opens
+// on ("book" / "film" → the look-up card on that kind, "quote" → the capture
+// form, "import" → the file import tab); the user can rotate freely once it's
+// open — Capture quote swaps the bottom of THIS surface, exactly like Import
+// files, never a separate popup. `onAdded(what)` fires after a book/film/show
+// is added (what = 'book' | 'film'); `onCaptured` after a quote/note is saved
+// from the capture tab; the import flow reports inline and leaves the surface
+// open. `onOpenMovie`, when supplied, lets an IMDb import jump straight to the
+// new title (closing the surface first). `onWorkCreated` reports an inline
+// work add from the capture tab (the shell refreshes its counts).
+export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptured, onWorkCreated }) {
+  const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' ? 'quote' : 'add')
+  const [tab, setTab] = useState(tabFor(initialSection))
+
+  useEffect(() => {
+    if (open) setTab(tabFor(initialSection))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialSection])
 
   useEffect(() => {
@@ -315,16 +634,12 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
         </div>
         <div className="mb-5">
           <Toggle
-            ariaLabel="Add or import"
+            ariaLabel="Add, capture or import"
             value={tab}
-            onChange={(v) => {
-              // "Capture quote" isn't a tab here — it swaps to the capture sheet.
-              if (v === 'quote') return onCaptureQuote?.()
-              setTab(v)
-            }}
+            onChange={setTab}
             options={[
               ['add', 'Look up / add'],
-              ...(onCaptureQuote ? [['quote', 'Capture quote']] : []),
+              ['quote', 'Capture quote'],
               ['import', 'Import files'],
             ]}
           />
@@ -334,6 +649,9 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
             initialKind={initialSection === 'film' ? 'film' : 'book'}
             onAdded={(what) => onAdded?.(what)}
           />
+        )}
+        {tab === 'quote' && (
+          <CaptureQuote onCaptured={onCaptured} onWorkCreated={onWorkCreated} />
         )}
         {tab === 'import' && (
           <ImportPage

@@ -1,13 +1,13 @@
 // Home — the landing screen (mobile handoff §7 redesign, ROADMAP №2): a date +
-// greeting, the Daily Quiz card, the Practice card, a quick-capture tile, two
-// stat tiles, and the most recent favourites. Reached by tapping the logo
-// (every bar) or landing on "/". One narrow column on every screen size — the
-// ritual reads the same on a phone and a desktop.
-import { useEffect, useMemo, useRef, useState } from 'react'
+// greeting, the Daily Quiz card, the Practice card, two stat tiles, and the
+// most recent favourites. Reached by tapping the logo (every bar) or landing
+// on "/". One narrow column on every screen size — the ritual reads the same
+// on a phone and a desktop. Quote capture is NOT here any more — it's the
+// "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
+import { useEffect, useMemo, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
-import { AddLookup } from './AddSurface.jsx'
 import {
   CreditFaces,
   DEFAULT_CREDIT_SEPS,
@@ -24,21 +24,17 @@ import {
   ANNOTATION_HEX,
   ClampMore,
   clampSequence,
-  ColorSwatches,
-  ErrorText,
   GhostButton,
   FormModal,
   HandCard,
   HandNote,
   Hearts,
   Masonry,
-  MobileSheet,
   MonoLabel,
   QuoteActions,
   STATUS_META,
   toast,
   useColumnsAt,
-  useIsMobileScreen,
 } from './ui.jsx'
 
 // tzOffsetMinutes — the client's UTC offset, east positive, sent with every
@@ -574,7 +570,7 @@ function screenFav(d, movieMap) {
   }
 }
 
-export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onCapture, onPending }) {
+export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onPending }) {
   const [favs, setFavs] = useState([])
   const favCols = useColumnsAt([[640, 2]]) // favourites masonry: 1 col < sm, 2 ≥ sm
   const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
@@ -695,16 +691,6 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       <DailyQuizCard onPending={onPending} states={states} onStates={setStates} />
 
       <PracticeCard onStates={setStates} />
-
-      <button
-        type="button"
-        className="w-full text-center"
-        style={{ border: '1.6px dashed var(--ink-border)', borderRadius: 12, padding: '15px 18px', background: 'transparent' }}
-        onClick={onCapture}
-      >
-        <span className="font-semibold" style={{ color: 'var(--accent-ui)' }}>＋ Capture a quote</span>
-        <span className="microcopy ml-3">quote · note · colour · tags</span>
-      </button>
 
       <div className="grid grid-cols-2 gap-2.5">
         <HandCard variant={1} className="cursor-pointer" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
@@ -901,345 +887,5 @@ function FavouriteTile({
           )}
         </>
     </HandCard>
-  )
-}
-
-// WorkPicker — the capture-target picker: type to filter across every book and
-// film/show in the library (rows carry a BOOK / FILM / SHOW tag), with a pinned
-// last row that quick-creates a new book from the typed title. Keyboard nav +
-// outside-click close follow TokenInput; the dropdown reuses its .token-menu
-// skin. A picked work renders as a chip with a "change" link.
-function WorkPicker({ works, value, onChange, onCreate }) {
-  const [text, setText] = useState('')
-  const [open, setOpen] = useState(false)
-  const [hi, setHi] = useState(0)
-  const boxRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e) => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
-
-  const q = text.trim().toLowerCase()
-  const matches = (works || [])
-    .filter((w) => !q || w.title.toLowerCase().includes(q) || (w.sub || '').toLowerCase().includes(q))
-    .slice(0, 8)
-  const rows = matches.length + 1 // + the pinned create row
-
-  const pick = (w) => {
-    onChange(w)
-    setText('')
-    setOpen(false)
-  }
-  const create = () => {
-    onCreate(text.trim())
-    setText('')
-    setOpen(false)
-  }
-  function onKeyDown(e) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      if (!open) setOpen(true)
-      else setHi((h) => Math.min(h + 1, rows - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setHi((h) => Math.max(h - 1, 0))
-    } else if (e.key === 'Enter') {
-      // Never let Enter submit an enclosing form/footer — it picks the row.
-      e.preventDefault()
-      if (!open) return
-      if (hi < matches.length) pick(matches[hi])
-      else create()
-    } else if (e.key === 'Escape') {
-      setOpen(false)
-    }
-  }
-
-  if (value) {
-    return (
-      <div className="mt-1 flex flex-wrap items-center gap-2">
-        <span className="font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 16 }}>{value.title}</span>
-        {value.sub && <span className="microcopy">{value.sub}</span>}
-        <span className="mono-label" style={{ fontSize: 9.5, color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
-          {value.tag}
-        </span>
-        <button type="button" className="tp-link ml-auto" onClick={() => onChange(null)}>change</button>
-      </div>
-    )
-  }
-  return (
-    <div className="token-input" ref={boxRef}>
-      <input
-        className="tp-input"
-        placeholder="search your books, films & shows…"
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value)
-          setOpen(true)
-          setHi(0)
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={onKeyDown}
-      />
-      {open && (
-        <ul className="token-menu" style={{ width: '100%' }} role="listbox">
-          {matches.map((w, i) => (
-            <li key={`${w.kind}:${w.id}`}>
-              <button
-                type="button"
-                className={'token-opt' + (hi === i ? ' hi' : '')}
-                onClick={() => pick(w)}
-              >
-                <span className="flex items-center justify-between gap-3">
-                  <span className="truncate">
-                    {w.title}
-                    {w.sub && <span style={{ color: 'var(--soft)' }}> · {w.sub}</span>}
-                  </span>
-                  <span className="mono-label" style={{ flex: 'none', fontSize: 9.5, color: w.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
-                    {w.tag}
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
-          <li>
-            <button
-              type="button"
-              className={'token-opt' + (hi === matches.length ? ' hi' : '')}
-              style={{ color: 'var(--accent-ui)', fontWeight: 600 }}
-              onClick={create}
-            >
-              ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new work'} — book, film or show
-            </button>
-          </li>
-        </ul>
-      )}
-    </div>
-  )
-}
-
-// QuickCapture — the top-bar "+" / Home-tile capture sheet: jot a quote or
-// note against any book, film or show without leaving where you are — or
-// quick-create the book inline when it isn't in the library yet. Full-screen
-// sheet on a phone; a centered card on desktop (same form either way). Tags
-// are comma-separated names — unknown ones are auto-created server-side.
-export function QuickCapture({ open, onClose, onSaved }) {
-  const isMobile = useIsMobileScreen()
-  const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
-  const [draft, setDraft] = useState(null)
-  const [creating, setCreating] = useState(null) // null | {title, author} — inline new-book fields
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setErr('')
-    setCreating(null)
-    // No default target — a search-first picker with a silently pre-filled
-    // work invites mis-filed quotes; picking is one keystroke away.
-    setDraft({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', tags: '', color: 'yellow' })
-    Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
-      const list = []
-      if (rb.ok && rb.data) {
-        for (const b of rb.data.books || []) {
-          list.push({ kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' })
-        }
-      }
-      if (rm.ok && rm.data) {
-        for (const m of rm.data.movies || []) {
-          list.push({
-            kind: 'screen',
-            id: m.id,
-            title: m.title,
-            sub: m.release_year ? String(m.release_year) : '',
-            tag: m.media_type === 'show' ? 'SHOW' : 'FILM',
-          })
-        }
-      }
-      setWorks(list)
-    })
-  }, [open])
-
-  if (!open || !draft) return null
-
-  const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
-  const isScreen = draft.target?.kind === 'screen'
-
-  // targetCreated adopts a freshly-added work (from the look-up card) as the
-  // capture target and slots it into the picker list. The shell's stat tiles
-  // count works, so refresh them now rather than only on save.
-  function targetCreated(work) {
-    setWorks((list) => [work, ...(list || [])])
-    set({ target: work })
-    setCreating(null)
-    onSaved?.()
-  }
-
-  async function save() {
-    const t = draft.target
-    if (!t) return setErr('pick a book, film or show — or add one')
-    if (isScreen && !draft.quote.trim()) return setErr('a dialogue needs the quote itself')
-    if (!isScreen && !draft.quote.trim() && !draft.note.trim()) return setErr('quote or note is required')
-    setBusy(true)
-    setErr('')
-    const tags = draft.tags.split(',').map((s) => s.trim()).filter(Boolean)
-    // The body is built per-kind: dialogues have character/timestamp and no
-    // colour/chapter/location (the server auto-fills actor from the cast).
-    const r = isScreen
-      ? await json('POST', '/dialogues', {
-          movie_id: t.id,
-          quote: draft.quote.trim(),
-          note: draft.note.trim(),
-          character: draft.character.trim(),
-          timestamp: draft.timestamp.trim(),
-          tags,
-        })
-      : await json('POST', '/annotations', {
-          book_id: t.id,
-          quote: draft.quote.trim(),
-          note: draft.note.trim(),
-          chapter: draft.chapter.trim(),
-          location: draft.location.trim(),
-          color: draft.color,
-          tags,
-        })
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r))
-    toast(isScreen ? 'dialogue captured' : 'annotation captured')
-    onSaved?.()
-    onClose()
-  }
-
-  const body = (
-    <div className="flex flex-col gap-3.5">
-      <label className="tp-field">
-        <MonoLabel>Book · Film · Show</MonoLabel>
-        <WorkPicker
-          works={works}
-          value={draft.target}
-          onChange={(w) => {
-            set({ target: w })
-            // Picking a work supersedes a half-typed inline create — clearing
-            // it here keeps the stale form from resurfacing on "change".
-            if (w) setCreating(null)
-          }}
-          onCreate={(title) => {
-            setErr('')
-            setCreating({ title })
-          }}
-        />
-      </label>
-      {creating && !draft.target && (
-        <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
-          <div className="flex items-center justify-between gap-2">
-            <MonoLabel>Add a new book, film or show</MonoLabel>
-            <button type="button" className="tp-link" onClick={() => setCreating(null)}>cancel</button>
-          </div>
-          {/* The app's canonical look-up / add card, embedded: search a source to
-              auto-fill cover + year + genres, or add by hand. On add it becomes
-              the capture target. */}
-          <AddLookup initialQuery={creating.title} onCreated={targetCreated} />
-        </div>
-      )}
-      <label className="tp-field">
-        <MonoLabel>Quote</MonoLabel>
-        <textarea
-          className="tp-input"
-          rows={4}
-          placeholder="the line worth keeping…"
-          style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16, lineHeight: 1.55 }}
-          value={draft.quote}
-          onChange={(e) => set({ quote: e.target.value })}
-        />
-      </label>
-      <label className="tp-field">
-        <MonoLabel>Note</MonoLabel>
-        <textarea
-          className="tp-input"
-          rows={2}
-          placeholder="your margin note (renders handwritten)"
-          value={draft.note}
-          onChange={(e) => set({ note: e.target.value })}
-        />
-      </label>
-      {isScreen ? (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="tp-field">
-            <MonoLabel>Character</MonoLabel>
-            <input className="tp-input" placeholder="who says it" value={draft.character} onChange={(e) => set({ character: e.target.value })} />
-          </label>
-          <label className="tp-field">
-            <MonoLabel>Timestamp</MonoLabel>
-            <input className="tp-input" placeholder="e.g. 01:12:40" value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
-          </label>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="tp-field">
-            <MonoLabel>Chapter</MonoLabel>
-            <input className="tp-input" placeholder="e.g. 3" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
-          </label>
-          <label className="tp-field">
-            <MonoLabel>Location</MonoLabel>
-            <input className="tp-input" placeholder="e.g. 142" value={draft.location} onChange={(e) => set({ location: e.target.value })} />
-          </label>
-        </div>
-      )}
-      <label className="tp-field">
-        <MonoLabel>Tags · comma separated</MonoLabel>
-        <input
-          className="tp-input"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}
-          placeholder="memory, craft"
-          value={draft.tags}
-          onChange={(e) => set({ tags: e.target.value })}
-        />
-      </label>
-      {!isScreen && (
-        <div className="flex items-center gap-3">
-          <MonoLabel>colour</MonoLabel>
-          <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
-        </div>
-      )}
-      <ErrorText>{err}</ErrorText>
-    </div>
-  )
-
-  const saveBtn = (
-    <button type="button" className="tp-btn tp-btn-primary tactile ml-auto" style={{ minWidth: 120 }} disabled={busy} onClick={save}>
-      Save
-    </button>
-  )
-
-  if (isMobile) {
-    return (
-      <MobileSheet open onClose={onClose} title="Capture a quote" footer={saveBtn}>
-        {body}
-      </MobileSheet>
-    )
-  }
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-12"
-      style={{ background: 'rgba(21,16,12,.5)' }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Capture a quote"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <HandCard variant={2} className="w-full max-w-xl px-7 py-6">
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 className="display-title text-xl">Capture a quote</h2>
-          {saveBtn}
-        </div>
-        {body}
-      </HandCard>
-    </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import Home, { QuickCapture, tzOffsetMinutes } from './Home.jsx'
+import Home, { tzOffsetMinutes } from './Home.jsx'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
@@ -20,6 +20,7 @@ import {
   IconBack,
   IconMenu,
   IconPlus,
+  IconQuote,
   IconSearch,
   Sprockets,
   StickerButton,
@@ -681,7 +682,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, update, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onAdd, onCapture, user, stats, pending, update, logout, dark, onUser }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -724,7 +725,7 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, up
       return (
         <span className="drawer-badge" style={{ fontSize: 9 }}>
           {pending > 0 && <span className="review-dot" aria-hidden="true" />}
-          review · capture
+          quiz · practice
         </span>
       )
     }
@@ -757,7 +758,9 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, up
         </div>
         <div className="drawer-nav">
           {/* §7 One "＋ Add": Import is no longer a nav row — the single Add
-              surface (book · film · import) leads the drawer instead. */}
+              surface (book · film · quote · import) leads the drawer instead,
+              with a direct row for its Capture-quote tab (§ capture entry:
+              top bar + drawer, not the Home screen). */}
           <button
             type="button"
             className="drawer-item drawer-add"
@@ -766,6 +769,15 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, user, stats, pending, up
             <IconPlus />
             Add
             <span className="drawer-badge">book · film · quote · import</span>
+          </button>
+          <button
+            type="button"
+            className="drawer-item"
+            onClick={() => { onCapture(); onClose() }}
+          >
+            <IconQuote />
+            Capture quote
+            <span className="drawer-badge">note · tags</span>
           </button>
           {DRAWER_TABS.map((t, i) =>
             t === null ? (
@@ -847,8 +859,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   const [accountView, setAccountView] = useState(null) // null | 'profile' | 'users'
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [captureOpen, setCaptureOpen] = useState(false)
-  // The single "＋ Add" surface (§7 One "＋ Add"): book · film · import.
+  // The single "＋ Add" surface (§7 One "＋ Add"): book · film · quote · import.
   const [addOpen, setAddOpen] = useState(false)
   const [addSection, setAddSection] = useState('book')
   const openAdd = (section = 'book') => {
@@ -958,6 +969,18 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   function openBook(id) { go('library', { type: 'book', id }) }
   function openMovie(id) { go('movies', { type: 'movie', id }) }
 
+  // searchFor seeds the search screen's persisted state before it mounts (it
+  // reads localStorage once) and jumps there — used by Metadata drill-downs and
+  // every clickable Stats entity / activity dot. Scope resets so hits aren't
+  // hidden by a stale books/movies pick.
+  function searchFor(q) {
+    try {
+      localStorage.setItem('tippani:search:q', JSON.stringify(q))
+      localStorage.setItem('tippani:search:scope', JSON.stringify('all'))
+    } catch { /* private mode — search just opens empty */ }
+    selectTab('search')
+  }
+
   async function logout() {
     await fetch(apiURL('/auth/logout'), { method: 'POST' })
     onLogout()
@@ -989,6 +1012,18 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             >
               <IconPlus />
               <span>Add</span>
+            </button>
+            {/* Capture quote rides beside ＋ Add as an icon-only pill — it opens
+                the same Add surface straight on its Capture tab (§ capture
+                entry: top bar, not the Home screen). */}
+            <button
+              type="button"
+              className="topbar-add-btn tactile icon-only"
+              onClick={() => openAdd('quote')}
+              title="Capture a quote"
+              aria-label="Capture a quote"
+            >
+              <IconQuote />
             </button>
             {/* Search rides beside ＋ Add as an icon-only pill in the same
                 accent texture — the phone top bar already works this way. */}
@@ -1022,9 +1057,12 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             </button>
             <span className="flex-1" />
             {/* §7 One "＋ Add": same surface as the desktop pill — book · film ·
-                import toggle. Quote capture lives on the Home capture tile. */}
+                quote · import toggle; ❝ opens it straight on Capture quote. */}
             <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
               <IconPlus />
+            </button>
+            <button type="button" className="mobile-topbar-btn" aria-label="Capture a quote" onClick={() => openAdd('quote')}>
+              <IconQuote />
             </button>
             <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
               <IconSearch />
@@ -1043,7 +1081,6 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpenMovie={openMovie}
               onGoLibrary={() => selectTab('library')}
               onGoMovies={() => selectTab('movies')}
-              onCapture={() => setCaptureOpen(true)}
               onPending={setPending}
             />
           </div>
@@ -1075,16 +1112,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               user={user}
               onOpenBook={openBook}
               onOpenMovie={openMovie}
-              onSearch={(q) => {
-                // Seed the search screen's persisted state before it mounts (it
-                // reads localStorage once); scope resets so hits aren't hidden
-                // by a stale books/movies pick.
-                try {
-                  localStorage.setItem('tippani:search:q', JSON.stringify(q))
-                  localStorage.setItem('tippani:search:scope', JSON.stringify('all'))
-                } catch { /* private mode — search just opens empty */ }
-                selectTab('search')
-              }}
+              onSearch={searchFor}
             />
           </div>
         )}
@@ -1100,7 +1128,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'stats' && (
           <div data-screen-label="stats">
-            <StatsPage />
+            <StatsPage onSearch={searchFor} />
           </div>
         )}
         {tab === 'settings' && (
@@ -1123,6 +1151,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         tab={tab}
         selectTab={selectTab}
         onAdd={() => openAdd('book')}
+        onCapture={() => openAdd('quote')}
         user={user}
         stats={stats}
         pending={pending}
@@ -1131,11 +1160,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         dark={dark}
         onUser={onUser}
       />
-      <QuickCapture open={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={refreshStats} />
       <AddSurface
         open={addOpen}
         initialSection={addSection}
-        onCaptureQuote={() => { setAddOpen(false); setCaptureOpen(true) }}
         onClose={() => setAddOpen(false)}
         onAdded={(what) => {
           setAddOpen(false)
@@ -1143,6 +1170,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           // Land on the list for what was just added so it's visible.
           go(what === 'film' ? 'movies' : 'library', null)
         }}
+        onCaptured={() => {
+          // A captured quote closes the surface but stays put — capture is a
+          // jot-and-return gesture, not a navigation.
+          setAddOpen(false)
+          refreshStats()
+        }}
+        onWorkCreated={refreshStats}
         onOpenMovie={openMovie}
       />
       {accountView && (
