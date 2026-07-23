@@ -11,7 +11,7 @@ import { json, errText } from './api.js'
 import { ManualTab, isIsbn, sourceLabel } from './Library.jsx'
 import { ManualMovie, sourceRef, candSource, DuplicateConfirm } from './Movies.jsx'
 import ImportPage from './ImportPage.jsx'
-import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Placeholder, Toggle, toast } from './ui.jsx'
+import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Placeholder, Toggle, toast, useIsMobileScreen } from './ui.jsx'
 
 // One card, three kinds. "Film" and "Show" both map to the movies flow (they
 // differ only by media_type); "Book" uses the books flow. Manual entry is no
@@ -601,6 +601,11 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
 export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptured, onWorkCreated }) {
   const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' ? 'quote' : 'add')
   const [tab, setTab] = useState(tabFor(initialSection))
+  const mobile = useIsMobileScreen()
+  // Short labels on a phone (the three-segment slider can't fit the full words).
+  const tabOptions = mobile
+    ? [['add', 'Add'], ['quote', 'Capture'], ['import', 'Import']]
+    : [['add', 'Look up / add'], ['quote', 'Capture quote'], ['import', 'Import files']]
 
   useEffect(() => {
     if (open) setTab(tabFor(initialSection))
@@ -637,11 +642,7 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
             ariaLabel="Add, capture or import"
             value={tab}
             onChange={setTab}
-            options={[
-              ['add', 'Look up / add'],
-              ['quote', 'Capture quote'],
-              ['import', 'Import files'],
-            ]}
+            options={tabOptions}
           />
         </div>
         {tab === 'add' && (
