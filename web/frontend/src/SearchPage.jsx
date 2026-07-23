@@ -329,6 +329,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
           seps={creditSeps}
           onOpenBook={onOpenBook}
           onOpenMovie={onOpenMovie}
+          onOpenPerson={setPerson}
           onClose={() => setQuote(null)}
           onChanged={reload}
         />
@@ -354,7 +355,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 // attribution) + tags, then renders the SAME AnnotationCard / Frame used on the
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
-function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook, onOpenMovie, onClose, onChanged }) {
+function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
   const isBook = kind === 'book'
   const parentId = isBook ? hit.book_id : hit.movie_id
   const childPath = isBook ? `/annotations?book_id=${parentId}` : `/dialogues?movie_id=${parentId}`
@@ -418,6 +419,12 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
   }
 
   const title = isBook ? parent?.title || hit.book_title : parent?.title || hit.movie_title
+  // The credited people for the header chip row: a book's author(s) (split), a
+  // dialogue's actor. Portraits come from the people maps — the "image chips"
+  // the detail pages show but the search popup was missing.
+  const creditKind = isBook ? 'author' : 'actor'
+  const creditMap = isBook ? authorMap : actorMap
+  const creditNames = splitCredits(isBook ? parent?.author : row?.actor, seps)
   const sharePayload = () =>
     isBook
       ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
@@ -430,8 +437,19 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div role="dialog" aria-modal="true" aria-label="Quote" className="mx-auto w-full max-w-2xl">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <MonoLabel className="block truncate" style={{ maxWidth: '60%' }}>{title || 'Quote'}</MonoLabel>
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0" style={{ maxWidth: '60%' }}>
+            <MonoLabel className="block truncate">{title || 'Quote'}</MonoLabel>
+            {/* Author / actor portrait chips (split) — click one to open the
+                person panel, same as the detail pages. */}
+            {creditNames.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                {creditNames.map((n) => (
+                  <PersonCredit key={n} kind={creditKind} name={n} person={creditMap[n]} size={22} onOpen={onOpenPerson} nameStyle={{ fontSize: 13 }} />
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex gap-2">
             <GhostButton onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
               Open {isBook ? 'book' : 'film'}
