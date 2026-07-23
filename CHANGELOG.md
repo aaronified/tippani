@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dialogue quotes drop the wrapping quote marks** on cards (favourite tiles,
+  the Catalogue dialogue cards, the tour sample) — a multi-speaker line reads
+  badly inside one pair of quotes. Book quotes keep theirs.
+- **TMDB / TheTVDB ids are links** on the film/show detail header (open the
+  source record), and that credit line is vertically centred so the portrait
+  chips and the mono text (year · ids) line up instead of sitting on the
+  baseline — the book detail credit line too.
+- **Mobile drawer rework.** Search moves up directly below ＋ Add; every nav row
+  carries a contextual subtext (tag count, metadata issue count, daily-quiz
+  streak, version — alongside the library/catalogue counts); and **Profile** +
+  **User management** get their own section at the bottom. Quote capture is no
+  longer a drawer row (it's the ＋ Add surface's Capture tab), and the Add
+  subtext ("Work · Quote · Import") can't wrap onto a second line.
+
+### Fixed
+- **Multi-speaker dialogue credits split on cards.** A dialogue crediting
+  several actors ("Sinéad Cusack, Hugo Weaving") now shows each as an
+  individual person with their portrait on the Home favourite tiles and the
+  search dialogue hits, matching the rest of the app (previously one joined,
+  portrait-less chip).
+- **Quotes keep their line breaks.** Multi-line / multi-paragraph quotes (e.g.
+  multi-speaker dialogue) no longer flatten to one run on the favourite tiles,
+  the Daily-Quiz / Practice prompt, the search quote hits, or the shareable
+  image — matching the book/film detail cards.
+
 ## [0.9.2] - 2026-07-23
 
 ### Added
