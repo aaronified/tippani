@@ -310,8 +310,8 @@ function DemoQuote({ kind }) {
   const q = SAMPLE_QUOTES[kind]
   return (
     <figure className="tour-demo">
-      <blockquote style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}>
-        “{q.quote}”
+      <blockquote style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+        {kind === 'book' ? `“${q.quote}”` : q.quote}
       </blockquote>
       <figcaption
         className="mt-2"

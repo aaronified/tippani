@@ -498,14 +498,17 @@ function BookDetail({ id, onClose, creditSeparators }) {
             titleStyle={{ lineHeight: 1.15 }}
             meta={
               metaParts.length > 0 && (
-                <MonoLabel className="block" style={{ fontSize: 11.5 }}>
+                // Flex row, vertically centred — the author portrait chips are
+                // taller than the mono text, so a plain inline flow would seat the
+                // text on the baseline and read low against the discs.
+                <div className="mono-label" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2, fontSize: 11.5 }}>
                   {metaParts.map((p, i) => (
-                    <span key={i}>
-                      {i > 0 ? ' · ' : ''}
+                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      {i > 0 && <span aria-hidden="true" style={{ margin: '0 8px' }}>·</span>}
                       {p}
                     </span>
                   ))}
-                </MonoLabel>
+                </div>
               )
             }
             favorite={book.favorite}

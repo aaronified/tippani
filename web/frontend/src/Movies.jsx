@@ -477,13 +477,16 @@ function MovieDetail({ id, onClose, creditSeparators }) {
   // The director/creator name(s) are clickable (open the People panel), styled to
   // inherit the amber mono voice; co-credits split like book authors do.
   const dirNames = movie?.director ? splitCredits(movie.director, creditSeps) : []
+  // The credit line mixes portrait chips (tall) with mono text, so it lays out as
+  // an inline flex row that vertically CENTRES everything — otherwise the text
+  // sits on the baseline and reads low against the face discs.
   const directorNode =
     dirNames.length > 0 ? (
-      <span key="director">
-        {isShow ? 'CREATED BY ' : 'DIR. '}
+      <span key="director" style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 6, rowGap: 2 }}>
+        <span>{isShow ? 'CREATED BY' : 'DIR.'}</span>
         {dirNames.map((n, i) => (
           <Fragment key={n}>
-            {i > 0 && ', '}
+            {i > 0 && <span aria-hidden="true" style={{ marginLeft: -2 }}>,</span>}
             <PersonCredit
               kind="director"
               name={n}
@@ -497,13 +500,27 @@ function MovieDetail({ id, onClose, creditSeparators }) {
         ))}
       </span>
     ) : null
+  // TMDB / TheTVDB ids link out to the source record (dereferrer resolves a bare
+  // numeric TheTVDB id to the right series/movie page); styled to inherit the
+  // amber mono voice.
+  const idLink = (label, href) => (
+    <a
+      key={label}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+    >
+      {label}
+    </a>
+  )
   const metaParts = movie
     ? [
         directorNode,
         movie.release_year && String(movie.release_year),
         seriesLabel(movie) || null,
-        movie.tmdb_id && `TMDB #${movie.tmdb_id}`,
-        movie.tvdb_id && `TVDB #${movie.tvdb_id}`,
+        movie.tmdb_id && idLink(`TMDB #${movie.tmdb_id}`, `https://www.themoviedb.org/${isShow ? 'tv' : 'movie'}/${movie.tmdb_id}`),
+        movie.tvdb_id && idLink(`TVDB #${movie.tvdb_id}`, `https://thetvdb.com/dereferrer/${isShow ? 'series' : 'movie'}/${movie.tvdb_id}`),
       ].filter(Boolean)
     : []
 
@@ -557,14 +574,14 @@ function MovieDetail({ id, onClose, creditSeparators }) {
             titleSize={27}
             meta={
               metaParts.length > 0 && (
-                <p style={amberMono}>
+                <div style={{ ...amberMono, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 2 }}>
                   {metaParts.map((part, i) => (
                     <Fragment key={i}>
-                      {i > 0 && ' · '}
+                      {i > 0 && <span aria-hidden="true" style={{ margin: '0 8px' }}>·</span>}
                       {part}
                     </Fragment>
                   ))}
-                </p>
+                </div>
               )
             }
             favorite={movie.favorite}
@@ -1238,7 +1255,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       {d.quote &&
         (sticker ? (
           <FlowQuote
-            text={`“${d.quote}”`}
+            text={d.quote}
             quoteStyle={quoteStyle}
             stickerKey={`s${sticker.id}`}
             maxLines={quoteLines} /* collapsed → small corner badge; expanded →
@@ -1252,7 +1269,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ) : (
           <div className="flex items-start justify-between gap-3">
             <ExpandableText
-              text={`“${d.quote}”`}
+              text={d.quote}
               lines={quoteLines}
               style={quoteStyle}
               className="min-w-0 flex-1"

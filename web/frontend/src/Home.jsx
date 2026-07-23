@@ -885,7 +885,7 @@ function FavouriteTile({
                 ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
               }}
             >
-              “{f.text}”
+              {isBook ? `“${f.text}”` : f.text}
             </p>
             <span className="mt-1.5 flex items-center gap-1.5">
               <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
