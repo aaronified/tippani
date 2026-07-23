@@ -797,6 +797,19 @@ function FavouriteTile({
     ? splitCredits(f.raw.book_author, seps)
     : (f.raw.actor ? [f.raw.actor] : [])
   const peopleMap = isBook ? authorMap : actorMap
+  // The source/meta lines are rebuilt here from the SPLIT credit names (ROADMAP
+  // §11) — bookFav/screenFav stored the joined author verbatim, so a book with
+  // co-authors read as "Gaiman & Pratchett" instead of individual people.
+  const authorText = peopleNames.join(' · ')
+  let collapsedSource = f.source
+  let expandedMeta = f.meta
+  if (isBook) {
+    const ch = (f.raw.chapter || '').trim()
+    const chLabel = ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch)
+    const locLabel = f.raw.location ? `P. ${f.raw.location}` : ''
+    collapsedSource = [f.raw.book_title, authorText].filter(Boolean).join(' · ')
+    expandedMeta = [f.raw.book_title, authorText, chLabel, locLabel].filter(Boolean).join(' · ')
+  }
   return (
     <HandCard
       variant={variant}
@@ -847,7 +860,7 @@ function FavouriteTile({
             </p>
             <span className="mt-1.5 flex items-center gap-1.5">
               <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
-              <MonoLabel style={{ fontSize: 10.5 }}>{open ? f.meta : f.source}</MonoLabel>
+              <MonoLabel style={{ fontSize: 10.5 }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
             </span>
             <ClampMore open={open} />
           </button>
