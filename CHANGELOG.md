@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-07-23
+
+### Fixed
+- **Phones no longer pan sideways on Settings, Metadata and User management.**
+  A closed tooltip (the ⓘ info-dots') kept its invisible bubble in layout, and
+  one sitting near the right screen edge widened the page's scrollable area —
+  the page dragged sideways into blank space, and iOS pulled the fixed
+  User-management overlay along with the pan. Closed bubbles now leave layout
+  entirely (the fade-in/out survives on modern engines via `@starting-style` +
+  `allow-discrete`), and the page root upgrades its horizontal-overflow
+  backstop to `overflow-x: clip`.
+
 ## [0.9.3] - 2026-07-23
 
 ### Changed
