@@ -292,13 +292,14 @@ function dlgRow(d) {
   return { sticker_id: null, sticker_x: null, sticker_y: null, ...d, ...demoReview('screen', d.id), created_at: '2026-06-01 09:00:00', updated_at: '2026-06-01 09:00:00' }
 }
 
-// A deterministic year of save activity for the Stats calendar: a stable hash
-// scatters saves over roughly a third of the days.
-function demoDailyActivity() {
+// A deterministic year of activity for the Stats calendars: a stable hash
+// scatters days, `keepBelow` sets the density (out of 100), `salt` varies the
+// pattern per stream so Saves / Quiz / Practice don't overlap identically.
+function demoActivity(salt, keepBelow) {
   const out = []
   for (let i = 364; i >= 0; i--) {
-    const h = (i * 2654435761) % 100
-    if (h >= 34) continue
+    const h = ((i + salt) * 2654435761) % 100
+    if (h >= keepBelow) continue
     const d = new Date(Date.now() - i * 86400000)
     out.push({
       date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
@@ -395,7 +396,9 @@ function stats() {
     most_annotated: { id: 1, title: 'The Wide Margin', cover_path: BOOKS[0].cover_path, count: 3 },
     most_quoted: { id: 1, title: 'Northline', cover_path: MOVIES[0].poster_path, count: 3 },
     busiest_month: { month: new Date().toISOString().slice(0, 7), count: 12 },
-    daily_activity: demoDailyActivity(),
+    daily_activity: demoActivity(0, 34),
+    daily_quiz: demoActivity(7, 24),
+    daily_practice: demoActivity(13, 15),
     colors,
     top_tags: topTags,
     first_saved: '2026-02-11',

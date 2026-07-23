@@ -421,6 +421,39 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	arows.Close()
 
+	// Review activity for the same window, per mode: cards answered per
+	// reviewer-local day (quiz_sessions.day is already the local date). Feeds the
+	// Activity card's Quiz and Practice calendars beside the Saves one.
+	reviewSeries := func(mode string) ([]dayCount, error) {
+		out := []dayCount{}
+		rows, err := s.Store.DB.Query(`SELECT day, answered FROM quiz_sessions
+			WHERE user_id = ? AND mode = ? AND answered > 0 AND day >= date('now','-372 days')
+			ORDER BY day`, uid, mode)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var dc dayCount
+			if err := rows.Scan(&dc.Date, &dc.Count); err != nil {
+				olog.Warnf(olog.CodeStatsRowScan, "[stats] %s activity row scan failed: %v", mode, err)
+				continue
+			}
+			out = append(out, dc)
+		}
+		return out, rows.Err()
+	}
+	dailyQuiz, err := reviewSeries("daily")
+	if err != nil {
+		internalError(w, r, "query quiz activity", err)
+		return
+	}
+	dailyPractice, err := reviewSeries("practice")
+	if err != nil {
+		internalError(w, r, "query practice activity", err)
+		return
+	}
+
 	// ---- richer insights for the dedicated Stats page ----
 
 	// Breadth: genres actually attached to something. (People breadth now comes
@@ -556,6 +589,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"most_quoted":    mostQuoted,
 		"busiest_month":  busiest,
 		"daily_activity": daily,
+		"daily_quiz":     dailyQuiz,
+		"daily_practice": dailyPractice,
 		"colors":         colors,
 		"top_tags":       topTags,
 		"first_saved":    firstSaved,

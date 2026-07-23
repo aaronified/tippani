@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { Card, MonoLabel, PageHeader, STATUS_META, fmtHalfLife, useIsMobileScreen } from './ui.jsx'
+import { Card, MonoLabel, PageHeader, STATUS_META, Toggle, fmtHalfLife, toast, useIsMobileScreen } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -92,29 +92,51 @@ function calFill(count, max) {
   return `color-mix(in srgb, var(--accent-ui) ${CAL_STEPS[level - 1]}%, var(--line))`
 }
 
-// ActivityCalendar — a year of saves, GitHub style: one dot per day, one
-// column per week (Sunday-first), only the months labelled along the x axis.
-// Scrolls horizontally on narrow screens, opened at the most recent week.
-// A day with saves is a button: hover highlights it (.cal-dot) and clicking
-// opens that day's additions on the Search page (date-added facet).
-function ActivityCalendar({ data, onSearch }) {
-  const scroller = useRef(null)
+// useCalendarWeeks measures the calendar's own width and returns how many week
+// columns to draw: on a phone a fixed year (scrolls); on desktop as many weeks
+// as fill the width so the calendar spans the whole card (more than 12 months
+// on a wide screen). Bounded so a huge monitor can't ask for absurd history.
+const MIN_WEEKS = 53 // ~12 months (the phone view, and the desktop floor)
+const MAX_WEEKS = 130 // ~2.5 years — the desktop ceiling
+function useCalendarWeeks(ref, mobile) {
+  const [weeks, setWeeks] = useState(MIN_WEEKS)
   useEffect(() => {
-    const el = scroller.current
-    if (el) el.scrollLeft = el.scrollWidth // today lives at the right edge
-  }, [data])
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      if (mobile) { setWeeks(MIN_WEEKS); return }
+      const n = Math.floor((el.clientWidth + GAP) / (DOT + GAP))
+      setWeeks(Math.max(MIN_WEEKS, Math.min(MAX_WEEKS, n)))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref, mobile])
+  return weeks
+}
+
+// ActivityCalendar — a GitHub-style heatmap: one dot per day, one column per
+// week (Sunday-first), month names along the x axis. On desktop it fills the
+// card width (many months); on a phone it holds a year and scrolls, opened at
+// the most recent week. When `onSearch` is given, a day WITH activity is a
+// button that opens that day on the Search page (Saves only); otherwise days
+// are plain dots with a tooltip.
+function ActivityCalendar({ data, noun = 'saved', onSearch }) {
+  const scroller = useRef(null)
+  const mobile = useIsMobileScreen()
+  const weekCount = useCalendarWeeks(scroller, mobile)
 
   const counts = new Map((data || []).map((d) => [d.date, d.count]))
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const start = new Date(today)
-  start.setDate(start.getDate() - start.getDay() - 52 * 7) // the Sunday 52 full weeks back
+  start.setDate(start.getDate() - start.getDay() - (weekCount - 1) * 7) // the Sunday weekCount-1 weeks back
 
   const weeks = []
   const monthLabels = []
   let prevMonth = -1
-  let lastLabelAt = -9 // a label needs ~3 columns of room; the leading partial month yields
-  let total = 0
+  let lastLabelAt = -99 // no label yet
   let max = 0
   for (const ws = new Date(start); ws <= today; ws.setDate(ws.getDate() + 7)) {
     const days = []
@@ -126,42 +148,52 @@ function ActivityCalendar({ data, onSearch }) {
         continue
       }
       const count = counts.get(localISO(d)) || 0
-      total += count
       max = Math.max(max, count)
       days.push({ count, date: new Date(d) })
     }
     const m = ws.getMonth()
+    const wi = weeks.length
     let label = ''
-    if (m !== prevMonth && weeks.length - lastLabelAt >= 3) {
+    // The leftmost column is a partial month — let it YIELD so the first FULL
+    // month (e.g. August) gets the label instead of being crowded out. A label
+    // then needs ~3 columns of clearance from the previous one.
+    if (m !== prevMonth && wi > 0 && wi - lastLabelAt >= 3) {
       label = MONTHS[m].slice(0, 3)
-      lastLabelAt = weeks.length
+      lastLabelAt = wi
     }
     monthLabels.push(label)
     prevMonth = m
     weeks.push(days)
   }
 
+  // Scroll today into view (right edge) — only matters when the grid overflows
+  // (the phone year view); a full-width desktop grid doesn't scroll.
+  useEffect(() => {
+    const el = scroller.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [data, weekCount])
+
   return (
-    <Card>
-      <SectionHead label="Activity · last 12 months" right={<span className="mono-label">{total} saved</span>} />
+    <>
       <div ref={scroller} style={{ overflowX: 'auto', paddingBottom: 4 }}>
-        <div style={{ width: weeks.length * (DOT + GAP) - GAP }}>
+        <div style={{ minWidth: weeks.length * (DOT + GAP) - GAP }}>
           <div style={{ display: 'flex', gap: GAP }}>
             {weeks.map((days, wi) => (
               <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
                 {days.map((d, di) => {
                   if (d === null) return <span key={di} style={{ width: DOT, height: DOT }} aria-hidden="true" />
-                  const label = `${d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}: ${d.count} saved`
+                  const label = `${d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}: ${d.count} ${noun}`
                   const dot = { width: DOT, height: DOT, borderRadius: 999, background: calFill(d.count, max), flex: '0 0 auto' }
-                  // Only days with saves are doorways; quiet days stay plain dots.
-                  return d.count > 0 ? (
+                  // A day with activity is a doorway only when onSearch is given
+                  // (Saves → that day's additions); quiet days stay plain dots.
+                  return onSearch && d.count > 0 ? (
                     <button
                       key={di}
                       type="button"
                       className="cal-dot"
                       title={`${label} — view in search`}
                       aria-label={`${label} — view in search`}
-                      onClick={() => onSearch?.(localISO(d.date))}
+                      onClick={() => onSearch(localISO(d.date))}
                       style={dot}
                     />
                   ) : (
@@ -188,6 +220,37 @@ function ActivityCalendar({ data, onSearch }) {
         ))}
         <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>more</span>
       </div>
+    </>
+  )
+}
+
+// ActivityCard — the calendar with a Saves · Quiz · Practice switch above it, so
+// the same heatmap shows what you've added, what the Daily Quiz has surfaced,
+// and what you've practised. Practice history is resettable here, mirroring the
+// Home practice-card reset (DELETE /review/practice).
+const ACTIVITY_STREAMS = [
+  { key: 'saves', label: 'Saves', noun: 'saved', clickable: true },
+  { key: 'quiz', label: 'Quiz', noun: 'reviewed', clickable: false },
+  { key: 'practice', label: 'Practice', noun: 'practised', clickable: false },
+]
+function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
+  const [stream, setStream] = useState('saves')
+  const meta = ACTIVITY_STREAMS.find((s) => s.key === stream) || ACTIVITY_STREAMS[0]
+  const series = stream === 'quiz' ? quiz : stream === 'practice' ? practice : saves
+  const total = (series || []).reduce((n, d) => n + d.count, 0)
+  const hasPractice = (practice || []).length > 0
+  return (
+    <Card>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <MonoLabel>Activity · {total} {meta.noun}</MonoLabel>
+        <div className="flex items-center gap-3">
+          {stream === 'practice' && hasPractice && onResetPractice && (
+            <button type="button" className="tp-link" onClick={onResetPractice}>reset practice</button>
+          )}
+          <Toggle ariaLabel="Activity stream" value={stream} onChange={setStream} options={ACTIVITY_STREAMS.map((s) => [s.key, s.label])} />
+        </div>
+      </div>
+      <ActivityCalendar data={series} noun={meta.noun} onSearch={meta.clickable ? onSearch : undefined} />
     </Card>
   )
 }
@@ -516,11 +579,13 @@ export default function StatsPage({ onSearch }) {
   const directors = usePeople('director')
   const actors = usePeople('actor')
   const personMaps = { author: authors.map, director: directors.map, actor: actors.map }
-  useEffect(() => {
-    json('GET', '/stats').then((r) => {
-      if (r.ok) setS(r.data)
-    })
-  }, [])
+  const loadStats = () => json('GET', '/stats').then((r) => { if (r.ok) setS(r.data) })
+  useEffect(() => { loadStats() }, [])
+  async function resetPractice() {
+    const r = await json('DELETE', '/review/practice')
+    if (r.ok) { toast('practice history cleared'); loadStats() }
+    else toast('could not reset practice')
+  }
   const twoCol = { display: 'grid', gridTemplateColumns: mobile ? '1fr' : '1fr 1fr', gap: 24 }
   return (
     <section className="space-y-6">
@@ -532,7 +597,13 @@ export default function StatsPage({ onSearch }) {
       ) : (
         <div className="space-y-6">
           <Overview s={s} />
-          <ActivityCalendar data={s.daily_activity} onSearch={onSearch} />
+          <ActivityCard
+            saves={s.daily_activity}
+            quiz={s.daily_quiz}
+            practice={s.daily_practice}
+            onSearch={onSearch}
+            onResetPractice={resetPractice}
+          />
           <MemoryCard recall={s.recall} />
           {/* Superlatives as one row of tiles (they used to pad out half a
               column beside the tall Breakdown); Colours + Top tags stack in
