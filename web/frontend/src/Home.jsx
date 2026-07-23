@@ -91,6 +91,7 @@ function QuoteBlock({ card }) {
           fontSize: 17,
           lineHeight: 1.5,
           overflowWrap: 'anywhere',
+          whiteSpace: 'pre-wrap', // honour the quote's own line breaks / paragraphs
         }}
       >
         {card.quote || card.note}
@@ -880,6 +881,7 @@ function FavouriteTile({
                 fontSize: 15,
                 lineHeight: 1.5,
                 margin: 0,
+                whiteSpace: 'pre-wrap', // keep the quote's line breaks (collapsed clamp still limits height)
                 ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
               }}
             >

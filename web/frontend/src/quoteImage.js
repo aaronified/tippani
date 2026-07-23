@@ -93,15 +93,23 @@ function roundRectPath(ctx, x, y, w, h, r) {
 function flowRuns(ctx, runs, maxWidth) {
   const tokens = []
   for (const run of runs) {
-    for (const piece of String(run.text).split(/(\s+)/)) {
-      if (piece === '') continue
-      tokens.push({ text: piece, font: run.font, space: /^\s+$/.test(piece) })
-    }
+    // Honour explicit newlines as HARD breaks (a quote's own paragraphs / speaker
+    // turns): split on \n first, then whitespace-tokenise each segment. A `br`
+    // token flushes the current line, so blank lines survive as paragraph gaps.
+    const segments = String(run.text).split('\n')
+    segments.forEach((segment, si) => {
+      if (si > 0) tokens.push({ br: true })
+      for (const piece of segment.split(/(\s+)/)) {
+        if (piece === '') continue
+        tokens.push({ text: piece, font: run.font, space: /^\s+$/.test(piece) })
+      }
+    })
   }
   const lines = []
   let line = []
   let lineW = 0
   for (const t of tokens) {
+    if (t.br) { lines.push(line); line = []; lineW = 0; continue }
     ctx.font = t.font
     const w = ctx.measureText(t.text).width
     if (t.space) {

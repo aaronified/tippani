@@ -1144,7 +1144,9 @@ function termPattern(terms, flags) {
 // or quotes with no visible match, render whole (opening the modal shows all).
 function MatchWindow({ text, terms, style }) {
   const s = String(text || '')
-  const inner = <span style={style}><Highlight text={s} terms={terms} /></span>
+  // Honour the quote's own line breaks / paragraphs (matching the detail cards).
+  const qStyle = { whiteSpace: 'pre-wrap', ...style }
+  const inner = <span style={qStyle}><Highlight text={s} terms={terms} /></span>
   if (!terms.length || s.length <= WINDOW_MAX) return inner
   const m = termPattern(terms, 'i').exec(s)
   if (!m) return inner
@@ -1171,7 +1173,7 @@ function MatchWindow({ text, terms, style }) {
   return (
     <span style={{ display: 'block' }}>
       {before && chev('up')}
-      <span style={style}><Highlight text={s.slice(start, end)} terms={terms} /></span>
+      <span style={qStyle}><Highlight text={s.slice(start, end)} terms={terms} /></span>
       {after && chev('down')}
     </span>
   )
