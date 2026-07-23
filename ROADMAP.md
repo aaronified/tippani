@@ -284,6 +284,24 @@ dashboards): a small, read-only, token-scoped stats endpoint surfacing today's
 **book / annotation / movie** totals — so Tippani shows up as a live tile on your
 NAS dashboard. Opt-in; nothing exposed without a token.
 
+Shipped in three tiers, cheapest first:
+
+1. **Document what already works** — Tippani's unauthenticated `/healthz` means
+   any dashboard can ping it today (`siteMonitor` / `ping`), so a "Dashboards"
+   docs page with a ready-to-paste `services.yaml` snippet and the optional
+   `homepage.*` docker-compose labels costs nothing and lands first.
+2. **Custom-API widget** — Homepage's `customapi` widget can render live counts
+   with **zero upstream code**, but its requests come from the Homepage *server*
+   (no session cookie), so this tier rides on the **per-user API tokens** of §4:
+   a slim read-only stats surface accepting `Authorization: Bearer`, plus a
+   documented field mapping. This is the real deliverable.
+3. **Native first-party widget (later)** — a PR into gethomepage/homepage
+   (`src/widgets/tippani/` + tests + translations + docs, one row of ≤4 blocks).
+   Gated upstream: the widget must target a feature-request discussion with
+   **≥20 up-votes**, and widgets for projects under ~a year old get declined —
+   so the discussion gets opened early to accumulate votes, and the PR waits
+   for 2027. It consumes the exact endpoint tier 2 already built.
+
 ### 4 · Account, continued — sign-in, trash, tokens
 The consolidated **Profile** (photo · display name · password) and admin **role
 management** (grant / revoke / transfer, last admin protected) shipped — see
@@ -370,6 +388,33 @@ path / cover location), wired through the environment. Read-only and opt-in
 (nothing runs without a configured DSN); a first pass is a one-shot pull, with a
 scheduled re-sync as the follow-up. Unverified until tested against a real
 Grimmory box.
+
+### 11 · Out in the world — directories & icon CDNs
+Getting Tippani discoverable where self-hosters actually browse. No code here —
+outreach and asset prep, in dependency order:
+
+- **Icon CDNs first** (dashboards and directories pull art from these):
+  - **[dashboardicons.com](https://dashboardicons.com)** (homarr-labs) — open
+    submissions via the site's form (instant publish) or a GitHub issue. Needs a
+    clean `tippani.svg` in kebab-case; they generate the 512px PNG/WEBP. Our mark
+    uses an `feTurbulence` paper-grain filter that some raster pipelines drop, so
+    a **flattened submission variant** gets prepared first. The mark is
+    full-colour, so light/dark variants are optional (we have both anyway).
+  - **[selfh.st/icons](https://selfh.st/icons)** — no external PRs accepted;
+    icons are *requested* via the selfhst/icons GitHub **Discussions** and added
+    by the maintainers. This is also where the selfh.st/apps directory sources
+    its art, so it goes in before / alongside the listing request.
+- **[selfh.st/apps](https://selfh.st/apps)** — a one-person curated directory
+  (no submission repo): reach out to hello@selfh.st with the repo, one-liner,
+  demo link and icon. Being picked up by the *This Week in Self-Hosted*
+  newsletter's "New Software" section is the usual front door.
+- **[awesome-selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted)**
+  — the biggest list, syndicated by many others, but it **rejects projects
+  younger than 4 months**; the repo went public 2026-07-05, so this submission
+  waits until ~November 2026.
+- **Prerequisite for all of the above**: confirm the GHCR package is publicly
+  pullable — a directory listing pointing at a pull-gated image is a bad first
+  impression.
 
 ## Later / maybe (being considered)
 
