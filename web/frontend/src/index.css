@@ -38,8 +38,11 @@
        scroll (wide tables/nav strips scroll in their own contained wrapper —
        see .ann-table-wrap, .topbar-inner nav). This backstops any stray element
        (e.g. a centered tooltip near a screen edge) that still manages to widen
-       the root's scrollable area while invisible/inactive. */
+       the root's scrollable area while invisible/inactive. clip is stronger
+       where supported: it removes the horizontal scroll region outright, which
+       mobile browsers honour more reliably than hidden. */
     overflow-x: hidden;
+    overflow-x: clip;
   }
   body {
     color: var(--ink);
@@ -1013,16 +1016,26 @@
      centers by overflowing it equally, so its glyphs are layout-positioned
      (pixel-snapped at paint) instead of riding a blurry translateX(-50%). */
   .tp-tip-wrap { position: relative; display: inline-flex; align-items: center; }
+  /* Closed tooltips must leave layout entirely (display:none), not just fade:
+     an opacity-0 bubble still has a border box, and one hanging off an info-dot
+     near the screen's right edge widens the page's scrollable area — on phones
+     that read as Settings/Metadata panning sideways into blank space (and iOS
+     drags position:fixed overlays along with the pan). display transitions
+     discretely (allow-discrete holds the box through the fade-out); browsers
+     without it just skip the fade. */
   .tp-tip-holder {
     position: absolute;
     z-index: 70;
     left: 50%;
     bottom: calc(100% + 9px);
     width: 0;
-    display: flex;
+    display: none;
     justify-content: center;
     pointer-events: none;
+    transition: display .16s allow-discrete;
   }
+  .tp-tip-wrap:hover .tp-tip-holder,
+  .tp-tip-wrap:focus-within .tp-tip-holder { display: flex; }
   .tp-tip-holder[data-side="bottom"] { bottom: auto; top: calc(100% + 9px); align-items: flex-start; }
   .tp-tip {
     transform: translateY(4px);
@@ -1048,6 +1061,14 @@
   .tp-tip-holder[data-side="bottom"] .tp-tip { transform: translateY(-4px); }
   .tp-tip-wrap:hover .tp-tip,
   .tp-tip-wrap:focus-within .tp-tip { opacity: 1; transform: translateY(0); }
+  /* The bubble now mounts from display:none, so the fade-in needs an explicit
+     starting frame (there is no prior opacity-0 frame to transition from). */
+  @starting-style {
+    .tp-tip-wrap:hover .tp-tip,
+    .tp-tip-wrap:focus-within .tp-tip { opacity: 0; transform: translateY(4px); }
+    .tp-tip-wrap:hover .tp-tip-holder[data-side="bottom"] .tp-tip,
+    .tp-tip-wrap:focus-within .tp-tip-holder[data-side="bottom"] .tp-tip { transform: translateY(-4px); }
+  }
   @media (prefers-reduced-motion: reduce) { .tp-tip { transition: opacity .16s ease; transform: none; } }
   .info-dot {
     font-family: var(--font-mono);
