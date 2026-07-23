@@ -854,8 +854,8 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
                 </HandNote>
               )}
               <span className="mt-1 flex items-center gap-1.5">
-                {/* Actor face on the dialogue hit (when a portrait is saved). */}
-                <CreditFaces names={h.actor} map={actorMap} size={22} ring="var(--raised)" />
+                {/* Actor face(s) on the dialogue hit (split for multi-speaker lines). */}
+                <CreditFaces names={splitCredits(h.actor, creditSeps)} map={actorMap} size={22} ring="var(--raised)" />
                 <MonoLabel className="block min-w-0 truncate">
                   {h.character && <Highlight text={h.character} terms={terms} />}
                   {h.character && h.actor ? ' · ' : ''}

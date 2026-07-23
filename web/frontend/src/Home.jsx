@@ -817,13 +817,12 @@ function FavouriteTile({
   authorMap = {}, actorMap = {}, seps, onOpenPerson,
 }) {
   const isBook = f.kind === 'book'
-  // The credited people: a book's author(s) (split per the user's separator
-  // prefs), a dialogue's actor. Faces ride the collapsed source line
-  // (display-only — the whole head is the expand button); the expanded tile
-  // makes them full clickable PersonCredit chips.
-  const peopleNames = isBook
-    ? splitCredits(f.raw.book_author, seps)
-    : (f.raw.actor ? [f.raw.actor] : [])
+  // The credited people: a book's author(s) OR a dialogue's actor(s) — BOTH are
+  // split per the user's separator prefs (ROADMAP §11), so a multi-speaker
+  // dialogue ("Sinéad Cusack, Hugo Weaving") becomes individual, clickable
+  // people with portraits, not one joined chip. Faces ride the collapsed source
+  // line (display-only); the expanded tile makes them clickable PersonCredit chips.
+  const peopleNames = splitCredits(isBook ? f.raw.book_author : f.raw.actor, seps)
   const peopleMap = isBook ? authorMap : actorMap
   // The source/meta lines are rebuilt here from the SPLIT credit names (ROADMAP
   // §11) — bookFav/screenFav stored the joined author verbatim, so a book with
