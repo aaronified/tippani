@@ -252,23 +252,26 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
   const segs = ROW_SEGS.map(([key, of]) => [key, of(r)]).filter(([, n]) => n > 0)
   const barTip = segs.map(([key, n]) => `${n} ${STATUS_META[key].label.toLowerCase()}`).join(' · ')
   const portrait = personMap ? personMap[r.name] : null
+  // Kinds that carry art (covers / portraits) always reserve a fixed-width art
+  // column, image or not, so the name + status bar start at the same x and the
+  // bar is the same width whether or not a given entity has an image.
+  const showArtCol = art || !!personMap
   return (
     <div className="flex gap-2" title={`#${rank} ${r.name}: ${r.quotes} quotes`}>
       <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
         {rank}
       </span>
-      {/* Art column: cover/poster for work kinds, portrait for people kinds —
-          rendered only when there's an image, so bare rows stay dense. */}
-      {art && r.cover_path && (
-        <img
-          src={coverImgURL(r.cover_path)}
-          alt=""
-          style={{ width: 22, height: 33, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ink-border)', flex: '0 0 auto' }}
-        />
-      )}
-      {portrait && (
-        <span style={{ flex: '0 0 auto', paddingTop: 1 }}>
-          <PersonPortrait person={portrait} size={24} />
+      {showArtCol && (
+        <span style={{ flex: '0 0 auto', width: 24, display: 'flex', justifyContent: 'center', paddingTop: 1 }}>
+          {art && r.cover_path ? (
+            <img
+              src={coverImgURL(r.cover_path)}
+              alt=""
+              style={{ width: 22, height: 33, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ink-border)' }}
+            />
+          ) : portrait ? (
+            <PersonPortrait person={portrait} size={24} />
+          ) : null}
         </span>
       )}
       <div className="min-w-0 flex-1">
