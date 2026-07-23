@@ -428,9 +428,9 @@ function search(q, scope) {
   const mv = (id) => MOVIES.find((m) => m.id === id) || {}
   const bk = (id) => BOOKS.find((b) => b.id === id) || {}
   const bookHit = (b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })
-  const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index })
+  const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type || 'movie' })
   const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note } }
-  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp } }
+  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp } }
 
   const wantBooks = !scope || scope === 'all' || scope === 'books'
   const wantAnnotations = !scope || scope === 'all' || scope === 'annotations'

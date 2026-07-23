@@ -51,6 +51,7 @@ type movieHit struct {
 	Genres      []string `json:"genres"`
 	Series      string   `json:"series"`
 	SeriesIndex float64  `json:"series_index"`
+	MediaType   string   `json:"media_type"` // movie | show — so the UI tags films vs shows
 }
 
 type dialogueHit struct {
@@ -60,15 +61,16 @@ type dialogueHit struct {
 	MoviePosterPath string `json:"movie_poster_path"` // group header art
 	// Parent-movie fields, mirroring annotationHit — so a dialogue-only group
 	// still groups by director/decade/series/genre.
-	MovieDirector string   `json:"movie_director"`
-	MovieYear     int      `json:"movie_release_year"`
-	MovieSeries   string   `json:"movie_series"`
-	MovieGenres   []string `json:"movie_genres"`
-	Quote         string   `json:"quote"`
-	Note          string   `json:"note"`
-	Character     string   `json:"character"`
-	Actor         string   `json:"actor"`
-	Timestamp     string   `json:"timestamp"`
+	MovieDirector   string   `json:"movie_director"`
+	MovieYear       int      `json:"movie_release_year"`
+	MovieSeries     string   `json:"movie_series"`
+	MovieGenres     []string `json:"movie_genres"`
+	MovieMediaType  string   `json:"movie_media_type"` // movie | show
+	Quote           string   `json:"quote"`
+	Note            string   `json:"note"`
+	Character       string   `json:"character"`
+	Actor           string   `json:"actor"`
+	Timestamp       string   `json:"timestamp"`
 }
 
 // ---- facet sections (§ sectioned search) ------------------------------------
@@ -152,10 +154,12 @@ const (
 		COALESCE(a.quote, ''), COALESCE(a.note, ''),
 		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, '')`
 	movieHitCols = `m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
-		COALESCE(m.poster_path, ''), COALESCE(m.series, ''), COALESCE(m.series_index, 0)`
+		COALESCE(m.poster_path, ''), COALESCE(m.series, ''), COALESCE(m.series_index, 0),
+		COALESCE(m.media_type, 'movie')`
 	dialogueHitCols = `d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 		COALESCE(d.note, ''), COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
-		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, '')`
+		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
+		COALESCE(m.media_type, 'movie')`
 )
 
 func scanBookHit(rows *sql.Rows) (bookHit, error) {
@@ -173,14 +177,14 @@ func scanAnnotationHit(rows *sql.Rows) (annotationHit, error) {
 
 func scanMovieHit(rows *sql.Rows) (movieHit, error) {
 	h := movieHit{Genres: []string{}}
-	err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath, &h.Series, &h.SeriesIndex)
+	err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath, &h.Series, &h.SeriesIndex, &h.MediaType)
 	return h, err
 }
 
 func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	h := dialogueHit{MovieGenres: []string{}}
 	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note,
-		&h.Character, &h.Actor, &h.Timestamp, &h.MovieDirector, &h.MovieYear, &h.MovieSeries)
+		&h.Character, &h.Actor, &h.Timestamp, &h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType)
 	return h, err
 }
 

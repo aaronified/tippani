@@ -3,7 +3,7 @@ import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
-import { CreditFaces, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import {
@@ -109,10 +109,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 
   // The two card renderers every section shares (a group in, a keyed card out).
   const renderBook = (g) => (
-    <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} people={authors.map} creditSeps={creditSeps} />
+    <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} onOpenPerson={setPerson} people={authors.map} creditSeps={creditSeps} />
   )
   const renderMovie = (g) => (
-    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
+    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={setPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
   )
 
   return (
@@ -688,7 +688,7 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
 // not wrapped). Its matching children (annotations / dialogues) sit BELOW that
 // header, spanning the FULL card width — the quote cards, not indented under the
 // cover.
-function MediaGroup({ kind, cover, title, subtitle, genres = [], face, terms, onOpen, children }) {
+function MediaGroup({ kind, cover, title, mediaTag, credits, genres = [], terms, onOpen, children }) {
   const hasChildren = Array.isArray(children) ? children.some(Boolean) : Boolean(children)
   return (
     <HandCard className="p-4">
@@ -706,6 +706,8 @@ function MediaGroup({ kind, cover, title, subtitle, genres = [], face, terms, on
           )}
         </button>
         <div className="min-w-0 flex-1">
+          {/* Only the title opens the parent — the credit chips below are their
+              own click targets (open the person), so they sit OUTSIDE this button. */}
           <button
             type="button"
             onClick={onOpen}
@@ -714,14 +716,14 @@ function MediaGroup({ kind, cover, title, subtitle, genres = [], face, terms, on
           >
             <p className="display-title text-[16.5px] leading-snug">
               <Highlight text={title} terms={terms} />
+              {mediaTag && (
+                <span className="mono-label" style={{ marginLeft: 8, fontSize: 9.5, color: 'var(--amber)', verticalAlign: 'middle' }}>
+                  {mediaTag}
+                </span>
+              )}
             </p>
-            {(subtitle || face) && (
-              <span className="mt-1 flex items-center gap-1.5">
-                {face}
-                {subtitle && <MonoLabel className="block min-w-0 truncate">{subtitle}</MonoLabel>}
-              </span>
-            )}
           </button>
+          {credits}
           {genres.length > 0 && (
             // One line, clipped at the card boundary (a soft fade marks the cut)
             // rather than wrapping to many rows.
@@ -763,13 +765,34 @@ function ChildHit({ onClick, children }) {
 }
 
 // WorkResult: one grouped search card for a book or a film — the shared
-// MediaGroup (cover/poster + title + credit face chip) plus its matching child
+// MediaGroup (cover/poster + title + split credit chips) plus its matching child
 // hits (a book's annotations, a film's dialogues). `kind` is 'book' | 'movie'.
-// Clicking a child opens the quote modal; the cover/title opens the parent.
-// `people` is the credit map for the face chip (authors / directors), `actorMap`
-// the per-dialogue actor chips.
-function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, actorMap = {}, creditSeps }) {
+// Clicking a child opens the quote modal; the cover/title opens the parent; a
+// credit chip opens that person. `people` is the credit map for the chips
+// (authors / directors), `actorMap` the per-dialogue actor chips.
+function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, people = {}, actorMap = {}, creditSeps }) {
   const isBook = kind === 'book'
+  // Joined credits split into individual, clickable people (ROADMAP §11), the
+  // same treatment the detail pages and group-by headings use.
+  const creditNames = splitCredits(isBook ? g.author : g.director, creditSeps)
+  const creditKind = isBook ? 'author' : 'director'
+  const mediaTag = isBook ? null : g.media_type === 'show' ? 'SHOW' : 'FILM'
+  const credits = (creditNames.length > 0 || (!isBook && g.release_year)) ? (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+      {creditNames.map((n) => (
+        <PersonCredit
+          key={n}
+          kind={creditKind}
+          name={n}
+          person={people[n]}
+          size={20}
+          onOpen={onOpenPerson}
+          nameStyle={{ fontSize: 12.5 }}
+        />
+      ))}
+      {!isBook && g.release_year ? <MonoLabel style={{ fontSize: 10.5 }}>{g.release_year}</MonoLabel> : null}
+    </div>
+  ) : null
   return (
     <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
       <MediaGroup
@@ -777,13 +800,9 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, people = {}, ac
         cover={isBook ? g.cover_path : g.poster_path}
         title={g.title}
         terms={terms}
-        subtitle={
-          isBook
-            ? g.author || ''
-            : [g.director, g.release_year || null].filter(Boolean).join('  ·  ')
-        }
+        mediaTag={mediaTag}
+        credits={credits}
         genres={g.genres || []}
-        face={<CreditFaces names={splitCredits(isBook ? g.author : g.director, creditSeps)} map={people} size={24} ring="var(--card)" />}
         onOpen={() => onOpen(g.id)}
       >
         {(isBook ? g.annotations : g.dialogues).map((h) =>
@@ -1059,17 +1078,17 @@ function groupMovies(r) {
   const ensure = (id, seed) => {
     let g = byId.get(id)
     if (!g) {
-      g = { id, title: '', director: '', release_year: 0, poster_path: '', genres: [], series: '', series_index: 0, dialogues: [], ...seed }
+      g = { id, title: '', director: '', release_year: 0, poster_path: '', genres: [], series: '', series_index: 0, media_type: 'movie', dialogues: [], ...seed }
       byId.set(id, g)
       order.push(g)
     }
     return g
   }
   for (const m of r.movies || []) {
-    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index })
+    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type })
   }
   for (const d of r.dialogues || []) {
-    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path, director: d.movie_director, release_year: d.movie_release_year, genres: d.movie_genres, series: d.movie_series })
+    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path, director: d.movie_director, release_year: d.movie_release_year, genres: d.movie_genres, series: d.movie_series, media_type: d.movie_media_type })
     g.dialogues.push(d)
   }
   return order
