@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-07-23
+
 ### Changed
 - **Dialogue quotes drop the wrapping quote marks** on cards (favourite tiles,
   the Catalogue dialogue cards, the tour sample) — a multi-speaker line reads
