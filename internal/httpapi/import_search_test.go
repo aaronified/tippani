@@ -516,6 +516,14 @@ func TestSearchFacets(t *testing.T) {
 	if res.Decade == nil || res.Decade.Label != "1940s" || len(res.Decade.Movies) != 1 {
 		t.Fatalf("q=40s: %+v", res.Decade)
 	}
+	// An empty decade must NOT fall through to the fuzzy pass and get "corrected"
+	// into a nearby year's hits — a decade query is never a typo. "1980s" (with
+	// nothing from the 80s) stays empty and uncorrected, not nudged to 1960s/1940s.
+	res = decode[searchResults](t, c.mustDo("GET", "/search?q=1980s", nil, 200))
+	if res.Decade != nil || res.Corrected != "" ||
+		len(res.Books)+len(res.Movies)+len(res.Annotations)+len(res.Dialogues) != 0 {
+		t.Fatalf("empty decade should stay empty + uncorrected: %+v", res)
+	}
 
 	// Date added: everything above was created today (UTC).
 	day := time.Now().UTC().Format("2006-01-02")

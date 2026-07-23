@@ -637,9 +637,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	seps := s.creditSeps(uid)
 
 	// Structured facets parse the RAW query only (a date or a decade isn't a
-	// typo, so they never join the fuzzy re-run).
-	structured := 0
+	// typo, so they never join the fuzzy re-run — guarded on whether the query
+	// PARSED as one, not on whether it found rows: "80s" with nothing from the
+	// 1980s must stay empty, never get "corrected" into "90s").
+	parsedStructured := false
 	if day, ok := parseAddedDate(q); ok {
+		parsedStructured = true
 		dh, err := s.searchDateFacet(uid, day, wantBooks, wantAnnotations, wantMovies, wantDialogues, limit)
 		if err != nil {
 			internalError(w, r, "search date added", err)
@@ -647,10 +650,10 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		if dh != nil {
 			resp.DateAdded = dh
-			structured += len(dh.Books) + len(dh.Movies) + len(dh.Annotations) + len(dh.Dialogues)
 		}
 	}
 	if label, from, to, ok := parseDecade(q); ok {
+		parsedStructured = true
 		dec, err := s.searchDecadeFacet(uid, label, from, to, wantBooks, wantMovies, limit)
 		if err != nil {
 			internalError(w, r, "search decade", err)
@@ -658,7 +661,6 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		if dec != nil {
 			resp.Decade = dec
-			structured += len(dec.Books) + len(dec.Movies)
 		}
 	}
 
@@ -880,7 +882,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// user-scoped), but the re-run queries stay user_id-filtered and Corrected is
 	// surfaced only when THIS user actually received rows — so no other user's
 	// vocabulary ever leaks (§3.6).
-	if total == 0 && structured == 0 {
+	if total == 0 && !parsedStructured {
 		if corrected := s.fuzzyCorrect(q, wantBooks, wantAnnotations, wantMovies, wantDialogues); corrected != "" {
 			t2, err := runBoth(corrected)
 			if err != nil {
