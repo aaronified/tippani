@@ -91,7 +91,7 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 		},
 		resolveAuthor: metadata.ResolveAuthor,
 		GitHubAPI:     updater.DefaultGitHubAPI,
-		newDocker:     func() UpdateDocker { return updater.NewDocker(updater.DockerSock()) },
+		newDocker:     func() UpdateDocker { return updater.NewDocker(updater.DockerEndpoint()) },
 	}
 }
 

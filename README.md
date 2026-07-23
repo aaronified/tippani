@@ -29,7 +29,8 @@ Built for low-powered NAS boxes that already run a hundred other things: a singl
 binary (~12 MB, `linux/amd64`), SQLite + FTS5, **~25 MB idle RSS** (the budget we hold it
 within; set `GOMEMLIMIT` to cap it — the systemd unit uses 64 MiB), and **zero background jobs** (no pollers, timers, or
 cron). It serves plain HTTP on port 8080 for your LAN — bring your own TLS via a reverse proxy /
-Tailscale / Netbird / Twingate when you want remote or encrypted access. No Node at runtime;
+Tailscale / Netbird / Twingate, or hand it a PEM pair (`TIPPANI_TLS_CERT`/`_KEY`, hot-reloaded)
+and it serves HTTPS itself. No Node at runtime;
 metadata lookups are on-demand and optional (nothing external is required to run); covers and
 posters are served from your own disk.
 
@@ -127,8 +128,9 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
 - 🔄 **In-app updates** — Settings shows your running version and checks GitHub for a newer release
-  **on demand** (never automatically). If you mount the Docker socket (**opt-in**, a deliberate
-  security trade-off — see `docker-compose.yml`), one click pulls the new image and restarts the
+  **on demand** (never automatically). If you mount the Docker socket or point it at a
+  **docker-socket-proxy** (**opt-in**, a deliberate security trade-off — see the Configuration
+  section), one click pulls the new image and restarts the
   container; otherwise it hands you the exact `docker compose pull && up -d` to run.
 - 💾 **Backup & restore** — one click in Settings builds a dated `tar.gz` of the whole data
   directory (a consistent snapshot of the live database plus every stored image) and downloads it;
@@ -238,8 +240,12 @@ make build       # re-embed
 | :-- | :-- | :-- |
 | `TIPPANI_BIND` | `127.0.0.1:8080` | Listen address (binary default). The Docker image sets `0.0.0.0:8080` so the published port is LAN-reachable; override to bind elsewhere |
 | `TIPPANI_DATA` | `./data` | Data dir (SQLite DB + downloaded covers/posters) |
-| `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app |
+| `TIPPANI_TLS_CERT` | *(unset)* | Path to a PEM certificate (full chain). With `TIPPANI_TLS_KEY`, Tippani serves **HTTPS directly** — see below |
+| `TIPPANI_TLS_KEY` | *(unset)* | Path to the PEM private key. Both or neither; the pair **hot-reloads** when the files change |
+| `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when TLS terminates in front of the app (implied automatically when the TLS pair above is set) |
 | `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` for login rate limiting |
+| `TIPPANI_DOCKER_HOST` | *(unset)* | Engine API endpoint for one-click updates: `tcp://host:port` for a **docker-socket-proxy**, or `unix:///path`. Wins over the socket path below |
+| `TIPPANI_DOCKER_SOCK` | `/var/run/docker.sock` | Engine API unix-socket path for one-click updates (only relevant with the socket mounted) |
 | `TIPPANI_LOG_LEVEL` | `info` | Set `debug` for verbose per-operation `[trace]` logging when diagnosing an issue; errors carry lookup codes documented in [`docs/troubleshoot.md`](docs/troubleshoot.md) |
 
 **Metadata API keys — TMDB, TheTVDB, Google Books — are configured in the app**, not via environment:
@@ -264,6 +270,70 @@ Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.s
 `GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200`.
 
 Backup: nightly `sqlite3 data/tippani.db "VACUUM INTO 'backup.db'"` from cron, off-peak.
+
+### Serving HTTPS directly (optional)
+
+By default Tippani speaks plain HTTP and you terminate TLS one layer up (reverse proxy, Tailscale,
+VPN). If you'd rather skip the proxy container, hand Tippani a certificate and it serves HTTPS
+itself:
+
+```yaml
+    volumes:
+      - tippani-data:/data
+      - /srv/certs/tippani:/certs:ro     # cert.pem + key.pem, however you renew them
+    environment:
+      TIPPANI_TLS_CERT: /certs/cert.pem  # full chain, PEM
+      TIPPANI_TLS_KEY: /certs/key.pem
+```
+
+- **Bring your own certificate.** A cert from your home CA (trusted on your devices — this is what
+  makes the browser padlock, PWA install and clipboard APIs light up), a
+  [`tailscale cert`](https://tailscale.com/kb/1153/enabling-https), or a wildcard your existing
+  ACME tooling renews. Tippani deliberately does **not** speak ACME itself — a renewal loop is a
+  background job with a third-party dependency, and Tippani ships with zero of those.
+- **Renewals need no restart.** The pair re-loads on the next TLS handshake after the files change;
+  a botched write keeps serving the previous pair and logs `TIP-HTTP-001` instead of dropping HTTPS.
+- **Secure cookies are implied** — no need to also set `TIPPANI_COOKIE_SECURE`.
+- The container healthcheck adapts automatically. A self-signed cert works too, with the usual
+  browser warnings — trusted certs are what remove them.
+
+### One-click updates through a socket proxy (optional)
+
+The in-app update can talk to a [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)
+instead of the raw socket, so no socket file is ever mounted into Tippani:
+
+```yaml
+services:
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1   # inspect self, create/start the one-shot updater
+      IMAGES: 1       # pull the new image
+      POST: 1         # the create/start/pull calls above are POSTs
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [tippani-internal]
+
+  tippani:
+    image: ghcr.io/aaronified/tippani:latest
+    environment:
+      TIPPANI_DOCKER_HOST: tcp://dockerproxy:2375
+    networks: [default, tippani-internal]
+    # …ports/volumes as usual; no docker.sock mount, no group_add needed
+
+networks:
+  tippani-internal:
+    internal: true    # the proxy is reachable only from inside the stack
+```
+
+> [!WARNING]
+> **Be honest about what this buys.** The update flow must be allowed to *create and start
+> containers*, and that permission is host-root-equivalent in the wrong hands (a container can be
+> created with the host filesystem mounted). The proxy still helps — no socket file in the app
+> container, the exec/volumes/secrets/swarm endpoints stay blocked, and the API is only reachable
+> on an internal network — but treat it as a **hardened version of the same opt-in trade-off** as
+> the socket mount, not a removal of it.
 
 ## Users
 

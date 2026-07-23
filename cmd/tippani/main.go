@@ -14,8 +14,12 @@
 //
 //	TIPPANI_BIND           listen address        (default 127.0.0.1:8080)
 //	TIPPANI_DATA           data directory        (default ./data)
-//	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0)
+//	TIPPANI_TLS_CERT       PEM certificate path — with TIPPANI_TLS_KEY, serve HTTPS directly
+//	TIPPANI_TLS_KEY        PEM private-key path  (both or neither; pair hot-reloads on change)
+//	TIPPANI_COOKIE_SECURE  "1" when TLS-fronted  (default 0; implied when TLS_CERT/KEY are set)
 //	TIPPANI_TRUSTED_PROXY  "1" to trust X-Forwarded-For (default 0)
+//	TIPPANI_DOCKER_HOST    Engine API for one-click updates: tcp://host:port (socket proxy) or unix:///path
+//	TIPPANI_DOCKER_SOCK    Engine API unix-socket path (default /var/run/docker.sock; DOCKER_HOST wins)
 //	TIPPANI_LOG_LEVEL      "debug" for verbose [trace] logs (default info/quiet)
 //
 // Metadata API keys (TMDB, TheTVDB, Google Books) are configured in-app
@@ -26,6 +30,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io/fs"
 	"log"
@@ -83,8 +88,17 @@ func healthcheck() {
 	case "", "0.0.0.0", "::": // SplitHostPort strips brackets, so [::] arrives as "::"
 		host = "127.0.0.1"
 	}
-	url := "http://" + net.JoinHostPort(host, port) + "/healthz"
+	// When the server itself terminates TLS (TIPPANI_TLS_CERT set), the probe
+	// must speak https. InsecureSkipVerify is fine HERE and only here: this is
+	// a liveness check against our own loopback port — the cert names the LAN
+	// host, not 127.0.0.1, and identity isn't what's being probed.
+	scheme := "http"
 	client := &http.Client{Timeout: 3 * time.Second}
+	if os.Getenv("TIPPANI_TLS_CERT") != "" {
+		scheme = "https"
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
+	url := scheme + "://" + net.JoinHostPort(host, port) + "/healthz"
 	resp, err := client.Get(url)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "healthcheck: %v\n", err)
@@ -155,9 +169,22 @@ func serve() {
 	if err != nil {
 		log.Fatalf("embedded frontend: %v", err)
 	}
+
+	// Native HTTPS (opt-in): both TIPPANI_TLS_CERT and TIPPANI_TLS_KEY, or
+	// neither — one without the other is a misconfiguration worth failing loud
+	// on, not a silent fall-back to plain HTTP.
+	certPath, keyPath := os.Getenv("TIPPANI_TLS_CERT"), os.Getenv("TIPPANI_TLS_KEY")
+	tlsOn := certPath != "" || keyPath != ""
+	if tlsOn && (certPath == "" || keyPath == "") {
+		log.Fatal("TIPPANI_TLS_CERT and TIPPANI_TLS_KEY must be set together (got only one)")
+	}
+	// Serving TLS ourselves means every connection is HTTPS, so the session
+	// cookie is safe to mark Secure without the operator remembering the env.
+	cookieSecure := os.Getenv("TIPPANI_COOKIE_SECURE") == "1" || tlsOn
+
 	srv := httpapi.New(st, dist,
 		dataDir,
-		os.Getenv("TIPPANI_COOKIE_SECURE") == "1",
+		cookieSecure,
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
@@ -166,9 +193,9 @@ func serve() {
 	// running version and what's wired without leaking secrets (presence only).
 	// Per-request lines follow (logRequests).
 	log.Printf("tippani %s (%s)", buildinfo.Version, buildinfo.Image())
-	log.Printf("config: data=%s tmdb(builtin=%t) cookie_secure=%t trusted_proxy=%t",
-		dataDir, defaultTMDBKey != "",
-		os.Getenv("TIPPANI_COOKIE_SECURE") == "1", os.Getenv("TIPPANI_TRUSTED_PROXY") == "1")
+	log.Printf("config: data=%s tmdb(builtin=%t) tls=%t cookie_secure=%t trusted_proxy=%t",
+		dataDir, defaultTMDBKey != "", tlsOn,
+		cookieSecure, os.Getenv("TIPPANI_TRUSTED_PROXY") == "1")
 
 	bind := envOr("TIPPANI_BIND", "127.0.0.1:8080") // localhost-only by default (PLAN §2)
 	httpServer := &http.Server{
@@ -178,6 +205,16 @@ func serve() {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
+	}
+	if tlsOn {
+		reloader, err := newCertReloader(certPath, keyPath)
+		if err != nil {
+			log.Fatalf("load TLS cert/key: %v", err)
+		}
+		httpServer.TLSConfig = &tls.Config{
+			GetCertificate: reloader.GetCertificate,
+			MinVersion:     tls.VersionTLS12,
+		}
 	}
 	// Graceful shutdown. `docker stop` and the Watchtower self-updater send
 	// SIGTERM, then SIGKILL after a grace period (~10s by default). Without a
@@ -191,6 +228,15 @@ func serve() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	serveErr := make(chan error, 1)
 	go func() {
+		if tlsOn {
+			log.Printf("tippani listening on https://%s", bind)
+			// Cert/key paths live in the TLSConfig's GetCertificate hook (with
+			// hot-reload), so the arguments here are deliberately empty.
+			if err := httpServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				serveErr <- err
+			}
+			return
+		}
 		log.Printf("tippani listening on http://%s", bind)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serveErr <- err

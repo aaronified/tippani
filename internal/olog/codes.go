@@ -14,7 +14,11 @@ type Code string
 
 const (
 	// HTTP — cross-cutting web layer.
-	CodeHTTPInternal Code = "TIP-HTTP-000" // unclassified internal error (generic 500 fallback)
+	CodeHTTPInternal  Code = "TIP-HTTP-000" // unclassified internal error (generic 500 fallback)
+	CodeHTTPTLSReload Code = "TIP-HTTP-001" // the TLS cert/key pair failed to re-load after changing on disk; the previous pair is still served
+
+	// UPDATE — in-app self-update (Settings → Updates, admin).
+	CodeUpdateEngine Code = "TIP-UPDATE-001" // a Docker Engine API call failed during self-update (identify/pull/recreate)
 
 	// STORE — database lifecycle, integrity, repair, checkpoint.
 	CodeStoreIntegrityRun  Code = "TIP-STORE-001" // PRAGMA quick_check could not run
@@ -89,7 +93,10 @@ const (
 // source of truth paired with docs/troubleshoot.md (human-readable cause+fix).
 // Keep this and the doc in lockstep — the sync test enforces it.
 var Registry = map[Code]string{
-	CodeHTTPInternal: "Unclassified internal server error (generic 500 fallback).",
+	CodeHTTPInternal:  "Unclassified internal server error (generic 500 fallback).",
+	CodeHTTPTLSReload: "The TLS certificate/key pair changed on disk but failed to re-load; the previously loaded pair is still being served.",
+
+	CodeUpdateEngine: "A Docker Engine API call failed during self-update (identify self, pull image, or launch the recreater).",
 
 	CodeStoreIntegrityRun:  "SQLite PRAGMA quick_check could not run — the database file may be unreadable.",
 	CodeStoreCorruption:    "quick_check found page-level corruption in the database file.",

@@ -3,9 +3,10 @@
 //
 //   - the GitHub side (this file): fetch the latest release and compare it to
 //     the running version with a lenient semver compare;
-//   - the Docker side (docker.go): a tiny Engine-API client over the unix
-//     socket that pulls the new image and runs a one-shot Watchtower to
-//     recreate this container.
+//   - the Docker side (docker.go): a tiny Engine-API client — over the mounted
+//     unix socket or a docker-socket-proxy (TIPPANI_DOCKER_HOST=tcp://…) — that
+//     pulls the new image and runs a one-shot Watchtower to recreate this
+//     container.
 //
 // The update check is strictly on demand (a click) — Tippani never phones home
 // on its own.

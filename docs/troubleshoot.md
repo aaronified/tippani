@@ -20,6 +20,13 @@ document and that registry in lockstep.
 | Code | Meaning | Likely cause | What to do |
 | --- | --- | --- | --- |
 | `TIP-HTTP-000` | Unclassified internal server error (the generic 500 fallback). | A database, transaction, or encoding failure that has not yet been given a specific code. | Read the full `[error]` line — it includes the request method, path, and underlying cause. If it recurs, the handler should be given a specific code. |
+| `TIP-HTTP-001` | The TLS certificate/key pair changed on disk but failed to re-load; the previous pair is still served. | A renewal wrote a malformed file, or wrote the cert and key non-atomically (Tippani retries once the second file lands). | Check `TIPPANI_TLS_CERT`/`TIPPANI_TLS_KEY` point at a matching PEM pair. HTTPS keeps working on the old certificate until it expires, so fix the files and the next handshake picks them up — no restart needed. |
+
+## UPDATE — in-app self-update
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-UPDATE-001` | A Docker Engine API call failed during self-update (identify self, pull the image, or launch the recreater). | The socket/proxy lacks a needed permission (a socket proxy must allow `CONTAINERS=1`, `IMAGES=1`, `POST=1`), the registry was unreachable, or the container name could not be resolved. | Read the `[error]` line for the Engine's status and message. For a socket proxy, verify the permission env vars on the proxy container; for the raw socket, verify the mount and the `group_add` gid. The guided manual command in Settings always works meanwhile. |
 
 ## STORE — database lifecycle, integrity, repair
 

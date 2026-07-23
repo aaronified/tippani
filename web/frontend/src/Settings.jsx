@@ -336,8 +336,8 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                 ) : (
                   <div className="space-y-2">
                     <p className="microcopy">
-                      One-click update needs the Docker socket mounted (see the README). To update by
-                      hand, run on your host:
+                      One-click update needs the Docker socket mounted, or a socket proxy configured
+                      (see the README). To update by hand, run on your host:
                     </p>
                     <div
                       className="flex items-center justify-between gap-2"

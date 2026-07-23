@@ -27,6 +27,9 @@ services:
       # OPT-IN: mount the Docker socket to enable the in-app one-click update
       # (Settings → Updates, admin). SECURITY: this grants the container control
       # of your Docker host — only enable it if you understand that trade-off.
+      # Prefer no socket in this container at all? A docker-socket-proxy works
+      # too: set TIPPANI_DOCKER_HOST below (README → Configuration for the
+      # full example + an honest note on what the proxy does and doesn't buy).
       # It only works when you track a moving tag (image: …:latest, as above).
       #   - /var/run/docker.sock:/var/run/docker.sock
     # The image runs as non-root (uid 65532); to let it reach the socket above,
@@ -34,8 +37,11 @@ services:
     #   group_add:
     #     - "999"   # <- your host's docker group id
     # environment:
-    #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
+    #   TIPPANI_TLS_CERT: /certs/cert.pem  # serve HTTPS directly from a PEM pair
+    #   TIPPANI_TLS_KEY: /certs/key.pem    # (mount them read-only; hot-reloads on renewal)
+    #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front (implied by the TLS pair)
     #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
+    #   TIPPANI_DOCKER_HOST: tcp://dockerproxy:2375  # one-click updates via a socket proxy
     #   GOMAXPROCS: "1"              # Go runtime resource caps for a small NAS (see PLAN §8)
     #   GOMEMLIMIT: "64MiB"
     #   GOGC: "200"

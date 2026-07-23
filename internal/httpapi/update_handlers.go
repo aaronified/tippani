@@ -4,16 +4,18 @@ package httpapi
 //
 //   GET  /admin/update/check — compare the running version against the latest
 //        GitHub release; report whether a one-click update is possible (i.e.
-//        the Docker socket is reachable).
+//        the Docker Engine API is reachable).
 //   POST /admin/update/apply — pull the new image and run a one-shot Watchtower
-//        that recreates this container. Requires {"confirm":"UPDATE"} and the
-//        Docker socket; without the socket it returns the guided command so the
+//        that recreates this container. Requires {"confirm":"UPDATE"} and a
+//        reachable Engine API; otherwise it returns the guided command so the
 //        operator can update by hand.
 //
 // The check is strictly on demand — Tippani never contacts GitHub on its own.
 // The apply is an opt-in, privileged operation: it only works when the operator
-// has mounted the Docker socket (and granted the non-root user access), which
-// is documented as a deliberate security trade-off.
+// has mounted the Docker socket (and granted the non-root user access) or has
+// pointed TIPPANI_DOCKER_HOST at a docker-socket-proxy — both documented as a
+// deliberate security trade-off (proxy included: it must allow container
+// create/start, which is host-root-equivalent in the wrong hands).
 
 import (
 	"context"
@@ -88,11 +90,11 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 
 	d := s.newDocker()
 	if !d.Available(ctx) {
-		// No socket → one-click isn't possible; hand back the manual command so
-		// the operator can update by hand.
-		olog.Printf("[update] apply requested by user %d (%s) but Docker socket is unavailable", userID(r), username(r))
+		// No Engine API → one-click isn't possible; hand back the manual command
+		// so the operator can update by hand.
+		olog.Printf("[update] apply requested by user %d (%s) but the Docker Engine API is unreachable", userID(r), username(r))
 		writeJSON(w, http.StatusConflict, map[string]any{
-			"error":          "the Docker socket is not available — one-click update needs it mounted (see the README)",
+			"error":          "the Docker Engine API is not reachable — one-click update needs the socket mounted, or TIPPANI_DOCKER_HOST pointed at a socket proxy (see the README)",
 			"guided_command": guidedUpdateCommand,
 			"socket":         false,
 		})
@@ -100,16 +102,16 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	}
 	_, name, image, err := d.Self(ctx)
 	if err != nil {
-		internalError(w, r, "update identify self", err)
+		codedError(w, r, olog.CodeUpdateEngine, "update identify self", err)
 		return
 	}
 	olog.Alertf("[update] APPLY requested by user %d (%s) — pulling %s and recreating container %q", userID(r), username(r), image, name)
 	if err := d.Pull(ctx, image); err != nil {
-		internalError(w, r, "update pull image", err)
+		codedError(w, r, olog.CodeUpdateEngine, "update pull image", err)
 		return
 	}
 	if err := d.RunWatchtower(ctx, name); err != nil {
-		internalError(w, r, "update run recreater", err)
+		codedError(w, r, olog.CodeUpdateEngine, "update run recreater", err)
 		return
 	}
 	olog.Alertf("[update] recreater launched for %q — the container will restart on the new image", name)
