@@ -196,13 +196,14 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
         </p>
       )}
 
-      {/* table view flattens the raw hits into sortable tables; tiles/list keep
-          the grouped media cards (masonry vs single column). Sort lives only in
-          the table view — tiles/list follow the server's bm25 relevance order.
-          One section per facet, only when it has hits. */}
-      {results && !empty && view === 'table' ? (
-        <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} reload={reload} />
-      ) : (
+      {/* One section per facet, only when it has hits. The structured facets
+          (date, decade) and the credit / notes / tag / genre facets have no
+          flat-table form, so they render as cards in EVERY view — only the plain
+          Books / Movies / Annotations / Dialogues switch to sortable tables in
+          table view (tiles/list keep the grouped media cards). This keeps a
+          facet-only result (e.g. a date or author query) from rendering a blank
+          screen under the table view. */}
+      {results && !empty && (
         <>
           {results?.date_added && (
             <DateSection d={results.date_added} view={view} renderBook={renderBook} renderMovie={renderMovie} />
@@ -220,30 +221,63 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               </Board>
             </section>
           )}
-          {bookGroups.length > 0 && (
-            <ResultSection
-              label="Books"
-              groups={bookGroups}
-              group={group}
-              view={view}
-              isMovie={false}
-              people={authors.map}
-              onOpenPerson={setPerson}
-              creditSeps={creditSeps}
-              renderItem={renderBook}
-            />
-          )}
-          {movieGroups.length > 0 && (
-            <ResultSection
-              label="Movies"
-              groups={movieGroups}
-              group={group}
-              view={view}
-              isMovie
-              people={directors.map}
-              onOpenPerson={setPerson}
-              renderItem={renderMovie}
-            />
+          {view === 'table' ? (
+            <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} reload={reload} />
+          ) : (
+            <>
+              {bookGroups.length > 0 && (
+                <ResultSection
+                  label="Books"
+                  groups={bookGroups}
+                  group={group}
+                  view={view}
+                  isMovie={false}
+                  people={authors.map}
+                  onOpenPerson={setPerson}
+                  creditSeps={creditSeps}
+                  renderItem={renderBook}
+                />
+              )}
+              {movieGroups.length > 0 && (
+                <ResultSection
+                  label="Movies"
+                  groups={movieGroups}
+                  group={group}
+                  view={view}
+                  isMovie
+                  people={directors.map}
+                  onOpenPerson={setPerson}
+                  renderItem={renderMovie}
+                />
+              )}
+              {annGroups.length > 0 && (
+                <ResultSection
+                  label="Annotations"
+                  groups={annGroups}
+                  group={group}
+                  view={view}
+                  isMovie={false}
+                  people={authors.map}
+                  onOpenPerson={setPerson}
+                  creditSeps={creditSeps}
+                  renderItem={renderBook}
+                  count={r.annotations?.length || 0}
+                />
+              )}
+              {dlgGroups.length > 0 && (
+                <ResultSection
+                  label="Dialogues"
+                  groups={dlgGroups}
+                  group={group}
+                  view={view}
+                  isMovie
+                  people={directors.map}
+                  onOpenPerson={setPerson}
+                  renderItem={renderMovie}
+                  count={r.dialogues?.length || 0}
+                />
+              )}
+            </>
           )}
           {results?.authors?.length > 0 && (
             <PeopleSection
@@ -276,31 +310,6 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               onOpenPerson={setPerson}
               view={view}
               render={renderMovie}
-            />
-          )}
-          {annGroups.length > 0 && (
-            <ResultSection
-              label="Annotations"
-              groups={annGroups}
-              group={group}
-              view={view}
-              isMovie={false}
-              people={authors.map}
-              onOpenPerson={setPerson}
-              creditSeps={creditSeps}
-              renderItem={renderBook}
-            />
-          )}
-          {dlgGroups.length > 0 && (
-            <ResultSection
-              label="Dialogues"
-              groups={dlgGroups}
-              group={group}
-              view={view}
-              isMovie
-              people={directors.map}
-              onOpenPerson={setPerson}
-              renderItem={renderMovie}
             />
           )}
           {(noteAnnGroups.length > 0 || noteDlgGroups.length > 0) && (
@@ -867,7 +876,12 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
 // bucketed into labelled sub-sections. renderItem(g) returns a keyed card.
 // For book author buckets, the heading shows the author portrait (people map)
 // and opens the metadata panel on click.
-function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson, creditSeps }) {
+function ResultSection({ label, groups, group, view, isMovie, renderItem, people, onOpenPerson, creditSeps, count }) {
+  // The header count defaults to the number of work groups (Books/Movies, where
+  // one group == one work), but a caller can override it with the hit count —
+  // Annotations/Dialogues fold many quote hits under one parent work, so their
+  // count is the number of quotes, matching the table view.
+  const n = count ?? groups.length
   // Results stay in bm25 relevance order (Masonry order="source" — no height
   // sort, no jitter), but tiles pack the shared greedy way every other board
   // does: each card lands on the SHORTEST column, so the last hit can't leave
@@ -882,14 +896,14 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
   if (group === 'none') {
     return (
       <section className="space-y-3">
-        <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
+        <MonoLabel className="block">{label} · {n}</MonoLabel>
         {pack(groups)}
       </section>
     )
   }
   return (
     <section className="space-y-4">
-      <MonoLabel className="block">{label} · {groups.length}</MonoLabel>
+      <MonoLabel className="block">{label} · {n}</MonoLabel>
       {groupWorks(groups, group, {
         credit: (g) => (isMovie ? g.director : g.author),
         splitCredit: !isMovie,

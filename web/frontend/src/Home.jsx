@@ -423,15 +423,17 @@ function DailyQuizCard({ onPending, states, onStates }) {
 // flow as the Daily Quiz, but skippable and, by default, schedule-neutral (a
 // setting opts it into moving half-lives). Its score is separate and can be
 // reset without touching learning history.
-function PracticeCard({ onStates }) {
-  // The active deck + position persist across reloads (localStorage), so a
-  // refresh resumes the round instead of dropping it. { cards, i } — cleared
-  // when the round finishes or is ended. `phase` seeds from a live session so
-  // a reload comes back straight into 'active'.
-  const [session, setSession] = usePersistedState('tippani:practice:session', null)
+function PracticeCard({ onStates, userId }) {
+  // The active deck + position + tally persist across reloads (localStorage),
+  // so a refresh resumes the round instead of dropping it — { cards, i, got,
+  // forgot }, cleared when the round finishes or is ended. The key is
+  // user-scoped so a shared browser never shows one account's private deck to
+  // the next (localStorage isn't cleared on logout). `phase` seeds from a live
+  // session so a reload comes back straight into 'active'.
+  const [session, setSession] = usePersistedState(`tippani:practice:session:${userId ?? 'me'}`, null)
   const [phase, setPhase] = useState(session?.cards?.length ? 'active' : 'idle')
   const [score, setScore] = useState(null) // lifetime practice score
-  const [round, setRound] = useState({ got: 0, forgot: 0 })
+  const [lastRound, setLastRound] = useState({ got: 0, forgot: 0 }) // the finished round's tally, for the done screen
   const [busy, setBusy] = useState(false)
   const cards = session?.cards || []
 
@@ -448,24 +450,26 @@ function PracticeCard({ onStates }) {
     setBusy(false)
     const items = r.ok ? r.data.items || [] : []
     if (!items.length) return toast('add a few more quotes first — practice needs some to work with')
-    setSession({ cards: items, i: 0 })
-    setRound({ got: 0, forgot: 0 })
+    setSession({ cards: items, i: 0, got: 0, forgot: 0 })
     setPhase('active')
   }
 
-  // End practice stops the round early: clear the persisted deck and show the
-  // round summary (the schedule/score are already saved per answer).
-  function endPractice() {
-    setSession(null)
+  // finishRound ends the current round (naturally or via End practice): stash
+  // its tally for the done screen, drop the persisted deck, refresh the score.
+  function finishRound() {
+    setLastRound({ got: session?.got || 0, forgot: session?.forgot || 0 })
     loadScore()
+    setSession(null)
     setPhase('done')
   }
 
   function onAnswered(result, res) {
-    setRound((t) => ({
-      got: t.got + (result === 'got' ? 1 : 0),
-      forgot: t.forgot + (result === 'forgot' ? 1 : 0),
-    }))
+    // Tally lives in the persisted session so a reload doesn't lose the count.
+    setSession((s) => (s ? {
+      ...s,
+      got: s.got + (result === 'got' ? 1 : 0),
+      forgot: s.forgot + (result === 'forgot' ? 1 : 0),
+    } : s))
     // Practice answers refresh the Daily card's "where you stand" row too — the
     // server returns the counts on every answer (they move when practice is set
     // to touch the schedule, and stay honest either way).
@@ -516,10 +520,10 @@ function PracticeCard({ onStates }) {
             startIndex={Math.min(session?.i || 0, cards.length - 1)}
             onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
             onAnswered={onAnswered}
-            onDone={() => { loadScore(); setSession(null); setPhase('done') }}
+            onDone={finishRound}
           />
           <div className="mt-2 text-right">
-            <button type="button" className="tp-link" onClick={endPractice}>End practice</button>
+            <button type="button" className="tp-link" onClick={finishRound}>End practice</button>
           </div>
         </>
       )}
@@ -527,10 +531,10 @@ function PracticeCard({ onStates }) {
       {phase === 'done' && (
         <div className="review-card-body py-2 text-center">
           <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
-            {round.got} / {round.got + round.forgot}
+            {lastRound.got} / {lastRound.got + lastRound.forgot}
           </p>
           <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
-            practice round done — {round.got} recalled · {round.forgot} missed
+            practice round done — {lastRound.got} recalled · {lastRound.forgot} missed
           </p>
           <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
             Another round
@@ -714,7 +718,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 
       <DailyQuizCard onPending={onPending} states={states} onStates={setStates} />
 
-      <PracticeCard onStates={setStates} />
+      <PracticeCard onStates={setStates} userId={user?.id} />
 
       <div className="grid grid-cols-2 gap-2.5">
         <HandCard variant={1} className="cursor-pointer" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>

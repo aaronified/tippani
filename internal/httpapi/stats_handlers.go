@@ -389,9 +389,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Daily activity for the last ~53 weeks (annotations + dialogues bucketed by
-	// created_at day) — drives the Stats page's GitHub-style calendar. Only days
-	// with saves are sent; the client zero-fills its week grid.
+	// Daily activity (annotations + dialogues bucketed by created_at day) — drives
+	// the Stats page's GitHub-style calendar. The window covers the widest the
+	// calendar can render (~130 weeks on a wide desktop; see MAX_WEEKS in
+	// StatsPage), not just 12 months, so older columns aren't blank on a wide
+	// screen. Only days with saves are sent; the client zero-fills its week grid.
 	type dayCount struct {
 		Date  string `json:"date"`
 		Count int    `json:"count"`
@@ -402,7 +404,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		FROM (SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
 		      UNION ALL
 		      SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)
-		WHERE created_at >= datetime('now', '-372 days')
+		WHERE created_at >= datetime('now', '-930 days')
 		GROUP BY day ORDER BY day`, uid, uid)
 	if err != nil {
 		internalError(w, r, "query daily activity", err)
@@ -427,7 +429,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	reviewSeries := func(mode string) ([]dayCount, error) {
 		out := []dayCount{}
 		rows, err := s.Store.DB.Query(`SELECT day, answered FROM quiz_sessions
-			WHERE user_id = ? AND mode = ? AND answered > 0 AND day >= date('now','-372 days')
+			WHERE user_id = ? AND mode = ? AND answered > 0 AND day >= date('now','-930 days')
 			ORDER BY day`, uid, mode)
 		if err != nil {
 			return nil, err
