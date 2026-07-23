@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-07-23
+
+### Added
+- **Native HTTPS (opt-in).** Point `TIPPANI_TLS_CERT` / `TIPPANI_TLS_KEY` at a
+  PEM pair and Tippani serves TLS itself — no reverse-proxy container needed.
+  The pair **hot-reloads** when the files change (renewals need no restart; a
+  botched write keeps serving the previous pair and logs `TIP-HTTP-001`),
+  session cookies turn `Secure` automatically, and the container healthcheck
+  probes https. Certificates come from wherever you already get them (home CA,
+  `tailscale cert`, external ACME tooling) — Tippani still doesn't speak ACME,
+  phone home, or run renewal jobs.
+- **One-click updates through a docker-socket-proxy.** Set
+  `TIPPANI_DOCKER_HOST=tcp://dockerproxy:2375` and the in-app update talks to a
+  [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)
+  (`CONTAINERS=1 IMAGES=1 POST=1`) instead of a mounted socket — the one-shot
+  Watchtower helper gets `DOCKER_HOST` and joins all of the container's networks
+  (so whichever one carries the proxy is covered) rather than a socket bind. The
+  raw-socket path is unchanged; the README documents
+  both, including what the proxy genuinely does and doesn't harden. Engine
+  failures during an update now log as `TIP-UPDATE-001`.
+
+### Fixed
+- **Phones no longer pan sideways on Settings, Metadata and User management.**
+  A closed tooltip (the ⓘ info-dots') kept its invisible bubble in layout, and
+  one sitting near the right screen edge widened the page's scrollable area —
+  the page dragged sideways into blank space, and iOS pulled the fixed
+  User-management overlay along with the pan. Closed bubbles now leave layout
+  entirely (the fade-in/out survives on modern engines via `@starting-style` +
+  `allow-discrete`), and the page root upgrades its horizontal-overflow
+  backstop to `overflow-x: clip`.
+
 ## [0.9.3] - 2026-07-23
 
 ### Changed
