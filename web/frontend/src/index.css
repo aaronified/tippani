@@ -1952,6 +1952,7 @@ html[data-theme="dark"] .mobile-topbar {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap; /* keep the subtext on one line so it can't offset the row label */
 }
 .drawer-divider { height: 1px; background: var(--line); margin: 8px 6px; flex: none; }
 .drawer-footer {

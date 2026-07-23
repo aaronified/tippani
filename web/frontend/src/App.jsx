@@ -20,7 +20,6 @@ import {
   IconBack,
   IconMenu,
   IconPlus,
-  IconQuote,
   IconSearch,
   Sprockets,
   StickerButton,
@@ -436,6 +435,22 @@ function TabIcon({ name }) {
           <circle cx="9" cy="16" r="2" />
         </svg>
       )
+    case 'profile': // single person
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="8" r="3.6" />
+          <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
+        </svg>
+      )
+    case 'users': // two people
+      return (
+        <svg {...p}>
+          <circle cx="9" cy="8" r="3.2" />
+          <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+          <path d="M16 5.2a3.2 3.2 0 0 1 0 6" />
+          <path d="M17 14.2a5.5 5.5 0 0 1 3.5 4.8" />
+        </svg>
+      )
     default:
       return null
   }
@@ -658,13 +673,14 @@ function rememberScroll(key) {
 }
 
 // The drawer's nav rows, in order; null marks the divider between the primary
-// screens and the utility group (Tags · Metadata · Settings — the same trio,
-// in the same order, as the desktop navbar's utility cluster).
+// screens and the utility group. Search sits directly below the ＋ Add lead row
+// (top of the list); the utility group (Tags · Metadata · Stats · Settings)
+// follows the divider, matching the desktop navbar's utility cluster.
 const DRAWER_TABS = [
+  ['search', 'Search'],
   ['home', 'Home'],
   ['library', 'Library'],
   ['movies', 'Catalogue'],
-  ['search', 'Search'],
   null,
   ['tags', 'Tags'],
   ['metadata', 'Metadata'],
@@ -682,7 +698,21 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onAdd, onCapture, user, stats, pending, update, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, pending, streak, update, logout, dark, onUser }) {
+  // Metadata "issues" = items the console flags (a book with no cover or no
+  // ids; a film/show with no poster, cast or source) — the same predicate the
+  // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
+  // whole-library read, wasted on desktop users who never open the drawer).
+  const [metaIssues, setMetaIssues] = useState(null)
+  useEffect(() => {
+    if (!open || metaIssues !== null) return
+    json('GET', '/metadata/library').then((r) => {
+      if (!r.ok || !r.data) return
+      const books = (r.data.books || []).filter((b) => !b.has_cover || !b.has_ids).length
+      const movies = (r.data.movies || []).filter((m) => !m.has_poster || !m.has_cast || !m.has_source).length
+      setMetaIssues(books + movies)
+    })
+  }, [open, metaIssues])
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -731,6 +761,12 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onCapture, user, stats, 
     }
     if (key === 'library' && stats) return <span className="drawer-badge">{stats.books}</span>
     if (key === 'movies' && stats) return <span className="drawer-badge">{stats.movies}</span>
+    if (key === 'tags' && stats) return <span className="drawer-badge">{stats.tags}</span>
+    if (key === 'metadata' && metaIssues !== null) {
+      return <span className="drawer-badge">{metaIssues > 0 ? `${metaIssues} ${metaIssues === 1 ? 'issue' : 'issues'}` : 'all clear'}</span>
+    }
+    if (key === 'stats' && streak > 0) return <span className="drawer-badge">{streak}-day streak</span>
+    if (key === 'settings') return <span className="drawer-badge">v{user.version || 'dev'}</span>
     return null
   }
 
@@ -757,10 +793,9 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onCapture, user, stats, 
           </div>
         </div>
         <div className="drawer-nav">
-          {/* §7 One "＋ Add": Import is no longer a nav row — the single Add
-              surface (book · film · quote · import) leads the drawer instead,
-              with a direct row for its Capture-quote tab (§ capture entry:
-              top bar + drawer, not the Home screen). */}
+          {/* §7 One "＋ Add": the single Add surface leads the drawer. Quote
+              capture is the surface's Capture tab (reached from ＋ Add), not a
+              separate drawer row — everything is covered by this one entry. */}
           <button
             type="button"
             className="drawer-item drawer-add"
@@ -768,16 +803,7 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onCapture, user, stats, 
           >
             <IconPlus />
             Add
-            <span className="drawer-badge">book · film · quote · import</span>
-          </button>
-          <button
-            type="button"
-            className="drawer-item"
-            onClick={() => { onCapture(); onClose() }}
-          >
-            <IconQuote />
-            Capture quote
-            <span className="drawer-badge">note · tags</span>
+            <span className="drawer-badge">work · quote · import</span>
           </button>
           {DRAWER_TABS.map((t, i) =>
             t === null ? (
@@ -795,6 +821,28 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onCapture, user, stats, 
                 {badge(t[0])}
               </button>
             ),
+          )}
+          {/* Account section: Profile (+ User management for admins) — the same
+              views the desktop avatar-chip menu opens, surfaced as their own
+              drawer group on mobile. */}
+          <div className="drawer-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="drawer-item"
+            onClick={() => { onAccount('profile'); onClose() }}
+          >
+            <TabIcon name="profile" />
+            Profile
+          </button>
+          {user.is_admin && (
+            <button
+              type="button"
+              className="drawer-item"
+              onClick={() => { onAccount('users'); onClose() }}
+            >
+              <TabIcon name="users" />
+              User management
+            </button>
           )}
         </div>
         <div className="drawer-footer">
@@ -870,6 +918,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // the brand mark and the drawer's Home row. Seeded once here, then kept
   // honest by the Home screen as answers land.
   const [pending, setPending] = useState(0)
+  const [streak, setStreak] = useState(0) // daily-quiz streak — drawer Stats subtext
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
   // Update-check result, shared so the mobile drawer's "update available" link
   // mirrors the Settings → Updates card. Populated on demand when an admin runs
@@ -895,7 +944,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   useEffect(() => {
     refreshStats()
     json('GET', `/review/daily?offset=${tzOffsetMinutes()}`).then((r) => {
-      if (r.ok) setPending((r.data.items || []).length)
+      if (r.ok) { setPending((r.data.items || []).length); setStreak(r.data.streak || 0) }
     })
     // An old /import link lands here — open the Add surface on Import.
     if (initial.tab === 'import') openAdd('import')
@@ -1138,10 +1187,11 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         tab={tab}
         selectTab={selectTab}
         onAdd={() => openAdd('book')}
-        onCapture={() => openAdd('quote')}
+        onAccount={setAccountView}
         user={user}
         stats={stats}
         pending={pending}
+        streak={streak}
         update={update}
         logout={logout}
         dark={dark}
