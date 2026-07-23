@@ -1013,20 +1013,10 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               <IconPlus />
               <span>Add</span>
             </button>
-            {/* Capture quote rides beside ＋ Add as an icon-only pill — it opens
-                the same Add surface straight on its Capture tab (§ capture
-                entry: top bar, not the Home screen). */}
-            <button
-              type="button"
-              className="topbar-add-btn tactile icon-only"
-              onClick={() => openAdd('quote')}
-              title="Capture a quote"
-              aria-label="Capture a quote"
-            >
-              <IconQuote />
-            </button>
             {/* Search rides beside ＋ Add as an icon-only pill in the same
-                accent texture — the phone top bar already works this way. */}
+                accent texture — the phone top bar already works this way.
+                (Quote capture lives inside the ＋ Add surface's Capture tab —
+                no separate top-bar pill.) */}
             <button
               type="button"
               className="topbar-add-btn tactile icon-only"
@@ -1060,9 +1050,6 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 quote · import toggle; ❝ opens it straight on Capture quote. */}
             <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
               <IconPlus />
-            </button>
-            <button type="button" className="mobile-topbar-btn" aria-label="Capture a quote" onClick={() => openAdd('quote')}>
-              <IconQuote />
             </button>
             <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
               <IconSearch />
