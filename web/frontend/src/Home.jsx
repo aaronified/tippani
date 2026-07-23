@@ -35,6 +35,7 @@ import {
   STATUS_META,
   toast,
   useColumnsAt,
+  usePersistedState,
 } from './ui.jsx'
 
 // tzOffsetMinutes — the client's UTC offset, east positive, sent with every
@@ -163,8 +164,10 @@ function SourceLines({ card, maps = {} }) {
 // same schedule as before, only auto-graded. A correct save is required before
 // advancing; skip (Practice) advances locally, touching neither schedule nor
 // score.
-function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
-  const [i, setI] = useState(0)
+function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone }) {
+  // startIndex seeds the position (Practice restores it from a persisted
+  // session on reload); onIndex reports each advance so the host can persist it.
+  const [i, setI] = useState(startIndex)
   const [picked, setPicked] = useState(null) // chosen option index for the current card
   const [busy, setBusy] = useState(false)
   // Portrait lookups for the person chips on prompts and options (the server
@@ -179,6 +182,7 @@ function QuizRunner({ mode, cards, allowSkip, onAnswered, onDone }) {
   function advance() {
     if (i + 1 >= cards.length) return onDone?.()
     setI(i + 1)
+    onIndex?.(i + 1)
     setPicked(null)
   }
 
@@ -420,11 +424,16 @@ function DailyQuizCard({ onPending, states, onStates }) {
 // setting opts it into moving half-lives). Its score is separate and can be
 // reset without touching learning history.
 function PracticeCard({ onStates }) {
-  const [phase, setPhase] = useState('idle') // idle | active | done
-  const [cards, setCards] = useState([])
+  // The active deck + position persist across reloads (localStorage), so a
+  // refresh resumes the round instead of dropping it. { cards, i } — cleared
+  // when the round finishes or is ended. `phase` seeds from a live session so
+  // a reload comes back straight into 'active'.
+  const [session, setSession] = usePersistedState('tippani:practice:session', null)
+  const [phase, setPhase] = useState(session?.cards?.length ? 'active' : 'idle')
   const [score, setScore] = useState(null) // lifetime practice score
   const [round, setRound] = useState({ got: 0, forgot: 0 })
   const [busy, setBusy] = useState(false)
+  const cards = session?.cards || []
 
   function loadScore() {
     json('GET', `/review/scores?offset=${tzOffsetMinutes()}`).then((r) => {
@@ -439,9 +448,17 @@ function PracticeCard({ onStates }) {
     setBusy(false)
     const items = r.ok ? r.data.items || [] : []
     if (!items.length) return toast('add a few more quotes first — practice needs some to work with')
-    setCards(items)
+    setSession({ cards: items, i: 0 })
     setRound({ got: 0, forgot: 0 })
     setPhase('active')
+  }
+
+  // End practice stops the round early: clear the persisted deck and show the
+  // round summary (the schedule/score are already saved per answer).
+  function endPractice() {
+    setSession(null)
+    loadScore()
+    setPhase('done')
   }
 
   function onAnswered(result, res) {
@@ -490,14 +507,21 @@ function PracticeCard({ onStates }) {
         </div>
       )}
 
-      {phase === 'active' && (
-        <QuizRunner
-          mode="practice"
-          cards={cards}
-          allowSkip
-          onAnswered={onAnswered}
-          onDone={() => { loadScore(); setPhase('done') }}
-        />
+      {phase === 'active' && cards.length > 0 && (
+        <>
+          <QuizRunner
+            mode="practice"
+            cards={cards}
+            allowSkip
+            startIndex={Math.min(session?.i || 0, cards.length - 1)}
+            onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
+            onAnswered={onAnswered}
+            onDone={() => { loadScore(); setSession(null); setPhase('done') }}
+          />
+          <div className="mt-2 text-right">
+            <button type="button" className="tp-link" onClick={endPractice}>End practice</button>
+          </div>
+        </>
       )}
 
       {phase === 'done' && (
