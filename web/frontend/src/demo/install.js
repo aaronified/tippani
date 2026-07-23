@@ -23,7 +23,11 @@ const USER = {
 const svgURI = (s) => 'data:image/svg+xml;utf8,' + encodeURIComponent(s)
 const coverArt = (bg, fg, title, sub) =>
   svgURI(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300">` +
+    // Explicit width/height (not just viewBox) so the browser gives the inline
+    // SVG a firm 2:3 intrinsic size — without them a data-URI cover can size
+    // inconsistently under object-cover, nudging the first catalogue tile out
+    // of line. (Real builds serve raster covers with real dimensions.)
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">` +
       `<rect width="200" height="300" fill="${bg}"/>` +
       `<rect x="12" y="12" width="176" height="276" fill="none" stroke="${fg}" stroke-opacity=".55" stroke-width="2"/>` +
       `<text x="100" y="140" font-family="Georgia,serif" font-size="19" fill="${fg}" text-anchor="middle">${title}</text>` +
@@ -32,7 +36,7 @@ const coverArt = (bg, fg, title, sub) =>
   )
 const portraitArt = (bg, initials) =>
   svgURI(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160">` +
       `<rect width="120" height="160" fill="${bg}"/>` +
       `<circle cx="60" cy="58" r="26" fill="#FFFEF9" fill-opacity=".85"/>` +
       `<rect x="24" y="96" width="72" height="44" rx="20" fill="#FFFEF9" fill-opacity=".85"/>` +

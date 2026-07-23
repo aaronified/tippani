@@ -95,7 +95,7 @@ export default function App() {
       <div className="scene-bg" aria-hidden="true" />
       {DEMO && (
         <div className="demo-ribbon" role="note">
-          Demo · dummy data, read-only · <a href="https://github.com/aaronified/tippani">the real, self-hosted app →</a>
+          Demo · dummy data, read-only · rougher than the real thing — <a href="https://github.com/aaronified/tippani">the self-hosted app is more polished →</a>
         </div>
       )}
       {/* A render error in any screen unmounts to a visible fallback, never a
