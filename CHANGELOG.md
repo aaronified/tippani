@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Activity is Saves · Quiz · Practice.** The Stats activity calendar gained a
+  switch: the same GitHub-style heatmap now also shows Daily-Quiz and Practice
+  answers per day (new `daily_quiz` / `daily_practice` on `GET /stats`), and the
+  Practice view carries a **reset practice** link. The calendar fills the card
+  width on desktop (well over a year of history) and holds a year with
+  horizontal scroll on a phone.
+- **Practice resumes across a reload,** and a round can be ended early. The
+  active deck, position and tally persist (per-user, so a shared browser never
+  shows one account's deck to the next), so a refresh drops you back onto the
+  same card instead of the start; an **End practice** link stops the round and
+  shows the summary.
+
+### Changed
+- **Films and shows are tagged apart in search.** Movie search hits carry
+  `media_type`, so a result card shows a **FILM** / **SHOW** tag by its title.
+- **Multi-author credits split everywhere they show.** Search result cards, the
+  search quote pop-up and the Home favourite tiles now render a joined credit
+  ("Gaiman & Pratchett") as individual, clickable people with portraits — the
+  same splitting the detail pages and group-by headings already used. The search
+  pop-up previously showed no author/actor chips at all.
+- **Quote capture is only in ＋ Add now.** The separate top-bar ❝ pill is gone
+  from both bars (it duplicated the Add surface's Capture tab); the phone drawer
+  keeps its Capture-quote row. The Add slider uses short labels
+  (Add · Capture · Import) on a phone.
+- **Stats breakdown rows line up.** Cover/portrait kinds reserve a fixed art
+  column, so an entity without an image aligns its name and status bar with the
+  ones that have art.
+
+### Fixed
+- **Activity x-axis shows every month.** The leading partial month now yields so
+  the first full month (e.g. August) keeps its label instead of being crowded
+  out, and the calendar's data window matches how many weeks it can draw.
+- **Search table view no longer blanks on a facet-only query.** A date, author,
+  tag, genre or decade query (with no plain title/quote hit) rendered an empty
+  screen under the table view; the facet sections now render in every view.
+  Annotation/Dialogue section headers count quote hits, matching the table.
+- **Demo:** the ribbon notes the self-hosted app is more polished, and demo
+  cover art carries an explicit size so the first catalogue tile can't drift out
+  of line.
+
 ## [0.9.1] - 2026-07-23
 
 ### Added
