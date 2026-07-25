@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-07-25
+
+### Changed
+- **Spaced repetition now climbs a fixed interval ladder.** A correct recall
+  moves a card's memory half-life up one rung — **7 → 30 → 100 days** —
+  and holds at 100 once there; a single *Forgot* drops it straight back to 7
+  from any rung. A card's first-ever *correct* answer always starts the ladder
+  at 7, even when an earlier wrong answer created its schedule row. This
+  replaces the tunable rule (×grow on recall, ×shrink on a lapse, late-recall
+  bonus, 365-day cap), so the *Recall grows half-life by* and *A lapse keeps*
+  Settings sliders retire with it (stored values are ignored and dropped).
+  Existing half-lives above 100 days are clamped down on upgrade; off-ladder
+  values climb onto the nearest rung at their next answer.
+
 ## [0.9.4] - 2026-07-23
 
 ### Added
