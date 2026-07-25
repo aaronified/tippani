@@ -207,6 +207,44 @@ func TestMigrateAndFTS(t *testing.T) {
 	}
 }
 
+// TestMigrationReviewLadderClamp pins 0019's data transform: stored half-lives
+// above the ladder's 100-day cap are pulled down to it, everything at or below
+// is untouched. A fresh database applies 0019 to an empty table, so the test
+// replays just that migration (drop its schema_version row, Migrate again)
+// against real rows.
+func TestMigrationReviewLadderClamp(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	// Pre-ladder rows: one over the new cap, one on it, one under.
+	for id, stability := range map[int]float64{1: 365, 2: 100, 3: 30} {
+		if _, err := st.DB.Exec(`INSERT INTO item_reviews (kind, item_id, stability, last_touched_at)
+			VALUES ('book', ?, ?, datetime('now'))`, id, stability); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := st.DB.Exec(`DELETE FROM schema_version WHERE version = 19`); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[int]float64{1: 100, 2: 100, 3: 30} {
+		var got float64
+		if err := st.DB.QueryRow(`SELECT stability FROM item_reviews WHERE kind='book' AND item_id=?`, id).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Fatalf("item %d stability after 0019 replay: %v, want %v", id, got, want)
+		}
+	}
+}
+
 // TestSettings exercises the settings-table helpers: missing key reads "",
 // SetSetting upserts, and "" clears the row (migration 0005).
 func TestSettings(t *testing.T) {

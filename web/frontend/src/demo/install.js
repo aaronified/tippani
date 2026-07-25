@@ -276,7 +276,7 @@ function reviewAnswer(body) {
   if (result === 'got') review.got++
   if (result === 'forgot') review.forgot++
   return {
-    ok: true, kind, id, stability: result === 'got' ? 17.5 : 7, status: result === 'got' ? 'remembered' : 'probably-forgotten', mode: 'daily',
+    ok: true, kind, id, stability: 7, status: result === 'got' ? 'remembered' : 'probably-forgotten', mode: 'daily',
     answered: review.touched.size, got: review.got, forgot: review.forgot, remaining: reviewItems().length,
   }
 }

@@ -319,8 +319,9 @@ function StatesRow({ states, help, onToggleHelp }) {
       </div>
       {help && (
         <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
-          Each quote carries a memory “half-life” that grows every time you recall it and shrinks when
-          you forget — the classic{' '}
+          Each quote carries a memory “half-life” that climbs a fixed ladder — a week, then 30 and
+          100 days — each time you recall it, and falls straight back to a week when you forget —
+          the classic{' '}
           <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
             forgetting curve
           </a>{' '}

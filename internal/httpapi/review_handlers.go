@@ -13,8 +13,8 @@ package httpapi
 // no multiple choice; the user is trusted to grade honestly (that is the point
 // of retrieval practice). Grades:
 //
-//   got    — successful recall; grows the card's half-life.
-//   forgot — a lapse; shrinks it without a hard reset.
+//   got    — successful recall; climbs the interval ladder one rung.
+//   forgot — a lapse; falls straight back to the ladder's 7-day rung.
 //   skip   — Practice only; benches the card, never touches the schedule.
 //
 // Daily Quiz is the authoritative scheduler: due cards only, no skip, every
@@ -26,10 +26,13 @@ package httpapi
 //
 // The memory model is the exponential forgetting curve: recall probability
 // p = 2^(-elapsed_days / stability), stability being the per-card half-life in
-// days (item_reviews, migration 0015). The half-life is deliberately long: it
-// floors at reviewMinStability (a week), so even a first successful recall
-// schedules the next visit weeks out. A card is due when p <= 0.5 (elapsed >=
-// stability). Fresh items also get a grace week (reviewNewItemDays from the
+// days (item_reviews, migration 0015). The half-life climbs a fixed ladder,
+// reviewLadder (7 → 30 → 100 days): a card's first successful recall
+// starts it at the 7-day rung, every later success climbs to the next rung
+// above its current half-life, 100 days is the ceiling it then keeps — and a
+// single lapse falls straight back to the 7-day rung from any height. A card
+// is due when p <= 0.5 (elapsed >= stability), so the rungs ARE the review
+// intervals. Fresh items also get a grace week (reviewNewItemDays from the
 // item's created_at): having just written a quote down counts as knowing it,
 // so during that buffer the card reads "remembered" and is not yet due — a
 // recorded lapse still wins. The derived status shown on every card's dot:
@@ -55,15 +58,31 @@ import (
 )
 
 const (
-	reviewMinStability = 7.0   // days; half-life floor and the unseen-card default — a long baseline by design
-	reviewMaxStability = 365.0 // days; growth cap
+	reviewMinStability = 7.0   // days; the ladder's first rung, the half-life floor, and the unseen-card default
+	reviewMaxStability = 100.0 // days; the ladder's top rung — no half-life ever grows past it
 	reviewNewItemDays  = 7.0   // days; grace week after an item is added — reads "remembered", not yet due
-	reviewGrowth       = 2.5   // default srGrow: "got it" multiplies the half-life
-	reviewLateBonus    = 1.2   // a late recall proves stability >= elapsed — credit it
-	reviewLapseShrink  = 0.25  // default srShrink: "forgot" keeps this fraction, not zero
 	reviewSeen         = 1.0   // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
 	reviewQuota        = 8     // default srDaily deck size
 )
+
+// reviewLadder is the fixed spaced-repetition ladder (days): a correct recall
+// climbs to the next rung above the card's current half-life, any lapse falls
+// straight back to the first rung, and cards sit on the top rung for as long
+// as the correct answers keep coming. Off-rung half-lives (pre-ladder rows,
+// srSeen bumps) climb to the nearest rung above, so every card converges onto
+// the ladder. Migration 0019 clamps stored values to the new 100-day cap.
+var reviewLadder = [...]float64{reviewMinStability, 30, reviewMaxStability}
+
+// nextRung is the half-life a successful recall earns: the smallest rung
+// strictly above the current one, or the top rung once there is none.
+func nextRung(cur float64) float64 {
+	for _, r := range reviewLadder {
+		if r > cur {
+			return r
+		}
+	}
+	return reviewMaxStability
+}
 
 // reviewFloorSQL is reviewMinStability for splicing into due-ness SQL — the
 // stored stability can predate a floor raise, so queries floor it the same way
@@ -990,10 +1009,11 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	var lastReviewed sql.NullString
 	var lastResult string
 	var touchedToday bool
+	var reviewCount, lapseCount int
 	found := true
-	err = tx.QueryRow(`SELECT stability, last_reviewed_at, COALESCE(last_result, ''), COALESCE(date(last_touched_at, ?) = ?, 0)
+	err = tx.QueryRow(`SELECT stability, review_count, lapse_count, last_reviewed_at, COALESCE(last_result, ''), COALESCE(date(last_touched_at, ?) = ?, 0)
 	                   FROM item_reviews WHERE kind = ? AND item_id = ?`, mod, day, req.Kind, req.ID).
-		Scan(&stability, &lastReviewed, &lastResult, &touchedToday)
+		Scan(&stability, &reviewCount, &lapseCount, &lastReviewed, &lastResult, &touchedToday)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		found = false
@@ -1012,15 +1032,19 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if moveSchedule {
-		elapsed := elapsedDays(lastReviewed)
+		// The ladder: a card's FIRST successful recall takes the 7-day starting
+		// rung — whether it has no row yet or a row built purely from lapses
+		// (review_count == lapse_count ⇔ zero "got"s so far) — and every later
+		// success climbs one rung. Any lapse falls back to the start. max() so a
+		// "seen"-lengthened half-life is never shortened by a success.
 		if req.Result == "got" {
-			stability *= pf.SRGrow
-			if late := elapsed * reviewLateBonus; late > stability {
-				stability = late
+			if found && reviewCount > lapseCount {
+				stability = nextRung(stability)
+			} else {
+				stability = max(stability, reviewLadder[0])
 			}
-			stability = min(stability, reviewMaxStability)
 		} else { // forgot
-			stability = max(stability*pf.SRShrink, reviewMinStability)
+			stability = reviewLadder[0]
 		}
 		if found {
 			q := `UPDATE item_reviews SET stability = ?, review_count = review_count + 1,

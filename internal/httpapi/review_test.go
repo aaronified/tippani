@@ -95,7 +95,7 @@ func seedDistractorBook(t *testing.T, srv *Server, c *testClient, title string) 
 	_, ids := seedReviewBook(t, c, title, 1)
 	if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
 		(kind, item_id, stability, review_count, last_result, last_reviewed_at, last_touched_at)
-		VALUES ('book', ?, 365, 1, 'got', datetime('now'), datetime('now'))`, ids[0]); err != nil {
+		VALUES ('book', ?, 100, 1, 'got', datetime('now'), datetime('now'))`, ids[0]); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -167,20 +167,21 @@ func TestDailyQuizMCQ(t *testing.T) {
 		}
 	}
 
-	// A correct pick counts as "got" (half-life 7 -> 17.5), the card leaves the
-	// deck, and freshly reviewed reads as remembered. Every answer also carries
-	// the fresh library-wide status counts (Dune 3 + the remembered Emma
-	// distractor = 4) so "Where you stand" updates live.
+	// A correct pick counts as "got": a first-ever success starts the ladder at
+	// its 7-day rung, the card leaves the deck, and freshly reviewed reads as
+	// remembered. Every answer also carries the fresh library-wide status counts
+	// (Dune 3 + the remembered Emma distractor = 4) so "Where you stand" updates
+	// live.
 	res := answer(t, c, kindBook, ids[0], "got", "daily")
-	if !res.OK || res.Stability != 17.5 || res.Status != "remembered" || res.Answered != 1 || res.Got != 1 {
+	if !res.OK || res.Stability != 7 || res.Status != "remembered" || res.Answered != 1 || res.Got != 1 {
 		t.Fatalf("got: %+v", res)
 	}
 	if res.States.Total != 4 || res.States.Remembered != 2 || res.States.Unseen != 2 {
 		t.Fatalf("states after got: %+v", res.States)
 	}
-	// A wrong pick counts as "forgot": floor 7, lapse recorded, and — however
-	// freshly reviewed — it reads as probably-forgotten, not remembered (a lapse
-	// is the honest signal about current recall).
+	// A wrong pick counts as "forgot": back to the 7-day rung, lapse recorded,
+	// and — however freshly reviewed — it reads as probably-forgotten, not
+	// remembered (a lapse is the honest signal about current recall).
 	res = answer(t, c, kindBook, ids[1], "forgot", "daily")
 	if res.Stability != 7 || res.Answered != 2 || res.Forgot != 1 || res.Status != "probably-forgotten" {
 		t.Fatalf("forgot: %+v", res)
@@ -241,26 +242,102 @@ func TestDailyQuizScheduling(t *testing.T) {
 		t.Fatalf("due item: %+v", deck.Items[0])
 	}
 
-	// A correct recall regrows the half-life: 10 × 2.5 = 25.
+	// A correct recall climbs to the next rung above the current half-life:
+	// an off-ladder 10 lands on 30.
 	res := answer(t, c, kindBook, ids[1], "got", "daily")
-	if res.Stability < 24.9 || res.Stability > 25.1 {
-		t.Fatalf("regrown stability: %+v", res)
+	if res.Stability != 30 {
+		t.Fatalf("climbed stability: %+v", res)
 	}
-	// A LATE correct recall earns elapsed credit instead: stability 7 but 21
-	// days survived -> 21 × 1.2 = 25.2 (beats 7 × 2.5 = 17.5).
+	// From the first rung a success climbs to the second — lateness earns no
+	// extra credit (this card sat 21 days at stability 7; still just 30).
 	res = answer(t, c, kindBook, ids[2], "got", "daily")
-	if res.Stability < 25.1 || res.Stability > 25.3 {
-		t.Fatalf("late-recall credit: %+v", res)
+	if res.Stability != 30 {
+		t.Fatalf("rung climb: %+v", res)
 	}
-	// A long-stable lapse shrinks but keeps a footing: 40 * 0.25 = 10.
+	// From the 30-day rung a success climbs straight to the 100-day top rung.
+	res = answer(t, c, kindBook, ids[0], "got", "daily")
+	if res.Stability != 100 {
+		t.Fatalf("30 → 100 climb: %+v", res)
+	}
+	// A lapse falls straight back to the first rung from any height — even an
+	// off-rung legacy 60.
 	if _, err := srv.Store.DB.Exec(`UPDATE item_reviews
-		SET stability = 40, last_reviewed_at = datetime('now', '-50 days'),
-		    last_touched_at = datetime('now', '-50 days') WHERE kind='book' AND item_id=?`, ids[2]); err != nil {
+		SET stability = 60, last_reviewed_at = datetime('now', '-70 days'),
+		    last_touched_at = datetime('now', '-70 days') WHERE kind='book' AND item_id=?`, ids[2]); err != nil {
 		t.Fatal(err)
 	}
 	res = answer(t, c, kindBook, ids[2], "forgot", "daily")
-	if res.Stability != 10 {
+	if res.Stability != 7 {
 		t.Fatalf("lapse: %+v", res)
+	}
+	// The top rung holds: a correct recall at 100 stays at 100. (The direct
+	// UPDATE leaves this row's review_count at 2 gots vs 0 lapses, so the
+	// climb gate lets it through.)
+	if _, err := srv.Store.DB.Exec(`UPDATE item_reviews
+		SET stability = 100, last_reviewed_at = datetime('now', '-120 days'),
+		    last_touched_at = datetime('now', '-120 days') WHERE kind='book' AND item_id=?`, ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	res = answer(t, c, kindBook, ids[1], "got", "daily")
+	if res.Stability != 100 {
+		t.Fatalf("top rung: %+v", res)
+	}
+}
+
+// nextRung pins the whole ladder shape: each rung climbs to the next, the top
+// holds, and off-rung half-lives (pre-ladder rows, srSeen bumps) climb to the
+// nearest rung above.
+func TestNextRung(t *testing.T) {
+	cases := []struct{ cur, want float64 }{
+		{3, 7}, {7, 30}, {8.4, 30}, {29.9, 30}, {30, 100},
+		{60, 100}, {99.9, 100}, {100, 100}, {365, 100},
+	}
+	for _, c := range cases {
+		if got := nextRung(c.cur); got != c.want {
+			t.Fatalf("nextRung(%v) = %v, want %v", c.cur, got, c.want)
+		}
+	}
+}
+
+// A card whose only history is lapses takes the 7-day starting rung on its
+// first successful recall — exactly like a brand-new card — and only climbs
+// from the second success on. Without the review_count > lapse_count gate a
+// day-0 "forgot" would cost nothing versus a "got" (both would reach 30 with
+// one success).
+func TestFirstSuccessAfterLapseStartsAtSeven(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, ids := seedReviewBook(t, c, "Dune", 1)
+	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
+
+	rewind := func() {
+		t.Helper()
+		if _, err := srv.Store.DB.Exec(`UPDATE item_reviews
+			SET last_reviewed_at = datetime('now', '-8 days'),
+			    last_touched_at = datetime('now', '-8 days') WHERE kind='book' AND item_id=?`, ids[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Day 0: the first-ever answer is a lapse — row created at the 7-day rung.
+	res := answer(t, c, kindBook, ids[0], "forgot", "daily")
+	if res.Stability != 7 {
+		t.Fatalf("first-ever forgot: %+v", res)
+	}
+	// A week on, its first-ever CORRECT answer starts the ladder at 7 — it must
+	// NOT climb to 30 off the lapse-created rung.
+	rewind()
+	res = answer(t, c, kindBook, ids[0], "got", "daily")
+	if res.Stability != 7 {
+		t.Fatalf("first success after lapse-only history: %+v (want 7)", res)
+	}
+	// The second success climbs normally: 7 → 30.
+	rewind()
+	res = answer(t, c, kindBook, ids[0], "got", "daily")
+	if res.Stability != 30 {
+		t.Fatalf("second success climbs: %+v (want 30)", res)
 	}
 }
 
@@ -306,7 +383,7 @@ func TestDailyQuizIdempotentSameDay(t *testing.T) {
 
 	first := answer(t, c, kindBook, ids[0], "got", "daily")
 	again := answer(t, c, kindBook, ids[0], "got", "daily")
-	if first.Stability != 17.5 || again.Stability != 17.5 || again.Answered != 1 {
+	if first.Stability != 7 || again.Stability != 7 || again.Answered != 1 {
 		t.Fatalf("same-day repeat recompounded: %+v / %+v", first, again)
 	}
 	var reviews int
@@ -385,7 +462,7 @@ func TestPracticeMode(t *testing.T) {
 	// Opt in: a correct practice recall now moves the half-life.
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, 200)
 	res = answer(t, c, kindBook, ids[2], "got", "practice")
-	if res.Status != "remembered" || res.Stability != 17.5 {
+	if res.Status != "remembered" || res.Stability != 7 {
 		t.Fatalf("practice got (counting): %+v", res)
 	}
 	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM item_reviews WHERE item_id=?`, ids[2]).Scan(&n); err != nil || n != 1 {
@@ -464,32 +541,32 @@ func TestReviewSeen(t *testing.T) {
 		t.Fatalf("seeing an unseen card created a review row")
 	}
 
-	// Quiz it right → row at 17.5 (floor 7 × 2.5). The Daily Quiz is NOT "seeing"
-	// (its grade drives the schedule in full), so no extra bump here.
+	// Quiz it right → row at the ladder's 7-day starting rung. The Daily Quiz is
+	// NOT "seeing" (its grade drives the schedule in full), so no extra bump here.
 	answer(t, c, kindBook, ids[0], "got", "daily")
-	if s := stabilityOf(ids[0]); !near(s, 17.5) {
-		t.Fatalf("after daily got: %v (want 17.5)", s)
+	if s := stabilityOf(ids[0]); !near(s, 7) {
+		t.Fatalf("after daily got: %v (want 7)", s)
 	}
-	// Sharing (POST /review/seen): 17.5 × 1.2 = 21.0
+	// Sharing (POST /review/seen): 7 × 1.2 = 8.4
 	c.mustDo("POST", "/review/seen", map[string]any{"kind": kindBook, "id": ids[0]}, 200)
-	if s := stabilityOf(ids[0]); !near(s, 21.0) {
-		t.Fatalf("after share-seen: %v (want 21.0)", s)
+	if s := stabilityOf(ids[0]); !near(s, 8.4) {
+		t.Fatalf("after share-seen: %v (want 8.4)", s)
 	}
-	// Practising (default: not counting) still counts as seeing: 21.0 × 1.2 = 25.2
+	// Practising (default: not counting) still counts as seeing: 8.4 × 1.2 = 10.08
 	answer(t, c, kindBook, ids[0], "got", "practice")
-	if s := stabilityOf(ids[0]); !near(s, 25.2) {
-		t.Fatalf("after practice-seen: %v (want 25.2)", s)
+	if s := stabilityOf(ids[0]); !near(s, 10.08) {
+		t.Fatalf("after practice-seen: %v (want 10.08)", s)
 	}
-	// Favouriting (false→true) counts as seeing: 25.2 × 1.2 = 30.24
+	// Favouriting (false→true) counts as seeing: 10.08 × 1.2 = 12.096
 	favBody := map[string]any{"quote": "Dune passage 0", "color": "yellow", "favorite": true}
 	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
-	if s := stabilityOf(ids[0]); !near(s, 30.24) {
-		t.Fatalf("after favourite-seen: %v (want 30.24)", s)
+	if s := stabilityOf(ids[0]); !near(s, 12.096) {
+		t.Fatalf("after favourite-seen: %v (want 12.096)", s)
 	}
 	// Re-saving an already-favourite card is not a fresh "seeing".
 	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
-	if s := stabilityOf(ids[0]); !near(s, 30.24) {
-		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 30.24)", s)
+	if s := stabilityOf(ids[0]); !near(s, 12.096) {
+		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 12.096)", s)
 	}
 
 	// A skipped practice card is not "seeing".
@@ -530,7 +607,7 @@ func TestReviewScreenCards(t *testing.T) {
 	}
 
 	res := answer(t, c, kindScreen, dlg.ID, "got", "daily")
-	if res.Stability != 17.5 || res.Status != "remembered" {
+	if res.Stability != 7 || res.Status != "remembered" {
 		t.Fatalf("screen answer: %+v", res)
 	}
 	list := decode[struct {
@@ -539,7 +616,7 @@ func TestReviewScreenCards(t *testing.T) {
 	var found bool
 	for _, d := range list.Dialogues {
 		if d.ID == dlg.ID {
-			found = d.Reviewed && d.Stability == 17.5
+			found = d.Reviewed && d.Stability == 7
 		}
 	}
 	if !found {
@@ -583,7 +660,7 @@ func TestReviewStatusInList(t *testing.T) {
 
 	list = decode[annList](t, c.mustDo("GET", "/annotations", nil, 200))
 	for _, a := range list.Annotations {
-		if a.ID == ids[0] && (!a.Reviewed || a.Stability != 17.5) {
+		if a.ID == ids[0] && (!a.Reviewed || a.Stability != 7) {
 			t.Fatalf("review state lost across PUT: %+v", a)
 		}
 	}

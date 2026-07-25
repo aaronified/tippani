@@ -70,18 +70,19 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   work is this quote from?* (pick the title) or *which quote is from this work?* (pick the quote) — with
   **plausible distractors**: for books, other works by the **same author** first, then the closest by
   **shared genre**; for films/shows, the closest by **shared genre**, then a **shared actor**. A correct
-  pick counts as ***Got it*** (the half-life grows); a wrong one as ***Forgot*** (a lapse — shortened,
-  never hard-reset); Practice also allows ***Skip*** (no effect on the schedule).
+  pick counts as ***Got it*** (the half-life climbs); a wrong one as ***Forgot*** (a lapse — the card
+  starts over); Practice also allows ***Skip*** (no effect on the schedule).
 
   The **Daily Quiz** is the scheduled session: every card due that day, no skipping, each grade folded
   into your schedule, with a permanent score and streak. **Practice** is unlimited, skippable, on-demand
   study for exams or a refresher — and by default it *doesn't* touch your schedule (a Settings toggle
   opts in), with its own resettable score. Every quote in the Library and Catalogue wears a **status
   dot** — 🟢 **remembered**, 🟡 **forgetting**, 🔴 **probably forgotten** (renamed from the old
-  soon/later/someday for clarity) — and hovering it shows the half-life. The baseline half-life is a
-  deliberately long **week**, and a quote you've **just saved counts as remembered for its first
-  week** before it joins the rotation — you did, after all, just write it down. Two to three minutes a day,
-  sane defaults (deck size, scope and the half-life factors are tunable in Settings), no gamification —
+  soon/later/someday for clarity) — and hovering it shows the half-life. The half-life climbs a fixed
+  ladder — **7 → 30 → 100 days**, one rung per successful recall, holding at 100 — and a single
+  lapse drops it straight back to 7 from any rung. A quote you've **just saved counts as remembered
+  for its first week** before it joins the rotation — you did, after all, just write it down. Two to
+  three minutes a day, sane defaults (deck size and scope are tunable in Settings), no gamification —
   a dot on the logo marks a waiting deck.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same tags / favourite / views / filters as books.

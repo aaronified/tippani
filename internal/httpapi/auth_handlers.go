@@ -290,9 +290,10 @@ func clampFloat(v, lo, hi, def float64) float64 {
 }
 
 // prefs is the whole preference set. Retired keys — the pre-0.4 "home"
-// start-page and the pre-0.7 "navUtilities" nav-placement toggle (Tags +
-// Metadata are always in the navbar now) — are dropped on read and on the
-// next PUT.
+// start-page, the pre-0.7 "navUtilities" nav-placement toggle (Tags +
+// Metadata are always in the navbar now), and the "srGrow"/"srShrink"
+// half-life factors (the fixed interval ladder in review_handlers.go replaced
+// the tunable update rule) — are dropped on read and on the next PUT.
 type prefs struct {
 	Aesthetic string `json:"aesthetic"`
 	Theme     string `json:"theme"`
@@ -305,14 +306,11 @@ type prefs struct {
 	CreditSeparators string `json:"creditSeparators"`
 	// Spaced repetition (v0.5.0 Daily Quiz & Practice), per-user, defaults +
 	// clamps applied in loadPrefs. SRDaily (Daily Quiz deck size) is 2..10;
-	// SRReviewScope (books|movies|both) bounds BOTH modes; SRGrow (the "got it"
-	// half-life multiplier) and SRShrink (the "forgot" retained fraction) stay
-	// in a deliberately narrow band. SRPracticeCounts opts Practice into moving
-	// the schedule (off by default, so Practice is study without distortion).
+	// SRReviewScope (books|movies|both) bounds BOTH modes. SRPracticeCounts
+	// opts Practice into moving the schedule (off by default, so Practice is
+	// study without distortion).
 	SRDaily          int     `json:"srDaily"`
 	SRReviewScope    string  `json:"srReviewScope"`
-	SRGrow           float64 `json:"srGrow"`
-	SRShrink         float64 `json:"srShrink"`
 	// SRSeen is the "seeing" multiplier — practising (not skipping), sharing, or
 	// favouriting a card lengthens its half-life marginally. 1.0 = off (default),
 	// so this reinforcement is entirely opt-in.
@@ -358,8 +356,6 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if !srScopes[p.SRReviewScope] {
 		p.SRReviewScope = "both"
 	}
-	p.SRGrow = clampFloat(p.SRGrow, 1.5, 4.0, reviewGrowth)
-	p.SRShrink = clampFloat(p.SRShrink, 0.1, 0.6, reviewLapseShrink)
 	p.SRSeen = clampFloat(p.SRSeen, 1.0, 1.5, reviewSeen)
 	if !tourStates[p.Tour] {
 		p.Tour = ""
@@ -389,8 +385,6 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		CreditSeparators *string  `json:"creditSeparators"`
 		SRDaily          *int     `json:"srDaily"`
 		SRReviewScope    *string  `json:"srReviewScope"`
-		SRGrow           *float64 `json:"srGrow"`
-		SRShrink         *float64 `json:"srShrink"`
 		SRSeen           *float64 `json:"srSeen"`
 		SRPracticeCounts *bool    `json:"srPracticeCounts"`
 		Tour             *string  `json:"tour"`
@@ -429,12 +423,6 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.SRReviewScope != nil && *in.SRReviewScope != "" {
 		cur.SRReviewScope = *in.SRReviewScope
 	}
-	if in.SRGrow != nil && *in.SRGrow != 0 {
-		cur.SRGrow = *in.SRGrow
-	}
-	if in.SRShrink != nil && *in.SRShrink != 0 {
-		cur.SRShrink = *in.SRShrink
-	}
 	if in.SRSeen != nil && *in.SRSeen != 0 {
 		cur.SRSeen = *in.SRSeen
 	}
@@ -465,12 +453,6 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case !srScopes[cur.SRReviewScope]:
 		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies or both")
-		return
-	case cur.SRGrow < 1.5 || cur.SRGrow > 4:
-		writeErr(w, http.StatusBadRequest, "srGrow must be between 1.5 and 4")
-		return
-	case cur.SRShrink < 0.1 || cur.SRShrink > 0.6:
-		writeErr(w, http.StatusBadRequest, "srShrink must be between 0.1 and 0.6")
 		return
 	case cur.SRSeen < 1.0 || cur.SRSeen > 1.5:
 		writeErr(w, http.StatusBadRequest, "srSeen must be between 1.0 and 1.5")

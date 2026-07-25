@@ -150,10 +150,10 @@ function Slider({ label, hideLabel = false, min, max, step, value, unit = '', de
 }
 
 // SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the
-// daily deck size, what the review covers (books / films & shows / both), the
-// half-life growth + lapse factors (kept in a deliberately narrow band), and
-// whether Practice is allowed to move the schedule. Each persists via the
-// partial-merge preferences PUT.
+// daily deck size, what the review covers (books / films & shows / both), and
+// whether Practice is allowed to move the schedule. The review intervals
+// themselves are a fixed ladder (7 → 30 → 100 days, review_handlers.go)
+// and not tunable. Each knob persists via the partial-merge preferences PUT.
 function SRSettings({ user, onPreferences }) {
   const p = user.preferences || {}
   function set(patch) {
@@ -164,7 +164,7 @@ function SRSettings({ user, onPreferences }) {
     <Card>
       <SectionTitle
         right={
-          <InfoDot text="These settings drive both the Daily Quiz and Practice. Recall grows a card's memory half-life; a lapse shrinks it (kept in a narrow band). Every quote carries a status dot — remembered, forgetting or probably forgotten — with its half-life on hover." />
+          <InfoDot text="These settings drive both the Daily Quiz and Practice. A card's review interval climbs a fixed ladder — 7, 30, then 100 days — one step per correct recall; one lapse drops it straight back to 7. Every quote carries a status dot — remembered, forgetting or probably forgotten — with its half-life on hover." />
         }
       >
         Daily quiz &amp; practice
@@ -192,8 +192,6 @@ function SRSettings({ user, onPreferences }) {
             options={[['off', 'No'], ['on', 'Yes']]}
           />
         </div>
-        <Slider label="Recall grows half-life by" min={1.5} max={4} step={0.1} value={p.srGrow || 2.5} unit="×" decimals={1} onCommit={(v) => set({ srGrow: v })} />
-        <Slider label="A lapse keeps" min={0.1} max={0.6} step={0.05} value={p.srShrink || 0.25} unit="×" decimals={2} onCommit={(v) => set({ srShrink: v })} />
         <div>
           <div className="mb-2 flex items-center gap-1.5">
             <MonoLabel>Seeing lengthens half-life by</MonoLabel>

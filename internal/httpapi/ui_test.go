@@ -33,7 +33,7 @@ func TestPreferences(t *testing.T) {
 
 	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25, SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -43,7 +43,7 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25, SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
 	}
 
@@ -51,16 +51,17 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25, SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
 	// An older client still sending retired keys (pre-0.4 "home", pre-0.7
-	// "navUtilities") gets them ignored.
+	// "navUtilities", the pre-ladder "srGrow"/"srShrink" factors) gets them
+	// ignored.
 	c.mustDo("PUT", "/auth/me/preferences",
-		map[string]string{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu"}, 200)
+		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu", "srGrow": 3.0, "srShrink": 0.5}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRGrow: 2.5, SRShrink: 0.25, SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("after PUT with stale retired keys: %+v", me.Preferences)
 	}
 
@@ -79,16 +80,16 @@ func TestPreferences(t *testing.T) {
 	// Spaced-repetition settings (v0.5.0): partial-merge, each in a clamped/
 	// enumerated range; an out-of-range value is rejected and leaves the set
 	// untouched. srPracticeCounts is a bool that toggles on its own.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 5, "srReviewScope": "movies", "srGrow": 3.0, "srPracticeCounts": true}, 200)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 5, "srReviewScope": "movies", "srSeen": 1.2, "srPracticeCounts": true}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences.SRDaily != 5 || me.Preferences.SRReviewScope != "movies" || me.Preferences.SRGrow != 3.0 ||
+	if me.Preferences.SRDaily != 5 || me.Preferences.SRReviewScope != "movies" || me.Preferences.SRSeen != 1.2 ||
 		!me.Preferences.SRPracticeCounts || me.Preferences.Accent != "olive" {
 		t.Fatalf("SR settings: %+v", me.Preferences)
 	}
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 99}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 1}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srGrow": 9.0}, http.StatusBadRequest)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srShrink": 0.9}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srSeen": 9.0}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srSeen": 0.5}, http.StatusBadRequest)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srReviewScope": "bogus"}, http.StatusBadRequest)
 
 	// creditSeparators: partial-merge, canonicalized on write ("and,comma" →

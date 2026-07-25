@@ -1,0 +1,11 @@
+-- 0019: spaced-repetition interval ladder. The continuous update rule
+-- (half-life × srGrow on a recall, × srShrink on a lapse, late-recall bonus,
+-- 365-day cap) is replaced by a fixed ladder: 7 → 30 → 100 days. A
+-- correct recall climbs to the next rung above the card's current half-life,
+-- a single lapse falls straight back to 7 from any rung, and 100 is the
+-- ceiling cards then keep — so no stored half-life may promise a review
+-- further out than 100 days. Rows above the new cap are pulled down to it;
+-- everything else keeps its value and converges onto a rung at its next
+-- answer (the update rule lives in review_handlers.go). The srGrow / srShrink
+-- preferences retire with the old rule (dropped on read, like pre-0.4 "home").
+UPDATE item_reviews SET stability = 100 WHERE stability > 100;

@@ -128,8 +128,10 @@ CREATE INDEX idx_ann_book ON annotations(book_id);
 -- days; a card is due when elapsed >= stability (p <= 0.5), and both due-ness
 -- and most-forgotten-first ordering reduce to plain julianday() arithmetic at
 -- query time (no math functions, no background jobs — §2 holds). Answers:
--- got → stability' = min(365, max(stability*2.5, elapsed*1.2));
--- forgot → max(1, stability*0.25); skip → last_touched_at only (benched for
+-- got → the next rung of a fixed interval ladder above the current half-life
+-- (7 → 30 → 100 days, capped at 100 — migration 0019; a card's first-ever
+-- success starts at 7); forgot → straight back to the 7-day rung from any
+-- height; skip → last_touched_at only (benched for
 -- the local day). Mastery soon/later/someday derives from stability (7/30
 -- day thresholds), never stored. Outcome vocabulary app-validated (no CHECK).
 -- Review state never enters dedupe hashes and is invisible to FTS.
@@ -459,7 +461,8 @@ POST   /auth/login          POST /auth/logout
 POST   /auth/password       GET  /auth/me        # /auth/me includes preferences
 PUT    /auth/me                       # {username} — change your own display name
 PUT    /auth/me/preferences          # partial merge: appearance + spaced-repetition
-                                     # (srDaily, srQuizLen, srQuizScope, srGrow, srShrink) (§10)
+                                     # (srDaily, srReviewScope, srSeen, srPracticeCounts) (§10)
+                                     #   — srGrow/srShrink retired by the 0019 interval ladder
                                      # + guided-tour state (tour: done|skipped|postponed,
                                      #   tourStep 0..99 — the resume point while postponed)
 GET    /admin/users   POST /admin/users   DELETE /admin/users/{id}   # admin only
