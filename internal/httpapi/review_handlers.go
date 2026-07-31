@@ -257,11 +257,43 @@ func elapsedDays(ts sql.NullString) float64 {
 	return 0
 }
 
-// bookCandidates / screenCandidates fetch reviewable cards. dueOnly=true (Daily
-// Quiz) keeps only unseen or due cards not already answered today, ordered
-// most-forgotten-first and capped; dueOnly=false (Practice) returns the whole
-// in-scope pool for the client to shuffle and walk.
-func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
+// deckBucket picks which slice of the pool a candidate query returns. Daily
+// fetches its two buckets SEPARATELY: a single query ordered seen-before-unseen
+// put every never-answered card behind the whole due backlog, and the LIMIT then
+// discarded them before Go ever saw one.
+type deckBucket int
+
+const (
+	bucketAll    deckBucket = iota // Practice: the whole in-scope pool
+	bucketDue                      // Daily: answered cards whose interval has elapsed
+	bucketUnseen                   // Daily: never-answered cards past their grace week
+)
+
+// shuffleKeySQL mirrors shuffleKey as a SQL expression so a bounded fetch takes
+// a SPREAD sample rather than a rowid prefix.
+//
+// This is the fix for the "same few books every day" report. Both of the old
+// ORDER BY keys tie across huge blocks of rows — for an unseen card the overdue
+// ratio is NULL, so every unseen card tied — and SQLite breaks ties in scan
+// order, i.e. ascending rowid. The importer inserts book by book, so annotation
+// ids are contiguous per book and a `LIMIT 40` returned forty rows from one
+// book. Hashing the id scatters those ties across the library instead.
+//
+// The `?` takes the seed, so the sample is stable within a day and moves the
+// next. Overflow bound: id * 2654435761 stays inside int64 up to id ≈ 3.47e9.
+func shuffleKeySQL(idCol, kind string) string {
+	salt := 2166136261
+	if kind == kindScreen {
+		salt = 1013904223
+	}
+	return fmt.Sprintf("((%s * 2654435761 + %d + ?) %% 100003)", idCol, salt)
+}
+
+// bookCandidates / screenCandidates fetch reviewable cards for one bucket.
+// bucketAll (Practice) returns the whole in-scope pool; bucketDue / bucketUnseen
+// (Daily) each return their own slice, most-forgotten-first and hash-spread
+// respectively, capped at `limit`.
+func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	q := `SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,''), a.color,
 	             b.title, COALESCE(b.author,''), COALESCE(a.chapter,''), COALESCE(a.location,''),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
@@ -271,18 +303,34 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 	      LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
 	      WHERE b.user_id = ? AND (COALESCE(a.quote,'') <> '' OR COALESCE(a.note,'') <> '')`
 	args := []any{reviewMinStability, uid}
-	if dueOnly {
+	shuffle := shuffleKeySQL("a.id", kindBook)
+	switch bucket {
+	case bucketDue:
 		// Due-ness floors the stored stability the same way recallStatus does, so
-		// a card is due exactly when its dot reads probably-forgotten.
-		q += ` AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
+		// a card is due exactly when its dot reads probably-forgotten. A row with
+		// no last_reviewed_at is a bumpSeen-only row — treated as maximally due
+		// (NULLs sort first under ASC).
+		q += ` AND r.item_id IS NOT NULL
+		       AND date(r.last_touched_at, ?) <> ?
 		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
+		       ORDER BY (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `), ` + shuffle
+		args = append(args, mod, day, seed)
+	case bucketUnseen:
+		// The grace week is measured from created_at, which for an import is the
+		// import's wall clock — so a whole import leaves grace on the same day and
+		// arrives as one undifferentiated block. The hash is what stops that block
+		// being sliced by rowid.
+		q += ` AND r.item_id IS NULL
 		       AND COALESCE(julianday('now') - julianday(a.created_at), 1e9) >= ?
-		       ORDER BY (r.last_reviewed_at IS NULL), (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `)`
-		args = append(args, mod, day, reviewNewItemDays)
-		if limit > 0 {
-			q += ` LIMIT ?`
-			args = append(args, limit)
-		}
+		       ORDER BY ` + shuffle
+		args = append(args, reviewNewItemDays, seed)
+	default: // bucketAll
+		q += ` ORDER BY ` + shuffle
+		args = append(args, seed)
+	}
+	if limit > 0 {
+		q += ` LIMIT ?`
+		args = append(args, limit)
 	}
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
@@ -308,7 +356,7 @@ func (s *Server) bookCandidates(uid int64, dueOnly bool, mod, day string, limit 
 	return out, rows.Err()
 }
 
-func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limit int) ([]reviewCand, error) {
+func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
 	             COALESCE(d.actor,''), COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
@@ -318,16 +366,26 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 	      LEFT JOIN item_reviews r ON r.kind = 'screen' AND r.item_id = d.id
 	      WHERE m.user_id = ? AND (COALESCE(d.quote,'') <> '' OR COALESCE(d.note,'') <> '')`
 	args := []any{reviewMinStability, uid}
-	if dueOnly {
-		q += ` AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
+	shuffle := shuffleKeySQL("d.id", kindScreen)
+	switch bucket {
+	case bucketDue:
+		q += ` AND r.item_id IS NOT NULL
+		       AND date(r.last_touched_at, ?) <> ?
 		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
+		       ORDER BY (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `), ` + shuffle
+		args = append(args, mod, day, seed)
+	case bucketUnseen:
+		q += ` AND r.item_id IS NULL
 		       AND COALESCE(julianday('now') - julianday(d.created_at), 1e9) >= ?
-		       ORDER BY (r.last_reviewed_at IS NULL), (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `)`
-		args = append(args, mod, day, reviewNewItemDays)
-		if limit > 0 {
-			q += ` LIMIT ?`
-			args = append(args, limit)
-		}
+		       ORDER BY ` + shuffle
+		args = append(args, reviewNewItemDays, seed)
+	default: // bucketAll
+		q += ` ORDER BY ` + shuffle
+		args = append(args, seed)
+	}
+	if limit > 0 {
+		q += ` LIMIT ?`
+		args = append(args, limit)
 	}
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
@@ -351,6 +409,134 @@ func (s *Server) screenCandidates(uid int64, dueOnly bool, mod, day string, limi
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// ---- deck assembly (shared by the Daily Quiz and Practice) ----
+
+const (
+	// reviewFetchHeadroom over-fetches per slot: buildQuestion rejects a card
+	// that can't form a multiple-choice question (too few distinct titles), so
+	// the deck needs spares to still fill.
+	reviewFetchHeadroom = 5
+	// reviewUnseenShare reserves every Nth Daily slot for a card never answered.
+	// At the default quota of 8 that is 2 unseen a day.
+	//
+	// This is a policy trade-off, not a derivation. Intake costs more than one
+	// answer each: a brand-new card takes the 7-day rung on its FIRST correct
+	// recall (found=false takes the max() branch, not nextRung), so it returns at
+	// +7 and again at +37 before reaching the 100-day rung. Two returns per
+	// admission, plus N/100 a day of maintenance once a library matures. Holding
+	// intake to a third keeps that within a default quota for a few hundred
+	// cards; past that the backlog grows and the quota (2..10, srDaily) is the
+	// user's lever. Deferring a due card doesn't make the schedule lie — the
+	// header promises a due STATE, and the seen bucket stays ordered
+	// most-overdue-first, so a backlog degrades into honest FIFO by overdue-ness
+	// and the status dots stay truthful.
+	reviewUnseenShare = 3
+	// reviewSeedRange bounds Practice's per-request shuffle seed. The seed is an
+	// addend in shuffleKey, not a factor, so it isn't what constrains overflow —
+	// `id * 2654435761` is, and that stays inside int64 up to id ≈ 3.47e9. This
+	// just keeps the seed a plain small integer. (Daily seeds off the local day
+	// number instead, so a refresh returns the same deck.)
+	reviewSeedRange = 1 << 20
+)
+
+// spreadByWork re-orders a ranked list so consecutive cards come from different
+// works: it rotates through one queue per work, taking each work's best-ranked
+// remaining card in turn. Queue order is first appearance, so the most-overdue
+// work still leads.
+//
+// This is what stops one book owning a deck. The trade-off is deliberate: a work
+// with 400 quotes and a work with 2 get one slot per rotation each, so a large
+// book is covered more slowly than its share of the library — which is the
+// point, since the complaint being fixed is a big import monopolising every
+// deck. Small works drain, and the large one then takes their slots.
+func spreadByWork(cands []reviewCand) []reviewCand {
+	if len(cands) < 2 {
+		return cands
+	}
+	order := make([]string, 0, 8)
+	queues := make(map[string][]reviewCand, 8)
+	for _, c := range cands {
+		if _, seen := queues[c.workKey]; !seen {
+			order = append(order, c.workKey)
+		}
+		queues[c.workKey] = append(queues[c.workKey], c)
+	}
+	if len(order) < 2 {
+		return cands
+	}
+	out := make([]reviewCand, 0, len(cands))
+	for len(out) < len(cands) {
+		for _, k := range order {
+			if len(queues[k]) == 0 {
+				continue
+			}
+			out = append(out, queues[k][0])
+			queues[k] = queues[k][1:]
+		}
+	}
+	return out
+}
+
+// overdueRatio is how far past due a card is, in half-lives. Higher = more
+// forgotten; the Daily deck's seen bucket leads with the largest.
+func overdueRatio(c reviewCand) float64 {
+	return c.elapsed / max(c.card.Stability, reviewMinStability)
+}
+
+// deckCandidates fetches one bucket across the in-scope media and merges them
+// into a single ordering — the two queries each come back ordered, so a plain
+// append would put every book ahead of every film.
+func (s *Server) deckCandidates(uid int64, bucket deckBucket, incBooks, incScreen bool, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+	var out []reviewCand
+	if incBooks {
+		bc, err := s.bookCandidates(uid, bucket, mod, day, seed, limit)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, bc...)
+	}
+	if incScreen {
+		sc, err := s.screenCandidates(uid, bucket, mod, day, seed, limit)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, sc...)
+	}
+	if bucket == bucketDue {
+		sort.SliceStable(out, func(i, j int) bool { return overdueRatio(out[i]) > overdueRatio(out[j]) })
+	} else {
+		sort.SliceStable(out, func(i, j int) bool {
+			return shuffleKey(out[i].card.Kind, out[i].card.ID, seed) <
+				shuffleKey(out[j].card.Kind, out[j].card.ID, seed)
+		})
+	}
+	return spreadByWork(out), nil
+}
+
+// mergeDeck interleaves the reserved unseen cards evenly through the due ones so
+// a session isn't front-loaded with the whole backlog, then appends whatever is
+// left of both. That tail matters: buildQuestion can reject a card, and the
+// spares are what keep the deck full rather than short.
+func mergeDeck(due, unseen []reviewCand, slots, every int) []reviewCand {
+	out := make([]reviewCand, 0, len(due)+len(unseen))
+	di, ui := 0, 0
+	for len(out) < slots && (di < len(due) || ui < len(unseen)) {
+		wantUnseen := (len(out)+1)%every == 0 || di >= len(due)
+		if wantUnseen && ui < len(unseen) {
+			out = append(out, unseen[ui])
+			ui++
+			continue
+		}
+		if di >= len(due) {
+			break
+		}
+		out = append(out, due[di])
+		di++
+	}
+	out = append(out, due[di:]...)
+	return append(out, unseen[ui:]...)
 }
 
 // finish stamps a candidate's derived fields (direction + status) and returns
@@ -819,40 +1005,22 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "daily quiz pools", err)
 			return
 		}
-		// Fetch with headroom over the quota: a card that can't form a
-		// multiple-choice question (too few distinct titles) is skipped, so we
-		// need more candidates than slots to still fill the deck.
-		fetch := slots * 5
-		var cands []reviewCand
-		if incBooks {
-			bc, err := s.bookCandidates(uid, true, mod, day, fetch)
-			if err != nil {
-				internalError(w, r, "daily quiz books", err)
-				return
-			}
-			cands = append(cands, bc...)
+		// The two buckets are fetched SEPARATELY, each with its own limit. One
+		// query ordered seen-before-unseen let the due backlog fill the whole
+		// fetch, so a never-answered card could not reach the deck at all until
+		// the backlog cleared.
+		fetch := slots * reviewFetchHeadroom
+		due, err := s.deckCandidates(uid, bucketDue, incBooks, incScreen, mod, day, seed, fetch)
+		if err != nil {
+			internalError(w, r, "daily quiz due", err)
+			return
 		}
-		if incScreen {
-			sc, err := s.screenCandidates(uid, true, mod, day, fetch)
-			if err != nil {
-				internalError(w, r, "daily quiz screen", err)
-				return
-			}
-			cands = append(cands, sc...)
+		unseen, err := s.deckCandidates(uid, bucketUnseen, incBooks, incScreen, mod, day, seed, fetch)
+		if err != nil {
+			internalError(w, r, "daily quiz unseen", err)
+			return
 		}
-		// Seen-due first (most overdue first), then unseen in a per-day shuffle.
-		sort.SliceStable(cands, func(i, j int) bool {
-			a, b := cands[i], cands[j]
-			if a.seen != b.seen {
-				return a.seen
-			}
-			if a.seen {
-				return a.elapsed/max(a.card.Stability, reviewMinStability) >
-					b.elapsed/max(b.card.Stability, reviewMinStability)
-			}
-			return shuffleKey(a.card.Kind, a.card.ID, seed) < shuffleKey(b.card.Kind, b.card.ID, seed)
-		})
-		for _, c := range cands {
+		for _, c := range mergeDeck(due, unseen, slots, reviewUnseenShare) {
 			if len(items) >= slots {
 				break
 			}
@@ -900,24 +1068,18 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "practice pools", err)
 		return
 	}
-	var cands []reviewCand
-	if incBooks {
-		bc, err := s.bookCandidates(uid, false, "", "", 0)
-		if err != nil {
-			internalError(w, r, "practice books", err)
-			return
-		}
-		cands = append(cands, bc...)
+	// Same selector as the Daily Quiz, so Practice inherits the hash-spread
+	// sample and the per-work rotation — a round no longer walks forty quotes
+	// from one book. What Practice does NOT inherit is the due filter or the
+	// unseen reservation: it has no schedule to honour, so reserving slots for
+	// unseen cards would make an already-reviewed card *more* likely to come up
+	// than an unreviewed one. bucketAll keeps every card equally likely. The seed
+	// is fresh per request, so each round is a different walk.
+	cands, err := s.deckCandidates(uid, bucketAll, incBooks, incScreen, "", "", rand.Int64N(reviewSeedRange), 0)
+	if err != nil {
+		internalError(w, r, "practice pool", err)
+		return
 	}
-	if incScreen {
-		sc, err := s.screenCandidates(uid, false, "", "", 0)
-		if err != nil {
-			internalError(w, r, "practice screen", err)
-			return
-		}
-		cands = append(cands, sc...)
-	}
-	rand.Shuffle(len(cands), func(i, j int) { cands[i], cands[j] = cands[j], cands[i] })
 	dirs := []string{dirSource, dirQuote}
 	items := make([]reviewCard, 0, len(cands))
 	for _, c := range cands {

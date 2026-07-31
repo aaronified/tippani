@@ -811,3 +811,174 @@ func TestQuizChoicesSeedDeterministic(t *testing.T) {
 		t.Fatalf("nil-rng choices malformed %v answer#%d", on, an)
 	}
 }
+
+// A big import must not own the deck. Before the deck rework, both ORDER BY keys
+// tied across the whole unseen pool and SQLite broke those ties in rowid order —
+// and the importer writes book by book, so annotation ids are contiguous per
+// book and `LIMIT slots*5` returned every row from the first book. The deck came
+// back entirely from one work, every day, for months.
+func TestDailyQuizSpreadsAcrossWorks(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	// Seeded in order, so ids are contiguous per book exactly as an import writes
+	// them. Each book alone could fill the quota several times over.
+	for _, title := range []string{"Middlemarch", "Dune", "Emma", "Ulysses"} {
+		seedReviewBook(t, c, title, reviewQuota*3)
+	}
+	ageSeededItems(t, srv)
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) != reviewQuota {
+		t.Fatalf("deck should fill the quota: got %d", len(deck.Items))
+	}
+	byTitle := map[string]int{}
+	for _, it := range deck.Items {
+		byTitle[it.Title]++
+	}
+	if len(byTitle) < 4 {
+		t.Fatalf("deck drawn from %d of 4 books (%v) — one work is monopolising it", len(byTitle), byTitle)
+	}
+	for title, n := range byTitle {
+		if n > reviewQuota/2 {
+			t.Fatalf("%q took %d of %d slots: %v", title, n, reviewQuota, byTitle)
+		}
+	}
+}
+
+// Unseen cards must reach the deck even with a due backlog several times the
+// quota. They used to be ordered behind every due card and then truncated out of
+// the fetch entirely, so a backlog meant no new material for weeks.
+func TestDailyQuizAdmitsUnseenBesideBacklog(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, backlog := seedReviewBook(t, c, "Middlemarch", reviewQuota*6)
+	_, fresh := seedReviewBook(t, c, "Dune", reviewQuota*2)
+	ageSeededItems(t, srv)
+
+	// Every Middlemarch card is answered and long overdue; the Dune cards have
+	// never been answered.
+	for _, id := range backlog {
+		if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
+			(kind, item_id, stability, review_count, last_result, last_reviewed_at, last_touched_at)
+			VALUES ('book', ?, 7, 1, 'got', datetime('now', '-90 days'), datetime('now', '-90 days'))`, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unseen := map[int64]bool{}
+	for _, id := range fresh {
+		unseen[id] = true
+	}
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) != reviewQuota {
+		t.Fatalf("deck should fill the quota: got %d", len(deck.Items))
+	}
+	got := 0
+	for _, it := range deck.Items {
+		if it.Kind == kindBook && unseen[it.ID] {
+			got++
+		}
+	}
+	if want := reviewQuota / reviewUnseenShare; got != want {
+		t.Fatalf("unseen cards in deck: got %d, want %d (reserved share)", got, want)
+	}
+	// The rest of the deck is still the backlog, most overdue first — the
+	// reservation must not starve the schedule.
+	if backlogged := len(deck.Items) - got; backlogged != reviewQuota-reviewQuota/reviewUnseenShare {
+		t.Fatalf("due cards in deck: got %d", backlogged)
+	}
+}
+
+// With no unseen cards left the reservation yields its slots back, and with no
+// due cards the deck is all unseen. Neither bucket may leave the deck short.
+func TestDailyQuizBucketsYieldWhenEmpty(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, ids := seedReviewBook(t, c, "Middlemarch", reviewQuota*2)
+	seedReviewBook(t, c, "Dune", reviewQuota*2)
+	ageSeededItems(t, srv)
+
+	// All unseen: the deck fills from the unseen bucket alone.
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) != reviewQuota {
+		t.Fatalf("unseen-only deck: got %d", len(deck.Items))
+	}
+
+	// Now make every card seen-and-due, leaving the unseen bucket empty.
+	if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
+		(kind, item_id, stability, review_count, last_result, last_reviewed_at, last_touched_at)
+		SELECT 'book', id, 7, 1, 'got', datetime('now', '-90 days'), datetime('now', '-90 days')
+		FROM annotations`); err != nil {
+		t.Fatal(err)
+	}
+	_ = ids
+	deck = decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	if len(deck.Items) != reviewQuota {
+		t.Fatalf("due-only deck: got %d", len(deck.Items))
+	}
+}
+
+// Practice draws from the whole pool with no due filter and no unseen
+// reservation — an already-reviewed card must not become more likely to come up
+// than an unreviewed one — but it does inherit the per-work rotation.
+func TestPracticeSharesSelectionWithoutReservation(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	for _, title := range []string{"Middlemarch", "Dune", "Emma"} {
+		seedReviewBook(t, c, title, 12)
+	}
+	// Reviewing some cards must not change what Practice offers: no due filter.
+	if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
+		(kind, item_id, stability, review_count, last_result, last_reviewed_at, last_touched_at)
+		SELECT 'book', id, 100, 3, 'got', datetime('now'), datetime('now')
+		FROM annotations WHERE id % 2 = 0`); err != nil {
+		t.Fatal(err)
+	}
+
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	if len(deck.Items) != 36 {
+		t.Fatalf("practice offers the whole pool: got %d, want 36", len(deck.Items))
+	}
+	// The rotation means the opening run touches every work rather than walking
+	// one book end to end.
+	seen := map[string]bool{}
+	for _, it := range deck.Items[:3] {
+		seen[it.Title] = true
+	}
+	if len(seen) != 3 {
+		t.Fatalf("first three practice cards should span all three books, got %v", seen)
+	}
+}
+
+// spreadByWork keeps every candidate, never loops forever, and puts the
+// best-ranked work first.
+func TestSpreadByWork(t *testing.T) {
+	mk := func(key string, id int64) reviewCand {
+		c := reviewCand{workKey: key}
+		c.card.ID = id
+		return c
+	}
+	in := []reviewCand{
+		mk("book:1", 1), mk("book:1", 2), mk("book:1", 3), mk("book:1", 4),
+		mk("book:2", 5), mk("book:3", 6),
+	}
+	out := spreadByWork(in)
+	if len(out) != len(in) {
+		t.Fatalf("dropped candidates: %d -> %d", len(in), len(out))
+	}
+	if out[0].workKey != "book:1" || out[1].workKey != "book:2" || out[2].workKey != "book:3" {
+		t.Fatalf("first rotation should hit each work once: %v %v %v", out[0].workKey, out[1].workKey, out[2].workKey)
+	}
+	if out[3].workKey != "book:1" || out[3].card.ID != 2 {
+		t.Fatalf("second rotation should resume book:1 in rank order, got %+v", out[3])
+	}
+	// A single work is returned untouched.
+	solo := []reviewCand{mk("book:9", 1), mk("book:9", 2)}
+	if got := spreadByWork(solo); len(got) != 2 || got[0].card.ID != 1 {
+		t.Fatalf("single-work list must keep its order: %+v", got)
+	}
+}
