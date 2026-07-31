@@ -1666,6 +1666,29 @@
     pointer-events: auto;
   }
   @media (prefers-reduced-motion: reduce) { .card-actions { transition: none; } }
+
+  /* The quote card's colour quick-pick rides the same §7 gate as .card-actions,
+     for the same reason: invisible and non-interactive at rest so the resting
+     card still shows only its favourite mark, revealed with the card, and always
+     holding its layout box (opacity, not display) so hovering never re-packs the
+     masonry. `is-visible` pins it on where a card stands alone (the search quote
+     modal). Phones override this below — there is no hover to wait for. */
+  .card-colors {
+    display: inline-flex;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+  }
+  .card-colors.is-visible,
+  .hand-card:hover .card-colors,
+  .hand-card:focus-within .card-colors,
+  .film-frame:hover .card-colors,
+  .film-frame:focus-within .card-colors {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @media (prefers-reduced-motion: reduce) { .card-colors { transition: none; } }
   .tp-filter-chip {
     min-height: 34px;
     padding: 5px 13px;
@@ -1724,7 +1747,21 @@
     border: 1.2px solid rgba(41,38,29,.4);
     opacity: .65;
   }
-  .color-dot:hover { opacity: 1; }
+  /* The dot's hit box. On a pointer it is exactly the 20px circle, so the filter
+     rows and the forms are unchanged to the pixel; the §11 touch pass below
+     grows the BOX, never the dot. */
+  .color-dot-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: none;
+    line-height: 0;
+    cursor: pointer;
+    border-radius: 999px; /* so the focus ring is a pill, not a rectangle */
+  }
+  .color-dot-btn:hover .color-dot { opacity: 1; }
   .color-dot.active { opacity: 1; outline: 2px solid var(--accent-ui); outline-offset: 2px; }
   .tp-error { font-size: 13.5px; color: var(--error); }
   .tp-empty {
@@ -2506,6 +2543,19 @@ html[data-theme="dark"] .mobile-sheet-footer {
   .film-frame .heart {
     width: 34px;
   }
+  .color-dot-btn {
+    min-width: 34px;
+    min-height: 44px;
+  }
+  /* In-card marks keep the 44px hit height but narrow the box, as the hearts do:
+     ♥ + four blobs + ⋯ must fit a ~250px content column on a 320px phone, which
+     this row measures at 232px. The 28px is load-bearing, not cosmetic — at the
+     generic 34px the row is 256px and wraps. */
+  .hand-card .color-dot-btn,
+  .film-frame .color-dot-btn { min-width: 28px; }
+  /* No hover on a phone, so the quick-pick stands beside the ♥. share / edit /
+     delete still fold behind the ⋯. */
+  .card-colors { opacity: 1; pointer-events: auto; }
   .tp-btn-ghost {
     min-height: 44px;
     padding: 8px 14px;

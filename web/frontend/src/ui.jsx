@@ -2116,20 +2116,56 @@ export function FavoriteStar({ value, onChange }) {
 }
 
 
-// ColorSwatches renders the four annotation-colour dots; '' = none selected.
-export function ColorSwatches({ value, onChange }) {
+// ColorSwatches renders the four annotation colours as an ARIA radio group;
+// '' = nothing picked (the list filters, which clear by re-picking in their own
+// onChange — a card must not: the server has no "no colour", see validColor).
+// One tab stop for the whole group (roving tabindex); arrows MOVE focus without
+// committing and Enter/Space picks, the same split Select uses — selection
+// following focus would fire a PUT per keystroke from the card quick-pick.
+// Each dot is a transparent hit box around the 20px circle, so the mobile touch
+// pass can grow the BOX to 44px high without changing how the dot looks.
+export function ColorSwatches({ value, onChange, ariaLabel = "Colour" }) {
+  const ref = useRef(null);
+  // The tab stop is the picked dot, or the first when nothing is picked (a
+  // filter sitting at "all") — the group must never fall out of tab order.
+  const focusIndex = Math.max(0, ANNOTATION_COLORS.indexOf(value));
+  const onKey = (e) => {
+    const step =
+      e.key === "ArrowRight" || e.key === "ArrowDown"
+        ? 1
+        : e.key === "ArrowLeft" || e.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (!step) return;
+    e.preventDefault();
+    const btns = ref.current?.querySelectorAll("button");
+    if (!btns?.length) return;
+    const from = [...btns].indexOf(document.activeElement);
+    const next = (((from < 0 ? focusIndex : from) + step) % btns.length + btns.length) % btns.length;
+    btns[next].focus();
+  };
   return (
-    <span className="flex items-center gap-1.5">
-      {ANNOTATION_COLORS.map((c) => (
+    <span
+      ref={ref}
+      role="radiogroup"
+      aria-label={ariaLabel}
+      onKeyDown={onKey}
+      className="flex items-center gap-1.5"
+    >
+      {ANNOTATION_COLORS.map((c, i) => (
         <button
           key={c}
           type="button"
+          role="radio"
+          aria-checked={value === c}
+          aria-label={c}
           title={c}
+          tabIndex={i === focusIndex ? 0 : -1}
           onClick={() => onChange(c)}
-          className={
-            "color-dot " + colorDotClass[c] + (value === c ? " active" : "")
-          }
-        />
+          className="color-dot-btn"
+        >
+          <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
+        </button>
       ))}
     </span>
   );

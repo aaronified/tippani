@@ -170,7 +170,10 @@ Have a request or a strong opinion on ordering? Open an issue.
   row, and the Library/Catalogue Add buttons — one obvious way to add anything.
 - **Progressive disclosure on cards** — a quote card shows only its favourite ♥
   at rest; **share · edit · delete** reveal on hover (desktop) or fold behind a
-  single ⋯ overflow (mobile), so a masonry sheds its standing button rows.
+  single ⋯ overflow (mobile), so a masonry sheds its standing button rows. The
+  **colour quick-pick** rides the same hover gate on desktop; on a phone, where
+  there is no hover, its four blobs stand between the ♥ and the ⋯ so recolouring
+  a highlight is one tap rather than a trip through the edit form.
 - **Compact edit forms** — the book/film cover controls collapse to icon buttons
   with tooltips (upload · fetch metadata · paste URL · search covers · remove),
   and **"Fetch metadata" opens the edition/version picker** to pick the right

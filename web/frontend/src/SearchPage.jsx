@@ -413,12 +413,18 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
     onChanged && onChanged()
     return null
   }
+  // Resolves false on failure so an optimistic caller (AnnotationCard's colour
+  // quick-pick) can roll its preview back — matches Library's patch.
   async function patch(x, fields) {
     const r = await json('PUT', `${itemPath}/${x.id}`, { ...stateFn(x), ...fields })
-    if (!r.ok) return setError(errText(r, 'could not save'))
+    if (!r.ok) {
+      setError(errText(r, 'could not save'))
+      return false
+    }
     setError('')
     await loadRow()
     onChanged && onChanged()
+    return true
   }
   async function remove(x) {
     if (!confirm(isBook ? 'Delete this annotation?' : 'Delete this dialogue?')) return

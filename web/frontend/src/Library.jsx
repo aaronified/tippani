@@ -754,13 +754,20 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-function ActionRow({ a, patch, setEditingId, remove, onShare, actionsAlwaysVisible }) {
+function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, actionsAlwaysVisible }) {
   // §7 declutter: the favourite ♥ is the card's resting mark; share/edit/delete
   // hide until the card is hovered (desktop) or behind a ⋯ overflow (mobile),
-  // so the resting card sheds its standing button row (see QuoteActions).
+  // so the resting card sheds its standing button row (see QuoteActions). The
+  // colour quick-pick rides the same hover gate on desktop; on a phone there is
+  // no hover, so it stands between the ♥ and the ⋯ — one tap to recolour.
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
+      {/* shrink-0: the four blobs are one atomic control — the row wraps the ⋯
+          cluster to a second line before it splits or squeezes them. */}
+      <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
+        <ColorSwatches value={color} onChange={onColor} ariaLabel="Highlight colour" />
+      </span>
       <span className="ml-auto flex items-center">
         <QuoteActions
           onShare={onShare ? () => onShare(a) : undefined}
@@ -782,6 +789,18 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
   const d = fmtDate(annDate(a))
+  // Optimistic colour. patch() refetches the whole list before the row comes
+  // back changed, so the quick-pick paints the card's bar (and the picked dot)
+  // itself the instant it's tapped. The preview clears as soon as the refetched
+  // row carries the new colour, and rolls back if the PUT failed.
+  const [pendingColor, setPendingColor] = useState(null)
+  useEffect(() => { setPendingColor(null) }, [a.color])
+  const color = pendingColor || a.color
+  const pickColor = async (c) => {
+    if (c === color) return // no clear: the server has no "no colour" (validColor)
+    setPendingColor(c)
+    if ((await patch(a, { color: c })) === false) setPendingColor(null)
+  }
   const editForm = (
     <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
   )
@@ -790,13 +809,13 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // Everywhere else the edit opens in a FormModal, the house style.
   if (editInline && editing) {
     return (
-      <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
+      <HandCard variant={variant} colorBar={color} className="px-5 py-4">
         {editForm}
       </HandCard>
     )
   }
   return (
-    <HandCard variant={variant} colorBar={a.color} className="px-5 py-4">
+    <HandCard variant={variant} colorBar={color} className="px-5 py-4">
       {!editInline && (
         <FormModal open={editing} onClose={() => setEditingId(null)} title="Edit quote">
           {editForm}
@@ -847,7 +866,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               })}
             </div>
           )}
-          <ActionRow a={a} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
+          <ActionRow a={a} color={color} onColor={pickColor} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
         </div>
     </HandCard>
   )
@@ -1099,12 +1118,18 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
     } else setError(errText(r))
   }
 
-  // patch PUTs a row's full current state with one field changed (♥ clicks).
+  // patch PUTs a row's full current state with one field changed (♥ clicks, the
+  // colour quick-pick, sticker drags). Resolves false when the save failed, so
+  // an optimistic caller can roll its preview back.
   async function patch(a, fields) {
     const r = await json('PUT', `/annotations/${a.id}`, { ...annotationState(a), ...fields })
-    if (!r.ok) return setError(errText(r, 'could not save annotation'))
+    if (!r.ok) {
+      setError(errText(r, 'could not save annotation'))
+      return false
+    }
     setError('')
     load()
+    return true
   }
 
   // Build the normalised share payload from the chosen annotation + its book.
