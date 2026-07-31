@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-31
+
+The first stable release. It is a bug-fix and polish pass rather than a rewrite —
+the shape of the app is the one 0.9.x arrived at — but three of the fixes were
+load-bearing enough that shipping 1.0 without them would have been dishonest.
+
+### Added
+- **Kindle `My Clippings.txt` import (experimental).** The device's own file,
+  every book at once — the last stubbed importer, whose route had answered `501`
+  since it was deferred. Amazon never documented the format and localises the
+  whole metadata line, so the parser reads **structure, not English**: the
+  `==========` separator, the leading `- `, the `|` field splits, digit runs, and
+  whether the body is empty. Language keywords only ever promote a highlight to a
+  note; they never rescue a block the structure rejected. Keyword matching is
+  word-bounded and confined to the metadata line's first field, because `loc`
+  otherwise matches "clock", `nota` matches "notary" and `page` matches
+  "pageant" — a chapter titled *NOTES ON THE CLOCK TOWER* must stay a chapter.
+  Records that cannot be read are **skipped and counted back to you**, never
+  guessed at: bookmarks (no text), unreadable blocks, notes merged onto the
+  highlight they annotate, and the near-duplicates Kindle leaves behind when a
+  highlight is extended. Locales that could not be verified were left out rather
+  than guessed; an unknown language costs a less precise field, never a lost
+  quote. The card says *experimental* on its face.
+- **Floating bottom nav on phones.** Four thumb-reachable icons — Search, Home,
+  Library, Catalogue — hovering clear of the bottom edge so the Android gesture
+  pill keeps its own strip. It slides away as you read down the page and returns
+  on the way back up; reduced motion opts out of hiding entirely rather than
+  snapping. An addition, not a replacement: the ☰ drawer still owns the utility
+  tabs, ＋ Add and the account rows.
+- **One-tap colour on a quote card.** The four colour blobs now sit in the card's
+  action row — on a phone between the ♥ and the ⋯ overflow, on desktop in the
+  same hover gate that reveals share · edit · delete. Recolouring a highlight no
+  longer means opening the edit form. The swatches became a proper ARIA radio
+  group along the way (one tab stop, arrows move focus, Enter picks).
+- **Editions grouped in book search.** Printings of the same book — identical
+  title *and* author — fold into one row, with the editions one tap behind a
+  chevron. The match is strict on purpose: only case, diacritics and punctuation
+  are folded, so *Dune* and *Dune: Book One* stay apart. Fusing distinct works is
+  the unrecoverable direction.
+- **`tagged` and `has notes` filters** beside `♥ favourites` on both list pages,
+  as independent toggles. `GET /books` and `GET /movies` gain `tagged_count` and
+  `noted_count` for them.
+
+### Fixed
+- **The Daily Quiz served the same few books, for weeks.** Two independent
+  causes. The bounded fetch was a **rowid prefix, not a sample**: both ordering
+  keys tied across huge blocks of rows (for an unseen card the overdue ratio is
+  `NULL`, so every unseen card tied) and SQLite breaks ties in scan order — and
+  the importer writes book by book, so annotation ids are contiguous per book and
+  `LIMIT 40` returned forty rows from *one* book. Separately, unseen cards could
+  not reach the deck at all while a backlog existed: one query ordered
+  seen-before-unseen let the due bucket fill the whole fetch. Ordering now ends
+  in a hash of the id, the two buckets are fetched separately, and a rotation
+  over works means consecutive cards come from different books. **Practice goes
+  through the same selector** and inherits both — a round no longer walks forty
+  quotes from one book.
+- **Never-reviewed quotes now get a guaranteed share of the deck.** Every third
+  Daily slot is reserved for a card never answered — two a day at the default
+  quota, where it was effectively zero behind any backlog. Either bucket yields
+  its slots when empty, so a deck is never short. Practice deliberately does
+  *not* inherit the reservation: with no schedule to honour it would have made an
+  already-reviewed card several times *more* likely to come up than an
+  unreviewed one.
+- **The quiz could stall on a wrong answer with no way forward.** `json()` let a
+  transport-level fetch rejection escape — an offline blip, a Wi-Fi-to-cellular
+  handover, a server restart mid-request — so every line after the `await` was
+  skipped, including the one that re-enables the control. It now resolves to the
+  same `{ok:false}` shape the upload helper always documented, which unsticks
+  in-flight flags across the whole app, not just the quiz. In the quiz a non-2xx
+  additionally *removed* the Next button from the DOM rather than merely
+  disabling it; the reveal is now kept, an inline error says the grade didn't
+  count, and Next always advances.
+- **Book and film detail pages showed Export / Edit / Delete twice on a phone** —
+  once in the sticky bar's ⋯ overflow and again as a standing button row.
+- **The Capture-quote picker never showed films or shows.** The list was built
+  books-first and then sliced to the first eight matches, so any library with
+  eight or more books hid every film behind them. Matches are now ranked within
+  each kind and interleaved.
+- **Book search results showed no covers**, though the payload has carried
+  `cover_url` all along and the CDNs were already allow-listed. The row also
+  spent roughly 145px of a ~256px phone row on a `GOOGLE BOOKS` text pill and a
+  bordered *Add* button, truncating the title to nothing: the source is now a
+  16px mark (its name on the tooltip and the accessible label) and *Add* a
+  borderless `+`, with the freed width going to title and author.
+- **The phone genre filter was a lone `All` chip above a `More…` dropdown holding
+  every genre** — the chip strip measures the room left on its row, and in the
+  filter sheet that measurement always collapses to zero. It is now one control
+  with `All` as its first option, matching series, sort and group beside it.
+
+### Changed
+- `patch()` on annotations resolves a boolean so an optimistic caller can roll
+  back; existing callers ignore it.
+- `normName` moves into the shared UI module, documented about its Latin-only
+  fold; the unused `sourceLabel` is retired.
+
 ## [0.9.5] - 2026-07-25
 
 ### Changed
