@@ -29,6 +29,7 @@ import {
   toast,
   useBodyScrollLock,
   useFrameBase,
+  useHideOnScrollDown,
   useIsMobileScreen,
   useResolvedDark,
 } from './ui.jsx'
@@ -894,6 +895,60 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
   )
 }
 
+// The four screens the phone's floating bar carries. Ids are the real tab keys
+// — note 'movies' is the legacy id for the Catalogue tab (statePath maps it to
+// /catalogue). Icon-only: TabIcon's glyph is the affordance, the aria-label
+// carries the name.
+const BOTTOM_TABS = [
+  ['search', 'Search'],
+  ['home', 'Home'],
+  ['library', 'Library'],
+  ['movies', 'Catalogue'],
+]
+
+// MobileBottomNav — the floating phone nav: four thumb-reachable icons, hovering
+// clear of the bottom edge so the Android gesture pill keeps its own strip. It's
+// an ADDITION, not a replacement — the ☰ drawer still owns the utility tabs,
+// ＋ Add and the account rows, and is untouched.
+//
+// Deliberately carries no data-tour attribute. tour.jsx's findVisible picks the
+// first match with a non-zero box, and .is-away only sets opacity — the slid-away
+// bar still measures, so a data-tour here could spotlight an invisible control.
+//
+// aria-label is "Quick navigation", not "Primary": the drawer already claims
+// that landmark name and both can be mounted at once.
+function MobileBottomNav({ tab, selectTab, hidden }) {
+  // The bar stays focusable while slid away, so focusing a button must bring it
+  // back rather than leave focus on something off-screen.
+  const [focused, setFocused] = useState(false)
+  const away = hidden && !focused
+  return (
+    <nav
+      className={'mobile-bottom-nav' + (away ? ' is-away' : '')}
+      aria-label="Quick navigation"
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
+      {BOTTOM_TABS.map(([key, label]) => {
+        const active = tab === key
+        return (
+          <button
+            key={key}
+            type="button"
+            className={'mobile-bottom-nav-btn' + (active ? ' active' : '')}
+            aria-label={label}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => selectTab(key)}
+          >
+            <TabIcon name={key} />
+            <span className="mobile-bottom-nav-mark" aria-hidden="true" />
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
 // Shell is the logged-in frame (§7): on desktop a topbar with the (tappable)
 // mark + wordmark, tab strip and user-initial chip; on a phone a slim top bar
 // whose ☰ drawer owns primary nav — logo taps Home, ＋ captures a quote. A
@@ -932,6 +987,16 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // started/resumed from Settings → Onboarding. Not in the demo build (its
   // read-only shim can't persist the "seen" state, so it would nag every load).
   const [tourState, setTourState] = useState(null)
+  // Floating phone bottom bar: a second, thumb-reachable route to the four main
+  // screens. The mobile gate is only for the scroll listener — the bar's
+  // visibility is CSS (display:none above the breakpoint), so rotating a tablet
+  // never remounts it. Any shell overlay pins it visible.
+  const mobile = useIsMobileScreen()
+  const navHidden = useHideOnScrollDown({
+    enabled: mobile,
+    forceShow: drawerOpen || addOpen || !!accountView || !!tourState,
+    resetKey: tab,
+  })
   useEffect(() => {
     if (DEMO || user.preferences?.tour) return
     const t = setTimeout(() => setTourState({ step: 0 }), 800)
@@ -1181,6 +1246,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         </div>
         </ErrorBoundary>
       </main>
+      <MobileBottomNav tab={tab} selectTab={selectTab} hidden={navHidden} />
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}

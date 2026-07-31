@@ -149,6 +149,99 @@ export function useIsMobileScreen() {
   return mobile;
 }
 
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+// useHideOnScrollDown — auto-hide for the floating mobile bottom bar.
+//
+// The app scrolls the WINDOW (App.jsx's scroll memory reads window.scrollY and
+// every shell bar is fixed/sticky against the viewport), so window is the real
+// scroller — no inner-container plumbing needed.
+//
+// Semantics: swiping UP to read further DOWN the page slides the bar away;
+// scrolling back up, or coming within topZone of the top, brings it back.
+// There is deliberately NO idle timer re-showing it after the finger lifts —
+// that would put the bar back exactly while you are reading, which is the
+// opposite of the pattern.
+//
+// Two things stop it flickering: the listener is passive and only schedules
+// work (all measurement happens in one rAF tick per frame), and `threshold` px
+// of one-way travel must accumulate before the state flips, so sub-pixel drift
+// and iOS rubber-banding are ignored.
+//
+// `forceShow` pins it visible while a shell overlay is up. Reduced motion opts
+// out of hiding altogether: the global `transition: none !important` would turn
+// the slide into a jarring snap, so the honest behaviour is not to hide at all.
+export function useHideOnScrollDown({
+  enabled = true,
+  forceShow = false,
+  resetKey = null,
+  threshold = 12, // px of one-way travel before the state flips (dead zone)
+  topZone = 24, // px from the top where the bar is unconditionally shown
+} = {}) {
+  const [hidden, setHidden] = useState(false);
+  const [reduced, setReduced] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia?.(REDUCED_MOTION_QUERY).matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const media = window.matchMedia(REDUCED_MOTION_QUERY);
+    const sync = () => setReduced(media.matches);
+    sync();
+    if (media.addEventListener) {
+      media.addEventListener("change", sync);
+      return () => media.removeEventListener("change", sync);
+    }
+    media.addListener?.(sync);
+    return () => media.removeListener?.(sync);
+  }, []);
+
+  const active = enabled && !reduced && !forceShow;
+
+  useEffect(() => {
+    if (!active) {
+      setHidden(false); // never strand the bar off-screen
+      return;
+    }
+    let last = window.scrollY;
+    let ticking = false;
+
+    const measure = () => {
+      ticking = false;
+      const y = window.scrollY;
+      const dy = y - last;
+      if (y <= topZone) {
+        last = y;
+        setHidden(false);
+        return;
+      }
+      // Sub-threshold: keep `last` where it is so slow travel still accumulates.
+      if (Math.abs(dy) < threshold) return;
+      last = y;
+      setHidden(dy > 0); // scrollY grew ⇒ reading further down ⇒ slide away
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(measure);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [active, threshold, topZone]);
+
+  // A route change always re-shows: Shell's scroll effect jumps to the top or to
+  // a remembered offset, so the previous screen's hide is stale either way.
+  useEffect(() => {
+    setHidden(false);
+  }, [resetKey]);
+
+  return active ? hidden : false;
+}
+
 // useColumnsAt — the live column count for a Masonry, from a [minWidthPx, cols]
 // ladder (largest breakpoint first; below the smallest ⇒ 1 column). Mirrors the
 // Tailwind breakpoints the old CSS-column boards used, e.g. [[1280,3],[640,2]].

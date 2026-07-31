@@ -1859,9 +1859,14 @@
 
   /* No top padding on the container: the shell .mobile-topbar (or, on detail
      screens, the page's .mobile-sticky-bar) must own the very top edge — any
-     padding above it shows as a gap until the first scroll. The bottom leaves
-     room for the floating toast only (the old fixed bottom bar is gone). */
-  .container-tp { padding: 0 12px 32px; }
+     padding above it shows as a gap until the first scroll. The bottom clears
+     the floating .mobile-bottom-nav (62px tall + its 14px float gap) plus the
+     device inset, so the last row of a list is never sat on. Two declarations,
+     not one: if env() ever fails to parse, the plain-px fallback survives —
+     otherwise the whole declaration drops and the layered 4px TOP padding
+     comes back, which is exactly the gap the note above forbids. */
+  .container-tp { padding: 0 12px 90px; }
+  .container-tp { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
 
   /* Ancestor transforms un-stick position:sticky (the stuck bar rides the
      transform for the animation's duration, floating below the true top).
@@ -2054,6 +2059,112 @@ html[data-theme="dark"] .mobile-topbar {
   from { opacity: 0; transform: translate(-50%, 10px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* ---- floating mobile bottom nav ---- */
+/* An ADDITION to the ☰ drawer, not a replacement: four thumb-reachable icons
+   for the main screens. It floats clear of the bottom edge so the Android
+   gesture pill / iOS home indicator keeps its own strip — hence a bottom offset
+   rather than a flush bar with padding, which is what the retired .bottom-nav
+   did. z 40 is the .mobile-topbar tier it partners: the drawer and every
+   sheet/modal (50), the grain overlay (60), toasts (70), the tour (80/81) and
+   the lightbox (90) all still cover it. Hidden above the breakpoint by display,
+   not by JS, so rotating a tablet never remounts it. */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 999px;
+  /* Gradient flipped (0deg + swapped stops) so the light source stays at the
+     top of the screen — the same trick .mobile-sheet-footer uses. */
+  background: linear-gradient(0deg, var(--topbar-bottom), var(--topbar-top));
+  border: 1px solid var(--line);
+  box-shadow: 0 -2px 10px -6px rgba(41, 38, 29, .18),
+              0 8px 24px -10px rgba(41, 38, 29, .34),
+              inset 0 1px 0 rgba(255, 255, 255, .5);
+  transition: transform .26s cubic-bezier(.2, .68, .28, 1), opacity .2s ease;
+}
+html[data-theme="dark"] .mobile-bottom-nav {
+  box-shadow: 0 -2px 10px -6px rgba(0, 0, 0, .4),
+              0 10px 28px -10px rgba(0, 0, 0, .6),
+              inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+/* Film goes geometric + amber-hairlined, as .hand-card does. */
+html[data-aesthetic="film"] .mobile-bottom-nav {
+  border-radius: 12px;
+  border-color: color-mix(in oklab, var(--amber) 45%, var(--line));
+}
+html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
+
+/* Slid away. 100% clears the bar's own height; the extra px clear the float gap
+   and the drop shadow. Fading too stops the shadow smearing at the edge, and
+   pointer-events:none stops ghost taps on the off-screen bar. */
+.mobile-bottom-nav.is-away {
+  transform: translate(-50%, calc(100% + 30px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mobile-bottom-nav-btn {
+  position: relative;
+  width: 56px; /* ≥44px hit target in both axes */
+  height: 48px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--soft);
+  flex: none;
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.mobile-bottom-nav-btn:hover,
+.mobile-bottom-nav-btn:active { color: var(--ink); }
+/* The active state carries three cues so colour is never the only one: an
+   accent tint (TabIcon strokes currentColor), a tinted pill, and a dot. The
+   tint's contrast against the bar depends on the chosen accent — ochre on
+   paper-light is the weakest — so the dot's presence, not its colour, is what
+   has to read. Same recipe as .drawer-item.active. */
+.mobile-bottom-nav-btn.active {
+  color: var(--accent-ui);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.mobile-bottom-nav-btn svg { flex: none; }
+.mobile-bottom-nav-mark {
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.mobile-bottom-nav-btn.active .mobile-bottom-nav-mark { opacity: 1; }
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav { display: flex; }
+  /* The toast is the only other bottom-anchored fixed element, and at z 70 it
+     would draw on top of the bar. Lift it clear: 62px bar + 14px gap + 10px. */
+  .toast {
+    bottom: 86px;
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Reduced motion needs no rule here: @layer base's
+   `*, *::before, *::after { transition: none !important }` already kills the
+   slide, and useHideOnScrollDown opts out of hiding entirely under the same
+   query, so the bar simply stays put. */
 
 /* ---- guided feature tour (tour.jsx; Settings → Onboarding) ---- */
 /* The spotlight ring's giant box-shadow doubles as the scrim, and the layer is
