@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-31
+
+### Added
+- **Collections for films and shows.** Group the Catalogue by collection — Lord
+  of the Rings, Mission Impossible — the way the Library groups books by series.
+  A collection can hold a **film and a show together** (Twin Peaks and Fire Walk
+  With Me; Firefly and Serenity), and titles still appear individually:
+  grouping buckets the view, it never removes rows. TMDB's
+  `belongs_to_collection` already fills it in on lookup. No migration — the
+  column has existed since the 0006 migration, whose own comment calls it a
+  "franchise / collection name", and `media_type` lives on the same row, so
+  cross-type membership needed no schema change. What was missing was the
+  affordance: the Catalogue had no group-by control, so you could filter to one
+  collection but never see the structure.
+- **Drag the dropdown's textured thumb.** The toggle's selected-option pill has
+  always been grab-and-slide; the dropdown renders the identical thumb but only
+  ever moved it by hover or arrow keys. It now drags too — same interaction,
+  vertical. On a list long enough to scroll it stays mouse-only, because
+  `touch-action` cannot serve both the thumb and the scroller.
+
+### Fixed
+- **Series and collections survive an export.** They didn't: the Markdown
+  frontmatter carried title, author, year and genres but never the series, so a
+  library rebuilt from its own export silently lost every series and collection
+  it had. Both renderers now emit a `Name #1.5` value (books as `series:`, films
+  and shows as `collection:`) and both importers parse it back, fill-empty-only
+  so a value already on the row wins.
+- **A film with no director was misrouted to the book importer.** Format
+  auto-detection keys off `director:` / `creator:` and the
+  character/actor/timestamp bindings; a title carrying none of them fell through
+  to the book path. `collection:` is now decisive, since only the catalogue
+  export writes it.
+
+### Changed
+- Films and shows say **collection** where books say **series** — filter, sort,
+  group and both edit forms. "Series / franchise" read as a TV field on a page
+  where *series* already means a show. Same column, same JSON key, same FTS
+  index: renaming those would touch some sixty Go call sites and the tests that
+  pin them, for nothing a reader would see.
+- A show's poster badge reads **SHOW** rather than `SERIES`, matching the
+  media-type filter and the capture picker.
+
 ## [1.0.0] - 2026-07-31
 
 The first stable release. It is a bug-fix and polish pass rather than a rewrite —
