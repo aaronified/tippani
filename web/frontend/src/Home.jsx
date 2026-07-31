@@ -4,7 +4,7 @@
 // on "/". One narrow column on every screen size — the ritual reads the same
 // on a phone and a desktop. Quote capture is NOT here any more — it's the
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
@@ -24,6 +24,7 @@ import {
   ANNOTATION_HEX,
   ClampMore,
   clampSequence,
+  ErrorText,
   GhostButton,
   FormModal,
   HandCard,
@@ -170,7 +171,14 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
   // session on reload); onIndex reports each advance so the host can persist it.
   const [i, setI] = useState(startIndex)
   const [picked, setPicked] = useState(null) // chosen option index for the current card
-  const [busy, setBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState('') // the grade didn't reach the server
+  // posRef is the card on screen right now, readable from a settled request's
+  // closure: a slow reply must not paint its error onto a card the reader has
+  // already moved past. inflight lets "Finish" wait for the last grade to land,
+  // so Practice's done screen can't snapshot the round one answer short.
+  const posRef = useRef(startIndex)
+  const inflight = useRef(null)
   // Portrait lookups for the person chips on prompts and options (the server
   // names each option's author/actor/director in option_meta).
   const { map: authorMap } = usePeople('author')
@@ -180,31 +188,48 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
   const card = cards[i]
   if (!card) return null
 
-  function advance() {
-    if (i + 1 >= cards.length) return onDone?.()
-    setI(i + 1)
-    onIndex?.(i + 1)
-    setPicked(null)
+  async function advance() {
+    posRef.current = i + 1
+    setSaving(false) // a still-flying grade must never gate the next card
+    setSaveErr('')
+    if (i + 1 < cards.length) {
+      setI(i + 1)
+      onIndex?.(i + 1)
+      setPicked(null)
+      return
+    }
+    // Last card: let the grade settle before the host reads the round's tally.
+    await inflight.current
+    onDone?.()
   }
 
   async function pick(idx) {
-    if (picked != null || busy) return // one shot per question
+    if (picked != null || saving) return // one shot per question
+    const at = i
     const correct = idx === card.answer
     setPicked(idx)
-    setBusy(true)
-    const r = await json('POST', '/review/answer', {
+    setSaving(true)
+    setSaveErr('')
+    // .catch is belt-and-braces over api.js's own guard: `saving` gates the
+    // options, and awaiting a rejected promise in advance() would throw.
+    const req = json('POST', '/review/answer', {
       kind: card.kind,
       id: card.id,
       result: correct ? 'got' : 'forgot',
       mode,
       offset: tzOffsetMinutes(),
-    })
-    setBusy(false)
-    // A failed save reverts the pick so the card can be retried rather than
-    // silently missing from the tally / schedule.
+    }).catch(() => ({ ok: false, status: 0, data: null }))
+    inflight.current = req
+    const r = await req
+    const here = posRef.current === at
+    if (here) setSaving(false)
+    // A failed save used to revert the pick — but with the answer already
+    // revealed and skip off (Daily), that removed the Next button outright and
+    // stranded the reader on a dead card. Keep the reveal, say plainly that the
+    // grade didn't land, and let them move on.
     if (!r.ok) {
-      setPicked(null)
-      return toast('couldn’t save — check your connection and try again')
+      if (here) setSaveErr('couldn’t save — this answer won’t count towards your schedule')
+      return
     }
     // The result string, not the raw boolean — both cards' tallies compare
     // against 'got'/'forgot' (a boolean never matched, so the session tallies
@@ -240,7 +265,7 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
             <button
               key={idx}
               type="button"
-              disabled={answered || busy}
+              disabled={answered || saving}
               onClick={() => pick(idx)}
               className="text-left"
               style={{
@@ -271,15 +296,21 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
           <MonoLabel style={{ color: picked === card.answer ? 'var(--ok)' : 'var(--error)' }}>
             {picked === card.answer ? 'correct' : 'not quite'}
           </MonoLabel>
-          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={advance}>
-            {i + 1 < cards.length ? 'Next' : 'Finish'}
-          </button>
+          {/* Never disabled: the grade saves in the background, and a slow or
+              failed save must not hold the reader on a card they've answered. */}
+          <span className="flex items-center gap-2.5">
+            {saving && <MonoLabel style={{ color: 'var(--faint)' }}>saving…</MonoLabel>}
+            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={advance}>
+              {i + 1 < cards.length ? 'Next' : 'Finish'}
+            </button>
+          </span>
         </div>
       ) : allowSkip ? (
         <div className="mt-3 text-right">
           <button type="button" className="tp-link" onClick={advance}>skip</button>
         </div>
       ) : null}
+      {saveErr && <div className="mt-2"><ErrorText>{saveErr}</ErrorText></div>}
     </div>
   )
 }

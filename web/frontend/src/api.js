@@ -29,20 +29,37 @@ async function parse(r) {
   return { ok: r.ok, status: r.status, data }
 }
 
+// fetch REJECTS on a transport failure (offline, Wi-Fi→cellular handover, a
+// server restart mid-request, a backgrounded tab aborting). Callers uniformly
+// write `const r = await json(...)` with no try/catch, so a rejection escaped as
+// an unhandled promise rejection and every line after the await — including the
+// setBusy(false) that re-enables the control — was skipped, stranding the UI
+// with no error shown. Resolve to the same {ok:false} shape uploadWithProgress
+// has always documented, so branching on r.ok is enough everywhere.
+async function send(url, opts) {
+  let res
+  try {
+    res = await fetch(apiURL(url), opts)
+  } catch {
+    return { ok: false, status: 0, data: null }
+  }
+  return parse(res)
+}
+
 export async function json(method, url, body) {
   const opts = { method }
   if (body !== undefined) {
     opts.headers = { 'Content-Type': 'application/json' }
     opts.body = JSON.stringify(body)
   }
-  return parse(await fetch(apiURL(url), opts))
+  return send(url, opts)
 }
 
 // upload posts a single file as multipart form data (field name "file").
 export async function upload(url, file) {
   const form = new FormData()
   form.append('file', file)
-  return parse(await fetch(apiURL(url), { method: 'POST', body: form }))
+  return send(url, { method: 'POST', body: form })
 }
 
 // uploadWithProgress POSTs a prepared FormData and reports upload progress —
