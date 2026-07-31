@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, normName, splitCommas, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
@@ -1054,18 +1054,6 @@ function editDistance(a, b) {
     }
   }
   return dp[m]
-}
-
-// normName folds a name for fuzzy comparison: lowercased, diacritics stripped,
-// punctuation collapsed to spaces. "Fyodor Dostoyevsky" and "Fyodor Dostoevsky"
-// stay one edit apart; "J.R.R. Tolkien" and "JRR Tolkien" normalise equal.
-function normName(s) {
-  return (s || '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining diacritics
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
 }
 
 // nearDupGroups clusters names that look like the same person: equal once

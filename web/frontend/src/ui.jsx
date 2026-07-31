@@ -1629,6 +1629,22 @@ export function splitCommas(s) {
     .filter(Boolean);
 }
 
+// normName folds a name for fuzzy comparison: lowercased, diacritics stripped,
+// punctuation collapsed to spaces. "Fyodor Dostoyevsky" and "Fyodor Dostoevsky"
+// stay one edit apart; "J.R.R. Tolkien" and "JRR Tolkien" normalise equal.
+// NOTE the [^a-z0-9] class is Latin-only: a Bengali, Cyrillic or CJK string
+// folds to "". Callers that use this as a grouping key MUST treat "" as
+// "cannot compare" rather than as a shared key, or every non-Latin record
+// collapses into one bucket.
+export function normName(s) {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip combining diacritics
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 // titleCaseGenre normalizes a genre's casing: Title Case each word, EXCEPT a
 // token that arrives all-caps (an acronym like "YA" / "SFF" / "LGBTQ"), which is
 // left untouched. "fantasy" -> "Fantasy", "science fiction" -> "Science Fiction",
@@ -2076,6 +2092,47 @@ export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><pat
 export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18 6 6 18"/></svg> }
 export function IconSearch2() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
+
+// ---- metadata-source marks ----
+// A look-up row shows WHERE a match came from. It used to be a "GOOGLE BOOKS"
+// text pill, which on a phone cost ~90px of a ~256px row and truncated the title
+// to nothing. These are 16px category glyphs (not brand logos — they match the
+// hand-drawn stroke set and need no licensing); the source's real name rides the
+// tooltip and the aria-label, so nothing is lost to a pointer or a screen reader.
+const srcStroke = { ...iconStroke, width: 16, height: 16 }
+
+function IconSrcGoogle() { return <svg {...srcStroke}><path d="M12 6.6C10 5.1 7 4.8 4 5.3v12.4c3-.5 6-.2 8 1.3 2-1.5 5-1.8 8-1.3V5.3c-3-.5-6-.2-8 1.3Z"/><path d="M12 6.6V19"/></svg> }
+function IconSrcOpenLibrary() { return <svg {...srcStroke}><path d="M3.5 20h17"/><path d="M6 17V8"/><path d="M10 17V6"/><path d="M14 17V9"/><path d="M18 17V7"/></svg> }
+function IconSrcAmazon() { return <svg {...srcStroke}><path d="M3.5 8 12 4l8.5 4-8.5 4z"/><path d="M3.5 8v8l8.5 4 8.5-4V8"/></svg> }
+function IconSrcTMDB() { return <svg {...srcStroke}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14"/><path d="M17 5v14"/><path d="M3 12h18"/></svg> }
+function IconSrcTVDB() { return <svg {...srcStroke}><rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="m8 3.5 4 4 4-4"/></svg> }
+function IconSrcUnknown() { return <svg {...srcStroke}><circle cx="12" cy="12" r="8.5"/><path d="M12 16.5v.01"/><path d="M12 13.5v-1a2.5 2.5 0 1 0-2.5-2.5"/></svg> }
+
+// SOURCE_META — slug → {name, Icon}. Slugs mirror the Go side exactly:
+// metadata.BookCandidate.Source is "google" | "openlibrary" | "amazon";
+// movie candidates carry "tmdb" | "tvdb".
+export const SOURCE_META = {
+  google: { name: "Google Books", Icon: IconSrcGoogle },
+  openlibrary: { name: "Open Library", Icon: IconSrcOpenLibrary },
+  amazon: { name: "Amazon", Icon: IconSrcAmazon },
+  tmdb: { name: "TMDB", Icon: IconSrcTMDB },
+  tvdb: { name: "TheTVDB", Icon: IconSrcTVDB },
+};
+
+// SourceIcon — the pill replacement, labelled the way InfoDot is: a tooltip for
+// a pointer and a real aria-label for assistive tech. `detail` appends the
+// supplier's id ("TMDB · #603") to the label without costing any row width.
+export function SourceIcon({ source, detail, side = "top" }) {
+  const meta = SOURCE_META[source] || { name: source || "unknown source", Icon: IconSrcUnknown };
+  const label = detail ? `${meta.name} · ${detail}` : meta.name;
+  return (
+    <Tooltip label={label} side={side}>
+      <span tabIndex={0} className="src-mark" aria-label={`Source: ${label}`}>
+        <meta.Icon />
+      </span>
+    </Tooltip>
+  );
+}
 
 // MoreMenu — a small overflow dropdown for actions that don't fit a mobile
 // detail bar (export/edit/delete). Opens below the "⋯" trigger; closes on

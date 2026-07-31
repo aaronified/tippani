@@ -347,12 +347,6 @@ export function isIsbn(s) {
   return /^(\d{9}[\dXx]|\d{13})$/.test(t)
 }
 
-export function sourceLabel(source) {
-  if (source === 'google') return 'GOOGLE BOOKS'
-  if (source === 'openlibrary') return 'OPEN LIBRARY'
-  return (source || '').toUpperCase()
-}
-
 export function ManualTab({ onAdded }) {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')

@@ -295,10 +295,15 @@ function MovieList({ onOpen, creditSeparators }) {
 // ---- add movie (§8.4): look-up / manual forms, now hosted by AddSurface (§7).
 // The old modal wrapper lives in AddSurface; the forms below are exported. ----
 
+// candSourceID is a candidate's id within its supplier ("#603"). SourceIcon
+// already names the supplier, so a row only needs the id half.
+export function candSourceID(c) {
+  return `#${c.source === 'tvdb' ? c.source_id : c.tmdb_id || c.source_id}`
+}
+
 // candSource labels a candidate's supplier + id (e.g. "TMDB #603", "TVDB #121361").
 export function candSource(c) {
-  const id = c.source === 'tvdb' ? c.source_id : c.tmdb_id || c.source_id
-  return `${(c.source || 'tmdb').toUpperCase()} #${id}`
+  return `${(c.source || 'tmdb').toUpperCase()} ${candSourceID(c)}`
 }
 
 // sourceRef normalises a candidate to the {source, source_id, media_type} the

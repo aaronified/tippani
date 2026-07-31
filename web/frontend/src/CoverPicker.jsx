@@ -10,11 +10,14 @@ import {
   IconDelete,
   IconLink,
   IconMetadata,
+  IconPlus,
   IconSearch,
   IconUpload,
   MonoLabel,
   Placeholder,
+  SourceIcon,
   Tooltip,
+  normName,
 } from './ui.jsx'
 
 // amazonCoverURL builds Amazon's public image-CDN URL for a cover from an ASIN
@@ -41,7 +44,10 @@ function resLabel(dim) {
 // Remote hosts outside the CSP allowlist can't paint — onError swaps to a note.
 // `showRes` overlays the image's true pixel size once it loads, and tints the
 // badge when it's below the low-res threshold, so a small scan is obvious.
-export function CoverPreview({ url, label, showRes = false, className = 'w-20 shrink-0' }) {
+// `compact` is for the narrow in-row thumb (the look-up candidate list): the
+// "preview blocked" note is unreadable at ~36px, so there a failed load falls
+// back to the plain striped Placeholder instead.
+export function CoverPreview({ url, label, showRes = false, compact = false, className = 'w-20 shrink-0' }) {
   const [broke, setBroke] = useState(false)
   const [dim, setDim] = useState(null)
   if (url && !broke) {
@@ -50,6 +56,7 @@ export function CoverPreview({ url, label, showRes = false, className = 'w-20 sh
       <img
         src={url}
         alt=""
+        loading="lazy"
         onError={() => setBroke(true)}
         onLoad={showRes ? (e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight }) : undefined}
         className={'block w-full object-cover'}
@@ -66,7 +73,7 @@ export function CoverPreview({ url, label, showRes = false, className = 'w-20 sh
       </span>
     )
   }
-  if (url && broke) {
+  if (url && broke && !compact) {
     return (
       <span
         className={'flex items-center justify-center px-1 text-center ' + className}
@@ -311,6 +318,92 @@ function CoverPickThumb({ url, source, label, onPick }) {
       </span>
       <span className="microcopy">{source}</span>
     </button>
+  )
+}
+
+// ---- look-up candidate rows (shared by the Add surface and the edition picker) ----
+
+// groupEditions folds a flat candidate list into per-work groups. /books/lookup
+// merges Google + Open Library (+ Amazon on the ASIN path) and returns one row
+// per printing, so five editions of Dune arrive as five rows.
+//
+// The rule is STRICT, as asked: identical title AND identical author once folded
+// by normName (case, diacritics and punctuation only). "Dune" and "Dune: Book
+// One" deliberately do NOT group — loosening this to match on a subtitle prefix
+// would fuse genuinely different works, and un-fusing is the unrecoverable
+// direction. A candidate whose folded title or author is empty always stands
+// alone: normName is Latin-only, so a Bengali or CJK title folds to "" and would
+// otherwise sweep every non-Latin result into one bucket, and Google volumes
+// with no `authors` array all fold to the same empty author.
+//
+// Order is preserved: groups appear at the position of their first (best-ranked)
+// member, and that member is the representative. The group's cover is the first
+// member that has one, so a coverless best match still shows art.
+export function groupEditions(cands) {
+  const out = []
+  const byKey = new Map()
+  for (const c of cands || []) {
+    const nt = normName(c.title)
+    const na = normName(c.author)
+    const key = nt && na ? `${nt} ${na}` : null
+    const hit = key && byKey.get(key)
+    if (hit) {
+      hit.editions.push(c)
+      if (!hit.cover_url) hit.cover_url = c.cover_url || ''
+      continue
+    }
+    const g = { rep: c, editions: [c], cover_url: c.cover_url || '' }
+    if (key) byKey.set(key, g)
+    out.push(g)
+  }
+  return out
+}
+
+// CandidateRow — one compact look-up match, shared by the Add surface and the
+// edition picker. The old row spent ~145px of a ~256px phone row on a
+// "GOOGLE BOOKS" text pill plus a bordered "Add" button and truncated the title
+// to nothing, so: a real cover thumb (the payload has carried cover_url all
+// along, and the CDNs are already CSP-allowlisted), the source as a 16px mark,
+// and a borderless "+" disc. Everything freed goes to title + author.
+//
+// `count` > 1 marks a group of editions. The cue is deliberately subtle — a
+// mono edition count where a single row shows nothing — because a group is not
+// a different kind of thing, just a tidier row.
+export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 1, expanded, onAdd, addLabel = 'Add', busy = false }) {
+  const group = count > 1
+  return (
+    <li className="sheen-raised flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ border: '1px solid var(--line)' }}>
+      <CoverPreview url={cover} label="" compact className="w-9 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold" title={title}>{title}</p>
+        <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{sub}</p>
+      </div>
+      {group ? (
+        <MonoLabel style={{ flex: 'none', fontSize: 9.5 }}>{count} eds</MonoLabel>
+      ) : (
+        <SourceIcon source={source} detail={sourceDetail} />
+      )}
+      <button
+        type="button"
+        className="cand-add tactile"
+        onClick={onAdd}
+        disabled={busy}
+        aria-label={group ? `Choose an edition of ${title}` : `${addLabel} ${title}`}
+        aria-expanded={group ? !!expanded : undefined}
+      >
+        {group ? <IconChevron open={!!expanded} /> : <IconPlus />}
+      </button>
+    </li>
+  )
+}
+
+// IconChevron — the group row's affordance: a "+" would promise an immediate
+// add, but a group opens its editions instead.
+function IconChevron({ open }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={open ? 'M6 14.5 12 8.5l6 6' : 'M6 9.5 12 15.5l6-6'} />
+    </svg>
   )
 }
 

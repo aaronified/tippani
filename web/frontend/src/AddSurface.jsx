@@ -5,13 +5,14 @@
 // "Import files", the drag-drop source cards. The Library and Catalogue "Add"
 // buttons, the shell's top-bar "＋ Add" / ❝ pills and the drawer rows all open
 // this very surface, so there's one obvious way to add anything.
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
-import { ManualTab, isIsbn, sourceLabel } from './Library.jsx'
-import { ManualMovie, sourceRef, candSource, DuplicateConfirm } from './Movies.jsx'
+import { CandidateRow, groupEditions } from './CoverPicker.jsx'
+import { ManualTab, isIsbn } from './Library.jsx'
+import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm } from './Movies.jsx'
 import ImportPage from './ImportPage.jsx'
-import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Placeholder, Toggle, toast, useIsMobileScreen } from './ui.jsx'
+import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Toggle, toast, useIsMobileScreen } from './ui.jsx'
 
 // One card, three kinds. "Film" and "Show" both map to the movies flow (they
 // differ only by media_type); "Book" uses the books flow. Manual entry is no
@@ -49,8 +50,16 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
   const [confirm, setConfirm] = useState(null) // movie same-name confirm {cand, existing}
   const [manual, setManual] = useState(false) // manual-entry popup open
   const [noKey, setNoKey] = useState(false) // TMDB/TVDB missing → film/show lookup 503s
+  const [openGroup, setOpenGroup] = useState(-1) // index of the expanded edition group
   const isBook = kind === 'book'
   const mediaType = kind === 'show' ? 'show' : 'movie'
+
+  // Book results fold same-title-same-author printings into one row (see
+  // groupEditions); film/show results are one row per title already.
+  const groups = useMemo(
+    () => (candidates && isBook ? groupEditions(candidates) : null),
+    [candidates, isBook],
+  )
 
   // A missing movie key makes film/show lookup 503; surface it so "Add manually"
   // reads as the obvious path (book lookup needs no key).
@@ -65,6 +74,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     setCandidates(null)
     setError('')
     setConfirm(null)
+    setOpenGroup(-1)
   }
 
   // finish routes every successful add (look-up or manual) through one place:
@@ -90,6 +100,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     setError('')
     setConfirm(null)
     setCandidates(null)
+    setOpenGroup(-1)
     let r
     if (isBook) {
       // Book lookup keys off ISBN or title (year isn't a lookup parameter — for a
@@ -199,27 +210,60 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       {!confirm && candidates && candidates.length === 0 && <EmptyState>no matches found</EmptyState>}
       {!confirm && candidates && candidates.length > 0 && (
         <ul className="space-y-2.5">
-          {candidates.map((c, i) => (
-            <li
-              key={i}
-              className="sheen-raised flex items-center gap-3 rounded-xl px-3 py-2.5"
-              style={{ border: '1px solid var(--line)' }}
-            >
-              <Placeholder kind="" className="w-9 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{c.title}</p>
-                <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
-                  {isBook
-                    ? [c.author, c.published_year || null, c.isbn13].filter(Boolean).join(' · ')
-                    : [c.release_year || null].filter(Boolean).join(' · ')}
-                </p>
-              </div>
-              <span className="tp-chip shrink-0">{isBook ? sourceLabel(c.source) : candSource(c)}</span>
-              <GhostButton className="shrink-0" onClick={() => (isBook ? addBook(c) : addMovie(c))}>
-                Add
-              </GhostButton>
-            </li>
-          ))}
+          {isBook
+            ? groups.map((g, i) => {
+                const open = openGroup === i
+                const n = g.editions.length
+                return (
+                  <Fragment key={i}>
+                    <CandidateRow
+                      cover={g.cover_url}
+                      title={g.rep.title}
+                      // A group's printings disagree on year and ISBN, so the row
+                      // carries only what they share; the rest is one tap away.
+                      sub={
+                        n > 1
+                          ? g.rep.author
+                          : [g.rep.author, g.rep.published_year || null, g.rep.isbn13].filter(Boolean).join(' · ')
+                      }
+                      source={g.rep.source}
+                      count={n}
+                      expanded={open}
+                      onAdd={() => (n > 1 ? setOpenGroup(open ? -1 : i) : addBook(g.rep))}
+                      busy={busy}
+                    />
+                    {open && (
+                      <li>
+                        <ul className="ml-6 space-y-2 border-l pl-3" style={{ borderColor: 'var(--line)' }}>
+                          {g.editions.map((c, j) => (
+                            <CandidateRow
+                              key={j}
+                              cover={c.cover_url}
+                              title={c.title}
+                              sub={[c.published_year || null, c.isbn13].filter(Boolean).join(' · ') || 'no edition details'}
+                              source={c.source}
+                              onAdd={() => addBook(c)}
+                              busy={busy}
+                            />
+                          ))}
+                        </ul>
+                      </li>
+                    )}
+                  </Fragment>
+                )
+              })
+            : candidates.map((c, i) => (
+                <CandidateRow
+                  key={i}
+                  cover={c.poster_url}
+                  title={c.title}
+                  sub={[c.release_year || null].filter(Boolean).join(' · ')}
+                  source={c.source}
+                  sourceDetail={candSourceID(c)}
+                  onAdd={() => addMovie(c)}
+                  busy={busy}
+                />
+              ))}
         </ul>
       )}
 

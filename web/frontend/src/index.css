@@ -1180,6 +1180,41 @@
     cursor: pointer;
     border-radius: 8px;
   }
+  /* ---- look-up candidate rows (the Add surface's results list) ----
+     Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless
+     "+": together the pill and the bordered word button ate ~145px of a ~256px
+     phone row and truncated the title to nothing. Both keep a 44px touch box. */
+  .src-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    color: var(--soft);
+    border-radius: 7px;
+    transition: color .15s ease;
+  }
+  .src-mark:hover, .src-mark:focus-visible { color: var(--ink); }
+  /* Borderless but unmistakably tappable: chrome comes from a tinted accent
+     disc rather than a rule, so it reads as a control without framing one. */
+  .cand-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    flex: none;
+    color: var(--accent-ui);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color .15s ease, background .15s ease;
+  }
+  .cand-add:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--accent) 26%, transparent); }
+  .cand-add:disabled { opacity: .55; cursor: default; }
   /* A low-res candidate is dimmed so the sharper options read first. */
   .cover-pick.is-low img { opacity: .5; }
   .cover-pick.is-low:hover img { opacity: .85; }
@@ -2364,6 +2399,10 @@ html[data-theme="dark"] .mobile-sheet-footer {
     min-height: 44px;
     padding: 8px 14px;
   }
+  /* Full 44px touch targets on the look-up rows — the whole point of losing the
+     source pill and the bordered Add was to give that width back to the title. */
+  .cand-add { width: 44px; height: 44px; }
+  .src-mark { width: 28px; height: 28px; }
   .mobile-sticky-bar .tp-btn-ghost,
   .mobile-detail-bar .tp-btn-ghost {
     min-height: 44px;
