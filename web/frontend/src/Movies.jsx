@@ -588,18 +588,22 @@ function MovieDetail({ id, onClose, creditSeparators }) {
             onFavorite={(v) => patch({ favorite: v })}
             genres={movie.genres || []}
             description={movie.description}
+            // Desktop only: on mobile these same three live in the sticky bar's
+            // ⋯ overflow above, and a second standing row just duplicated them.
             actions={
-              <>
-                {!DEMO && (
-                  <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
-                    Export .md
+              mobile ? null : (
+                <>
+                  {!DEMO && (
+                    <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
+                      Export .md
+                    </GhostButton>
+                  )}
+                  <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+                  <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
+                    Delete
                   </GhostButton>
-                )}
-                <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-                <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
-                  Delete
-                </GhostButton>
-              </>
+                </>
+              )
             }
           />
         </Reveal>

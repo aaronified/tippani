@@ -515,21 +515,25 @@ function BookDetail({ id, onClose, creditSeparators }) {
             onFavorite={(v) => patch({ favorite: v })}
             genres={bookGenres(book)}
             description={book.description}
+            // Desktop only: on mobile these same three live in the sticky bar's
+            // ⋯ overflow above, and a second standing row just duplicated them.
             actions={
-              <>
-                {!DEMO && (
-                  <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
-                    Export .md
+              mobile ? null : (
+                <>
+                  {!DEMO && (
+                    <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
+                      Export .md
+                    </GhostButton>
+                  )}
+                  <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
+                  <GhostButton
+                    style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
+                    onClick={remove}
+                  >
+                    Delete
                   </GhostButton>
-                )}
-                <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-                <GhostButton
-                  style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
-                  onClick={remove}
-                >
-                  Delete
-                </GhostButton>
-              </>
+                </>
+              )
             }
           />
         </div>

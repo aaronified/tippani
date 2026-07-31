@@ -284,6 +284,18 @@ function ManualPopup({ kind, onClose, onAdded }) {
   )
 }
 
+// How many works the picker lists before the pinned create row.
+const WORK_PICKER_MAX = 8
+
+// matchRank orders one kind's hits: a title prefix beats a title substring,
+// which beats a hit that only landed in the subtitle (author / year).
+function matchRank(w, q) {
+  if (!q) return 0
+  const t = w.title.toLowerCase()
+  if (t.startsWith(q)) return 0
+  return t.includes(q) ? 1 : 2
+}
+
 // WorkPicker — the capture-target picker: type to filter across every book and
 // film/show in the library (rows carry a BOOK / FILM / SHOW tag), with a pinned
 // last row that quick-creates a new work from the typed title. Keyboard nav +
@@ -305,9 +317,21 @@ function WorkPicker({ works, value, onChange, onCreate }) {
   }, [open])
 
   const q = text.trim().toLowerCase()
-  const matches = (works || [])
-    .filter((w) => !q || w.title.toLowerCase().includes(q) || (w.sub || '').toLowerCase().includes(q))
-    .slice(0, 8)
+  const hits = (works || []).filter(
+    (w) => !q || w.title.toLowerCase().includes(q) || (w.sub || '').toLowerCase().includes(q),
+  )
+  // The list arrives books-first (the /books fetch is pushed before /movies), so
+  // a plain slice of the first N hid every film and show behind the first N
+  // books. Interleave the two kinds — best match first within each — so both are
+  // always represented in the capped list.
+  const books = hits.filter((w) => w.kind === 'book').sort((a, b) => matchRank(a, q) - matchRank(b, q))
+  const screens = hits.filter((w) => w.kind !== 'book').sort((a, b) => matchRank(a, q) - matchRank(b, q))
+  const matches = []
+  for (let n = 0; matches.length < WORK_PICKER_MAX && (n < books.length || n < screens.length); n++) {
+    for (const g of [books, screens]) {
+      if (g[n] && matches.length < WORK_PICKER_MAX) matches.push(g[n])
+    }
+  }
   const rows = matches.length + 1 // + the pinned create row
 
   const pick = (w) => {
