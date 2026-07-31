@@ -293,6 +293,11 @@ export function WorkListScaffold({
   chipBudget,
   fav,
   setFav,
+  tagged,
+  setTagged,
+  noted,
+  setNoted,
+  noun = 'book', // what a row is, for the "show only" chip tooltips
   seriesNames,
   series,
   setSeries,
@@ -310,10 +315,22 @@ export function WorkListScaffold({
   extraModals,
 }) {
   const [mobileFilter, setMobileFilter] = useState(false)
-  const favChip = (
-    <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-      ♥ favourites
-    </button>
+  // "show only" — independent toggles, ANDed by the page's `shown` memo. Shared
+  // with the desktop row rather than mobile-only: the predicates live in that
+  // memo, so a phone-set filter would otherwise survive a resize past the
+  // breakpoint with no control left to see or clear it.
+  const onlyChips = (
+    <>
+      <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
+        ♥ favourites
+      </button>
+      <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)} title={`Only ${noun}s with a tagged quote`}>
+        tagged
+      </button>
+      <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)} title={`Only ${noun}s with a quote carrying a note`}>
+        has notes
+      </button>
+    </>
   )
   const seriesSelect = seriesNames.length > 0 && (
     <Select
@@ -357,7 +374,7 @@ export function WorkListScaffold({
           <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {leading}
-            {favChip}
+            {onlyChips}
             {seriesSelect}
             {trailing}
             <label className="flex items-center gap-2">
@@ -384,12 +401,24 @@ export function WorkListScaffold({
           <div className="space-y-5">
             <div>
               <MonoLabel className="mb-2 block">genre</MonoLabel>
-              <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
+              {/* One control, not a chip strip plus a "More…" dropdown. In the
+                  sheet GenreFilter's width measurement always collapsed to zero
+                  visible chips (its section label is a full-width block, so the
+                  space it thinks is taken is the whole row), leaving a lone
+                  "All" chip above a full-width select of every genre. "All" is
+                  now just the select's first option, which is also how series,
+                  sort and group already read here. */}
+              <Select
+                ariaLabel="Filter by genre"
+                value={genre}
+                onChange={setGenre}
+                options={[['', 'All'], ...genres.map((g) => [g, g])]}
+              />
             </div>
             {leadingMobile}
             <div>
               <MonoLabel className="mb-2 block">show only</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">{favChip}</div>
+              <div className="flex flex-wrap items-center gap-2">{onlyChips}</div>
             </div>
             {seriesNames.length > 0 && (
               <div>

@@ -133,14 +133,29 @@ function tagRows() {
   }))
 }
 
+// tagged_count / noted_count mirror the two subqueries in handleListBooks /
+// handleListMovies — they drive the "tagged" and "has notes" filter chips, which
+// would silently match nothing here without them.
 function bookListItem(b) {
-  return { ...b, annotation_count: ANNOTATIONS.filter((a) => a.book_id === b.id).length }
+  const own = ANNOTATIONS.filter((a) => a.book_id === b.id)
+  return {
+    ...b,
+    annotation_count: own.length,
+    tagged_count: own.filter((a) => (a.tags || []).length > 0).length,
+    noted_count: own.filter((a) => (a.note || '').trim() !== '').length,
+  }
 }
 function bookDetail(b) {
   return { ...b, isbn: '', asin: '', description: DESCRIPTIONS[b.id] || '', created_at: '2026-01-10 09:00:00' }
 }
 function movieListItem(m) {
-  return { ...m, dialogue_count: DIALOGUES.filter((d) => d.movie_id === m.id).length }
+  const own = DIALOGUES.filter((d) => d.movie_id === m.id)
+  return {
+    ...m,
+    dialogue_count: own.length,
+    tagged_count: own.filter((d) => (d.tags || []).length > 0).length,
+    noted_count: own.filter((d) => (d.note || '').trim() !== '').length,
+  }
 }
 function movieDetail(m) {
   return { ...m, tmdb_id: 0, tvdb_id: 0, description: MOVIE_DESCRIPTIONS[m.id] || '', cast: CAST[m.id] || [], created_at: '2026-01-10 09:00:00' }

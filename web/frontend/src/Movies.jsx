@@ -146,6 +146,8 @@ function MovieList({ onOpen, creditSeparators }) {
   const [genre, setGenre] = useState('')
   const [series, setSeries] = useState('')
   const [fav, setFav] = useState(false)
+  const [tagged, setTagged] = useState(false) // has at least one tagged dialogue
+  const [noted, setNoted] = useState(false) // has at least one dialogue with a note
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -185,13 +187,15 @@ function MovieList({ onOpen, creditSeparators }) {
     if (genre) list = list.filter((m) => (m.genres || []).includes(genre))
     if (series) list = list.filter((m) => (m.series || '') === series)
     if (fav) list = list.filter((m) => m.favorite)
+    if (tagged) list = list.filter((m) => (m.tagged_count || 0) > 0)
+    if (noted) list = list.filter((m) => (m.noted_count || 0) > 0)
     if (sort === 'recent') return list
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'year') list.sort((a, b) => (b.release_year || 0) - (a.release_year || 0))
     else if (sort === 'series') list.sort(bySeries)
     return list
-  }, [movies, mediaType, genre, series, fav, sort])
+  }, [movies, mediaType, genre, series, fav, tagged, noted, sort])
 
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
@@ -222,6 +226,11 @@ function MovieList({ onOpen, creditSeparators }) {
       setGenre={setGenre}
       fav={fav}
       setFav={setFav}
+      tagged={tagged}
+      setTagged={setTagged}
+      noted={noted}
+      setNoted={setNoted}
+      noun="title"
       seriesNames={seriesNames}
       series={series}
       setSeries={setSeries}
@@ -250,7 +259,7 @@ function MovieList({ onOpen, creditSeparators }) {
           </div>
         )
       }
-      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setSeries(''); setSort('recent') }}
+      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setSeries(''); setSort('recent') }}
       addSurface={
         <AddSurface
           open={adding}

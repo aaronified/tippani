@@ -359,6 +359,10 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		SeriesIndex   float64  `json:"series_index"`
 		Favorite      bool     `json:"favorite"`
 		DialogueCount int      `json:"dialogue_count"`
+		// Mirrors the books list: "tagged" means the title has at least one
+		// tagged dialogue, "noted" at least one carrying a note.
+		TaggedCount int `json:"tagged_count"`
+		NotedCount  int `json:"noted_count"`
 	}
 	uid := userID(r)
 	olog.Tracef("[movie] handleListMovies uid=%v", uid)
@@ -366,7 +370,11 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		       m.media_type, COALESCE(m.poster_path, ''),
 		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite,
-		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
+		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id),
+		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
+		          AND EXISTS (SELECT 1 FROM dialogue_tags dt WHERE dt.dialogue_id = d.id)),
+		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
+		          AND d.note IS NOT NULL AND TRIM(d.note) <> '')
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
 	if err != nil {
@@ -379,7 +387,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.DialogueCount); err != nil {
+			&it.Favorite, &it.DialogueCount, &it.TaggedCount, &it.NotedCount); err != nil {
 			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
 			continue
 		}

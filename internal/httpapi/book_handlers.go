@@ -202,6 +202,11 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		SeriesIndex     float64  `json:"series_index"`
 		Favorite        bool     `json:"favorite"`
 		AnnotationCount int      `json:"annotation_count"`
+		// Books carry no tags of their own — annotation_tags joins ANNOTATIONS to
+		// tags — so "tagged" on a book row means "has at least one tagged quote".
+		// Counts rather than bools: same cost, and the list page can say how many.
+		TaggedCount int `json:"tagged_count"`
+		NotedCount  int `json:"noted_count"`
 	}
 	uid := userID(r)
 	olog.Tracef("[book] handleListBooks uid=%v", uid)
@@ -209,7 +214,11 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
 		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
 		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite,
-		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id)
+		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id),
+		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
+		          AND EXISTS (SELECT 1 FROM annotation_tags at WHERE at.annotation_id = a.id)),
+		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
+		          AND a.note IS NOT NULL AND TRIM(a.note) <> '')
 		FROM books b WHERE b.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`, uid)
 	if err != nil {
@@ -222,7 +231,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
 			&it.PublishedYear, &it.CoverPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.AnnotationCount); err != nil {
+			&it.Favorite, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount); err != nil {
 			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
 			continue
 		}

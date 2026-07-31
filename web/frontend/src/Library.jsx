@@ -164,6 +164,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
   const [genre, setGenre] = useState('') // '' = All
   const [series, setSeries] = useState('') // '' = all series
   const [fav, setFav] = useState(false)
+  const [tagged, setTagged] = useState(false) // has at least one tagged quote
+  const [noted, setNoted] = useState(false) // has at least one quote with a note
   const [sort, setSort] = useState('recent')
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [adding, setAdding] = useState(false)
@@ -205,13 +207,15 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
     if (genre) list = list.filter((b) => bookGenres(b).includes(genre))
     if (series) list = list.filter((b) => (b.series || '') === series)
     if (fav) list = list.filter((b) => b.favorite)
+    if (tagged) list = list.filter((b) => (b.tagged_count || 0) > 0)
+    if (noted) list = list.filter((b) => (b.noted_count || 0) > 0)
     if (sort === 'recent') return list // server order (created_at DESC)
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
     else if (sort === 'series') list.sort(bySeries)
     return list
-  }, [books, genre, series, fav, sort])
+  }, [books, genre, series, fav, tagged, noted, sort])
 
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const grouped = useMemo(
@@ -253,6 +257,11 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
       chipBudget={chipBudget}
       fav={fav}
       setFav={setFav}
+      tagged={tagged}
+      setTagged={setTagged}
+      noted={noted}
+      setNoted={setNoted}
+      noun="book"
       seriesNames={seriesNames}
       series={series}
       setSeries={setSeries}
@@ -281,7 +290,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
           />
         </div>
       }
-      onReset={() => { setGenre(''); setFav(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setGenre(''); setFav(false); setTagged(false); setNoted(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
       addSurface={
         <AddSurface
           open={adding}
