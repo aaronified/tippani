@@ -950,6 +950,23 @@ export function Masonry({ columns = 2, gap = 24, seed = 1, pinnedCount = 0, lock
 // "thumb" slides between options with a rubbery spring, and a press depression
 // blooms where you click (initTactile). The thumb is measured off the live DOM,
 // so it tracks any label widths (incl. icon labels). Optional MonoLabel above.
+// nearestRow picks the option whose centre is closest to a dragged thumb's
+// centre. Shared by Toggle (horizontal) and Select (vertical) — both measure
+// their options once at pointerdown and then work purely geometrically, so a
+// drag never depends on which element an event happened to land on.
+function nearestRow(opts, center) {
+  let best = 0,
+    bestD = Infinity;
+  for (let i = 0; i < opts.length; i++) {
+    const d = Math.abs(center - opts[i].center);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
 export function Toggle({
   value,
   onChange,
@@ -993,18 +1010,6 @@ export function Toggle({
   // intensity is the material's --press-a — full for rubber, gentle for leather,
   // zero for wood/metal). A plain tap (no movement) falls through to the option
   // button's onClick, so clicking still works.
-  const nearest = (opts, center) => {
-    let best = 0,
-      bestD = Infinity;
-    for (let i = 0; i < opts.length; i++) {
-      const d = Math.abs(center - opts[i].center);
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    }
-    return best;
-  };
   const onPointerMove = (e) => {
     const d = drag.current;
     const el = ref.current;
@@ -1024,7 +1029,7 @@ export function Toggle({
     // centring the thumb on the cursor.
     const left = Math.max(min, Math.min(max, px - d.grab));
     thumb.style.transform = `translateX(${left}px)`;
-    d.hover = nearest(d.opts, left + d.thumbW / 2);
+    d.hover = nearestRow(d.opts, left + d.thumbW / 2);
     el.style.setProperty("--px", `${px}px`);
     el.style.setProperty("--py", `${e.clientY - d.top}px`);
     el.dataset.pressing = "1";
@@ -1320,6 +1325,113 @@ export function Select({
   const thumbRef = useRef(null);
   const idx = options.findIndex(([v]) => v === value);
   const label = idx >= 0 ? options[idx][1] : placeholder;
+  // The textured thumb is grab-and-slide here exactly as it is in Toggle, only
+  // down the panel instead of along the row. Live drag state sits in a ref so a
+  // move never re-renders, and the listener identities ride on the record so a
+  // mid-drag re-render (setHi) can't orphan the teardown.
+  const drag = useRef(null);
+  const suppressClick = useRef(false); // eat the click that trails a real drag
+
+  const cancelDrag = () => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    window.removeEventListener("pointermove", d.move);
+    window.removeEventListener("pointerup", d.up);
+    window.removeEventListener("pointercancel", d.up);
+    if (panelRef.current) panelRef.current.dataset.dragging = "0";
+  };
+
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    const panel = panelRef.current;
+    const thumb = thumbRef.current;
+    if (!d || !panel || !thumb) return;
+    if (!d.moved) {
+      if (Math.abs(e.clientY - d.startY) < 5) return; // still a tap, not a drag
+      d.moved = true;
+      panel.dataset.dragging = "1";
+    }
+    // Content space, not viewport space: the thumb is absolutely positioned
+    // inside a panel that can scroll, so it must be compared against offsetTop
+    // in the same frame of reference.
+    const rect = panel.getBoundingClientRect();
+    const py = e.clientY - rect.top + panel.scrollTop;
+    const last = d.opts[d.opts.length - 1];
+    const min = d.opts[0].top;
+    const max = last.top + last.height - d.thumbH;
+    // Keep the grabbed point of the thumb under the pointer rather than
+    // centring it there — the same rule Toggle uses.
+    const top = Math.max(min, Math.min(max, py - d.grab));
+    thumb.style.transform = `translateY(${top}px)`;
+    const next = nearestRow(d.opts, top + d.thumbH / 2);
+    if (next !== d.hover) {
+      d.hover = next;
+      setHi(next);
+    }
+    // A list taller than its panel scrolls itself when the thumb reaches an edge.
+    if (panel.scrollHeight > panel.clientHeight) {
+      const inView = e.clientY - rect.top;
+      if (inView < 24) panel.scrollTop -= 8;
+      else if (inView > rect.height - 24) panel.scrollTop += 8;
+    }
+  };
+
+  const onPointerUp = () => {
+    const d = drag.current;
+    cancelDrag();
+    if (!d || !d.moved) return; // a plain tap falls through to the option's onClick
+    suppressClick.current = true;
+    setTimeout(() => {
+      suppressClick.current = false; // never leave it stuck
+    }, 0);
+    const opt = options[d.hover];
+    if (opt) {
+      onChange(opt[0]);
+      setOpen(false);
+    }
+  };
+
+  const onPanelPointerDown = (e) => {
+    const panel = panelRef.current;
+    const thumb = thumbRef.current;
+    if (!panel || !thumb) return;
+    if (e.button != null && e.button !== 0) return;
+    // A scrolling list keeps the native touch gesture: touch-action can't serve
+    // both the thumb and the scroller. Hover and the arrow keys still work there.
+    if (e.pointerType !== "mouse" && panel.dataset.scroll === "1") return;
+    const nodes = [...panel.querySelectorAll(".tp-select-opt")];
+    const from = nodes[hi] ? hi : 0;
+    if (!nodes[from]) return;
+    const rect = panel.getBoundingClientRect();
+    const thumbH = nodes[from].offsetHeight;
+    const py = e.clientY - rect.top + panel.scrollTop;
+    drag.current = {
+      startY: e.clientY,
+      moved: false,
+      hover: from,
+      grab: Math.max(0, Math.min(thumbH, py - nodes[from].offsetTop)),
+      thumbH,
+      opts: nodes.map((o) => ({
+        top: o.offsetTop,
+        height: o.offsetHeight,
+        center: o.offsetTop + o.offsetHeight / 2,
+      })),
+      move: onPointerMove,
+      up: onPointerUp,
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+  };
+
+  // Escape and outside-click unmount the panel; a drag in flight must not be
+  // left holding window listeners.
+  useEffect(() => {
+    if (!open) cancelDrag();
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => cancelDrag, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (open) setHi(idx >= 0 ? idx : 0);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1328,6 +1440,9 @@ export function Select({
     const panel = panelRef.current;
     const thumb = thumbRef.current;
     if (!panel || !thumb) return;
+    // Whether this list scrolls decides touch-action (see onPanelPointerDown).
+    panel.dataset.scroll = panel.scrollHeight > panel.clientHeight ? "1" : "0";
+    if (drag.current && drag.current.moved) return; // the pointer owns the thumb
     const el = panel.querySelectorAll(".tp-select-opt")[hi];
     if (!el) return;
     thumb.style.height = `${el.offsetHeight}px`;
@@ -1372,7 +1487,14 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          // A drag released over the trigger must not re-open the panel.
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
+          setOpen((o) => !o);
+        }}
       >
         <span className={idx >= 0 ? "" : "tp-select-ph"}>{label}</span>
         <svg
@@ -1391,7 +1513,7 @@ export function Select({
         </svg>
       </button>
       {open && (
-        <div className="tp-select-panel" role="listbox" ref={panelRef}>
+        <div className="tp-select-panel" role="listbox" ref={panelRef} onPointerDown={onPanelPointerDown}>
           <span className="tp-select-thumb" ref={thumbRef} aria-hidden="true" />
           {options.map(([v, lbl], i) => (
             <button
@@ -1402,6 +1524,12 @@ export function Select({
               className={"tp-select-opt tactile" + (i === hi ? " is-hi" : "")}
               onMouseEnter={() => setHi(i)}
               onClick={() => {
+                // A real drag already committed on pointerup; swallow the
+                // trailing click so it can't commit a second time.
+                if (suppressClick.current) {
+                  suppressClick.current = false;
+                  return;
+                }
                 onChange(v);
                 setOpen(false);
               }}

@@ -341,6 +341,17 @@
   @media (prefers-reduced-motion: reduce) {
     .tp-select-panel, .tp-select-thumb { animation: none; transition: none; }
   }
+  /* The dropdown's textured thumb is grab-and-slide, exactly as the toggle's is
+     (.tp-toggle above) — only down the panel instead of along the row. */
+  .tp-select-panel { user-select: none; -webkit-user-select: none; cursor: grab; }
+  /* Claim the vertical gesture only when the list doesn't scroll: touch-action
+     can't serve both the thumb and the scroller, and a scrolling panel keeps
+     the native one (hover and the arrow keys still move the thumb there). */
+  .tp-select-panel[data-scroll="0"] { touch-action: none; }
+  .tp-select-panel[data-dragging="1"] { cursor: grabbing; }
+  /* Track the pointer 1:1 — the material ease is for the release snap, not the
+     follow. Same trick as .tp-toggle[data-dragging="1"]. */
+  .tp-select-panel[data-dragging="1"] .tp-select-thumb { transition: none; }
 
   /* ---- reveal-on-scroll (§5): pair with the useReveal hook ---- */
   .reveal {
