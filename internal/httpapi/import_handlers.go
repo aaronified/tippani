@@ -45,7 +45,7 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.persistBooks(w, r, "md", results)
+	s.persistBooks(w, r, "md", results, nil)
 }
 
 func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +62,33 @@ func (s *Server) handleImportGoodreads(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Request) {
 	s.handleImport(w, r, "kindle_notebook", importer.AmazonNotebook) // read.amazon.com/notebook (PLAN §5)
+}
+
+// handleImportKindleClippings takes the Kindle device's own My Clippings.txt —
+// every book at once, rather than the one-book-at-a-time notebook page. The
+// format is undocumented and localised, so the parser is best-effort by design:
+// it reports what it skipped instead of failing the whole file, and the UI
+// labels the source experimental.
+func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Request) {
+	data, ok := readUpload(w, r)
+	if !ok {
+		return
+	}
+	results, stats, err := importer.KindleClippings(bytes.NewReader(data))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(results) == 0 {
+		writeErr(w, http.StatusBadRequest, "no books found in file")
+		return
+	}
+	s.persistBooks(w, r, "kindle_clippings", results, map[string]any{
+		"bookmarks_skipped": stats.Bookmarks,
+		"blocks_malformed":  stats.Malformed,
+		"notes_merged":      stats.NotesMerged,
+		"near_duplicates":   stats.Duplicates,
+	})
 }
 
 // importClientError marks a parse-result problem that's the uploaded file's
@@ -103,7 +130,7 @@ func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source st
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.persistBooks(w, r, source, results)
+	s.persistBooks(w, r, source, results, nil)
 }
 
 // readUpload pulls the multipart "file" field's bytes (capped) — shared by every
@@ -126,8 +153,10 @@ func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 }
 
 // persistBooks writes a parsed batch of books (one or many) into the store in a
-// single transaction and answers with the aggregate + per-book breakdown.
-func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source string, results []*importer.Result) {
+// single transaction and answers with the aggregate + per-book breakdown. Extra
+// keys are merged into the reply so a format with its own counters (Kindle
+// clippings: bookmarks, merged notes, near-duplicates) can report them.
+func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source string, results []*importer.Result, extra map[string]any) {
 	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
@@ -177,7 +206,7 @@ func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source str
 	for _, res := range results {
 		total += len(res.Annotations)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	reply := map[string]any{
 		"book_id":             bookIDs[0], // back-compat: the first (usually only) book
 		"book_ids":            bookIDs,
 		"books":               books,
@@ -185,7 +214,11 @@ func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source str
 		"skipped":             total - tAdd,
 		"enriched":            tEn,
 		"possible_duplicates": allDupes,
-	})
+	}
+	for k, v := range extra {
+		reply[k] = v
+	}
+	writeJSON(w, http.StatusOK, reply)
 }
 
 // importOneBook upserts one parsed book and inserts/enriches its annotations

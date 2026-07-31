@@ -572,3 +572,56 @@ func TestCoversHandler(t *testing.T) {
 		t.Fatalf("missing file: %d", rec.Code)
 	}
 }
+
+// The Kindle device's My Clippings.txt: many books in one file, bookmarks
+// skipped and counted, and a re-import that adds nothing new.
+func TestImportKindleClippings(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	clips := strings.Join([]string{
+		"We Are Here (Michael Marshall)",
+		"- Your Highlight on Page 11 | Chapter 2",
+		"",
+		"That meant a change was coming.",
+		"==========",
+		"We Are Here (Michael Marshall)",
+		"- Your Bookmark on Page 3",
+		"",
+		"==========",
+		"Grimm's Fairy Tales (Jacob Grimm)",
+		"- Your Highlight on Page 8 | THE ROBBER BRIDEGROOM",
+		"",
+		"Alas, poor child.",
+		"==========",
+		"",
+	}, "\n")
+
+	type clipResult struct {
+		importResult
+		Bookmarks int `json:"bookmarks_skipped"`
+		Malformed int `json:"blocks_malformed"`
+	}
+	res := decode[clipResult](t, c.importFile("/import/kindle-clippings", "My Clippings.txt", []byte(clips)))
+	if len(res.BookIDs) != 2 {
+		t.Fatalf("a clippings file lands every book: %+v", res)
+	}
+	if res.Added != 2 {
+		t.Fatalf("added = %d, want 2", res.Added)
+	}
+	if res.Bookmarks != 1 || res.Malformed != 0 {
+		t.Fatalf("skip counts must be reported: %+v", res)
+	}
+
+	// Re-importing the same file is idempotent (dedupe_hash), as for every source.
+	again := decode[clipResult](t, c.importFile("/import/kindle-clippings", "My Clippings.txt", []byte(clips)))
+	if again.Added != 0 || again.Skipped != 2 {
+		t.Fatalf("re-import should add nothing: %+v", again)
+	}
+
+	// A file with nothing importable is a 400, not an empty success.
+	if rec := c.importFile("/import/kindle-clippings", "notes.txt", []byte("just some prose\n")); rec.Code != http.StatusBadRequest {
+		t.Fatalf("non-clippings file: got %d", rec.Code)
+	}
+}

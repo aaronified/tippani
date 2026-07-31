@@ -255,14 +255,7 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Planned
 
-### 1 · Kindle `My Clippings.txt` import
-The one importer still stubbed (its endpoint deliberately answers `501`). Parse
-the raw `My Clippings.txt` straight off a Kindle — the locale header line, the
-`==========` separators, the BOM, the clipping-limit sentinel — and fold it into
-the same idempotent, cross-source dedupe as the Markdown / Bookcision /
-Hardcover / Goodreads paths, so the same passage never doubles up.
-
-### 2 · AI summaries + notifications (opt-in)
+### 1 · AI summaries + notifications (opt-in)
 A passive digest: batch your recent highlights, summarise them with an
 **OpenAI-compatible** model (local or remote — your endpoint, your key), and
 optionally push the result. Grouped by book, tag, or whole library; weekly or
@@ -280,7 +273,7 @@ should be able to shout. Exact backend still to be decided.
 - Config: OpenAI endpoint / key / model, the notifier URL(s), cadence + grouping.
 - A "Summaries" page listing recent digests, each linking back to its source.
 
-### 3 · Homepage dashboard widget
+### 2 · Homepage dashboard widget
 A widget for **[Homepage](https://gethomepage.dev)** (and similar self-hosted
 dashboards): a small, read-only, token-scoped stats endpoint surfacing today's
 **pending spaced-repetition** count, your latest **quiz score**, and
@@ -305,7 +298,7 @@ Shipped in three tiers, cheapest first:
    so the discussion gets opened early to accumulate votes, and the PR waits
    for 2027. It consumes the exact endpoint tier 2 already built.
 
-### 4 · Account, continued — sign-in, trash, tokens
+### 3 · Account, continued — sign-in, trash, tokens
 The consolidated **Profile** (photo · display name · password) and admin **role
 management** (grant / revoke / transfer, last admin protected) shipped — see
 Recently shipped. Three strands remain, all local (no email round-trips, no
@@ -322,7 +315,7 @@ external identity provider):
   webhooks on events (new highlight, review done). Absorbs the old "API-token auth"
   line that used to sit under Later.
 
-### 5 · Achievements — quiet milestones, and one gentle streak
+### 4 · Achievements — quiet milestones, and one gentle streak
 A deliberately restrained take. Achievements mostly mark *distance travelled* —
 reading and collection milestones drawn from data **already in the library** and
 computed at query time, no counters table, no background jobs, no cron, nothing
@@ -341,7 +334,7 @@ streak!" banners are exactly what we won't do). It's a quiet tally that rewards
 turning up, not a chain you're afraid to drop. Streaks stop at the review; nothing
 else in the app grows one.
 
-### 6 · Capture from anywhere (share-target + bookmarklet)
+### 5 · Capture from anywhere (share-target + bookmarklet)
 Two low-cost ways to get text in without a file:
 
 - **PWA share-target** — Tippani already installs as a PWA, so register it as a
@@ -354,22 +347,21 @@ Two low-cost ways to get text in without a file:
   importers. Deliberately minimal: just the page, no Bookcision-style JSON layer to
   install or keep working.
 
-### 7 · More import sources
+### 6 · More import sources
 Kobo (`KoboReader.sqlite`), Apple Books, a **Readwise** export, and read-later apps
 (Instapaper · Pocket · Matter), all folded into the same idempotent, cross-source
-dedupe. They surface in the Import menu **beside the still-stubbed Kindle
-`My Clippings.txt`** as clearly-marked "planned" cards, so the menu shows the whole
-intended set at a glance. Kobo is unverified for now — no device here to test a real
+dedupe. Kobo is unverified for now — no device here to test a real
 `KoboReader.sqlite` against, so it ships only once someone can confirm it parses
-cleanly.
+cleanly. The Kindle `My Clippings.txt` importer has shipped; broadening its locale
+coverage needs real files from Kindles set to other UI languages.
 
-### 8 · Collections & shelves
+### 7 · Collections & shelves
 Extend tagging **to books** (tags live only on annotations today), then a **shelf**
 view that groups either books or annotations by tag — curated, named groupings
 ("Best of 2026", "to reread") that are really just tags surfaced as first-class
 shelves, so there's no new taxonomy to learn.
 
-### 9 · Verbose, structured logs
+### 8 · Verbose, structured logs
 A failed request should tell you *why* from the Docker logs, not just that it
 failed. Plan: consistent structured logging across handlers (method · path ·
 user · outcome · **cause**), a `TIPPANI_LOG_LEVEL` knob (quiet by default,
@@ -378,7 +370,7 @@ line — without ever leaking internals into the HTTP response. (A first step is
 already in: the book-save 500s now log their real cause instead of swallowing
 it.)
 
-### 10 · Grimmory sync (self-hosted, direct MariaDB)
+### 9 · Grimmory sync (self-hosted, direct MariaDB)
 A pull source for anyone already running **Grimmory** self-hosted: point Tippani
 at that instance's hosted **MariaDB** database and sync straight from its tables
 — no export file in the loop. It reads book covers, edition metadata, and
@@ -392,7 +384,7 @@ path / cover location), wired through the environment. Read-only and opt-in
 scheduled re-sync as the follow-up. Unverified until tested against a real
 Grimmory box.
 
-### 11 · Out in the world — directories & icon CDNs
+### 10 · Out in the world — directories & icon CDNs
 Getting Tippani discoverable where self-hosters actually browse. No code here —
 outreach and asset prep, in dependency order:
 

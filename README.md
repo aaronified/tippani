@@ -95,8 +95,11 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
 - 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected), Kindle
   **Bookcision** JSON, saved **Hardcover** and **Goodreads** pages, your **Kindle notebook**
-  (read.amazon.com), and **IMDb** quote pages for film dialogue. Re-imports are idempotent, and the
-  same passage synced from differently-formatted tools collapses to one row.
+  (read.amazon.com), the Kindle device's own **`My Clippings.txt`** (every book in one file —
+  *experimental*: Amazon never documented that format and localises it, so a device in another
+  language can produce records the parser misreads; nothing is guessed at, and whatever can't be
+  read is skipped and counted back to you), and **IMDb** quote pages for film dialogue. Re-imports
+  are idempotent, and the same passage synced from differently-formatted tools collapses to one row.
 - 📤 **Export** — any book or movie to Obsidian-friendly Markdown, a filtered set as one multi-item
   file, or the whole library as a zip. Book exports round-trip cleanly back through the importer.
 - 💬 **Share a quote** — one click on any highlight or dialogue opens a share sheet that formats it
@@ -361,7 +364,7 @@ internal/auth/        bcrypt, hashed-token sessions, login rate limiter
 internal/httpapi/     routes (Go 1.22 patterns), CSRF, security headers, all handlers + exports
 internal/search/      FTS5 MATCH escaping (never pass raw input to MATCH)
 internal/importer/    markdown (frontmatter + Readest), Bookcision, Hardcover, Goodreads,
-                      Kindle-notebook and IMDb-quotes parsers
+                      Kindle-notebook, Kindle My Clippings.txt and IMDb-quotes parsers
 internal/metadata/    Google Books / Open Library / TMDB / TheTVDB clients, person-link
                       resolution (incl. Wikipedia via Wikidata), SSRF-guarded cover fetcher
 web/frontend/         Vite + React 19 + Tailwind v4 source (+ the read-only demo shim)

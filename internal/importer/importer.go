@@ -2,7 +2,9 @@
 // Pure parsing only — no DB, no HTTP; the httpapi layer owns persistence,
 // dedupe, and ISBN normalization. Formats: markdown (frontmatter or Readest,
 // auto-detected, PLAN 5b), Bookcision JSON (PLAN 5d), and saved Hardcover
-// journal pages (PLAN 5e). Kindle My Clippings.txt is deferred.
+// journal pages (PLAN 5e), and the Kindle device's own My Clippings.txt
+// (experimental: the format is undocumented and localised, so that parser reads
+// structure rather than English and reports what it skipped).
 package importer
 
 // Book is the book header parsed from an import file.

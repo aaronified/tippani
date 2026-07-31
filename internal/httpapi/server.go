@@ -215,7 +215,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /import/goodreads-html", s.requireAuth(s.handleImportGoodreads))
 	mux.Handle("POST /import/kindle-notebook", s.requireAuth(s.handleImportKindleNotebook)) // read.amazon.com/notebook
 	mux.Handle("POST /import/imdb-quotes", s.requireAuth(s.handleImportIMDb))               // movies/dialogues (PLAN §5)
-	mux.Handle("POST /import/kindle-clippings", s.requireAuth(notImplemented))              // deferred (PLAN §5c)
+	mux.Handle("POST /import/kindle-clippings", s.requireAuth(s.handleImportKindleClippings)) // the device's My Clippings.txt
 	mux.Handle("GET /covers/{file}", s.requireAuth(s.handleCover))
 
 	// Export (PLAN §6b): single-item markdown + whole-library zip.
@@ -520,10 +520,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
-}
-
-func notImplemented(w http.ResponseWriter, _ *http.Request) {
-	writeErr(w, http.StatusNotImplemented, "not implemented yet")
 }
 
 func (s *Server) spaHandler() http.Handler {

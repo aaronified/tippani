@@ -88,6 +88,19 @@ const SOURCES = [
       'Drop the saved .html here.',
     ],
   },
+  {
+    kind: 'kindle-clippings',
+    ext: '.txt',
+    title: 'My Clippings',
+    desc: 'The Kindle device’s own file — every book at once, highlights and notes.',
+    accept: '.txt',
+    experimental: 'Kindle never documented this format and localises it, so a device in another language (or an unusual firmware) can produce records this misreads. Nothing is guessed at: whatever can’t be read is skipped and counted back to you.',
+    steps: [
+      'Plug the Kindle in by USB.',
+      'Copy documents/My Clippings.txt off the device.',
+      'Drop it here — every book in the file lands at once.',
+    ],
+  },
 ]
 
 // `embedded` renders without the page header / sticky bar, for the unified Add
@@ -171,7 +184,6 @@ export default function ImportPage({ onOpenMovie, embedded = false }) {
               onFiles={(fs) => runBatch(s.kind, fs)}
             />
           ))}
-          <DisabledCard />
         </div>
       )}
       {results && <BatchResults results={results} summary={summary} onOpenMovie={onOpenMovie} />}
@@ -329,7 +341,7 @@ function MobileImportPicker({ busy, onFiles }) {
 // The paste-on wobble lives on a chrome-only HandCard underlay: rotating the
 // text itself rasterized every glyph on a 0.7° layer and blurred it (§ the
 // import wall was the only place whole text cards were tilted).
-function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, color }) {
+function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, color, experimental }) {
   const [over, setOver] = useState(false)
   const tilt = variant % 2 ? 0.7 : -0.7 // paste-on wobble (§ playful, within ±2.2°)
   return (
@@ -360,10 +372,18 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
         {steps && steps.length > 0 && (
           <InfoDot text={steps.map((s, i) => `${i + 1}. ${s}`).join('  ')} side="bottom" />
         )}
+        {/* An honest label, not decoration: the caveat itself is one tap away
+            rather than buried in the steps. */}
+        {experimental && (
+          <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>experimental</span>
+        )}
       </div>
       <p className="text-sm" style={{ color: 'var(--soft)' }}>
         {desc}
       </p>
+      {experimental && (
+        <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>⚠ {experimental}</p>
+      )}
       <div className="mt-auto">
         <label
           className="tp-btn tp-btn-ghost w-full"
@@ -386,24 +406,6 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
         <p className="microcopy mt-1.5 text-center">or drag &amp; drop here</p>
       </div>
       </div>
-    </div>
-  )
-}
-
-// DisabledCard is the deferred My Clippings source (endpoint returns 501).
-function DisabledCard() {
-  return (
-    <div
-      className="flex flex-col gap-3 p-5"
-      style={{ border: '1.6px dashed var(--line)', borderRadius: 14, color: 'var(--faint)' }}
-      aria-disabled="true"
-    >
-      <ExtBadge muted>.txt</ExtBadge>
-      <h3 className="text-base font-semibold" style={{ color: 'var(--soft)' }}>
-        My Clippings
-      </h3>
-      <p className="text-sm">Kindle-device file — deferred for now.</p>
-      <p className="microcopy mt-auto text-center">returns 501 — deferred</p>
     </div>
   )
 }
@@ -432,6 +434,7 @@ function BatchResults({ results, summary, onOpenMovie }) {
               <span style={{ color: 'var(--error)' }}>{r.error}</span>
             )}
           </p>
+          {r.ok && <ClippingsNotice row={r} />}
           {r.ok && r.possible_duplicates && r.possible_duplicates.length > 0 && (
             <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>
               ⚠ looks like a book you already have:{' '}
@@ -442,6 +445,24 @@ function BatchResults({ results, summary, onOpenMovie }) {
         </div>
       ))}
     </div>
+  )
+}
+
+// ClippingsNotice reports what a My Clippings.txt import dropped. A best-effort
+// parser that quietly returns fewer quotes than the file held is worse than one
+// that says so, so every skipped record is accounted for on screen.
+function ClippingsNotice({ row }) {
+  const parts = []
+  if (row.bookmarks_skipped) parts.push(`${row.bookmarks_skipped} bookmark${row.bookmarks_skipped === 1 ? '' : 's'} skipped (no text to import)`)
+  if (row.notes_merged) parts.push(`${row.notes_merged} note${row.notes_merged === 1 ? '' : 's'} attached to their highlight`)
+  if (row.near_duplicates) parts.push(`${row.near_duplicates} re-saved highlight${row.near_duplicates === 1 ? '' : 's'} collapsed`)
+  if (row.blocks_malformed) parts.push(`${row.blocks_malformed} record${row.blocks_malformed === 1 ? '' : 's'} couldn’t be read`)
+  if (parts.length === 0) return null
+  return (
+    <p className="microcopy" style={{ color: row.blocks_malformed ? 'var(--amber, var(--accent-ui))' : 'var(--soft)' }}>
+      {row.blocks_malformed ? '⚠ ' : ''}
+      {parts.join(' · ')}
+    </p>
   )
 }
 
