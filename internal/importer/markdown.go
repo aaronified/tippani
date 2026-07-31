@@ -143,6 +143,8 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.Author = val
 		case "isbn":
 			res.Book.ISBN = val
+		case "series":
+			res.Book.Series, res.Book.SeriesIndex = parseSeriesValue(val)
 		} // unknown keys ignored
 	}
 	if res.Book.Title == "" {

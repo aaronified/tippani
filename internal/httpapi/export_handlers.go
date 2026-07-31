@@ -255,7 +255,8 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		kv{"author", b.Author},
 		kv{"isbn", b.ISBN},
 		kv{"year", zeroBlank(b.PublishedYear)},
-		kv{"genres", strings.Join(b.Genres, ", ")})
+		kv{"genres", strings.Join(b.Genres, ", ")},
+		kv{"series", seriesFrontmatter(b.Series, b.SeriesIndex)})
 
 	order := []string{""}
 	grouped := map[string][]annotationRow{}
@@ -325,6 +326,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		kv{"director", m.Director},
 		kv{"year", zeroBlank(m.ReleaseYear)},
 		kv{"genres", strings.Join(m.Genres, ", ")},
+		kv{"collection", seriesFrontmatter(m.Series, m.SeriesIndex)},
 		kv{"type", typeIfShow(m.MediaType)}) // only shows carry a type line (round-trip)
 	for _, d := range dlgs {
 		sb.WriteString("\n")
@@ -428,6 +430,20 @@ func zeroBlank(n int) string {
 		return ""
 	}
 	return strconv.Itoa(n)
+}
+
+// seriesFrontmatter renders a series/collection and its position as one value,
+// "Name #1.5", mirroring seriesLabel() in the UI. An empty name yields "" so
+// writeFrontmatter drops the line entirely. FormatFloat with precision -1 gives
+// "1" for 1.0 and "1.5" for 1.5 — no trailing ".0" to re-parse.
+func seriesFrontmatter(name string, idx float64) string {
+	if name == "" {
+		return ""
+	}
+	if idx == 0 {
+		return name
+	}
+	return name + " #" + strconv.FormatFloat(idx, 'f', -1, 64)
 }
 
 // typeIfShow emits "show" for a show and "" for a movie, so the export only

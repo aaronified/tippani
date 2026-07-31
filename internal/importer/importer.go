@@ -9,10 +9,12 @@ package importer
 
 // Book is the book header parsed from an import file.
 type Book struct {
-	Title  string
-	Author string
-	ISBN   string // as found in the file; callers normalize to ISBN-13
-	ASIN   string
+	Title       string
+	Author      string
+	ISBN        string // as found in the file; callers normalize to ISBN-13
+	ASIN        string
+	Series      string  // series name, when the file carries one
+	SeriesIndex float64 // position within it (0 = unknown)
 }
 
 // Annotation is one parsed quote/note.
@@ -39,12 +41,14 @@ type Result struct {
 // Genres come from the Tippani catalogue export (renderMovieExport); the IMDb
 // importer leaves them empty.
 type MovieHeader struct {
-	Title     string
-	Year      int
-	IMDbID    string // as found in the file (ttNNNNN); informational
-	MediaType string // "movie" | "show"
-	Director  string
-	Genres    []string
+	Title       string
+	Year        int
+	IMDbID      string // as found in the file (ttNNNNN); informational
+	MediaType   string // "movie" | "show"
+	Director    string
+	Genres      []string
+	Series      string  // collection / franchise name, when the file carries one
+	SeriesIndex float64 // position within it (0 = unknown)
 }
 
 // Dialogue is one parsed quote/exchange. Character is set only when the whole

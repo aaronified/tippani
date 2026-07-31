@@ -6,7 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { MobileDetailBar, WorkCard, WorkHero, WorkListScaffold } from './works.jsx'
+import { GroupHeading, MobileDetailBar, WorkCard, WorkHero, WorkListScaffold, groupWorks } from './works.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -78,6 +78,17 @@ function Reveal({ className = '', children, ...rest }) {
   )
 }
 
+// Group-by dimensions for the Catalogue. "Collection" is movies.series — the
+// column the 0006 migration already called a "franchise / collection name" —
+// relabelled here because "series" means a TV show on this page.
+const GROUP_OPTIONS = [
+  ['none', 'Titles'],
+  ['series', 'Collection'],
+  ['author', 'Director'],
+  ['decade', 'Decade'],
+  ['genre', 'Genre'],
+]
+
 // amberMono — the metadata voice of the film pages (counts, credit lines).
 const amberMono = {
   fontFamily: 'var(--font-mono)',
@@ -146,6 +157,7 @@ function MovieList({ onOpen, creditSeparators }) {
   const [genre, setGenre] = useState('')
   const [series, setSeries] = useState('')
   const [fav, setFav] = useState(false)
+  const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [tagged, setTagged] = useState(false) // has at least one tagged dialogue
   const [noted, setNoted] = useState(false) // has at least one dialogue with a note
   const [sort, setSort] = useState('recent')
@@ -197,6 +209,26 @@ function MovieList({ onOpen, creditSeparators }) {
     return list
   }, [movies, mediaType, genre, series, fav, tagged, noted, sort])
 
+  // Grouping only buckets the view — a title still appears in the flat list, and
+  // because media_type lives on the same row as series, one collection can hold
+  // a film and a show together (Twin Peaks and Fire Walk With Me).
+  const grouped = useMemo(
+    () =>
+      groupBy === 'none'
+        ? null
+        : groupWorks(shown, groupBy, {
+            credit: (m) => m.director,
+            splitCredit: true,
+            creditResidual: 'Unknown director',
+            year: (m) => m.release_year,
+            genres: (m) => m.genres || [],
+            series: (m) => m.series,
+            seps: creditSeps,
+            sortMembers: (items, dim) => (dim === 'series' ? [...items].sort(bySeries) : items),
+          }),
+    [shown, groupBy, creditSeps],
+  )
+
   const films = movies ? movies.length : 0
   const lines = movies ? movies.reduce((n, m) => n + (m.dialogue_count || 0), 0) : 0
   const counts = movies
@@ -236,7 +268,8 @@ function MovieList({ onOpen, creditSeparators }) {
       setSeries={setSeries}
       sort={sort}
       setSort={setSort}
-      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Series']]}
+      seriesNoun="collection"
+      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Collection']]}
       leading={
         hasShows &&
         [['', 'All'], ['movie', 'Movies'], ['show', 'Shows']].map(([k, label]) => (
@@ -259,7 +292,24 @@ function MovieList({ onOpen, creditSeparators }) {
           </div>
         )
       }
-      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setSeries(''); setSort('recent') }}
+      trailing={
+        <label className="flex items-center gap-2">
+          <MonoLabel>group</MonoLabel>
+          <Select
+            ariaLabel="Group by"
+            value={groupBy}
+            onChange={setGroupBy}
+            options={GROUP_OPTIONS}
+          />
+        </label>
+      }
+      trailingMobile={
+        <div>
+          <MonoLabel className="mb-2 block">group</MonoLabel>
+          <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
+        </div>
+      }
+      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
       addSurface={
         <AddSurface
           open={adding}
@@ -288,14 +338,32 @@ function MovieList({ onOpen, creditSeparators }) {
         />
       }
     >
-      <Reveal
-        className="grid gap-x-5 gap-y-8"
-        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
-      >
-        {shown.map((m) => (
-          <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
-        ))}
-      </Reveal>
+      {grouped ? (
+        <div className="space-y-10">
+          {grouped.map((g) => (
+            <section key={g.key}>
+              <GroupHeading label={g.label} count={g.items.length} noun="title" />
+              <div
+                className="grid gap-x-5 gap-y-8"
+                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
+              >
+                {g.items.map((m) => (
+                  <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <Reveal
+          className="grid gap-x-5 gap-y-8"
+          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
+        >
+          {shown.map((m) => (
+            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
+          ))}
+        </Reveal>
+      )}
     </WorkListScaffold>
   )
 }
@@ -423,10 +491,10 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
-        <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input className="tp-input" placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
-          placeholder="Series #"
+          placeholder="Collection #"
           inputMode="decimal"
           value={seriesIndex}
           onChange={(e) => setSeriesIndex(e.target.value)}
@@ -745,10 +813,10 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
-        <input className="tp-input" placeholder="Series / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <input className="tp-input" placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
-          placeholder="Series #"
+          placeholder="Collection #"
           inputMode="decimal"
           value={seriesIndex}
           onChange={(e) => setSeriesIndex(e.target.value)}

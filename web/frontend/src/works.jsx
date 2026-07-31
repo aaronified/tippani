@@ -5,7 +5,7 @@
 // import cycle — this layer is free to import from both).
 import { useState } from 'react'
 import { DEMO, coverImgURL } from './api.js'
-import { CreditFaces, splitCredits } from './people.jsx'
+import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
 import {
   EmptyState,
   ErrorText,
@@ -144,7 +144,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
               className="tp-chip absolute left-1.5 top-1.5"
               style={{ fontSize: 9.5, background: 'rgba(21,16,12,.72)', color: '#fff', borderColor: 'transparent' }}
             >
-              SERIES
+              SHOW
             </span>
           )}
           {item.favorite && <FavBadge />}
@@ -175,6 +175,38 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
         )}
       </div>
     </button>
+  )
+}
+
+// GroupHeading — the label above one bucket of a "group by" view. Shared by the
+// Library (books by series / author / decade / genre) and the Catalogue (films
+// and shows by collection), so the two boards read identically; `noun` is what
+// the count is counting, and `person` turns an author/director heading into a
+// portrait chip that opens their panel.
+export function GroupHeading({ label, count, noun = 'item', person, onOpenPerson }) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      {person && <PersonPortrait person={person} size={34} />}
+      {onOpenPerson ? (
+        <button
+          type="button"
+          className="display-title truncate"
+          style={{ fontSize: 19, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+          onClick={onOpenPerson}
+          title={`${label} — details`}
+        >
+          {label}
+        </button>
+      ) : (
+        <h3 className="display-title truncate" style={{ fontSize: 19 }}>
+          {label}
+        </h3>
+      )}
+      <MonoLabel style={{ color: 'var(--accent-ui)' }}>
+        {count} {noun}{count === 1 ? '' : 's'}
+      </MonoLabel>
+      <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+    </div>
   )
 }
 
@@ -298,6 +330,9 @@ export function WorkListScaffold({
   noted,
   setNoted,
   noun = 'book', // what a row is, for the "show only" chip tooltips
+  // Books group into a "series"; films and shows into a "collection" — the same
+  // movies.series column, but "series" already means a TV show on that page.
+  seriesNoun = 'series',
   seriesNames,
   series,
   setSeries,
@@ -334,10 +369,10 @@ export function WorkListScaffold({
   )
   const seriesSelect = seriesNames.length > 0 && (
     <Select
-      ariaLabel="Filter by series"
+      ariaLabel={`Filter by ${seriesNoun}`}
       value={series}
       onChange={setSeries}
-      options={[['', 'all series'], ...seriesNames.map((s) => [s, s])]}
+      options={[['', `all ${seriesNoun}s`], ...seriesNames.map((s) => [s, s])]}
     />
   )
   const sortSelect = <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
@@ -422,7 +457,7 @@ export function WorkListScaffold({
             </div>
             {seriesNames.length > 0 && (
               <div>
-                <MonoLabel className="mb-2 block">series</MonoLabel>
+                <MonoLabel className="mb-2 block">{seriesNoun}</MonoLabel>
                 {seriesSelect}
               </div>
             )}

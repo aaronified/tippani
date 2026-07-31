@@ -367,15 +367,19 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		// unique indexes on (user_id, isbn/asin)).
 		if _, err := tx.Exec(
 			`UPDATE OR IGNORE books SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?),
-			                            author = COALESCE(author, ?) WHERE id = ?`,
-			nullable(isbn), nullable(b.ASIN), nullable(b.Author), id); err != nil {
+			                            author = COALESCE(author, ?), series = COALESCE(series, ?),
+			                            series_index = COALESCE(series_index, ?) WHERE id = ?`,
+			nullable(isbn), nullable(b.ASIN), nullable(b.Author),
+			nullable(b.Series), nullableFloat(b.SeriesIndex), id); err != nil {
 			return 0, false, err
 		}
 		return id, false, nil
 	}
 	res, err := tx.Exec(
-		`INSERT INTO books (user_id, title, author, isbn, asin) VALUES (?, ?, ?, ?, ?)`,
-		uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN))
+		`INSERT INTO books (user_id, title, author, isbn, asin, series, series_index)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN),
+		nullable(b.Series), nullableFloat(b.SeriesIndex))
 	if err != nil {
 		return 0, false, err
 	}

@@ -6,7 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { MobileDetailBar, WorkCard, WorkHero, WorkListScaffold, groupWorks } from './works.jsx'
+import { GroupHeading, MobileDetailBar, WorkCard, WorkHero, WorkListScaffold, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -117,31 +117,6 @@ function useChipBudget() {
     return () => window.removeEventListener('resize', calc)
   }, [mobile])
   return n
-}
-
-function GroupHeading({ label, count, person, onOpenPerson }) {
-  return (
-    <div className="mb-4 flex items-center gap-3">
-      {person && <PersonPortrait person={person} size={34} />}
-      {onOpenPerson ? (
-        <button
-          type="button"
-          className="display-title truncate"
-          style={{ fontSize: 19, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-          onClick={onOpenPerson}
-          title={`${label} — details`}
-        >
-          {label}
-        </button>
-      ) : (
-        <h3 className="display-title truncate" style={{ fontSize: 19 }}>
-          {label}
-        </h3>
-      )}
-      <MonoLabel style={{ color: 'var(--accent-ui)' }}>{plural(count, 'book')}</MonoLabel>
-      <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
-    </div>
-  )
 }
 
 // BookGrid is the cover-tile board, shared by the flat list and each group.
@@ -333,6 +308,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
                 <GroupHeading
                   label={g.label}
                   count={g.items.length}
+                  noun="book"
                   person={isAuthor ? authors.map[g.label] : null}
                   onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                 />

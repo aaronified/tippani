@@ -220,6 +220,16 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 			return 0, 0, 0, false, err
 		}
 	}
+	// Fill-empty-only, like the director above: a collection already set on the
+	// row (by hand, or from TMDB's belongs_to_collection) always wins.
+	if res.Movie.Series != "" {
+		if _, err := tx.Exec(
+			`UPDATE movies SET series = COALESCE(series, ?), series_index = COALESCE(series_index, ?)
+			 WHERE id = ?`,
+			nullable(res.Movie.Series), nullableFloat(res.Movie.SeriesIndex), m.ID); err != nil {
+			return 0, 0, 0, false, err
+		}
+	}
 	if len(res.Movie.Genres) > 0 { // only when the row has no genres (don't clobber a curated set)
 		var hasGenres bool
 		if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM movie_genres WHERE movie_id = ?)`, m.ID).Scan(&hasGenres); err != nil {

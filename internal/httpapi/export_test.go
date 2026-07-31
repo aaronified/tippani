@@ -279,3 +279,60 @@ func TestExportOwnership(t *testing.T) {
 		t.Fatalf("alice's zip: %v (%v)", zr.File, err)
 	}
 }
+
+// A book's series and a film's collection survive the export/import round trip.
+// Both were previously dropped on export — the frontmatter carried title,
+// author, year and genres but never the series — so a library rebuilt from its
+// own Markdown lost every series and collection it had.
+func TestSeriesAndCollectionRoundTrip(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "Deadhouse Gates", "author": "Steven Erikson",
+		"series": "Malazan Book of the Fallen", "series_index": 2,
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "A quote."}, http.StatusCreated)
+
+	md := c.mustDo("GET", "/books/"+itoa(book.ID)+"/export", nil, 200).Body.String()
+	if !strings.Contains(md, "series: Malazan Book of the Fallen #2") {
+		t.Fatalf("series missing from the export frontmatter:\n%s", md)
+	}
+
+	// Import into a second account so the value is genuinely re-parsed rather
+	// than matched onto the existing row.
+	c2 := addUser(t, h, c, "reader2")
+	res := decode[importResult](t, c2.importFile("/import/markdown", "deadhouse.md", []byte(md)))
+	got := decode[bookDetail](t, c2.mustDo("GET", "/books/"+itoa(res.BookID), nil, 200))
+	if got.Series != "Malazan Book of the Fallen" || got.SeriesIndex != 2 {
+		t.Fatalf("book series did not round-trip: %q #%v", got.Series, got.SeriesIndex)
+	}
+
+	// Films call the same column a collection, and one can span a film and a show.
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Fire Walk With Me", "release_year": 1992, "series": "Twin Peaks", "series_index": 2,
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": movie.ID, "quote": "A line."}, http.StatusCreated)
+
+	mmd := c.mustDo("GET", "/movies/"+itoa(movie.ID)+"/export", nil, 200).Body.String()
+	if !strings.Contains(mmd, "collection: Twin Peaks #2") {
+		t.Fatalf("collection missing from the export frontmatter:\n%s", mmd)
+	}
+	type movieImportRes struct {
+		MovieID int64 `json:"movie_id"`
+	}
+	mres := decode[movieImportRes](t, c2.importFile("/import/markdown", "fwwm.md", []byte(mmd)))
+	gotM := decode[movieDetail](t, c2.mustDo("GET", "/movies/"+itoa(mres.MovieID), nil, 200))
+	if gotM.Series != "Twin Peaks" || gotM.SeriesIndex != 2 {
+		t.Fatalf("collection did not round-trip: %q #%v", gotM.Series, gotM.SeriesIndex)
+	}
+
+	// A collection with no position emits a bare name and re-parses as one.
+	bare := "---\ntitle: Serenity\nyear: 2005\ncollection: Firefly\n---\n\n> A line.\n"
+	bres := decode[movieImportRes](t, c2.importFile("/import/markdown", "serenity.md", []byte(bare)))
+	gotB := decode[movieDetail](t, c2.mustDo("GET", "/movies/"+itoa(bres.MovieID), nil, 200))
+	if gotB.Series != "Firefly" || gotB.SeriesIndex != 0 {
+		t.Fatalf("bare collection: %q #%v", gotB.Series, gotB.SeriesIndex)
+	}
+}

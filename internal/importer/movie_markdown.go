@@ -22,7 +22,10 @@ func LooksLikeMovieMarkdown(data []byte) bool {
 	for sc.Scan() {
 		line := strings.TrimSpace(strings.TrimSuffix(sc.Text(), "\r"))
 		switch {
+		// "collection:" is decisive: the catalogue export writes it where the book
+		// export writes "series:", so it only ever appears on a film/show file.
 		case strings.HasPrefix(line, "director:"), strings.HasPrefix(line, "creator:"),
+			strings.HasPrefix(line, "collection:"),
 			strings.HasPrefix(line, "- character:"), strings.HasPrefix(line, "- actor:"),
 			strings.HasPrefix(line, "- timestamp:"):
 			return true
@@ -115,6 +118,8 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			}
 		case "genres":
 			res.Movie.Genres = splitCSV(val)
+		case "collection", "series", "franchise":
+			res.Movie.Series, res.Movie.SeriesIndex = parseSeriesValue(val)
 		case "type", "mediatype", "media_type":
 			if val == "show" {
 				res.Movie.MediaType = "show"
@@ -176,6 +181,23 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 	}
 	flush()
 	return res, nil
+}
+
+// parseSeriesValue splits the export's "Name #1.5" back into its name and
+// position — the inverse of seriesFrontmatter in the export renderer. A value
+// with no "#" is all name, and a "#" whose tail isn't a number stays part of
+// the name (a title like "Book #1: The Beginning" survives).
+func parseSeriesValue(val string) (string, float64) {
+	val = strings.TrimSpace(val)
+	i := strings.LastIndex(val, "#")
+	if i < 0 {
+		return val, 0
+	}
+	n, err := strconv.ParseFloat(strings.TrimSpace(val[i+1:]), 64)
+	if err != nil {
+		return val, 0
+	}
+	return strings.TrimSpace(val[:i]), n
 }
 
 // splitCSV trims a "a, b, c" list into a slice, dropping blanks.
