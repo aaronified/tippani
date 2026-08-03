@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-03
+
+Groundwork for a native Android app, and the one arbitrary hole in the data
+model closed. Nothing here changes how the web UI is used; almost all of it is
+the server learning to talk to a client it has never had — one that is installed
+rather than served, updates on its own schedule, and is often offline.
+
+### Added
+- **Colour for film and show dialogue.** Dialogues could be favourited, tagged,
+  stickered and reviewed exactly like book highlights, but not coloured — the
+  0003 migration built them as a near-copy of annotations and left colour out.
+  They now carry the same four colours, with the same quick-pick dots on the
+  frame, the same picker in the add/edit form, the same filter, the same tint on
+  the shareable image, and the same round-trip through Markdown export/import.
+  Existing lines land on yellow, the default a new annotation gets, so nothing
+  looks categorised that wasn't.
+- **Device tokens and pairing**, for native clients. **Settings → Devices**
+  mints a one-shot pairing code (five minutes, rate limited); the app exchanges
+  it for a long-lived bearer token. A device stays paired until you unpair it —
+  a password change signs out browsers but deliberately leaves phones alone,
+  because silently unpairing every device on a routine password rotation is
+  worse than the threat it would mitigate. Revoking is its own explicit act, per
+  device or all at once.
+- **`GET /api/capabilities`** — an unauthenticated version handshake reporting
+  the running version, an integer API revision and a feature list. An installed
+  app and the server update independently, so the app can say "this server is
+  too old for me" instead of discovering it as a 404 mid-save.
+- **`limit` / `offset` on the list endpoints** (books, movies, annotations,
+  dialogues). `/books` and `/movies` previously had no limit at all and shipped
+  the whole library on every call; `/annotations` and `/dialogues` capped at 500
+  with no way to reach anything past it. Sending neither parameter still returns
+  everything, so the web UI is unchanged.
+- **Response compression.** Quote text compresses roughly eight to one, which is
+  invisible on a LAN and decisive over Tailscale or cellular. `compress/gzip`
+  from the standard library — no new dependency.
+- **`noted_at` and `source` on quote create.** A capture made on Tuesday and
+  flushed on Friday used to be dated Friday, with the real date unrecoverable.
+  Both quote kinds now accept the date they were actually taken, and record what
+  captured them (`manual` or `ocr`).
+
+### Changed
+- **Annotations and dialogues share one shape.** The two were written separately
+  as near-copies and drifted: dialogues arrived without tags, then gained them;
+  arrived without colour, and kept not having it. Both now embed a common
+  `quoteReq`/`quoteRow` and differ in exactly one respect — how a quote points
+  back at its source (a book highlight has chapter and location; a film line has
+  character, actor and timestamp). A test pins that boundary, so the next field
+  added to one kind cannot silently miss the other.
+- **A duplicate-create 409 now carries the row that already holds the slot.** A
+  bare 409 is enough for a browser, where a person can see what happened, but it
+  strands an offline client: it cannot tell its own retried write from a genuine
+  clash with a different quote, and dropping the capture and reporting a
+  permanent failure are both wrong.
+
+### Fixed
+- **An in-process restore left new auth state pointing at the closed database.**
+  Restore closes the live database and reopens a different file, rebinding the
+  session store as it goes; anything else holding the old handle kept it. The
+  rebinding is now in one place that covers every store, so a restored box
+  doesn't answer a valid credential with an inexplicable 401.
+- **A migration replayed by deleting its `schema_version` row silently stopped
+  replaying** once any newer migration existed, because `Migrate()` resumes from
+  the highest recorded version. The affected test now steps forward from an
+  older schema instead, so it no longer depends on being the newest migration.
+
 ## [1.0.1] - 2026-07-31
 
 ### Added
