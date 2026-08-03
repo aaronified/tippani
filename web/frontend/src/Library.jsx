@@ -58,9 +58,18 @@ const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontStyle: 'italic', fo
 
 // Library is the books tab (§8.3): cover grid + add-book modal, or a single
 // book's detail view (§8.5). Import flows live on the Import page now.
-export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators }) {
+export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, pendingImport, onReviewImport, onStaged }) {
   if (openId) return <BookDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
-  return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} creditSeparators={creditSeparators} />
+  return (
+    <BookList
+      onOpen={onOpen}
+      onOpenMovie={onOpenMovie}
+      creditSeparators={creditSeparators}
+      pendingImport={pendingImport}
+      onReviewImport={onReviewImport}
+      onStaged={onStaged}
+    />
+  )
 }
 
 function plural(n, word) {
@@ -134,7 +143,7 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
 
 // ---- book list (§8.3, mockups 06–07) ----
 
-function BookList({ onOpen, onOpenMovie, creditSeparators }) {
+function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onReviewImport, onStaged }) {
   const [books, setBooks] = useState(null)
   const [genre, setGenre] = useState('') // '' = All
   const [series, setSeries] = useState('') // '' = all series
@@ -273,6 +282,9 @@ function BookList({ onOpen, onOpenMovie, creditSeparators }) {
           onClose={() => setAdding(false)}
           onAdded={() => { setAdding(false); load() }}
           onOpenMovie={onOpenMovie}
+          pendingImport={pendingImport}
+          onReviewImport={onReviewImport ? () => { setAdding(false); onReviewImport() } : undefined}
+          onStaged={onStaged}
         />
       }
       exportDialog={

@@ -95,7 +95,7 @@ func TestBookExportRoundTrip(t *testing.T) {
 	book := seedExportBook(t, c)
 
 	exported := c.mustDo("GET", "/books/"+itoa(book.ID)+"/export", nil, 200).Body.Bytes()
-	res := decode[importResult](t, c.importFile("/import/markdown", "dune.md", exported))
+	res := decode[importResult](t, c.importApprove("/import/markdown", "dune.md", exported))
 	if res.BookID != book.ID || res.Added != 0 || res.Skipped != 4 {
 		t.Fatalf("round trip: %+v", res)
 	}
@@ -109,7 +109,7 @@ func TestNotedAtRoundTrip(t *testing.T) {
 	c := signupAdmin(t, h)
 
 	md := "---\ntitle: Dated Book\n---\n\n> A dated highlight.\n- date: 2020-01-15\n"
-	res := decode[importResult](t, c.importFile("/import/markdown", "d.md", []byte(md)))
+	res := decode[importResult](t, c.importApprove("/import/markdown", "d.md", []byte(md)))
 	if res.Added != 1 {
 		t.Fatalf("import: %+v", res)
 	}
@@ -194,14 +194,14 @@ func TestImportMovieMarkdownRoundTrip(t *testing.T) {
 		Added   int   `json:"added"`
 		Skipped int   `json:"skipped"`
 	}
-	res := decode[movieImportRes](t, c.importFile("/import/markdown", "casablanca.md", exported))
+	res := decode[movieImportRes](t, c.importApprove("/import/markdown", "casablanca.md", exported))
 	if res.MovieID != movie.ID || res.Created || res.Added != 0 || res.Skipped != 2 {
 		t.Fatalf("round trip: %+v (want anchored to movie %d, 0 added, 2 skipped)", res, movie.ID)
 	}
 
 	// A fresh show export creates the title with its media_type + director.
 	showMD := "---\ntitle: Andor\ntype: show\nyear: 2022\ndirector: Tony Gilroy\n---\n\n> One way out.\n- character: Kino\n"
-	sres := decode[movieImportRes](t, c.importFile("/import/markdown", "andor.md", []byte(showMD)))
+	sres := decode[movieImportRes](t, c.importApprove("/import/markdown", "andor.md", []byte(showMD)))
 	if !sres.Created || sres.Added != 1 {
 		t.Fatalf("show import: %+v", sres)
 	}
@@ -307,7 +307,7 @@ func TestSeriesAndCollectionRoundTrip(t *testing.T) {
 	// Import into a second account so the value is genuinely re-parsed rather
 	// than matched onto the existing row.
 	c2 := addUser(t, h, c, "reader2")
-	res := decode[importResult](t, c2.importFile("/import/markdown", "deadhouse.md", []byte(md)))
+	res := decode[importResult](t, c2.importApprove("/import/markdown", "deadhouse.md", []byte(md)))
 	got := decode[bookDetail](t, c2.mustDo("GET", "/books/"+itoa(res.BookID), nil, 200))
 	if got.Series != "Malazan Book of the Fallen" || got.SeriesIndex != 2 {
 		t.Fatalf("book series did not round-trip: %q #%v", got.Series, got.SeriesIndex)
@@ -326,7 +326,7 @@ func TestSeriesAndCollectionRoundTrip(t *testing.T) {
 	type movieImportRes struct {
 		MovieID int64 `json:"movie_id"`
 	}
-	mres := decode[movieImportRes](t, c2.importFile("/import/markdown", "fwwm.md", []byte(mmd)))
+	mres := decode[movieImportRes](t, c2.importApprove("/import/markdown", "fwwm.md", []byte(mmd)))
 	gotM := decode[movieDetail](t, c2.mustDo("GET", "/movies/"+itoa(mres.MovieID), nil, 200))
 	if gotM.Series != "Twin Peaks" || gotM.SeriesIndex != 2 {
 		t.Fatalf("collection did not round-trip: %q #%v", gotM.Series, gotM.SeriesIndex)
@@ -334,7 +334,7 @@ func TestSeriesAndCollectionRoundTrip(t *testing.T) {
 
 	// A collection with no position emits a bare name and re-parses as one.
 	bare := "---\ntitle: Serenity\nyear: 2005\ncollection: Firefly\n---\n\n> A line.\n"
-	bres := decode[movieImportRes](t, c2.importFile("/import/markdown", "serenity.md", []byte(bare)))
+	bres := decode[movieImportRes](t, c2.importApprove("/import/markdown", "serenity.md", []byte(bare)))
 	gotB := decode[movieDetail](t, c2.mustDo("GET", "/movies/"+itoa(bres.MovieID), nil, 200))
 	if gotB.Series != "Firefly" || gotB.SeriesIndex != 0 {
 		t.Fatalf("bare collection: %q #%v", gotB.Series, gotB.SeriesIndex)

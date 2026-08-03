@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"tippani/internal/importer"
 	"tippani/internal/metadata"
@@ -16,10 +18,16 @@ import (
 // maxImportBody caps uploads before any parsing happens (PLAN §5).
 const maxImportBody = 5 << 20
 
+// Every import endpoint parses the upload and then STAGES it (ROADMAP 1.2.0):
+// nothing reaches annotations/dialogues until the pending queue is approved. The
+// reply is therefore a batch id and a staged count, not added/skipped/enriched —
+// those counters now come back from POST /import/staged/approve, which is where
+// the writing actually happens.
+
 func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 	// Markdown is dual-format: a catalogue (movie/show) export or a book export,
 	// each possibly multi-item. Peek to route; both round-trip our own exports.
-	data, ok := readUpload(w, r)
+	data, filename, ok := readUpload(w, r)
 	if !ok {
 		return
 	}
@@ -33,7 +41,7 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "no titles found in file")
 			return
 		}
-		s.persistMovies(w, r, results)
+		s.stageMovies(w, r, "md", filename, results, nil)
 		return
 	}
 	results, err := importer.MarkdownAll(bytes.NewReader(data))
@@ -45,7 +53,7 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.persistBooks(w, r, "md", results, nil)
+	s.stageBooks(w, r, "md", filename, results, nil)
 }
 
 func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +78,7 @@ func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Reque
 // it reports what it skipped instead of failing the whole file, and the UI
 // labels the source experimental.
 func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Request) {
-	data, ok := readUpload(w, r)
+	data, filename, ok := readUpload(w, r)
 	if !ok {
 		return
 	}
@@ -83,7 +91,7 @@ func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Requ
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.persistBooks(w, r, "kindle_clippings", results, map[string]any{
+	s.stageBooks(w, r, "kindle_clippings", filename, results, map[string]any{
 		"bookmarks_skipped": stats.Bookmarks,
 		"blocks_malformed":  stats.Malformed,
 		"notes_merged":      stats.NotesMerged,
@@ -111,13 +119,13 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source str
 }
 
 // handleImportN is the shared multipart import flow: cap -> parse (one or many
-// books) -> one transaction for every book's upsert + annotation inserts (PLAN
-// §5, §8). dedupe_hash duplicates are counted as skipped, so re-imports are
-// idempotent; a multi-book file lands every book (export round-trip).
+// books) -> one transaction that stages every book and its quotes (PLAN §5, §8).
+// A multi-book file stages every book, so an export round-trip is preserved; the
+// dedupe that makes a re-import idempotent runs at approval, against the library.
 func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source string,
 	parseAll func(io.Reader) ([]*importer.Result, error)) {
 
-	data, ok := readUpload(w, r)
+	data, filename, ok := readUpload(w, r)
 	if !ok {
 		return
 	}
@@ -130,123 +138,77 @@ func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source st
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.persistBooks(w, r, source, results, nil)
+	s.stageBooks(w, r, source, filename, results, nil)
 }
 
-// readUpload pulls the multipart "file" field's bytes (capped) — shared by every
-// import handler; a peek-then-parse handler (markdown, which routes book vs
-// catalogue) needs the bytes in hand rather than a one-shot reader.
-func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+// readUpload pulls the multipart "file" field's bytes (capped) and its name —
+// shared by every import handler; a peek-then-parse handler (markdown, which
+// routes book vs catalogue) needs the bytes in hand rather than a one-shot
+// reader. The filename is kept because the staging queue groups and filters by
+// the file a batch came from, so "the Kindle export" and "the Goodreads page"
+// stay distinguishable in one pending list.
+func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, string, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxImportBody)
-	f, _, err := r.FormFile("file")
+	f, hdr, err := r.FormFile("file")
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, `multipart "file" field required (max 5 MB)`)
-		return nil, false
+		return nil, "", false
 	}
 	defer f.Close()
 	data, err := io.ReadAll(f)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "upload too large or malformed")
-		return nil, false
+		return nil, "", false
 	}
-	return data, true
-}
-
-// persistBooks writes a parsed batch of books (one or many) into the store in a
-// single transaction and answers with the aggregate + per-book breakdown. Extra
-// keys are merged into the reply so a format with its own counters (Kindle
-// clippings: bookmarks, merged notes, near-duplicates) can report them.
-func (s *Server) persistBooks(w http.ResponseWriter, r *http.Request, source string, results []*importer.Result, extra map[string]any) {
-	uid := userID(r)
-	tx, err := s.Store.DB.Begin()
-	if err != nil {
-		internalError(w, r, "begin tx", err)
-		return
-	}
-	defer tx.Rollback()
-
-	type bookSummary struct {
-		BookID   int64  `json:"book_id"`
-		Title    string `json:"title"`
-		Added    int    `json:"added"`
-		Skipped  int    `json:"skipped"`
-		Enriched int    `json:"enriched"`
-	}
-	var (
-		books     []bookSummary
-		bookIDs   []int64
-		allDupes  []dupHint
-		tAdd, tEn int
-	)
-	for _, res := range results {
-		bookID, added, enriched, dupes, err := s.importOneBook(tx, uid, source, res)
-		if err != nil {
-			var ce importClientError
-			if errors.As(err, &ce) {
-				writeErr(w, http.StatusBadRequest, ce.msg)
-			} else {
-				internalError(w, r, "import book", err)
-			}
-			return
+	name := ""
+	if hdr != nil {
+		// Take the base name only: a browser sends "notes.md", but a scripted
+		// client may send a path, and this string is displayed back in the queue.
+		// It is never used AS a path — nothing here touches the filesystem — but
+		// stripping the directories keeps a hostile name from rendering as one.
+		name = strings.TrimSpace(filepath.Base(filepath.ToSlash(hdr.Filename)))
+		if name == "." || name == "/" || name == string(filepath.Separator) {
+			name = ""
 		}
-		books = append(books, bookSummary{bookID, res.Book.Title, added, len(res.Annotations) - added, enriched})
-		bookIDs = append(bookIDs, bookID)
-		allDupes = append(allDupes, dupes...)
-		tAdd += added
-		tEn += enriched
-	}
-	if err := tx.Commit(); err != nil {
-		internalError(w, r, "commit tx", err)
-		return
-	}
-	if allDupes == nil {
-		allDupes = []dupHint{}
-	}
-	total := 0
-	for _, res := range results {
-		total += len(res.Annotations)
-	}
-	reply := map[string]any{
-		"book_id":             bookIDs[0], // back-compat: the first (usually only) book
-		"book_ids":            bookIDs,
-		"books":               books,
-		"added":               tAdd,
-		"skipped":             total - tAdd,
-		"enriched":            tEn,
-		"possible_duplicates": allDupes,
-	}
-	for k, v := range extra {
-		reply[k] = v
-	}
-	writeJSON(w, http.StatusOK, reply)
-}
-
-// importOneBook upserts one parsed book and inserts/enriches its annotations
-// inside the caller's transaction. It returns the book id, how many annotations
-// were added and enriched, and any look-alike hints for a freshly-created book.
-// A bad annotation colour comes back as an importClientError (a 400).
-func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *importer.Result) (int64, int, int, []dupHint, error) {
-	bookID, created, err := upsertImportBook(tx, uid, res.Book)
-	if err != nil {
-		return 0, 0, 0, nil, err
-	}
-	// When a new book row was created, flag look-alikes already in the library
-	// so the review UI can offer to merge (PLAN §5): "Homo Deus" landing beside
-	// "Homo Deus: The million-copy bestseller…".
-	var dupes []dupHint
-	if created {
-		if dupes, err = findSimilarBooks(tx, uid, res.Book.Title, bookID); err != nil {
-			return 0, 0, 0, nil, err
+		// Truncate rather than reject: a long name is not a reason to refuse the
+		// file. trimCap reports an overflow without cutting, so cut it here.
+		if r := []rune(name); len(r) > 128 {
+			name = string(r[:128])
 		}
 	}
+	return data, name, true
+}
+
+// bookSummary is one book's outcome in an approval reply — the shape the import
+// endpoints used to answer with directly, before staging moved the write behind
+// an explicit approve step.
+type bookSummary struct {
+	BookID   int64  `json:"book_id"`
+	Title    string `json:"title"`
+	Created  bool   `json:"created"`
+	Added    int    `json:"added"`
+	Skipped  int    `json:"skipped"`
+	Enriched int    `json:"enriched"`
+}
+
+// writeBookAnnotations inserts/enriches a batch of parsed annotations against a
+// book that has ALREADY been resolved, inside the caller's transaction. It
+// returns how many were added and how many enriched an existing copy. A bad
+// annotation colour comes back as an importClientError (a 400).
+//
+// The split from upsertImportBook (which resolves the target) is what lets the
+// staging queue hand this loop a book the *user* picked — retargeting a
+// misdetected file — while the dedupe, fill-empty enrichment and tag-union rules
+// below stay the single implementation for every path into the library.
+func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, anns []importer.Annotation) (int, int, error) {
 	added, enriched := 0, 0
-	for _, a := range res.Annotations {
+	for _, a := range anns {
 		color := a.Color
 		if color == "" {
 			color = "yellow" // Kindle sources carry no colour (PLAN §3)
 		}
 		if !validColor(color) {
-			return 0, 0, 0, nil, importClientError{fmt.Sprintf("invalid color %q", a.Color)}
+			return 0, 0, importClientError{fmt.Sprintf("invalid color %q", a.Color)}
 		}
 		text := a.Quote
 		if text == "" {
@@ -260,7 +222,7 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 			nullable(a.Chapter), nullable(a.Location), a.Favorite,
 			source, store.DedupeHash(text), nullable(a.NotedAt))
 		if err != nil {
-			return 0, 0, 0, nil, err
+			return 0, 0, err
 		}
 		if n, _ := ins.RowsAffected(); n == 0 {
 			// Duplicate (same dedupe hash): enrich instead of discarding — the
@@ -292,7 +254,7 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
 				color, a.Favorite)
 			if err != nil {
-				return 0, 0, 0, nil, err
+				return 0, 0, err
 			}
 			if n, _ := upd.RowsAffected(); n > 0 {
 				enriched++
@@ -302,7 +264,7 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 				if err := tx.QueryRow(`SELECT id FROM annotations WHERE book_id = ? AND dedupe_hash = ?`,
 					bookID, store.DedupeHash(text)).Scan(&annID); err == nil {
 					if err := addTags(tx, "annotation", uid, annID, a.Tags); err != nil {
-						return 0, 0, 0, nil, err
+						return 0, 0, err
 					}
 				}
 			}
@@ -312,33 +274,27 @@ func (s *Server) importOneBook(tx *sql.Tx, uid int64, source string, res *import
 		if len(a.Tags) > 0 {
 			annID, _ := ins.LastInsertId()
 			if err := setTags(tx, "annotation", uid, annID, a.Tags); err != nil {
-				return 0, 0, 0, nil, err
+				return 0, 0, err
 			}
 		}
 	}
-	return bookID, added, enriched, dupes, nil
+	return added, enriched, nil
 }
 
-// upsertImportBook finds or creates the import target. Identity falls through
-// normalized ISBN → ASIN → lower(title)+lower(author): the same book arrives
-// with an ISBN from one tool and bare title/author from another, and both must
-// land in one row for cross-source quote dedupe to work (PLAN §3). A match via
-// a weaker identity backfills the row's missing identifiers so the next import
-// matches on the cheap key.
-func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, error) {
+// findImportBook resolves a parsed book to a row the user already owns, without
+// writing anything. Identity falls through normalized ISBN → ASIN →
+// lower(title)+lower(author): the same book arrives with an ISBN from one tool
+// and bare title/author from another, and both must land in one row for
+// cross-source quote dedupe to work (PLAN §3). Returns 0 when nothing matches.
+//
+// Read-only so the staging queue can ask "where would this land?" — that answer
+// drives the look-alike warning shown before anything is written — while
+// upsertImportBook keeps using it for the resolution that does write.
+func findImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, error) {
 	isbn := metadata.NormalizeISBN(b.ISBN) // "" when absent or implausible
-	var id int64
-	find := func(query string, args ...any) (bool, error) {
-		err := tx.QueryRow(query, args...).Scan(&id)
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
-		return err == nil, err
-	}
-	// Try each identity in turn; a match on ANY of them backfills the row's
-	// missing identifiers so the next import (which may carry only one of them,
-	// with a differently-formatted title) still matches on the cheap key.
-	matched := false
+	// Try each identity in turn; the caller backfills the row's missing
+	// identifiers on a match so the next import (which may carry only one of
+	// them, with a differently-formatted title) still matches on the cheap key.
 	for _, q := range []struct {
 		cond string
 		args []any
@@ -351,16 +307,29 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		if q.args[0] == "" {
 			continue
 		}
-		ok, err := find(`SELECT id FROM books WHERE user_id = ? AND `+q.cond, append([]any{uid}, q.args...)...)
-		if err != nil {
-			return 0, false, err
+		var id int64
+		err := tx.QueryRow(`SELECT id FROM books WHERE user_id = ? AND `+q.cond,
+			append([]any{uid}, q.args...)...).Scan(&id)
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			continue
+		case err != nil:
+			return 0, err
 		}
-		if ok {
-			matched = true
-			break
-		}
+		return id, nil
 	}
-	if matched {
+	return 0, nil
+}
+
+// upsertImportBook finds or creates the import target, returning the row id and
+// whether it had to be created.
+func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, error) {
+	isbn := metadata.NormalizeISBN(b.ISBN)
+	id, err := findImportBook(tx, uid, b)
+	if err != nil {
+		return 0, false, err
+	}
+	if id != 0 {
 		// Backfill every identifier/field the matched row is missing from this
 		// import (fill-empty-only, so existing data always wins). OR IGNORE skips
 		// rather than fails if another row already owns this isbn/asin (partial

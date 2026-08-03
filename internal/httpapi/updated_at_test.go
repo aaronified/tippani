@@ -78,7 +78,7 @@ func TestImportedBookHasUpdatedAt(t *testing.T) {
 	c := signupAdmin(t, h)
 
 	md := "---\ntitle: Imported\nauthor: A. Writer\n---\n\n> A quote from an import.\n"
-	if rec := c.importFile("/import/markdown", "imported.md", []byte(md)); rec.Code != http.StatusOK {
+	if rec := c.importApprove("/import/markdown", "imported.md", []byte(md)); rec.Code != http.StatusOK {
 		t.Fatalf("import: %d %s", rec.Code, rec.Body)
 	}
 	var id int64

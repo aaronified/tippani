@@ -79,6 +79,12 @@ const (
 	CodeMetaLookupFailed   Code = "TIP-META-014"   // a book/movie provider lookup failed (Google Books / Open Library / TMDB / TheTVDB)
 	CodePeopleLookupFailed Code = "TIP-PEOPLE-003" // a person link/portrait lookup failed (Open Library / TMDB)
 
+	// IMPORT — the staging queue a bulk import lands in before it is approved.
+	CodeImportStage    Code = "TIP-IMPORT-001" // a parsed import could not be written into the staging tables; nothing was staged
+	CodeImportRowScan  Code = "TIP-IMPORT-002" // a staged batch/work/quote row could not be scanned while listing the queue
+	CodeImportApprove  Code = "TIP-IMPORT-003" // approving staged quotes failed; the transaction rolled back, so nothing entered the library
+	CodeImportStagedOp Code = "TIP-IMPORT-004" // a staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged
+
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
 	CodeBackupArchive  Code = "TIP-BACKUP-002" // the backup archive could not be written/promoted
@@ -141,6 +147,11 @@ var Registry = map[Code]string{
 
 	CodeMetaLookupFailed:   "An on-demand book/movie lookup failed at the provider (Google Books / Open Library / TMDB / TheTVDB); the client saw a generic 502.",
 	CodePeopleLookupFailed: "An on-demand person link/portrait lookup failed at the provider (Open Library / TMDB); the client saw a generic 502.",
+
+	CodeImportStage:    "A parsed import could not be written into the staging tables; the batch was rolled back and nothing was staged.",
+	CodeImportRowScan:  "A staged batch, work or quote row could not be scanned while listing the import queue; that row was left out of the response.",
+	CodeImportApprove:  "Approving staged quotes failed; the transaction rolled back, so nothing entered the library and the queue still holds them.",
+	CodeImportStagedOp: "A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged.",
 
 	CodeBackupSnapshot: "The backup's database snapshot (VACUUM INTO) failed; no archive was produced.",
 	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory.",

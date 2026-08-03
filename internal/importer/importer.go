@@ -63,6 +63,10 @@ type Dialogue struct {
 	Color     string // "" = the importer leaves it to the server default (yellow)
 	Tags      []string
 	Favorite  bool
+	NotedAt   string // as for Annotation. No file format carries a date for a
+	// dialogue yet, so no parser sets this; it exists so that retargeting staged
+	// book highlights (which do carry Kindle dates) onto a film keeps them
+	// instead of silently dropping the field on the way across.
 }
 
 // MovieResult groups the dialogues of one film/show (mirrors Result for books).

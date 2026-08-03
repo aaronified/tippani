@@ -64,9 +64,17 @@ import {
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
 // filmstrip (§8.7 + §6 recipe, mockups 15–16). Dialogues mirror annotations
 // (PLAN §3b); tags are objects now — chips take color/style from GET /tags.
-export default function Movies({ openId, onOpen, onClose, creditSeparators }) {
+export default function Movies({ openId, onOpen, onClose, creditSeparators, pendingImport, onReviewImport, onStaged }) {
   if (openId) return <MovieDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
-  return <MovieList onOpen={onOpen} creditSeparators={creditSeparators} />
+  return (
+    <MovieList
+      onOpen={onOpen}
+      creditSeparators={creditSeparators}
+      pendingImport={pendingImport}
+      onReviewImport={onReviewImport}
+      onStaged={onStaged}
+    />
+  )
 }
 
 // Reveal — a div that mounts with its content, so useReveal's effect sees the
@@ -150,7 +158,7 @@ function movieState(m) {
 
 // ---- movie list: poster grid mirroring Library (§8.6) ----
 
-function MovieList({ onOpen, creditSeparators }) {
+function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, onStaged }) {
   const [movies, setMovies] = useState(null)
   const { map: directorMap } = usePeople('director') // name→metadata, for director/creator face chips
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
@@ -319,6 +327,9 @@ function MovieList({ onOpen, creditSeparators }) {
           onClose={() => setAdding(false)}
           onAdded={() => { setAdding(false); load() }}
           onOpenMovie={onOpen}
+          pendingImport={pendingImport}
+          onReviewImport={onReviewImport ? () => { setAdding(false); onReviewImport() } : undefined}
+          onStaged={onStaged}
         />
       }
       exportDialog={

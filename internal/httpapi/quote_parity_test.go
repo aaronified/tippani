@@ -247,7 +247,7 @@ func TestDialogueColorSurvivesExportImport(t *testing.T) {
 
 	// Re-import into a clean account: the colour comes back.
 	other := addUser(t, h, c, "bob")
-	rec := other.importFile("/import/markdown", "stalker.md", []byte(md))
+	rec := other.importApprove("/import/markdown", "stalker.md", []byte(md))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
 	}
@@ -292,7 +292,7 @@ func TestBareFilmExportReimportsAsFilm(t *testing.T) {
 
 	// Re-import into a clean account: it must land in the catalogue, not the library.
 	other := addUser(t, h, c, "bob")
-	rec := other.importFile("/import/markdown", "stalker.md", []byte(md))
+	rec := other.importApprove("/import/markdown", "stalker.md", []byte(md))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
 	}
@@ -342,7 +342,7 @@ func TestShowExportKeepsItsMediaType(t *testing.T) {
 	}
 
 	other := addUser(t, h, c, "bob")
-	if rec := other.importFile("/import/markdown", "andor.md", []byte(md)); rec.Code != http.StatusOK {
+	if rec := other.importApprove("/import/markdown", "andor.md", []byte(md)); rec.Code != http.StatusOK {
 		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
 	}
 	movies := decode[struct {

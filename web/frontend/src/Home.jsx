@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
+import { PendingImportCard } from './StagingPage.jsx'
 import {
   CreditFaces,
   DEFAULT_CREDIT_SEPS,
@@ -631,7 +632,7 @@ function screenFav(d, movieMap) {
   }
 }
 
-export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onPending }) {
+export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onPending, pendingImport, onReviewImport }) {
   const [favs, setFavs] = useState([])
   const favCols = useColumnsAt([[640, 2]]) // favourites masonry: 1 col < sm, 2 ≥ sm
   const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
@@ -748,6 +749,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           {greeting(user?.username)}
         </h1>
       </div>
+
+      {/* A staged import sits above the deck until it is dealt with: nothing has
+          entered the library yet, and that is easy to forget. */}
+      <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
 
       <DailyQuizCard onPending={onPending} states={states} onStates={setStates} />
 

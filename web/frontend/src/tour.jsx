@@ -65,8 +65,11 @@ const TOUR_STEPS = [
         show</b> from TMDB/TheTVDB; <b>capture a quote</b> against any work (the ❝ pill beside ＋
         jumps straight there); or <b>bulk-import</b> highlights: Markdown &amp; Readest exports,
         Kindle Bookcision &amp; your Kindle notebook, Goodreads and Hardcover pages, IMDb quote
-        pages. Re-imports are idempotent — syncing twice never duplicates. No file needed today; a
-        built-in sample quote rides along on the next steps.
+        pages. An import lands in <b>Pending import</b> first and stays there until you okay it —
+        fix chapters and locations in bulk, move quotes to the right book or film, then approve or
+        discard. A count on the ＋ pill says how much is waiting. Re-imports are idempotent, so
+        approving the same file twice never duplicates. No file needed today; a built-in sample
+        quote rides along on the next steps.
       </>
     ),
   },

@@ -109,6 +109,36 @@ func (c *testClient) importFile(path, name string, content []byte) *httptest.Res
 	return c.doRaw("POST", path, &buf, mw.FormDataContentType())
 }
 
+// importApprove uploads a file to an import endpoint and then approves exactly
+// what that upload staged, returning the APPROVE recorder — whose body carries
+// the added/skipped/enriched counters an import endpoint answered with directly
+// before staging landed (ROADMAP 1.2.0). So a test that asserts "re-importing a
+// library's own export is a no-op" goes on asserting exactly that, one step later.
+//
+// Scoping the approval by batch_id rather than approving everything matters: a
+// test that imports the same file twice must approve each upload separately, or
+// the second approval would find the first one's rows already gone.
+//
+// Use importFile directly when the assertion is about the import step itself — a
+// 400 for an unparseable file, or the staged count before approval.
+func (c *testClient) importApprove(path, name string, content []byte) *httptest.ResponseRecorder {
+	c.t.Helper()
+	rec := c.importFile(path, name, content)
+	if rec.Code != http.StatusOK {
+		return rec // hand the failure back so the caller can assert on it
+	}
+	var staged struct {
+		BatchID int64 `json:"batch_id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &staged); err != nil {
+		c.t.Fatalf("decode staged reply %s: %v", rec.Body, err)
+	}
+	if staged.BatchID == 0 {
+		c.t.Fatalf("import did not answer a batch id: %s", rec.Body)
+	}
+	return c.do("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID})
+}
+
 // signupAdmin creates the first (admin) user via onboarding and logs them in.
 func signupAdmin(t *testing.T, h http.Handler) *testClient {
 	t.Helper()

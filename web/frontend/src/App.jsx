@@ -6,6 +6,7 @@ import MetadataPage from './MetadataPage.jsx'
 import Movies from './Movies.jsx'
 import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
+import StagingPage from './StagingPage.jsx'
 import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
@@ -637,7 +638,10 @@ function AccountOverlay({ view, user, onUser, onClose }) {
 // refresh on /books/42 is served index.html by the server, then Shell restores
 // this state from the URL — and back/forward, including the mouse back button,
 // just work.
-const ROUTE_TABS = ['search', 'tags', 'metadata', 'stats', 'settings']
+// 'staging' (the pending-import queue) is routable but deliberately NOT a nav
+// tab: Import stopped being a permanent destination in 0.4.3, so the queue is
+// reached from the ＋ Add surface, its badge, and the Home nudge.
+const ROUTE_TABS = ['search', 'tags', 'metadata', 'stats', 'settings', 'staging']
 function parsePath(pathname) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   // "/" is the Home screen (daily review); unknown paths land there too.
@@ -651,6 +655,7 @@ function parsePath(pathname) {
   // /import is no longer a tab (§7 One "＋ Add"); an old link opens the Add
   // surface on its Import section over Home — handled by the Shell.
   if (a === 'import') return { tab: 'import', detail: null }
+  if (a === 'pending') return { tab: 'staging', detail: null }
   if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
   return { tab: 'home', detail: null }
 }
@@ -660,6 +665,7 @@ function statePath(tab, detail) {
   if (tab === 'home') return '/'
   if (tab === 'library') return '/library'
   if (tab === 'movies') return '/catalogue'
+  if (tab === 'staging') return '/pending'
   return `/${tab}`
 }
 
@@ -699,7 +705,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, pending, streak, update, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, pending, pendingImport, streak, update, logout, dark, onUser }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -806,6 +812,17 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
             Add
             <span className="drawer-badge">work · quote · import</span>
           </button>
+          {pendingImport > 0 && (
+            <button
+              type="button"
+              className="drawer-item"
+              onClick={() => { selectTab('staging'); onClose() }}
+            >
+              <TabIcon name="import" />
+              Pending import
+              <span className="drawer-badge" style={{ color: 'var(--accent-ui)' }}>{pendingImport}</span>
+            </button>
+          )}
           {DRAWER_TABS.map((t, i) =>
             t === null ? (
               <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
@@ -973,6 +990,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // the brand mark and the drawer's Home row. Seeded once here, then kept
   // honest by the Home screen as answers land.
   const [pending, setPending] = useState(0)
+  // pendingImport = quotes sitting in the import staging queue. A half-finished
+  // import must not be forgettable, so the count badges the ＋ Add control and
+  // surfaces on Home until the queue is cleared.
+  const [pendingImport, setPendingImport] = useState(0)
+  const refreshPendingImport = () => {
+    json('GET', '/import/staged?counts=1').then((r) => { if (r.ok) setPendingImport(r.data.pending || 0) })
+  }
   const [streak, setStreak] = useState(0) // daily-quiz streak — drawer Stats subtext
   const [stats, setStats] = useState(null) // drawer counts + Home stat tiles
   // Update-check result, shared so the mobile drawer's "update available" link
@@ -1011,6 +1035,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     json('GET', `/review/daily?offset=${tzOffsetMinutes()}`).then((r) => {
       if (r.ok) { setPending((r.data.items || []).length); setStreak(r.data.streak || 0) }
     })
+    refreshPendingImport()
     // An old /import link lands here — open the Add surface on Import.
     if (initial.tab === 'import') openAdd('import')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1101,6 +1126,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   }
 
   const brandDot = pending > 0 && <span className="review-dot" aria-hidden="true" />
+  // The ＋ Add pill carries the staging count, because that is where imports
+  // start and where the queue is reached from.
+  const importBadge = pendingImport > 0 && <span className="add-badge">{pendingImport}</span>
 
   return (
     <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
@@ -1122,10 +1150,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               className="topbar-add-btn tactile"
               data-tour="add"
               onClick={() => openAdd('book')}
-              title="Add a book, film or quote, or import highlights"
+              title={pendingImport > 0
+                ? `Add a book, film or quote, or import highlights — ${pendingImport} imported quotes are waiting for review`
+                : 'Add a book, film or quote, or import highlights'}
             >
               <IconPlus />
               <span>Add</span>
+              {importBadge}
             </button>
             {/* Search rides beside ＋ Add as an icon-only pill in the same
                 accent texture — the phone top bar already works this way.
@@ -1164,6 +1195,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 quote · import toggle; ❝ opens it straight on Capture quote. */}
             <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
               <IconPlus />
+              {importBadge}
             </button>
             <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
               <IconSearch />
@@ -1183,6 +1215,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onGoLibrary={() => selectTab('library')}
               onGoMovies={() => selectTab('movies')}
               onPending={setPending}
+              pendingImport={pendingImport}
+              onReviewImport={() => selectTab('staging')}
             />
           </div>
         )}
@@ -1194,6 +1228,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onClose={() => go('library', null)}
               onOpenMovie={openMovie}
               creditSeparators={user.preferences?.creditSeparators}
+              pendingImport={pendingImport}
+              onReviewImport={() => selectTab('staging')}
+              onStaged={refreshPendingImport}
             />
           </div>
         )}
@@ -1204,6 +1241,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpen={openMovie}
               onClose={() => go('movies', null)}
               creditSeparators={user.preferences?.creditSeparators}
+              pendingImport={pendingImport}
+              onReviewImport={() => selectTab('staging')}
+              onStaged={refreshPendingImport}
             />
           </div>
         )}
@@ -1232,6 +1272,16 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <StatsPage onSearch={searchFor} />
           </div>
         )}
+        {tab === 'staging' && (
+          <div data-screen-label="staging">
+            <StagingPage
+              onPending={setPendingImport}
+              onOpenBook={openBook}
+              onOpenMovie={openMovie}
+              onApproved={refreshStats}
+            />
+          </div>
+        )}
         {tab === 'settings' && (
           <div data-screen-label="settings">
             <Settings
@@ -1257,6 +1307,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         user={user}
         stats={stats}
         pending={pending}
+        pendingImport={pendingImport}
         streak={streak}
         update={update}
         logout={logout}
@@ -1266,6 +1317,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       <AddSurface
         open={addOpen}
         initialSection={addSection}
+        pendingImport={pendingImport}
+        onReviewImport={() => { setAddOpen(false); selectTab('staging') }}
+        onStaged={refreshPendingImport}
         onClose={() => setAddOpen(false)}
         onAdded={(what) => {
           setAddOpen(false)

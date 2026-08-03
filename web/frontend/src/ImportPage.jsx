@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { json, upload, errText } from './api.js'
-// annotationState must be the SHARED one: PUT is full-state, and this file used
-// to keep a private copy that omitted sticker_id/sticker_x/sticker_y — so filling
-// in a missing chapter or location here silently wiped an attached sticker and
-// its seal position.
-import { annotationState } from './Library.jsx'
+import { upload, errText } from './api.js'
 import {
-  ErrorText,
-  Field,
   GhostButton,
   HandCard,
   InfoDot,
@@ -17,9 +10,18 @@ import {
   useReveal,
 } from './ui.jsx'
 
-// Import page (§8.8, mockups 17–19): four source cards with bulk multi-select
-// and drag-drop, one request per file to the existing endpoints, per-file
-// result rows + a batch summary, then the post-import review pass (PLAN §5b).
+// Import page (§8.8, mockups 17–19): source cards with bulk multi-select and
+// drag-drop, one request per file to the existing endpoints, and per-file result
+// rows.
+//
+// Since 1.2.0 an import writes nothing into the library: it parses into the
+// staging queue and answers a batch id and a staged count. So the results here
+// report what was *staged* and hand over to the pending-import screen, which is
+// where quotes are reviewed and approved in bulk.
+//
+// The old post-import review pass — walk the rows missing chapter or location and
+// fill them in one at a time — is retired. The queue supersedes it and does the
+// same job over a selection instead of a row at a time.
 
 const SOURCES = [
   {
@@ -110,10 +112,10 @@ const SOURCES = [
 
 // `embedded` renders without the page header / sticky bar, for the unified Add
 // surface (§7 One "＋ Add") where the surface supplies its own title + chooser.
-export default function ImportPage({ onOpenMovie, embedded = false }) {
+export default function ImportPage({ onReviewImport, onStaged, embedded = false }) {
   const [results, setResults] = useState(null) // per-file rows, in batch order
   const [summary, setSummary] = useState('')
-  const [queue, setQueue] = useState(null) // review pass: [{bookId, ann}]
+  const [staged, setStaged] = useState(0) // this run's total, for the hand-over
   const [busy, setBusy] = useState(false)
   const ref = useReveal()
   const mobile = useIsMobileScreen()
@@ -123,7 +125,7 @@ export default function ImportPage({ onOpenMovie, embedded = false }) {
     if (busy || files.length === 0) return
     setBusy(true)
     setSummary('')
-    setQueue(null)
+    setStaged(0)
     const rows = files.map((f) => ({ name: f.name, pending: true }))
     setResults([...rows])
     for (let i = 0; i < files.length; i++) {
@@ -134,33 +136,13 @@ export default function ImportPage({ onOpenMovie, embedded = false }) {
       setResults([...rows])
     }
     const ok = rows.filter((r) => r.ok)
-    const t = ok.reduce(
-      (t, r) => ({
-        added: t.added + r.added,
-        skipped: t.skipped + r.skipped,
-        enriched: t.enriched + (r.enriched || 0),
-      }),
-      { added: 0, skipped: 0, enriched: 0 },
-    )
+    const total = ok.reduce((n, r) => n + (r.staged || 0), 0)
+    setStaged(total)
     setSummary(
-      `${files.length} file${files.length === 1 ? '' : 's'} → ${t.added} added · ${t.skipped} skipped` +
-        (t.enriched ? ` · ${t.enriched} enriched` : ''),
+      `${files.length} file${files.length === 1 ? '' : 's'} → ${total} quote${total === 1 ? '' : 's'} staged` +
+        ' · nothing has entered your library yet',
     )
-    // Review pass: collect annotations missing chapter/location across the
-    // books this batch touched. Movie/show imports (IMDb → dialogues) return no
-    // book_id, so the filter naturally skips them.
-    const q = []
-    // A markdown file may import many books (multi-book export), so prefer the
-    // book_ids array; fall back to the single book_id for other sources.
-    const touched = ok.flatMap((r) => r.book_ids || (r.book_id ? [r.book_id] : []))
-    for (const bookId of [...new Set(touched.filter(Boolean))]) {
-      const a = await json('GET', `/annotations?book_id=${bookId}`)
-      if (!a.ok) continue
-      for (const ann of a.data.annotations) {
-        if (!ann.chapter || !ann.location) q.push({ bookId, ann })
-      }
-    }
-    if (q.length > 0) setQueue(q)
+    onStaged?.()
     setBusy(false)
   }
 
@@ -191,8 +173,10 @@ export default function ImportPage({ onOpenMovie, embedded = false }) {
           ))}
         </div>
       )}
-      {results && <BatchResults results={results} summary={summary} onOpenMovie={onOpenMovie} />}
-      {queue && <ReviewPanel queue={queue} onDone={() => setQueue(null)} />}
+      {results && (
+        <BatchResults results={results} summary={summary} staged={staged} onReviewImport={onReviewImport} />
+      )}
+      <NothingLandsYetNote />
       <SaveDontPasteNote />
     </section>
   )
@@ -415,11 +399,11 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
   )
 }
 
-// BatchResults — accent-barred card: summary line + one mono row per file.
-// Book imports show added/skipped/enriched + a look-alike hint; movie/show
-// imports (IMDb → dialogues) show where the dialogues landed and, when the
-// import anchored to an existing title or was ambiguous, a review notice.
-function BatchResults({ results, summary, onOpenMovie }) {
+// BatchResults — accent-barred card: a summary line, one mono row per file, and
+// the hand-over to the pending queue. Rows report what was STAGED and where each
+// work will land if approved; the added/skipped/enriched counters now belong to
+// the approval, so they are reported there.
+function BatchResults({ results, summary, staged, onReviewImport }) {
   return (
     <div className="hand-card hc-r2 space-y-1.5 p-4" style={{ borderLeft: '4px solid var(--accent)' }}>
       {summary && (
@@ -434,22 +418,71 @@ function BatchResults({ results, summary, onOpenMovie }) {
             {r.pending ? (
               '…'
             ) : r.ok ? (
-              `${r.added} added · ${r.skipped} skipped` + (r.enriched ? ` · ${r.enriched} enriched` : '')
+              `${r.staged} quote${r.staged === 1 ? '' : 's'} staged`
             ) : (
               <span style={{ color: 'var(--error)' }}>{r.error}</span>
             )}
           </p>
           {r.ok && <ClippingsNotice row={r} />}
+          {r.ok && (r.works || []).map((w) => <StagedWorkNotice key={w.id} work={w} />)}
           {r.ok && r.possible_duplicates && r.possible_duplicates.length > 0 && (
             <p className="microcopy" style={{ color: 'var(--amber, var(--accent-ui))' }}>
               ⚠ looks like a book you already have:{' '}
-              {r.possible_duplicates.map((d) => d.title).join(', ')} — open either book to merge or keep them separate
+              {r.possible_duplicates.map((d) => d.title).join(', ')} — retarget the staged quotes onto it in the queue,
+              or approve them as a separate book
             </p>
           )}
-          {r.ok && r.movie_id && <MovieImportNotice row={r} onOpenMovie={onOpenMovie} />}
         </div>
       ))}
+      {staged > 0 && onReviewImport && (
+        <button className="tp-btn tp-btn-primary mt-1.5" onClick={onReviewImport}>
+          Review {staged} staged quote{staged === 1 ? '' : 's'}
+        </button>
+      )}
+      {staged > 0 && !onReviewImport && (
+        <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
+          open Pending import to review and approve them
+        </p>
+      )}
     </div>
+  )
+}
+
+// StagedWorkNotice says where one parsed work will land — a new row, or a title
+// already in the library — and flags an ambiguous match. This is the check the
+// 1.1.1 routing bug wanted: it happens before the write, not after it.
+function StagedWorkNotice({ work }) {
+  const kindWord = work.kind === 'book' ? 'book' : work.kind === 'show' ? 'show' : 'film'
+  return (
+    <div className="microcopy" style={{ color: 'var(--soft)' }}>
+      <span>
+        {work.title} ({work.staged}) →{' '}
+        {work.target_id
+          ? `joins your existing “${work.target_title || work.title}”${work.target_year ? ` (${work.target_year})` : ''}`
+          : `a new ${kindWord}`}
+      </span>
+      {work.ambiguous && (
+        <p style={{ color: 'var(--amber, var(--accent-ui))' }}>
+          ⚠ you have {work.alternatives + 1} titles named “{work.title}” — the queue shows which one it picked, and lets
+          you move it
+        </p>
+      )}
+    </div>
+  )
+}
+
+// NothingLandsYetNote states the contract of the screen once, in place, so the
+// absence of "12 added" is understood rather than read as a failure.
+function NothingLandsYetNote() {
+  return (
+    <p
+      className="microcopy px-4 py-3"
+      style={{ border: '1px dashed var(--line)', borderRadius: 12, color: 'var(--soft)' }}
+    >
+      Imports land in <b>Pending import</b> first and stay there until you okay them — nothing enters your library, your
+      search or your review deck on arrival. Review a whole file at once there: fix chapters and locations in bulk, move
+      quotes to the right book or film, then approve or discard.
+    </p>
   )
 }
 
@@ -468,117 +501,5 @@ function ClippingsNotice({ row }) {
       {row.blocks_malformed ? '⚠ ' : ''}
       {parts.join(' · ')}
     </p>
-  )
-}
-
-// MovieImportNotice explains where an IMDb import's dialogues landed: a new
-// entry, or anchored onto an existing same-name title (flagging a year mismatch
-// or an ambiguous match so the user can confirm). Links to the movie to review.
-function MovieImportNotice({ row, onOpenMovie }) {
-  const yearMismatch =
-    row.anchored && row.year_imported && row.matched_year && row.year_imported !== row.matched_year
-  return (
-    <div className="microcopy" style={{ color: 'var(--soft)' }}>
-      <span>
-        {row.created
-          ? `added a new title “${row.title}”`
-          : `attached to your existing “${row.title}”${row.matched_year ? ` (${row.matched_year})` : ''}`}
-      </span>
-      {onOpenMovie && (
-        <>
-          {' — '}
-          <button type="button" className="tp-link" onClick={() => onOpenMovie(row.movie_id)}>
-            open{row.media_type === 'show' ? ' show' : ' movie'}
-          </button>
-        </>
-      )}
-      {yearMismatch && (
-        <p style={{ color: 'var(--amber, var(--accent-ui))' }}>
-          ⚠ the imported page said {row.year_imported} but your title is {row.matched_year} — confirm they’re the
-          same title.
-        </p>
-      )}
-      {row.ambiguous && (
-        <p style={{ color: 'var(--amber, var(--accent-ui))' }}>
-          ⚠ you have {row.alternatives + 1} titles named “{row.title}”; the dialogues went to the most likely one —
-          open it to check.
-        </p>
-      )}
-    </div>
-  )
-}
-
-// ReviewPanel walks the imported annotations missing chapter or location, one
-// at a time (PLAN §5b): fill in the blanks, skip one, or skip all to close.
-function ReviewPanel({ queue, onDone }) {
-  const [idx, setIdx] = useState(0)
-  const [chapter, setChapter] = useState(queue[0].ann.chapter || '')
-  const [location, setLocation] = useState(queue[0].ann.location || '')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const current = queue[idx]
-
-  function goto(i) {
-    if (i >= queue.length) return onDone()
-    setIdx(i)
-    setChapter(queue[i].ann.chapter || '')
-    setLocation(queue[i].ann.location || '')
-    setError('')
-  }
-
-  async function saveNext() {
-    setBusy(true)
-    setError('')
-    // Re-fetch the annotation's current state before the full-state PUT so we
-    // don't revert fields edited elsewhere while this panel was open (the
-    // queue is a batch-time snapshot).
-    const fresh = await json('GET', `/annotations?book_id=${current.bookId}`)
-    const base = (fresh.ok && fresh.data.annotations.find((a) => a.id === current.ann.id)) || current.ann
-    const r = await json('PUT', `/annotations/${current.ann.id}`, {
-      ...annotationState(base),
-      chapter: chapter.trim(),
-      location: location.trim(),
-    })
-    setBusy(false)
-    if (!r.ok) return setError(errText(r, 'could not save annotation'))
-    goto(idx + 1)
-  }
-
-  return (
-    <HandCard variant={3} className="space-y-4 p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h3 className="text-base font-semibold">Review imported quotes</h3>
-        <MonoLabel>
-          {idx + 1} of {queue.length} missing chapter / location
-        </MonoLabel>
-      </div>
-      <p
-        className="whitespace-pre-wrap"
-        style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16.5 }}
-      >
-        “{current.ann.quote || current.ann.note}”
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label="Chapter"
-          placeholder="The Turning Point"
-          value={chapter}
-          onChange={(e) => setChapter(e.target.value)}
-        />
-        <Field label="Location" placeholder="p.—" value={location} onChange={(e) => setLocation(e.target.value)} />
-      </div>
-      <ErrorText>{error}</ErrorText>
-      <div className="flex flex-wrap items-center gap-2">
-        <button className="tp-btn tp-btn-primary" onClick={saveNext} disabled={busy}>
-          Save & next
-        </button>
-        <GhostButton onClick={() => goto(idx + 1)} disabled={busy}>
-          Skip
-        </GhostButton>
-        <GhostButton onClick={onDone} disabled={busy}>
-          Skip all
-        </GhostButton>
-      </div>
-    </HandCard>
   )
 }

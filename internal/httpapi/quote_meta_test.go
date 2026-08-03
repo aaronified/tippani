@@ -144,7 +144,7 @@ func TestImportMarkdownFavorite(t *testing.T) {
 	c := signupAdmin(t, h)
 
 	md := "---\ntitle: T\n---\n\n> plain quote\n\n> starred quote\n- favorite: yes\n"
-	res := decode[importResult](t, c.importFile("/import/markdown", "t.md", []byte(md)))
+	res := decode[importResult](t, c.importApprove("/import/markdown", "t.md", []byte(md)))
 	if res.Added != 2 {
 		t.Fatalf("import: %+v", res)
 	}

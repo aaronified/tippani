@@ -43,7 +43,7 @@ func TestImportMarkdown(t *testing.T) {
 		"",
 	}, "\n")
 
-	rec := c.importFile("/import/markdown", "notes.md", []byte(md))
+	rec := c.importApprove("/import/markdown", "notes.md", []byte(md))
 	if rec.Code != 200 {
 		t.Fatalf("import: %d %s", rec.Code, rec.Body)
 	}
@@ -73,7 +73,7 @@ func TestImportMarkdown(t *testing.T) {
 	}
 
 	// Re-import is idempotent: same book, everything skipped.
-	res2 := decode[importResult](t, c.importFile("/import/markdown", "notes.md", []byte(md)))
+	res2 := decode[importResult](t, c.importApprove("/import/markdown", "notes.md", []byte(md)))
 	if res2.BookID != res.BookID || res2.Added != 0 || res2.Skipped != 2 {
 		t.Fatalf("re-import: %+v", res2)
 	}
@@ -100,7 +100,7 @@ func TestImportMarkdownMultiBook(t *testing.T) {
 	md := "---\ntitle: Alpha\nauthor: A. One\n---\n\n> First alpha quote.\n\n> Second alpha quote.\n\n" +
 		"---\ntitle: Beta\nauthor: B. Two\n---\n\n> Only beta quote.\n"
 
-	res := decode[importResult](t, c.importFile("/import/markdown", "both.md", []byte(md)))
+	res := decode[importResult](t, c.importApprove("/import/markdown", "both.md", []byte(md)))
 	if res.Added != 3 || res.Skipped != 0 {
 		t.Fatalf("multi-book import: %+v", res)
 	}
@@ -121,7 +121,7 @@ func TestImportMarkdownMultiBook(t *testing.T) {
 	}
 
 	// Idempotent: re-importing the same multi-book file adds nothing.
-	res2 := decode[importResult](t, c.importFile("/import/markdown", "both.md", []byte(md)))
+	res2 := decode[importResult](t, c.importApprove("/import/markdown", "both.md", []byte(md)))
 	if res2.Added != 0 || res2.Skipped != 3 {
 		t.Fatalf("re-import: %+v", res2)
 	}
@@ -136,12 +136,12 @@ func TestImportBookcision(t *testing.T) {
 	if err != nil {
 		t.Skip("real Bookcision fixture not present (gitignored — owner privacy)")
 	}
-	res := decode[importResult](t, c.importFile("/import/bookcision", "export.json", data))
+	res := decode[importResult](t, c.importApprove("/import/bookcision", "export.json", data))
 	if res.Added != 11 || res.Skipped != 0 {
 		t.Fatalf("first import: %+v", res)
 	}
 	// Idempotent re-import, matched via ASIN.
-	res2 := decode[importResult](t, c.importFile("/import/bookcision", "export.json", data))
+	res2 := decode[importResult](t, c.importApprove("/import/bookcision", "export.json", data))
 	if res2.BookID != res.BookID || res2.Added != 0 || res2.Skipped != 11 {
 		t.Fatalf("re-import: %+v", res2)
 	}
@@ -170,11 +170,11 @@ func TestImportMarkdownReadestShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := decode[importResult](t, c.importFile("/import/markdown", "readest.md", data))
+	res := decode[importResult](t, c.importApprove("/import/markdown", "readest.md", data))
 	if res.Added != 3 || res.Skipped != 0 {
 		t.Fatalf("first import: %+v", res)
 	}
-	res2 := decode[importResult](t, c.importFile("/import/markdown", "readest.md", data))
+	res2 := decode[importResult](t, c.importApprove("/import/markdown", "readest.md", data))
 	if res2.BookID != res.BookID || res2.Added != 0 || res2.Skipped != 3 {
 		t.Fatalf("re-import: %+v", res2)
 	}
@@ -205,12 +205,12 @@ func TestImportHardcoverHTML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res := decode[importResult](t, c.importFile("/import/hardcover-html", "journal.htm", data))
+	res := decode[importResult](t, c.importApprove("/import/hardcover-html", "journal.htm", data))
 	if res.Added != 2 || res.Skipped != 0 {
 		t.Fatalf("first import: %+v", res)
 	}
 	// Idempotent re-import, matched via ISBN.
-	res2 := decode[importResult](t, c.importFile("/import/hardcover-html", "journal.htm", data))
+	res2 := decode[importResult](t, c.importApprove("/import/hardcover-html", "journal.htm", data))
 	if res2.BookID != res.BookID || res2.Added != 0 || res2.Skipped != 2 {
 		t.Fatalf("re-import: %+v", res2)
 	}
@@ -253,9 +253,9 @@ func TestImportCrossSourceBookIdentity(t *testing.T) {
 	}
 
 	// Readest first: no ISBN/ASIN, book keyed by title+author only.
-	r1 := decode[importResult](t, c.importFile("/import/markdown", "readest.md", readest))
+	r1 := decode[importResult](t, c.importApprove("/import/markdown", "readest.md", readest))
 	// Hardcover second: same title+author, but carries ISBN + ASIN.
-	r2 := decode[importResult](t, c.importFile("/import/hardcover-html", "journal.htm", hardcover))
+	r2 := decode[importResult](t, c.importApprove("/import/hardcover-html", "journal.htm", hardcover))
 	if r2.BookID != r1.BookID {
 		t.Fatalf("cross-source imports split the book: %d vs %d", r1.BookID, r2.BookID)
 	}
@@ -265,7 +265,7 @@ func TestImportCrossSourceBookIdentity(t *testing.T) {
 	if b.ISBN != "9780000000002" || b.ASIN != "B00SYNTH42" {
 		t.Fatalf("identifiers not backfilled: %+v", b)
 	}
-	res := decode[importResult](t, c.importFile("/import/hardcover-html", "journal.htm", hardcover))
+	res := decode[importResult](t, c.importApprove("/import/hardcover-html", "journal.htm", hardcover))
 	if res.BookID != r1.BookID {
 		t.Fatalf("isbn re-match after backfill: %+v", res)
 	}
@@ -283,13 +283,13 @@ func TestImportBackfillAcrossIdentities(t *testing.T) {
 	// 1: Bookcision — ASIN only, long Kindle-style title.
 	bc := `{"asin":"B000TEST01","title":"Deadhouse Gates: Malazan Book of the Fallen 2","authors":"Steven Erikson",` +
 		`"highlights":[{"text":"quote one","isNoteOnly":false,"location":{"value":10},"note":null}]}`
-	r1 := decode[importResult](t, c.importFile("/import/bookcision", "b.json", []byte(bc)))
+	r1 := decode[importResult](t, c.importApprove("/import/bookcision", "b.json", []byte(bc)))
 
 	// 2: Hardcover — same ASIN plus an ISBN, short title. Matches on ASIN.
 	hc := `{"props":{"book":{"title":"Deadhouse Gates","contributions":[{"author":{"name":"Steven Erikson"},"contribution":null}]},` +
 		`"journals":[{"event":"quote","entry":"quote two","edition":{"isbn13":"9780553812176","asin":"B000TEST01"},"metadata":{"position":{"type":"pages","value":5}}}]}}`
 	page := `<div id="app" data-page="` + html.EscapeString(hc) + `"></div>`
-	r2 := decode[importResult](t, c.importFile("/import/hardcover-html", "j.htm", []byte(page)))
+	r2 := decode[importResult](t, c.importApprove("/import/hardcover-html", "j.htm", []byte(page)))
 	if r2.BookID != r1.BookID {
 		t.Fatalf("ASIN match split the book: %d vs %d", r2.BookID, r1.BookID)
 	}
@@ -300,7 +300,7 @@ func TestImportBackfillAcrossIdentities(t *testing.T) {
 
 	// 3: markdown — ISBN only, short title. Must match on the backfilled ISBN.
 	md := "---\ntitle: Deadhouse Gates\nauthor: Steven Erikson\nisbn: 9780553812176\n---\n\n> quote three\n"
-	r3 := decode[importResult](t, c.importFile("/import/markdown", "n.md", []byte(md)))
+	r3 := decode[importResult](t, c.importApprove("/import/markdown", "n.md", []byte(md)))
 	if r3.BookID != r1.BookID {
 		t.Fatalf("book split on ISBN-only import: landed in %d, want %d", r3.BookID, r1.BookID)
 	}
@@ -316,7 +316,7 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 
 	// Import 1: bare quote — no chapter/location/note/tags, default color.
 	bare := "---\ntitle: Enrich Me\nauthor: A\n---\n\n> The same passage, twice imported.\n"
-	r1 := decode[importResult](t, c.importFile("/import/markdown", "bare.md", []byte(bare)))
+	r1 := decode[importResult](t, c.importApprove("/import/markdown", "bare.md", []byte(bare)))
 	if r1.Added != 1 || r1.Enriched != 0 {
 		t.Fatalf("first import: %+v", r1)
 	}
@@ -335,7 +335,7 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 	}, "\n")
 	// Keep the quote text hash-identical to import 1 (comma version).
 	rich = strings.Replace(rich, "The same passage — twice imported.", "The same passage, twice imported.", 1)
-	r2 := decode[importResult](t, c.importFile("/import/markdown", "rich.md", []byte(rich)))
+	r2 := decode[importResult](t, c.importApprove("/import/markdown", "rich.md", []byte(rich)))
 	if r2.BookID != r1.BookID || r2.Added != 0 || r2.Skipped != 1 || r2.Enriched != 1 {
 		t.Fatalf("enriching import: %+v", r2)
 	}
@@ -354,7 +354,7 @@ func TestImportDuplicateEnrichment(t *testing.T) {
 	// Import 3: same text again with DIFFERENT metadata — must not overwrite,
 	// only union the new tag; identical re-import counts as skipped, not enriched.
 	clobber := "---\ntitle: Enrich Me\nauthor: A\n---\n\n## Chapter 1\n\n> The same passage, twice imported.\n- note: should NOT replace\n- loc: p.999\n- colour: pink\n- tags: gamma\n"
-	r3 := decode[importResult](t, c.importFile("/import/markdown", "clobber.md", []byte(clobber)))
+	r3 := decode[importResult](t, c.importApprove("/import/markdown", "clobber.md", []byte(clobber)))
 	if r3.Added != 0 || r3.Skipped != 1 || r3.Enriched != 0 {
 		t.Fatalf("clobber import: %+v", r3)
 	}
@@ -600,22 +600,41 @@ func TestImportKindleClippings(t *testing.T) {
 
 	type clipResult struct {
 		importResult
-		Bookmarks int `json:"bookmarks_skipped"`
-		Malformed int `json:"blocks_malformed"`
+		Bookmarks int   `json:"bookmarks_skipped"`
+		Malformed int   `json:"blocks_malformed"`
+		BatchID   int64 `json:"batch_id"`
+		Staged    int   `json:"staged"`
 	}
-	res := decode[clipResult](t, c.importFile("/import/kindle-clippings", "My Clippings.txt", []byte(clips)))
+	// The parser's own counters describe what it made of the FILE, so they are
+	// reported by the import (staging) step — before anything is approved, which
+	// is the only point at which "1 bookmark had no text to import" is actionable.
+	staged := decode[clipResult](t, c.importFile("/import/kindle-clippings", "My Clippings.txt", []byte(clips)))
+	if staged.BatchID == 0 || staged.Staged != 2 {
+		t.Fatalf("clippings should stage both highlights: %+v", staged)
+	}
+	if staged.Bookmarks != 1 || staged.Malformed != 0 {
+		t.Fatalf("skip counts must be reported: %+v", staged)
+	}
+	// Nothing is in the library yet.
+	type bookList struct {
+		Books []struct {
+			ID int64 `json:"id"`
+		} `json:"books"`
+	}
+	if list := decode[bookList](t, c.mustDo("GET", "/books", nil, 200)); len(list.Books) != 0 {
+		t.Fatalf("staging must not create books: %+v", list.Books)
+	}
+
+	res := decode[clipResult](t, c.do("POST", "/import/staged/approve", map[string]any{"batch_id": staged.BatchID}))
 	if len(res.BookIDs) != 2 {
 		t.Fatalf("a clippings file lands every book: %+v", res)
 	}
 	if res.Added != 2 {
 		t.Fatalf("added = %d, want 2", res.Added)
 	}
-	if res.Bookmarks != 1 || res.Malformed != 0 {
-		t.Fatalf("skip counts must be reported: %+v", res)
-	}
 
 	// Re-importing the same file is idempotent (dedupe_hash), as for every source.
-	again := decode[clipResult](t, c.importFile("/import/kindle-clippings", "My Clippings.txt", []byte(clips)))
+	again := decode[clipResult](t, c.importApprove("/import/kindle-clippings", "My Clippings.txt", []byte(clips)))
 	if again.Added != 0 || again.Skipped != 2 {
 		t.Fatalf("re-import should add nothing: %+v", again)
 	}

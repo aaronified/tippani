@@ -248,6 +248,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /import/kindle-notebook", s.requireAuth(s.handleImportKindleNotebook)) // read.amazon.com/notebook
 	mux.Handle("POST /import/imdb-quotes", s.requireAuth(s.handleImportIMDb))               // movies/dialogues (PLAN §5)
 	mux.Handle("POST /import/kindle-clippings", s.requireAuth(s.handleImportKindleClippings)) // the device's My Clippings.txt
+	// Import staging: every import above parses into this queue, and nothing
+	// reaches the library until it is approved (ROADMAP 1.2.0).
+	mux.Handle("GET /import/staged", s.requireAuth(s.handleListStaged))
+	mux.Handle("POST /import/staged/bulk", s.requireAuth(s.handleBulkStaged))
+	mux.Handle("POST /import/staged/approve", s.requireAuth(s.handleApproveStaged))
+	mux.Handle("DELETE /import/staged", s.requireAuth(s.handleDiscardStaged))
 	mux.Handle("GET /covers/{file}", s.requireAuth(s.handleCover))
 
 	// Export (PLAN §6b): single-item markdown + whole-library zip.

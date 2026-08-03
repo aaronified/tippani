@@ -54,7 +54,7 @@ func TestIMDbImportAnchors(t *testing.T) {
 		map[string]any{"title": "V for Vendetta", "release_year": 2006}, http.StatusCreated))
 
 	// Import the quotes page — must anchor onto m, not create a second title.
-	res := decode[imdbImportResp](t, c.importFile("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
+	res := decode[imdbImportResp](t, c.importApprove("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
 	if res.MovieID != m.ID || res.Created || !res.Anchored {
 		t.Fatalf("expected anchor onto movie %d, got %+v", m.ID, res)
 	}
@@ -72,7 +72,7 @@ func TestIMDbImportAnchors(t *testing.T) {
 	}
 
 	// Re-import is idempotent: same dialogues skipped, still one title.
-	res2 := decode[imdbImportResp](t, c.importFile("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
+	res2 := decode[imdbImportResp](t, c.importApprove("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
 	if res2.Added != 0 || res2.Skipped != 2 {
 		t.Fatalf("re-import not idempotent: %+v", res2)
 	}
@@ -88,7 +88,7 @@ func TestIMDbImportCreatesWhenNoMatch(t *testing.T) {
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	res := decode[imdbImportResp](t, c.importFile("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
+	res := decode[imdbImportResp](t, c.importApprove("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
 	if !res.Created || res.Anchored || res.Added != 2 {
 		t.Fatalf("expected a fresh create, got %+v", res)
 	}
@@ -107,7 +107,7 @@ func TestIMDbImportAmbiguous(t *testing.T) {
 	c.mustDo("POST", "/movies", map[string]any{"title": "V for Vendetta", "release_year": 2006}, http.StatusCreated)
 	c.mustDo("POST", "/movies", map[string]any{"title": "V for Vendetta", "release_year": 1988}, http.StatusCreated)
 
-	res := decode[imdbImportResp](t, c.importFile("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
+	res := decode[imdbImportResp](t, c.importApprove("/import/imdb-quotes", "v.htm", []byte(vForVendettaQuotes)))
 	if !res.Anchored || !res.Ambiguous || res.Alternatives != 1 {
 		t.Fatalf("expected ambiguous anchor, got %+v", res)
 	}

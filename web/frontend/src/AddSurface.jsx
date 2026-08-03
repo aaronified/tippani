@@ -345,7 +345,7 @@ function matchRank(w, q) {
 // last row that quick-creates a new work from the typed title. Keyboard nav +
 // outside-click close follow TokenInput; the dropdown reuses its .token-menu
 // skin. A picked work renders as a chip with a "change" link.
-function WorkPicker({ works, value, onChange, onCreate }) {
+export function WorkPicker({ works, value, onChange, onCreate }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
@@ -667,7 +667,7 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
 // open. `onOpenMovie`, when supplied, lets an IMDb import jump straight to the
 // new title (closing the surface first). `onWorkCreated` reports an inline
 // work add from the capture tab (the shell refreshes its counts).
-export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptured, onWorkCreated }) {
+export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptured, onWorkCreated, pendingImport = 0, onReviewImport, onStaged }) {
   const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' ? 'quote' : 'add')
   const [tab, setTab] = useState(tabFor(initialSection))
   const mobile = useIsMobileScreen()
@@ -724,10 +724,21 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
           <CaptureQuote onCaptured={onCaptured} onWorkCreated={onWorkCreated} />
         )}
         {tab === 'import' && (
-          <ImportPage
-            embedded
-            onOpenMovie={onOpenMovie ? (id) => { onClose(); onOpenMovie(id) } : undefined}
-          />
+          <>
+            {/* An import still waiting in the queue must be visible from the one
+                place you would start another one. */}
+            {pendingImport > 0 && onReviewImport && (
+              <button
+                type="button"
+                className="tp-btn tp-btn-primary w-full"
+                style={{ marginBottom: 12 }}
+                onClick={onReviewImport}
+              >
+                {pendingImport} staged quote{pendingImport === 1 ? '' : 's'} waiting — review the queue
+              </button>
+            )}
+            <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
+          </>
         )}
       </HandCard>
     </div>

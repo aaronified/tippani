@@ -72,6 +72,21 @@ the subsystem and the underlying error.
 | `TIP-STICKER-001` | Stickers list |
 | `TIP-ADMIN-001` | Admin user list |
 | `TIP-META-001` | Metadata console / library rows |
+| `TIP-IMPORT-002` | Import staging queue rows (batches / works / quotes) |
+
+## IMPORT — the staging queue
+
+A bulk import parses into a holding area and nothing enters the library until it
+is approved, so these failures leave the library untouched by construction: a
+failed stage means the file was not taken in, and a failed approve means the
+quotes are still queued. Nothing is half-applied — every one of these paths runs
+in a single transaction.
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-IMPORT-001` | A parsed import could not be written into the staging tables; nothing was staged. | A database write failed mid-batch (disk full, or corruption — check for `TIP-STORE-002`). | Retry the upload. The file parsed fine, so nothing is wrong with it; the library and the existing queue are unchanged. |
+| `TIP-IMPORT-003` | Approving staged quotes failed; the transaction rolled back. | A write failed while resolving the destination work or inserting quotes — often a book or film that was deleted while its quotes sat staged. | The quotes are still in the queue, so retry the approval. If it recurs, approve one batch (or one work) at a time to find the row that fails. |
+| `TIP-IMPORT-004` | A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged. | A write failed, or a retarget named a book/film that was deleted mid-edit. | Reload the queue so it reflects the current library, then retry. Nothing was partially applied. |
 
 ## Metadata, covers, people, imports
 
