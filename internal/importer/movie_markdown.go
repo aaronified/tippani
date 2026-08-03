@@ -172,6 +172,8 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.Timestamp = val
 			case "note":
 				cur.Note = val
+			case "color", "colour":
+				cur.Color = val
 			case "tags":
 				cur.Tags = splitCSV(val)
 			case "favorite":

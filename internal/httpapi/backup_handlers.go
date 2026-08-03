@@ -498,13 +498,14 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 				"[backup] ROLLBACK FAILED (%v) — exiting for a clean boot; previous data is in %s", rbErr, preDir)
 			os.Exit(1)
 		}
-		s.Sessions.DB = s.Store.DB
+		s.rebindDB()
 		writeErr(w, http.StatusInternalServerError, "restore failed — previous data is intact")
 		return
 	}
 
-	// Success: repoint sessions, keep exactly this one safety generation.
-	s.Sessions.DB = s.Store.DB
+	// Success: repoint the auth stores at the reopened DB, keep exactly this
+	// one safety generation.
+	s.rebindDB()
 	preBase := filepath.Base(preDir)
 	if entries, err := os.ReadDir(s.DataDir); err == nil {
 		for _, e := range entries {

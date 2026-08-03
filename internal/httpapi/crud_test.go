@@ -49,11 +49,14 @@ func newTestServer(t *testing.T) *Server {
 	return srv
 }
 
-// testClient sends requests through the full handler chain as one user.
+// testClient sends requests through the full handler chain as one user, via
+// either credential the server accepts: a browser session cookie, or the
+// Authorization: Bearer device token a native client carries. Set at most one.
 type testClient struct {
 	t      *testing.T
 	h      http.Handler
 	cookie *http.Cookie
+	bearer string
 }
 
 func (c *testClient) do(method, path string, body any) *httptest.ResponseRecorder {
@@ -73,6 +76,9 @@ func (c *testClient) doRaw(method, path string, body io.Reader, contentType stri
 	}
 	if c.cookie != nil {
 		req.AddCookie(c.cookie)
+	}
+	if c.bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+c.bearer)
 	}
 	rec := httptest.NewRecorder()
 	c.h.ServeHTTP(rec, req)

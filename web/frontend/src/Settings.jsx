@@ -53,6 +53,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     <Metadata key="meta" user={user} />,
     <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
     <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
+    <DevicesCard key="devices" />,
     user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
     user.is_admin && <BackupCard key="backup" />,
   ].filter(Boolean)
@@ -412,6 +413,141 @@ function OnboardingCard({ user, onStartTour }) {
       </ul>
     </Card>
   )
+}
+
+// DevicesCard — pair a phone with this account, and revoke one.
+//
+// A paired device carries a bearer token, not a session cookie: no expiry, and
+// a password change deliberately does NOT revoke it (see auth.DeviceTokens), so
+// rotating your password can't silently unpair a phone with no signal on the
+// device. Revoking is its own explicit act, which is what this card is for.
+//
+// The code is shown as text rather than a QR: the QR only saves typing, and
+// there is no app to point a camera at it yet. It lands with the app.
+function DevicesCard() {
+  const [devices, setDevices] = useState(null)
+  const [pair, setPair] = useState(null) // {code, expires_at} while pairing
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function load() {
+    const r = await json('GET', '/auth/devices')
+    if (r.ok) setDevices(r.data.devices)
+    else setErr(errText(r, 'could not load devices'))
+  }
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function startPairing() {
+    setBusy(true)
+    const r = await json('POST', '/auth/devices/pair')
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, 'could not start pairing'))
+    setErr('')
+    setPair(r.data)
+  }
+
+  async function revoke(d) {
+    if (!confirm(`Unpair “${d.name}”? It will stop working immediately.`)) return
+    const r = await json('DELETE', `/auth/devices/${d.id}`)
+    if (!r.ok) return setErr(errText(r, 'could not revoke device'))
+    setErr('')
+    toast('device unpaired')
+    load()
+  }
+
+  async function revokeAll() {
+    if (!confirm('Unpair every device? Each will stop working immediately.')) return
+    const r = await json('POST', '/auth/devices/revoke-all')
+    if (!r.ok) return setErr(errText(r, 'could not revoke devices'))
+    setErr('')
+    toast('all devices unpaired')
+    load()
+  }
+
+  return (
+    <Card>
+      <SectionTitle right={devices?.length ? <MonoLabel>{devices.length} paired</MonoLabel> : null}>
+        Devices
+      </SectionTitle>
+      <p className="microcopy" style={{ fontSize: 12.5 }}>
+        Pair the Android app with this account. A device stays paired until you unpair it here —
+        changing your password signs out browsers but deliberately leaves phones alone, so a
+        routine password change can’t silently unpair them.
+      </p>
+
+      {pair ? (
+        <div className="mt-3" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+          <MonoLabel>pairing code</MonoLabel>
+          <div
+            className="mt-1 select-all"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 30,
+              letterSpacing: '0.18em',
+              fontWeight: 600,
+            }}
+          >
+            {pair.code}
+          </div>
+          <p className="microcopy mt-1" style={{ fontSize: 12 }}>
+            Enter it in the app within five minutes. It works once, then expires.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <GhostButton onClick={() => copyText(pair.code)}>Copy code</GhostButton>
+            <GhostButton
+              onClick={() => {
+                setPair(null)
+                load()
+              }}
+            >
+              Done
+            </GhostButton>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <StickerButton onClick={startPairing} disabled={busy}>
+            Pair a device
+          </StickerButton>
+          {devices?.length > 0 && <GhostButton onClick={revokeAll}>Unpair all</GhostButton>}
+        </div>
+      )}
+
+      {devices?.length > 0 && (
+        <ul className="mt-4 space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+          {devices.map((d) => (
+            <li key={d.id} className="flex items-center gap-3" style={{ fontSize: 12.5 }}>
+              <span>
+                <b>{d.name}</b>
+                <span style={{ color: 'var(--soft)' }}>
+                  {' — '}
+                  {d.last_seen_at ? `last seen ${fmtStamp(d.last_seen_at)}` : 'never used'}
+                </span>
+              </span>
+              <span className="ml-auto">
+                <GhostButton onClick={() => revoke(d)}>Unpair</GhostButton>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {devices !== null && devices.length === 0 && !pair && (
+        <p className="microcopy mt-3" style={{ fontSize: 12, color: 'var(--soft)' }}>
+          No devices paired yet.
+        </p>
+      )}
+      <ErrorText>{err}</ErrorText>
+    </Card>
+  )
+}
+
+// fmtStamp renders a SQLite "YYYY-MM-DD HH:MM:SS" (UTC) as a local date-time.
+function fmtStamp(s) {
+  const d = new Date(String(s).replace(' ', 'T') + 'Z')
+  if (Number.isNaN(d.getTime())) return s
+  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function BackupCard() {

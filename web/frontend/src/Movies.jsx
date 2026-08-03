@@ -17,6 +17,8 @@ import {
   GenreFilter,
   GhostButton,
   HandCard,
+  ANNOTATION_HEX,
+  ColorSwatches,
   HandNote,
   Hearts,
   IconButton,
@@ -842,6 +844,7 @@ export function dialogueState(d) {
   return {
     quote: d.quote || '',
     note: d.note || '',
+    color: d.color || 'yellow',
     character: d.character || '',
     actor: d.actor || '',
     timestamp: d.timestamp || '',
@@ -866,6 +869,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
   const [person, setPerson] = useState(null) // actor metadata panel ({ kind, name })
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
+  const [color, setColor] = useState('') // '' = all colours
   const [editingId, setEditingId] = useState(null)
   const [adding, setAdding] = useState(false)
 
@@ -919,6 +923,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
     const params = new URLSearchParams({ movie_id: movieId })
     if (tag) params.set('tag', tag)
     if (fav) params.set('favorite', '1')
+    if (color) params.set('color', color)
     const r = await json('GET', `/dialogues?${params}`)
     if (seq !== reqSeq.current) return
     if (r.ok) setItems(r.data.dialogues)
@@ -930,7 +935,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
     // expanded card while the set changes underneath it).
     setExpandedId(null)
     load()
-  }, [movieId, tag, fav])
+  }, [movieId, tag, fav, color])
   useEffect(() => {
     loadTags()
   }, [movieId])
@@ -968,13 +973,14 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
     load()
   }
 
-  const filtering = tag || fav
+  const filtering = tag || fav || color
 
   // Build the normalised share payload from the chosen dialogue + its movie.
   const sharePayload = (d) =>
     movieShare({
       quote: d.quote,
       note: d.note,
+      color: d.color,
       title: movie?.title,
       year: movie?.release_year,
       character: d.character,
@@ -997,7 +1003,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
           footer={
             <SheetFooter
               count={items ? `${items.length} shown` : ''}
-              onReset={() => { setTag(''); setFav(false) }}
+              onReset={() => { setTag(''); setFav(false); setColor('') }}
               onDone={() => onMobileFilterOpen?.(false)}
             />
           }
@@ -1022,6 +1028,13 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
                   </div>
             </div>
             <div>
+              <MonoLabel className="mb-2 block">colour</MonoLabel>
+              {/* Re-picking the active colour clears it — the list filter has an
+                  "all" state the server has no equivalent for (see validColor),
+                  matching how the Library's colour filter behaves. */}
+              <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
+            </div>
+            <div>
               <MonoLabel className="mb-2 block">view</MonoLabel>
               <ViewToggle value={view} onChange={setView} />
             </div>
@@ -1035,6 +1048,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
             <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
               ♥ Favourites
             </button>
+            <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
             {tags.length > 0 && (
               <Select
                 ariaLabel="Filter by tag"
@@ -1288,6 +1302,11 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
   const frameClass = ['film-frame', wrapClass, 'px-5 py-4'].filter(Boolean).join(' ')
+  // The colour bar is the same affordance annotations get from HandCard's
+  // colorBar — a dialogue is a quote like any other, so it wears its colour the
+  // same way. Inline rather than a class because the frame's own borders are
+  // part of the film-strip recipe (§6) and must not be overridden wholesale.
+  const frameStyle = { borderLeft: `4px solid ${ANNOTATION_HEX[d.color] || ANNOTATION_HEX.yellow}` }
   // Accordion mode (tiles board): the parent owns which dialogue is open, so one
   // expands at a time. Elsewhere (list, search modal) each frame keeps its own.
   // The quote clamps to `quoteLines` and a chevron reveals only when it overflows
@@ -1299,7 +1318,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // editInline renders the form in place of the frame — used inside the search
   // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
   if (editInline && editing) {
-    return <article className={frameClass}>{editForm}</article>
+    return <article className={frameClass} style={frameStyle}>{editForm}</article>
   }
   // Credit line; a dialogue can name more than one actor (entered like genres),
   // so PLAYED BY lists each — every name clickable (opens the metadata panel)
@@ -1337,7 +1356,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       <FormModal open={editing} onClose={onCancelEdit} title="Edit dialogue">
         {editForm}
       </FormModal>
-    <article className={frameClass}>
+    <article className={frameClass} style={frameStyle}>
       {d.quote &&
         (sticker ? (
           <FlowQuote
@@ -1400,13 +1419,24 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {/* §7 declutter: the ♥ above is the frame's resting mark; share/edit/delete
           reveal on hover (desktop) or fold behind a ⋯ overflow (mobile). */}
-      <div className="mt-1 flex justify-end">
-        <QuoteActions
-          onShare={onShare || undefined}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          alwaysVisible={actionsAlwaysVisible}
-        />
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {/* shrink-0: the four blobs are one atomic control — the row wraps the
+            ⋯ cluster to a second line before it splits or squeezes them. */}
+        <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
+          <ColorSwatches
+            value={d.color || 'yellow'}
+            onChange={(c) => onPatch({ color: c })}
+            ariaLabel="Dialogue colour"
+          />
+        </span>
+        <span className="ml-auto flex items-center">
+          <QuoteActions
+            onShare={onShare || undefined}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            alwaysVisible={actionsAlwaysVisible}
+          />
+        </span>
       </div>
     </article>
     </>
@@ -1444,6 +1474,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
   })
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
   const [note, setNote] = useState(initial?.note || '')
+  const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
   const [error, setError] = useState('')
@@ -1475,6 +1506,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
       // existing actor through untouched (don't silently wipe a legacy credit).
       actor: characters.length ? '' : (initial?.actor || ''),
       timestamp: timestamp.trim(),
+      color,
       tags,
       // favorite is edited on the frame, not in the form — but PUT is
       // full-state, so carry the existing value through.
@@ -1531,6 +1563,10 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
       />
       <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
+      <div className="flex items-center gap-3">
+        <MonoLabel>colour</MonoLabel>
+        <ColorSwatches value={color} onChange={setColor} ariaLabel="Dialogue colour" />
+      </div>
       <div>
         <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
         <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />

@@ -529,8 +529,10 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
     setBusy(true)
     setErr('')
     const tags = draft.tags.split(',').map((s) => s.trim()).filter(Boolean)
-    // The body is built per-kind: dialogues have character/timestamp and no
-    // colour/chapter/location (the server auto-fills actor from the cast).
+    // The body differs only in how the quote points at its source: a dialogue
+    // carries character/timestamp, an annotation chapter/location. Everything
+    // else — quote, note, colour, tags — is shared (the server models this with
+    // the quoteReq embedded struct). The server auto-fills actor from the cast.
     const r = isScreen
       ? await json('POST', '/dialogues', {
           movie_id: t.id,
@@ -538,6 +540,7 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
           note: draft.note.trim(),
           character: draft.character.trim(),
           timestamp: draft.timestamp.trim(),
+          color: draft.color,
           tags,
         })
       : await json('POST', '/annotations', {
@@ -640,12 +643,10 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
           onChange={(e) => set({ tags: e.target.value })}
         />
       </label>
-      {!isScreen && (
-        <div className="flex items-center gap-3">
-          <MonoLabel>colour</MonoLabel>
-          <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
-        </div>
-      )}
+      <div className="flex items-center gap-3">
+        <MonoLabel>colour</MonoLabel>
+        <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
+      </div>
       <ErrorText>{err}</ErrorText>
       <div className="flex">
         <button type="button" className="tp-btn tp-btn-primary tactile ml-auto" style={{ minWidth: 120 }} disabled={busy} onClick={save}>

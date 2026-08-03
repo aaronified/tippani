@@ -210,17 +210,21 @@ func TestMigrateAndFTS(t *testing.T) {
 // TestMigrationReviewLadderClamp pins 0019's data transform: stored half-lives
 // above the ladder's 100-day cap are pulled down to it, everything at or below
 // is untouched. A fresh database applies 0019 to an empty table, so the test
-// replays just that migration (drop its schema_version row, Migrate again)
-// against real rows.
+// stands at schema 18, seeds real pre-ladder rows, then steps forward onto 0019
+// alone.
+//
+// It used to replay 0019 by deleting its schema_version row and calling
+// Migrate() again. That worked only while 0019 was the newest migration:
+// Migrate() resumes from MAX(version), so once a later migration existed the
+// replay quietly became a no-op and the assertions failed. migrateThrough keeps
+// the test independent of whatever the head migration happens to be.
 func TestMigrationReviewLadderClamp(t *testing.T) {
 	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	if err := st.Migrate(); err != nil {
-		t.Fatal(err)
-	}
+	migrateThrough(t, st, 18)
 	// Pre-ladder rows: one over the new cap, one on it, one under.
 	for id, stability := range map[int]float64{1: 365, 2: 100, 3: 30} {
 		if _, err := st.DB.Exec(`INSERT INTO item_reviews (kind, item_id, stability, last_touched_at)
@@ -228,12 +232,7 @@ func TestMigrationReviewLadderClamp(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := st.DB.Exec(`DELETE FROM schema_version WHERE version = 19`); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.Migrate(); err != nil {
-		t.Fatal(err)
-	}
+	migrateThrough(t, st, 19)
 	for id, want := range map[int]float64{1: 100, 2: 100, 3: 30} {
 		var got float64
 		if err := st.DB.QueryRow(`SELECT stability FROM item_reviews WHERE kind='book' AND item_id=?`, id).Scan(&got); err != nil {

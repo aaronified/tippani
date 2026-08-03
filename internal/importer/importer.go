@@ -60,6 +60,7 @@ type Dialogue struct {
 	Actor     string
 	Timestamp string
 	Note      string
+	Color     string // "" = the importer leaves it to the server default (yellow)
 	Tags      []string
 	Favorite  bool
 }

@@ -26,6 +26,11 @@ const (
 
 var ErrInvalidSession = errors.New("invalid or expired session")
 
+// ErrNoSuchDevice covers both "no such device" and "not yours" — the caller
+// must not be able to tell those apart, or the revoke endpoint becomes an
+// oracle for which device ids exist on other accounts.
+var ErrNoSuchDevice = errors.New("no such device")
+
 func HashPassword(pw string) (string, error) {
 	b, err := bcrypt.GenerateFromPassword([]byte(pw), BcryptCost)
 	return string(b), err
@@ -124,6 +129,137 @@ func (s Sessions) DeleteAllForUser(userID int64) error {
 
 func lifetimeModifier(d time.Duration) string {
 	return fmt.Sprintf("+%d hours", int(d.Hours())) // SQLite datetime modifier, e.g. "+720 hours"
+}
+
+// agoModifier is lifetimeModifier's backwards twin, for "older than d" checks:
+// e.g. "-1 hours". Passing a negative duration to lifetimeModifier would give
+// "+-1 hours", which SQLite rejects by returning NULL rather than erroring —
+// so the comparison it feeds quietly evaluates to false forever.
+func agoModifier(d time.Duration) string {
+	return fmt.Sprintf("-%d hours", int(d.Hours()))
+}
+
+// ---- device tokens ----
+
+// DeviceTokens persists the bearer credentials native clients carry (the
+// Android app under mobile/), in their own table alongside Sessions.
+//
+// They are deliberately not sessions, in two ways:
+//
+//   - No expiry. A cookie session slides on use and dies at SessionMaxLifetime
+//     regardless; a paired device lives until it is revoked from Settings.
+//   - A password change does not revoke them. Sessions are swept by
+//     DeleteAllForUser so a leaked cookie can't outlive the password that should
+//     have protected it. Doing the same to devices would silently unpair every
+//     phone on a routine rotation, with no signal on the device and no way to
+//     tell that from a server outage. Revoking a device is its own explicit act.
+//
+// The credential itself is handled exactly as a session token is: 256 bits of
+// randomness, sha256 at rest, the raw value returned once at pairing time.
+type DeviceTokens struct{ DB *sql.DB }
+
+// Device is one row of the Settings device list. It deliberately carries no
+// token material.
+type Device struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	CreatedAt  string `json:"created_at"`
+	LastSeenAt string `json:"last_seen_at"` // "" until first use
+}
+
+// lastSeenInterval is how stale last_seen_at must be before a validation
+// refreshes it. Writing on every request would turn each authenticated read
+// into a write on the single SQLite writer (PLAN §8) — the same reason
+// Sessions.Validate only slides its expiry past a threshold.
+const lastSeenInterval = time.Hour
+
+// Create issues a device token for userID and returns the raw token — the only
+// time it exists outside the client.
+func (d DeviceTokens) Create(userID int64, name string) (token string, err error) {
+	token, th, err := NewToken()
+	if err != nil {
+		return "", err
+	}
+	_, err = d.DB.Exec(
+		`INSERT INTO device_tokens (token_hash, user_id, name) VALUES (?, ?, ?)`, th, userID, name)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// Validate resolves a bearer token to (userID, username, isAdmin), refreshing
+// last_seen_at at most once per lastSeenInterval.
+func (d DeviceTokens) Validate(token string) (userID int64, username string, isAdmin bool, err error) {
+	if token == "" {
+		return 0, "", false, ErrInvalidSession
+	}
+	th := HashToken(token)
+	err = d.DB.QueryRow(`
+		SELECT t.user_id, u.username, u.is_admin
+		FROM device_tokens t JOIN users u ON u.id = t.user_id
+		WHERE t.token_hash = ?`, th,
+	).Scan(&userID, &username, &isAdmin)
+	if err != nil {
+		return 0, "", false, ErrInvalidSession
+	}
+	// Throttled in SQL so it stays one statement: the write is a no-op unless
+	// last_seen_at is missing or older than the interval. Note the modifier is
+	// built with agoModifier, not lifetimeModifier — the latter always emits a
+	// leading '+', so a negative duration yields "+-1 hours", which SQLite
+	// rejects, making datetime() NULL and the comparison silently never true.
+	_, _ = d.DB.Exec(
+		`UPDATE device_tokens SET last_seen_at = datetime('now')
+		 WHERE token_hash = ?
+		   AND (last_seen_at IS NULL OR last_seen_at < datetime('now', ?))`,
+		th, agoModifier(lastSeenInterval))
+	return userID, username, isAdmin, nil
+}
+
+// List returns userID's devices, newest first, without any token material.
+func (d DeviceTokens) List(userID int64) ([]Device, error) {
+	rows, err := d.DB.Query(`
+		SELECT id, name, created_at, COALESCE(last_seen_at, '')
+		FROM device_tokens WHERE user_id = ?
+		ORDER BY created_at DESC, id DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	devices := []Device{}
+	for rows.Next() {
+		var dev Device
+		if err := rows.Scan(&dev.ID, &dev.Name, &dev.CreatedAt, &dev.LastSeenAt); err != nil {
+			return nil, err
+		}
+		devices = append(devices, dev)
+	}
+	return devices, rows.Err()
+}
+
+// Revoke removes one device. The user_id predicate is the authorization check,
+// not a filter: without it, any signed-in user could revoke another's device by
+// guessing an id.
+func (d DeviceTokens) Revoke(userID, id int64) error {
+	res, err := d.DB.Exec(`DELETE FROM device_tokens WHERE id = ? AND user_id = ?`, id, userID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNoSuchDevice
+	}
+	return nil
+}
+
+// RevokeAllForUser unpairs every device — the "sign out all devices" button,
+// and what a user reaches for if a phone is lost.
+func (d DeviceTokens) RevokeAllForUser(userID int64) error {
+	_, err := d.DB.Exec(`DELETE FROM device_tokens WHERE user_id = ?`, userID)
+	return err
 }
 
 // ConstantTimeEqual is used for any future fixed-token comparisons.

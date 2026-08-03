@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -247,11 +248,20 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 	added, enriched := 0, 0
 	for _, d := range res.Dialogues {
 		actor := autofillActor(castJSON, d.Character, d.Actor)
+		// Same rule as the book importer: IMDb quote pages carry no colour, so
+		// an unset one lands on the yellow default (PLAN §3).
+		color := d.Color
+		if color == "" {
+			color = "yellow"
+		}
+		if !validColor(color) {
+			return 0, 0, 0, false, importClientError{fmt.Sprintf("invalid color %q", d.Color)}
+		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (movie_id, quote, note, character, actor, timestamp, favorite, dedupe_hash)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			m.ID, d.Quote, nullable(d.Note), nullable(d.Character), nullable(actor),
+			  (movie_id, quote, note, color, character, actor, timestamp, favorite, dedupe_hash)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			m.ID, d.Quote, nullable(d.Note), color, nullable(d.Character), nullable(actor),
 			nullable(d.Timestamp), d.Favorite, store.DedupeHash(d.Quote))
 		if err != nil {
 			return 0, 0, 0, false, err
@@ -263,6 +273,7 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 				  character = COALESCE(character, ?),
 				  actor     = COALESCE(actor, ?),
 				  timestamp = COALESCE(timestamp, ?),
+				  color     = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite  = MAX(favorite, ?),
 				  updated_at = datetime('now')
 				WHERE movie_id = ? AND dedupe_hash = ?
@@ -270,10 +281,13 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 				       OR (character IS NULL AND ? IS NOT NULL)
 				       OR (actor IS NULL AND ? IS NOT NULL)
 				       OR (timestamp IS NULL AND ? IS NOT NULL)
+				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
-				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), d.Favorite,
+				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
+				color, color, d.Favorite,
 				m.ID, store.DedupeHash(d.Quote),
-				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), d.Favorite)
+				nullable(d.Note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
+				color, d.Favorite)
 			if err != nil {
 				return 0, 0, 0, false, err
 			}

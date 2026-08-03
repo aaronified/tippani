@@ -5,49 +5,27 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"tippani/internal/olog"
-	"tippani/internal/store"
 )
 
-func validColor(c string) bool {
-	switch c {
-	case "yellow", "blue", "pink", "orange":
-		return true
-	}
-	return false
-}
-
+// annotationReq is quoteReq plus the book locator: where in the book the
+// passage sits. See quote.go for the shared half.
 type annotationReq struct {
-	BookID   int64    `json:"book_id"`
-	Quote    string   `json:"quote"`
-	Note     string   `json:"note"`
-	Color    string   `json:"color"`
-	Chapter  string   `json:"chapter"`
-	Location string   `json:"location"`
-	Tags     []string `json:"tags"`
-	Favorite bool     `json:"favorite"`
-	// Attached sticker (uploaded image), or nil for none. StickerX/StickerY are
-	// its centre as a fraction of the quote block's width; nil ⇒ unplaced (UI
-	// defaults to top-right). PUT is full-state, so the client carries all three
-	// through on every save (see annotationState).
-	StickerID *int64   `json:"sticker_id"`
-	StickerX  *float64 `json:"sticker_x"`
-	StickerY  *float64 `json:"sticker_y"`
+	quoteReq
+	BookID   int64  `json:"book_id"`
+	Chapter  string `json:"chapter"`
+	Location string `json:"location"`
 }
 
 func (a *annotationReq) validate() string {
-	a.Quote = strings.TrimSpace(a.Quote)
-	a.Note = strings.TrimSpace(a.Note)
+	if msg := a.quoteReq.validate(); msg != "" {
+		return msg
+	}
+	// A book highlight may be a standalone note with no quote — a thought about
+	// the page rather than a passage from it. A dialogue may not.
 	if a.Quote == "" && a.Note == "" {
 		return "quote or note is required"
-	}
-	if a.Color == "" {
-		a.Color = "yellow" // PLAN §3: colours fixed at 4, default yellow
-	}
-	if !validColor(a.Color) {
-		return "color must be yellow, blue, pink or orange"
 	}
 	var ok bool
 	if a.Chapter, ok = trimCap(a.Chapter, 128); !ok {
@@ -74,41 +52,16 @@ func favoriteFilter(w http.ResponseWriter, r *http.Request, alias string, q *str
 	return true
 }
 
-// hash implements the PLAN §3 dedupe rule: the quote, or the note for
-// note-only annotations. Location deliberately excluded.
-func (a *annotationReq) hash() string {
-	if a.Quote != "" {
-		return store.DedupeHash(a.Quote)
-	}
-	return store.DedupeHash(a.Note)
-}
-
+// annotationRow is quoteRow plus the book locator and the parent attribution
+// that cross-book lists (Home favourites) render. See quote.go for the shared
+// half.
 type annotationRow struct {
-	ID         int64    `json:"id"`
-	BookID     int64    `json:"book_id"`
-	BookTitle  string   `json:"book_title"`  // parent attribution for cross-book lists (Home favourites)
-	BookAuthor string   `json:"book_author"` // "" if unknown
-	Quote      string   `json:"quote"`
-	Note       string   `json:"note"`
-	Color      string   `json:"color"`
-	Chapter    string   `json:"chapter"`
-	Location   string   `json:"location"`
-	Favorite   bool     `json:"favorite"`
-	Tags       []string `json:"tags"`
-	NotedAt    string   `json:"noted_at"`   // date of addition (original, or manual-add time); "" if unknown
-	StickerID  *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
-	StickerX   *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
-	StickerY   *float64 `json:"sticker_y"`  // seal centre y in the same width units
-	CreatedAt  string   `json:"created_at"`
-	UpdatedAt  string   `json:"updated_at"`
-	// Spaced-repetition state for the status dot (v0.5.0). Reviewed=false is the
-	// "unseen" pool; the client derives remembered/forgetting/probably-forgotten
-	// from stability + last_reviewed_at + last_result (a lapse forces
-	// probably-forgotten). Absent on create/update responses.
-	Reviewed       bool    `json:"reviewed"`
-	Stability      float64 `json:"stability"`
-	LastReviewedAt string  `json:"last_reviewed_at"`
-	LastResult     string  `json:"last_result"` // "got" | "forgot" | ""
+	quoteRow
+	BookID     int64  `json:"book_id"`
+	BookTitle  string `json:"book_title"`  // parent attribution for cross-book lists
+	BookAuthor string `json:"book_author"` // "" if unknown
+	Chapter    string `json:"chapter"`
+	Location   string `json:"location"`
 }
 
 func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
@@ -179,20 +132,37 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer tx.Rollback()
-	// noted_at defaults to now for a manual add (the "date of addition"); imports
-	// set it from the source instead.
+	// noted_at defaults to now (the "date of addition"); imports set it from the
+	// source, and a client flushing an offline capture sends the date it was
+	// actually taken — COALESCE picks whichever applies.
 	res, err := tx.Exec(`
 		INSERT INTO annotations (book_id, quote, note, color, chapter, location,
 		                         favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'manual', ?, datetime('now'), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
 		req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
-		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.hash(), req.StickerID, req.StickerX, req.StickerY)
+		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Source, req.hash(),
+		nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert annotation", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // same dedupe_hash already in this book
-		writeErr(w, http.StatusConflict, "duplicate annotation")
+		// Hand back the row holding this (book_id, dedupe_hash) slot so an
+		// offline client retrying an unacknowledged POST can tell its own
+		// earlier write from a real clash (see writeConflictExisting).
+		var existingID int64
+		if err := s.Store.DB.QueryRow(
+			`SELECT id FROM annotations WHERE book_id = ? AND dedupe_hash = ?`,
+			req.BookID, req.hash()).Scan(&existingID); err != nil {
+			internalError(w, r, "locate duplicate annotation", err)
+			return
+		}
+		existing, err := s.fetchAnnotation(uid, existingID)
+		if err != nil {
+			internalError(w, r, "fetch duplicate annotation", err)
+			return
+		}
+		writeConflictExisting(w, "duplicate annotation", existing)
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -235,13 +205,8 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		q += ` AND a.book_id = ?`
 		args = append(args, id)
 	}
-	if v := r.URL.Query().Get("color"); v != "" {
-		if !validColor(v) {
-			writeErr(w, http.StatusBadRequest, "color must be yellow, blue, pink or orange")
-			return
-		}
-		q += ` AND a.color = ?`
-		args = append(args, v)
+	if !colorFilter(w, r, "a", &q, &args) {
+		return
 	}
 	if v := r.URL.Query().Get("tag"); v != "" {
 		q += ` AND EXISTS (SELECT 1 FROM annotation_tags at JOIN tags t ON t.id = at.tag_id
@@ -253,15 +218,10 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 	q += ` ORDER BY a.created_at DESC, a.id DESC`
 	// Optional cap for widgets that only need the newest few (e.g. the Home
-	// screen's "recently favourited" pair) — without it the whole set ships.
-	if v := r.URL.Query().Get("limit"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 || n > 500 {
-			writeErr(w, http.StatusBadRequest, "limit must be between 1 and 500")
-			return
-		}
-		q += ` LIMIT ?`
-		args = append(args, n)
+	// screen's "recently favourited" pair), and the offset a client mirroring
+	// the library pages with — without either, the whole set ships.
+	if !applyPaging(w, r, &q, &args) {
+		return
 	}
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
@@ -271,7 +231,8 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	items := []annotationRow{}
 	for rows.Next() {
-		a := annotationRow{Tags: []string{}}
+		var a annotationRow
+		a.Tags = []string{}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
 			&a.Chapter, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult); err != nil {

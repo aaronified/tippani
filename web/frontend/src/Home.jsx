@@ -728,7 +728,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       : movieShare({
           quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
           character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp, tags: f.raw.tags,
-          people: actorMap,
+          color: f.raw.color, people: actorMap,
         })
 
   return (
@@ -873,7 +873,7 @@ function FavouriteTile({
   return (
     <HandCard
       variant={variant}
-      colorBar={isBook ? f.color : 'var(--amber)'}
+      colorBar={f.color || 'yellow'}
       style={{ padding: '12px 15px' }}
     >
       <FormModal open={editing} onClose={onEditCancel} title={isBook ? 'Edit quote' : 'Edit dialogue'} maxWidth={520}>

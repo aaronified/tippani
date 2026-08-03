@@ -35,7 +35,22 @@ type Server struct {
 	TMDBBuiltin  string         // built-in app key, the last fallback before 503 (defaultTMDBKey in cmd/tippani)
 	TVDB         *metadata.TVDB // Key = env-provided TheTVDB key; resolveTVDB falls through to settings (no built-in)
 
+	// Devices holds the bearer credentials native clients carry (the Android app
+	// under mobile/). Separate from Sessions on purpose — see auth.DeviceTokens.
+	Devices auth.DeviceTokens
+
 	loginLimiter *auth.KeyedLimiter
+
+	// pairingLimiter throttles the one unauthenticated route that hands out a
+	// credential (POST /auth/devices/claim), on the same reasoning as the login
+	// limiter: a short pairing code is only unguessable while guessing is slow.
+	pairingLimiter *auth.KeyedLimiter
+
+	// pairingCodes are the outstanding device-pairing codes, code -> owner and
+	// expiry. In memory by design (see pairing_handlers.go): they live minutes,
+	// so a restart costs one extra tap and the schema stays clean.
+	pairingMu    sync.Mutex
+	pairingCodes map[string]pairingCode
 
 	// Outbound-call seams: production implementations set in New, stubbed in
 	// tests (same idea as metadata's TMDB.BaseURL).
@@ -70,6 +85,7 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 	return &Server{
 		Store:          st,
 		Sessions:       auth.Sessions{DB: st.DB},
+		Devices:        auth.DeviceTokens{DB: st.DB},
 		CookieSecure:   cookieSecure,
 		TrustedProxy:   trustedProxy,
 		SeedNewUsers:   true,
@@ -81,6 +97,9 @@ func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedPro
 		TMDB:           &metadata.TMDB{},
 		TVDB:           &metadata.TVDB{},                              // key configured in Settings (resolveTVDB); no env slot
 		loginLimiter:   auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
+		// Pairing is a deliberate, one-at-a-time act, so it can be tighter than
+		// login: a burst of 10 covers a mistyped code or two, then 5/min.
+		pairingLimiter: auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 10),
 		fetchImage:     metadata.FetchImage,
 		fetchUserImage: metadata.FetchUserImage,
 		searchBooks:    metadata.SearchBooks,
@@ -103,6 +122,10 @@ func (s *Server) Handler() http.Handler {
 	// Auth. /auth/status and /auth/login are the only unauthenticated routes;
 	// /auth/signup and /auth/restore self-guard (they only work during
 	// first-run onboarding, while the users table is empty).
+	// Version handshake for independently-updated clients (mobile/), before any
+	// credential exists — see capabilities_handler.go.
+	mux.HandleFunc("GET /capabilities", s.handleCapabilities)
+
 	mux.HandleFunc("GET /auth/status", s.handleStatus)
 	mux.HandleFunc("POST /auth/signup", s.handleSignup)
 	mux.HandleFunc("POST /auth/restore", s.handleOnboardRestore)
@@ -115,6 +138,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /auth/me/avatar", s.requireAuth(s.handleUploadAvatar))
 	mux.Handle("DELETE /auth/me/avatar", s.requireAuth(s.handleDeleteAvatar))
 	mux.Handle("POST /auth/password", s.requireAuth(s.handlePassword))
+
+	// Device pairing for native clients (mobile/). /auth/devices/claim is the
+	// only unauthenticated one — the phone has no credential yet — and is rate
+	// limited in the handler; see pairing_handlers.go.
+	mux.Handle("POST /auth/devices/pair", s.requireAuth(s.handleStartPairing))
+	mux.HandleFunc("POST /auth/devices/claim", s.handleClaimPairing)
+	mux.Handle("GET /auth/devices", s.requireAuth(s.handleListDevices))
+	mux.Handle("DELETE /auth/devices/{id}", s.requireAuth(s.handleRevokeDevice))
+	mux.Handle("POST /auth/devices/revoke-all", s.requireAuth(s.handleRevokeAllDevices))
 
 	// User management — admin only (PLAN §2). The first user is the admin.
 	mux.Handle("GET /admin/users", s.requireAdmin(s.handleListUsers))
@@ -262,7 +294,37 @@ func (s *Server) Handler() http.Handler {
 	root.Handle("/", s.spaHandler())
 
 	csrf := http.NewCrossOriginProtection()
-	return logRequests(securityHeaders(csrf.Handler(root)))
+	// gzip sits inside logRequests so the logged byte count is what actually
+	// went over the wire, not the pre-compression size.
+	return logRequests(gzipResponses(securityHeaders(exceptBearer(csrf.Handler(root), root))))
+}
+
+// exceptBearer routes requests that carry an Authorization: Bearer credential
+// around the CSRF wrapper, and everything else through it.
+//
+// Cross-origin protection exists to stop a hostile page making a browser spend
+// an *ambient* credential — the session cookie, which the browser attaches on
+// its own. A bearer token is never attached automatically: it has to be read
+// from storage and set deliberately, which a cross-origin page cannot do. So
+// the protection buys nothing on that path.
+//
+// Today a header-less request already passes (no Sec-Fetch-Site, no Origin, so
+// nothing to reject — pinned by TestCSRFAllowsHeaderlessPost). This makes the
+// native client's exemption explicit rather than incidental, so a stricter
+// stdlib default in a future Go release can't silently break every phone.
+//
+// It deliberately does not weaken the cookie path: a cookie-only request still
+// goes through csrf, cross-site or not (TestBearerBypassDoesNotWeakenCookieCSRF).
+// Skipping CSRF is also not skipping auth — the token still has to validate in
+// requireAuth, so a forged header buys an attacker a 401.
+func exceptBearer(protected, bare http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, present := bearerToken(r); present {
+			bare.ServeHTTP(w, r)
+			return
+		}
+		protected.ServeHTTP(w, r)
+	})
 }
 
 // statusRecorder captures the response status + byte count for request logging.
@@ -391,14 +453,44 @@ func reqSuffix(r *http.Request) string {
 
 const sessionCookie = "tippani_session"
 
+// bearerToken returns the Authorization: Bearer credential and whether the
+// header was present at all. A present-but-unusable header ("Bearer", "Bearer ",
+// a different scheme) returns ok=true with an empty token, so requireAuth fails
+// closed on it rather than quietly falling through to a cookie that happens to
+// be attached — a revoked device would otherwise keep working alongside one.
+func bearerToken(r *http.Request) (token string, ok bool) {
+	h := r.Header.Get("Authorization")
+	if h == "" {
+		return "", false
+	}
+	const prefix = "Bearer "
+	if len(h) >= len(prefix) && strings.EqualFold(h[:len(prefix)], prefix) {
+		return strings.TrimSpace(h[len(prefix):]), true
+	}
+	return "", true
+}
+
 func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(sessionCookie)
-		if err != nil {
-			writeErr(w, http.StatusUnauthorized, "not logged in")
-			return
+		var (
+			uid     int64
+			uname   string
+			isAdmin bool
+			err     error
+		)
+		// A native client (mobile/) presents a device token; a browser presents
+		// the session cookie. Bearer wins when both are somehow present, so the
+		// identity doesn't depend on header ordering.
+		if token, present := bearerToken(r); present {
+			uid, uname, isAdmin, err = s.Devices.Validate(token)
+		} else {
+			c, cerr := r.Cookie(sessionCookie)
+			if cerr != nil {
+				writeErr(w, http.StatusUnauthorized, "not logged in")
+				return
+			}
+			uid, uname, isAdmin, err = s.Sessions.Validate(c.Value)
 		}
-		uid, uname, isAdmin, err := s.Sessions.Validate(c.Value)
 		if err != nil {
 			writeErr(w, http.StatusUnauthorized, "not logged in")
 			return
@@ -424,6 +516,21 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.Handler {
 func userID(r *http.Request) int64    { v, _ := r.Context().Value(ctxUserID).(int64); return v }
 func username(r *http.Request) string { v, _ := r.Context().Value(ctxUsername).(string); return v }
 func isAdmin(r *http.Request) bool    { v, _ := r.Context().Value(ctxIsAdmin).(bool); return v }
+
+// rebindDB repoints every auth store that caches a *sql.DB at the Store's
+// current handle. An in-process restore closes the live database and reopens a
+// different file (backup_handlers.go), leaving anything holding the old handle
+// pointing at a closed connection — which surfaces as an unexplainable 401
+// rather than an error, because a failed lookup is indistinguishable from a
+// credential that doesn't exist.
+//
+// Every future DB-holding struct on Server belongs here too. Sessions was the
+// only one for a long time and was rebound inline at both restore exits;
+// adding Devices made a single place worth having.
+func (s *Server) rebindDB() {
+	s.Sessions.DB = s.Store.DB
+	s.Devices.DB = s.Store.DB
+}
 
 func (s *Server) clientIP(r *http.Request) string {
 	if s.TrustedProxy {
@@ -520,6 +627,20 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// writeConflictExisting answers a duplicate-create 409 with the row that
+// already occupies the slot, alongside the usual "error" string.
+//
+// A bare 409 is enough for a browser, where a person can see what happened. It
+// strands an offline client: the phone POSTs a queued capture, the connection
+// drops before the response arrives, it retries, and cannot tell its own
+// earlier POST landing from a genuine clash with a different quote. Dropping
+// the capture and reporting a permanent failure are both wrong. With the
+// existing row attached, a retry returns what a first success would have, and
+// the outbox entry is simply marked done.
+func writeConflictExisting(w http.ResponseWriter, msg string, existing any) {
+	writeJSON(w, http.StatusConflict, map[string]any{"error": msg, "existing": existing})
 }
 
 func (s *Server) spaHandler() http.Handler {

@@ -293,7 +293,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 // headings, dialogue order (timestamp IS NULL), timestamp, id (PLAN §3b).
 func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
-		SELECT id, quote, COALESCE(note, ''), COALESCE(character, ''), COALESCE(actor, ''),
+		SELECT id, quote, COALESCE(note, ''), color, COALESCE(character, ''), COALESCE(actor, ''),
 		       COALESCE(timestamp, ''), favorite
 		FROM dialogues WHERE movie_id = ?
 		ORDER BY (timestamp IS NULL), timestamp, id`, m.ID)
@@ -304,7 +304,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	var dlgs []dialogueRow
 	for rows.Next() {
 		var d dialogueRow
-		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Character, &d.Actor,
+		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Color, &d.Character, &d.Actor,
 			&d.Timestamp, &d.Favorite); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
 			continue
@@ -335,6 +335,11 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 			writeBinding(&sb, "actor", d.Actor)
 			writeBinding(&sb, "timestamp", d.Timestamp)
 			writeBinding(&sb, "note", note)
+			// Same rule as the book export: the default colour is left out, so
+			// a file only mentions colour when it was actually chosen.
+			if d.Color != "yellow" {
+				writeBinding(&sb, "color", d.Color)
+			}
 			writeBinding(&sb, "tags", strings.Join(tags[d.ID], ", "))
 			writeFavorite(&sb, d.Favorite)
 		})

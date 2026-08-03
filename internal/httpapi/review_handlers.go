@@ -204,7 +204,7 @@ type reviewCard struct {
 	Direction   string  `json:"direction"` // source | quote
 	Quote       string  `json:"quote"`
 	Note        string  `json:"note"`
-	Color       string  `json:"color"`      // book highlight colour; "" for screen
+	Color       string  `json:"color"`      // highlight colour — both kinds carry one (0021)
 	Title       string  `json:"title"`      // book / film / show title
 	Author      string  `json:"author"`     // book author; "" for screen
 	Character   string  `json:"character"`  // screen speaker; "" for book
@@ -357,7 +357,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, s
 }
 
 func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
-	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), m.title, COALESCE(d.character,''),
+	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), d.color, m.title, COALESCE(d.character,''),
 	             COALESCE(d.actor,''), COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
 	             COALESCE(julianday('now') - julianday(d.created_at), 1e9)
@@ -398,7 +398,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string,
 		var lr sql.NullString
 		var movieID int64
 		c.card.Kind = kindScreen
-		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Title, &c.card.Character,
+		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Character,
 			&c.card.Actor, &c.card.Timestamp, &c.card.MediaType,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)

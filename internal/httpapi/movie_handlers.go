@@ -366,7 +366,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[movie] handleListMovies uid=%v", uid)
-	rows, err := s.Store.DB.Query(`
+	q := `
 		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		       m.media_type, COALESCE(m.poster_path, ''),
 		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite,
@@ -376,7 +376,12 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
 		          AND d.note IS NOT NULL AND TRIM(d.note) <> '')
 		FROM movies m WHERE m.user_id = ?
-		ORDER BY m.created_at DESC, m.id DESC`, uid)
+		ORDER BY m.created_at DESC, m.id DESC`
+	args := []any{uid}
+	if !applyPaging(w, r, &q, &args) {
+		return
+	}
+	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
 		internalError(w, r, "list movies: query", err)
 		return

@@ -13,26 +13,22 @@ import (
 	"tippani/internal/store"
 )
 
+// dialogueReq is quoteReq plus the screen locator: who says the line, and when
+// in the runtime. See quote.go for the shared half.
 type dialogueReq struct {
-	MovieID   int64    `json:"movie_id"`
-	Quote     string   `json:"quote"`
-	Note      string   `json:"note"`
-	Character string   `json:"character"`
-	Actor     string   `json:"actor"`
-	Timestamp string   `json:"timestamp"`
-	Tags      []string `json:"tags"`
-	Favorite  bool     `json:"favorite"`
-	// Attached sticker (uploaded image), or nil for none. StickerX/StickerY are
-	// its centre as a fraction of the quote block width; nil ⇒ top-right default.
-	// PUT is full-state, so the client carries all three through on every save.
-	StickerID *int64   `json:"sticker_id"`
-	StickerX  *float64 `json:"sticker_x"`
-	StickerY  *float64 `json:"sticker_y"`
+	quoteReq
+	MovieID   int64  `json:"movie_id"`
+	Character string `json:"character"`
+	Actor     string `json:"actor"`
+	Timestamp string `json:"timestamp"`
 }
 
 func (d *dialogueReq) validate() string {
-	d.Quote = strings.TrimSpace(d.Quote)
-	d.Note = strings.TrimSpace(d.Note)
+	if msg := d.quoteReq.validate(); msg != "" {
+		return msg
+	}
+	// Unlike an annotation, a dialogue is always a spoken line — there is no
+	// note-only form, because a thought about a film belongs on the film.
 	if d.Quote == "" {
 		return "quote is required"
 	}
@@ -130,35 +126,21 @@ func refillMovieActors(tx *sql.Tx, movieID int64) (int, error) {
 	return len(fills), nil
 }
 
+// dialogueRow is quoteRow plus the screen locator. See quote.go for the shared
+// half.
 type dialogueRow struct {
-	ID        int64    `json:"id"`
-	MovieID   int64    `json:"movie_id"`
-	Quote     string   `json:"quote"`
-	Note      string   `json:"note"`
-	Character string   `json:"character"`
-	Actor     string   `json:"actor"`
-	Timestamp string   `json:"timestamp"`
-	Favorite  bool     `json:"favorite"`
-	Tags      []string `json:"tags"`
-	StickerID *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
-	StickerX  *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
-	StickerY  *float64 `json:"sticker_y"`
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
-	// Spaced-repetition state for the status dot (v0.5.0), mirroring annotations:
-	// Reviewed=false is the "unseen" pool; the client derives the status from
-	// stability + last_reviewed_at + last_result (a lapse forces
-	// probably-forgotten).
-	Reviewed       bool    `json:"reviewed"`
-	Stability      float64 `json:"stability"`
-	LastReviewedAt string  `json:"last_reviewed_at"`
-	LastResult     string  `json:"last_result"` // "got" | "forgot" | ""
+	quoteRow
+	MovieID   int64  `json:"movie_id"`
+	Character string `json:"character"`
+	Actor     string `json:"actor"`
+	Timestamp string `json:"timestamp"`
 }
 
 // dialogueCols includes the LEFT-JOINed spaced-repetition state (see
 // dialogueReviewJoin); every SELECT using it must add that join.
-const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.sticker_id, d.sticker_x, d.sticker_y, d.created_at, d.updated_at,
+const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.color, COALESCE(d.character, ''),
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
+	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')`
 
 // dialogueReviewJoin attaches the per-line review row (kind='screen') that
@@ -172,8 +154,9 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		SELECT `+dialogueCols+`
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
-		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
+		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
+			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult)
 	if err != nil {
 		return nil, err
@@ -235,18 +218,32 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO dialogues (movie_id, quote, note, character, actor, timestamp,
-		                       favorite, dedupe_hash, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		req.MovieID, req.Quote, nullable(req.Note), nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Favorite,
-		store.DedupeHash(req.Quote), req.StickerID, req.StickerX, req.StickerY)
+		INSERT INTO dialogues (movie_id, quote, note, color, character, actor, timestamp,
+		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
+		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Source,
+		store.DedupeHash(req.Quote), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert dialogue", err)
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // same dedupe_hash already in this movie
-		writeErr(w, http.StatusConflict, "duplicate dialogue")
+		// Same contract as the annotation create path: return the row that
+		// already holds the slot so an outbox retry is idempotent.
+		var existingID int64
+		if err := s.Store.DB.QueryRow(
+			`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
+			req.MovieID, store.DedupeHash(req.Quote)).Scan(&existingID); err != nil {
+			internalError(w, r, "locate duplicate dialogue", err)
+			return
+		}
+		existing, err := s.fetchDialogue(uid, existingID)
+		if err != nil {
+			internalError(w, r, "fetch duplicate dialogue", err)
+			return
+		}
+		writeConflictExisting(w, "duplicate dialogue", existing)
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -288,11 +285,17 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		                   WHERE dt.dialogue_id = d.id AND t.name = ?)`
 		args = append(args, v)
 	}
+	if !colorFilter(w, r, "d", &q, &args) {
+		return
+	}
 	if !favoriteFilter(w, r, "d", &q, &args) {
 		return
 	}
 	// Lexical timestamp order, untimed lines last (PLAN §3b — deliberate KISS).
 	q += ` ORDER BY (d.timestamp IS NULL), d.timestamp, d.id`
+	if !applyPaging(w, r, &q, &args) {
+		return
+	}
 	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
 		internalError(w, r, "list dialogues", err)
@@ -301,9 +304,11 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	items := []dialogueRow{}
 	for rows.Next() {
-		d := dialogueRow{Tags: []string{}}
-		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY, &d.CreatedAt, &d.UpdatedAt,
+		var d dialogueRow
+		d.Tags = []string{}
+		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
+			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
+			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
 			// SELECT/struct drift and would present as an unexplained empty list.
@@ -399,10 +404,10 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
-		UPDATE dialogues SET quote = ?, note = ?, character = ?, actor = ?, timestamp = ?,
+		UPDATE dialogues SET quote = ?, note = ?, color = ?, character = ?, actor = ?, timestamp = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
-		req.Quote, nullable(req.Note), nullable(req.Character),
+		req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
 		internalError(w, r, "update dialogue", err)
 		return

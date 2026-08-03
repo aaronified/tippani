@@ -210,7 +210,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[book] handleListBooks uid=%v", uid)
-	rows, err := s.Store.DB.Query(`
+	q := `
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
 		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
 		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite,
@@ -220,7 +220,14 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
 		          AND a.note IS NOT NULL AND TRIM(a.note) <> '')
 		FROM books b WHERE b.user_id = ?
-		ORDER BY b.created_at DESC, b.id DESC`, uid)
+		ORDER BY b.created_at DESC, b.id DESC`
+	args := []any{uid}
+	// Optional paging for clients that mirror the library (mobile/); the SPA
+	// sends neither parameter and still gets the whole list.
+	if !applyPaging(w, r, &q, &args) {
+		return
+	}
+	rows, err := s.Store.DB.Query(q, args...)
 	if err != nil {
 		internalError(w, r, "list books", err)
 		return

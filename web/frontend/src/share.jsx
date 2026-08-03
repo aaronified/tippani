@@ -145,6 +145,7 @@ export function movieShare({
   actor,
   timestamp,
   tags,
+  color,
   tmdbId,
   tvdbId,
   people,
@@ -175,6 +176,9 @@ export function movieShare({
     ],
     tags: tags || [],
     note: note || "",
+    // Dialogues carry a colour like annotations do (0021), so the shareable
+    // image tints the same way for both kinds.
+    color: color || "",
   };
 }
 
