@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-03
+
+An adversarial re-read of what 1.1.0 shipped, plus the import-routing bug that
+prompted it. Three of the five fixes below are regressions or dead code from
+1.1.0 itself; two predate it. One bug found in the same pass is recorded but
+deliberately **not** fixed here — concurrent writes can still return a 500, which
+needs the single-writer design PLAN §8 always specified rather than a patch. See
+*Known bugs* in [`ROADMAP.md`](ROADMAP.md).
+
+### Fixed
+- **A duplicate quote could hang the request instead of answering 409.** The
+  duplicate-create path added in 1.1.0 reads the existing row so a retried write
+  is idempotent — but it read it through the connection pool while still holding
+  its own INSERT transaction, which needs a *second* connection. The pool is
+  capped at four, so once they were in use the handler blocked waiting for a
+  connection only it could release: the request hung until the busy timeout
+  turned it into a 500. Reachable over plain HTTP by the least exotic client
+  behaviour there is — re-posting the same captures, which is what an offline
+  queue does. The transaction is now released before the read, since the failed
+  INSERT has nothing to commit.
+
+  Also on that path: if the existing row was deleted concurrently between the
+  failed insert and the read, the response was a 500. It is now a plain 409.
+
+- **`books.updated_at` and `movies.updated_at` were never written.** 1.1.0 added
+  both columns and backfilled them, on the reasoning that a client mirroring the
+  library needs them and that adding a column later is more annoying. It did not
+  write them: no INSERT set either, and none of the nineteen UPDATE sites across
+  editing, metadata backfill, bulk edit and import bumped them. So every row
+  created since 1.1.0 had NULL and no edit ever moved the value — a column that
+  looked usable, which is worse than one that is absent, because the first
+  delta-sync client to trust it would silently have missed every edit. All
+  twenty-four write sites now maintain it, and rows created since 1.1.0 are
+  backfilled.
+
+  Attempted first with triggers, which seemed like the robust answer for tables
+  written from a dozen places. It is not: `books` and `movies` carry FTS5
+  external-content sync triggers, and a trigger that updates the row it was fired
+  by drives those out of step with the content table — SQLite reports it as
+  `database disk image is malformed` on the next insert. Worth knowing before
+  anyone adds a convenience trigger to a table with an external-content index.
+
+- **Filling in a page number after an import wiped an attached sticker.** The
+  post-import review panel kept its own copy of the full-state PUT helper, and
+  that copy omitted the three sticker fields the shared one carries for exactly
+  this reason. Since PUT is full-state, saving a chapter or location sent nulls
+  for the sticker and its seal position, destroying both. It now uses the shared
+  helper. Predates 1.1.0.
+
+- **One user minting pairing codes could evict another's.** The in-memory code
+  table is capped, and eviction took the globally oldest entry — so an account
+  holding down "Pair a device" could knock out everyone else's pending code.
+  Eviction now falls on the minter's own codes first.
+
+- **A film could re-import from its own export as a book.** `POST /import/markdown`
+  takes one endpoint for both kinds and decides which by inspecting the file, and
+  that decision rested entirely on *optional* content: `director:` / `creator:` /
+  `collection:` in the frontmatter, or `character:` / `actor:` / `timestamp:` on a
+  line. A film with none of them — no director recorded, no collection, its lines
+  unattributed — carried nothing that said "film", so it fell through to the book
+  importer and came back as a **book with annotations**, silently, with the
+  dialogue fields dropped.
+
+  The catalogue export now always writes `type: movie` or `type: show`; the book
+  export never writes `type:` at all, so that one line is decisive and routing no
+  longer depends on which optional fields happen to be filled in. The old
+  heuristics still run, for hand-written files and for exports written before the
+  line became unconditional.
+
+  Two consequences worth knowing. **Catalogue exports gain a `type:` line** — six
+  characters of frontmatter, and the thing that makes the file unambiguous.
+  **Files already exported by 1.1.0 or earlier are not retroactively fixed**: a
+  bare film export written before this release still has nothing identifying it,
+  so re-export it (or add `type: movie` by hand) before importing it back. This is
+  also why colour could not be pressed into service as a signal — migration 0021
+  put it on both kinds, so it distinguishes nothing.
+
 ## [1.1.0] - 2026-08-03
 
 Groundwork for a native Android app, and the one arbitrary hole in the data
