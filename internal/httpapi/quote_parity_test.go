@@ -268,3 +268,89 @@ func TestDialogueColorSurvivesExportImport(t *testing.T) {
 		t.Fatalf("default colour changed in the round trip: %v", byQuote)
 	}
 }
+
+// TestBareFilmExportReimportsAsFilm is the end-to-end version of the routing bug:
+// a film with no director, no collection, and no character/actor/timestamp on any
+// line used to re-import as a BOOK, because nothing in its own export said
+// "film". The catalogue export now always carries a type line.
+func TestBareFilmExportReimportsAsFilm(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Deliberately bare: only a title, and one unattributed line.
+	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movieID, "quote": "Let everything that has been planned come true.",
+	}, http.StatusCreated)
+
+	md := c.mustDo("GET", "/movies/"+strconv.FormatInt(movieID, 10)+"/export", nil, http.StatusOK).Body.String()
+	if !strings.Contains(md, "type: movie") {
+		t.Fatalf("a bare film export must state its type:\n%s", md)
+	}
+
+	// Re-import into a clean account: it must land in the catalogue, not the library.
+	other := addUser(t, h, c, "bob")
+	rec := other.importFile("/import/markdown", "stalker.md", []byte(md))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
+	}
+
+	movies := decode[struct {
+		Movies []struct {
+			Title     string `json:"title"`
+			MediaType string `json:"media_type"`
+		} `json:"movies"`
+	}](t, other.mustDo("GET", "/movies", nil, http.StatusOK))
+	if len(movies.Movies) != 1 || movies.Movies[0].Title != "Stalker" {
+		t.Fatalf("bare film did not re-import as a film: %+v", movies.Movies)
+	}
+	if movies.Movies[0].MediaType != "movie" {
+		t.Fatalf("media_type = %q want movie", movies.Movies[0].MediaType)
+	}
+
+	books := decode[pagedBooks](t, other.mustDo("GET", "/books", nil, http.StatusOK))
+	if len(books.Books) != 0 {
+		t.Fatalf("re-import leaked into the library as %d book(s): %+v", len(books.Books), books.Books)
+	}
+
+	dlgs := decode[struct {
+		Dialogues []dialogueRow `json:"dialogues"`
+	}](t, other.mustDo("GET", "/dialogues", nil, http.StatusOK))
+	if len(dlgs.Dialogues) != 1 {
+		t.Fatalf("expected the line to arrive as a dialogue, got %d", len(dlgs.Dialogues))
+	}
+}
+
+// A show must round-trip its type too — the old exporter got this case right, so
+// this is the guard that making the line unconditional didn't break it.
+func TestShowExportKeepsItsMediaType(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Andor", "media_type": "show"}, http.StatusCreated)).ID
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movieID, "quote": "One way out.",
+	}, http.StatusCreated)
+
+	md := c.mustDo("GET", "/movies/"+strconv.FormatInt(movieID, 10)+"/export", nil, http.StatusOK).Body.String()
+	if !strings.Contains(md, "type: show") {
+		t.Fatalf("show export lost its type:\n%s", md)
+	}
+
+	other := addUser(t, h, c, "bob")
+	if rec := other.importFile("/import/markdown", "andor.md", []byte(md)); rec.Code != http.StatusOK {
+		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
+	}
+	movies := decode[struct {
+		Movies []struct {
+			MediaType string `json:"media_type"`
+		} `json:"movies"`
+	}](t, other.mustDo("GET", "/movies", nil, http.StatusOK))
+	if len(movies.Movies) != 1 || movies.Movies[0].MediaType != "show" {
+		t.Fatalf("show did not round-trip: %+v", movies.Movies)
+	}
+}

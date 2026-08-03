@@ -152,10 +152,10 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO books (user_id, title, author, isbn, asin, cover_path,
+		INSERT INTO books (updated_at, user_id, title, author, isbn, asin, cover_path,
 		                   description, published_year, google_id, openlibrary_id, source_metadata,
 		                   series, series_index, favorite)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear),
 		googleID, openlibraryID, sourceMeta,
@@ -383,7 +383,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?,
-		                 series = ?, series_index = ?, favorite = ?
+		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear),
@@ -397,7 +397,7 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if changeCover {
-		if _, err := tx.Exec(`UPDATE books SET cover_path = ? WHERE id = ? AND user_id = ?`,
+		if _, err := tx.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
 			nullable(newCover), id, uid); err != nil {
 			failErr("update book", err)
 			return
@@ -412,14 +412,14 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	switch req.Source {
 	case "google":
 		if req.SourceID != "" {
-			if _, err := tx.Exec(`UPDATE books SET google_id = ? WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
+			if _, err := tx.Exec(`UPDATE books SET google_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
 				failErr("update book", err)
 				return
 			}
 		}
 	case "openlibrary":
 		if req.SourceID != "" {
-			if _, err := tx.Exec(`UPDATE books SET openlibrary_id = ? WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
+			if _, err := tx.Exec(`UPDATE books SET openlibrary_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, req.SourceID, id, uid); err != nil {
 				failErr("update book", err)
 				return
 			}

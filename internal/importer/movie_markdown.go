@@ -12,15 +12,41 @@ import (
 
 // LooksLikeMovieMarkdown decides whether a markdown export is a catalogue
 // (movie/show) export rather than a book one, so the import endpoint can route
-// it. The catalogue export carries a "director:" frontmatter key and/or
-// character/actor/timestamp dialogue bindings; a book export carries author/isbn
-// and loc bindings. The first decisive signal wins; ambiguous files default to
-// book (the historical behaviour).
+// it. The first decisive signal wins; a file carrying none defaults to book,
+// which is the historical behaviour and the safer guess for a hand-written file.
+//
+// The decisive signal is the "type:" frontmatter line, which renderMovieExport
+// now always writes (movie or show) and the book export never writes. That closed
+// a real hole: detection used to rest entirely on OPTIONAL content — director /
+// creator / collection in the frontmatter, or character / actor / timestamp on a
+// line — so a film with none of them (no director recorded, no collection, its
+// lines unattributed) carried nothing that said "film", and re-importing its own
+// export silently produced a BOOK with annotations. The heuristics below still
+// run, for hand-written files and for exports written before the type line became
+// unconditional.
+//
+// Note what deliberately is NOT a signal: "- color:", which both kinds have
+// carried since migration 0021, and note/tags/date/favorite, which were always
+// shared. Only a binding unique to one kind can decide, and under the shared
+// quote shape that set is exactly the source locator — chapter/location for a
+// book, character/actor/timestamp for a film.
 func LooksLikeMovieMarkdown(data []byte) bool {
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	sc.Buffer(make([]byte, 64*1024), 1<<20)
 	for sc.Scan() {
 		line := strings.TrimSpace(strings.TrimSuffix(sc.Text(), "\r"))
+		// The explicit type line outranks every heuristic below: it is written by
+		// the exporter, which knows the answer, rather than inferred from whichever
+		// optional fields happen to be filled in.
+		if rest, ok := cutPrefixFold(line, "type:"); ok {
+			switch strings.ToLower(strings.TrimSpace(rest)) {
+			case "movie", "film", "show":
+				return true
+			case "book":
+				return false
+			}
+			continue // an unrecognised type says nothing; keep scanning
+		}
 		switch {
 		// "collection:" is decisive: the catalogue export writes it where the book
 		// export writes "series:", so it only ever appears on a film/show file.
@@ -35,6 +61,15 @@ func LooksLikeMovieMarkdown(data []byte) bool {
 		}
 	}
 	return false
+}
+
+// cutPrefixFold is strings.CutPrefix with an ASCII case-insensitive match, so a
+// hand-written "Type: Show" reads the same as the exporter's "type: show".
+func cutPrefixFold(s, prefix string) (rest string, ok bool) {
+	if len(s) < len(prefix) || !strings.EqualFold(s[:len(prefix)], prefix) {
+		return "", false
+	}
+	return s[len(prefix):], true
 }
 
 // MovieMarkdownAll parses a catalogue export (renderMovieExport shape) that may
@@ -121,8 +156,13 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 		case "collection", "series", "franchise":
 			res.Movie.Series, res.Movie.SeriesIndex = parseSeriesValue(val)
 		case "type", "mediatype", "media_type":
-			if val == "show" {
+			// Only the two known values are honoured; anything else leaves
+			// MediaType empty so the server applies its own default.
+			switch strings.ToLower(val) {
+			case "show":
 				res.Movie.MediaType = "show"
+			case "movie", "film":
+				res.Movie.MediaType = "movie"
 			}
 		} // unknown keys ignored
 	}

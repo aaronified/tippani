@@ -376,8 +376,8 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		return id, false, nil
 	}
 	res, err := tx.Exec(
-		`INSERT INTO books (user_id, title, author, isbn, asin, series, series_index)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO books (updated_at, user_id, title, author, isbn, asin, series, series_index)
+		 VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?)`,
 		uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex))
 	if err != nil {

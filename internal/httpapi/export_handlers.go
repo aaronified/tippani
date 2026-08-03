@@ -327,7 +327,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		kv{"year", zeroBlank(m.ReleaseYear)},
 		kv{"genres", strings.Join(m.Genres, ", ")},
 		kv{"collection", seriesFrontmatter(m.Series, m.SeriesIndex)},
-		kv{"type", typeIfShow(m.MediaType)}) // only shows carry a type line (round-trip)
+		kv{"type", mediaTypeLine(m.MediaType)}) // always present: it is what routes the re-import
 	for _, d := range dlgs {
 		sb.WriteString("\n")
 		writeQuoteBlock(&sb, d.Quote, d.Note, func(note string) {
@@ -453,11 +453,22 @@ func seriesFrontmatter(name string, idx float64) string {
 
 // typeIfShow emits "show" for a show and "" for a movie, so the export only
 // carries a "type:" line when it matters (shows re-import as shows).
-func typeIfShow(mediaType string) string {
+// mediaTypeLine is the catalogue export's "type:" frontmatter value. It is
+// always emitted, for films as well as shows, because it is the only signal that
+// reliably tells the importer a file is a catalogue export rather than a book one
+// (importer.LooksLikeMovieMarkdown).
+//
+// It used to be written for shows only, on the reasoning that "movie" is the
+// default and a default needn't be stated. That left a film with no director, no
+// collection, and no character/actor/timestamp on any line with nothing in it
+// that said "film" — so re-importing its own export silently created a BOOK with
+// annotations. Six characters of frontmatter is a cheap price for a file that
+// cannot be misread.
+func mediaTypeLine(mediaType string) string {
 	if mediaType == "show" {
 		return "show"
 	}
-	return ""
+	return "movie" // "" (pre-0006 rows) reads as a film, matching the column default
 }
 
 // dateOnly emits the YYYY-MM-DD prefix of a stored noted_at (annotations are

@@ -50,10 +50,14 @@ type pairingCode struct {
 	expires time.Time
 }
 
-// newPairingCode returns a random code from pairingAlphabet. It uses rejection
-// sampling rather than modulo so every symbol is equally likely — with a 32
-// symbol alphabet and 256 byte values the bias would be nil either way, but the
-// habit is worth keeping in credential-generating code.
+// newPairingCode returns a random code from pairingAlphabet.
+//
+// The modulo below is unbiased here and only here: 256 is an exact multiple of
+// the 32-symbol alphabet, so every symbol maps from exactly 8 of the 256 byte
+// values. (An earlier version of this comment claimed rejection sampling, which
+// the code has never done.) Changing pairingAlphabet to a length that does not
+// divide 256 would silently introduce bias — use rejection sampling if that ever
+// happens.
 func newPairingCode() (string, error) {
 	buf := make([]byte, pairingCodeLen)
 	if _, err := rand.Read(buf); err != nil {
@@ -87,12 +91,23 @@ func (s *Server) handleStartPairing(w http.ResponseWriter, r *http.Request) {
 			delete(s.pairingCodes, c)
 		}
 	}
+	// Eviction prefers THIS user's oldest code over anyone else's. Taking the
+	// globally-oldest would let one account holding down "Pair a device" evict
+	// every other user's pending code — a small thing on a family box, but a
+	// cross-user effect for no reason, when the person minting codes is the
+	// obvious one to lose theirs.
 	for len(s.pairingCodes) >= maxPairingCodes {
-		oldest, oldestExp := "", time.Time{}
+		oldest, oldestExp, mine := "", time.Time{}, false
 		for c, e := range s.pairingCodes {
-			if oldestExp.IsZero() || e.expires.Before(oldestExp) {
-				oldest, oldestExp = c, e.expires
+			own := e.userID == uid
+			switch {
+			case oldest == "": // first candidate
+			case own && !mine: // any of ours beats someone else's
+			case own == mine && e.expires.Before(oldestExp): // older within the same class
+			default:
+				continue
 			}
+			oldest, oldestExp, mine = c, e.expires, own
 		}
 		delete(s.pairingCodes, oldest)
 	}

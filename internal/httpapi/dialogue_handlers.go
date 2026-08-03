@@ -229,16 +229,29 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // same dedupe_hash already in this movie
+		// Release the connection before the lookup — see the annotation create
+		// path for why holding the tx across it self-deadlocks the 4-connection
+		// pool. The INSERT matched nothing, so there is no work to commit.
+		_ = tx.Rollback()
+
 		// Same contract as the annotation create path: return the row that
 		// already holds the slot so an outbox retry is idempotent.
 		var existingID int64
-		if err := s.Store.DB.QueryRow(
+		switch err := s.Store.DB.QueryRow(
 			`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
-			req.MovieID, store.DedupeHash(req.Quote)).Scan(&existingID); err != nil {
+			req.MovieID, store.DedupeHash(req.Quote)).Scan(&existingID); {
+		case errors.Is(err, sql.ErrNoRows):
+			writeErr(w, http.StatusConflict, "duplicate dialogue") // concurrently deleted
+			return
+		case err != nil:
 			internalError(w, r, "locate duplicate dialogue", err)
 			return
 		}
 		existing, err := s.fetchDialogue(uid, existingID)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeErr(w, http.StatusConflict, "duplicate dialogue")
+			return
+		}
 		if err != nil {
 			internalError(w, r, "fetch duplicate dialogue", err)
 			return

@@ -61,7 +61,7 @@ func bulkSetBooks(tx *sql.Tx, col string, val any, ids []int64, uid int64) error
 		args = append(args, id)
 	}
 	args = append(args, uid)
-	_, err := tx.Exec(`UPDATE books SET `+col+` = ? WHERE id IN (`+inClause(len(ids))+`) AND user_id = ?`, args...)
+	_, err := tx.Exec(`UPDATE books SET `+col+` = ?, updated_at = datetime('now') WHERE id IN (`+inClause(len(ids))+`) AND user_id = ?`, args...)
 	return err
 }
 

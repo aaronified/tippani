@@ -735,7 +735,7 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 	defer tx.Rollback()
 	if len(cols) > 0 {
 		args = append(args, id, uid)
-		res, xerr := tx.Exec(`UPDATE books SET `+strings.Join(cols, ", ")+` WHERE id = ? AND user_id = ?`, args...)
+		res, xerr := tx.Exec(`UPDATE books SET `+strings.Join(cols, ", ")+`, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, args...)
 		if xerr != nil {
 			s.removeCoverFile(newCover)
 			if isUniqueErr(xerr) {
@@ -897,7 +897,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	defer tx.Rollback()
 	if len(cols) > 0 {
 		args = append(args, id, uid)
-		res, xerr := tx.Exec(`UPDATE movies SET `+strings.Join(cols, ", ")+` WHERE id = ? AND user_id = ?`, args...)
+		res, xerr := tx.Exec(`UPDATE movies SET `+strings.Join(cols, ", ")+`, updated_at = datetime('now') WHERE id = ? AND user_id = ?`, args...)
 		if xerr != nil {
 			s.removeCoverFile(newPoster)
 			if isUniqueErr(xerr) {

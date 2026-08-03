@@ -156,9 +156,9 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO movies (user_id, title, director, release_year, description,
+		INSERT INTO movies (updated_at, user_id, title, director, release_year, description,
 		                    media_type, series, series_index, favorite)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
 		nullable(req.Description), req.MediaType, nullable(req.Series),
 		nullableFloat(req.SeriesIndex), req.Favorite)
@@ -240,9 +240,9 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO movies (user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
+		INSERT INTO movies (updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
 		                    poster_path, description, series, cast_json, source_metadata)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
 		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw))
@@ -502,7 +502,8 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, description = ?,
-		                  media_type = ?, series = ?, series_index = ?, favorite = ?
+		                  media_type = ?, series = ?, series_index = ?, favorite = ?,
+		                  updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
 		nullable(req.Description), req.MediaType, nullable(req.Series),
@@ -516,7 +517,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if changePoster {
-		if _, err := tx.Exec(`UPDATE movies SET poster_path = ? WHERE id = ? AND user_id = ?`,
+		if _, err := tx.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
 			nullable(newPoster), id, uid); err != nil {
 			failErr("update movie: set poster", err)
 			return
@@ -619,7 +620,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?, tvdb_id = ?,
 		                  media_type = ?, poster_path = ?, description = ?, series = ?,
-		                  cast_json = ?, source_metadata = ?
+		                  cast_json = ?, source_metadata = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,

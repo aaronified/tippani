@@ -142,11 +142,15 @@ func TestMovieExport(t *testing.T) {
 		"movie_id": movie.ID, "quote": "Round up the usual suspects.",
 	}, http.StatusCreated)
 
+	// "type: movie" is unconditional, not decoration: it is what routes the file
+	// back to the catalogue importer, and a film with no director and unattributed
+	// lines would otherwise re-import as a book (LooksLikeMovieMarkdown).
 	want := `---
 title: Casablanca
 director: Michael Curtiz
 year: 1942
 genres: Drama
+type: movie
 ---
 
 > Here's looking at you, kid.

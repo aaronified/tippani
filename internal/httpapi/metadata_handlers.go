@@ -337,7 +337,8 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			res, uerr := s.Store.DB.Exec(`UPDATE books SET
 				author = COALESCE(author, ?),
 				description = COALESCE(description, ?),
-				published_year = COALESCE(published_year, ?)
+				published_year = COALESCE(published_year, ?),
+				updated_at = datetime('now')
 				WHERE id = ? AND (author IS NULL OR description IS NULL OR published_year IS NULL)`,
 				nullable(cand.Author), nullable(cand.Description), nullableInt(cand.PublishedYear), b.id)
 			if uerr == nil {
@@ -418,7 +419,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 				s.removeCoverFile(name) // no better than what's stored — keep the old one
 				skipped++
 			default:
-				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ? WHERE id = ?`, name, b.id); uerr == nil {
+				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ?`, name, b.id); uerr == nil {
 					fetched++
 					if b.cover != "" && b.cover != name {
 						s.removeCoverFile(b.cover)
@@ -484,7 +485,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 			skipped++
 			continue
 		}
-		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ? WHERE id = ?`, name, m.id); uerr == nil {
+		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ?`, name, m.id); uerr == nil {
 			fetched++
 			if m.oldPoster != "" && m.oldPoster != name {
 				s.removeCoverFile(m.oldPoster)

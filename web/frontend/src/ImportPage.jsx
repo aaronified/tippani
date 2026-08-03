@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { json, upload, errText } from './api.js'
+// annotationState must be the SHARED one: PUT is full-state, and this file used
+// to keep a private copy that omitted sticker_id/sticker_x/sticker_y — so filling
+// in a missing chapter or location here silently wiped an attached sticker and
+// its seal position.
+import { annotationState } from './Library.jsx'
 import {
   ErrorText,
   Field,
@@ -501,20 +506,6 @@ function MovieImportNotice({ row, onOpenMovie }) {
       )}
     </div>
   )
-}
-
-// annotationState builds the full PUT body from an annotation row — PUT is
-// full-state, so every field must be carried even when only one changes.
-function annotationState(a) {
-  return {
-    quote: a.quote || '',
-    note: a.note || '',
-    chapter: a.chapter || '',
-    location: a.location || '',
-    color: a.color || 'yellow',
-    tags: a.tags || [],
-    favorite: !!a.favorite,
-  }
 }
 
 // ReviewPanel walks the imported annotations missing chapter or location, one

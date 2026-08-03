@@ -147,17 +147,43 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 { // same dedupe_hash already in this book
+		// Release this transaction's connection BEFORE reading the existing row.
+		//
+		// The pool is capped at 4 (store.Open's SetMaxOpenConns), and the lookup
+		// below goes through s.Store.DB, which needs a SECOND connection. Holding
+		// the tx across it self-deadlocks once the pool is saturated: the handler
+		// blocks waiting for a connection that only it can free, so the request
+		// hangs until busy_timeout turns it into a 500. Concurrent duplicate posts
+		// — an offline client flushing a queue is exactly that — reach it over
+		// plain HTTP. See TestDuplicatePostUnderPoolPressure.
+		//
+		// Rolling back here is safe and complete: the INSERT matched nothing, so
+		// there is no work to commit. The deferred Rollback still runs and returns
+		// ErrTxDone, which is ignored.
+		_ = tx.Rollback()
+
 		// Hand back the row holding this (book_id, dedupe_hash) slot so an
 		// offline client retrying an unacknowledged POST can tell its own
 		// earlier write from a real clash (see writeConflictExisting).
 		var existingID int64
-		if err := s.Store.DB.QueryRow(
+		switch err := s.Store.DB.QueryRow(
 			`SELECT id FROM annotations WHERE book_id = ? AND dedupe_hash = ?`,
-			req.BookID, req.hash()).Scan(&existingID); err != nil {
+			req.BookID, req.hash()).Scan(&existingID); {
+		case errors.Is(err, sql.ErrNoRows):
+			// A concurrent delete removed it between the failed insert and this
+			// read. Still a duplicate as far as this request went, just with
+			// nothing left to point at.
+			writeErr(w, http.StatusConflict, "duplicate annotation")
+			return
+		case err != nil:
 			internalError(w, r, "locate duplicate annotation", err)
 			return
 		}
 		existing, err := s.fetchAnnotation(uid, existingID)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeErr(w, http.StatusConflict, "duplicate annotation")
+			return
+		}
 		if err != nil {
 			internalError(w, r, "fetch duplicate annotation", err)
 			return

@@ -126,7 +126,8 @@ func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMov
 		}, nil
 	}
 	res, err := tx.Exec(
-		`INSERT INTO movies (user_id, title, release_year, media_type) VALUES (?, ?, ?, ?)`,
+		`INSERT INTO movies (updated_at, user_id, title, release_year, media_type)
+		 VALUES (datetime('now'), ?, ?, ?, ?)`,
 		uid, m.Title, nullableInt(m.Year), mediaType)
 	if err != nil {
 		return importMovieResult{}, err
@@ -216,7 +217,7 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 		return 0, 0, 0, false, err
 	}
 	if res.Movie.Director != "" {
-		if _, err := tx.Exec(`UPDATE movies SET director = COALESCE(director, ?) WHERE id = ?`,
+		if _, err := tx.Exec(`UPDATE movies SET director = COALESCE(director, ?), updated_at = datetime('now') WHERE id = ?`,
 			nullable(res.Movie.Director), m.ID); err != nil {
 			return 0, 0, 0, false, err
 		}
@@ -225,7 +226,7 @@ func (s *Server) importOneMovie(tx *sql.Tx, uid int64, res *importer.MovieResult
 	// row (by hand, or from TMDB's belongs_to_collection) always wins.
 	if res.Movie.Series != "" {
 		if _, err := tx.Exec(
-			`UPDATE movies SET series = COALESCE(series, ?), series_index = COALESCE(series_index, ?)
+			`UPDATE movies SET series = COALESCE(series, ?), series_index = COALESCE(series_index, ?), updated_at = datetime('now')
 			 WHERE id = ?`,
 			nullable(res.Movie.Series), nullableFloat(res.Movie.SeriesIndex), m.ID); err != nil {
 			return 0, 0, 0, false, err

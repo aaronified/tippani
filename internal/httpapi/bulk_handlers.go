@@ -188,7 +188,7 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 			a = append(a, id)
 		}
 		a = append(a, uid)
-		_, err := tx.Exec(`UPDATE movies SET `+col+` = ? WHERE id IN (`+inClause(len(owned))+`) AND user_id = ?`, a...)
+		_, err := tx.Exec(`UPDATE movies SET `+col+` = ?, updated_at = datetime('now') WHERE id IN (`+inClause(len(owned))+`) AND user_id = ?`, a...)
 		return err
 	}
 	if req.Director != nil {

@@ -312,3 +312,36 @@ func TestDeviceTokensSurviveBackupRestore(t *testing.T) {
 	// The device paired before the backup works again against the restored DB.
 	phone.mustDo("GET", "/books", nil, http.StatusOK)
 }
+
+// The in-memory code table is capped (maxPairingCodes). Eviction must fall on the
+// user minting codes, not on everyone else — otherwise one account clicking "Pair
+// a device" repeatedly could knock out every other user's pending code.
+func TestPairingEvictionPrefersTheMintersOwnCodes(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+
+	// Bob mints one and holds it.
+	bobPair := startPairing(t, bob)
+
+	// Alice fills the table well past the cap.
+	for i := 0; i < maxPairingCodes+8; i++ {
+		alice.mustDo("POST", "/auth/devices/pair", nil, http.StatusCreated)
+	}
+
+	// Bob's code must still be claimable.
+	if rec := claim(t, h, bobPair.Code, "Bob's Pixel"); rec.Code != http.StatusCreated {
+		t.Fatalf("another user's minting evicted bob's pairing code: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// The alphabet's length must keep dividing 256, or newPairingCode's modulo
+// becomes biased. Cheap guard on a constant that looks harmless to edit.
+func TestPairingAlphabetIsUnbiased(t *testing.T) {
+	if len(pairingAlphabet) == 0 || 256%len(pairingAlphabet) != 0 {
+		t.Fatalf("pairingAlphabet has %d symbols, which does not divide 256 — "+
+			"newPairingCode's modulo would be biased; switch it to rejection sampling",
+			len(pairingAlphabet))
+	}
+}

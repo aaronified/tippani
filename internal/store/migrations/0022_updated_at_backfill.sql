@@ -1,0 +1,26 @@
+-- Backfill books.updated_at / movies.updated_at for rows created since 1.1.0.
+--
+-- 0020 added both columns and backfilled them to created_at, on the reasoning
+-- that a client mirroring the library needs updated_at on all four tables and
+-- that the column is cheaper to add now than in a later table rebuild. What it
+-- did not do is WRITE them: no INSERT set updated_at, and none of the UPDATE
+-- sites across book/movie editing, metadata backfill, bulk edit and import
+-- bumped it. So every row created since 1.1.0 has NULL and no edit ever moved
+-- the value. The column was worse than absent: it looked usable, so the first
+-- delta-sync client to trust it would have silently missed every edit.
+--
+-- The handlers now set it explicitly, the same way annotations and dialogues
+-- always have. This migration only repairs the rows 0020's backfill could not
+-- see because they did not exist yet.
+--
+-- Deliberately NOT done with triggers, though that was the first attempt: it
+-- looked like the robust answer for tables written from a dozen places. But
+-- books and movies carry FTS5 EXTERNAL-CONTENT sync triggers (0003/0018), whose
+-- 'delete' command must be handed exactly the values currently indexed. An
+-- AFTER INSERT trigger that turns around and UPDATEs the same row drives those
+-- FTS triggers out of step with the content table, and SQLite reports it as
+-- "database disk image is malformed" on the very next insert. Any future
+-- convenience trigger on a table with an external-content FTS index has the same
+-- hazard.
+UPDATE books  SET updated_at = created_at WHERE updated_at IS NULL;
+UPDATE movies SET updated_at = created_at WHERE updated_at IS NULL;

@@ -534,13 +534,13 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	crows.Close()
 
-	updateQ := `UPDATE books SET author = ? WHERE id = ?`
+	updateQ := `UPDATE books SET author = ?, updated_at = datetime('now') WHERE id = ?`
 	switch req.Kind {
 	case "actor":
 		updateQ = `UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`
 	case "director":
 		// The movies_fts triggers re-index the director column automatically.
-		updateQ = `UPDATE movies SET director = ? WHERE id = ?`
+		updateQ = `UPDATE movies SET director = ?, updated_at = datetime('now') WHERE id = ?`
 	}
 	for _, rw := range rewrites {
 		if _, e := tx.Exec(updateQ, rw.credit, rw.id); e != nil {
