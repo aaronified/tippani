@@ -7,6 +7,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-04
+
+Bulk-imported quotes stop entering the library on arrival. Every import endpoint
+used to parse and write in one shot, so by the time the results screen said what
+had happened the quotes were already in `annotations` / `dialogues`, already
+indexed for search, already in the review deck — and the only undo was
+hand-deleting them. The 1.1.1 bug where a film's own export re-imported as a
+*book* is exactly the class of mistake that should be caught before the write.
+So imports now land in a holding area with a screen for working in it, and the
+counters they used to report move to the moment they are approved. See *Known
+bugs* in [`ROADMAP.md`](ROADMAP.md) for what this release deliberately does not
+fix.
+
+### Added
+- **Import staging: a file parses into a pending queue and stays there until you
+  okay it.** Indefinitely, across sessions, books and films mixed together. The
+  queue is one list rather than a per-upload wizard — everything staged from
+  every file, grouped by the work each quote will attach to, with the batch
+  (source + filename) as a filter. Every group heading says where its quotes are
+  going: an existing title they will join, or a new one that will be created.
+  That preview is recomputed on every read rather than stored, because the
+  library moves while quotes wait — a book added yesterday changes the answer for
+  a batch staged last week.
+
+  Reached from the ＋ Add surface, from an import's own results, and from a card
+  on Home; a count on the ＋ Add pill says how much is waiting, so a
+  half-finished import isn't forgotten. Its own URL, `/pending`, for a link or a
+  bookmark. Import is still not a permanent tab.
+
+  A work with no quotes at all is queued too, and approving it creates the book or
+  film by itself — an export writes every work, quoted or not, so anything else
+  would quietly drop your unquoted shelf on a whole-library round-trip.
+
+- **Bulk edits over a selection, including two the live endpoints cannot do.**
+  Checkbox multi-select over the rows, the same `BulkBar` strip Search and
+  Metadata already share, and a per-row editor for one-offs. Colour, favourite,
+  chapter, character, actor and timestamp behave as they do elsewhere. Beyond
+  that:
+
+  **Tags come off as well as on.** `POST /annotations/bulk` can only union, and
+  the reason is structural: its one additive helper is all it has, and the
+  full-state alternative would need every row's current tag set, which the
+  request does not carry. A staged tag is denormalized text on the row, so a
+  removal is a set operation on that string — and a tag that exists only inside
+  an unapproved import never joins your tag vocabulary at all.
+
+  **Retarget the work, book and film interchangeable.** A staged quote can move
+  to a different work in the queue, or onto a work already in the library —
+  including *across kinds*, because that is the repair for a misdetected file. A
+  staged row carries both locator sets (chapter/location and
+  character/actor/timestamp) and approval reads whichever the destination kind
+  uses, so moving a batch of book highlights onto a show does not destroy the
+  original values on the way, in case the move is itself the mistake.
+
+- **Location formulae — add, subtract, multiply, divide, set, reset.** The reason
+  editing locations in bulk needs more than a text box: a Kindle export numbers
+  by *location* rather than page and the conversion is a division; a PDF's page
+  numbers run a few ahead of the print edition's. Locations stay free text
+  (`p.142`, `610-612`, `42%`, `1234`), so the transform rewrites the numeric runs
+  in place and leaves everything around them alone — `p.142` minus 5 is `p.137`,
+  and a range moves at both ends. A value carrying a clock pattern converts to
+  seconds, shifts, and re-renders with the component count and zero-padding it
+  arrived with, because `01:02:03` plus a minute is `01:03:03` and not
+  `61:62:63`; a timestamp *range* moves at both ends too, and detection is by
+  value rather than by field, so an audiobook "location" of `2:15:00` gets the
+  same treatment. Results clamp at both ends, division rounds, leading zeros
+  survive (`p.007` plus one is `p.008`), and a thousands-separated locator stays
+  grouped (`1,234` plus one is `1,235`). A chapter:verse locator is left to the
+  plain numeric path — `2:255` is not a clock, and half-matching it would be
+  worse than not matching it at all.
+
+  Formulae **chain** on the current value, so `−5` then `÷16.69` composes.
+  `reset` is an absolute restore of the as-imported snapshot, not an inverse of
+  the last operation — every row keeps the value it arrived with, so a formula
+  applied by mistake is undone rather than lived with.
+
+### Changed
+- **The seven import endpoints stop reporting `added` / `skipped` / `enriched`
+  and start reporting a batch id and a staged count.** The old counters come back
+  from `POST /import/staged/approve` instead, which is where the writing now
+  happens. A parser's own counters stay on the import reply — the Kindle
+  clippings importer still says "1 bookmark skipped, no text to import" at the
+  moment you upload the file, which is the only point at which that is
+  actionable.
+
+  New endpoints, `requireAuth` under `/api` like the rest: `GET /import/staged`,
+  `POST /import/staged/bulk`, `POST /import/staged/approve` and
+  `DELETE /import/staged`. All four share one selector — `{ids | work_ids |
+  batch_id | all}` — so "approve everything" does not have to ship thousands of
+  ids through a 64 KiB body. A foreign selection matches nothing and answers
+  **404**, never 403.
+
+- **Migration `0023` adds `import_batches`, `staged_works` and `staged_quotes`,
+  deliberately outside the live tables.** A `pending` flag on `annotations` would
+  have had to be threaded through every existing read as `WHERE pending = 0` —
+  dozens of queries, each one a place to forget it and leak an unapproved quote
+  into a list, a search hit or a quiz card. Separate tables make the default
+  safe: no existing query can see staged rows because no existing query names
+  these tables. Staged text carries no FTS triggers and no `item_reviews` rows,
+  so it is invisible to search and cannot be pulled into a quiz; ownership is by
+  parentage (`staged_quotes` → `staged_works` → `import_batches`, which holds the
+  `user_id`), mirroring `annotations` → `books`.
+
+- **Approval converts staged rows back into the importer's own intermediate
+  shape** and runs the existing persist path, so dedupe, duplicate enrichment
+  (fill-empty-only, colour upgrading off yellow, favourite only upward, tags
+  union) and the ISBN → ASIN → title/author book resolution behave exactly as
+  they did when the importers wrote straight through. That needed one refactor and
+  no behaviour change: the target-resolving half of the old `importOneBook` /
+  `importOneMovie` is now separate from the loop that writes the quotes, so the
+  loop can also be handed a target the user picked. There is one implementation
+  of those rules, not two.
+
+- **The export → re-import round-trip tests go on asserting exactly what they
+  asserted before**, through an import-then-approve helper — a library's own
+  export re-imported and approved is still a dedupe no-op. Re-importing the same
+  file twice now gives two batches rather than one silent no-op write; approving
+  both adds the quotes once.
+
+### Removed
+- **The one-at-a-time post-import review panel.** It walked the rows missing a
+  chapter or a location and asked you to fill them in, one quote at a time, after
+  they were already in the library. The queue supersedes it and does the same job
+  over a selection, before the write.
+
 ## [1.1.1] - 2026-08-03
 
 An adversarial re-read of what 1.1.0 shipped, plus the import-routing bug that
