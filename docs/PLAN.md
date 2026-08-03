@@ -463,8 +463,24 @@ blockquote per quote (multi-line quotes get `> ` per line), then `- key: value` 
 **non-default metadata only**: note, color (≠ yellow), tags, loc / timestamp, character, actor,
 favorite (true). Books order by insertion (id), dialogues by timestamp — reading order.
 
-Property: a book export is valid §5b(a) importer input, so **exports round-trip** — re-importing
-one is a dedupe no-op. (Movie exports are export-only; there is no movie markdown importer — YAGNI.)
+Property: **both** exports round-trip — re-importing one is a dedupe no-op. A book export is valid
+§5b(a) input; a catalogue export is read by the movie-markdown importer, which arrived after this
+section was first written (the note that movie exports were export-only "— YAGNI" is obsolete).
+
+One frontmatter key is not "non-default metadata only" and must not be optimised away: the
+catalogue export **always** writes `type: movie` or `type: show`. `POST /import/markdown` takes one
+endpoint for both kinds and decides which by inspecting the file
+(`importer.LooksLikeMovieMarkdown`), so that line is what routes it. It used to be written for
+shows only — "movie" being the default, and a default needn't be stated — which left detection
+resting entirely on *optional* content: `director:` / `creator:` / `collection:` in the
+frontmatter, or `character:` / `actor:` / `timestamp:` on a line. A film with none of them (no
+director recorded, no collection, its lines unattributed) carried nothing that said "film", and
+re-importing its own export silently produced a **book** with annotations. Fixed in 1.1.1.
+
+The same reasoning bars the shared bindings from ever being routing signals: `color` has been on
+both kinds since migration 0021, and note/tags/date/favorite always were. Under the shared quote
+shape (§3b) the only kind-unique bindings are the source locators, which is exactly the set the
+heuristics use.
 
 ```bash
 GET    /auth/status         POST /auth/signup    # onboarding (first user only); while onboarding is
