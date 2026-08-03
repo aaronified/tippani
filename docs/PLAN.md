@@ -41,7 +41,8 @@ Driver tradeoff: `modernc` costs ~1.5–2× the per-query CPU of CGo `mattn/go-s
 
 - **Login:** SPA form → `POST /auth/login` → server-side session stored in SQLite. Token = 256-bit random; **only its SHA-256 is stored**. Cookie: `HttpOnly; SameSite=Lax; Path=/`; `Secure` flag via config (enable when your proxy terminates TLS). **30 d sliding idle window** (each use past the halfway mark bumps expiry forward) capped by a **90 d absolute limit from creation** (`created_at + SessionMaxLifetime`), so a token can't renew indefinitely; a password change revokes all of the user's sessions. Expired rows deleted lazily on next login — no cleanup cron.
 - **Passwords:** **bcrypt, cost 10** (tunable). ~60–100 ms per login on weak ARM — a rare event, acceptable. *Primary downside:* not memory-hard. Argon2id rejected deliberately: its ~64 MB per hash is exactly wrong on a RAM-shared NAS.
-- **CSRF:** Go 1.25 **`http.CrossOriginProtection`** (Sec-Fetch-Site / Origin check) wrapping all non-GET routes — stdlib, zero tokens, zero deps. *Primary downside:* requires Go 1.25+ and evergreen browsers (both fine here).
+- **Device tokens (v1.1.0):** a second credential, for clients that are *not* browsers — `Authorization: Bearer <token>`, in its own `device_tokens` table. Same construction as a session (256-bit random, only the SHA-256 stored), opposite lifetime on purpose: **no expiry**, and **a password change does not revoke them**. A browser cookie is ambient and long-lived-by-accident, so capping it and sweeping it on a password change is right; a paired device is deliberate, and silently unpairing every phone on a routine password rotation — with no signal on the device, indistinguishable from an outage — is worse than the threat it would mitigate. Unpairing is its own explicit act (Settings → Devices), per device or all at once. Minted by exchanging a **one-shot, five-minute, rate-limited pairing code** issued to an already-signed-in session, so the phone never sees the password. Codes live in memory (they outlive nothing), following the one-shot share tokens of §6b.
+- **CSRF:** Go 1.25 **`http.CrossOriginProtection`** (Sec-Fetch-Site / Origin check) wrapping all non-GET routes — stdlib, zero tokens, zero deps. *Primary downside:* requires Go 1.25+ and evergreen browsers (both fine here). A request carrying a **bearer** credential bypasses it: cross-origin protection defends *ambient* credentials, and a bearer token is never attached by a browser on its own, so the check buys nothing there. The cookie path is unchanged — a cookie-only cross-site write is still refused, and the bypass is not a bypass of authentication.
 - **Brute force:** `golang.org/x/time/rate` limiter keyed on (client IP, username), e.g. 5/min burst 5. Client IP read from `X-Forwarded-For` **only when** `TRUSTED_PROXY` is configured.
 - **User management:** the **first user is the admin** — created by first-run onboarding (`GET /auth/status` → `POST /auth/signup`, which only succeeds while the users table is empty) or by the CLI when the DB is empty. The admin adds/removes other users from an in-app panel (`GET/POST /admin/users`, `DELETE /admin/users/{id}`); onboarding closes once any user exists. CLI subcommands (`app user add|passwd|del`) remain for bootstrapping/scripting, plus an in-app change-password form. Roles are a single `is_admin` flag — no finer-grained permissions (YAGNI).
 - **Binding:** the binary defaults to `127.0.0.1:8080` (overridable via `TIPPANI_BIND`). The Docker image binds `0.0.0.0:8080` and the shipped compose publishes `8080:8080`, so a NAS deployment is reachable on the LAN by default — that's the point of a NAS app. Trade-off to accept/document: first-run onboarding is unauthenticated (first caller claims admin), so onboard promptly or bind host-local (`-p 127.0.0.1:8080:8080`) behind a proxy until you have. After onboarding, every route requires a session.
@@ -192,6 +193,24 @@ Rules:
 Movies mirror books; dialogues mirror annotations. Same per-user isolation, same hard-delete,
 same dedupe rule. The `genres` table is shared between books and movies (it is already per-user
 and name-keyed; a second genre table would be pure duplication).
+
+**"Mirror" is now literal (v1.1.0).** Writing the two sides separately let them drift: dialogues
+shipped without tags and gained them later, shipped without colour and kept not having it, and
+carried neither `noted_at` nor `source` until 1.1.0 — each gap invisible until someone went
+looking for a feature on the wrong kind of quote. A quote is now **one shape**, shared in the
+schema and embedded in Go as `quoteReq`/`quoteRow` (`internal/httpapi/quote.go`): quote, note,
+**colour**, favourite, tags, stickers, `noted_at`, `source`, and review state. The two kinds
+differ in exactly one respect — **how a quote points back at its source**:
+
+| | locator |
+| :-- | :-- |
+| annotation (book) | `chapter`, `location` |
+| dialogue (film/show) | `character`, `actor`, `timestamp` |
+
+A test asserts that boundary directly, listing each kind's own fields, so a field added to one
+side fails the build until it is either moved into the shared shape or justified as a locator.
+The one remaining asymmetry is deliberate: an annotation may be **note-only** (a thought about a
+page), a dialogue may not — a thought about a film belongs on the film.
 
 ```sql
 CREATE TABLE movies (

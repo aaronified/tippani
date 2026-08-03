@@ -85,7 +85,9 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   three minutes a day, sane defaults (deck size and scope are tunable in Settings), no gamification —
   a dot on the logo marks a waiting deck.
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
-  actor auto-fills from the film's cast. Same tags / favourite / views / filters as books.
+  actor auto-fills from the film's cast. Same colours / tags / favourite / views / filters as
+  books: a film line and a book highlight are the same kind of thing, and differ only in how they
+  point back at their source.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
   (daily quiz · practice · stats · recent favourites) a logo-tap away, quote capture one ❝ tap away
   in every top bar and the drawer, sticky page bars, full-screen filter sheets with a
@@ -129,6 +131,12 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   password) behind the avatar chip; first-run admin onboarding and in-app user management with
   **admin role grant / revoke / transfer** (the last admin is protected); bcrypt + hashed-token
   sessions, stdlib CSRF, login rate limiting.
+- 📲 **Paired devices** — **Settings → Devices** mints a one-shot pairing code that a native
+  client exchanges for a long-lived bearer token, so a phone never holds your password. A device
+  stays paired until you unpair it: changing your password signs out browsers but deliberately
+  leaves phones alone, because silently unpairing every device on a routine password change is
+  worse than the threat it would prevent. Unpair one, or all, from the same panel. (The Android
+  app itself is in progress — see [`ROADMAP.md`](ROADMAP.md) §11.)
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
 - 🔄 **In-app updates** — Settings shows your running version and checks GitHub for a newer release
@@ -147,7 +155,8 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
-> **Roadmap** — more ways in
+> **Roadmap** — an **Android app** that photographs a page of a physical book and turns it into a
+> highlight, with OCR **on the device** (the server gains no dependency); more ways in
 > (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later imports; a PWA
 > **share-target** and a page-HTML **bookmarklet**); opt-in AI summaries (OpenAI-compatible) with
 > push notifications (NTFY, likely via [Shoutrrr](https://containrrr.dev/shoutrrr/)); a
@@ -360,8 +369,9 @@ Each user has a fully isolated library (PLAN §2). Passwords change in-app via `
 ```text
 cmd/tippani/          entrypoint: serve + user subcommands + healthcheck
 internal/store/       SQLite open (WAL etc.), embedded migrations, dedupe hash, schema tests
-internal/auth/        bcrypt, hashed-token sessions, login rate limiter
-internal/httpapi/     routes (Go 1.22 patterns), CSRF, security headers, all handlers + exports
+internal/auth/        bcrypt, hashed-token sessions + device tokens, rate limiters
+internal/httpapi/     routes (Go 1.22 patterns), CSRF, gzip, security headers, device
+                      pairing, the shared quote shape (quote.go), handlers + exports
 internal/search/      FTS5 MATCH escaping (never pass raw input to MATCH)
 internal/importer/    markdown (frontmatter + Readest), Bookcision, Hardcover, Goodreads,
                       Kindle-notebook, Kindle My Clippings.txt and IMDb-quotes parsers

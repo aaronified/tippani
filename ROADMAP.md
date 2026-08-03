@@ -9,6 +9,26 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v1.1.0 (August 2026)**
+
+- **Colour for film and show dialogue** — the last asymmetry between the two
+  quote kinds. Dialogues could already be favourited, tagged, stickered and
+  reviewed like book highlights; now they carry the same four colours too, with
+  the same dots, filter, share tint and Markdown round-trip. Under it, both
+  kinds embed one shared shape and differ only in how they point at their
+  source (chapter/location for a book, character/actor/timestamp for a film), so
+  the next field added to one cannot silently miss the other.
+- **Device tokens + pairing (part of §3 below)** — Settings → Devices mints a
+  one-shot, rate-limited pairing code that a native client exchanges for a
+  long-lived bearer token. Unlike a browser session it never expires and is not
+  revoked by a password change; unpairing is its own explicit act. This is the
+  API-token groundwork §3 always wanted, arriving first for the mobile app.
+- **API groundwork for clients we don't serve ourselves** —
+  `GET /api/capabilities` (version handshake), `limit`/`offset` on the four list
+  endpoints, stdlib gzip on responses, `noted_at`/`source` accepted on quote
+  create so an offline capture keeps its real date, and duplicate-create `409`s
+  that carry the existing row so a retried write is idempotent.
+
 **v0.6.8 (July 2026)**
 
 - **Backup & restore (was roadmap §8)** — a dated tar.gz of the whole data
@@ -310,10 +330,12 @@ external identity provider):
 - **Trash & undo** — soft-delete with a restorable **trash** for books, films,
   quotes and users, so a mis-click (or a cascading user delete) isn't final;
   emptied on demand or after a grace period.
-- **Per-user API tokens + webhooks** — scoped tokens so a script, the Homepage
-  widget, or an Obsidian sync can reach *your* library over the API, plus outbound
-  webhooks on events (new highlight, review done). Absorbs the old "API-token auth"
-  line that used to sit under Later.
+- **Per-user API tokens + webhooks** — *partly shipped in 1.1.0.* Device tokens
+  exist now (bearer auth on every `/api` route, minted by QR-less pairing from
+  Settings → Devices), which is the hard half. What remains is **scoping** — a
+  token that may read stats but not write quotes, for the Homepage widget or an
+  Obsidian sync — and outbound **webhooks** on events (new highlight, review
+  done). Absorbs the old "API-token auth" line that used to sit under Later.
 
 ### 4 · Achievements — quiet milestones, and one gentle streak
 A deliberately restrained take. Achievements mostly mark *distance travelled* —
@@ -411,6 +433,33 @@ outreach and asset prep, in dependency order:
   pullable — a directory listing pointing at a pull-gated image is a bad first
   impression.
 
+### 11 · Android app — capture by camera, with on-device OCR
+A native Android client, Flutter so the source stays portable, in `mobile/`.
+Not a wrapper around the PWA: the point is the one thing a web page on a phone
+cannot do well, which is **photograph a page of a physical book and turn it into
+a highlight**. Recognition runs **on the device** (ML Kit), so the server gains
+no dependency, no CPU cost and no upload path — the reason server-side OCR was
+set aside doesn't apply to it (see *Considered and set aside*).
+
+The work that isn't the OCR call itself — which is thirty lines — is what makes
+it worth having: reflowing recognised lines into paragraphs from their bounding
+boxes, **de-hyphenating across line breaks**, dropping running heads and page
+numbers, normalising the quote marks and ligatures OCR mangles, and then a
+correction screen with the photo beside the text. A local mirror keeps browsing
+and the Daily Quiz working with no server, and captures queue offline and flush
+when the box is reachable.
+
+The server side of this **shipped in 1.1.0** — device tokens and pairing, list
+paging, gzip, the capabilities handshake, `noted_at` on create so a queued
+capture keeps its real date, and duplicate `409`s that make a retried flush
+idempotent. What remains is the app.
+
+**Android only.** Flutter compiles for iOS and the Dart here stays
+platform-agnostic, but building and signing for iOS needs a Mac, and there
+isn't one — so no `ios/` directory ships rather than an unbuildable one rotting
+in the tree. A fork with a Mac adds it with `flutter create --platforms=ios .`
+and a signing config; the README will say Android and not imply otherwise.
+
 ## Later / maybe (being considered)
 
 - **Anki export/import** — bridge the daily review to and from Anki decks (`.apkg`),
@@ -430,8 +479,10 @@ outreach and asset prep, in dependency order:
 
 ## Considered and set aside
 
-- **OCR of a photographed page** — building OCR into Tippani (even by spending AI
-  tokens) isn't worth the weight. Every modern phone already OCRs text natively in
-  its camera/photos app, and the planned **share-target (§6)** lets you send that
-  recognised text straight in — so the use case is covered without a new dependency
-  or a departure from the frugal, offline-first build.
+- **OCR *on the server*** — building OCR into the Go binary (even by spending AI
+  tokens) isn't worth the weight, and that hasn't changed: it would be a
+  dependency, a CPU cost, and an upload path, all on a box chosen for being
+  small. What *has* changed is that this was written as though the server were
+  the only place it could live. On-device OCR in a native app costs the server
+  nothing at all, so the feature moved to §11 rather than staying refused. The
+  **share-target** route (§5) is still the no-app answer and still planned.
