@@ -273,9 +273,111 @@ Rules:
 - **`cast_json`** is the trimmed top-billed cast (≤20 entries) captured at TMDB lookup time. It powers
   the character picker in the UI and server-side actor auto-fill (case-insensitive match on
   `character` when `actor` is empty). Manual movies simply have an empty cast list.
-- **No colours, tags, or importers for dialogues** — not requested, easy to add later (YAGNI).
+- Dialogues gained colours (migration 0021), tags and importers after this section was first
+  written; the two quote kinds now differ **only** in locator (chapter/location vs
+  character/actor/timestamp), and a parity test fails the build if a field is added to one side
+  and not the other.
 - Dialogue lists order by `(timestamp IS NULL), timestamp, id` — lexical, correct when timestamps
   are consistently formatted; deliberate KISS over parsing/normalizing time formats.
+
+---
+
+## 3c. Import staging — the holding area (migration 0023)
+
+Three tables a bulk import lands in *instead* of the live ones, so nothing enters the library until
+it is explicitly approved (§5f). They sit outside `annotations`/`dialogues` rather than adding a
+`pending` flag to them, because a flag would have to be threaded through every existing read as
+`WHERE pending = 0` — dozens of queries, each one a place to forget it and leak an unapproved quote
+into a list, a search hit or a quiz card. Separate tables make the default safe.
+
+```sql
+-- One row per uploaded file. `extra` carries a parser's own counters (the Kindle
+-- clippings importer reports bookmarks skipped, notes merged, near-duplicates
+-- collapsed), so the queue can still show them long after the upload.
+CREATE TABLE import_batches (
+  id         INTEGER PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source     TEXT NOT NULL,               -- md | bookcision | hardcover_html | goodreads_html |
+                                          --   kindle_notebook | kindle_clippings | imdb (app-validated)
+  filename   TEXT NOT NULL DEFAULT '',    -- the uploaded name; the queue groups and filters by it
+  extra      TEXT NOT NULL DEFAULT '',    -- JSON parser counters; '' when none
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_import_batches_user ON import_batches(user_id, id);
+
+-- One row per work a file mentioned, with identity stored AS PARSED: the
+-- ISBN → ASIN → title/author fallthrough runs at approval, so a book added while
+-- quotes sat staged is still matched. target_kind/target_id are set only when the
+-- user retargets the group onto a row that already exists, pinning the destination.
+CREATE TABLE staged_works (
+  id           INTEGER PRIMARY KEY,
+  batch_id     INTEGER NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL,             -- book | movie | show (app-validated: a CHECK cannot evolve)
+  title        TEXT NOT NULL,
+  author       TEXT,                      -- books; the verbatim credit string, co-authors included
+  isbn         TEXT,                      -- as parsed; normalized at approval
+  asin         TEXT,
+  series       TEXT,                      -- series (books) / collection (films)
+  series_index REAL,
+  release_year INTEGER,                   -- films/shows
+  imdb_id      TEXT,                      -- informational; imports carry no tmdb/tvdb id
+  director     TEXT,
+  genres       TEXT NOT NULL DEFAULT '',  -- comma-joined; fill-empty-only at approval
+  target_kind  TEXT,                      -- book | movie: the user picked an existing row
+  target_id    INTEGER                    -- books.id / movies.id; no FK, so a deleted target leaves a
+                                          --   stale pin that approval simply re-resolves
+);
+CREATE INDEX idx_staged_works_batch ON staged_works(batch_id);
+
+-- A staged quote carries BOTH locator sets, because retargeting across kinds is
+-- the repair for a misdetected file and approval reads whichever set the
+-- destination uses — so moving book highlights onto a show must not destroy the
+-- chapter and location on the way, in case the move is itself the mistake.
+-- location_orig / timestamp_orig are the as-imported snapshot a formula `reset`
+-- restores (§5f).
+CREATE TABLE staged_quotes (
+  id             INTEGER PRIMARY KEY,
+  staged_work_id INTEGER NOT NULL REFERENCES staged_works(id) ON DELETE CASCADE,
+  quote          TEXT,
+  note           TEXT,                    -- note-only is legal, as in annotations
+  color          TEXT NOT NULL DEFAULT 'yellow'
+    CHECK (color IN ('yellow','blue','pink','orange')),
+  favorite       INTEGER NOT NULL DEFAULT 0,
+  chapter        TEXT,                    -- book locator
+  location       TEXT,                    -- book locator; free text (p.142, 610-612, 42%, 1234)
+  location_orig  TEXT,                    -- as-imported snapshot; formula reset restores it
+  character      TEXT,                    -- film locator
+  actor          TEXT,                    -- film locator; autofilled from the title's cast at approval
+  timestamp      TEXT,                    -- film locator; HH:MM:SS shape preserved by the formula
+  timestamp_orig TEXT,
+  tags           TEXT NOT NULL DEFAULT '',-- comma-joined, NOT join rows (see Rules)
+  noted_at       TEXT,                    -- the source's own date, when it carried one
+  dedupe_hash    TEXT NOT NULL,           -- store.DedupeHash(quote or note); locators excluded
+  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (staged_work_id, dedupe_hash)
+);
+CREATE INDEX idx_staged_quotes_work ON staged_quotes(staged_work_id);
+```
+
+Rules:
+
+- **No FTS tables and no FTS triggers**, by design. Staged text is not searchable and cannot be
+  pulled into a quiz; nothing writes `item_reviews` either, so repetition state begins at approval.
+  (It also keeps these tables clear of the external-content hazard recorded in 0022.)
+- **Ownership is by parentage** — `staged_quotes` → `staged_works` → `import_batches`, which carries
+  the `user_id`, mirroring `annotations` → `books`. Every read JOINs through it; there is no
+  `user_id` on the child tables to drift out of step. A foreign selection matches nothing and
+  answers **404**, never 403.
+- **Tags are denormalized text, not join rows**, so a tag that exists only inside an unapproved
+  import never appears in the user's tag vocabulary. Approval is what turns them into real
+  `annotation_tags` / `dialogue_tags` rows.
+- **`UNIQUE (staged_work_id, dedupe_hash)`** mirrors `annotations`' per-book uniqueness: staging a
+  file collapses its internal duplicates exactly as the live insert used to, so the count a user
+  approves matches what they saw. It is deliberately *not* unique across batches — importing the
+  same file twice gives two batches, and discarding one is the answer.
+- Column order is **append-only** from here: `store.Recover()` copies base tables with
+  `INSERT INTO main.t SELECT * FROM old.t`, which needs a freshly-migrated database's physical
+  column order to match an upgraded one.
 
 ---
 
@@ -426,10 +528,78 @@ carries everything as JSON in the Inertia `data-page` attribute of `<div id="app
 is not discarded — it **donates whatever the existing row lacks**: chapter/location/note fill when
 empty, color upgrades from the yellow default, favorite only ever turns on, tags union.
 Existing non-default values always win, so user edits and earlier imports are
-never overwritten; a re-import of identical data is a no-op (no writes). Responses report
-`added / skipped / enriched`.
+never overwritten; a re-import of identical data is a no-op (no writes). Since §5f these counters
+(`added / skipped / enriched`) are reported by **approval**, not by the import.
 
 **Upload safety (all importers):** `r.Body = http.MaxBytesReader(w, r.Body, 5<<20)` *before* parsing; sniff content, ignore client Content-Type; nothing persisted raw.
+
+### 5f. Staging — nothing lands until you okay it (1.2.0)
+
+Every import endpoint above **parses into a holding area** (§3c) instead of writing. Staged quotes
+sit there indefinitely, across sessions, books and films mixed together, until they are explicitly
+approved. Okaying is itself a bulk action.
+
+The seven import endpoints therefore answer `{batch_id, staged, pending, works[],
+possible_duplicates[]}` — a batch id and a count, never `added/skipped/enriched`. `works[]` carries
+a **read-only preview** of where each parsed work would land (an existing row it would join, or a
+new one), recomputed on every read of the queue rather than stored, because the library moves while
+quotes wait. That preview is the check the 1.1.1 import-routing bug wanted: it happens *before* the
+write, not after it.
+
+Four endpoints work the queue, all `requireAuth` under `/api` like the rest, and all sharing one
+selector — `{ids | work_ids | batch_id | all}`, any of which is enough, combining to narrow:
+
+- `GET /import/staged` — the whole queue. `?counts=1` answers totals with empty lists, which is all
+  the nav badge needs.
+- `POST /import/staged/bulk` — one edit over a selection. Beyond what `POST /annotations/bulk` can
+  do it **removes tags as well as adding them** (a staged tag is text on the row, so removal is a
+  set operation on that string), **retargets the work** — book and film interchangeable, because
+  that is the repair for a misdetected file — and applies **location formulae**.
+- `POST /import/staged/approve` — writes the selection into the library and answers the old
+  counters.
+- `DELETE /import/staged` — discards a selection. Hard delete, as everywhere.
+
+**Location formulae** exist because editing locations in bulk needs more than a text box: a Kindle
+export numbers by *location* rather than page and the conversion is a division; a PDF's page numbers
+run a few ahead of the print edition's. Ops are `add | subtract | multiply | divide | set | reset`.
+Locators stay free text, so a transform rewrites the **numbers inside the string** and leaves
+everything around them alone: `p.142` minus 5 is `p.137`, and a range moves at both ends. A value
+containing a clock pattern converts to seconds, shifts, and re-renders with the component count and
+zero-padding it arrived with (`01:02:03` plus 60s is `01:03:03`, not `61:62:63`); detection is by
+value, not by field, so an audiobook "location" of `2:15:00` behaves the same way. Results clamp at
+zero and at 10^15 (an overflowing multiply would otherwise render the literal `+Inf`, or wrap the
+int64 seconds conversion into a *negative* clock), division rounds, and the rewritten value is
+re-capped at 128 runes like every other free-text locator. A run that is only a partial clock match
+— the `2:25` inside a chapter:verse locator `2:255` — is not treated as one, because rewriting it
+would strand the leftover digits beside a re-rendered time. Formulae **chain on the current value**;
+`reset` is an absolute restore of the as-imported snapshot, which is what makes a mistake
+recoverable rather than permanent.
+
+**Approval converts staged rows back into the importer's own intermediate shape**
+(`importer.Annotation` / `importer.Dialogue`) and runs the existing persist path, so dedupe,
+duplicate enrichment and the ISBN → ASIN → title/author resolution behave exactly as they did when
+the importers wrote straight through — one implementation of those rules, not two. The destination's
+kind (not the staged work's) selects the locator set, which is how retargeting across kinds works.
+A pin whose row was deleted while the quotes waited falls back to resolving the parsed identity
+rather than failing the approval.
+
+Two details the parity requirement forces:
+
+- **A work with no quotes is still approved.** An export writes every work, quoted or not, and the
+  pre-staging importer created its row — so approval resolves and creates the target even when the
+  group is empty, or a whole-library export would lose every unquoted work on the way back in. The
+  selector therefore resolves works as well as quotes, and both are cleared on approve or discard.
+- **A duplicate *within one file* enriches rather than disappearing.** Staging collapses a repeated
+  passage the way the live insert used to (`UNIQUE (staged_work_id, dedupe_hash)`), so the second
+  copy donates whatever the first lacks — locators, note, date, colour off yellow, favourite upward,
+  tags union — instead of being dropped with its extra fields. The same rule backfills a staged
+  work's identity when a later frontmatter block for the same title carries an ISBN or a collection.
+
+A resolved selection is **not** bounded by the 5000-id cap on an explicit list — `all` and
+`batch_id` expand server-side to the whole queue — so every statement that binds one chunks its id
+list. SQLite refuses more than 32766 bound parameters, and one 5 MB Kindle export can stage well
+past that; un-chunked, the queue with the most to approve was the one that could not be approved,
+edited or even discarded.
 
 ---
 
@@ -527,10 +697,27 @@ GET    /dialogues?movie_id=&tag=&favorite=
 PUT    /dialogues/{id}    DELETE /dialogues/{id}
 GET    /genres                       # minimal management (names only)
 GET    /tags     POST /tags    PUT/DELETE /tags/{id}   # managed vocabulary (§10 note)
-POST   /import/markdown              # multipart (frontmatter or Readest, auto-detected)
+POST   /import/markdown              # multipart (frontmatter or Readest, auto-detected;
+                                     #   a `type:` line routes a catalogue export to the film importer)
 POST   /import/bookcision            # multipart
 POST   /import/hardcover-html        # multipart (saved Hardcover journal page)
-POST   /import/kindle-clippings      # 501 — deferred (§5c)
+POST   /import/goodreads-html        # multipart (saved Goodreads quotes page)
+POST   /import/kindle-notebook       # multipart (saved read.amazon.com/notebook page)
+POST   /import/imdb-quotes           # multipart (saved IMDb quotes page → dialogues)
+POST   /import/kindle-clippings      # multipart (the device's own My Clippings.txt, experimental)
+                                     #   Every import above STAGES (§5f): the reply is
+                                     #   {batch_id, staged, pending, works[], possible_duplicates[]},
+                                     #   never added/skipped/enriched — those come from approve.
+GET    /import/staged                # the pending queue: {pending, total, batches[], works[], quotes[]}
+                                     #   ?batch_id= ?work_id= narrow the quotes; ?limit= ?offset= page;
+                                     #   ?counts=1 answers the totals with empty lists (the nav badge)
+POST   /import/staged/bulk           # edit a selection: {ids|work_ids|batch_id|all} +
+                                     #   add_tags/remove_tags, color, favorite, chapter, location,
+                                     #   character, actor, timestamp, retarget{}, formula{} → {updated}
+POST   /import/staged/approve        # write a selection into the library → {approved, added, skipped,
+                                     #   enriched, books[], movies[], book_ids[], movie_ids[],
+                                     #   possible_duplicates[], pending}
+DELETE /import/staged                # discard a selection (same selector) → {discarded, pending}
 GET    /books/{id}/export            # markdown (§6b)
 GET    /movies/{id}/export           # markdown (§6b)
 GET    /export                       # zip of the whole library (§6b)

@@ -9,6 +9,48 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Recently shipped
 
+**v1.2.0 (August 2026)**
+
+- **Import staging — nothing lands until you okay it.** Every import endpoint used
+  to parse and write in one shot: by the time the results screen said what had
+  happened, the quotes were already in `annotations` / `dialogues`, already
+  indexed for search, already in the review deck, and the only undo was
+  hand-deleting them. Now a file parses into a holding area and stays there —
+  indefinitely, across sessions, books and films mixed together — until it is
+  explicitly approved. The 1.1.1 bug where a film's own export re-imported as a
+  *book* is exactly the class of mistake this catches before the write.
+- **One pending queue, worked in bulk.** Everything staged from every file, in one
+  list grouped by the work each quote will join, with the batch (source +
+  filename) as a filter and the same `BulkBar` strip Search and Metadata share.
+  Each group heading says where its quotes are going — an existing title or a new
+  one — so a wrong guess is visible before it is written. A count on the ＋ Add
+  pill and a card on Home mean a half-finished import isn't forgotten.
+- **Bulk edits that go beyond the live endpoint.** Tags come *off* as well as on
+  (`POST /annotations/bulk` can only union). Colour, favourite, chapter, character,
+  actor, timestamp. **Retarget the work, book and film interchangeable** — onto
+  another group in the queue or onto a work already in the library, across kinds,
+  because that is the repair for a misdetected file; a staged row carries both
+  locator sets, so the move never destroys the ones the destination won't use.
+  And **location formulae**: add, subtract, multiply, divide, set or reset, which
+  is what a Kindle location-to-page division or a PDF page offset actually needs.
+  `p.142` minus 5 is `p.137`, a range moves at both ends, timestamps go through
+  seconds and come back as `HH:MM:SS`, and `reset` restores every row's
+  as-imported value, so a formula applied by mistake is undone rather than lived
+  with.
+- **Under it.** Migration `0023` adds `import_batches`, `staged_works` and
+  `staged_quotes` outside the live tables rather than threading a `pending` flag
+  through every existing read. Staged text carries no FTS triggers, so it never
+  turns up in search and can't be pulled into a quiz; staged tags are
+  denormalized text, so a tag that exists only in an unapproved import never
+  joins your vocabulary. Approval converts staged rows back into the importer's
+  own intermediate shape and runs the existing persist path, so dedupe, duplicate
+  enrichment and the ISBN → ASIN → title/author resolution stay one
+  implementation. The seven import endpoints now answer a batch id and a staged
+  count; `added` / `skipped` / `enriched` moved to the approve response. New:
+  `GET /import/staged`, `POST /import/staged/bulk`, `POST /import/staged/approve`,
+  `DELETE /import/staged`. The one-at-a-time post-import review panel is retired —
+  the queue supersedes it.
+
 **v1.1.0 (August 2026)**
 
 - **Colour for film and show dialogue** — the last asymmetry between the two
@@ -275,86 +317,18 @@ Have a request or a strong opinion on ordering? Open an issue.
 
 ## Planned
 
-### Next up — 1.2.0 · Import staging: nothing lands until you okay it
+### Next up
 
-**Bulk-imported quotes stop entering the library on arrival.** Today every
-import endpoint parses and writes in one shot: by the time the results screen
-tells you what happened, the quotes are already in `annotations` / `dialogues`,
-already indexed for search, already in the review deck. The only review pass is
-client-side and one quote at a time — it walks the rows missing chapter or
-location and asks you to fill them in. Get a file wrong and there is no undo,
-only hand-deleting; the 1.1.1 bug where a film's own export re-imported as a
-*book* is exactly the class of mistake that should be caught before the write,
-not after it.
-
-So imports gain a holding area, and a screen for working in it. A file import
-parses into **staging**, and staged quotes sit there — indefinitely, across
-sessions, books and films mixed together — until they are explicitly okayed.
-Okaying is itself a bulk action.
-
-**The screen.** One pending queue rather than a per-upload wizard: everything
-staged from every file, grouped by target work, with the batch (source +
-filename) as a grouping and a filter. Checkbox multi-select over the rows,
-reusing the `BulkBar` strip that Search and Metadata already share, and a
-per-row editor for one-offs. Then approve the selection, discard it, or leave it
-for later. A nav badge carries the pending count, so a half-finished import
-isn't forgotten.
-
-**Bulk edits over a selection.** Tags — add *and* remove, where
-`POST /annotations/bulk` can only union today. Colour and favourite. Chapter,
-character, actor. Plus two that only make sense in a staging queue:
-
-- **Retarget the work, book and film interchangeable.** A staged quote can move
-  to a different work in the queue, or onto a work already in the library —
-  including *across kinds*, because that is the repair for a misdetected file.
-  A staged row carries both locator sets (chapter/location and
-  character/actor/timestamp) and approval reads whichever the destination kind
-  uses, so moving a batch of book highlights onto a show doesn't destroy the
-  original values on the way.
-- **Location formulae.** The reason editing locations in bulk needs more than a
-  text box: a Kindle export numbers by *location* rather than page and the
-  conversion is a division; a PDF's page numbers run a few ahead of the print
-  edition's. So add, subtract, multiply, divide, set, or reset. Locations are
-  free text (`p.142`, `610-612`, `42%`, `1234`), so the transform rewrites the
-  numeric runs in place and leaves everything around them alone — `p.142` minus
-  5 is `p.137`, and a range moves at both ends. Timestamps convert to seconds,
-  shift, then re-render in the same `HH:MM:SS` shape they arrived in. Results
-  clamp at zero, division rounds, and every row keeps its as-imported value, so
-  a formula applied twice can be undone instead of compounding.
-
-**Under it.** Migration `0023` adds `import_batches`, `staged_works` and
-`staged_quotes`, deliberately outside the live tables: staged text carries no
-FTS triggers, so it never turns up in search and can't be pulled into a quiz.
-Every existing read stays untouched — no `WHERE pending = 0` threaded through
-the codebase. Staged tags live as denormalized text rather than join rows, so a
-tag that exists only in an unapproved import doesn't appear in your vocabulary.
-
-Approval converts staged rows **back into the importer's own intermediate
-shape** and runs the existing persist path, so dedupe, duplicate enrichment
-(fill-empty-only, colour upgrading off yellow, favourite only upward, tags
-union) and the ISBN → ASIN → title/author book resolution all behave exactly as
-they do now. That needs one refactor and no behaviour change: split the
-target-resolving half of `importOneBook` / `importOneMovie` away from the loop
-that writes the quotes, so the loop can also be handed a target the user picked.
-
-New endpoints, `requireAuth` under `/api` like the rest: `GET /import/staged`,
-`POST /import/staged/bulk`, `POST /import/staged/approve`, and
-`DELETE /import/staged`.
-
-**What changes in existing behaviour.** The seven import endpoints stop
-reporting `added` / `skipped` / `enriched` and start reporting a batch id and a
-staged count; the old counters move to the approve response. The export →
-re-import round-trip tests, which assert that re-importing a library's own
-export is a no-op, gain an import-then-approve helper and go on asserting
-exactly that. And the one-at-a-time post-import review panel retires, since the
-queue supersedes it — taking a live bug with it: that panel's private copy of
-the full-state-PUT helper omits the sticker fields, so filling in a missing page
-number currently wipes an attached sticker and its position.
+The staging work that was queued here shipped in **1.2.0** (see *Recently
+shipped*). Nothing is claimed for the next release yet — the numbered backlog
+below is in rough order, and the concurrent-write 500 recorded under *Known bugs*
+is the strongest candidate: §11's offline client flushes a queue, which *is*
+concurrent writes, and the retry path it depends on is the one that fails.
 
 ### Known bugs, not yet fixed
 
 Recorded here rather than left in a commit message. Each is reproducible; none
-is fixed as of 1.1.1.
+is fixed as of 1.2.0.
 
 - **Concurrent writes can fail with a 500.** Two writes arriving at once race for
   SQLite's WAL write lock, and the loser gets `SQLITE_BUSY` back **immediately**

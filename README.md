@@ -102,8 +102,18 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
   language can produce records the parser misreads; nothing is guessed at, and whatever can't be
   read is skipped and counted back to you), and **IMDb** quote pages for film dialogue. Re-imports
   are idempotent, and the same passage synced from differently-formatted tools collapses to one row.
+- 🧺 **Nothing lands until you okay it** — an import parses into a **pending queue** rather than into
+  your library, and waits there as long as you like. One list for everything staged from every file,
+  grouped by the book or film each quote will attach to, with every group saying where it is headed
+  before anything is written. Fix a whole file at once: tags on *and* off, colour, favourite,
+  chapter, character, actor — **move quotes onto the right work, book and film interchangeable** —
+  and shift locations by formula (add · subtract · multiply · divide · set · reset), which is what a
+  Kindle location-to-page division or a PDF page offset actually needs; `p.142` minus 5 is `p.137`,
+  and *reset* restores every row's as-imported value. Then approve, discard, or leave it for later.
+  Staged quotes are invisible to search and to the review deck until approved.
 - 📤 **Export** — any book or movie to Obsidian-friendly Markdown, a filtered set as one multi-item
-  file, or the whole library as a zip. Book exports round-trip cleanly back through the importer.
+  file, or the whole library as a zip. Book exports round-trip cleanly back through the importer —
+  re-importing and approving one is a no-op, not a pile of duplicates.
 - 💬 **Share a quote** — one click on any highlight or dialogue opens a share sheet that formats it
   for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit** — or renders it
   as a **shareable image** in your current paper/film skin, generated locally. Choose which fields to
@@ -157,8 +167,8 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 
 > **Roadmap** — an **Android app** that photographs a page of a physical book and turns it into a
 > highlight, with OCR **on the device** (the server gains no dependency); more ways in
-> (Kindle `My Clippings.txt`, Kobo, Apple Books, Readwise & read-later imports; a PWA
-> **share-target** and a page-HTML **bookmarklet**); opt-in AI summaries (OpenAI-compatible) with
+> (Kobo, Apple Books, Readwise & read-later imports; a PWA **share-target** and a page-HTML
+> **bookmarklet**); opt-in AI summaries (OpenAI-compatible) with
 > push notifications (NTFY, likely via [Shoutrrr](https://containrrr.dev/shoutrrr/)); a
 > [Homepage](https://gethomepage.dev) dashboard widget; collections & shelves; the Profile area
 > growing into passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in
@@ -371,7 +381,8 @@ cmd/tippani/          entrypoint: serve + user subcommands + healthcheck
 internal/store/       SQLite open (WAL etc.), embedded migrations, dedupe hash, schema tests
 internal/auth/        bcrypt, hashed-token sessions + device tokens, rate limiters
 internal/httpapi/     routes (Go 1.22 patterns), CSRF, gzip, security headers, device
-                      pairing, the shared quote shape (quote.go), handlers + exports
+                      pairing, the shared quote shape (quote.go), the import staging queue
+                      (import_staging.go + location formulae), handlers + exports
 internal/search/      FTS5 MATCH escaping (never pass raw input to MATCH)
 internal/importer/    markdown (frontmatter + Readest), Bookcision, Hardcover, Goodreads,
                       Kindle-notebook, Kindle My Clippings.txt and IMDb-quotes parsers
