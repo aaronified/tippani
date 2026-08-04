@@ -5,7 +5,115 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2026-08-04
+
+The catalogue could say what you own and what you had marked up, but nothing
+about where you stood with any of it. A book you were half through looked exactly
+like one you had bought and never opened, and finishing something left no trace
+at all — so a reread overwrote the read before it, and "how many times have I read
+this" was unanswerable. This adds a shelf: a status per work, progress in the
+units the thing is actually made of, and a log of every read.
+
+A show's quotes had the same gap one level down: a dialogue could say *when* in a
+runtime it was said, which is a complete answer for a film and no answer at all
+for a series. So they now carry the episode too.
+
+### Added
+- **Shelf status on every work** — *reading* / *watching* · *paused* ·
+  *abandoned* · *completed*, plus the ordinary untracked state. Drawn as a
+  **colour bar directly under the cover**, Radarr-style: the artwork itself is
+  never covered, which is the whole reason it is a bar and not another badge over
+  the poster. Blue in flight (filled to your progress), amber held, red given up
+  on, green finished. `--accent` is deliberately not used for *reading* — it sits
+  a few degrees from `--error`, and a bar you have to squint at to tell "reading"
+  from "abandoned" is no bar at all.
+
+  Whatever you are on with right now **pins to the top of the default sort** and
+  keeps an open-book (films: ▶) mark on its artwork. Pick any sort from the menu
+  and it sorts as asked — the pin belongs to the default view, not to the data.
+
+  Set from the detail's ⋯ overflow (and a standing button on desktop); the state
+  chip beside the hearts opens the rest of the lifecycle. `completed` is settled:
+  the only move out of it is starting again. Clearing back to untracked stays
+  available everywhere, because a mis-tap should not be permanent.
+
+- **Wishlist, derived from having nothing quoted yet** — no column, no
+  bookkeeping, and it clears itself the moment you add a quote. The filter row
+  gains an `all · wishlist · annotated` chip triplet (its own section in the
+  phone's filter sheet) so you can browse just the unopened shelf, or hide it and
+  see only what you have actually marked up.
+
+- **Progress in pages, seasons and episodes — not just percentages.** A physical
+  book takes *page 96 of 214*; a show takes *season 2 of 3, episode 6 of 10*, with
+  whole earlier seasons counting in full so the bar advances through a run. A film
+  keeps the plain percentage, having neither. The percentage is **derived** from
+  the position server-side, so the bar, the export and every client read one
+  number that cannot disagree with the other. A page number with no page total is
+  refused rather than stored — it cannot become a percentage, and accepting it
+  would leave a bar that never moves.
+
+- **A read log, so a reread is history rather than an overwrite.** Finishing a
+  work closes its read; starting again opens the next one. A `×3` chip on the
+  detail opens the dates. Dates are **partial by design** — `2019`, `2021-02`, or
+  a full day — because "I read it in 2019" is a real answer and padding it to
+  January 1st invents a precision nobody has. An abandoned attempt keeps its stop
+  date but does not count as a read.
+
+- **A calendar picker for partial dates**, where every level is a legal stopping
+  point: pick a year and you have a year, carry on for a month, carry on again for
+  the day. Also applied to a person's **Born / Died**, which were 4-digit-year
+  text boxes — they now take a full date when you know one, while the "1920 –
+  2001" lifespan line still shows only the years.
+
+- **A soft shelf cap** — 5 books, 2 films, 5 shows in progress at once. Going past
+  it opens the shelf rather than refusing: settle one from the list, or carry on
+  anyway. Enforced only in the client, deliberately: a second device must not be
+  told "no" for a rule you can override on this one.
+
+- **Shelf state is filterable** — a multi-select of the five states beside the
+  genre and series controls, so "paused or abandoned" (the unfinished business you
+  would actually go looking for) is one dropdown.
+
+- **Season and episode on a show's dialogues** — *shows only; a film has one
+  runtime, so its timestamp already locates the line completely.* A series does
+  not: "01:12:40" means nothing without which of sixty episodes it is 01:12:40 of.
+  Add-and-edit gains a Season / Episode pair beside the timestamp for a show, and
+  the locator then reads as **S2E6** wherever a timestamp already showed — the
+  frame's credit line, the table (its own sortable column), search results, the
+  quiz card, and the share card. A season on its own is fine, because sometimes
+  that is all anyone remembers; an episode without one is refused, since it cannot
+  be placed against a numbered season.
+
+  Lines now sort **through the run** — season, then episode, then the clock — so a
+  show's quotes read in the order they were said rather than by whichever
+  timestamp happened to be smallest. Un-episoded lines fall to the end.
+
+  **Season 0 is a real season** — it is where a series keeps its specials and
+  pilots — so the columns are nullable and *unset* is `null`, never `0`. A
+  0-means-unset integer would have made "the specials strand" and "nobody recorded
+  an episode" the same fact, and dropped `S0E1` on every export.
+
+- All of it **round-trips through the Markdown export**: `status`, `progress`,
+  `page: 96/214`, `season: 2/3`, `episode: 6/10`,
+  `reads: 2019-03-04 — 2019-04-01; 2021 — 2021-02 (abandoned); 2026-07 —`, and
+  per-line `- season:` / `- episode:` bindings on a show's dialogues (a
+  hand-written `- episode: S2E5` or `2x05` is read back too, since that is how
+  people actually write it). On the way back in it is fill-empty-only like every
+  other import backfill, so re-importing an old export cannot un-mark what you are
+  reading now or duplicate a history that is already there. The whole locator
+  survives the staging queue, whose editor can fix a season or episode the same
+  way it fixes a timestamp.
+
+### Changed
+- `PUT /books|movies/{id}/status` is a **new endpoint** and the only path that
+  changes status, progress, position or the read log — they move together in one
+  transaction. Deliberately *not* part of the full-state `PUT /{id}`: an ordinary
+  Edit-form save must never be able to rewrite reading history.
+- `POST` / `PUT /dialogues` accept `season` and `episode` (nullable integers) and
+  every dialogue payload now carries them. A **film's** line is stored with
+  neither: they are dropped rather than refused, so flipping a show to a film in
+  the Edit form leaves its old lines editable instead of failing every later save
+  from a form that no longer offers the fields.
 
 ## [1.2.0] - 2026-08-04
 
