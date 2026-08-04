@@ -52,8 +52,8 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 242 |
-| Commits with an AI co-author trailer | **241** |
+| Commits in the repository | 253 |
+| Commits with an AI co-author trailer | **249** |
 | Period | 2026-07-02 → 2026-08-04 |
 
 Models used, by commit count:
@@ -62,13 +62,17 @@ Models used, by commit count:
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
-| Claude Opus 5 | 25 |
+| Claude Opus 5 | 33 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
 | Claude Sonnet 4.6 | 1 |
 
-The single commit without a trailer (`1687961`) adds attribution URLs for
-Bookcision, Readest and pretext to the README — typed by hand.
+Four commits carry no trailer. One (`1687961`) adds attribution URLs for
+Bookcision, Readest and pretext to the README — typed by hand. The other three are
+`github-actions[bot]` regenerating the roadmap's known-bugs block from the issue
+tracker, which is machine-written but not AI-written, and the distinction is the
+point of this file: a script that renders a JSON file into HTML is not a model
+making choices.
 
 To see it yourself:
 
@@ -172,4 +176,4 @@ Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 
-*Last verified against the tree at v1.3.1.*
+*Last verified against the tree at v1.3.2.*
