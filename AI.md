@@ -31,7 +31,7 @@ Tippani, so it comes first.
   Cover and portrait fetches go through a host allowlist with an SSRF guard.
 
 There is one AI *feature* under consideration, and it is in
-[`ROADMAP.md`](ROADMAP.md) under **Later / maybe** — not built, not started:
+[the roadmap](docs/roadmap.html) under **Later / maybe** — not built, not started:
 opt-in digest summaries against an **OpenAI-compatible endpoint you configure
 with your own key**, off unless you turn it on. If it is ever built it will be
 off by default and will say plainly what leaves the machine. Until then, the
@@ -44,16 +44,16 @@ honest summary is: **an AI wrote this app; the app does not use AI.**
 Practically all of it was written in
 [Claude Code](https://claude.com/claude-code) — design discussion, schema, Go,
 React, CSS, SQL migrations, tests, and the documentation including this file —
-with a human directing the work, deciding what gets built, and reviewing what
-comes back.
+with me directing the work, deciding what gets built, and reviewing what comes
+back.
 
 The audit trail is the git history itself: nearly every commit carries a
 `Co-Authored-By:` trailer naming the model that worked on it.
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 241 |
-| Commits with an AI co-author trailer | **240** |
+| Commits in the repository | 242 |
+| Commits with an AI co-author trailer | **241** |
 | Period | 2026-07-02 → 2026-08-04 |
 
 Models used, by commit count:
@@ -62,7 +62,7 @@ Models used, by commit count:
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
-| Claude Opus 5 | 24 |
+| Claude Opus 5 | 25 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
 | Claude Sonnet 4.6 | 1 |
@@ -94,7 +94,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **354 test functions across 66 test files**, over real HTTP handlers against a
+- **365 test functions across 69 test files**, over real HTTP handlers against a
   real SQLite database — not mocks.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, and a frontend build.
@@ -115,10 +115,12 @@ What that honestly does not cover:
 - **Confident documentation is not verified documentation.** Where this file
   makes a claim, it was checked against the tree; treat prose elsewhere in the
   repo as a strong hint and the code as the truth.
-- **`docs/ui-glossary.html` is hand-maintained and lags the code.** It is
-  currently several releases behind.
+- **`docs/ui-glossary.html` is hand-maintained, so it lags by construction.** It
+  was several releases behind until the shelf and pending-import sections were
+  added at 1.3.0; nothing keeps it honest but me noticing, which is exactly the
+  failure mode the help-registry item on the roadmap exists to end.
 - **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* in
-  [`ROADMAP.md`](ROADMAP.md), including a concurrency defect that is understood,
+  [the roadmap](docs/roadmap.html), including a concurrency defect that is understood,
   reproducible and deliberately not yet fixed.
 
 ---
@@ -148,11 +150,11 @@ that is a bug worth an issue.
 
 ## Responsibility, and license
 
-The maintainer is responsible for this code — for what it does, for its bugs, and
-for the decision to ship it. "An AI wrote it" is an explanation of method, never
-an excuse, and it does not transfer to whoever runs the software.
+I am responsible for this code — for what it does, for its bugs, and for the
+decision to ship it. "An AI wrote it" is an explanation of method, never an
+excuse, and it does not transfer to whoever runs the software.
 
-Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)), copyright the maintainer,
+Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 

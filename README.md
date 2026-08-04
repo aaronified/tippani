@@ -26,7 +26,7 @@
 ---
 
 Built for low-powered NAS boxes that already run a hundred other things: a single static Go
-binary (~12 MB, `linux/amd64`), SQLite + FTS5, **~25 MB idle RSS** (the budget we hold it
+binary (~12 MB, `linux/amd64`), SQLite + FTS5, **~25 MB idle RSS** (the budget I hold it
 within; set `GOMEMLIMIT` to cap it — the systemd unit uses 64 MiB), and **zero background jobs** (no pollers, timers, or
 cron). It serves plain HTTP on port 8080 for your LAN — bring your own TLS via a reverse proxy /
 Tailscale / Netbird / Twingate, or hand it a PEM pair (`TIPPANI_TLS_CERT`/`_KEY`, hot-reloaded)
@@ -166,7 +166,7 @@ of that are spelled out in [`AI.md`](AI.md).
   stays paired until you unpair it: changing your password signs out browsers but deliberately
   leaves phones alone, because silently unpairing every device on a routine password change is
   worse than the threat it would prevent. Unpair one, or all, from the same panel. (The Android
-  app itself is in progress — see [`ROADMAP.md`](ROADMAP.md) §11.)
+  app itself is in progress — see [the roadmap](docs/roadmap.html) §23.)
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
 - 🔄 **In-app updates** — Settings shows your running version and checks GitHub for a newer release
@@ -193,7 +193,7 @@ of that are spelled out in [`AI.md`](AI.md).
 > [Homepage](https://gethomepage.dev) dashboard widget; collections & shelves; the Profile area
 > growing into passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in
 > **achievements** — reading milestones plus one gentle spaced-repetition streak.
-> See [`ROADMAP.md`](ROADMAP.md).
+> See [the roadmap](docs/roadmap.html).
 
 ## Quick start (Docker Compose)
 
@@ -442,7 +442,7 @@ Standing on the shoulders of:
   sticker (the `FlowQuote` seal).
 - **[CC0 Textures](https://cc0-textures.com/)** — the public-domain (CC0) texture packs behind the
   paper·wood·metal·glass surfaces of the paper/film skins.
-- **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** — we read their highlight / Markdown exports directly as import
+- **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** — I read their highlight / Markdown exports directly as import
   sources; thanks to both apps for making Kindle and cross-device highlights portable.
 
 ## License

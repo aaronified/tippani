@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tippani — roadmap</title>
+<meta name="description" content="Where Tippani is headed — rough order, not promises.">
+
+<!--
+  SELF-CONTAINED ON PURPOSE. No external stylesheet, no font files, no script.
+
+  docs/ui-glossary.html inlines the whole built app CSS and points at
+  ../web/dist/assets/*.woff2 by content hash, which is precisely why it goes stale:
+  every frontend build renames the files out from under it. This page borrows the
+  paper/film *palettes* from web/frontend/src/theme.js and nothing else, so it
+  cannot rot against a build, and it renders the same opened from disk, served by
+  the app, or published with the demo.
+
+  Light is paper, dark is film — the app's own default when no theme is stored.
+-->
+<style>
+  :root {
+    --bg:#F4EDDE; --card:#FFFEF9; --card-top:#FFFFFC; --card-bottom:#FCF8ED;
+    --ink:#221C16; --soft:#6A5F50; --faint:#8A7C68; --line:#E4DAC7;
+    --amber:#BE8A4E; --error:#A93B26; --ok:#3E8E5A; --accent:#B4482D;
+    --display: Newsreader, Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    --ui: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#15100C; --card:#201A13; --card-top:#251E16; --card-bottom:#1D1710;
+      --ink:#ECE3D1; --soft:#A2937C; --faint:#8E8069; --line:#322A20;
+      --amber:#D6A25C; --error:#C96B5B; --ok:#5FB47E; --accent:#D4694A;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--ui);
+    font-size:16px; line-height:1.65; -webkit-text-size-adjust:100%;
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,.5), transparent 60%),
+      radial-gradient(120% 60% at 50% 110%, rgba(0,0,0,.05), transparent 60%);
+    background-attachment:fixed;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,.06), transparent 60%),
+      radial-gradient(120% 60% at 50% 110%, rgba(0,0,0,.3), transparent 60%); }
+  }
+  .wrap { max-width:820px; margin:0 auto; padding:40px 22px 96px; }
+  header { margin-bottom:28px; }
+  .wordmark { font-family:var(--display); font-size:40px; line-height:1.1; margin:0 0 2px; font-weight:500; }
+  .bengali { color:var(--faint); font-size:20px; font-family:var(--display); }
+  .tagline { color:var(--soft); margin:10px 0 0; max-width:64ch; }
+  .mono { font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
+  a { color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2px; }
+  a:hover { text-decoration-thickness:2px; }
+  hr { border:0; border-top:1px solid var(--line); margin:34px 0; }
+  h2 {
+    font-family:var(--display); font-size:26px; font-weight:500; line-height:1.25;
+    margin:44px 0 6px; padding-top:8px;
+  }
+  h3 { font-family:var(--display); font-size:20px; font-weight:500; margin:30px 0 6px; }
+  h3 .n {
+    font-family:var(--mono); font-size:12px; color:var(--accent);
+    letter-spacing:.06em; margin-right:.55em; vertical-align:.12em;
+  }
+  p, li { max-width:72ch; }
+  ul { padding-left:20px; }
+  li { margin:7px 0; }
+  li > ul { margin-top:6px; }
+  code {
+    font-family:var(--mono); font-size:.87em; background:var(--card-bottom);
+    border:1px solid var(--line); border-radius:4px; padding:.06em .34em;
+  }
+  .card {
+    background:linear-gradient(var(--card-top), var(--card-bottom));
+    border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin:18px 0;
+  }
+  .card h3 { margin-top:6px; }
+  .bug { border-left:3px solid var(--error); }
+  .note { border-left:3px solid var(--amber); }
+  nav.toc { margin:24px 0 8px; }
+  nav.toc ol { columns:2; column-gap:28px; padding-left:20px; margin:8px 0 0; font-size:14px; }
+  @media (max-width:620px) { nav.toc ol { columns:1; } }
+  nav.toc a { text-decoration:none; color:var(--ink); }
+  nav.toc a:hover { color:var(--accent); text-decoration:underline; }
+  footer { margin-top:56px; padding-top:18px; border-top:1px solid var(--line); color:var(--faint); font-size:14px; }
+  .pill {
+    display:inline-block; font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+    border:1px solid var(--line); border-radius:999px; padding:3px 10px; color:var(--soft);
+    background:var(--card); margin:0 6px 6px 0; text-decoration:none;
+  }
+  a.pill:hover { border-color:var(--accent); color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1 class="wordmark">Tippani <span class="bengali">টিপ্পনী</span></h1>
+  <p class="mono">Roadmap</p>
+  <p class="tagline">
+    Where Tippani is headed — rough order, not promises. The ethos holds throughout:
+    a frugal, self-hosted home for your highlights first; everything ambitious is
+    <strong>optional and off unless you turn it on</strong>, nothing phones home, and
+    it all runs from one small binary on your own box.
+  </p>
+  <p class="tagline">
+    Have a request, or a strong opinion on the ordering? Open an issue — I would
+    rather hear it than guess.
+  </p>
+  <p style="margin-top:18px">
+    <a class="pill" href="https://github.com/aaronified/tippani/releases">Release history →</a>
+    <a class="pill" href="https://github.com/aaronified/tippani/blob/main/CHANGELOG.md">Changelog →</a>
+    <a class="pill" href="https://github.com/aaronified/tippani">Repository →</a>
+  </p>
+  <p class="tagline" style="font-size:14px">
+    What has already shipped lives on the releases page and in the changelog, so it
+    is not repeated here. This page is only what is still ahead.
+  </p>
+</header>
+
+<hr>
+
+<h2 id="next">Next up</h2>
+<p>
+  The import-staging work that was queued here shipped in 1.2.0. Since then the
+  <strong>shelf</strong> — a status per work, progress in the units the thing is
+  actually made of, a derived wishlist, and a log of every read — shipped in 1.3.0,
+  along with <strong>season and episode on a show's dialogue</strong>.
+</p>
+<p>
+  Of everything below, the concurrent-write 500 is the strongest candidate, and it
+  now blocks in two places rather than one: §23's offline client flushes a queue,
+  and §8's service worker queues writes while offline. Both <em>are</em> concurrent
+  writes, and the retry path they depend on is the one that fails.
+</p>
+<p>For a cheap start, §1 collects the items that are an afternoon each.</p>
+<p>
+  The numbers are labels and they move, so read them as grouping rather than as
+  queue position. Two worth pointing at directly: §2 is where this app can be
+  straightforwardly better than anything else in its category, and §24 — recording a
+  quote that belongs to no book and no film — is the biggest idea here that is not yet
+  started.
+</p>
+
+<h2 id="bugs">Known bugs, not yet fixed</h2>
+<p>
+  Recorded here rather than left in a commit message. Each is reproducible; none is
+  fixed as of 1.3.0.
+</p>
+
+<div class="card bug">
+  <h3>Concurrent writes can fail with a 500</h3>
+  <p>
+    Two writes arriving at once race for SQLite's WAL write lock, and the loser gets
+    <code>SQLITE_BUSY</code> back <strong>immediately</strong> rather than waiting —
+    even though <code>busy_timeout</code> is 5000 on every connection. Eight
+    concurrent <code>POST /annotations</code> reliably produces one or two 500s, and
+    it reproduces just as readily on <code>POST /books</code>, so it is not specific
+    to any one handler. I found it while stress-testing the duplicate-create path in
+    1.1.1.
+  </p>
+  <p>
+    The cause looks like a design intent I never implemented: PLAN §7 specifies a
+    <strong>single writer connection</strong>, but <code>store.Open</code> sets
+    <code>SetMaxOpenConns(4)</code> with no serialisation around writes, so four
+    connections contend freely. Today one person clicking in a browser rarely trips
+    it. It matters for §23 and §8: an offline client flushing a queue — the Android
+    app's, or the service worker's — <em>is</em> concurrent writes, and the retry
+    path both depend on is the one that fails.
+  </p>
+  <p>
+    The fix is to serialise write transactions behind a mutex, as PLAN §7 always
+    intended. I am deliberately not rushing it into a patch release, because it has
+    to be done without holding the lock across the cover-fetch network calls some
+    write handlers make, and every write path needs auditing for it. Until then
+    <code>TestConcurrentDuplicatePostsAllConflict</code> tolerates the 500
+    explicitly and logs a count, rather than passing quietly.
+  </p>
+</div>
+
+<div class="card bug">
+  <h3>Legacy catalogue exports can still re-import as books</h3>
+  <p>
+    1.1.1 made the catalogue export always write <code>type: movie</code> /
+    <code>type: show</code>, which is what routes a file back to the right importer.
+    Files exported by <strong>1.1.0 or earlier</strong> were not rewritten, so a
+    bare film export from then — no director, no collection, no
+    character/actor/timestamp on any line — still carries nothing identifying it.
+    Re-export it, or add a <code>type:</code> line by hand. Not fixable
+    retroactively; a detector cannot infer what the file never recorded.
+  </p>
+</div>
+
+<hr>
+
+<h2 id="backlog">The backlog</h2>
+<p>In rough order. Numbers are labels, not commitments, and they move.</p>
+
+<nav class="toc">
+  <p class="mono">Contents</p>
+  <ol>
+    <li><a href="#s1">Quick wins</a></li>
+    <li><a href="#s2">The review loop, deepened</a></li>
+    <li><a href="#s3">Account, continued</a></li>
+    <li><a href="#s4">Anthologies</a></li>
+    <li><a href="#s5">Capture from anywhere</a></li>
+    <li><a href="#s6">Search precision</a></li>
+    <li><a href="#s7">More import sources</a></li>
+    <li><a href="#s8">Mobile &amp; PWA</a></li>
+    <li><a href="#s9">Help &amp; density</a></li>
+    <li><a href="#s10">Interop</a></li>
+    <li><a href="#s11">Homepage widget</a></li>
+    <li><a href="#s12">Collections &amp; tag shelves</a></li>
+    <li><a href="#s13">Serendipity &amp; looking back</a></li>
+    <li><a href="#s14">Data hygiene</a></li>
+    <li><a href="#s15">Fields users will name</a></li>
+    <li><a href="#s16">Desktop keyboard</a></li>
+    <li><a href="#s17">Achievements</a></li>
+    <li><a href="#s18">Access &amp; reading comfort</a></li>
+    <li><a href="#s19">Ops</a></li>
+    <li><a href="#s20">Structured logs</a></li>
+    <li><a href="#s21">Grimmory sync</a></li>
+    <li><a href="#s22">Out in the world</a></li>
+    <li><a href="#s23">Android app</a></li>
+    <li><a href="#s24">Quotes without a work</a></li>
+    <li><a href="#s25">Choose your metadata sources</a></li>
+  </ol>
+</nav>
+
+<h3 id="s1"><span class="n">§1</span>Quick wins</h3>
+<p>
+  Things that are an afternoon each and pay for themselves immediately. I have
+  grouped them here rather than burying them inside the larger themes they
+  nominally belong to, because a cheap item filed under an expensive heading never
+  gets picked up.
+</p>
+<ul>
+  <li>
+    <strong>Name the four highlight colours.</strong> Four strings in
+    <code>users.preferences</code> — yellow = "beautiful", blue = "argument",
+    pink = "disagree", orange = "look up", or whatever you actually mean by them —
+    shown in the filter chips, the swatch group and the stats breakdown. Zero
+    schema. People already do this on paper; the colours exist, and this is what
+    makes filtering by one of them mean something instead of being a guess about
+    your own past intent.
+  </li>
+  <li>
+    <strong>Shuffle</strong> — one random quote, full width, nothing else on
+    screen. The library has no random surface at all today; every other quote app
+    has one, and there is a reason.
+  </li>
+  <li>
+    <strong>On this day</strong> — what you saved on this date in earlier years,
+    off <code>created_at</code> and <code>noted_at</code>. Both are already
+    indexed, and the date facet already exists to link into, so this is a query and
+    a card.
+  </li>
+  <li>
+    <strong>Manifest surfaces</strong>, none of which touch the server:
+    <ul>
+      <li><code>shortcuts</code> — long-press the installed icon for <em>Capture quote</em> · <em>Daily quiz</em> · <em>Pending imports</em>. The native long-press affordance, for free.</li>
+      <li><code>file_handlers</code> + <code>launch_handler</code> — tap a <code>.md</code>, a <code>My Clippings.txt</code> or a Bookcision <code>.json</code> in the file manager and it lands in import staging.</li>
+    </ul>
+  </li>
+  <li>
+    <strong>App-icon badge</strong> — <code>navigator.setAppBadge()</code> with due
+    cards plus pending imports, set by the client on load. Notifications proper need
+    something that wakes up on its own, which is why they sit under
+    <a href="#later">Later</a>; this gets most of the same value with
+    <strong>no server work and nothing scheduled</strong>.
+  </li>
+  <li>
+    <strong>Saved views</strong> — the filter state is already serialised into the
+    URL in full, so a saved view is a <code>(name, url)</code> row and a list in the
+    drawer. The cheapest possible answer to "let me keep that combination of
+    filters".
+  </li>
+  <li>
+    <strong>Keep the form filled after saving a quote</strong> — work, colour and
+    tags persist for the next one. Today a sitting of six quotes is six full
+    re-entries.
+  </li>
+  <li><strong>Rotate the quote on the login screen.</strong></li>
+</ul>
+
+<h3 id="s2"><span class="n">§2</span>The review loop, deepened</h3>
+<p>
+  The review loop is the part of Tippani with no real equivalent elsewhere — the
+  highlight managers resurface, they don't ask. Almost everything below is
+  query-time work against columns that already exist: no new tables, nothing
+  ticking, no background jobs. That is what makes this the cheapest place to get
+  distinctly better rather than merely broader.
+</p>
+<ul>
+  <li>
+    <strong>Cloze review — blank out a phrase and recall it.</strong> The most
+    natural way to test a <em>quote</em>, as opposed to a fact, and nobody in this
+    space does it. The masked span is chosen at request time from the quote text
+    (longest run of non-stopwords, seeded by the quote id so it is stable per card),
+    which means <strong>no schema and no storage</strong> — the same "compute it in
+    the query" discipline the forgetting curve already follows. Grading is a fuzzy
+    match, and the edit distance for it is already in
+    <code>internal/search/levenshtein.go</code> for the typo-tolerant search pass.
+  </li>
+  <li>
+    <strong>Adaptive intervals, opt-in beside the fixed ladder.</strong>
+    <code>item_reviews.stability</code> is already a half-life in days, so scaling
+    it multiplicatively on a result is a handful of lines. The fixed 7 → 30 → 100
+    ladder stays the default and stays honest about what it is, but a lapse
+    currently drops you to 7 from any rung, and that is the one place the loop is
+    harsher than the science asks — Anki's move to FSRS made the argument
+    mainstream. Off unless you turn it on.
+  </li>
+  <li><strong>Undo the last answer.</strong> The single most-requested control in every spaced-repetition tool ever built, and a misplaced tap currently costs you a rung.</li>
+  <li><strong>Suspend a quote from rotation.</strong> Some highlights are references, not things to memorise. Today the only way out of the deck is deleting the quote.</li>
+  <li><strong>Themed review</strong> — "quiz me on this book / tag / colour / person", from a button on the thing itself. The deck query already filters by scope; this is one more clause and a way in.</li>
+  <li><strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly when you notice the typo, the missing tag, or that you love it — and it is currently the one screen from which you can do nothing about any of that.</li>
+  <li><strong>Leech handling</strong> — <code>lapse_count</code> is already stored, so at five lapses the card can offer to be suspended or shortened rather than grinding on.</li>
+  <li><strong>More card types from data already held</strong> — <em>who said this line?</em> (multiple choice over the film's own stored <code>cast_json</code>, no API call), <em>which chapter or act?</em>, <em>who wrote it?</em>, and <em>type the next line</em> where two annotations sit adjacent by location in one book.</li>
+  <li><strong>A recall-history sparkline</strong> on the quote's pop-up, drawn from <code>item_reviews</code>.</li>
+</ul>
+<p class="mono">Nothing is promoted out of Later into this section — Anki <code>.apkg</code> export stays under consideration, where it already sits.</p>
+
+<h3 id="s3"><span class="n">§3</span>Account, continued — sign-in, trash, tokens</h3>
+<p>
+  The consolidated Profile (photo · display name · password) and admin role
+  management shipped. Strands that remain, all local — no email round-trips:
+</p>
+<ul>
+  <li><strong>Stronger sign-in (opt-in)</strong> — <strong>passkeys (WebAuthn)</strong> and <strong>TOTP 2FA</strong> layered over today's password + hashed-token sessions, for boxes reachable past the LAN. Off unless you turn it on; the password stays the fallback.</li>
+  <li><strong>Trash &amp; undo</strong> — soft-delete with a restorable trash for books, films, quotes and users, so a mis-click (or a cascading user delete) isn't final; emptied on demand or after a grace period.</li>
+  <li><strong>Per-user API tokens + webhooks</strong> — <em>partly shipped in 1.1.0.</em> Device tokens exist now, which is the hard half. What remains is <strong>scoping</strong> — a token that may read stats but not write quotes, for the Homepage widget or an Obsidian sync — and outbound <strong>webhooks</strong> on events.</li>
+  <li><strong>Sign in through the reverse proxy you already run</strong> — <strong>OIDC</strong>, and the cheaper half first, <strong>forward-auth</strong>: trust a configured identity header when <code>TRUSTED_PROXY</code> is set, which is the same trust boundary the login rate limiter already reasons about for <code>X-Forwarded-For</code>. Anyone fronting their box with Authelia, Authentik or Tinyauth wants their whole estate behind one sign-in, and it is the most-asked thing on this list that was not previously on it. Local passwords stay, and stay the default.</li>
+  <li><strong>List and revoke browser sessions individually.</strong> Paired devices can each be unpaired by name, but browser sessions can only be dropped all at once by changing your password — so "sign out that other laptop" currently means signing out everything.</li>
+</ul>
+<div class="card note">
+  <p style="margin:0"><strong>Ordering note.</strong> Trash &amp; undo has to land before the swipe gestures in §8. A gesture that deletes, and a delete that cannot be undone, are each fine alone and bad together.</p>
+</div>
+
+<h3 id="s4"><span class="n">§4</span>Anthologies — ordered, curated collections of quotes</h3>
+<p>
+  A named, ordered list of quotes drawn from anywhere in the library, carrying prose
+  of its own: an introduction, and my commentary between the entries. It is not a
+  tag with a nicer hat — the two things a tag cannot do are <strong>hold an
+  order</strong> and <strong>hold your writing</strong>, and those are the whole
+  point.
+</p>
+<p>
+  This is the missing <em>output</em> of a commonplace book. Everything in Tippani
+  today points inward: you file a passage, you find it again, you get asked about
+  it. An anthology is what you make <em>from</em> the collection — a sequence you
+  arranged, on a theme you chose, with the connective tissue that explains why these
+  twelve passages belong next to each other. Letterboxd's lists are the closest
+  proven form; the nearest thing in the annotation world is Zotero's
+  extract-annotations-into-a-note, which is the most-used feature it has.
+</p>
+<ul>
+  <li><strong>Compose</strong> — select quotes anywhere a selection already works (search, a work's detail, staging), then write between them. The bulk-select bar already exists on three screens.</li>
+  <li>Exports as one Markdown file, and via §10 as <strong>EPUB</strong> — a small book of your own quotes, readable on the same e-reader the highlights came off.</li>
+  <li>Reviewable as a themed deck (§2), because an anthology is a better answer to "what should I be revisiting" than any automatic grouping would be.</li>
+</ul>
+
+<h3 id="s5"><span class="n">§5</span>Capture from anywhere (share-target + bookmarklet)</h3>
+<p>Low-cost ways to get text in without a file:</p>
+<ul>
+  <li><strong>PWA share-target</strong> — Tippani already installs as a PWA, so register it as a share target: "Share → Tippani" from any app (a reading app, a browser, your phone's own text selection <strong>or its built-in OCR</strong>) drops straight into quick capture. This is also how a photographed page gets in — the phone recognises the text, you share it.</li>
+  <li><strong>Bookmarklet</strong> — one click that POSTs the current page's <strong>raw HTML</strong> to Tippani, parsed server-side by reusing the existing Hardcover / Goodreads / IMDb HTML importers. Deliberately minimal: just the page, no Bookcision-style JSON layer to install or keep working.</li>
+  <li><strong>Paste a pile</strong> — one textarea, blank-line separated, becomes N staged quotes on one work. The "just let me dump what I typed in Notes" path that every parser-based importer misses.</li>
+</ul>
+
+<h3 id="s6"><span class="n">§6</span>Search precision</h3>
+<p>
+  Search is already good at finding things when you half-remember them: prefix
+  matching on every token, sectioned results, a typo-tolerant second pass. What it
+  cannot do is answer a <em>precise</em> question, and that gap widens with every
+  hundred quotes you add.
+</p>
+<ul>
+  <li><strong>Field operators</strong> — <code>author:austen tag:grief color:blue before:2025</code>. Every token currently becomes a prefix query because the box is a typeahead, which is right for browsing and leaves structured intent nowhere to go. The fix is to parse a small grammar off the front of the query <em>before</em> it reaches <code>search.ColumnPrefixQuery</code>, leaving bare words behaving exactly as they do today.</li>
+  <li><strong>Exact phrases in quotes</strong> fall out of the same work: <code>"to be or not to be"</code> becomes one FTS5 phrase query instead of six independent prefix terms. There is currently no way to ask for a phrase at all, which for a library <em>made of phrases</em> is the odd gap.</li>
+  <li><strong>Date ranges</strong> — the date facet parses a single day; <code>2025-01..2025-06</code> and "last 30 days" are the obvious extensions, and the Stats calendar already links into that facet.</li>
+  <li><strong>Highlight the matched words</strong> in results. The corrected query is already returned to the client for exactly this purpose on the fuzzy path; the exact-match path should do it too.</li>
+  <li><strong>"More like this", without an embedding model.</strong> Semantic search via <code>sqlite-vec</code> sits under Later and would cost a dependency and an indexing pass. There is an 80% version that costs neither: take the quote's highest-value terms from the <code>*_fts_vocab</code> views that already exist for typo correction, and run them as one <code>OR</code> match. Worth shipping first, because it may well be enough.</li>
+  <li><strong>Neighbouring highlights</strong> — "what else did I mark near here", from the annotations either side of this one by <code>location</code> in the same book. <code>locSortVal</code> already parses those locators for the sortable table. Nothing else in this category can do it, because nothing else keeps the locator.</li>
+  <li><strong>Cross-work duplicate quotes</strong> — a passage saved under two editions of the same book is easy to miss. Surfacing them pairs with the merge that already exists.</li>
+  <li>Sort results by date or by length, not only by relevance; and a filter box inside a single work, which stops being optional somewhere around the three-hundredth highlight in one book.</li>
+</ul>
+
+<h3 id="s7"><span class="n">§7</span>More import sources</h3>
+<p>
+  Kobo (<code>KoboReader.sqlite</code>), Apple Books, a <strong>Readwise</strong>
+  export, and read-later apps (Instapaper · Pocket · Matter), all folded into the
+  same idempotent, cross-source dedupe. Kobo is unverified for now — I have no
+  device here to test a real <code>KoboReader.sqlite</code> against, so it ships
+  only once someone can confirm it parses cleanly. The Kindle
+  <code>My Clippings.txt</code> importer has shipped; broadening its locale coverage
+  needs real files from Kindles set to other UI languages.
+</p>
+<p>Three more, added after a look at what the neighbours read:</p>
+<ul>
+  <li><strong>KOReader annotations</strong> (<code>.sdr/metadata.*.lua</code>). To be clear about which half of KOReader this is: Tippani reads the <strong>annotations</strong>, not the books. Grimmory, Kavita and Calibre-Web all sync KOReader progress, which means the e-ink crowd is already the overlapping audience — and they are the people who highlight most.</li>
+  <li><strong>A generic CSV / JSON importer with column mapping</strong> — pick the file, map its columns onto quote fields, preview, stage. This is the future-proof answer to every source there will never be a bespoke parser for, and staging is what makes it safe enough to offer.</li>
+  <li><strong>Subtitle files</strong> (<code>.srt</code> / <code>.vtt</code>) — drop one, pick the lines worth keeping, and they stage as dialogues with the timestamps <em>already correct</em>. The film-side equivalent of a Kindle export, and the one thing the movie-quote sites prove people actually want to do.</li>
+</ul>
+
+<h3 id="s8"><span class="n">§8</span>Mobile &amp; PWA — offline first, then gestures</h3>
+<p>
+  Tippani installs as a PWA and then behaves like a browser tab with a nicer frame,
+  because there is <strong>no service worker at all</strong>. That is the real reason
+  it doesn't feel native — more than any missing gesture — and it is the first thing
+  here.
+</p>
+<p>
+  Cache the shell and recently-viewed data, queue writes while offline, flush on
+  reconnect. Note the dependency: a queue flush <em>is</em> concurrent writes, so
+  this is <strong>blocked on the concurrent-write 500</strong> above, for exactly the
+  reason that entry already gives for §23.
+</p>
+<h4 style="font-family:var(--display);font-weight:500;font-size:17px;margin:24px 0 4px">Gesture ground rules</h4>
+<p>
+  Today the only gestures are scrolling, the drawer's swipe-to-close, and dragging a
+  control thumb or a sticker. Adding more is worthwhile, but a web app that fights
+  the operating system for a swipe loses, so the constraints come first and apply to
+  every gesture below.
+</p>
+<ul>
+  <li><strong>Nothing starts at a screen edge.</strong> Ignore any gesture whose first touch lands within ~32&nbsp;px of the left or right edge — that belongs to the iOS back-swipe and the Android back-gesture — or in the bottom home-indicator strip. The drawer already reasons this way; reuse its heuristic rather than inventing a second.</li>
+  <li><strong>Prove direction before capturing</strong> — 10&nbsp;px on the dominant axis, dominant by about 1.5× — so a gesture can never steal a scroll.</li>
+  <li><code>touch-action: manipulation</code> on card chrome to drop the double-tap-zoom delay; <code>touch-action: none</code> only on the element that owns a gesture, never on a scrolling ancestor.</li>
+  <li><code>-webkit-touch-callout: none</code> and <code>user-select: none</code> on card chrome, but <strong>never on the quote text</strong> — long-pressing a passage to select and copy it must keep working. That is the whole app.</li>
+  <li><strong>Every gesture is additive.</strong> The ⋯ overflow, the ♥ button and the filter sheet all stay exactly as they are. That is both the accessibility requirement and the answer to how anyone discovers a gesture in the first place.</li>
+  <li>One Settings toggle turns card gestures off wholesale, and <code>prefers-reduced-motion</code> suppresses the animation that accompanies them.</li>
+  <li><code>navigator.vibrate(10)</code> on commit — Android only, iOS Safari has nothing — which is most of what makes a gesture feel deliberate rather than accidental.</li>
+</ul>
+<h4 style="font-family:var(--display);font-weight:500;font-size:17px;margin:24px 0 4px">The set, in build order</h4>
+<ol>
+  <li><strong>Double-tap a quote card</strong> to toggle ♥. Understood everywhere, and it gets the same heart-bloom the button does.</li>
+  <li><strong>Pull down at the top of a list</strong> to refresh. Standalone display mode suppresses the browser's own pull-to-refresh, so this is mine to implement, with progressive feedback and <code>overscroll-behavior-y: contain</code>.</li>
+  <li><strong>Long-press a card away from its text</strong> to open the ⋯ menu as a context sheet. Middle of the screen, never an edge.</li>
+  <li><strong>Swipe up or down on a review card</strong> for <em>got it</em> / <em>forgot</em>. The best fit in the whole list: vertical, so it cannot collide with either platform's back gesture — the Anki-mobile pattern rotated onto the safe axis — and a review card isn't a scroll container, so there is nothing to conflict with. A tap still reveals, and the buttons stay.</li>
+  <li><strong>Swipe down to dismiss a bottom sheet.</strong> <code>MobileSheet</code> already exists, the gesture lives entirely inside it, and every native sheet works this way.</li>
+  <li><strong>Pinch the Library or Catalogue grid</strong> for cover size and density — the direct-manipulation form of the Settings sliders that already exist, snapping to the same discrete sizes.</li>
+  <li><strong>Pinch and double-tap inside the cover Lightbox</strong> to zoom and pan. The one place native zoom semantics are the right answer, so implement them rather than suppressing them.</li>
+  <li><strong>Double-tap the top bar</strong> to scroll to top, riding the scroll memory that is already there.</li>
+  <li><strong>Long-press ＋ Add</strong> for a quick-action sheet, so the same actions reachable from the app icon (§1) are reachable from inside the app.</li>
+  <li><strong>Two-finger tap to undo</strong> — genuinely unclaimed on both platforms, and it pairs with the review undo in §2 and a delete-undo toast.</li>
+  <li><strong>Long-press a colour swatch</strong> to make it the default for new captures.</li>
+  <li><strong>Drag to reorder</strong> anthology entries and staged-import groupings; the sticker drag already proves the primitive.</li>
+</ol>
+<p>
+  Two are deliberately held back until <strong>trash &amp; undo (§3)</strong> lands,
+  because a mis-swipe must be recoverable: <strong>horizontal swipe inside a card's
+  own bounds</strong> for share/edit/delete, Gmail-style, rubber-banding back below
+  threshold and never deleting on the swipe alone; and <strong>horizontal swipe on a
+  work-detail hero</strong> for previous/next work in the current filtered order,
+  which is the riskiest of the set for being screen-width and horizontal, so it
+  stays on the hero and never the whole page.
+</p>
+<p>
+  One is rejected outright, recorded so I don't revisit it: <strong>swiping between
+  the four bottom-nav tabs</strong>. It is a screen-width horizontal gesture that
+  fights the back gesture at both edges and any horizontally scrollable content in
+  between, and the bottom bar is already one tap away.
+</p>
+<p>
+  Discoverability rides the existing spotlight: a short gesture chapter in the tour,
+  and every gesture listed in the help panel (§9).
+</p>
+
+<h3 id="s9"><span class="n">§9</span>Help &amp; density — one registry, four consumers</h3>
+<p>
+  Two problems that are really one. The app explains itself in standing prose —
+  drawer subtexts, Settings card copy, staging destination lines, microcopy under
+  controls — which is good writing and a lot of it, and it is why some screens read
+  dense. Meanwhile there is nowhere to look up what a control does.
+</p>
+<p>
+  The first half is a density pass. Every piece of text on a screen is one of three
+  things: a <strong>label</strong> (what this control is — stays),
+  <strong>state</strong> (what is true right now: counts, "→ joins your existing
+  <em>Dune</em>" — stays, that's feedback), or an <strong>explanation</strong> (why it
+  exists, what the trade-off is — moves into an info dot). The
+  <code>InfoDot</code> and <code>Tooltip</code> primitives already exist, so this is
+  a content migration rather than new machinery. Settings, the Metadata console and
+  the staging page carry the most explanation and go first, and the same rule becomes
+  the convention for new code.
+</p>
+<p>
+  The second half is a <strong><code>?</code> on every screen</strong> — a drawer row
+  on phones — opening a panel that documents every control on that screen, grouped by
+  the screen's own sections, searchable, and deep-linkable
+  (<code>/library?help=filters</code>, which the URL routing already supports).
+</p>
+<p>
+  The design decision that makes both affordable is to write each explanation
+  <strong>once</strong>, in one registry keyed by screen and control, and read it from
+  four places: the info-dot tooltips, the help panel,
+  <a href="ui-glossary.html">the UI glossary</a> (hand-maintained today, and it
+  drifts), and the tour's step copy. A control explained in one place cannot
+  contradict itself in another.
+</p>
+<p>
+  Completeness gets enforced the way this repo already enforces it elsewhere: a
+  build-time test keeps <code>docs/troubleshoot.md</code> in lockstep with
+  <code>internal/olog/codes.go</code>, and the same shape of test can require that
+  every registered control has help copy and every info dot resolves to a registry
+  key. That is the difference between "explains every option" as an intention and as
+  a guarantee.
+</p>
+<p>
+  Sequencing matters here: build the registry and the panel shell
+  <strong>early</strong>, so every feature after it adds its own copy as it lands, and
+  do the exhaustive fill <strong>last</strong>, once the release's surface has stopped
+  moving.
+</p>
+
+<h3 id="s10"><span class="n">§10</span>Interop — feeds, formats, a CLI</h3>
+<p>
+  The way a self-hosted app wins "works with everything" is not by writing thirty
+  integrations; it is by speaking two or three formats other tools already read.
+</p>
+<ul>
+  <li><strong>A feed of recent highlights</strong> — RSS, Atom or JSON, token-scoped, riding the per-user tokens of §3. One endpoint reaches Obsidian, FreshRSS, Home Assistant, e-ink dashboards and a terminal widget, which is a better return than any single bespoke integration.</li>
+  <li><strong>A random-quote endpoint</strong>, JSON and SVG. SVG rather than PNG on purpose: laying text into a raster server-side is real work, whereas SVG text is string concatenation, and the dashboards that would display it render SVG natively.</li>
+  <li><strong>CSV and JSON export.</strong> Markdown and the zip serve Obsidian well; CSV is what a spreadsheet needs and JSON is what a script needs, and both are small next to the export builders already written.</li>
+  <li><strong>EPUB export of your own highlights</strong> — a small readable book of your own quotes, to put back on the e-reader they came off. <code>archive/zip</code> is already imported for the library export, and an EPUB is a zip with three XML files. Nothing else in this category does it.</li>
+  <li><strong>A print stylesheet</strong>, for the paper version of the same idea.</li>
+  <li><strong>BibTeX / CSL-JSON</strong> per work — nearly free, since ISBN, author and year are already stored, and the one thing an academic user asks for first.</li>
+  <li><strong><code>tippani quote</code> and <code>tippani export</code></strong> as CLI subcommands, alongside the existing <code>serve</code> / <code>user</code> / <code>healthcheck</code>. A <code>fortune</code> for your own library.</li>
+  <li><strong>Export presets</strong> — a named, saved combination of fields, template and filter, so the monthly dump into Obsidian is one command rather than six choices.</li>
+  <li>
+    <strong>More quote-image templates.</strong> <code>quoteImage.js</code> renders one
+    layout in four skins; centred-serif, film-still, index-card and minimal, plus
+    story, square and wide aspect presets. The one part of sharing an export cannot
+    do, since a picture is not a file format anyone else reads.
+    <br>
+    The one worth building first is a <strong>portrait layout</strong>: the author's,
+    actor's or speaker's photo bled down the left and <strong>faded into the quote
+    text</strong> on the right — the shape that actually reads on Instagram and
+    Facebook, where a centred serif card does not. The portraits are already fetched,
+    disambiguated and stored locally, so the art is on disk and nothing new needs
+    downloading; the work is the gradient mask, a legible text well over it, and a
+    sensible fallback when a person has no photo. Square and story crops matter most
+    here, since that is where it would be posted.
+  </li>
+</ul>
+
+<h3 id="s11"><span class="n">§11</span>Homepage dashboard widget</h3>
+<p>
+  A widget for <a href="https://gethomepage.dev">Homepage</a> (and similar
+  self-hosted dashboards): a small, read-only, token-scoped stats endpoint surfacing
+  today's <strong>pending spaced-repetition</strong> count, your latest
+  <strong>quiz score</strong>, and <strong>book / annotation / movie</strong>
+  totals — so Tippani shows up as a live tile on your NAS dashboard. Opt-in; nothing
+  exposed without a token.
+</p>
+<p>In three tiers, cheapest first:</p>
+<ol>
+  <li><strong>Document what already works</strong> — Tippani's unauthenticated <code>/healthz</code> means any dashboard can ping it today, so a "Dashboards" docs page with a ready-to-paste <code>services.yaml</code> snippet and the optional <code>homepage.*</code> compose labels costs nothing and lands first.</li>
+  <li><strong>Custom-API widget</strong> — Homepage's <code>customapi</code> widget can render live counts with <strong>zero upstream code</strong>, but its requests come from the Homepage <em>server</em> with no session cookie, so this tier rides on the per-user API tokens of §3: a slim read-only stats surface accepting <code>Authorization: Bearer</code>, plus a documented field mapping. This is the real deliverable.</li>
+  <li><strong>Native first-party widget (later)</strong> — a PR into gethomepage/homepage. Gated upstream: the widget must target a feature-request discussion with <strong>≥20 up-votes</strong>, and widgets for projects under about a year old get declined — so the discussion gets opened early to accumulate votes, and the PR waits for 2027. It consumes the exact endpoint tier 2 already built.</li>
+</ol>
+
+<h3 id="s12"><span class="n">§12</span>Collections &amp; tag shelves</h3>
+<p>
+  Extend tagging <strong>to books</strong> (tags live only on annotations today), then
+  a view that groups either books or annotations by tag — curated, named groupings
+  ("Best of 2026", "to reread") that are really just tags surfaced as first-class
+  collections, so there is no new taxonomy to learn.
+</p>
+<p>
+  A note on the word: this section used to be called <em>Collections &amp;
+  shelves</em>, but "shelf" now means where you stand with a work — reading, paused,
+  completed — so what this section builds is <strong>tag shelves</strong>, and the
+  plain word belongs to the other feature.
+</p>
+<p>Tag hygiene belongs here too, because a vocabulary this section makes load-bearing needs it:</p>
+<ul>
+  <li><strong>Merge and alias tags.</strong> The Tags page has full CRUD and usage counts but no merge, and every managed vocabulary needs one by its second year. <code>POST /people/rename</code> already establishes the rename-across-the-library pattern to copy.</li>
+  <li><strong>Nested tags</strong> — <code>theme/grief</code>, displayed hierarchically. Deliberately a display convention over the existing <code>name</code> column rather than a parent id, so there is no schema change and no migration to regret.</li>
+  <li><strong>An optional mood and pace starter vocabulary.</strong> The thing StoryGraph is loved for is, underneath, a well-chosen tag set; offering one as a suggestion on the Tags page costs a list of strings and no new field.</li>
+  <li>The colour names from §1 show up here as well, since this is where the vocabulary is managed.</li>
+</ul>
+
+<h3 id="s13"><span class="n">§13</span>Serendipity &amp; looking back</h3>
+<ul>
+  <li><strong>Ambient mode</strong> — full screen, one quote at a time, slowly cycling, in whichever skin is current. The paper and film aesthetics are the nicest thing about the app and are currently only ever seen at card size. This is also the version that earns its keep on a display wired to the NAS.</li>
+  <li><strong>Year in review</strong> — the numbers are already computed for the Stats page; what is missing is the sequence that walks you through them and the single image worth sharing at the end. Drawn from <strong>quotes, tags, people and the review loop only</strong> — deliberately not from the read log, even though "books finished this year" is now sitting right there. See the note under <a href="#aside">Considered and set aside</a>; this is the first place anyone would reach for it.</li>
+</ul>
+<p>Shuffle and <em>on this day</em> were the cheap half of this section and moved up to §1.</p>
+
+<h3 id="s14"><span class="n">§14</span>Data hygiene &amp; bulk editing</h3>
+<p>The tools you need after an import rather than during one.</p>
+<ul>
+  <li><strong>Find and replace across a selection</strong>, preview then apply, reusing the review-before-apply flow already built for metadata re-verify. This is the single most useful post-import tool, and it stops being optional the moment OCR capture lands.</li>
+  <li><strong>A shared text-cleanup pass</strong> — de-hyphenate across line breaks, drop page numbers and running heads, normalise the quote marks and ligatures that get mangled in transit. §23 lists all of this as OCR post-processing, but it belongs <strong>server-side and shared</strong>, because every import source produces some of it and the typographic-folding normaliser already exists for the dedupe hash.</li>
+  <li><strong>Merge two films or shows.</strong> <code>POST /books/merge</code> exists; the catalogue side does not, even though duplicate detection already covers both.</li>
+  <li><strong>The bulk bar on Library and Catalogue.</strong> It is on Search, Metadata and staging but not on the two main browse screens — which are where you actually notice that forty rows need the same correction.</li>
+  <li><strong>Per-batch import rollback.</strong> <code>import_batches</code> already records the source and filename, so "undo that whole import" is the natural completion of the staging story; approval is currently a one-way door.</li>
+</ul>
+
+<h3 id="s15"><span class="n">§15</span>Fields users will name</h3>
+<p>Unglamorous, low-risk, and the sort of thing that turns up as an issue rather than a feature request.</p>
+<ul>
+  <li><strong>Book fields</strong> — format (paper · ebook · audio), language, publisher, translator, subtitle. Format and language are the two that get filtered on; translator matters more than you would expect to anyone reading literature in translation. Page count is deliberately <strong>not</strong> on this list: it is already stored as the progress bar's denominator, and a second metadata-sourced page count would give the app two numbers that can disagree. If it is ever wanted as canonical metadata it should <em>feed</em> that one, not sit beside it.</li>
+  <li><strong>Film and show fields</strong> — runtime, original title, country, language, certification. TMDB already returns every one of these in responses that are already being fetched, and they are what the decade / country / language breakdowns are made of.</li>
+  <li><strong>A per-season episode map</strong> from TMDB or TheTVDB. The shelf stores a season total and the <em>current</em> season's episode count, because that is what a viewer knows off the top of their head; a real map means progress through a long run stops needing you to supply each season's length by hand.</li>
+  <li><strong>"Attributed to" on a quote</strong> — for a book quoting someone else. An epigraph is currently credited to the book's author, silently, which quietly corrupts both the author breakdown and the author multiple-choice distractors.</li>
+  <li><strong>A locator-kind hint</strong> per book: whether its locators are print pages, Kindle locations or percentages. The staging location formulae already show that people care about locator arithmetic.</li>
+  <li><strong>A spoiler flag</strong>, blurred until tapped. Standard wherever reviews are public, and it matters as soon as anything is shared.</li>
+</ul>
+
+<h3 id="s16"><span class="n">§16</span>Desktop keyboard</h3>
+<p>There is no global shortcut registry at all today, which for a text app with a large library is the biggest single desktop gap.</p>
+<ul>
+  <li><strong>A command palette</strong> on <code>⌘K</code> / <code>Ctrl-K</code> — jump to a work, run a search, capture a quote, switch theme, start the quiz. It doubles as the place every shortcut below becomes discoverable.</li>
+  <li><strong>Single-key shortcuts</strong> — <code>/</code> to search, <code>n</code> for a new quote, <code>g</code> then <code>l</code>/<code>c</code>/<code>s</code> to go to Library, Catalogue or Stats, <code>j</code>/<code>k</code> through a list, <code>f</code> to favourite, <code>e</code> to edit, <code>?</code> for the sheet. Escape-to-close is already implemented consistently across a dozen components, so half the conventions are set.</li>
+  <li><strong>Review shortcuts</strong> — <code>1</code> and <code>2</code> to grade, space to reveal, <code>u</code> to undo. Anyone arriving from an SRS tool reaches for these on reflex.</li>
+  <li><strong>Shift-click for range selection</strong>, since the bulk bar currently costs one click per row.</li>
+  <li><strong>An optional denser layout</strong> — one toggle, not a redesign. The paper and film aesthetics are rightly generous for reading and expensive for triage.</li>
+</ul>
+
+<h3 id="s17"><span class="n">§17</span>Achievements — quiet milestones, and one gentle streak</h3>
+<p>
+  A deliberately restrained take. Achievements mostly mark <em>distance
+  travelled</em> — reading and collection milestones drawn from data
+  <strong>already in the library</strong> and computed at query time: no counters
+  table, no background jobs, no cron, nothing ticking. <strong>Off by
+  default</strong>, private, nothing social and nothing that phones home; shown as a
+  modest, dismissible shelf on Home or Profile. Candidate milestones, all derivable
+  from what is already stored: your first hundred highlights; a whole book carried
+  through the forgetting curve; ten authors on the shelf; a passage recalled
+  correctly five times; a series completed; a film quoted from every act.
+</p>
+<p>
+  The <strong>one</strong> place a streak earns its keep is the spaced-repetition
+  review, and even there it is built the forgiving way the review loop already
+  works — mirroring the SM-2 rule that a lapse is <em>shortened, never
+  hard-reset</em>. A review streak counts days you clear the due deck, but a missed
+  day spends a built-in grace rather than zeroing the count, and it is
+  <strong>never</strong> dressed up as a loss. "You broke your streak!" banners are
+  exactly what I won't do. It is a quiet tally that rewards turning up, not a chain
+  you are afraid to drop. Streaks stop at the review; nothing else in the app grows
+  one.
+</p>
+<p>
+  This sits below §2 rather than above it because its one streak rides on the review
+  loop, so it reads better once that work has landed — and because being off by
+  default makes it easy to wait for.
+</p>
+
+<h3 id="s18"><span class="n">§18</span>Access &amp; reading comfort</h3>
+<ul>
+  <li><strong>Internationalisation scaffolding.</strong> The app is named in Bengali, ships a Bengali wordmark and a Noto Serif Bengali subset, and its interface is English only. Extracting strings gets more expensive every release, so the argument for starting is not that translations are next — it is that the cost only goes up. English plus one real translation, to prove the seams are in the right places.</li>
+  <li><strong>Reading-comfort controls for the quote text</strong> — size, line height, measure, and a serif or sans choice. Reading passages is the entire purpose of the app, and the only typographic control today is how big the covers are.</li>
+  <li><strong>A high-contrast mode</strong> — drop the grain overlay, flatten the textured background, and raise ink and rule contrast to WCAG AA. The textures are lovely and they are not free.</li>
+  <li><strong>A dyslexia-friendly font option</strong>, cheap given the existing self-hosted <code>@fontsource</code> setup, and asked for often by people who read a lot.</li>
+  <li><strong>A named, focusable equivalent for every gesture</strong> added in §8.</li>
+</ul>
+
+<h3 id="s19"><span class="n">§19</span>Ops</h3>
+<ul>
+  <li><strong>A <code>/metrics</code> endpoint</strong> (Prometheus), behind a token and off by default. This audience runs Grafana, and the numbers are already computed for Stats.</li>
+  <li><strong>Off-box backup without a scheduler.</strong> Uploading to rclone, WebDAV or S3 means a background job and a dependency, both of which are refused elsewhere in this document for good reasons. The version that fits is to ship the <em>primitive</em> — a documented one-line <code>curl</code> against the existing backup endpoint, plus a <code>tippani backup --out</code> subcommand — and let the box's own cron do the scheduling it is already running.</li>
+  <li><strong>A read-only mode flag.</strong> The Pages demo already simulates one client-side; a server flag would let someone share a live instance without risk.</li>
+  <li><strong>A per-user storage cap</strong>, for anyone hosting for family. Images are the only unbounded growth path in the data directory.</li>
+</ul>
+
+<h3 id="s20"><span class="n">§20</span>Verbose, structured logs</h3>
+<p>
+  A failed request should tell you <em>why</em> from the Docker logs, not just that
+  it failed. The plan: consistent structured logging across handlers (method · path
+  · user · outcome · <strong>cause</strong>), a <code>TIPPANI_LOG_LEVEL</code> knob
+  (quiet by default, <code>debug</code> opt-in), and request ids to correlate a
+  client error with its server line — without ever leaking internals into the HTTP
+  response. A first step is already in: book-save 500s now log their real cause
+  instead of swallowing it.
+</p>
+
+<h3 id="s21"><span class="n">§21</span>Grimmory sync (self-hosted, direct MariaDB)</h3>
+<p>
+  A pull source for anyone already running <strong>Grimmory</strong> self-hosted:
+  point Tippani at that instance's MariaDB database and sync straight from its
+  tables, with no export file in the loop. It reads book covers, edition metadata
+  and annotations directly from Grimmory's schema and folds them into the same
+  idempotent, cross-source dedupe as the file importers, so a re-sync never doubles
+  a passage. Covers come across too, which needs read access to Grimmory's cover
+  store — so the plan assumes both services sit in the <strong>same
+  compose file</strong>: Tippani is handed the Grimmory DSN plus the relevant media
+  path, wired through the environment. Read-only and opt-in — nothing runs without a
+  configured DSN. A first pass is a one-shot pull, with a scheduled re-sync as the
+  follow-up. Unverified until I can test it against a real Grimmory box.
+</p>
+
+<h3 id="s22"><span class="n">§22</span>Out in the world — directories &amp; icon CDNs</h3>
+<p>
+  Getting Tippani discoverable where self-hosters actually browse. No code here —
+  outreach and asset prep, in dependency order:
+</p>
+<ul>
+  <li>
+    <strong>Icon CDNs first</strong>, since dashboards and directories pull art from them:
+    <ul>
+      <li><a href="https://dashboardicons.com">dashboardicons.com</a> — open submissions via the site's form or a GitHub issue. Needs a clean <code>tippani.svg</code> in kebab-case; they generate the raster sizes. The mark uses an <code>feTurbulence</code> paper-grain filter that some raster pipelines drop, so a <strong>flattened submission variant</strong> gets prepared first. The mark is full-colour, so light/dark variants are optional — I have both anyway.</li>
+      <li><a href="https://selfh.st/icons">selfh.st/icons</a> — no external PRs accepted; icons are <em>requested</em> via GitHub Discussions and added by the maintainers. This is also where the selfh.st/apps directory sources its art, so it goes in before or alongside the listing request.</li>
+    </ul>
+  </li>
+  <li><a href="https://selfh.st/apps">selfh.st/apps</a> — a one-person curated directory with no submission repo: reach out by email with the repo, a one-liner, a demo link and the icon. Being picked up by the <em>This Week in Self-Hosted</em> newsletter's "New Software" section is the usual front door.</li>
+  <li><a href="https://github.com/awesome-selfhosted/awesome-selfhosted">awesome-selfhosted</a> — the biggest list, syndicated by many others, but it <strong>rejects projects younger than 4 months</strong>; the repo went public 2026-07-05, so this submission waits until around November 2026.</li>
+  <li><strong>Prerequisite for all of the above</strong>: confirm the GHCR package is publicly pullable. A directory listing pointing at a pull-gated image is a bad first impression.</li>
+</ul>
+
+<h3 id="s23"><span class="n">§23</span>Android app — capture by camera, with on-device OCR</h3>
+<p>
+  A native Android client, Flutter so the source stays portable, in
+  <code>mobile/</code>. Not a wrapper around the PWA: the point is the one thing a
+  web page on a phone cannot do well, which is <strong>photograph a page of a
+  physical book and turn it into a highlight</strong>. Recognition runs
+  <strong>on the device</strong> (ML Kit), so the server gains no dependency, no CPU
+  cost and no upload path — the reason server-side OCR was set aside doesn't apply
+  to it.
+</p>
+<p>
+  The work that isn't the OCR call itself — which is thirty lines — is what makes it
+  worth having: reflowing recognised lines into paragraphs from their bounding boxes,
+  <strong>de-hyphenating across line breaks</strong>, dropping running heads and page
+  numbers, normalising the quote marks and ligatures OCR mangles, and then a
+  correction screen with the photo beside the text. A local mirror keeps browsing and
+  the Daily Quiz working with no server, and captures queue offline and flush when
+  the box is reachable.
+</p>
+<p>
+  Two notes on where the work belongs. The text cleanup above should live
+  <strong>server-side and shared</strong> rather than in the app, because every
+  import source produces some of it; that is §14. And the photo the correction screen
+  already holds beside the text is worth <strong>keeping, attached to the
+  quote</strong>: one nullable path column on an image pipeline that already stores
+  covers, posters, portraits and stickers, and it keeps the evidence next to the
+  transcription for the next time you doubt a line.
+</p>
+<p>
+  The server side of this <strong>shipped in 1.1.0</strong> — device tokens and
+  pairing, list paging, gzip, the capabilities handshake, <code>noted_at</code> on
+  create so a queued capture keeps its real date, and duplicate <code>409</code>s
+  that make a retried flush idempotent. What remains is the app.
+</p>
+<p>
+  <strong>Android only.</strong> Flutter compiles for iOS and the Dart here stays
+  platform-agnostic, but building and signing for iOS needs a Mac, and I don't have
+  one — so no <code>ios/</code> directory ships rather than an unbuildable one
+  rotting in the tree. A fork with a Mac adds it with
+  <code>flutter create --platforms=ios .</code> and a signing config; the README says
+  Android and does not imply otherwise.
+</p>
+
+<h3 id="s24"><span class="n">§24</span>Quotes without a work — speeches, letters, anything said</h3>
+<p>
+  Every quote in Tippani currently hangs off a book or a film. That covers what I
+  built it for and leaves out a whole category: the line from a speech, a letter, an
+  interview, a song, a proverb, something a friend said. There is nowhere to put
+  <em>"Give me blood, and I will give you freedom"</em> — Subhas Chandra Bose, 1944,
+  Burma, most likely over Burma Radio — and it is exactly the kind of line people
+  keep.
+</p>
+<p>
+  <strong>The same annotation framework, with nothing new to learn.</strong> The four
+  colours, tags, notes, favourite ♥, stickers, the share sheet, Markdown export and
+  the review deck all apply unchanged. A standalone quote is a quote; only what it
+  points <em>at</em> is different.
+</p>
+<p>
+  Where a book quote points at a chapter and a page, and a dialogue points at a
+  character, a timestamp and now an episode, a standalone quote points at an
+  <strong>occasion</strong>: who said it, when, where, and through what — a rally, a
+  broadcast, a letter, a recording. The date wants to be a
+  <strong>partial date</strong>, which the shelf's read log already established: "1944"
+  is often the honest answer, and padding it to a January morning invents a precision
+  nobody has.
+</p>
+<p>
+  <strong>The speaker is the same person, not a new kind of thing.</strong> This is
+  the part that makes the feature cheap: <code>people</code> already holds authors,
+  actors and directors under an open <code>kind</code> — validated in app code rather
+  than by a CHECK, exactly so it can grow — so a speaker is one more value. Portraits,
+  bios, provider links, the People console, rename-across-the-library and the
+  duplicate merge all work on day one, and a person who is both an author and a
+  speaker is one person with one portrait.
+</p>
+<p>
+  Identity resolution has to lead with <strong>Wikidata</strong>, though. The existing
+  resolvers are tuned for their own worlds — an author is disambiguated through Open
+  Library by the books they wrote, an actor comes out of a film's own stored cast —
+  and neither finds a historical political figure. Wikidata does, and it carries the
+  dates, the description and the P18 portrait already used as a fallback elsewhere.
+  <strong>IMDb and Open Library stay available as search options</strong>, because a
+  speaker may well also be a writer or appear on film, and the user is a better judge
+  of which source is right than a guess would be. See §25.
+</p>
+<p>Two things this quietly improves:</p>
+<ul>
+  <li><strong>Cloze review (§2) has been waiting for this.</strong> A famous line with one phrase blanked is the single best card this app could ask, and standalone quotes are almost all famous lines.</li>
+  <li><strong>Anthologies (§4) get much stronger</strong> — a themed sequence stops being limited to things that happen to be in your library as books or films.</li>
+</ul>
+<p>
+  One rule to get right up front: the <strong>occasion is a locator, and it
+  discriminates</strong>. The same words said on two occasions are two quotes, the way
+  the same line in two episodes is two quotes. That is the lesson the episode fix
+  taught, and it is cheaper to apply than to retrofit.
+</p>
+<p>
+  The Markdown format needs a third <code>type:</code> so the round-trip routes to the
+  right importer, which is the mistake 1.1.1 fixed for the catalogue and shouldn't be
+  repeated.
+</p>
+
+<h3 id="s25"><span class="n">§25</span>Choose your metadata sources</h3>
+<p>
+  Today a lookup fans out to whatever happens to be configured, in an order baked
+  into the code, and you find out what it consulted by reading the result. I want the
+  sources to be <strong>mine to pick</strong> — per lookup, and as a saved default.
+</p>
+<ul>
+  <li>
+    <strong>A source picker on every metadata fetch.</strong> Checkboxes for the
+    sources that apply to what is being looked up, remembered per kind: books lean on
+    Google Books and Open Library, films and shows on TMDB and TheTVDB, people on
+    Wikidata, IMDb and Open Library. Being able to say "just Open Library" is also the
+    honest answer to a source that is wrong about a particular book.
+  </li>
+  <li>
+    <strong>A source with no key reads as inactive, not as broken.</strong>
+    <strong>TMDB and TheTVDB do nothing without an API key</strong> — that is their
+    rule, not mine — and today an unkeyed instance answers a 503 from a lookup that
+    looked like it should work. It should be visibly greyed out, labelled as needing a
+    key, and linked to the Settings card that takes one. The built-in TMDB key is
+    empty, so this is the first thing a new install hits.
+  </li>
+  <li>
+    <strong>It matters more once §24 lands.</strong> Looking up Subhas Chandra Bose
+    should query Wikidata and not waste a call on TMDB; looking up an actor should do
+    the opposite. Fanning out to everything is both slower and worse, because a
+    confident wrong match from the wrong source is harder to spot than no match.
+  </li>
+  <li>
+    Pairs with the re-verify flow that already exists: once you can choose sources,
+    "re-check this against Open Library only" becomes a sensible thing to ask for.
+  </li>
+</ul>
+
+<hr>
+
+<h2 id="later">Later / maybe (being considered)</h2>
+<p>
+  Not ruled out, not next. Nothing gets promoted out of here without a reason.
+</p>
+<ul>
+  <li>
+    <strong>AI summaries + notifications (opt-in).</strong> A passive digest: batch
+    recent highlights, summarise them with an <strong>OpenAI-compatible</strong>
+    model (local or remote — your endpoint, your key), and optionally push the
+    result. Grouped by book, tag or whole library; weekly or on-demand. Off unless
+    configured, generated async, and — true to the frugality goal — <strong>no cron
+    dependency</strong>. Notifications would start with NTFY, likely routed through a
+    multi-service notifier such as
+    <a href="https://containrrr.dev/shoutrrr/">Shoutrrr</a> so one config reaches any
+    backend. Non-negotiable, whatever I pick: <strong>high / urgent priority must
+    carry through</strong> — a resurfaced highlight is a gentle nudge, but "lookup is
+    failing" should be able to shout.
+    <br>
+    This sat in the numbered backlog until I moved it here deliberately. The cheap end
+    of the notification ask needs none of it: the app-icon badge in §1 shows a
+    due-card count with no server work and nothing scheduled.
+  </li>
+  <li><strong>Anki export / import</strong> — bridge the daily review to and from Anki decks (<code>.apkg</code>), a natural pairing for the spaced-repetition audience. Still being scoped; I need to learn the format first.</li>
+  <li><strong>Backlinks &amp; freeform notes</strong> — manually-maintained links between related highlights, Zettelkasten-style, and standalone notes not tied to any book. Kept deliberately manual; no auto-suggested "related" magic.</li>
+  <li><strong>Shared / household libraries</strong> — collaborative or shared-view libraries across the users on one box.</li>
+  <li><strong>Richer author portraits</strong> — resolve the author's Wikidata entry via the <em>book</em> so a photo appears even when the Open Library record is sparse. The disambiguation already picks the right person; this widens coverage.</li>
+  <li><strong>Email digest fallback</strong> (SMTP).</li>
+  <li><strong>Semantic search</strong> (<code>sqlite-vec</code>) — note that §6's "more like this", built from the term dictionaries already in the database, ships first and costs no dependency at all. It may remove the need for this entirely.</li>
+  <li><strong>Summary export</strong> to Markdown / Obsidian.</li>
+  <li><strong>Reviving a rating.</strong> The 1–5 stars were retired <strong>on purpose</strong> in 0.4.3 and ♥ is the cleaner signal, so this is recorded as a reversal to weigh rather than as planned work — but half-stars are the single most-cited feature of the trackers people arrive from, and the columns are still there, inert, from before the drop. If it ever comes back it should be per-user and opt-in, so the default library looks exactly as it does now.</li>
+  <li><strong>Audio review, in the browser only.</strong> Reading a due card aloud is well liked elsewhere. Server-side speech is out for the same reasons as server-side OCR, but the browser's own <code>SpeechSynthesis</code> costs the server nothing, needs no key, and works offline once §8's service worker exists. Parked here rather than in the backlog because it sits next to a line I drew deliberately.</li>
+  <li><strong>A voice note on a quote</strong> — record, store, play back, with no transcription, which would be a dependency. For the reaction you can't type while reading.</li>
+</ul>
+
+<h2 id="aside">Considered and set aside</h2>
+
+<div class="card">
+  <h3>OCR — and speech — <em>on the server</em></h3>
+  <p>
+    Building OCR into the Go binary isn't worth the weight, and that hasn't changed:
+    it would be a dependency, a CPU cost, and an upload path, all on a box chosen for
+    being small. What <em>has</em> changed is that I wrote this as though the server
+    were the only place it could live. On-device OCR in a native app costs the server
+    nothing at all, so the feature moved to §23 rather than staying refused, and the
+    share-target route (§5) is still the no-app answer and still planned.
+  </p>
+  <p>
+    <strong>Server-side text-to-speech</strong> is refused on identical grounds and
+    belongs in the same entry: a model or a paid API, CPU I don't have, and audio to
+    store or stream. The same escape applies — the browser already has a speech
+    engine, so reading a card aloud is a client feature or it is nothing.
+  </p>
+</div>
+
+<div class="card">
+  <h3>A built-in reader, OPDS, and file sync to a Kobo or Kindle</h3>
+  <p>
+    Tippani holds no book files, and that is a design decision rather than a gap: it
+    is a home for what you <em>marked</em>, not for what you own. Grimmory, Kavita,
+    Calibre-Web and Audiobookshelf all do the shelf properly, one of them is already
+    a planned sync source (§21), and competing with them would mean carrying a format
+    zoo, a streaming path and a storage story for no gain.
+  </p>
+  <p>
+    The distinction worth stating, since the two look similar from outside: reading
+    <strong>annotations</strong> out of KOReader or Kobo is very much wanted and is in
+    §7. Serving <strong>files</strong> is not.
+  </p>
+</div>
+
+<div class="card">
+  <h3>Social features</h3>
+  <p>
+    Following, feeds, public profiles, discovery, and ActivityPub-style federation of
+    the Bookwyrm kind. Per-user isolation here is a security property, not a layout
+    choice: a foreign row answers 404 precisely so that nothing leaks between accounts
+    on one box, and a social graph works against the reason for self-hosting in the
+    first place. Letterboxd and Bookwyrm own that layer and are welcome to it.
+  </p>
+  <p>
+    Sharing something deliberately is a different matter, and it is already handled:
+    the share sheet does a single quote, and the export does a work, a filtered set or
+    the whole library as Markdown you can put anywhere. A hosted read-only page was on
+    this list for a while until I noticed it was mostly a worse version of an export —
+    the same content, plus a public surface to secure and a link to remember to revoke.
+  </p>
+</div>
+
+<div class="card">
+  <h3>The shelf and the read log as a data source for anything else</h3>
+  <p>
+    The shelf gives the app a status per work, a progress figure, a position in pages
+    or seasons, and a read log carrying start and finish dates. All of it is
+    <strong>your input, shown back to you for your own convenience, and nothing else
+    consumes it.</strong>
+  </p>
+  <p>
+    Named concretely, because these are the exact temptations and they are all
+    plausible: no read-log series in the Stats activity calendar; no "books finished
+    this year" in the year in review (§13); no reading-pace or completion charts; no
+    progress- or completion-based achievements in §17; and no shelf status feeding the
+    review deck's scheduling. Recorded here so the boundary stays a decision instead
+    of being rediscovered later as an opportunity.
+  </p>
+</div>
+
+<footer>
+  <p>
+    Tippani · <a href="https://github.com/aaronified/tippani">source</a> ·
+    <a href="https://github.com/aaronified/tippani/releases">releases</a> ·
+    <a href="https://github.com/aaronified/tippani/blob/main/CHANGELOG.md">changelog</a> ·
+    <a href="ui-glossary.html">UI glossary</a>
+  </p>
+  <p class="mono">Rough order, not promises.</p>
+</footer>
+
+</div>
+</body>
+</html>

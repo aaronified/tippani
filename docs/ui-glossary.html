@@ -1049,10 +1049,167 @@
     </div>
   </section>
 
+  <section class="g-section">
+    <h2>Shelf <span class="g-tlabel">1.3.0</span></h2>
+    <p>Where a work stands with you. Drawn <b>under</b> the cover, never over it — the artwork stays whole, which is the entire reason it is a bar and not another badge on the poster.</p>
+    <div class="g-grid">
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:18px">
+          <div style="display:flex;gap:18px;flex-wrap:wrap">
+            <div style="width:74px">
+              <div style="height:104px;border-radius:8px 8px 0 0;background:linear-gradient(160deg,var(--card-top),var(--card-bottom));border:1px solid var(--line);border-bottom:0"></div>
+              <div role="img" aria-label="Reading — 53%" style="height:5px;background:color-mix(in srgb,#7FA6C9 22%,transparent);border-radius:0 0 8px 8px;overflow:hidden"><div style="height:100%;width:53%;background:#7FA6C9"></div></div>
+              <div class="mono-label" style="margin-top:6px;display:block">reading 53%</div>
+            </div>
+            <div style="width:74px">
+              <div style="height:104px;border-radius:8px 8px 0 0;background:linear-gradient(160deg,var(--card-top),var(--card-bottom));border:1px solid var(--line);border-bottom:0"></div>
+              <div role="img" aria-label="Paused" style="height:5px;background:var(--amber);border-radius:0 0 8px 8px"></div>
+              <div class="mono-label" style="margin-top:6px;display:block">paused</div>
+            </div>
+            <div style="width:74px">
+              <div style="height:104px;border-radius:8px 8px 0 0;background:linear-gradient(160deg,var(--card-top),var(--card-bottom));border:1px solid var(--line);border-bottom:0"></div>
+              <div role="img" aria-label="Abandoned" style="height:5px;background:var(--error);border-radius:0 0 8px 8px"></div>
+              <div class="mono-label" style="margin-top:6px;display:block">abandoned</div>
+            </div>
+            <div style="width:74px">
+              <div style="height:104px;border-radius:8px 8px 0 0;background:linear-gradient(160deg,var(--card-top),var(--card-bottom));border:1px solid var(--line);border-bottom:0"></div>
+              <div role="img" aria-label="Completed" style="height:5px;background:var(--ok);border-radius:0 0 8px 8px"></div>
+              <div class="mono-label" style="margin-top:6px;display:block">completed</div>
+            </div>
+            <div style="width:74px">
+              <div style="height:104px;border-radius:8px;background:linear-gradient(160deg,var(--card-top),var(--card-bottom));border:1px solid var(--line)"></div>
+              <div class="mono-label" style="margin-top:11px;display:block">untracked</div>
+            </div>
+          </div>
+        </div>
+        <div class="g-name">StatusBar</div>
+        <div class="g-src">StatusBar — ui.jsx · SHELF_META / SHELF_BLUE (inline styles, no class)</div>
+        <div class="g-desc">A 5px strip beneath the artwork. <b>In flight</b> (reading / watching) it is a real progress bar filled to your position, with the unfilled track the same blue at 22% — so a barely-started book still reads as <i>reading</i> rather than as an empty slot. Every settled state is solid: there is no partial <i>completed</i>. <b>Blue</b> in flight · <b>amber</b> held · <b>red</b> given up on · <b>green</b> finished. <code>--accent</code> is deliberately not used for <i>reading</i> — it sits a few degrees from <code>--error</code>, and a bar you have to squint at to tell <i>reading</i> from <i>abandoned</i> is no bar at all. <code>radius</code> matches the artwork above (8 for posters, 0 for a book's own clipped card).</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center" style="display:block">
+          <span style="display:block;min-width:168px;max-width:260px">
+            <span style="display:block;height:5px;background:color-mix(in srgb,#7FA6C9 22%,transparent);border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:53%;background:#7FA6C9;border-radius:3px"></span></span>
+            <span style="display:block;margin-top:3px;font-family:var(--font-mono),monospace;font-size:11px;letter-spacing:.06em;color:var(--faint)">E06/10 · S02/03</span>
+          </span>
+        </div>
+        <div class="g-name">ShelfProgress</div>
+        <div class="g-src">ShelfProgress / positionLabel — works.jsx</div>
+        <div class="g-desc">The track under a work's state chip on its detail, in the units the thing is actually made of. A show reads <b>E06/10 · S02/03</b>, a book <b>p. 128 of 320</b>, and a film — which has neither — falls back to the bare percentage. Both halves of a pair are zero-padded to the same width, two digits minimum, widening together past 99 (<b>E006/456 · S011/123</b>), so a column of these cannot rag. The percentage is not printed alongside a unit label: the label is more precise, and the bar is drawn from that percentage anyway.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <span class="tp-chip" style="border-color:color-mix(in srgb,#7FA6C9 55%,var(--line))"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#7FA6C9;margin-right:6px"></span>Reading</span>
+          <span class="tp-chip">×3</span>
+        </div>
+        <div class="g-name">State chip · read count</div>
+        <div class="g-src">works.jsx — beside the hearts on a work detail</div>
+        <div class="g-desc">The state chip opens the rest of the lifecycle; <b>completed</b> is settled, and the only move out of it is starting again. Clearing back to untracked stays available everywhere, because a mis-tap should not be permanent. The <b>×3</b> chip opens the read log — one row per read, so a reread is history rather than an overwrite, and only <i>finished</i> attempts count.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <div class="tp-filter-row" style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="tp-filter-chip is-on tactile">all</button>
+            <button class="tp-filter-chip tactile">wishlist</button>
+            <button class="tp-filter-chip tactile">annotated</button>
+          </div>
+        </div>
+        <div class="g-name">Wishlist triplet</div>
+        <div class="g-src">works.jsx — the filter row, its own section in the mobile sheet</div>
+        <div class="g-desc">A work with <b>zero</b> quotes <i>is</i> the wishlist — derived, so there is no column, no bookkeeping, and it clears itself the moment you add a quote. The triplet browses just the unopened shelf, or hides it to leave only what you have actually marked up.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <span class="mono-label" style="display:block;margin-bottom:6px">1944 · 2021-02 · 2019</span>
+        </div>
+        <div class="g-name">Partial dates</div>
+        <div class="g-src">works.jsx — read log, and a person's Born / Died</div>
+        <div class="g-desc">Every level is a legal stopping point: pick a year and you have a year, carry on for a month, carry on again for the day. Stored as text and compared as text, because <code>YYYY</code>, <code>YYYY-MM</code> and <code>YYYY-MM-DD</code> sort correctly against each other lexically. "I read it in 2019" is a real answer, and padding it to January 1st invents a precision nobody has.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <span class="mono-label">S0E1</span><span class="mono-label">S2E6</span><span class="mono-label">S2</span><span class="mono-label">—</span>
+        </div>
+        <div class="g-name">Episode locator <span class="g-tlabel">1.3.0</span></div>
+        <div class="g-src">dialogues.season / .episode — migration 0025</div>
+        <div class="g-desc">A film is one runtime, so a timestamp locates a line completely. A show is not: <code>01:12:40</code> says nothing without the episode it is 01:12:40 <i>of</i>. Shows only, and <b>null</b> is the only "unset" — <b>season 0 is a real season</b>, the specials strand, so S0E1 has to be storable and distinguishable from "no episode recorded". A season with no episode is fine; an episode with no season is refused, because it cannot be ordered against a numbered season. Sort order is season, episode, timestamp, id — with specials first and un-episoded lines last. Two occurrences of a recurring line in different episodes are <b>two quotes</b>, not one, since the occasion is part of what identifies a line.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="g-section">
+    <h2>Pending imports <span class="g-tlabel">1.2.0</span></h2>
+    <p>Every import parses into a holding area and stays there — indefinitely, across sessions, books and films mixed together — until it is explicitly approved.</p>
+    <div class="g-grid">
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:16px">
+          <div style="font-family:var(--font-display),serif;font-size:17px">Pride and Prejudice</div>
+          <div class="microcopy" style="font-size:12px;color:var(--soft)">→ joins your existing title · 4 quotes</div>
+          <div style="height:1px;background:var(--line);margin:12px 0"></div>
+          <div style="font-family:var(--font-display),serif;font-size:17px">The Waves</div>
+          <div class="microcopy" style="font-size:12px;color:var(--soft)">→ will be added as a new book · 11 quotes</div>
+        </div>
+        <div class="g-name">Destination heading</div>
+        <div class="g-src">StagingPage.jsx — one group per work the quotes will attach to</div>
+        <div class="g-desc">Each heading says <b>where its quotes are going</b> — an existing title, or a new one — so a wrong guess is visible before anything is written. Recomputed on every read, because the library moves while quotes wait in the queue.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <div class="tp-filter-row" style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="tp-filter-chip tactile">add</button>
+            <button class="tp-filter-chip tactile">subtract</button>
+            <button class="tp-filter-chip is-on tactile">multiply</button>
+            <button class="tp-filter-chip tactile">divide</button>
+            <button class="tp-filter-chip tactile">set</button>
+            <button class="tp-filter-chip tactile">reset</button>
+          </div>
+        </div>
+        <div class="g-name">Location formulae</div>
+        <div class="g-src">StagingPage.jsx · locformula.go</div>
+        <div class="g-desc">Arithmetic over the numeric runs inside free text, which is what a Kindle location-to-page division or a PDF page offset actually needs. <code>p.142</code> minus 5 is <code>p.137</code>; a range moves at both ends; leading zeros and thousands separators survive; clock values convert through seconds and come back with their original padding. Detection is by <b>value</b>, not by field. Formulae chain, and <b>reset</b> restores every row's as-imported snapshot — so one applied by mistake is undone rather than lived with.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center" style="padding:0;display:block">
+          <div class="bulk-bar" style="border-radius:10px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border:1px solid var(--line)">
+            <span class="mono-label">7 selected</span>
+            <button class="tp-btn tp-btn-ghost">Tag</button>
+            <button class="tp-btn tp-btn-ghost">Colour</button>
+            <button class="tp-btn tp-btn-primary" style="margin-left:auto">Approve</button>
+          </div>
+        </div>
+        <div class="g-name">BulkBar</div>
+        <div class="g-src">BulkBar — ui.jsx · shared by Search, Metadata and Staging</div>
+        <div class="g-desc">One selection strip, three screens. In staging it does two things the live endpoints cannot: tags come <b>off</b> as well as on, and the work can be <b>retargeted across kinds</b> — book and film interchangeable — because a staged row carries both locator sets, so the move never destroys the ones the destination won't use.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <span class="tp-chip">Import files <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--accent);color:#fff;font-family:var(--font-mono),monospace;font-size:10.5px">15</span></span>
+        </div>
+        <div class="g-name">Pending badge</div>
+        <div class="g-src">App.jsx — the ＋ Add pill, the drawer, and a card on Home</div>
+        <div class="g-desc">A count on the ＋ Add pill, so a half-finished import is not forgotten. Staged quotes carry no FTS triggers and no review rows, so an unapproved import never turns up in search, never gets pulled into a quiz, and its tags never join your vocabulary.</div>
+      </div>
+
+    </div>
+  </section>
+
   <p style="margin-top:56px;color:var(--faint);font-size:12px;font-family:var(--font-mono),monospace">
     Hand-maintained — no build script. When the design system changes, refresh the appcss
     snapshot by copying web/dist/assets/index-*.css over the &lt;style id="appcss"&gt; block
     (rewriting /assets/ → ../web/dist/assets/) and update the affected entries by hand.
+    The Shelf and Pending-imports sections use inline styles rather than app classes,
+    so they survive that refresh untouched.
   </p>
 </div>
 

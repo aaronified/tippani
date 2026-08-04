@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A recurring line in two episodes is now two quotes.** 1.3.0 gave a show's
+  dialogue a season and an episode but kept hashing the line's text alone, and
+  `dialogues` is unique on `(movie_id, dedupe_hash)` with a whole series in one
+  row — so the second occurrence of a catchphrase could not be stored. It was
+  worse than a plain refusal: the importer's fill-empty enrichment ran instead, so
+  importing "Bazinga" from S3E7 when S1E2's copy was on file **relabelled the S1E2
+  row** as S3E7, and where a season was already recorded the line vanished
+  counting as neither added nor enriched.
+
+  Excluding the locator from the hash is right for a book — a book is one work and
+  a passage in it is one passage, and it is what keeps re-importing a growing
+  `My Clippings.txt` a no-op. It is wrong for a series, because a line is located
+  *by episode*, so the episode is now part of what identifies it. Films and
+  un-episoded lines hash **byte-identically to before**, which is load-bearing:
+  nothing on disk needed rewriting for them and film dedupe is untouched. Rows
+  that already carried an episode are re-hashed on the next start — SQLite has no
+  `sha256`, so that repair lives in Go rather than in a migration, and it is
+  unguarded and idempotent so it also heals the two restore paths.
+
+  The same collision existed one step earlier, in `staged_quotes`, where it would
+  have dropped the second occurrence before it ever reached the queue.
+
+- **The demo's Settings page crashed.** `GET /auth/devices` and `/admin/backup`
+  had no case in the demo's fetch shim and fell through to its catch-all `200 {}`,
+  so the Devices card read a list field that wasn't there and threw, taking the
+  whole page down with it. Both are answered properly now, and the catch-all warns
+  on any path it doesn't know rather than failing silently the next time.
+
+- **"all seriess"** in the books filter — a series is its own plural, and the label
+  was appending an `s` regardless.
+
+### Changed
+
+- **A show's position reads `E06/10 · S02/03`.** Episode first, since that is the
+  finer of the two and the thing you are actually on; both halves of a pair padded
+  to the same width, two digits minimum, widening together past 99
+  (`E006/456 · S011/123`). The derived percentage is no longer printed beside a
+  unit label — the label is more precise, and the bar next to it is drawn from that
+  percentage anyway.
+
+- **The roadmap is now `docs/roadmap.html`**, self-contained static HTML published
+  beside the demo and linked from its ribbon and from Settings → Reference, with the
+  UI glossary. `ROADMAP.md` is gone; release history is not duplicated there, since
+  the changelog and the releases page already hold it. The glossary gained the shelf
+  and pending-import sections it had been missing since 1.2.0.
+
+- `docs/MILESTONE-3.md` removed — a one-off build record, referenced from nowhere.
+  `docs/PLAN.md` stays: it is cited from roughly 148 places in the code as the record
+  of *why*, and deleting it would orphan all of them.
+
 ## [1.3.0] - 2026-08-04
 
 The catalogue could say what you own and what you had marked up, but nothing
@@ -125,7 +179,7 @@ hand-deleting them. The 1.1.1 bug where a film's own export re-imported as a
 *book* is exactly the class of mistake that should be caught before the write.
 So imports now land in a holding area with a screen for working in it, and the
 counters they used to report move to the moment they are approved. See *Known
-bugs* in [`ROADMAP.md`](ROADMAP.md) for what this release deliberately does not
+bugs* in [the roadmap](docs/roadmap.html) for what this release deliberately does not
 fix.
 
 ### Added
@@ -247,7 +301,7 @@ prompted it. Three of the five fixes below are regressions or dead code from
 1.1.0 itself; two predate it. One bug found in the same pass is recorded but
 deliberately **not** fixed here — concurrent writes can still return a 500, which
 needs the single-writer design PLAN §8 always specified rather than a patch. See
-*Known bugs* in [`ROADMAP.md`](ROADMAP.md).
+*Known bugs* in [the roadmap](docs/roadmap.html).
 
 ### Fixed
 - **A duplicate quote could hang the request instead of answering 409.** The

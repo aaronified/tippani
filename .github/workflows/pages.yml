@@ -9,6 +9,8 @@ on:
     branches: [main]
     paths:
       - "web/frontend/**"
+      - "docs/roadmap.html"
+      - "docs/ui-glossary.html"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -40,6 +42,11 @@ jobs:
         working-directory: web/frontend
         env:
           VITE_DEMO: "1"
+      # The static docs ride along beside the demo, so the roadmap has a real URL
+      # and the demo ribbon's relative "roadmap →" link resolves under the Pages
+      # subpath. Both are self-contained HTML — no build step, nothing to bundle.
+      - name: Copy static docs into the site
+        run: cp docs/roadmap.html docs/ui-glossary.html _site/
       # enablement: turn Pages on (source = GitHub Actions) the first time this
       # runs, so no manual Settings toggle is needed.
       - uses: actions/configure-pages@v5
