@@ -12,11 +12,16 @@ body:
       value: |
         Thanks for taking the trouble.
 
-        **Your issue title becomes the heading of an entry on the
-        [roadmap's Known bugs list](https://aaronified.github.io/tippani/roadmap.html#bugs),
-        automatically, within a minute of filing** — so write it as a description of the
-        fault ("Editing a dialogue's timestamp clears the character name") rather than
-        "it's broken". The entry disappears again when the issue is closed.
+        **Once I have confirmed it, your issue title becomes the heading of an entry on the
+        [roadmap's Known bugs list](https://aaronified.github.io/tippani/roadmap.html#bugs)** —
+        so write it as a description of the fault ("Editing a dialogue's timestamp clears
+        the character name") rather than "it's broken".
+
+        Confirming means I have read it and, where I can, reproduced it; the roadmap then
+        picks it up on its own and drops it again when the issue is closed. It is a gate
+        rather than a queue — filing here is not a request for permission, it is how the
+        bug gets fixed. The gate exists because that list is a published page, and
+        anything on it is something I am telling everyone is true.
 
   - type: checkboxes
     id: checks

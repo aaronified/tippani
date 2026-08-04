@@ -1,16 +1,23 @@
 name: roadmap-bugs
 
-# The roadmap's "Known bugs" block is generated from the open issues labelled `bug`.
-# This is the job that keeps it honest: on every issue event it rebuilds
+# The roadmap's "Known bugs" block is generated from the open issues carrying BOTH `bug`
+# and `accepted`. This is the job that keeps it honest: on every issue event it rebuilds
 # docs/data/tracker.json from the tracker, re-renders docs/roadmap.html, and commits if
 # anything moved. Pushing docs/roadmap.html triggers pages.yml, which republishes the
-# page — so filing a bug puts it on the roadmap, and closing the issue takes it off,
+# page — so accepting a bug puts it on the roadmap, and closing the issue takes it off,
 # with no step in between that anyone has to remember.
+#
+# `accepted` is the gate, and it is the only one. Applying a label needs Triage, so an
+# outside reporter cannot open it; filing alone publishes nothing. That matters because
+# the roadmap is a public page and an ungated pipeline would put a stranger's title and
+# body on it within a minute. Escaping stops markup; it does not make a wrong report right.
 #
 # What it deliberately does NOT do:
 #   - touch docs/data/bugs.json or docs/data/features.json. Those are hand-owned, which
 #     is what makes an `overrides` entry safe to write.
-#   - publish feature requests. Accepting one is a decision, made in a commit.
+#   - apply `accepted` itself. It recovers `bug` / `enhancement`, which are classification;
+#     acceptance is a judgement and stays mine.
+#   - publish feature requests from the tracker at all. Those are a commit.
 #   - write anything if the render fails verification. scripts/roadmap-data.mjs keeps the
 #     previous page in docs/roadmap.backup.html and refuses to publish a broken one.
 

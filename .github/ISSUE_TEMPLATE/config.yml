@@ -11,3 +11,6 @@ contact_links:
   - name: Release notes
     url: https://github.com/aaronified/tippani/releases
     about: What changed in each version — your bug may already be fixed in a newer release.
+  - name: Building, contributing, or forking it
+    url: https://github.com/aaronified/tippani/blob/main/DEVELOPMENT.md
+    about: How to build and test it, the pull-request conventions, and what to rename to make the fork yours.

@@ -6,7 +6,9 @@
     "It is the issue tracker's state, flattened so that the roadmap generator needs no",
     "network access and the page can be rebuilt reproducibly from the repo alone.",
     "",
-    "  open_bugs  open issues labelled `bug`, newest last, with the body the form built.",
+    "  open_bugs  open issues labelled BOTH `bug` and `accepted`, newest last, with the",
+    "             body the form built. `accepted` is a gate only a maintainer can open:",
+    "             filing is open to anyone and this page is published.",
     "  closed     every issue number that is closed, whatever its labels. This is what",
     "             makes an entry drop off the page by itself: a bug or an accepted",
     "             feature request whose issue is closed stops rendering, so fixing a",
@@ -14,7 +16,7 @@
     "",
     "Hand-written corrections go in docs/data/bugs.json under `overrides`."
   ],
-  "generated": "2026-08-04T11:48:40.489Z",
+  "generated": "2026-08-04T12:02:53.829Z",
   "open_bugs": [
     {
       "body": "Tracking issue for a bug listed on the roadmap. **Found by me, not reported** — filed here so it has a number, and so that closing it is what takes it off the page.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#bug-legacy-exports\n\n### What happens\n\n1.1.1 made the catalogue export always write type: movie / type: show , which is what routes a file back to the right importer. Files exported by 1.1.0 or earlier were not rewritten, so a bare film export from then — no director, no collection, no character/actor/timestamp on any line — still carries nothing identifying it. Re-export it, or add a type: line by hand. Not fixable retroactively: a detector cannot infer what the file never recorded, so this one stays listed rather than pretending to be fixable.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The prose on the roadmap is the canonical write-up; it lives in `docs/data/bugs.json`.",
@@ -22,6 +24,106 @@
       "number": 14,
       "title": "[bug]: Legacy catalogue exports can still re-import as books",
       "url": "https://github.com/aaronified/tippani/issues/14",
+      "user": "aaronified"
+    }
+  ],
+  "open_accepted": [
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-portraits\n\n— resolve the author's Wikidata entry via the book so a photo appears even when the Open Library record is sparse. The disambiguation already picks the right person; this widens coverage.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:45Z",
+      "number": 7,
+      "title": "[roadmap]: Richer author portraits",
+      "url": "https://github.com/aaronified/tippani/issues/7",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-audio\n\nReading a due card aloud is well liked elsewhere. Server-side speech is out for the same reasons as server-side OCR, but the browser's own SpeechSynthesis costs the server nothing, needs no key, and works offline once §8's service worker exists. Parked here rather than in the backlog because it sits next to a line I drew deliberately.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:55Z",
+      "number": 12,
+      "title": "[roadmap]: Audio review, in the browser only",
+      "url": "https://github.com/aaronified/tippani/issues/12",
+      "user": "aaronified"
+    }
+  ],
+  "open_considered": [
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-ai\n\nA passive digest: batch recent highlights and summarise them with an OpenAI-compatible model — local or remote, your endpoint, your key. Grouped by book, tag or whole library; weekly or on-demand. Off unless configured, generated async, and — true to the frugality goal — no cron dependency . The digest has to be worth opening in the app on its own before any question of pushing it arises, which is why delivery is the separate entry below and neither one waits on the other.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:36Z",
+      "number": 2,
+      "title": "[roadmap]: AI summaries (opt-in)",
+      "url": "https://github.com/aaronified/tippani/issues/2",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-notify\n\nWould start with NTFY, likely routed through a multi-service notifier such as Shoutrrr so one config reaches any backend — the email digest fallback below is that same slot with a different transport. Non-negotiable, whatever I pick: high / urgent priority must carry through — a resurfaced highlight is a gentle nudge, but \"lookup is failing\" should be able to shout, and that case alone justifies this even if no summary ever gets generated. This sat in the numbered backlog until I moved it here deliberately, because anything that pushes needs something that wakes up on its own. The cheap end of\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:38Z",
+      "number": 3,
+      "title": "[roadmap]: Notifications (opt-in)",
+      "url": "https://github.com/aaronified/tippani/issues/3",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-anki\n\n— bridge the daily review to and from Anki decks ( .apkg ), a natural pairing for the spaced-repetition audience. Still being scoped; I need to learn the format first.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:40Z",
+      "number": 4,
+      "title": "[roadmap]: Anki export / import",
+      "url": "https://github.com/aaronified/tippani/issues/4",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-backlinks\n\n— manually-maintained links between related highlights, Zettelkasten-style, and standalone notes not tied to any book. Kept deliberately manual; no auto-suggested \"related\" magic.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:41Z",
+      "number": 5,
+      "title": "[roadmap]: Backlinks & freeform notes",
+      "url": "https://github.com/aaronified/tippani/issues/5",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-shared\n\n— collaborative or shared-view libraries across the users on one box.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:43Z",
+      "number": 6,
+      "title": "[roadmap]: Shared / household libraries",
+      "url": "https://github.com/aaronified/tippani/issues/6",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-email\n\n(SMTP) — the same delivery slot as the notifier above, for people who would rather not run one.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:47Z",
+      "number": 8,
+      "title": "[roadmap]: Email digest fallback",
+      "url": "https://github.com/aaronified/tippani/issues/8",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-semantic\n\n( sqlite-vec ) — note that §6's \"more like this\", built from the term dictionaries already in the database, ships first and costs no dependency at all. It may remove the need for this entirely.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:48Z",
+      "number": 9,
+      "title": "[roadmap]: Semantic search",
+      "url": "https://github.com/aaronified/tippani/issues/9",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-export\n\nto Markdown / Obsidian.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:51Z",
+      "number": 10,
+      "title": "[roadmap]: Summary export",
+      "url": "https://github.com/aaronified/tippani/issues/10",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-rating\n\nThe 1–5 stars were retired on purpose in 0.4.3 and ♥ is the cleaner signal, so this is recorded as a reversal to weigh rather than as planned work — but half-stars are the single most-cited feature of the trackers people arrive from, and the columns are still there, inert, from before the drop. If it ever comes back it should be per-user and opt-in, so the default library looks exactly as it does now.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:52Z",
+      "number": 11,
+      "title": "[roadmap]: Reviving a rating",
+      "url": "https://github.com/aaronified/tippani/issues/11",
+      "user": "aaronified"
+    },
+    {
+      "body": "Tracking issue for a **Later / maybe** entry — being considered, not committed. Filed so it has a number to quote, subscribe to and argue with.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#later-voice\n\n— record, store, play back, with no transcription, which would be a dependency. For the reaction you can't type while reading.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The roadmap section is the canonical write-up — read it there before commenting, because it probably answers the obvious question. Ordering is not a promise: see the page.",
+      "created_at": "2026-08-04T11:32:57Z",
+      "number": 13,
+      "title": "[roadmap]: A voice note on a quote",
+      "url": "https://github.com/aaronified/tippani/issues/13",
       "user": "aaronified"
     }
   ],

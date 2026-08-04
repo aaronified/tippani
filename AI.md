@@ -122,9 +122,11 @@ What that honestly does not cover:
   failure mode the help-registry item on the roadmap exists to end.
 - **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* on
   [the roadmap](https://aaronified.github.io/tippani/roadmap.html#bugs). That list is
-  now **generated from the open issues labelled `bug`**, so it cannot quietly go stale
-  in either direction: a report appears without me writing it up, and a fix removes it
-  only by the issue actually being closed.
+  **generated from the issues I have accepted**, so it cannot quietly go stale in either
+  direction: an accepted report lists itself without me writing it up, and a fix removes
+  it only by the issue actually being closed. Accepting is a human step on purpose —
+  publishing a stranger's text to a public page automatically is a different risk from
+  the ones on this page, and no amount of escaping makes a wrong report right.
 - **A confident diagnosis is worth no more than confident code.** The concurrency
   defect that sat in that list for two releases came with a written-up cause — the
   connection pool allows four writers where the plan specified one — and a written-up

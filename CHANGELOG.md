@@ -5,11 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.2] - 2026-08-04
 
 The concurrent-write 500 is fixed, and it turned out not to be the bug I had written
-down. The roadmap becomes something you can browse rather than scroll, and it now keeps
-its own known-bugs list up to date from the issue tracker instead of waiting for me.
+down. The roadmap becomes something you can browse rather than scroll, and it stops being
+a list I keep by hand: what is on it is now decided by labels on the issue tracker, in
+public, and closing an issue is the only bookkeeping there is. There is also a
+`DEVELOPMENT.md`, for anyone who would rather fork this than file against it.
+
+Nothing in the running app changed except the database DSN, and that fix is the reason to
+upgrade: if you have ever seen a 500 saving a quote, this is why.
 
 ### Fixed
 
@@ -58,35 +63,62 @@ its own known-bugs list up to date from the issue tracker instead of waiting for
   the grid area, and at the bottom of the page it slid down over the footer with the two
   drawing on top of each other. Fixed positioning takes it out of flow and the question
   cannot arise.
-- **Known bugs on the roadmap generate themselves from the issue tracker.** Two GitHub
-  issue forms (`bug_report.yml`, `feature_request.yml`) replace free-form issues; a
-  reported bug appears on the roadmap within a minute of filing and leaves when its issue
-  is closed. `scripts/roadmap-data.mjs` renders the marked regions of the page from
-  `docs/data/*.json`, and `.github/workflows/roadmap-bugs.yml` runs it on every issue
-  event. Feature requests deliberately do **not** publish themselves — accepting one is a
-  commit, made by hand, into `accepted` (its own entry) or `considered` (Later / maybe).
-  Generated entries are editable via per-issue `overrides`, which automation never
-  touches; anything with a closed issue, a `fixed_in` or a `shipped_in` drops off the page
-  by itself. Every write keeps the previous page in `docs/roadmap.backup.html` and is
-  refused outright if the render fails structural verification, so a bad automation run is
-  a failed job rather than a broken published page.
+- **The roadmap is no longer a list I keep by hand.** Known bugs, accepted requests and
+  Later / maybe are all generated from the issue tracker, and **labels decide what is on
+  the page** — `bug` + `accepted` for a bug, `enhancement` + `accepted` for a request,
+  `enhancement` + `considered` for something parked. There is no curated list left in the
+  repo to drift out of step: I cannot add an entry without agreeing to it in public, and I
+  cannot forget to remove one, because closing the issue removes it. Promotion out of
+  Later / maybe is a label edit, on the same issue, keeping the same thread of argument.
+
+  **Acceptance is a gate, and it is deliberate.** Applying a label needs Triage, so filing
+  publishes nothing by itself. That matters because the roadmap is a public page: an
+  ungated pipeline would put a stranger's title and body on it within a minute. Issue text
+  is escaped, fenced blocks are dropped and only paragraphs, lists and `code` spans are
+  emitted, so nothing can inject markup — but no amount of escaping makes a wrong report
+  right, and that judgement is not something to automate.
+
+  Two GitHub issue forms (`bug_report.yml`, `feature_request.yml`) replace free-form
+  issues. `scripts/roadmap-data.mjs` renders six marked regions of the page,
+  `scripts/roadmap-tracker.mjs` reads the tracker, and
+  `.github/workflows/roadmap-bugs.yml` runs both on every issue event. Prose is still
+  mine where it matters: per-issue `overrides` in `docs/data/bugs.json` and
+  `docs/data/features.json` replace whatever the form produced, and automation cannot
+  touch them. Every write keeps the previous page in `docs/roadmap.backup.html` and is
+  refused outright if the render loses a marker, unbalances `<details>` or shrinks the
+  page implausibly — so a bad run is a failed job, not a broken published page.
+- **`DEVELOPMENT.md`** — building and running it, the two rules the code enforces that are
+  easy to break, how migrations and the `_txlock=immediate` pragma constrain a new
+  transaction, the pull-request conventions, and a list of every string that still says my
+  name for anyone forking it into their own thing.
 - **Every item already on the roadmap now has an issue number** — #2–#39, filed by
   `scripts/seed-issues.mjs`, so the page and the tracker describe the same world and
   anything here can be quoted, subscribed to and argued with. The script is resumable and
   dry-run by default. New labels `roadmap`, `considered` and `accepted` carry the triage
   vocabulary; `duplicate` and `wontfix` already existed and are reused.
-- A hand-written bug that also has an issue renders **once**, in my words, and still
-  disappears when that issue closes: giving a `manual` entry its `issue` number makes the
-  generated entry for it step aside.
+- An issue form's `labels:` is applied with the **author's** permissions, and labelling
+  needs Triage — so `labels: ["bug"]` did nothing for exactly the people the pipeline
+  exists for, and an outside report would never have reached the page. The workflow now
+  recovers the label from the form's own field headings, which is better evidence of which
+  template was used than the title prefix (a prefill the reporter can edit away). It only
+  ever adds, so a label removed on purpose stays removed.
 - **The roadmap is linked where people are.** Prominently in the README (badge, header
   callout, opening paragraph), and in Settings → **Updates**, next to the version — "what
   am I on" and "what is coming" being the same question asked twice.
 
 ### Changed
 
+- **Audio review** and **richer author portraits** move from Later / maybe to accepted
+  (#12, #7). Both argued for themselves in their own entries: portraits is coverage on a
+  disambiguation that already works, and audio is settled by the set-aside card that
+  resolved server-side speech in favour of a client-side answer.
 - `synchronous=FULL` and the four-connection pool are now recorded in PLAN §8 as
   deliberate departures from the original plan, with the reasoning, rather than leaving
   the plan and the code disagreeing in silence.
+- `tracker.json` only re-stamps its timestamp when the tracker state actually moved.
+  Before that, any issue event at all — a comment, a label edit — rewrote the file and the
+  bot committed; two label edits produced three commits whose entire content was a new
+  timestamp.
 
 ## [1.3.1] - 2026-08-04
 

@@ -32,7 +32,7 @@
   <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml"><strong>request a feature</strong></a>
   ·
   <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml"><strong>report a bug</strong></a>
-  — a reported bug appears on the roadmap by itself, within a minute of filing.
+  — once I accept one, it lists itself on the roadmap and delists itself when it is fixed.
 </p>
 
 ---
@@ -51,7 +51,10 @@ twenty-five numbered sections, the bugs I already know about, and a
 [list of things refused on purpose](https://aaronified.github.io/tippani/roadmap.html#aside)
 so the boundaries stay decisions rather than gaps. The full original design lives in
 [`docs/PLAN.md`](docs/PLAN.md); release history is in
-[`CHANGELOG.md`](CHANGELOG.md). Tippani was **written with AI assistance** and the
+[`CHANGELOG.md`](CHANGELOG.md). **Building it, changing it, or forking it into your own
+thing** is [`DEVELOPMENT.md`](DEVELOPMENT.md) — it covers the handful of strings that
+still say my name, and the pull-request conventions. Tippani was **written with AI
+assistance** and the
 app itself **contains no AI** — no model calls, nothing sent anywhere. Both halves
 of that are spelled out in [`AI.md`](AI.md).
 

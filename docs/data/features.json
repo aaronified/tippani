@@ -1,48 +1,65 @@
 {
   "_": [
-    "Feature requests that got a yes, for the roadmap. Edited BY HAND, always.",
+    "Hand-written prose for the roadmap's request-driven entries. NOT a list of what is",
+    "on the page — the issue tracker is that, and this file cannot add or remove an entry.",
     "",
-    "Nothing automated writes here. Bugs publish themselves; features do not, because",
-    "accepting one is a decision and a decision should be a commit with my name on it.",
-    "Filing an issue puts it on the tracker. Adding it here puts it on the roadmap.",
+    "WHAT DECIDES WHETHER SOMETHING APPEARS, and where:",
     "",
-    "TWO LEVELS, and the difference is a promise:",
+    "  enhancement + accepted    -> 'From your requests'. I am going to build this.",
+    "  enhancement + considered  -> 'Later / maybe'. Interesting, not committed.",
+    "  bug + accepted            -> 'Known bugs' (see bugs.json).",
+    "  no `accepted` / `considered`  -> nowhere. Filing publishes nothing.",
+    "  closed                    -> nowhere, immediately. Shipping or refusing a thing and",
+    "                               closing its issue is the only bookkeeping there is.",
     "",
-    "  accepted   — yes, I am going to build this. Renders as its own entry under",
-    "               'From your requests', which reads as queued work.",
-    "  considered — interesting, not committed. Renders into 'Later / maybe', in the",
-    "               same list and the same tone as everything else parked there.",
+    "Labels, in other words — not this file. Applying one needs Triage, so the gate is",
+    "closed to the people who file and open to me, which is the point: the roadmap is a",
+    "published page and everything on it is something I am asserting.",
     "",
-    "An issue can be promoted from considered to accepted by moving the entry between",
-    "the two arrays; keep the id so the link someone saved still lands.",
+    "Promotion is a label edit: `considered` -> `accepted` moves an entry from Later /",
+    "maybe into its own card, and nothing here changes.",
     "",
-    "WHAT NEVER APPEARS HERE, and never appears on the page:",
-    "  declined   — refused. If the reason is a boundary worth writing down, it earns a",
-    "               card in 'Considered and set aside' in roadmap.html by hand instead.",
-    "  duplicate  — folded into whatever it duplicates; add the detail to that entry by",
-    "               hand if it sharpened it.",
-    "  enhancement to something already planned — belongs in that § section's prose, by",
-    "               hand, not as a separate item.",
-    "None of those three are automated. A no should cost me a sentence.",
+    "  overrides — keyed by issue number as a string. A generated entry is a starting",
+    "              point, not a verdict: whatever is here wins over what the reporter",
+    "              wrote. The issue decides THAT it appears; this decides how it reads.",
     "",
-    "Each entry:",
-    "  id      — anchor, kebab-case, prefixed `req-`. Stable once published.",
-    "  title   — the heading. Write it as the capability, not as the request.",
-    "  issue   — issue number it came from, or null.",
-    "  credit  — GitHub handle to thank, or null. Asked-for, not written-by.",
-    "  near    — the § section or Later entry it sits beside, or null.",
-    "  html    — the body, as lines of HTML. Same voice as the rest of the page: first",
-    "            person, and say what it does not do as well as what it does.",
+    "                title      replace the heading",
+    "                railLabel  shorter label for the contents rail",
+    "                html       replace the body outright, as lines of HTML. Once set, the",
+    "                           reporter's prose is no longer rendered — carry over",
+    "                           anything that mattered.",
+    "                note       append one paragraph, keeping the reporter's prose",
+    "                near       the § section it sits beside",
+    "                credit     GitHub handle to thank. Asked-for, not written-by.",
+    "                hide       true to keep the label and stay off the page",
+    "",
+    "Refusing something is not recorded here and never appears: close it, and if the",
+    "reason is a boundary worth writing down it earns a card in 'Considered and set",
+    "aside' in roadmap.html by hand. A no should cost me a sentence.",
     "",
     "Render with `node scripts/roadmap-data.mjs`."
   ],
-  "accepted": [
-    {
-      "id": "req-audio-review",
+  "overrides": {
+    "7": {
+      "title": "Richer author portraits",
+      "railLabel": "Author portraits",
+      "near": "§25 Choose your metadata sources",
+      "html": [
+        "<p>",
+        "  Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even",
+        "  when the Open Library record is sparse. The disambiguation already picks the right",
+        "  person; this only widens coverage, which is why it is small enough to say yes to.",
+        "</p>",
+        "<p>",
+        "  It should land after <a href=\"#s25\">§25</a>, not before: once sources are mine to",
+        "  pick, looking a person up should query Wikidata and not waste a call on TMDB.",
+        "  Doing it in the other order would bake in the fan-out §25 exists to end.",
+        "</p>"
+      ]
+    },
+    "12": {
       "title": "Audio review, in the browser only",
       "railLabel": "Audio review",
-      "issue": 12,
-      "credit": null,
       "near": "§2 The review loop",
       "html": [
         "<p>",
@@ -61,26 +78,92 @@
         "</p>"
       ]
     },
-    {
-      "id": "req-author-portraits",
-      "title": "Richer author portraits",
-      "railLabel": "Author portraits",
-      "issue": 7,
-      "credit": null,
-      "near": "§25 Choose your metadata sources",
+    "2": {
+      "title": "AI summaries (opt-in)",
       "html": [
-        "<p>",
-        "  Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even",
-        "  when the Open Library record is sparse. The disambiguation already picks the right",
-        "  person; this only widens coverage, which is why it is small enough to say yes to.",
-        "</p>",
-        "<p>",
-        "  It should land after <a href=\"#s25\">§25</a>, not before: once sources are mine to",
-        "  pick, looking a person up should query Wikidata and not waste a call on TMDB.",
-        "  Doing it in the other order would bake in the fan-out §25 exists to end.",
-        "</p>"
+        "A passive digest: batch recent highlights and summarise them with an",
+        "<strong>OpenAI-compatible</strong> model — local or remote, your endpoint, your key.",
+        "Grouped by book, tag or whole library; weekly or on-demand. Off unless configured,",
+        "generated async, and — true to the frugality goal — <strong>no cron dependency</strong>.",
+        "The digest has to be worth opening in the app on its own before any question of pushing",
+        "it arises, which is why delivery is the separate entry below and neither one waits on",
+        "the other."
+      ]
+    },
+    "3": {
+      "title": "Notifications (opt-in)",
+      "html": [
+        "Would start with NTFY, likely routed through a multi-service notifier such as <a",
+        "href=\"https://containrrr.dev/shoutrrr/\">Shoutrrr</a> so one config reaches any backend —",
+        "the <strong>email digest fallback</strong> below is that same slot with a different",
+        "transport. Non-negotiable, whatever I pick: <strong>high / urgent priority must carry",
+        "through</strong> — a resurfaced highlight is a gentle nudge, but \"lookup is failing\"",
+        "should be able to shout, and that case alone justifies this even if no summary ever gets",
+        "generated. <br> This sat in the numbered backlog until I moved it here deliberately,",
+        "because anything that pushes needs something that wakes up on its own. The cheap end of",
+        "the ask needs none of it: the app-icon badge in <a href=\"#s1\">§1</a> shows a due-card",
+        "count with no server work and nothing scheduled."
+      ]
+    },
+    "4": {
+      "title": "Anki export / import",
+      "html": [
+        "— bridge the daily review to and from Anki decks (<code>.apkg</code>), a natural pairing",
+        "for the spaced-repetition audience. Still being scoped; I need to learn the format",
+        "first."
+      ]
+    },
+    "5": {
+      "title": "Backlinks & freeform notes",
+      "html": [
+        "— manually-maintained links between related highlights, Zettelkasten-style, and",
+        "standalone notes not tied to any book. Kept deliberately manual; no auto-suggested",
+        "\"related\" magic."
+      ]
+    },
+    "6": {
+      "title": "Shared / household libraries",
+      "html": [
+        "— collaborative or shared-view libraries across the users on one box."
+      ]
+    },
+    "8": {
+      "title": "Email digest fallback",
+      "html": [
+        "(SMTP) — the same delivery slot as the notifier above, for people who would rather not",
+        "run one."
+      ]
+    },
+    "9": {
+      "title": "Semantic search",
+      "html": [
+        "(<code>sqlite-vec</code>) — note that §6's \"more like this\", built from the term",
+        "dictionaries already in the database, ships first and costs no dependency at all. It may",
+        "remove the need for this entirely."
+      ]
+    },
+    "10": {
+      "title": "Summary export",
+      "html": [
+        "to Markdown / Obsidian."
+      ]
+    },
+    "11": {
+      "title": "Reviving a rating",
+      "html": [
+        "The 1–5 stars were retired <strong>on purpose</strong> in 0.4.3 and ♥ is the cleaner",
+        "signal, so this is recorded as a reversal to weigh rather than as planned work — but",
+        "half-stars are the single most-cited feature of the trackers people arrive from, and the",
+        "columns are still there, inert, from before the drop. If it ever comes back it should be",
+        "per-user and opt-in, so the default library looks exactly as it does now."
+      ]
+    },
+    "13": {
+      "title": "A voice note on a quote",
+      "html": [
+        "— record, store, play back, with no transcription, which would be a dependency. For the",
+        "reaction you can't type while reading."
       ]
     }
-  ],
-  "considered": []
+  }
 }

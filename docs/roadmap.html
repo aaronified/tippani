@@ -280,10 +280,12 @@
   <p class="tagline">
     Have a request, or a strong opinion on the ordering? <strong>Open an issue</strong> —
     I would rather hear it than guess, and a feature two people ask for moves. Anything
-    broken, likewise: a reported bug appears in <a href="#bugs">Known bugs</a> below
-    <em>by itself</em>, within a minute of filing, and leaves again when it is fixed.
-    Requests are the other way round on purpose — I add those by hand, because saying
-    yes should cost me something.
+    broken, likewise. <strong>Nothing reaches this page without me accepting it</strong>,
+    bug or feature: that is one label on one issue, and it is the only gate. What happens
+    after it is automatic — an accepted bug writes its own entry in
+    <a href="#bugs">Known bugs</a> and removes it again when the issue closes, and I never
+    retype either. The gate is not a queue. It is there because this is a published page,
+    and everything on it is something I am telling you is true.
   </p>
   <p style="margin-top:18px">
     <a class="pill" href="https://github.com/aaronified/tippani/releases">Release history →</a>
@@ -310,7 +312,7 @@
       <summary>Known bugs</summary>
       <!-- ROADMAP:RAIL_BUGS:START -->
       <ul class="sub">
-        <li><a href="#bug-legacy-exports">Legacy catalogue exports</a></li>
+        <li><a href="#bug-14">Legacy catalogue exports</a></li>
       </ul>
       <!-- ROADMAP:RAIL_BUGS:END -->
     </details>
@@ -350,8 +352,8 @@
       <summary>From your requests</summary>
       <!-- ROADMAP:RAIL_FEATURES:START -->
       <ul class="sub">
-        <li><a href="#req-audio-review">Audio review</a></li>
-        <li><a href="#req-author-portraits">Author portraits</a></li>
+        <li><a href="#req-7">Author portraits</a></li>
+        <li><a href="#req-12">Audio review</a></li>
       </ul>
       <!-- ROADMAP:RAIL_FEATURES:END -->
     </details>
@@ -359,17 +361,17 @@
     <details class="grp" open>
       <summary>Later / maybe</summary>
       <ul class="sub">
-        <li><a href="#later-ai">AI summaries</a></li>
-        <li><a href="#later-notify">Notifications</a></li>
-        <li><a href="#later-anki">Anki export / import</a></li>
-        <li><a href="#later-backlinks">Backlinks &amp; notes</a></li>
-        <li><a href="#later-shared">Shared libraries</a></li>
-        <li><a href="#later-email">Email digest</a></li>
-        <li><a href="#later-semantic">Semantic search</a></li>
-        <li><a href="#later-export">Summary export</a></li>
-        <li><a href="#later-rating">Reviving a rating</a></li>
-        <li><a href="#later-voice">Voice notes</a></li>
         <!-- ROADMAP:RAIL_CONSIDERED:START -->
+        <li><a href="#req-2">AI summaries (opt-in)</a></li>
+        <li><a href="#req-3">Notifications (opt-in)</a></li>
+        <li><a href="#req-4">Anki export / import</a></li>
+        <li><a href="#req-5">Backlinks &amp; freeform notes</a></li>
+        <li><a href="#req-6">Shared / household libraries</a></li>
+        <li><a href="#req-8">Email digest fallback</a></li>
+        <li><a href="#req-9">Semantic search</a></li>
+        <li><a href="#req-10">Summary export</a></li>
+        <li><a href="#req-11">Reviving a rating</a></li>
+        <li><a href="#req-13">A voice note on a quote</a></li>
         <!-- ROADMAP:RAIL_CONSIDERED:END -->
       </ul>
     </details>
@@ -438,12 +440,20 @@
 <h2 id="bugs">Known bugs, not yet fixed</h2>
 <p>
   Recorded here rather than left in a commit message. This whole list is
-  <strong>generated</strong> from <a href="https://github.com/aaronified/tippani/labels/bug">the
-  open issues labelled <code>bug</code></a> plus the ones I found myself:
-  <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml">report
-  one</a> and it appears here within a minute of filing; when the issue closes it goes
-  away again. Nothing here is edited by hand, which is the point — a bug cannot sit
-  fixed-but-still-listed, or listed-but-quietly-forgotten.
+  <strong>generated</strong> — from the open issues I have marked
+  <a href="https://github.com/aaronified/tippani/labels/accepted"><code>accepted</code></a>,
+  plus the ones I found and wrote up myself.
+  <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml">Report
+  a bug</a> and it lands here once I have confirmed it, and leaves when the issue closes.
+</p>
+<p>
+  Two halves of that are deliberate. <strong>The listing is automatic</strong>, so a bug
+  cannot sit fixed-but-still-listed or listed-but-quietly-forgotten — closing the issue is
+  the only bookkeeping there is. <strong>The accepting is not</strong>, because anyone can
+  file and this page is public: an ungated pipeline would publish a stranger's words to it
+  in under a minute, and while nothing typed into an issue can inject markup here, no
+  amount of escaping makes a wrong report right. Confirming costs me a label. Not
+  confirming would cost you the truth of the page.
 </p>
 
 <!--
@@ -452,7 +462,7 @@
   every issue event. Hand-written entries live in docs/data/bugs.json under "manual".
 -->
 <!-- ROADMAP:BUGS:START -->
-<div class="card bug" id="bug-legacy-exports">
+<div class="card bug" id="bug-14">
   <h3>Legacy catalogue exports can still re-import as books</h3>
   <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/14">#14</a></p>
   <p>
@@ -1202,23 +1212,44 @@
 
 <h2 id="requests">From your requests</h2>
 <p>
-  Feature requests do <strong>not</strong> publish themselves the way bugs do. When one
-  arrives I either argue with it, fold it into a section above, or accept it as its own
-  item — and only then does it appear here, because a list that filled up automatically
-  would stop meaning anything.
+  Things somebody asked for that I have said <strong>yes</strong> to.
   <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml">Ask
-  for something</a>; the open requests are
-  <a href="https://github.com/aaronified/tippani/labels/enhancement">all visible on the
-  issue tracker</a> whether or not they have made it this far.
+  for something</a> and it goes on the tracker; it arrives here when I accept it, and
+  leaves when the issue closes — shipped, or thought better of. Everything open is
+  <a href="https://github.com/aaronified/tippani/labels/enhancement">visible on the
+  tracker</a> whether or not it ever gets this far, so a request is never quietly buried.
+</p>
+<p>
+  Accepting is one label on one issue and nothing else, which is the strongest thing I can
+  say about this list: <strong>it is not a list I curate.</strong> I cannot add an entry
+  without agreeing to it on the tracker in public, and I cannot forget to remove one,
+  because closing the issue removes it. A hand-kept list of promises drifts from the
+  promises actually made. This one has no way to.
 </p>
 
 <!--
-  ROADMAP:FEATURES — generated from docs/data/features.json, which is edited BY HAND.
-  Nothing automated writes to that file: accepting a request is a decision, so it is a
-  commit. Run `node scripts/roadmap-data.mjs` after editing it.
+  ROADMAP:FEATURES — generated. What is here is decided by LABELS on the issue tracker
+  (`enhancement` + `accepted`), never by a file in this repo. docs/data/features.json only
+  supplies better prose than the form can, keyed by issue number. Run
+  `node scripts/roadmap-data.mjs`.
 -->
 <!-- ROADMAP:FEATURES:START -->
-<div class="card req" id="req-audio-review">
+<div class="card req" id="req-7">
+  <h3>Richer author portraits</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/7">#7</a> · sits beside §25 Choose your metadata sources</p>
+  <p>
+    Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even
+    when the Open Library record is sparse. The disambiguation already picks the right
+    person; this only widens coverage, which is why it is small enough to say yes to.
+  </p>
+  <p>
+    It should land after <a href="#s25">§25</a>, not before: once sources are mine to
+    pick, looking a person up should query Wikidata and not waste a call on TMDB.
+    Doing it in the other order would bake in the fan-out §25 exists to end.
+  </p>
+</div>
+
+<div class="card req" id="req-12">
   <h3>Audio review, in the browser only</h3>
   <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/12">#12</a> · sits beside §2 The review loop</p>
   <p>
@@ -1236,64 +1267,103 @@
     review card and nothing else. No stored audio, no transcription, no server route.
   </p>
 </div>
-
-<div class="card req" id="req-author-portraits">
-  <h3>Richer author portraits</h3>
-  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/7">#7</a> · sits beside §25 Choose your metadata sources</p>
-  <p>
-    Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even
-    when the Open Library record is sparse. The disambiguation already picks the right
-    person; this only widens coverage, which is why it is small enough to say yes to.
-  </p>
-  <p>
-    It should land after <a href="#s25">§25</a>, not before: once sources are mine to
-    pick, looking a person up should query Wikidata and not waste a call on TMDB.
-    Doing it in the other order would bake in the fan-out §25 exists to end.
-  </p>
-</div>
 <!-- ROADMAP:FEATURES:END -->
 
 <hr>
 
 <h2 id="later">Later / maybe (being considered)</h2>
 <p>
-  Not ruled out, not next. Nothing gets promoted out of here without a reason.
+  Not ruled out, not next. Nothing gets promoted out of here without a reason — and
+  promotion is now a visible act rather than a private one: everything below carries the
+  <a href="https://github.com/aaronified/tippani/labels/considered"><code>considered</code></a>
+  label, and moving it to <code>accepted</code> is what lifts it into
+  <a href="#requests">From your requests</a> above. Same issue, same number, same thread of
+  argument — so if you want to change my mind about one of these, there is somewhere to do
+  it.
 </p>
 <ul>
-  <li id="later-ai">
-    <strong>AI summaries (opt-in).</strong> A passive digest: batch recent
-    highlights and summarise them with an <strong>OpenAI-compatible</strong> model —
-    local or remote, your endpoint, your key. Grouped by book, tag or whole library;
-    weekly or on-demand. Off unless configured, generated async, and — true to the
-    frugality goal — <strong>no cron dependency</strong>. The digest has to be worth
-    opening in the app on its own before any question of pushing it arises, which is
-    why delivery is the separate entry below and neither one waits on the other.
-  </li>
-  <li id="later-notify">
-    <strong>Notifications (opt-in).</strong> Would start with NTFY, likely routed
-    through a multi-service notifier such as
-    <a href="https://containrrr.dev/shoutrrr/">Shoutrrr</a> so one config reaches any
-    backend — the <strong>email digest fallback</strong> below is that same slot with
-    a different transport. Non-negotiable, whatever I pick: <strong>high / urgent
-    priority must carry through</strong> — a resurfaced highlight is a gentle nudge,
-    but "lookup is failing" should be able to shout, and that case alone justifies
-    this even if no summary ever gets generated.
-    <br>
-    This sat in the numbered backlog until I moved it here deliberately, because
-    anything that pushes needs something that wakes up on its own. The cheap end of
-    the ask needs none of it: the app-icon badge in <a href="#s1">§1</a> shows a
-    due-card count with no server work and nothing scheduled.
-  </li>
-  <li id="later-anki"><strong>Anki export / import</strong> — bridge the daily review to and from Anki decks (<code>.apkg</code>), a natural pairing for the spaced-repetition audience. Still being scoped; I need to learn the format first.</li>
-  <li id="later-backlinks"><strong>Backlinks &amp; freeform notes</strong> — manually-maintained links between related highlights, Zettelkasten-style, and standalone notes not tied to any book. Kept deliberately manual; no auto-suggested "related" magic.</li>
-  <li id="later-shared"><strong>Shared / household libraries</strong> — collaborative or shared-view libraries across the users on one box.</li>
-  <li id="later-email"><strong>Email digest fallback</strong> (SMTP) — the same delivery slot as the notifier above, for people who would rather not run one.</li>
-  <li id="later-semantic"><strong>Semantic search</strong> (<code>sqlite-vec</code>) — note that §6's "more like this", built from the term dictionaries already in the database, ships first and costs no dependency at all. It may remove the need for this entirely.</li>
-  <li id="later-export"><strong>Summary export</strong> to Markdown / Obsidian.</li>
-  <li id="later-rating"><strong>Reviving a rating.</strong> The 1–5 stars were retired <strong>on purpose</strong> in 0.4.3 and ♥ is the cleaner signal, so this is recorded as a reversal to weigh rather than as planned work — but half-stars are the single most-cited feature of the trackers people arrive from, and the columns are still there, inert, from before the drop. If it ever comes back it should be per-user and opt-in, so the default library looks exactly as it does now.</li>
-  <li id="later-voice"><strong>A voice note on a quote</strong> — record, store, play back, with no transcription, which would be a dependency. For the reaction you can't type while reading.</li>
-  <!-- ROADMAP:CONSIDERED — generated from the "considered" array in docs/data/features.json. -->
+  <!--
+    ROADMAP:CONSIDERED — generated from the open issues labelled `enhancement` +
+    `considered`. Not from a list in this repo; there isn't one.
+  -->
   <!-- ROADMAP:CONSIDERED:START -->
+  <li id="req-2">
+    <strong>AI summaries (opt-in)</strong>
+    A passive digest: batch recent highlights and summarise them with an
+    <strong>OpenAI-compatible</strong> model — local or remote, your endpoint, your key.
+    Grouped by book, tag or whole library; weekly or on-demand. Off unless configured,
+    generated async, and — true to the frugality goal — <strong>no cron dependency</strong>.
+    The digest has to be worth opening in the app on its own before any question of pushing
+    it arises, which is why delivery is the separate entry below and neither one waits on
+    the other.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/2">#2</a></span>
+  </li>
+  <li id="req-3">
+    <strong>Notifications (opt-in)</strong>
+    Would start with NTFY, likely routed through a multi-service notifier such as <a
+    href="https://containrrr.dev/shoutrrr/">Shoutrrr</a> so one config reaches any backend —
+    the <strong>email digest fallback</strong> below is that same slot with a different
+    transport. Non-negotiable, whatever I pick: <strong>high / urgent priority must carry
+    through</strong> — a resurfaced highlight is a gentle nudge, but "lookup is failing"
+    should be able to shout, and that case alone justifies this even if no summary ever gets
+    generated. <br> This sat in the numbered backlog until I moved it here deliberately,
+    because anything that pushes needs something that wakes up on its own. The cheap end of
+    the ask needs none of it: the app-icon badge in <a href="#s1">§1</a> shows a due-card
+    count with no server work and nothing scheduled.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/3">#3</a></span>
+  </li>
+  <li id="req-4">
+    <strong>Anki export / import</strong>
+    — bridge the daily review to and from Anki decks (<code>.apkg</code>), a natural pairing
+    for the spaced-repetition audience. Still being scoped; I need to learn the format
+    first.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/4">#4</a></span>
+  </li>
+  <li id="req-5">
+    <strong>Backlinks &amp; freeform notes</strong>
+    — manually-maintained links between related highlights, Zettelkasten-style, and
+    standalone notes not tied to any book. Kept deliberately manual; no auto-suggested
+    "related" magic.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/5">#5</a></span>
+  </li>
+  <li id="req-6">
+    <strong>Shared / household libraries</strong>
+    — collaborative or shared-view libraries across the users on one box.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/6">#6</a></span>
+  </li>
+  <li id="req-8">
+    <strong>Email digest fallback</strong>
+    (SMTP) — the same delivery slot as the notifier above, for people who would rather not
+    run one.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/8">#8</a></span>
+  </li>
+  <li id="req-9">
+    <strong>Semantic search</strong>
+    (<code>sqlite-vec</code>) — note that §6's "more like this", built from the term
+    dictionaries already in the database, ships first and costs no dependency at all. It may
+    remove the need for this entirely.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/9">#9</a></span>
+  </li>
+  <li id="req-10">
+    <strong>Summary export</strong>
+    to Markdown / Obsidian.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/10">#10</a></span>
+  </li>
+  <li id="req-11">
+    <strong>Reviving a rating</strong>
+    The 1–5 stars were retired <strong>on purpose</strong> in 0.4.3 and ♥ is the cleaner
+    signal, so this is recorded as a reversal to weigh rather than as planned work — but
+    half-stars are the single most-cited feature of the trackers people arrive from, and the
+    columns are still there, inert, from before the drop. If it ever comes back it should be
+    per-user and opt-in, so the default library looks exactly as it does now.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/11">#11</a></span>
+  </li>
+  <li id="req-13">
+    <strong>A voice note on a quote</strong>
+    — record, store, play back, with no transcription, which would be a dependency. For the
+    reaction you can't type while reading.
+    <br><span class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/13">#13</a></span>
+  </li>
   <!-- ROADMAP:CONSIDERED:END -->
 </ul>
 
