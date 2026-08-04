@@ -14,7 +14,7 @@
     "",
     "Hand-written corrections go in docs/data/bugs.json under `overrides`."
   ],
-  "generated": "2026-08-04T11:38:35.420Z",
+  "generated": "2026-08-04T11:40:43.759Z",
   "open_bugs": [
     {
       "body": "Tracking issue for a bug listed on the roadmap. **Found by me, not reported** — filed here so it has a number, and so that closing it is what takes it off the page.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#bug-legacy-exports\n\n### What happens\n\n1.1.1 made the catalogue export always write type: movie / type: show , which is what routes a file back to the right importer. Files exported by 1.1.0 or earlier were not rewritten, so a bare film export from then — no director, no collection, no character/actor/timestamp on any line — still carries nothing identifying it. Re-export it, or add a type: line by hand. Not fixable retroactively: a detector cannot infer what the file never recorded, so this one stays listed rather than pretending to be fixable.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The prose on the roadmap is the canonical write-up; it lives in `docs/data/bugs.json`.",
