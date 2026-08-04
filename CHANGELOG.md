@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+The concurrent-write 500 is fixed, and it turned out not to be the bug I had written
+down. The roadmap becomes something you can browse rather than scroll, and it now keeps
+its own known-bugs list up to date from the issue tracker instead of waiting for me.
+
+### Fixed
+
+- **Concurrent writes no longer fail with a 500.** Two writes arriving at once raced for
+  SQLite's write lock and the loser was refused **immediately** — 17ms, against a
+  `busy_timeout` of 5000. The recorded cause was the connection pool: PLAN §8 specified a
+  single writer connection, `store.Open` allows four, so serialise them behind a mutex.
+  That was wrong. The fault was the **lock order**. Almost every write here reads before
+  it writes — the duplicate check, the ownership check — and under SQLite's default
+  `DEFERRED` locking that makes `BEGIN` take a read lock which the first `INSERT` must
+  upgrade. SQLite will not run the busy handler for that upgrade, because two
+  transactions both holding read locks and both wanting to write would deadlock, so it
+  fails the second one instantly. The timeout was never consulted.
+
+  `store.openDB` now opens with `_txlock=immediate`, taking the write lock at `BEGIN`
+  where there is nothing to upgrade, so a second writer waits its turn as the timeout
+  always intended. One line, and it covers all thirty write transactions rather than the
+  two a mutex would have been threaded through — and unlike a mutex it also holds
+  against a second process, a `sqlite3` shell or a restore. **Readers are unaffected:**
+  `_txlock` applies only to read-write transactions, the four-connection pool stands, and
+  `TestReadersOverlapAWriter` fails if searches ever start queueing behind imports.
+  `previewStagedTarget` — the one genuinely read-only transaction in the tree — was moved
+  to `ReadOnly` so a preview does not take a write lock.
+
+  `TestConcurrentDuplicatePostsAllConflict` tolerated the 500 and counted it; it now
+  fails on it. `TestConcurrentReadThenWriteTransactions` reproduces the original defect
+  directly and fails on any build that loses the DSN flag.
+
+### Added
+
+- **The roadmap is browsable.** All twenty-five backlog sections are cards that start
+  collapsed and expand as needed, so the whole shape of the thing fits on one screen. A
+  contents rail owns the full left edge — fixed, full height, its own scroll — listing
+  every section, bug, Later / maybe entry and set-aside decision, with each group
+  foldable. On a narrow screen it leaves the left edge, rejoins the flow under the header
+  and becomes one foldable box. **Request a feature** and **Report a bug** sit in a bar
+  that is always on screen. Every section header carries the number of the issue tracking
+  it. Still one self-contained file with no script in it: the cards, the rail and its
+  groups are `<details>` elements, the deep-link-into-a-collapsed-card behaviour is CSS,
+  and the page icon — the Tippani mark with its margin strip read as a progress column,
+  two squares filled and two amber for what is ahead — is an inlined data URI so the page
+  still renders identically straight off disk.
+
+  The rail was sticky-inside-a-grid first, and wrong: a sticky element is constrained by
+  its containing block, engines take that to be the nearest block container rather than
+  the grid area, and at the bottom of the page it slid down over the footer with the two
+  drawing on top of each other. Fixed positioning takes it out of flow and the question
+  cannot arise.
+- **Known bugs on the roadmap generate themselves from the issue tracker.** Two GitHub
+  issue forms (`bug_report.yml`, `feature_request.yml`) replace free-form issues; a
+  reported bug appears on the roadmap within a minute of filing and leaves when its issue
+  is closed. `scripts/roadmap-data.mjs` renders the marked regions of the page from
+  `docs/data/*.json`, and `.github/workflows/roadmap-bugs.yml` runs it on every issue
+  event. Feature requests deliberately do **not** publish themselves — accepting one is a
+  commit, made by hand, into `accepted` (its own entry) or `considered` (Later / maybe).
+  Generated entries are editable via per-issue `overrides`, which automation never
+  touches; anything with a closed issue, a `fixed_in` or a `shipped_in` drops off the page
+  by itself. Every write keeps the previous page in `docs/roadmap.backup.html` and is
+  refused outright if the render fails structural verification, so a bad automation run is
+  a failed job rather than a broken published page.
+- **Every item already on the roadmap now has an issue number** — #2–#39, filed by
+  `scripts/seed-issues.mjs`, so the page and the tracker describe the same world and
+  anything here can be quoted, subscribed to and argued with. The script is resumable and
+  dry-run by default. New labels `roadmap`, `considered` and `accepted` carry the triage
+  vocabulary; `duplicate` and `wontfix` already existed and are reused.
+- A hand-written bug that also has an issue renders **once**, in my words, and still
+  disappears when that issue closes: giving a `manual` entry its `issue` number makes the
+  generated entry for it step aside.
+- **The roadmap is linked where people are.** Prominently in the README (badge, header
+  callout, opening paragraph), and in Settings → **Updates**, next to the version — "what
+  am I on" and "what is coming" being the same question asked twice.
+
+### Changed
+
+- `synchronous=FULL` and the four-connection pool are now recorded in PLAN §8 as
+  deliberate departures from the original plan, with the reasoning, rather than leaving
+  the plan and the code disagreeing in silence.
+
 ## [1.3.1] - 2026-08-04
 
 1.3.0 taught a show's dialogue which episode it came from, and then would not let

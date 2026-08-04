@@ -39,8 +39,34 @@ func openDB(path string) (*sql.DB, error) {
 	// image is malformed". FULL fsyncs the WAL on every commit, closing that
 	// corruption window. Write volume here is low (imports, edits — never a hot
 	// path), so the extra fsync is negligible.
+	//
+	// _txlock=immediate is what makes busy_timeout actually apply to writes, and it
+	// is the fix for the concurrent-write 500 the roadmap carried for two releases.
+	// Almost every write transaction here reads before it writes — the duplicate
+	// check, the ownership check, the FTS row it is about to update. Under the
+	// default DEFERRED locking that means BEGIN takes only a read lock, and the
+	// first INSERT has to UPGRADE it. SQLite will not run the busy handler for that
+	// upgrade: two transactions that both hold read locks and both want to write
+	// would deadlock, so it fails the second one instantly with SQLITE_BUSY instead
+	// of waiting. That is why eight concurrent POSTs produced a 500 in 17ms with a
+	// 5000ms timeout — the timeout was never consulted.
+	//
+	// IMMEDIATE takes the write lock at BEGIN, before any reading. There is nothing
+	// to upgrade, so a second writer simply waits its turn on the busy handler for
+	// up to busy_timeout, which is the behaviour the 5000 was written for. Readers
+	// are unaffected: the driver only applies this to read-write transactions, and
+	// WAL still lets readers run alongside the writer.
+	//
+	// This supersedes PLAN §7's single-writer-connection idea, which was aimed at
+	// the same symptom via the wrong mechanism: an in-process mutex would have
+	// serialised these writers, but it could not have stopped a second Tippani
+	// process, a `sqlite3` shell or a restore from doing exactly the same upgrade
+	// and failing exactly as fast. The lock order is the bug; the pool size never
+	// was. Reads are deliberately left on the 4-connection pool.
 	dsn := fmt.Sprintf(
-		"file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=synchronous(FULL)",
+		"file:%s?_txlock=immediate"+
+			"&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"+
+			"&_pragma=foreign_keys(1)&_pragma=synchronous(FULL)",
 		path,
 	)
 	db, err := sql.Open("sqlite", dsn)

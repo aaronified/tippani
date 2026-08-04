@@ -94,10 +94,11 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **365 test functions across 69 test files**, over real HTTP handlers against a
+- **367 test functions across 70 test files**, over real HTTP handlers against a
   real SQLite database — not mocks.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
-  the server and health-checks it, and a frontend build.
+  the server and health-checks it, a frontend build, and a check that the roadmap's
+  generated regions still match the data files they come from.
 - **`docs/PLAN.md`** carries the design and, more usefully, the *reasoning* —
   including decisions that were wrong once and why the current shape replaced
   them. Comments in the code explain why rather than what, for the same reason.
@@ -119,9 +120,20 @@ What that honestly does not cover:
   was several releases behind until the shelf and pending-import sections were
   added at 1.3.0; nothing keeps it honest but me noticing, which is exactly the
   failure mode the help-registry item on the roadmap exists to end.
-- **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* in
-  [the roadmap](docs/roadmap.html), including a concurrency defect that is understood,
-  reproducible and deliberately not yet fixed.
+- **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* on
+  [the roadmap](https://aaronified.github.io/tippani/roadmap.html#bugs). That list is
+  now **generated from the open issues labelled `bug`**, so it cannot quietly go stale
+  in either direction: a report appears without me writing it up, and a fix removes it
+  only by the issue actually being closed.
+- **A confident diagnosis is worth no more than confident code.** The concurrency
+  defect that sat in that list for two releases came with a written-up cause — the
+  connection pool allows four writers where the plan specified one — and a written-up
+  fix, a mutex. Both were wrong. The real fault was the lock order: a `DEFERRED`
+  transaction that reads before it writes must upgrade its read lock, and SQLite fails
+  that upgrade instantly rather than waiting, so the 5000ms `busy_timeout` was never
+  consulted. It was caught by making the test *fail* on purpose and reading the error
+  code — `517`, `SQLITE_BUSY_SNAPSHOT`, which names the upgrade — not by re-reading the
+  explanation, which was fluent and had been sitting there being fluent for months.
 
 ---
 

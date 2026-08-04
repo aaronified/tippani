@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://github.com/aaronified/tippani/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/aaronified/tippani/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/aaronified/tippani/releases"><img alt="Release" src="https://img.shields.io/github/v/release/aaronified/tippani?sort=semver&color=blue"></a>
+  <a href="https://aaronified.github.io/tippani/roadmap.html"><img alt="Roadmap" src="https://img.shields.io/badge/roadmap-what's%20next-B4482D"></a>
   <a href="go.mod"><img alt="Go" src="https://img.shields.io/github/go-mod/go-version/aaronified/tippani"></a>
   <a href="https://github.com/aaronified/tippani/pkgs/container/tippani"><img alt="Container" src="https://img.shields.io/badge/ghcr.io-aaronified%2Ftippani-2496ED?logo=docker&logoColor=white"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-amd64%20%C2%B7%20arm64%20(untested)-informational">
@@ -21,6 +22,17 @@
   🎭 <a href="https://aaronified.github.io/tippani/">Interactive demo</a> — a read-only click-around with dummy data
   that tracks the current frontend (it rebuilds whenever the UI changes). Writes are disabled; everything else is
   the real interface.
+</p>
+
+<p align="center">
+  🗺 <strong><a href="https://aaronified.github.io/tippani/roadmap.html">The roadmap</a></strong> — everything planned,
+  every bug I already know about, and the things I have<br>
+  <a href="https://aaronified.github.io/tippani/roadmap.html#aside">set aside on purpose</a>. Worth reading before you
+  ask for something, and it takes requests:<br>
+  <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml"><strong>request a feature</strong></a>
+  ·
+  <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml"><strong>report a bug</strong></a>
+  — a reported bug appears on the roadmap by itself, within a minute of filing.
 </p>
 
 ---
@@ -34,7 +46,11 @@ and it serves HTTPS itself. No Node at runtime;
 metadata lookups are on-demand and optional (nothing external is required to run); covers and
 posters are served from your own disk.
 
-The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
+What is coming next is on **[the roadmap](https://aaronified.github.io/tippani/roadmap.html)** —
+twenty-five numbered sections, the bugs I already know about, and a
+[list of things refused on purpose](https://aaronified.github.io/tippani/roadmap.html#aside)
+so the boundaries stay decisions rather than gaps. The full original design lives in
+[`docs/PLAN.md`](docs/PLAN.md); release history is in
 [`CHANGELOG.md`](CHANGELOG.md). Tippani was **written with AI assistance** and the
 app itself **contains no AI** — no model calls, nothing sent anywhere. Both halves
 of that are spelled out in [`AI.md`](AI.md).
@@ -166,7 +182,7 @@ of that are spelled out in [`AI.md`](AI.md).
   stays paired until you unpair it: changing your password signs out browsers but deliberately
   leaves phones alone, because silently unpairing every device on a routine password change is
   worse than the threat it would prevent. Unpair one, or all, from the same panel. (The Android
-  app itself is in progress — see [the roadmap](docs/roadmap.html) §23.)
+  app itself is in progress — see [the roadmap](https://aaronified.github.io/tippani/roadmap.html) §23.)
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
 - 🔄 **In-app updates** — Settings shows your running version and checks GitHub for a newer release
@@ -193,7 +209,7 @@ of that are spelled out in [`AI.md`](AI.md).
 > [Homepage](https://gethomepage.dev) dashboard widget; collections & shelves; the Profile area
 > growing into passkeys/2FA, trash-and-undo and per-user API tokens; and quiet, opt-in
 > **achievements** — reading milestones plus one gentle spaced-repetition streak.
-> See [the roadmap](docs/roadmap.html).
+> See [the roadmap](https://aaronified.github.io/tippani/roadmap.html).
 
 ## Quick start (Docker Compose)
 

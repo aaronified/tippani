@@ -1,0 +1,13 @@
+# Two forms, and no blank issues — the roadmap's Known bugs block is generated from
+# the bug form's fields, so a free-form issue would land there with nothing to render.
+blank_issues_enabled: false
+contact_links:
+  - name: The roadmap
+    url: https://aaronified.github.io/tippani/roadmap.html
+    about: What is planned, what is already known to be broken, and what I have set aside on purpose. Worth a look before filing.
+  - name: UI glossary
+    url: https://aaronified.github.io/tippani/ui-glossary.html
+    about: Every control in the interface, named and explained. If you are unsure whether something is a bug or a misunderstanding, start here.
+  - name: Release notes
+    url: https://github.com/aaronified/tippani/releases
+    about: What changed in each version — your bug may already be fixed in a newer release.

@@ -1,0 +1,55 @@
+{
+  "_": [
+    "Hand-owned half of the roadmap's 'Known bugs' block. Nothing automated writes to",
+    "this file — the workflow writes docs/data/tracker.json instead, so an edit here is",
+    "never clobbered.",
+    "",
+    "  manual    — bugs I found myself. HTML allowed, and this prose is the canonical",
+    "              write-up. Give it the `issue` number that tracks it and the generated",
+    "              entry for that issue steps aside, so it appears once, written the way",
+    "              I wrote it, and still disappears when the issue is closed.",
+    "              Set `fixed_in` to a version to drop one from the page while keeping",
+    "              the record; delete the entry entirely once the changelog covers it.",
+    "",
+    "  overrides — per-issue corrections, keyed by issue number as a string. A generated",
+    "              entry is a starting point, not a verdict: whatever you put here wins",
+    "              over what the reporter wrote. The issue stays the source of the FACT",
+    "              that the bug is open; this is the source of how it reads.",
+    "",
+    "                title      replace the heading",
+    "                railLabel  shorter label for the contents rail",
+    "                html       replace the body outright, as lines of HTML. Once you set",
+    "                           this, the reporter's prose is no longer rendered — so",
+    "                           carry over anything that mattered.",
+    "                note       append one paragraph, keeping the reporter's prose",
+    "                hide       true to keep the issue open but off the page",
+    "",
+    "An entry drops off the page by itself when its issue is closed — that is the point",
+    "of generating this. Fix the bug, close the issue, the roadmap catches up. An",
+    "override for a closed issue is harmless and can be tidied whenever.",
+    "",
+    "Render with `node scripts/roadmap-data.mjs`."
+  ],
+  "manual": [
+    {
+      "id": "bug-legacy-exports",
+      "title": "Legacy catalogue exports can still re-import as books",
+      "railLabel": "Legacy catalogue exports",
+      "issue": 14,
+      "fixed_in": null,
+      "html": [
+        "<p>",
+        "  1.1.1 made the catalogue export always write <code>type: movie</code> /",
+        "  <code>type: show</code>, which is what routes a file back to the right importer.",
+        "  Files exported by <strong>1.1.0 or earlier</strong> were not rewritten, so a bare",
+        "  film export from then — no director, no collection, no character/actor/timestamp on",
+        "  any line — still carries nothing identifying it. Re-export it, or add a",
+        "  <code>type:</code> line by hand. Not fixable retroactively: a detector cannot infer",
+        "  what the file never recorded, so this one stays listed rather than pretending to",
+        "  be fixable.",
+        "</p>"
+      ]
+    }
+  ],
+  "overrides": {}
+}

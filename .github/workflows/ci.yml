@@ -47,3 +47,15 @@ jobs:
         working-directory: web/frontend
       - run: npm run build
         working-directory: web/frontend
+
+  # The roadmap's generated regions are committed, so they can drift from
+  # docs/data/*.json if someone edits the data and forgets to re-render. Catch it here
+  # rather than letting the roadmap-bugs workflow silently correct it later.
+  roadmap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: node scripts/roadmap-data.mjs --check

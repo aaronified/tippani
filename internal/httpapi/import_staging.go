@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -722,7 +723,12 @@ func (s *Server) listStagedWorks(uid int64) ([]stagedWorkRow, error) {
 // writing. It runs the same resolution approval will run.
 func (s *Server) previewStagedTarget(uid int64, row stagedWorkRow) (stagedWorkPreview, error) {
 	var out stagedWorkPreview
-	tx, err := s.Store.DB.Begin()
+	// ReadOnly, and it has to be: the DSN sets _txlock=immediate, so a read-write
+	// Begin takes SQLite's write lock up front. This transaction never writes — it is
+	// the "where would this land?" preview, called once per staged work while a
+	// staging list is being rendered — and a preview has no business queueing behind
+	// a real writer, or making one queue behind it.
+	tx, err := s.Store.DB.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return out, err
 	}

@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"database/sql"
 	"net/http"
 	"sync"
 	"testing"
@@ -30,8 +32,14 @@ func TestDuplicatePostUnderPoolPressure(t *testing.T) {
 
 	// Pin 3 of the 4 connections in open read transactions, leaving exactly one
 	// for the handler — enough for its tx, and nothing spare for a second query.
+	//
+	// ReadOnly matters, and not only for tidiness: the DSN sets _txlock=immediate, so
+	// a read-write Begin now takes SQLite's write lock at BEGIN. Three of those cannot
+	// coexist, and the pin loop would deadlock against itself instead of testing the
+	// handler. ReadOnly gives a plain deferred BEGIN, which is what "pin a connection
+	// holding a read" always meant.
 	for i := 0; i < 3; i++ {
-		tx, err := srv.Store.DB.Begin()
+		tx, err := srv.Store.DB.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 		if err != nil {
 			t.Fatalf("pin %d: %v", i, err)
 		}
@@ -93,17 +101,16 @@ func TestConcurrentDuplicatePostsAllConflict(t *testing.T) {
 		t.Fatalf("wedged after 30s, codes so far=%v", codes)
 	}
 
-	// A handful of these can come back 500 for a reason that predates this path
-	// and has nothing to do with it: concurrent writers race for SQLite's WAL
-	// write lock and get SQLITE_BUSY back immediately, even though busy_timeout is
-	// 5000 on every connection. It reproduces just as readily on POST /books, and
-	// PLAN §8 specifies a "single writer connection" that store.Open never
-	// implemented (it sets SetMaxOpenConns(4) with no write serialisation).
+	// Every one of these must be a clean 409. This used to tolerate a 500 and count
+	// it, because concurrent writers really did get SQLITE_BUSY back immediately —
+	// the busy_timeout of 5000 was never consulted. The cause was the lock order,
+	// not the pool: a DEFERRED transaction that reads before it writes has to upgrade
+	// its read lock, and SQLite fails that upgrade instantly rather than risk a
+	// deadlock. store.openDB now opens with _txlock=immediate, so the write lock is
+	// taken at BEGIN and a second writer waits its turn like it was always meant to.
 	//
-	// So this test tolerates that specific outcome — loudly, with a count — while
-	// still holding the line on what IS this path's responsibility: never wedging,
-	// never double-writing, and always resolving a conflict to the original row.
-	busy := 0
+	// Nothing here is allowed to be flaky-tolerant any more. A 500 in this loop is a
+	// regression in that DSN, and it should say so.
 	for i, code := range codes {
 		switch code {
 		case http.StatusConflict:
@@ -112,17 +119,11 @@ func TestConcurrentDuplicatePostsAllConflict(t *testing.T) {
 					i, bodies[i].Existing.ID, first.ID)
 			}
 		case http.StatusInternalServerError:
-			busy++
+			t.Errorf("request %d got a 500: concurrent writes are contending again — "+
+				"check that store.openDB still sets _txlock=immediate", i)
 		default:
-			t.Errorf("request %d: got %d, want 409 (or the known 500 write contention)", i, code)
+			t.Errorf("request %d: got %d, want 409", i, code)
 		}
-	}
-	if busy > 0 {
-		t.Logf("%d/%d requests hit the pre-existing concurrent-write contention (500); "+
-			"see PLAN §8 on the unimplemented single-writer design", busy, n)
-	}
-	if busy == n {
-		t.Fatalf("every request failed on write contention — no conflict path was exercised")
 	}
 
 	// And nothing was written twice.
@@ -161,12 +162,15 @@ func TestConcurrentDuplicateDialoguePostsAllConflict(t *testing.T) {
 		switch code {
 		case http.StatusConflict:
 			conflicts++
-		case http.StatusInternalServerError: // see the annotation test: pre-existing write contention
+		case http.StatusInternalServerError:
+			// This is the one that reproduced most readily before _txlock=immediate.
+			t.Errorf("request %d got a 500: concurrent writes are contending again — "+
+				"check that store.openDB still sets _txlock=immediate", i)
 		default:
-			t.Errorf("request %d: got %d, want 409 (or the known 500 write contention)", i, code)
+			t.Errorf("request %d: got %d, want 409", i, code)
 		}
 	}
-	if conflicts == 0 {
-		t.Fatal("no request reached the conflict path")
+	if conflicts != n {
+		t.Fatalf("%d/%d requests reached the conflict path, want all of them", conflicts, n)
 	}
 }

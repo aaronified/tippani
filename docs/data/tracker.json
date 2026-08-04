@@ -1,0 +1,29 @@
+{
+  "_": [
+    "GENERATED. Do not edit — .github/workflows/roadmap-bugs.yml overwrites this file",
+    "wholesale on every issue event, and your edit survives exactly until then.",
+    "",
+    "It is the issue tracker's state, flattened so that the roadmap generator needs no",
+    "network access and the page can be rebuilt reproducibly from the repo alone.",
+    "",
+    "  open_bugs  open issues labelled `bug`, newest last, with the body the form built.",
+    "  closed     every issue number that is closed, whatever its labels. This is what",
+    "             makes an entry drop off the page by itself: a bug or an accepted",
+    "             feature request whose issue is closed stops rendering, so fixing a",
+    "             thing and closing its issue is the only bookkeeping there is.",
+    "",
+    "Hand-written corrections go in docs/data/bugs.json under `overrides`."
+  ],
+  "generated": "2026-08-04T11:38:35.420Z",
+  "open_bugs": [
+    {
+      "body": "Tracking issue for a bug listed on the roadmap. **Found by me, not reported** — filed here so it has a number, and so that closing it is what takes it off the page.\n\n**Roadmap:** https://aaronified.github.io/tippani/roadmap.html#bug-legacy-exports\n\n### What happens\n\n1.1.1 made the catalogue export always write type: movie / type: show , which is what routes a file back to the right importer. Files exported by 1.1.0 or earlier were not rewritten, so a bare film export from then — no director, no collection, no character/actor/timestamp on any line — still carries nothing identifying it. Re-export it, or add a type: line by hand. Not fixable retroactively: a detector cannot infer what the file never recorded, so this one stays listed rather than pretending to be fixable.\n\n---\n\nFiled by `scripts/seed-issues.mjs`. The prose on the roadmap is the canonical write-up; it lives in `docs/data/bugs.json`.",
+      "created_at": "2026-08-04T11:32:59Z",
+      "number": 14,
+      "title": "[bug]: Legacy catalogue exports can still re-import as books",
+      "url": "https://github.com/aaronified/tippani/issues/14",
+      "user": "aaronified"
+    }
+  ],
+  "closed": []
+}

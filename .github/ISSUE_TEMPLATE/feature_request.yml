@@ -1,0 +1,85 @@
+# Feature requests are NOT auto-published to the roadmap. When one is accepted it is
+# added by hand to docs/data/features.json, which the same generator renders into the
+# page — see scripts/roadmap-data.mjs.
+name: Request a feature
+description: Ask for something Tippani does not do yet.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        I would rather hear it than guess, and something two people ask for moves up.
+
+        Two things worth knowing before you write:
+
+        - **This will not appear on the roadmap by filing it.** Bugs publish themselves;
+          features do not. I add one to the
+          [roadmap](https://aaronified.github.io/tippani/roadmap.html) by hand once I have
+          decided it belongs, so an open request is a request, not a promise.
+        - **Some things are refused on purpose.** The roadmap has a
+          [Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside)
+          section — server-side OCR and speech, a built-in reader or file sync to an
+          e-reader, social features and federation, and the read log feeding anything
+          else. A request from that list is still welcome, but make the argument. I will
+          take a good argument over a vote.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched the [open issues](https://github.com/aaronified/tippani/issues) and read the [roadmap](https://aaronified.github.io/tippani/roadmap.html), and this is not already planned.
+          required: true
+        - label: I checked [Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside) — either it is not there, or I have argued the case below.
+          required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want to be able to do
+      description: Describe the behaviour you want, not the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What are you doing today instead
+      description: >
+        The workaround, however ugly — or "nothing, I gave up". This is the most useful
+        box on the form: it tells me what the feature is actually competing with.
+    validations:
+      required: true
+
+  - type: input
+    id: near
+    attributes:
+      label: Which roadmap section is it nearest
+      description: Optional. A § number, or the name of a Later / maybe entry.
+      placeholder: "§4 Anthologies"
+
+  - type: checkboxes
+    id: ethos
+    attributes:
+      label: Does it fit the ethos
+      description: >
+        Tippani runs from one small binary on a low-powered box, holds no book files,
+        talks to nothing you have not configured, and keeps everything ambitious optional
+        and off by default. Tick what applies. Leaving these unticked is not a
+        disqualification — it just means the request needs the argument.
+      options:
+        - label: It needs no new always-on dependency — no cron, no queue, no extra service.
+          required: false
+        - label: It works with no account, no API key and no outbound call — or it is opt-in and off by default.
+          required: false
+        - label: It costs roughly nothing at idle on a small box.
+          required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: >
+        Prior art in another app, a mock-up, a link to the format or API it would need.
+        Drag images straight in.

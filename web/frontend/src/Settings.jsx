@@ -275,6 +275,19 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
           )}
         </div>
 
+        {/* What shipped is in the release notes above; what is still ahead — and where to
+            ask for something, or say what is broken — is the roadmap. It belongs here
+            rather than only under Reference, because "what version am I on" and "what is
+            coming" are the same question asked twice. */}
+        <p className="microcopy" style={{ fontSize: 12.5 }}>
+          What is still ahead is on the{' '}
+          <a className="tp-link" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
+            roadmap ↗
+          </a>{' '}
+          — including the bugs I already know about, which is worth a look before you
+          report one. Requests and bug reports both start there too.
+        </p>
+
         {phase === 'restarting' ? (
           <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
             updating & restarting — this page will reload automatically when Tippani is back…
