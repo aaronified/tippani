@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
+import { episodeLabel } from './Movies.jsx'
 import {
   BulkBar,
   ColorSwatches,
@@ -408,6 +409,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
     quote.location,
     quote.character,
     quote.actor,
+    episodeLabel(quote),
     quote.timestamp,
     quote.noted_at ? quote.noted_at.slice(0, 10) : '',
   ].filter(Boolean)
@@ -472,6 +474,8 @@ function FieldsPanel({ n, busy, onApply }) {
     ['location', 'Location'],
     ['character', 'Character'],
     ['actor', 'Actor'],
+    ['season', 'Season'],
+    ['episode', 'Episode'],
     ['timestamp', 'Timestamp'],
   ]
   function submit() {
@@ -669,6 +673,10 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
     location: quote.location || '',
     character: quote.character || '',
     actor: quote.actor || '',
+    // Counts stay strings: '' is unset and '0' is season 0 (specials), and the
+    // endpoint takes them as text for exactly that reason.
+    season: quote.season ?? '',
+    episode: quote.episode ?? '',
     timestamp: quote.timestamp || '',
     color: quote.color || 'yellow',
     favorite: !!quote.favorite,
@@ -692,6 +700,8 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
       ['location', quote.location || ''],
       ['character', quote.character || ''],
       ['actor', quote.actor || ''],
+      ['season', String(quote.season ?? '')],
+      ['episode', String(quote.episode ?? '')],
       ['timestamp', quote.timestamp || ''],
     ]) {
       if (f[k] !== was) body[k] = f[k]
@@ -720,6 +730,8 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
         <Field label="Location" placeholder="p.142" value={f.location} onChange={upd('location')} />
         <Field label="Character" placeholder="Philip Marlowe" value={f.character} onChange={upd('character')} />
         <Field label="Actor" placeholder="Elliott Gould" value={f.actor} onChange={upd('actor')} />
+        <Field label="Season" placeholder="2 (shows only)" value={f.season} onChange={upd('season')} />
+        <Field label="Episode" placeholder="5 (needs a season)" value={f.episode} onChange={upd('episode')} />
         <Field label="Timestamp" placeholder="01:02:03" value={f.timestamp} onChange={upd('timestamp')} />
       </div>
       <div className="flex flex-wrap items-center gap-4">

@@ -53,7 +53,7 @@ func LooksLikeMovieMarkdown(data []byte) bool {
 		case strings.HasPrefix(line, "director:"), strings.HasPrefix(line, "creator:"),
 			strings.HasPrefix(line, "collection:"),
 			strings.HasPrefix(line, "- character:"), strings.HasPrefix(line, "- actor:"),
-			strings.HasPrefix(line, "- timestamp:"):
+			strings.HasPrefix(line, "- timestamp:"), strings.HasPrefix(line, "- episode:"):
 			return true
 		case strings.HasPrefix(line, "author:"), strings.HasPrefix(line, "isbn:"),
 			strings.HasPrefix(line, "- loc:"), strings.HasPrefix(line, "- location:"):
@@ -164,6 +164,16 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			case "movie", "film":
 				res.Movie.MediaType = "movie"
 			}
+		case "status":
+			res.Movie.Status = strings.ToLower(val)
+		case "progress":
+			res.Movie.Progress = parseProgress(val)
+		case "episode", "episodes":
+			res.Movie.Pos, res.Movie.PosTotal = parseOutOf(val)
+		case "season", "seasons":
+			res.Movie.Season, res.Movie.SeasonTotal = parseOutOf(val)
+		case "reads":
+			res.Movie.Reads = parseReads(val)
 		} // unknown keys ignored
 	}
 	if res.Movie.Title == "" {
@@ -210,6 +220,10 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.Actor = val
 			case "timestamp", "time":
 				cur.Timestamp = val
+			case "season", "episode", "ep":
+				// Shows only; the server drops these for a film. Either key accepts
+				// the combined "S2E5" people write by hand.
+				applyEpisodeBinding(cur, strings.TrimSpace(key), val)
 			case "note":
 				cur.Note = val
 			case "color", "colour":
@@ -217,7 +231,7 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			case "tags":
 				cur.Tags = splitCSV(val)
 			case "favorite":
-				cur.Favorite = val == "true" || val == "yes" || val == "1"
+				cur.Favorite = truthy(val)
 			}
 		}
 	}

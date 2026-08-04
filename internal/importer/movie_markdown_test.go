@@ -2,6 +2,7 @@ package importer
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -142,4 +143,59 @@ func TestLooksLikeMovieMarkdownRouting(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A show's line carries which episode it is from. The exporter writes one number
+// per key, but the shapes people type by hand — S2E5, s02e05, 2x05 — carry both on
+// a single key, so either key accepts them. nil is "the file didn't say", which is
+// a different fact from 0: season 0 is where a series keeps its specials.
+func TestMovieMarkdownEpisodeBindings(t *testing.T) {
+	num := func(n int) *int { return &n }
+	for _, tc := range []struct {
+		name    string
+		binding string
+		season  *int
+		episode *int
+	}{
+		{"plain numbers, one per key", "- season: 2\n- episode: 6\n", num(2), num(6)},
+		{"season zero is a real season", "- season: 0\n- episode: 1\n", num(0), num(1)},
+		{"season alone", "- season: 4\n", num(4), nil},
+		{"combined on the episode key", "- episode: S2E5\n", num(2), num(5)},
+		{"combined, zero padded", "- episode: s02e05\n", num(2), num(5)},
+		{"combined on the season key", "- season: S3E9\n", num(3), num(9)},
+		{"the x form", "- episode: 2x05\n", num(2), num(5)},
+		{"the ep alias", "- ep: 7\n- season: 1\n", num(1), num(7)},
+		{"nonsense is ignored", "- season: sometime\n- episode: later\n", nil, nil},
+		{"nothing at all", "", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			md := "---\ntitle: Reel Seven\ntype: show\n---\n\n> A line.\n" + tc.binding
+			all, err := MovieMarkdownAll(strings.NewReader(md))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(all) != 1 || len(all[0].Dialogues) != 1 {
+				t.Fatalf("expected one title with one dialogue, got %+v", all)
+			}
+			d := all[0].Dialogues[0]
+			if !samePtr(d.Season, tc.season) || !samePtr(d.Episode, tc.episode) {
+				t.Fatalf("got season=%s episode=%s, want season=%s episode=%s",
+					ptrStr(d.Season), ptrStr(d.Episode), ptrStr(tc.season), ptrStr(tc.episode))
+			}
+		})
+	}
+}
+
+func samePtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func ptrStr(p *int) string {
+	if p == nil {
+		return "nil"
+	}
+	return strconv.Itoa(*p)
 }

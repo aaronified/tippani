@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, Lightbox, MonoLabel, Placeholder } from './ui.jsx'
+import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, Lightbox, MonoLabel, PartialDateField, Placeholder, isPartialDate } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -276,9 +276,15 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
 
 // lifespanLabel renders a person's years: "1920 – 2001" when both are known,
 // the bare birth year when only born is set, "d. 2001" when only died is.
+//
+// Born/died are partial dates (§3f), so a record may hold a full day. The
+// lifespan line still shows only the YEAR of each: a person's years are what this
+// line is for, and "4 Mar 1920 – 12 Nov 2001" reads as a gravestone next to a
+// title. The full precision is kept, and shows in the edit form.
 function lifespanLabel(p) {
-  const b = (p?.born || '').trim()
-  const d = (p?.died || '').trim()
+  const year = (v) => (v || '').trim().slice(0, 4)
+  const b = year(p?.born)
+  const d = year(p?.died)
   if (b && d) return `${b} – ${d}`
   if (b) return b
   if (d) return `d. ${d}`
@@ -404,12 +410,13 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
 
   async function submit(e) {
     e.preventDefault()
-    // Born/died are years: 4 digits, or blank. (Same rule the year fields use.)
-    if (born.trim() && !/^\d{4}$/.test(born.trim())) {
-      return setError('born must be a 4-digit year (e.g. 1920)')
+    // Born/died are partial dates (§3f): a year, a year-month, or a full day —
+    // whatever is actually known. Same rule and same picker as a read's dates.
+    if (born.trim() && !isPartialDate(born.trim())) {
+      return setError('born must be a year, YYYY-MM or YYYY-MM-DD')
     }
-    if (died.trim() && !/^\d{4}$/.test(died.trim())) {
-      return setError('died must be a 4-digit year (e.g. 2001)')
+    if (died.trim() && !isPartialDate(died.trim())) {
+      return setError('died must be a year, YYYY-MM or YYYY-MM-DD')
     }
     setBusy(true)
     setError('')
@@ -444,23 +451,12 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
         <MonoLabel className="mb-1.5 block">Bio</MonoLabel>
         <textarea className="tp-input" rows="4" value={bio} onChange={(e) => setBio(e.target.value)} />
       </label>
+      {/* Partial dates: type a year and stop, or pick a month and day from the
+          calendar when the record actually says one. The lifespan line above shows
+          just the years either way. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label="Born"
-          value={born}
-          onChange={(e) => setBorn(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          inputMode="numeric"
-          maxLength={4}
-          placeholder="e.g. 1920"
-        />
-        <Field
-          label="Died"
-          value={died}
-          onChange={(e) => setDied(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          inputMode="numeric"
-          maxLength={4}
-          placeholder="e.g. 2001"
-        />
+        <PartialDateField label="Born" value={born} onChange={setBorn} placeholder="e.g. 1920" />
+        <PartialDateField label="Died" value={died} onChange={setDied} placeholder="e.g. 2001" />
       </div>
       <div>
         <div className="mb-1.5 flex items-center justify-between gap-2">

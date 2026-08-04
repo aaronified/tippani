@@ -200,6 +200,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /books", s.requireAuth(s.handleListBooks))
 	mux.Handle("GET /books/{id}", s.requireAuth(s.handleGetBook))
 	mux.Handle("PUT /books/{id}", s.requireAuth(s.handleUpdateBook))
+	// Shelf status is its own endpoint, not part of the full-state PUT: the
+	// transition and the read log have to move together (PLAN §3f).
+	mux.Handle("PUT /books/{id}/status", s.requireAuth(s.handleSetBookStatus))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
@@ -221,6 +224,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /movies", s.requireAuth(s.handleListMovies))
 	mux.Handle("GET /movies/{id}", s.requireAuth(s.handleGetMovie))
 	mux.Handle("PUT /movies/{id}", s.requireAuth(s.handleUpdateMovie))
+	mux.Handle("PUT /movies/{id}/status", s.requireAuth(s.handleSetMovieStatus))
 	mux.Handle("POST /movies/{id}/cover", s.requireAuth(s.handleUploadMoviePoster))
 	mux.Handle("DELETE /movies/{id}", s.requireAuth(s.handleDeleteMovie))
 	mux.Handle("POST /dialogues", s.requireAuth(s.handleCreateDialogue))
@@ -593,6 +597,18 @@ func nullable(s string) any {
 
 func nullableInt(n int) any {
 	if n == 0 {
+		return nil
+	}
+	return n
+}
+
+// nullableCount reads a count that arrives as text, where a blank is the only
+// "unset" and 0 is a value in its own right: NULL for blank (or unparseable —
+// callers validate first), the number otherwise. The counterpart of nullableInt
+// for columns where 0 means something, as a dialogue's season does.
+func nullableCount(s string) any {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil {
 		return nil
 	}
 	return n

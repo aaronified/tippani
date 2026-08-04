@@ -212,6 +212,7 @@ type reviewCard struct {
 	Chapter     string  `json:"chapter"`    // book only
 	Location    string  `json:"location"`   // book only
 	Timestamp   string  `json:"timestamp"`  // screen only
+	episodeRef              // screen only, shows only; null on a film's lines
 	MediaType   string  `json:"media_type"` // movie | show (screen); "" for book
 	Stability   float64 `json:"stability"`
 	ReviewCount int     `json:"review_count"`
@@ -358,7 +359,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, s
 
 func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), d.color, m.title, COALESCE(d.character,''),
-	             COALESCE(d.actor,''), COALESCE(d.timestamp,''), COALESCE(m.media_type,'movie'),
+	             COALESCE(d.actor,''), COALESCE(d.timestamp,''), d.season, d.episode, COALESCE(m.media_type,'movie'),
 	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
 	             COALESCE(julianday('now') - julianday(d.created_at), 1e9)
 	      FROM dialogues d
@@ -399,7 +400,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string,
 		var movieID int64
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Character,
-			&c.card.Actor, &c.card.Timestamp, &c.card.MediaType,
+			&c.card.Actor, &c.card.Timestamp, &c.card.Season, &c.card.Episode, &c.card.MediaType,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue

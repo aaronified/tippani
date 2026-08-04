@@ -344,6 +344,11 @@
   /* The dropdown's textured thumb is grab-and-slide, exactly as the toggle's is
      (.tp-toggle above) — only down the panel instead of along the row. */
   .tp-select-panel { user-select: none; -webkit-user-select: none; cursor: grab; }
+  /* A multi-select panel wears the same skin but has no draggable thumb, so it
+     must NOT claim the vertical gesture: with touch-action:none inherited from
+     the single-select rules below, a phone could not scroll the page from the
+     open panel and the grab cursor promised a drag that isn't there. */
+  .tp-select-panel.tp-multi { cursor: default; user-select: auto; -webkit-user-select: auto; touch-action: auto; }
   /* Claim the vertical gesture only when the list doesn't scroll: touch-action
      can't serve both the thumb and the scroller, and a scrolling panel keeps
      the native one (hover and the arrow keys still move the thumb there). */
@@ -1534,6 +1539,36 @@
     flex-direction: column;
     gap: 1px;
   }
+  /* ---- partial-date picker (§3f): a year / month / day drill-down where every
+     level is a legal answer, so "I read it in 2019" needs no invented day. ---- */
+  .date-pop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; max-width: 100%; }
+  /* max-width, not a fixed width: inside a confirm dialog on a 320px phone the
+     content column is ~240px, and a rigid 244px picker would spill the page
+     sideways — which nothing in this app is allowed to do. The day grid
+     compresses instead. */
+  .date-picker { width: 244px; max-width: 100%; padding: 8px; }
+  .date-grid { display: grid; gap: 2px; }
+  .date-grid .menu-item { justify-content: center; }
+  /* The "just the year / just the month" escape hatch under each grid. */
+  .date-coarse {
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: .06em;
+    color: var(--soft);
+    cursor: pointer;
+  }
+  .date-coarse:hover { color: var(--ink); border-color: var(--ink-border); }
+  /* The read-history popover under a work's ×N chip. */
+  .read-log { margin: 0; padding: 2px 4px; display: flex; flex-direction: column; gap: 5px; }
+  .read-log li { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--ink); }
+  .read-log .read-n { font-family: var(--font-mono); font-size: 11px; color: var(--faint); flex: none; }
+  .read-log .read-open { color: var(--soft); font-style: italic; }
   /* Account surfaces (§7): a centered pop-up on desktop, a full page on phones. */
   .account-scrim {
     position: fixed; inset: 0; z-index: 70;
@@ -2541,6 +2576,16 @@ html[data-theme="dark"] .mobile-sheet-footer {
     min-height: 44px;
     padding: 8px 14px;
   }
+  /* An ACTIONABLE chip is a button and needs the same hit height as the filter
+     chips: the shelf-state tag and the ×N read counter on a work's detail, and
+     the "Mark as read" rows inside the shelf-cap dialog, are all .tp-chip-btn.
+     Plain .tp-chip is left alone — it is a label, not a target. */
+  .tp-chip-btn {
+    min-height: 40px;
+    padding: 6px 12px;
+  }
+  /* The read-history popover is text, not targets, so it keeps its own rhythm. */
+  .read-log li { min-height: 0; }
   .heart {
     width: 44px;
     height: 44px;

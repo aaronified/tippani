@@ -71,6 +71,7 @@ type dialogueHit struct {
 	Character       string   `json:"character"`
 	Actor           string   `json:"actor"`
 	Timestamp       string   `json:"timestamp"`
+	episodeRef               // shows only; null on a film's lines
 }
 
 // ---- facet sections (§ sectioned search) ------------------------------------
@@ -158,6 +159,7 @@ const (
 		COALESCE(m.media_type, 'movie')`
 	dialogueHitCols = `d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 		COALESCE(d.note, ''), COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
+		d.season, d.episode,
 		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
 		COALESCE(m.media_type, 'movie')`
 )
@@ -184,7 +186,8 @@ func scanMovieHit(rows *sql.Rows) (movieHit, error) {
 func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	h := dialogueHit{MovieGenres: []string{}}
 	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note,
-		&h.Character, &h.Actor, &h.Timestamp, &h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType)
+		&h.Character, &h.Actor, &h.Timestamp, &h.Season, &h.Episode,
+		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType)
 	return h, err
 }
 

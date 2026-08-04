@@ -6,7 +6,25 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { GroupHeading, MobileDetailBar, WorkCard, WorkHero, WorkListScaffold, groupWorks } from './works.jsx'
+import {
+  ACTIVE_STATUS,
+  GroupHeading,
+  InProgressCapDialog,
+  MobileDetailBar,
+  SHELF_CAPS,
+  ShelfControl,
+  ShelfDateDialog,
+  WorkCard,
+  WorkHero,
+  WorkListScaffold,
+  capKeyFor,
+  groupWorks,
+  isActive,
+  moveLabel,
+  pinInProgress,
+  statusFilter,
+  wishFilter,
+} from './works.jsx'
 import {
   ConfirmDialog,
   EdgeRow,
@@ -59,6 +77,8 @@ import {
   usePersistedState,
   useReveal,
   ExpandableText,
+  IconWatching,
+  todayPartial,
 } from './ui.jsx'
 
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
@@ -153,7 +173,16 @@ function movieState(m) {
     series: m.series || '',
     series_index: m.series_index || 0,
     favorite: !!m.favorite,
+    // status / progress / reads are absent on purpose: they belong to
+    // PUT /movies/:id/status, so an ordinary save cannot rewrite the watch log.
   }
+}
+
+// setMovieStatus moves one title to a shelf state, through the endpoint that
+// keeps the status and the watch log consistent. Returns an error string.
+async function setMovieStatus(id, body) {
+  const r = await json('PUT', `/movies/${id}/status`, body)
+  return r.ok ? '' : errText(r, 'could not save')
 }
 
 // ---- movie list: poster grid mirroring Library (§8.6) ----
@@ -170,6 +199,8 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [tagged, setTagged] = useState(false) // has at least one tagged dialogue
   const [noted, setNoted] = useState(false) // has at least one dialogue with a note
+  const [wish, setWish] = useState('') // '' = all | 'wishlist' | 'annotated'
+  const [states, setStates] = useState([]) // shelf states kept; [] = every state
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -211,13 +242,17 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
     if (fav) list = list.filter((m) => m.favorite)
     if (tagged) list = list.filter((m) => (m.tagged_count || 0) > 0)
     if (noted) list = list.filter((m) => (m.noted_count || 0) > 0)
-    if (sort === 'recent') return list
+    list = statusFilter(list, states)
+    list = wishFilter(list, wish, (m) => m.dialogue_count || 0)
+    // Default view = server order with what you're watching floated to the top;
+    // an explicit sort from the menu takes over completely.
+    if (sort === 'recent') return pinInProgress(list, 'movie')
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'year') list.sort((a, b) => (b.release_year || 0) - (a.release_year || 0))
     else if (sort === 'series') list.sort(bySeries)
     return list
-  }, [movies, mediaType, genre, series, fav, tagged, noted, sort])
+  }, [movies, mediaType, genre, series, fav, tagged, noted, states, wish, sort])
 
   // Grouping only buckets the view — a title still appears in the flat list, and
   // because media_type lives on the same row as series, one collection can hold
@@ -272,6 +307,11 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
       setTagged={setTagged}
       noted={noted}
       setNoted={setNoted}
+      wish={wish}
+      setWish={setWish}
+      states={states}
+      setStates={setStates}
+      kind="movie"
       noun="title"
       seriesNames={seriesNames}
       series={series}
@@ -319,7 +359,7 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
           <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
         </div>
       }
-      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
       addSurface={
         <AddSurface
           open={adding}
@@ -538,6 +578,16 @@ function MovieDetail({ id, onClose, creditSeparators }) {
   const [mobileAdd, setMobileAdd] = useState(false)
   // { kind:'director', name } open in the metadata panel — captured at click time.
   const [person, setPerson] = useState(null)
+  // Live unfiltered dialogue count, reported up by <Dialogues>: it decides the
+  // Wishlist tag, so the first dialogue retracts the tag straight away.
+  const [lineCount, setLineCount] = useState(null)
+  // Shelf machinery, mirroring the Library's: `pending` is a transition waiting
+  // on its date, `capPool` the titles already watching while the cap dialog is up.
+  const [pending, setPending] = useState(null) // { status, date }
+  const [capPool, setCapPool] = useState(null)
+  const [capBusyId, setCapBusyId] = useState(null)
+  const [capError, setCapError] = useState('')
+  const [shelfBusy, setShelfBusy] = useState(false)
   const { map: directorMap } = usePeople('director') // name→metadata, for the director/creator face chip
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
@@ -550,8 +600,78 @@ function MovieDetail({ id, onClose, creditSeparators }) {
   useEffect(() => {
     setMovie(null)
     setEditing(false)
+    setLineCount(null)
     load()
   }, [id])
+
+  // ---- shelf transitions ------------------------------------------------------
+  // The films and shows caps are separate pools (2 · 5): a binge-watched series
+  // should not crowd out the one film you have on the go.
+  const capKey = movie ? capKeyFor('movie', movie) : 'movie'
+
+  async function save(status, date) {
+    setShelfBusy(true)
+    // Carry the current position through — a transition is about the status, and
+    // a show's season/episode is what the server derives its percentage from.
+    const body = {
+      status,
+      progress: movie?.progress || 0,
+      pos_unit: movie?.pos_unit || '',
+      pos: movie?.pos || 0,
+      pos_total: movie?.pos_total || 0,
+      season: movie?.season || 0,
+      season_total: movie?.season_total || 0,
+    }
+    if (status === ACTIVE_STATUS.movie) body.started_at = date || ''
+    else if (status === 'completed' || status === 'abandoned') body.finished_at = date || ''
+    const r = await json('PUT', `/movies/${id}/status`, body)
+    setShelfBusy(false)
+    if (r.ok) setMovie(r.data)
+    else setError(errText(r, 'could not save'))
+  }
+
+  async function pick(next) {
+    if (!movie) return
+    if (next === ACTIVE_STATUS.movie && movie.status !== 'paused') {
+      const r = await json('GET', '/movies')
+      if (!r.ok) return setError(errText(r))
+      const pool = (r.data.movies || []).filter(
+        (m) => isActive('movie', m) && m.id !== movie.id && capKeyFor('movie', m) === capKey,
+      )
+      if (pool.length >= SHELF_CAPS[capKey]) {
+        setCapError('')
+        setCapPool(pool)
+        return
+      }
+    }
+    if (next === '' || next === 'paused') return save(next, '')
+    setPending({ status: next, date: todayPartial() })
+  }
+
+  async function releaseWatching(item) {
+    setCapBusyId(item.id)
+    const err = await setMovieStatus(item.id, { status: 'completed', finished_at: todayPartial() })
+    setCapBusyId(null)
+    if (err) return setCapError(err)
+    const left = capPool.filter((m) => m.id !== item.id)
+    if (left.length < SHELF_CAPS[capKey]) {
+      setCapPool(null)
+      setPending({ status: ACTIVE_STATUS.movie, date: todayPartial() })
+      return
+    }
+    setCapPool(left)
+  }
+
+  // `patch` is either { progress } or a season/episode position — the server
+  // derives the percentage from the latter (whole earlier seasons counting in
+  // full), so a show's bar advances as you work through the run.
+  async function saveProgress(patch) {
+    setShelfBusy(true)
+    const r = await json('PUT', `/movies/${id}/status`, { status: movie.status, ...patch })
+    setShelfBusy(false)
+    if (r.ok) setMovie(r.data)
+    else setError(errText(r, 'could not save'))
+  }
 
   async function remove() {
     if (!confirm(`Delete "${movie.title}" and all its dialogues?`)) return
@@ -635,6 +755,11 @@ function MovieDetail({ id, onClose, creditSeparators }) {
               <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => setMobileAdd(true)} />
               <MoreMenu
                 items={[
+                  {
+                    icon: <IconWatching size={24} />,
+                    label: moveLabel('movie', movie?.status || '', ACTIVE_STATUS.movie),
+                    onClick: () => pick(ACTIVE_STATUS.movie),
+                  },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
                   { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
@@ -681,13 +806,32 @@ function MovieDetail({ id, onClose, creditSeparators }) {
             }
             favorite={movie.favorite}
             onFavorite={(v) => patch({ favorite: v })}
+            // Shelf state beside the hearts: the state chip (transitions and, while
+            // watching, the progress field in its popover) and the ×N watch counter.
+            tags={
+              <ShelfControl
+                kind="movie"
+                item={movie}
+                status={movie.status}
+                progress={movie.progress}
+                pos={movie}
+                reads={movie.reads}
+                wishlist={lineCount === 0}
+                busy={shelfBusy}
+                onSelect={pick}
+                onProgress={saveProgress}
+              />
+            }
             genres={movie.genres || []}
             description={movie.description}
-            // Desktop only: on mobile these same three live in the sticky bar's
+            // Desktop only: on mobile these same actions live in the sticky bar's
             // ⋯ overflow above, and a second standing row just duplicated them.
             actions={
               mobile ? null : (
                 <>
+                  <GhostButton onClick={() => pick(ACTIVE_STATUS.movie)} disabled={shelfBusy}>
+                    {moveLabel('movie', movie.status || '', ACTIVE_STATUS.movie)}
+                  </GhostButton>
                   {!DEMO && (
                     <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
                       Export .md
@@ -715,7 +859,29 @@ function MovieDetail({ id, onClose, creditSeparators }) {
           />
         </FormModal>
       )}
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      <InProgressCapDialog
+        open={!!capPool}
+        items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, m.release_year || null].filter(Boolean).join(' · ') }))}
+        cap={SHELF_CAPS[capKey]}
+        noun={capKey === 'show' ? 'show' : 'film'}
+        verb="watching"
+        pastLabel="Mark as watched"
+        busyId={capBusyId}
+        error={capError}
+        onRelease={releaseWatching}
+        onCancel={() => setCapPool(null)}
+        onProceed={() => { setCapPool(null); setPending({ status: ACTIVE_STATUS.movie, date: todayPartial() }) }}
+      />
+      <ShelfDateDialog
+        open={!!pending}
+        title={pending ? moveLabel('movie', movie?.status || '', pending.status) : ''}
+        label={pending?.status === ACTIVE_STATUS.movie ? 'Started' : pending?.status === 'abandoned' ? 'Gave up' : 'Finished'}
+        value={pending?.date || ''}
+        onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
+        onCancel={() => setPending(null)}
+        onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
+      />
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onCount={setLineCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
   )
@@ -849,6 +1015,27 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   )
 }
 
+// episodeLabel renders a show line's episode locator the way people write it:
+// S2E5, or S2 when the season is all that's recorded. '' when there is none —
+// which is every film line, so a caller can join it into a credit unconditionally.
+//
+// The null checks are deliberate, not `|| ''`: season 0 is a real season (it is
+// where a series keeps its specials), so 0 has to render.
+export function episodeLabel(d) {
+  if (d?.season == null) return ''
+  return d.episode == null ? `S${d.season}` : `S${d.season}E${d.episode}`
+}
+
+// countOrNull turns a form field back into what the API wants for a nullable
+// count: null for blank (unset), a number otherwise. '' and '0' are different
+// answers here — season 0 is where a series keeps its specials.
+export function countOrNull(v) {
+  const s = String(v ?? '').trim()
+  if (s === '') return null
+  const n = Number(s)
+  return Number.isInteger(n) && n >= 0 ? n : null
+}
+
 // dialogueState builds the full PUT body from a dialogue row — PUT is
 // full-state, so every field must be carried even when only one changes.
 export function dialogueState(d) {
@@ -859,6 +1046,9 @@ export function dialogueState(d) {
     character: d.character || '',
     actor: d.actor || '',
     timestamp: d.timestamp || '',
+    // Shows only; null on a film's lines. ?? not ||, so season 0 survives.
+    season: d.season ?? null,
+    episode: d.episode ?? null,
     tags: d.tags || [],
     favorite: !!d.favorite,
     // carry the attached sticker + its draggable seal position through every
@@ -873,7 +1063,12 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+  // Only a series carries an episode locator: a film is one runtime, so its
+  // timestamp already says where a line is. Drives the form fields, the Episode
+  // column, and nothing else — the credit line reads the row's own numbers, so a
+  // leftover pair from a work that used to be a show is still visible.
+  const show = movie?.media_type === 'show'
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
@@ -890,7 +1085,9 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
 
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
-  const [sort, setSort] = useState({ col: 'timestamp', dir: 'asc' })
+  // A show's table opens grouped by episode, which is the order the list view is
+  // served in; a film has only its runtime to sort by.
+  const [sort, setSort] = useState({ col: show ? 'episode' : 'timestamp', dir: 'asc' })
   const tileCols = useColumnsAt([[1280, 3], [640, 2]]) // tiles: book-style collage (§8.6)
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
@@ -950,6 +1147,12 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
   useEffect(() => {
     loadTags()
   }, [movieId])
+  // Report the unfiltered dialogue count up to the detail (it decides the Wishlist
+  // tag). Only while nothing is filtered — a filtered view would otherwise report
+  // a zero that means "none match", not "none exist".
+  useEffect(() => {
+    if (items && !tag && !fav && !color) onCount?.(items.length)
+  }, [items, tag, fav, color])
 
   async function add(fields) {
     const r = await json('POST', '/dialogues', { movie_id: movieId, ...fields })
@@ -997,6 +1200,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
       character: d.character,
       actor: d.actor,
       timestamp: d.timestamp,
+      episode: episodeLabel(d), // '' on a film — the share dialog drops empty parts
       tags: d.tags,
       tmdbId: movie?.tmdb_id,
       tvdbId: movie?.tvdb_id,
@@ -1096,6 +1300,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
           }}
           onCancel={() => setAdding(false)}
           submitLabel="Add dialogue"
+          show={show}
           cast={cast}
           actorMap={actorMap}
           tagSuggestions={Object.keys(tagMap)}
@@ -1130,6 +1335,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
                 stickers={stickers}
                 reloadStickers={reloadStickers}
                 editing={editingId === d.id}
+                show={show}
                 cast={cast}
                 onEdit={() => setEditingId(d.id)}
                 onCancelEdit={() => setEditingId(null)}
@@ -1164,6 +1370,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
                 stickers={stickers}
                 reloadStickers={reloadStickers}
                 editing={editingId === d.id}
+                show={show}
                 cast={cast}
                 onEdit={() => setEditingId(d.id)}
                 onCancelEdit={() => setEditingId(null)}
@@ -1193,6 +1400,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, mobileFilterOpen, onMobil
           setEditingId={setEditingId}
           save={save}
           remove={remove}
+          show={show}
           cast={cast}
           actorMap={actorMap}
           onShare={setShareTarget}
@@ -1217,12 +1425,22 @@ function FrameDivider({ code }) {
   )
 }
 
-const DIALOGUE_COLS = [
-  { key: 'quote', label: 'Quote' },
-  { key: 'character', label: 'Character' },
-  { key: 'timestamp', label: 'Time' },
-  { key: 'favorite', label: '♥' },
-]
+// A show gains an Episode column; a film has no episodes to show one for.
+const dialogueCols = (show) =>
+  [
+    { key: 'quote', label: 'Quote' },
+    { key: 'character', label: 'Character' },
+    show ? { key: 'episode', label: 'Episode' } : null,
+    { key: 'timestamp', label: 'Time' },
+    { key: 'favorite', label: '♥' },
+  ].filter(Boolean)
+
+// episodeSortKey orders a line within its run. Unset sorts last (Infinity) rather
+// than first, matching the server's NULLS-last dialogue order; season 0 is a real
+// season and sorts where it belongs, ahead of season 1.
+function episodeSortKey(d) {
+  return [d.season ?? Infinity, d.episode ?? Infinity]
+}
 
 // sortDialogues orders rows for the table view: text columns collate, favourite
 // compares numerically, ascending/descending per the header click.
@@ -1234,6 +1452,15 @@ function sortDialogues(rows, sort) {
         return ((a.favorite ? 1 : 0) - (b.favorite ? 1 : 0)) * dir
       case 'character':
         return (a.character || '').localeCompare(b.character || '') * dir
+      case 'episode': {
+        const [as, ae] = episodeSortKey(a)
+        const [bs, be] = episodeSortKey(b)
+        // Ties on the season fall through to the episode, then to the timestamp —
+        // the same three-level order the list view is served in.
+        if (as !== bs) return (as - bs) * dir
+        if (ae !== be) return (ae - be) * dir
+        return (a.timestamp || '').localeCompare(b.timestamp || '') * dir
+      }
       case 'timestamp':
         return (a.timestamp || '').localeCompare(b.timestamp || '') * dir
       default:
@@ -1245,7 +1472,7 @@ function sortDialogues(rows, sort) {
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥ is shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, cast = [], actorMap = {}, onShare }) {
+function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, cast = [], actorMap = {}, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((d) => d.id === editingId)
   return (
@@ -1253,7 +1480,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
       <table className="ann-table">
         <thead>
           <tr>
-            {DIALOGUE_COLS.map((c) => (
+            {dialogueCols(show).map((c) => (
               <th
                 key={c.key}
                 className="sortable"
@@ -1286,6 +1513,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 )}
               </td>
               <td className="col-mono">{[d.character, d.actor && `(${d.actor})`].filter(Boolean).join(' ') || '—'}</td>
+              {show && <td className="col-mono">{episodeLabel(d) || '—'}</td>}
               <td className="col-mono">{d.timestamp || '—'}</td>
               <td className="col-center">{d.favorite ? '♥' : '—'}</td>
               <td className="col-actions">
@@ -1299,7 +1527,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
       </table>
       <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title="Edit dialogue">
         {editingRow && (
-          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+          <DialogueForm initial={editingRow} onSubmit={(fields) => save(editingRow.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
         )}
       </FormModal>
     </div>
@@ -1308,7 +1536,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ (immediate PUT patches), note, edit/delete.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1324,7 +1552,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // (click the text to expand — no button), mirroring book annotations.
   const accordion = typeof onToggleExpand === 'function'
   const editForm = (
-    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
+    <DialogueForm initial={d} onSubmit={onSave} onCancel={onCancelEdit} submitLabel="Save" show={show} cast={cast} actorMap={actorMap} tagSuggestions={Object.keys(tagMap)} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // editInline renders the form in place of the frame — used inside the search
   // QuoteModal (already a pop-up). Elsewhere the edit opens in a FormModal.
@@ -1356,7 +1584,8 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ))}
       </span>
     ) : null
-  const creditParts = [d.character || null, actorCredit, d.timestamp || null].filter(Boolean)
+  // Coarse to fine: which episode, who says it, then where in the runtime.
+  const creditParts = [episodeLabel(d) || null, d.character || null, actorCredit, d.timestamp || null].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
   // annotations). With a seal present the favourite heart moves down so the
   // top-right corner is free for the sticker.
@@ -1459,8 +1688,11 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
 // actor(s) who play them are derived from the cast metadata — shown live as a
 // "played by" preview and stored server-side (leaving `actor` blank lets the
 // server fill it from the character↔cast mapping).
+// `show` adds the season/episode pair, which only a series has — a film is one
+// runtime, so its timestamp already locates the line. A leftover pair on a film
+// (flipped from a show after the fact) still shows, so it can be seen and cleared.
 // Exported for Home's favourite-tile inline edit (same form, same contract).
-export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = [], actorMap = {}, tagSuggestions = [], stickers = [], reloadStickers }) {
+export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = false, cast = [], actorMap = {}, tagSuggestions = [], stickers = [], reloadStickers }) {
   // character↔actor lookups from the movie's cast (case-insensitive keys).
   const charActor = useMemo(() => {
     const m = new Map()
@@ -1484,6 +1716,10 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
     return []
   })
   const [timestamp, setTimestamp] = useState(initial?.timestamp || '')
+  // Kept as strings: '' is unset and '0' is season 0, and a number field cannot
+  // hold both. ?? not ||, so a stored 0 seeds as "0" rather than blank.
+  const [season, setSeason] = useState(initial?.season ?? '')
+  const [episode, setEpisode] = useState(initial?.episode ?? '')
   const [note, setNote] = useState(initial?.note || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
@@ -1503,14 +1739,26 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
     return out
   }, [characters, charActor])
 
+  // The episode fields show for a series, and for a film's line that somehow
+  // still carries one (media_type flipped after the fact) so it can be cleared.
+  const episodeFields = show || initial?.season != null
+  const seasonNum = countOrNull(season)
+  const episodeVal = countOrNull(episode)
+
   async function submit(e) {
     e.preventDefault()
     if (!quote.trim()) return setError('quote is required')
+    // Same rule as the server: an episode number means nothing without its season.
+    if (episodeFields && episodeVal != null && seasonNum == null) {
+      return setError('an episode needs the season it is in')
+    }
     setBusy(true)
     setError('')
     const err = await onSubmit({
       quote: quote.trim(),
       note: note.trim(),
+      season: episodeFields ? seasonNum : null,
+      episode: episodeFields ? episodeVal : null,
       character: characters.map((c) => c.trim()).filter(Boolean).join(', '),
       // Actor is derived from the characters via the cast, server-side. Send it
       // empty so the server maps it; but if no character is chosen, carry any
@@ -1533,6 +1781,9 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
       setQuote('')
       setCharacters([])
       setTimestamp('')
+      // Season and episode deliberately stay put: you add a run of lines from
+      // the episode you are watching, so re-typing both every time would be the
+      // wrong default. The timestamp above does clear — it changes every line.
       setNote('')
       setTags([])
       setStickerId(null)
@@ -1565,13 +1816,53 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, cast = 
           </div>
         )}
       </div>
-      <input
-        className="tp-input"
-        placeholder="HH:MM:SS"
-        title="Timestamp"
-        value={timestamp}
-        onChange={(e) => setTimestamp(e.target.value)}
-      />
+      {/* Episode locator, coarse to fine: a series line says which episode, then
+          where in it. Season 0 is legal — it is where specials live — so the
+          fields are min=0 and blank means "not recorded". */}
+      {episodeFields ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <input
+            className="tp-input"
+            type="number"
+            min="0"
+            max="999"
+            placeholder="Season"
+            title="Season (blank if unknown)"
+            aria-label="Season"
+            value={season}
+            onChange={(e) => setSeason(e.target.value)}
+          />
+          <input
+            className="tp-input"
+            type="number"
+            min="0"
+            max="9999"
+            placeholder="Episode"
+            title="Episode (needs a season)"
+            aria-label="Episode"
+            value={episode}
+            onChange={(e) => setEpisode(e.target.value)}
+          />
+          {/* Full width under the pair on a phone, third column from sm up. */}
+          <input
+            className="tp-input col-span-2 sm:col-span-1"
+            placeholder="HH:MM:SS"
+            title="Timestamp"
+            aria-label="Timestamp"
+            value={timestamp}
+            onChange={(e) => setTimestamp(e.target.value)}
+          />
+        </div>
+      ) : (
+        <input
+          className="tp-input"
+          placeholder="HH:MM:SS"
+          title="Timestamp"
+          aria-label="Timestamp"
+          value={timestamp}
+          onChange={(e) => setTimestamp(e.target.value)}
+        />
+      )}
       <textarea className="tp-input" rows="2" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
       <div className="flex items-center gap-3">

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/olog"
@@ -47,6 +48,11 @@ type stagedBulkReq struct {
 	Character  *string  `json:"character"`
 	Actor      *string  `json:"actor"`
 	Timestamp  *string  `json:"timestamp"`
+	// Counts arrive as strings, not numbers, because three states have to be
+	// distinguishable and a *int only carries two: absent (leave alone), "" (clear
+	// it) and "0" (season 0, where a series keeps its specials).
+	Season  *string `json:"season"`
+	Episode *string `json:"episode"`
 
 	Retarget *stagedRetarget `json:"retarget"`
 	Formula  *locFormula     `json:"formula"`
@@ -76,6 +82,22 @@ func (req *stagedBulkReq) validate() string {
 	}
 	if req.Color != nil && !validColor(*req.Color) {
 		return "color must be yellow, blue, pink or orange"
+	}
+	for _, f := range []struct {
+		val  *string
+		name string
+		max  int
+	}{
+		{req.Season, "season", maxSeason},
+		{req.Episode, "episode", maxEpisode},
+	} {
+		if f.val == nil || strings.TrimSpace(*f.val) == "" {
+			continue // absent, or an explicit clear
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(*f.val))
+		if err != nil || n < 0 || n > f.max {
+			return f.name + " must be a number between 0 and " + strconv.Itoa(f.max)
+		}
 	}
 	if req.Retarget != nil {
 		r := req.Retarget
@@ -166,6 +188,14 @@ func (s *Server) handleBulkStaged(w http.ResponseWriter, r *http.Request) {
 	if req.Timestamp != nil {
 		set("timestamp", nullable(*req.Timestamp))
 		set("timestamp_orig", nullable(*req.Timestamp))
+	}
+	// No _orig pair for these: nothing rewrites an episode number, so there is
+	// nothing to reset back to (see 0025).
+	if req.Season != nil {
+		set("season", nullableCount(*req.Season))
+	}
+	if req.Episode != nil {
+		set("episode", nullableCount(*req.Episode))
 	}
 	if len(sets) > 0 {
 		setSQL := `UPDATE staged_quotes SET ` + strings.Join(sets, ", ") + ` WHERE id IN (`

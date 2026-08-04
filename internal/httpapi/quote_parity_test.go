@@ -99,21 +99,33 @@ func TestQuoteRowEmbeddedInBothKinds(t *testing.T) {
 // If a field lands on one side that isn't about pointing into a source, it
 // should have gone into quoteRow instead.
 func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
-	own := func(typ reflect.Type) []string {
+	// Embeds are flattened rather than skipped — with one exception, quoteRow
+	// itself, which is the shared half this test is measuring the difference
+	// against. Skipping every embed would let a whole struct of new fields (as
+	// episodeRef was) ride onto one kind unnoticed, which is exactly what this
+	// test exists to catch.
+	var own func(reflect.Type) []string
+	own = func(typ reflect.Type) []string {
 		var names []string
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
-			if f.Anonymous {
+			switch {
+			case f.Type == reflect.TypeOf(quoteRow{}):
 				continue
+			case f.Anonymous && f.Type.Kind() == reflect.Struct:
+				names = append(names, own(f.Type)...)
+			default:
+				names = append(names, f.Name)
 			}
-			names = append(names, f.Name)
 		}
 		sort.Strings(names)
 		return names
 	}
 
 	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "Location"}
-	wantDlg := []string{"Actor", "Character", "MovieID", "Timestamp"}
+	// Season/Episode are locators too: which episode of a show the line is from
+	// (0025). A film leaves them null — its timestamp is the whole locator.
+	wantDlg := []string{"Actor", "Character", "Episode", "MovieID", "Season", "Timestamp"}
 
 	if got := own(reflect.TypeOf(annotationRow{})); !reflect.DeepEqual(got, wantAnn) {
 		t.Errorf("annotationRow's own fields = %v, want %v\n"+

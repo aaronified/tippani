@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
-import { DialogueForm, dialogueState } from './Movies.jsx'
+import { DialogueForm, dialogueState, episodeLabel } from './Movies.jsx'
 import { PendingImportCard } from './StagingPage.jsx'
 import {
   CreditFaces,
@@ -133,7 +133,7 @@ function SourceLines({ card, maps = {} }) {
   let meta
   if (card.kind === 'screen') {
     const media = card.media_type === 'show' ? 'Show' : 'Film'
-    meta = [media, card.character, card.timestamp].filter(Boolean).join(' · ')
+    meta = [media, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
   } else {
     // The author lives in the chips row now; the meta line keeps the location.
     const ch = (card.chapter || '').trim()
@@ -623,7 +623,7 @@ function screenFav(d, movieMap) {
     note: d.quote ? d.note : '',
     tags: d.tags || [],
     source: [m.title, d.character].filter(Boolean).join(' · '),
-    meta: [m.title, d.character, d.timestamp].filter(Boolean).join(' · '),
+    meta: [m.title, episodeLabel(d), d.character, d.timestamp].filter(Boolean).join(' · '),
     createdAt: d.created_at,
     openLabel: isShow ? 'Open show →' : 'Open film →',
     workId: d.movie_id,
@@ -728,7 +728,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         })
       : movieShare({
           quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
-          character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp, tags: f.raw.tags,
+          character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp,
+          episode: episodeLabel(f.raw), tags: f.raw.tags,
           color: f.raw.color, people: actorMap,
         })
 
@@ -898,6 +899,7 @@ function FavouriteTile({
             onSubmit={onSave}
             onCancel={onEditCancel}
             submitLabel="Save"
+            show={f.movie?.media_type === 'show'}
             tagSuggestions={tagSuggestions}
             stickers={stickers}
             reloadStickers={reloadStickers}

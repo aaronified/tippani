@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
-import { Frame, dialogueState } from './Movies.jsx'
+import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
@@ -443,7 +443,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
   const sharePayload = () =>
     isBook
       ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
-      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
+      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
 
   return (
     <div
@@ -504,6 +504,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
             stickers={stickers}
             reloadStickers={reloadStickers}
             editing={editing}
+            show={(parent?.media_type || row?.movie_media_type) === 'show'}
             onEdit={() => setEditing(true)}
             onCancelEdit={() => setEditing(false)}
             onSave={(fields) => save(row.id, fields)}
@@ -584,6 +585,11 @@ function SearchTables({ results, terms, onOpenBook, onOpenMovie, reload }) {
           cols={[
             { key: 'quote', label: 'Quote', val: (d) => d.quote || '', highlight: true, main: true },
             { key: 'character', label: 'Character', val: (d) => d.character || '', mono: true },
+            // Results mix films and shows, so the Episode column earns its width
+            // only when something in this result set actually has one.
+            ...(r.dialogues.some((d) => d.season != null)
+              ? [{ key: 'episode', label: 'Episode', val: (d) => episodeLabel(d), mono: true }]
+              : []),
             { key: 'timestamp', label: 'Time', val: (d) => d.timestamp || '', mono: true },
             { key: 'movie', label: 'Film', val: (d) => d.movie_title || '', mono: true },
           ]}
@@ -866,6 +872,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
                   {h.character && <Highlight text={h.character} terms={terms} />}
                   {h.character && h.actor ? ' · ' : ''}
                   {h.actor && <Highlight text={h.actor} terms={terms} />}
+                  {episodeLabel(h) ? `  ·  ${episodeLabel(h)}` : ''}
                   {h.timestamp ? `  ·  ${h.timestamp}` : ''}
                 </MonoLabel>
               </span>

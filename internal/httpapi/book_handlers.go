@@ -52,20 +52,29 @@ func (b *bookReq) validate() string {
 }
 
 // bookDetail is the single-book response shape (POST/GET/PUT /books).
+//
+// status / progress / reads are read-only here: they are owned by
+// PUT /books/:id/status, which is the only path that keeps the status and the
+// read log consistent with each other. A full-state PUT that carried them would
+// let an ordinary Edit-form save silently rewrite reading history.
 type bookDetail struct {
-	ID            int64    `json:"id"`
-	Title         string   `json:"title"`
-	Author        string   `json:"author"`
-	ISBN          string   `json:"isbn"`
-	ASIN          string   `json:"asin"`
-	Description   string   `json:"description"`
-	PublishedYear int      `json:"published_year"`
-	CoverPath     string   `json:"cover_path"`
-	Genres        []string `json:"genres"`
-	Series        string   `json:"series"`
-	SeriesIndex   float64  `json:"series_index"`
-	Favorite      bool     `json:"favorite"`
-	CreatedAt     string   `json:"created_at"`
+	ID            int64     `json:"id"`
+	Title         string    `json:"title"`
+	Author        string    `json:"author"`
+	ISBN          string    `json:"isbn"`
+	ASIN          string    `json:"asin"`
+	Description   string    `json:"description"`
+	PublishedYear int       `json:"published_year"`
+	CoverPath     string    `json:"cover_path"`
+	Genres        []string  `json:"genres"`
+	Series        string    `json:"series"`
+	SeriesIndex   float64   `json:"series_index"`
+	Favorite      bool      `json:"favorite"`
+	Status        string    `json:"status"`   // "" | reading | paused | abandoned | completed
+	Progress      int       `json:"progress"` // 0-100, derived from the position when one is set
+	position                // pos_unit ('' | page) · pos · pos_total
+	Reads         []readRow `json:"reads"` // oldest first
+	CreatedAt     string    `json:"created_at"`
 }
 
 func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
@@ -73,12 +82,17 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), COALESCE(isbn, ''), COALESCE(asin, ''),
 		       COALESCE(description, ''), COALESCE(published_year, 0), COALESCE(cover_path, ''),
-		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, created_at
+		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
+		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.CoverPath,
-			&b.Series, &b.SeriesIndex, &b.Favorite, &b.CreatedAt)
+			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
+			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
 	if err != nil {
+		return nil, err
+	}
+	if b.Reads, err = loadReads(s.Store.DB, uid, "book", id); err != nil {
 		return nil, err
 	}
 	b.Genres = []string{}
@@ -201,10 +215,16 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		Series          string   `json:"series"`
 		SeriesIndex     float64  `json:"series_index"`
 		Favorite        bool     `json:"favorite"`
+		Status          string   `json:"status"`     // "" | reading | paused | abandoned | completed
+		Progress        int      `json:"progress"`   // 0-100; fills the status bar under the cover
+		ReadCount       int      `json:"read_count"` // finished reads, for the "×2" chip
 		AnnotationCount int      `json:"annotation_count"`
 		// Books carry no tags of their own — annotation_tags joins ANNOTATIONS to
 		// tags — so "tagged" on a book row means "has at least one tagged quote".
 		// Counts rather than bools: same cost, and the list page can say how many.
+		//
+		// The "Wishlist" state needs nothing here either: annotation_count == 0 IS
+		// the wishlist, so the board derives it from the count it already draws.
 		TaggedCount int `json:"tagged_count"`
 		NotedCount  int `json:"noted_count"`
 	}
@@ -213,7 +233,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	q := `
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
 		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
-		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite,
+		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite, b.status, b.progress,
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
 		          AND EXISTS (SELECT 1 FROM annotation_tags at WHERE at.annotation_id = a.id)),
@@ -238,7 +258,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
 			&it.PublishedYear, &it.CoverPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount); err != nil {
+			&it.Favorite, &it.Status, &it.Progress, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount); err != nil {
 			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
 			continue
 		}
@@ -252,10 +272,16 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "list book genres", err)
 		return
 	}
+	reads, err := s.readCounts(uid, "book")
+	if err != nil {
+		internalError(w, r, "list book read counts", err)
+		return
+	}
 	for i := range items {
 		if gs := byBook[items[i].ID]; gs != nil {
 			items[i].Genres = gs
 		}
+		items[i].ReadCount = reads[items[i].ID]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"books": items})
 }

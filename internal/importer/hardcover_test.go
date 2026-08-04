@@ -24,7 +24,7 @@ func TestHardcoverSynth(t *testing.T) {
 	// entry's edition.
 	want := Book{Title: "The Synthetic Compendium", Author: "Ada Example",
 		ISBN: "9780000000002", ASIN: "B00SYNTH42"}
-	if res.Book != want {
+	if !reflect.DeepEqual(res.Book, want) {
 		t.Fatalf("book = %+v", res.Book)
 	}
 	if len(res.Annotations) != 2 { // the progress_updated event is ignored

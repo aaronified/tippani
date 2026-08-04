@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,14 +14,67 @@ import (
 	"tippani/internal/store"
 )
 
-// dialogueReq is quoteReq plus the screen locator: who says the line, and when
-// in the runtime. See quote.go for the shared half.
+// episodeRef is the show half of a dialogue's locator: which episode the line is
+// from. A film is one runtime, so its timestamp locates a line completely; a
+// series with sixty episodes needs to say which of them "01:12:40" belongs to.
+//
+// Both are POINTERS because null — not 0 — is what "unset" means here: season 0
+// is a real season, the one specials and pilots live in, so 0 and "not recorded"
+// cannot share a value. Films leave both null; the rule lives in normalize rather
+// than in a CHECK because SQLite cannot reach across to movies.media_type (0025).
+type episodeRef struct {
+	Season  *int `json:"season"`
+	Episode *int `json:"episode"`
+}
+
+// Sanity ceilings, not domain truths: they exist so a client that sends a
+// timestamp or a year where a season belongs is told so, rather than storing it.
+const (
+	maxSeason  = 999
+	maxEpisode = 9999
+)
+
+// normalize applies the shows-only rule and checks the rest, returning a
+// client-facing message or "" (the house shape — cf. normalizeStatus,
+// normalizeMediaType). It needs the parent's media_type, so it is called after the
+// movie is loaded rather than from dialogueReq.validate — which keeps a malformed
+// line answering 400 and a missing movie answering 404, in that order.
+//
+// A film's lines are CLEARED rather than refused. Flipping a show to a film in the
+// Edit form leaves its dialogues holding episode numbers that no longer mean
+// anything; refusing them would make every later edit of those lines fail, with no
+// way to fix it from a form that (correctly) does not offer the fields. Clearing
+// heals the line on its next save, and matches the importer's forgiveness for the
+// same case (writeMovieDialogues).
+func (e *episodeRef) normalize(mediaType string) string {
+	if mediaType != "show" {
+		*e = episodeRef{}
+		return ""
+	}
+	if (e.Season != nil && *e.Season < 0) || (e.Episode != nil && *e.Episode < 0) {
+		return "season and episode cannot be negative"
+	}
+	if (e.Season != nil && *e.Season > maxSeason) || (e.Episode != nil && *e.Episode > maxEpisode) {
+		return fmt.Sprintf("season must be at most %d and episode at most %d", maxSeason, maxEpisode)
+	}
+	// A season with no episode is fine — sometimes all anyone remembers is the
+	// season a line was in. The reverse is not: an episode number means nothing
+	// without its season, and would sort ahead of every numbered season.
+	if e.Episode != nil && e.Season == nil {
+		return "an episode needs the season it is in"
+	}
+	return ""
+}
+
+// dialogueReq is quoteReq plus the screen locator: who says the line, when in the
+// runtime, and — for a show — which episode. See quote.go for the shared half.
 type dialogueReq struct {
 	quoteReq
 	MovieID   int64  `json:"movie_id"`
 	Character string `json:"character"`
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
+	episodeRef
 }
 
 func (d *dialogueReq) validate() string {
@@ -134,14 +188,31 @@ type dialogueRow struct {
 	Character string `json:"character"`
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
+	episodeRef
 }
 
 // dialogueCols includes the LEFT-JOINed spaced-repetition state (see
 // dialogueReviewJoin); every SELECT using it must add that join.
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.color, COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.season, d.episode, d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
 	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')`
+
+// dialogueOrder is the one true dialogue order, used by the list and the export
+// so a file reads in the order the screen shows: through the run, then through
+// each episode, then down the runtime. A film's season/episode are always null,
+// so this collapses to the timestamp order dialogues have always had; an
+// un-episoded show line falls to the end of its group rather than the front
+// (season 0 is a real season and sorts first, which is where specials belong).
+//
+// `p` is the dialogues table's alias, or "" when the query has none.
+func dialogueOrder(p string) string {
+	if p != "" {
+		p += "."
+	}
+	return ` ORDER BY (` + p + `season IS NULL), ` + p + `season, (` + p + `episode IS NULL), ` + p + `episode,
+		(` + p + `timestamp IS NULL), ` + p + `timestamp, ` + p + `id`
+}
 
 // dialogueReviewJoin attaches the per-line review row (kind='screen') that
 // dialogueCols reads. Kept as a fragment so the list and single-fetch queries
@@ -155,7 +226,7 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
+			&d.Actor, &d.Timestamp, &d.Season, &d.Episode, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult)
 	if err != nil {
@@ -194,16 +265,20 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[dlg] handleCreateDialogue uid=%d movie=%d", uid, req.MovieID)
-	var castJSON string
+	var castJSON, mediaType string
 	err := s.Store.DB.QueryRow(
-		`SELECT cast_json FROM movies WHERE id = ? AND user_id = ?`,
-		req.MovieID, uid).Scan(&castJSON)
+		`SELECT cast_json, COALESCE(media_type, 'movie') FROM movies WHERE id = ? AND user_id = ?`,
+		req.MovieID, uid).Scan(&castJSON, &mediaType)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "movie not found")
 		return
 	case err != nil:
 		internalError(w, r, "load movie cast", err)
+		return
+	}
+	if msg := req.episodeRef.normalize(mediaType); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	if !s.stickerOwned(uid, req.StickerID) {
@@ -218,11 +293,11 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO dialogues (movie_id, quote, note, color, character, actor, timestamp,
+		INSERT INTO dialogues (movie_id, quote, note, color, character, actor, timestamp, season, episode,
 		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
 		req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, req.Source,
+		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode, req.Favorite, req.Source,
 		store.DedupeHash(req.Quote), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert dialogue", err)
@@ -304,8 +379,9 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	if !favoriteFilter(w, r, "d", &q, &args) {
 		return
 	}
-	// Lexical timestamp order, untimed lines last (PLAN §3b — deliberate KISS).
-	q += ` ORDER BY (d.timestamp IS NULL), d.timestamp, d.id`
+	// Season, episode, then lexical timestamp order, untimed lines last
+	// (PLAN §3b — deliberate KISS).
+	q += dialogueOrder("d")
 	if !applyPaging(w, r, &q, &args) {
 		return
 	}
@@ -320,7 +396,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		var d dialogueRow
 		d.Tags = []string{}
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
+			&d.Actor, &d.Timestamp, &d.Season, &d.Episode, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
@@ -380,17 +456,22 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[dlg] handleUpdateDialogue uid=%d id=%d", uid, id)
 	var movieID int64
-	var castJSON string
+	var castJSON, mediaType string
 	var wasFavorite bool
 	err := s.Store.DB.QueryRow(`
-		SELECT d.movie_id, m.cast_json, d.favorite FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		WHERE d.id = ? AND m.user_id = ?`, id, uid).Scan(&movieID, &castJSON, &wasFavorite)
+		SELECT d.movie_id, m.cast_json, COALESCE(m.media_type, 'movie'), d.favorite
+		FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		WHERE d.id = ? AND m.user_id = ?`, id, uid).Scan(&movieID, &castJSON, &mediaType, &wasFavorite)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		writeErr(w, http.StatusNotFound, "dialogue not found")
 		return
 	case err != nil:
 		internalError(w, r, "load dialogue", err)
+		return
+	}
+	if msg := req.episodeRef.normalize(mediaType); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	req.Actor = autofillActor(castJSON, req.Character, req.Actor)
@@ -418,10 +499,12 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
 		UPDATE dialogues SET quote = ?, note = ?, color = ?, character = ?, actor = ?, timestamp = ?,
+		       season = ?, episode = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
 		req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
+		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
+		req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
 		internalError(w, r, "update dialogue", err)
 		return
 	}

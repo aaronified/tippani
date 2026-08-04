@@ -145,6 +145,14 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.ISBN = val
 		case "series":
 			res.Book.Series, res.Book.SeriesIndex = parseSeriesValue(val)
+		case "status":
+			res.Book.Status = strings.ToLower(val)
+		case "progress":
+			res.Book.Progress = parseProgress(val)
+		case "page", "pages":
+			res.Book.Pos, res.Book.PosTotal = parseOutOf(val)
+		case "reads":
+			res.Book.Reads = parseReads(val)
 		} // unknown keys ignored
 	}
 	if res.Book.Title == "" {
@@ -206,7 +214,7 @@ func parseFrontmatter(lines []string) (*Result, error) {
 					}
 				}
 			case "favorite":
-				cur.Favorite = val == "true" || val == "yes" || val == "1"
+				cur.Favorite = truthy(val)
 			}
 		}
 		// anything else is ignored

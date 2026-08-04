@@ -413,6 +413,314 @@ export function Field({ label, className = "", ...rest }) {
   );
 }
 
+// ---- partial dates (§3f) ----------------------------------------------------
+// A date you actually know, to whatever precision you actually know it: a bare
+// year, a year and month, or a full day. "I read it in 2019" is a real answer,
+// and padding it to 2019-01-01 would invent a precision nobody has. Stored as
+// the string the user chose — 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' — which is also
+// what the server validates and what sorts correctly as text.
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// isPartialDate mirrors normalizePartialDate on the server: the three shapes,
+// plus a real calendar's bounds so a typed "2019-13" is caught before saving.
+export function isPartialDate(v) {
+  if (!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(v)) return false;
+  const [y, m, d] = v.split("-").map(Number);
+  if (y < 1000 || y > 3000) return false;
+  if (m != null && (m < 1 || m > 12)) return false;
+  if (d != null && (d < 1 || d > daysInMonth(y, m))) return false;
+  return true;
+}
+
+// formatPartialDate renders a stored value for reading: "2019", "Mar 2019",
+// "4 Mar 2019". The precision shows, which is the point of keeping it.
+export function formatPartialDate(v) {
+  if (!v) return "";
+  const [y, m, d] = v.split("-").map(Number);
+  if (!m) return String(y);
+  if (!d) return `${MONTH_NAMES[m - 1]} ${y}`;
+  return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
+}
+
+// todayPartial is the full date today, the default every date prompt opens with.
+export function todayPartial() {
+  const n = new Date();
+  const p = (x) => String(x).padStart(2, "0");
+  return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`;
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+// DatePicker — the calendar behind PartialDateField. Three views the user drills
+// through, and each level is a legal stopping point: pick a year and you have a
+// year; carry on and pick a month and you have a month; pick a day for the lot.
+// That is what makes it a PARTIAL date picker rather than a day picker you have
+// to fight when you only know the year.
+//
+// `granularity` caps the drill-down: 'day' (default) allows all three, 'month'
+// stops at a month, 'year' offers only years.
+function DatePicker({ value, onPick, onClose, granularity = "day" }) {
+  const parsed = /^\d{4}/.test(value || "") ? (value || "").split("-").map(Number) : [];
+  const now = new Date();
+  const [year, setYear] = useState(parsed[0] || now.getFullYear());
+  const [month, setMonth] = useState(parsed[1] || null);
+  // Which grid is showing. Opening on an existing value lands on the level that
+  // value already has, so correcting a day does not start from the decade.
+  const [view, setView] = useState(() => {
+    if (granularity === "year") return "year";
+    if (granularity === "month") return parsed[0] ? "month" : "year";
+    if (parsed[1]) return "day";
+    return parsed[0] ? "month" : "year";
+  });
+  // The 12-year page the year grid is showing, floored to a decade boundary.
+  const [yearPage, setYearPage] = useState(() => Math.floor((parsed[0] || now.getFullYear()) / 12) * 12);
+
+  const pick = (v) => {
+    onPick(v);
+    onClose();
+  };
+  const cell = (label, active, onClick, key) => (
+    <button
+      key={key ?? label}
+      type="button"
+      className={`menu-item${active ? " active" : ""}`}
+      style={{ justifyContent: "center", padding: "7px 4px", fontSize: 13 }}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+  const head = (title, onPrev, onNext, onUp) => (
+    <div className="mb-1.5 flex items-center gap-1">
+      {onPrev && (
+        <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onPrev} aria-label="Previous">
+          ‹
+        </button>
+      )}
+      <button
+        type="button"
+        className="mono-label"
+        style={{ flex: 1, background: "none", border: "none", cursor: onUp ? "pointer" : "default", padding: "4px 0" }}
+        onClick={onUp || undefined}
+        title={onUp ? "Back a level" : undefined}
+      >
+        {title}
+      </button>
+      {onNext && (
+        <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onNext} aria-label="Next">
+          ›
+        </button>
+      )}
+    </div>
+  );
+  return (
+    <div className="hand-card hc-r2 date-picker" role="dialog" aria-label="Pick a date">
+      {view === "year" && (
+        <>
+          {head(`${yearPage}–${yearPage + 11}`, () => setYearPage((p) => p - 12), () => setYearPage((p) => p + 12))}
+          <div className="date-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            {Array.from({ length: 12 }, (_, i) => yearPage + i).map((y) =>
+              cell(y, y === parsed[0], () => {
+                setYear(y);
+                if (granularity === "year") return pick(String(y));
+                setView("month");
+              }),
+            )}
+          </div>
+        </>
+      )}
+      {view === "month" && (
+        <>
+          {head(String(year), () => setYear((y) => y - 1), () => setYear((y) => y + 1), () => setView("year"))}
+          <div className="date-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            {MONTH_NAMES.map((name, i) =>
+              cell(name, year === parsed[0] && i + 1 === parsed[1], () => {
+                setMonth(i + 1);
+                if (granularity === "month") return pick(`${year}-${String(i + 1).padStart(2, "0")}`);
+                setView("day");
+              }),
+            )}
+          </div>
+          {/* The whole point of the control: stop here and keep just the year. */}
+          <button type="button" className="date-coarse" onClick={() => pick(String(year))}>
+            Just {year}
+          </button>
+        </>
+      )}
+      {view === "day" && (
+        <>
+          {head(`${MONTH_NAMES[(month || 1) - 1]} ${year}`, null, null, () => setView("month"))}
+          <div className="date-grid" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
+            {Array.from({ length: daysInMonth(year, month || 1) }, (_, i) => i + 1).map((d) =>
+              cell(
+                d,
+                year === parsed[0] && month === parsed[1] && d === parsed[2],
+                () => pick(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`),
+              ),
+            )}
+          </div>
+          <button
+            type="button"
+            className="date-coarse"
+            onClick={() => pick(`${year}-${String(month || 1).padStart(2, "0")}`)}
+          >
+            Just {MONTH_NAMES[(month || 1) - 1]} {year}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// PartialDateField — a labelled date input you can either type into or pick from
+// the calendar beside it. Typing is validated on change and flagged inline rather
+// than blocked, so a half-typed "2019-0" is not fought with mid-keystroke.
+//
+// value / onChange speak the stored string. `granularity` caps the picker (see
+// DatePicker); 'year' turns it into a year chooser, which is what a person's
+// birth year wants.
+export function PartialDateField({
+  label,
+  value,
+  onChange,
+  granularity = "day",
+  placeholder,
+  hint,
+  className = "",
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const bad = !!value && !isPartialDate(value);
+  const ph = placeholder || (granularity === "year" ? "e.g. 1920" : "YYYY, YYYY-MM or YYYY-MM-DD");
+  return (
+    <label className={"tp-field " + className}>
+      {label && <MonoLabel>{label}</MonoLabel>}
+      <span className="relative flex items-center gap-2" ref={ref}>
+        <input
+          className="tp-input"
+          value={value || ""}
+          inputMode="numeric"
+          placeholder={ph}
+          maxLength={10}
+          aria-invalid={bad || undefined}
+          // Only digits and the separator can be typed: it keeps the value in the
+          // stored shape without needing to reject whole words on save.
+          onChange={(e) => onChange(e.target.value.replace(/[^\d-]/g, "").slice(0, 10))}
+          style={bad ? { borderColor: "var(--error)" } : undefined}
+        />
+        <button
+          type="button"
+          className="tp-btn tp-btn-ghost tactile"
+          style={{ padding: "6px 9px", flex: "none" }}
+          aria-label={`Pick ${label || "a date"}`}
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <IconCalendar />
+        </button>
+        {open && (
+          <span className="date-pop">
+            <DatePicker value={value} granularity={granularity} onPick={onChange} onClose={() => setOpen(false)} />
+          </span>
+        )}
+      </span>
+      {(bad || hint) && (
+        <span style={{ display: "block", marginTop: 5, fontSize: 12, lineHeight: 1.4, color: bad ? "var(--error)" : "var(--faint)" }}>
+          {bad ? "needs to be YYYY, YYYY-MM or YYYY-MM-DD" : hint}
+        </span>
+      )}
+    </label>
+  );
+}
+
+// MultiSelect — a dropdown you can tick more than one row in, wearing the same
+// trigger/panel skin as Select so the filter row stays of one piece. No selection
+// means "everything", which is what a filter with nothing chosen should mean, so
+// there is no separate All row to keep in sync.
+export function MultiSelect({ values = [], onChange, options, ariaLabel, allLabel = "all", width }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const picked = options.filter(([v]) => values.includes(v));
+  const label = picked.length === 0 ? allLabel : picked.length === 1 ? picked[0][1] : `${picked.length} states`;
+  const toggle = (v) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
+  return (
+    <span className="tp-select" ref={ref} style={width ? { width } : undefined}>
+      <button
+        type="button"
+        className="tp-select-trigger tactile"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className={picked.length ? "" : "tp-select-ph"}>{label}</span>
+        <span className="tp-select-chev" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {open && (
+        <span className="hand-card hc-r2 tp-select-panel tp-multi" role="listbox" aria-multiselectable="true">
+          {options.map(([v, text, swatch]) => {
+            const on = values.includes(v);
+            return (
+              <button
+                key={v}
+                type="button"
+                role="option"
+                aria-selected={on}
+                className={`menu-item${on ? " active" : ""}`}
+                onClick={() => toggle(v)}
+              >
+                <span aria-hidden="true" style={{ width: 14, flex: "none", textAlign: "center" }}>
+                  {on ? "✓" : ""}
+                </span>
+                {swatch && (
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: swatch, flex: "none" }} />
+                )}
+                {text}
+              </button>
+            );
+          })}
+          {values.length > 0 && (
+            <button type="button" className="menu-item" style={{ color: "var(--soft)" }} onClick={() => onChange([])}>
+              <span aria-hidden="true" style={{ width: 14, flex: "none" }} />
+              clear
+            </button>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ---- tags (§6): five CSS-only styles × four colours ----
 // `style` here is the tag style name (sticker|banner|flyout|tape|reel), not a
 // React style object — it is consumed, never forwarded to the DOM.
@@ -501,6 +809,152 @@ export function FavBadge() {
       }}
     >
       ♥
+    </span>
+  );
+}
+
+// SHELF_META — every shelf state a work can be in, with the colour that stands
+// for it and the words the two sides use. One table so the bar under a cover, the
+// chip on a detail, the filter dropdown and the cap dialog can never drift apart.
+//
+// Colours follow Radarr's convention (blue in flight, green done, red given up,
+// amber held) using tokens already in the palette. Note --accent (terracotta) is
+// deliberately NOT used for 'reading': it sits a few degrees from --error, and a
+// bar you have to squint at to tell "reading" from "abandoned" is no bar at all.
+//
+//   wishlist   derived: nothing quoted from it yet
+//   reading    books, in progress · watching  films and shows, in progress
+//   paused     started, set down for now
+//   abandoned  given up on
+//   completed  read/watched to the end
+export const SHELF_BLUE = "#7FA6C9";
+export const SHELF_META = {
+  wishlist: { color: "var(--faint)", book: "Wishlist", movie: "Wishlist" },
+  reading: { color: SHELF_BLUE, book: "Reading", movie: "Watching" },
+  watching: { color: SHELF_BLUE, book: "Reading", movie: "Watching" },
+  paused: { color: "var(--amber)", book: "Paused", movie: "Paused" },
+  abandoned: { color: "var(--error)", book: "Abandoned", movie: "Abandoned" },
+  completed: { color: "var(--ok)", book: "Completed", movie: "Completed" },
+};
+
+// shelfLabel is the word one side uses for a state ('reading' vs 'watching').
+export function shelfLabel(state, kind = "book") {
+  const m = SHELF_META[state];
+  return m ? (kind === "movie" ? m.movie : m.book) : "";
+}
+
+// StatusBar — the shelf state as a colour bar directly UNDER a cover or poster,
+// the way Radarr marks a library tile. It never overlaps the artwork: the whole
+// cover stays visible and the bar is its own strip below, so nothing is hidden
+// behind a status.
+//
+// In flight (reading/watching) the bar is a PROGRESS bar, filled to `progress`
+// with the rest of the track a dim wash of the same blue — so how far in you are
+// reads from across the board. Every settled state is a solid strip: there is no
+// partial "completed".
+//
+// `radius` rounds the bottom corners to match the artwork above it (posters have
+// an 8px radius; a book's hand-drawn card clips its own shape, so it passes 0).
+export function StatusBar({ state, progress = 0, radius = 0, title }) {
+  const meta = SHELF_META[state];
+  if (!meta) return null;
+  const inFlight = state === "reading" || state === "watching";
+  const pct = inFlight ? Math.max(0, Math.min(100, progress)) : 100;
+  const label = title || `${shelfLabel(state)}${inFlight && pct > 0 ? ` — ${pct}%` : ""}`;
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      title={label}
+      style={{
+        height: 5,
+        // The unfilled track is the state's own colour at low opacity rather
+        // than a neutral grey, so a barely-started book still reads as "reading"
+        // and not as an empty slot.
+        background: `color-mix(in srgb, ${meta.color} 22%, transparent)`,
+        borderBottomLeftRadius: radius,
+        borderBottomRightRadius: radius,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ width: `${pct}%`, height: "100%", background: meta.color, transition: "width .3s ease" }} />
+    </div>
+  );
+}
+
+// ReadingBadge — the one icon that survived onto the artwork: an open book (or a
+// play triangle for film) on a work you are in the middle of, so the live rows
+// stand out on a board where every other state is carried by its bar alone.
+// Non-interactive, like FavBadge — the tile itself is the clickable element.
+//
+// `stacked` drops it below the film grid's "SHOW" chip, which claims the same
+// corner on a show's poster.
+export function ReadingBadge({ kind = "book", stacked = false }) {
+  const wob = useMemo(() => randWobble(11, 0), []);
+  const isBook = kind !== "movie";
+  const label = isBook ? "Currently reading" : "Currently watching";
+  return (
+    <span
+      aria-label={label}
+      title={label}
+      className="absolute left-1.5"
+      style={{
+        ...wob,
+        top: stacked ? 26 : 6,
+        display: "inline-flex",
+        color: SHELF_BLUE,
+        // Two shadows: a dark halo so a light icon survives pale artwork, and a
+        // drop shadow for the lift the ♥ badge has.
+        filter: "drop-shadow(0 0 3px rgba(21,16,12,.85)) drop-shadow(0 1px 2px rgba(0,0,0,.5))",
+        transform: "rotate(var(--grot))",
+      }}
+    >
+      {isBook ? <IconReading /> : <IconWatching />}
+    </span>
+  );
+}
+
+// StateTag — a shelf state as an interactive chip, for the detail hero beside the
+// hearts. Clicking opens a popover under it: the transitions menu for a state you
+// set, or a one-line explanation for the derived wishlist tag. `children` may be
+// a function receiving `close`, for popovers whose items dismiss it.
+export function StateTag({ state, label, children }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  // The chip is swatched in the same colour as the bar under the cover, so the
+  // detail and the board are speaking about the same thing.
+  const color = (SHELF_META[state] || {}).color || "var(--soft)";
+  return (
+    <span className="relative" ref={ref} style={{ display: "inline-flex" }}>
+      <button
+        type="button"
+        className="tp-chip tp-chip-btn"
+        style={{ gap: 6, color, borderColor: "color-mix(in srgb, currentColor 45%, transparent)" }}
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: "none" }} />
+        {label}
+      </button>
+      {open && (
+        <div className="hand-card hc-r2 more-menu" style={{ right: "auto", left: 0, minWidth: 210, maxWidth: 280 }} role="menu">
+          {typeof children === "function" ? children(() => setOpen(false)) : children}
+        </div>
+      )}
     </span>
   );
 }
@@ -2349,6 +2803,16 @@ export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><pat
 export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18 6 6 18"/></svg> }
 export function IconSearch2() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
+// The two in-progress marks, drawn in the same ink-stroke hand as the rest: an
+// open book for a book on the go, a play triangle for a film or show. These are
+// the ONLY icons the shelf lifecycle puts on artwork — every other state is
+// carried by its colour bar (StatusBar), so a settled cover stays unmarked. Each
+// takes a size so one glyph serves both the 18px cover badge (ReadingBadge) and a
+// 24px menu row. The play triangle is filled as well as stroked: an outline alone
+// reads as a stray shape at badge size rather than a mark someone put there.
+export function IconReading({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 7.2C10.3 5.6 7.6 5 4 5.4v12.3c3.6-.4 6.3.2 8 1.8"/><path d="M12 7.2c1.7-1.6 4.4-2.2 8-1.8v12.3c-3.6-.4-6.3.2-8 1.8"/><path d="M12 7.2v13.3"/></svg> }
+export function IconWatching({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><path d="M7.5 4.8v14.4L19 12z" fill="currentColor"/></svg> }
+export function IconCalendar({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3.5v3"/><path d="M16 3.5v3"/></svg> }
 
 // ---- metadata-source marks ----
 // A look-up row shows WHERE a match came from. It used to be a "GOOGLE BOOKS"

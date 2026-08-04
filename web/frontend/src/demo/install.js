@@ -51,13 +51,34 @@ const HEART = svgURI(
 )
 
 // ---- books + annotations ----
+// status / progress / reads mirror the shelf columns (§3f) so the demo shows the
+// whole colour-bar vocabulary at once: one book in progress with a part-filled
+// blue bar, one paused, one abandoned, one completed twice (its ×2 chip lists the
+// two reads), and one with nothing quoted from it — the derived Wishlist grey.
 const BOOKS = [
-  { id: 1, title: 'The Wide Margin', author: 'A. Whitfield', published_year: 1998, genres: ['essays', 'memoir'], series: '', series_index: 0, favorite: true, cover_path: coverArt('#5C4A33', '#F4EDDE', 'The Wide', 'Margin') },
-  { id: 2, title: "Reaper's Gale", author: 'Steven Erikson', published_year: 2007, genres: ['fantasy', 'epic'], series: 'Malazan Book of the Fallen', series_index: 7, favorite: false, cover_path: coverArt('#2F3A4A', '#ECE3D1', "Reaper's", 'Gale') },
-  { id: 3, title: 'Quiet Light', author: 'M. Sinha', published_year: 2015, genres: ['poetry'], series: '', series_index: 0, favorite: false, cover_path: '' },
-  { id: 4, title: 'The Salt Path', author: 'R. Winn', published_year: 2018, genres: ['memoir', 'nature'], series: '', series_index: 0, favorite: true, cover_path: coverArt('#3F7D5A', '#F4EDDE', 'The Salt', 'Path') },
-  { id: 5, title: 'On Colour', author: '(unknown)', published_year: 0, genres: [], series: '', series_index: 0, favorite: false, cover_path: '' },
+  // Book 1 is tracked by PAGE (a physical book): pos/pos_total drive the 45%.
+  { id: 1, title: 'The Wide Margin', author: 'A. Whitfield', published_year: 1998, genres: ['essays', 'memoir'], series: '', series_index: 0, favorite: true, status: 'reading', progress: 45, pos_unit: 'page', pos: 96, pos_total: 214, cover_path: coverArt('#5C4A33', '#F4EDDE', 'The Wide', 'Margin') },
+  { id: 2, title: "Reaper's Gale", author: 'Steven Erikson', published_year: 2007, genres: ['fantasy', 'epic'], series: 'Malazan Book of the Fallen', series_index: 7, favorite: false, status: 'paused', progress: 20, pos_unit: '', pos: 0, pos_total: 0, cover_path: coverArt('#2F3A4A', '#ECE3D1', "Reaper's", 'Gale') },
+  { id: 3, title: 'Quiet Light', author: 'M. Sinha', published_year: 2015, genres: ['poetry'], series: '', series_index: 0, favorite: false, status: 'completed', progress: 100, cover_path: '' },
+  { id: 4, title: 'The Salt Path', author: 'R. Winn', published_year: 2018, genres: ['memoir', 'nature'], series: '', series_index: 0, favorite: true, status: 'abandoned', progress: 0, cover_path: coverArt('#3F7D5A', '#F4EDDE', 'The Salt', 'Path') },
+  { id: 5, title: 'On Colour', author: '(unknown)', published_year: 0, genres: [], series: '', series_index: 0, favorite: false, status: '', progress: 0, cover_path: '' },
 ]
+// Read logs, keyed by book id: a finished-twice book, an open read, and an
+// abandoned attempt with a partial (year-only) date — the three outcomes the
+// history popover renders differently.
+const BOOK_READS = {
+  1: [{ id: 1, started_at: '2026-07-02', finished_at: '', outcome: 'open' }],
+  2: [{ id: 2, started_at: '2026-05', finished_at: '', outcome: 'open' }],
+  3: [
+    { id: 3, started_at: '2019', finished_at: '2019-04-18', outcome: 'finished' },
+    { id: 4, started_at: '2024-01-06', finished_at: '2024-02-01', outcome: 'finished' },
+  ],
+  4: [{ id: 5, started_at: '2025-11', finished_at: '2025-12-20', outcome: 'abandoned' }],
+}
+const MOVIE_READS = {
+  1: [{ id: 6, started_at: '2020-02-14', finished_at: '2020-02-14', outcome: 'finished' }],
+  3: [{ id: 7, started_at: '2026-07-28', finished_at: '', outcome: 'open' }],
+}
 const DESCRIPTIONS = {
   1: 'A slim book of essays on attention, reading, and the room we leave in the margins.',
   2: 'The seventh volume of a sprawling epic fantasy.',
@@ -75,10 +96,12 @@ const ANNOTATIONS = [
 
 // ---- movies + dialogues ----
 const MOVIES = [
-  { id: 1, title: 'Northline', director: 'R. Whitfield', release_year: 1978, genres: ['drama', 'night'], series: 'Northline Diptych', series_index: 1, favorite: true, media_type: 'movie', poster_path: coverArt('#1D1710', '#D6A25C', 'NORTHLINE', '1978') },
-  { id: 2, title: 'The Long Take', director: 'H. Okonkwo', release_year: 2009, genres: ['noir'], series: '', series_index: 0, favorite: false, media_type: 'movie', poster_path: coverArt('#15100C', '#A2937C', 'THE LONG', 'TAKE') },
-  { id: 3, title: 'Reel Seven', director: 'A. Costa', release_year: 2021, genres: ['drama'], series: '', series_index: 0, favorite: false, media_type: 'show', poster_path: '' },
-  { id: 4, title: 'Southline', director: 'R. Whitfield', release_year: 1982, genres: ['drama'], series: 'Northline Diptych', series_index: 2, favorite: false, media_type: 'movie', poster_path: '' },
+  { id: 1, title: 'Northline', director: 'R. Whitfield', release_year: 1978, genres: ['drama', 'night'], series: 'Northline Diptych', series_index: 1, favorite: true, media_type: 'movie', status: 'completed', progress: 100, poster_path: coverArt('#1D1710', '#D6A25C', 'NORTHLINE', '1978') },
+  { id: 2, title: 'The Long Take', director: 'H. Okonkwo', release_year: 2009, genres: ['noir'], series: '', series_index: 0, favorite: false, media_type: 'movie', status: '', progress: 0, poster_path: coverArt('#15100C', '#A2937C', 'THE LONG', 'TAKE') },
+  // A show is positioned in two dimensions: season 2 of 3, episode 6 of 10 —
+  // ((2-1) + 6/10) / 3 = 53%, whole earlier seasons counting in full.
+  { id: 3, title: 'Reel Seven', director: 'A. Costa', release_year: 2021, genres: ['drama'], series: '', series_index: 0, favorite: false, media_type: 'show', status: 'watching', progress: 53, pos_unit: 'episode', pos: 6, pos_total: 10, season: 2, season_total: 3, poster_path: '' },
+  { id: 4, title: 'Southline', director: 'R. Whitfield', release_year: 1982, genres: ['drama'], series: 'Northline Diptych', series_index: 2, favorite: false, media_type: 'movie', status: '', progress: 0, poster_path: '' },
 ]
 const MOVIE_DESCRIPTIONS = {
   1: 'Two strangers share a night train north; neither says where they are going.',
@@ -96,6 +119,11 @@ const DIALOGUES = [
   { id: 2, movie_id: 1, quote: 'You came back. Nobody comes back.', note: '', character: 'Joel', actor: 'D. Kapoor', timestamp: '00:41:52', favorite: false, tags: [] },
   { id: 3, movie_id: 1, quote: 'Roll the reel. Let them see what we were.', note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:48:20', favorite: true, tags: ['light'] },
   { id: 4, movie_id: 2, quote: 'Every alibi is a little story we tell the clock.', note: '', character: 'Vaughn', actor: 'T. Marsh', timestamp: '00:22:10', favorite: false, tags: ['craft'] },
+  // Movie 3 is a show, so its lines carry the episode they are from. Season 0 is
+  // the specials strand — a real season, which is why unset has to be null.
+  { id: 5, movie_id: 3, quote: 'Seven reels, seven ways to lie about a summer.', note: '', character: 'Ana', actor: 'L. Reyes', season: 1, episode: 1, timestamp: '00:08:31', favorite: true, tags: ['craft'] },
+  { id: 6, movie_id: 3, quote: 'You cut the part where I was happy.', note: '', character: 'Ana', actor: 'L. Reyes', season: 2, episode: 6, timestamp: '00:34:02', favorite: false, tags: [] },
+  { id: 7, movie_id: 3, quote: 'The pilot never aired. Ask me why.', note: '', character: 'Ana', actor: 'L. Reyes', season: 0, episode: 1, timestamp: '', favorite: false, tags: [] },
 ]
 
 const TAGS = [
@@ -136,6 +164,9 @@ function tagRows() {
 // tagged_count / noted_count mirror the two subqueries in handleListBooks /
 // handleListMovies — they drive the "tagged" and "has notes" filter chips, which
 // would silently match nothing here without them.
+// read_count mirrors readCounts() on the server: finished reads only, which is
+// what the "×2" chip counts (an abandoned attempt is history, not a read).
+const finishedCount = (reads) => (reads || []).filter((r) => r.outcome === 'finished').length
 function bookListItem(b) {
   const own = ANNOTATIONS.filter((a) => a.book_id === b.id)
   return {
@@ -143,10 +174,11 @@ function bookListItem(b) {
     annotation_count: own.length,
     tagged_count: own.filter((a) => (a.tags || []).length > 0).length,
     noted_count: own.filter((a) => (a.note || '').trim() !== '').length,
+    read_count: finishedCount(BOOK_READS[b.id]),
   }
 }
 function bookDetail(b) {
-  return { ...b, isbn: '', asin: '', description: DESCRIPTIONS[b.id] || '', created_at: '2026-01-10 09:00:00' }
+  return { ...b, isbn: '', asin: '', description: DESCRIPTIONS[b.id] || '', reads: BOOK_READS[b.id] || [], created_at: '2026-01-10 09:00:00' }
 }
 function movieListItem(m) {
   const own = DIALOGUES.filter((d) => d.movie_id === m.id)
@@ -155,10 +187,11 @@ function movieListItem(m) {
     dialogue_count: own.length,
     tagged_count: own.filter((d) => (d.tags || []).length > 0).length,
     noted_count: own.filter((d) => (d.note || '').trim() !== '').length,
+    read_count: finishedCount(MOVIE_READS[m.id]),
   }
 }
 function movieDetail(m) {
-  return { ...m, tmdb_id: 0, tvdb_id: 0, description: MOVIE_DESCRIPTIONS[m.id] || '', cast: CAST[m.id] || [], created_at: '2026-01-10 09:00:00' }
+  return { ...m, tmdb_id: 0, tvdb_id: 0, description: MOVIE_DESCRIPTIONS[m.id] || '', cast: CAST[m.id] || [], reads: MOVIE_READS[m.id] || [], created_at: '2026-01-10 09:00:00' }
 }
 // A UTC timestamp n days ago in the stored "YYYY-MM-DD HH:MM:SS" shape.
 function daysAgo(n) {
@@ -236,7 +269,7 @@ function bookCard(a, direction) {
     kind: 'book', id: a.id, direction: direction || (a.id % 2 ? 'source' : 'quote'),
     quote: a.quote || '', note: a.note || '', color: a.color || 'yellow',
     title: b.title || '', author: b.author || '', character: '',
-    chapter: a.chapter || '', location: a.location || '', timestamp: '', media_type: '',
+    chapter: a.chapter || '', location: a.location || '', timestamp: '', season: null, episode: null, media_type: '',
     stability: 7, review_count: 0, status: 'unseen',
   }
   return { ...card, ...demoMCQ(card) }
@@ -247,7 +280,8 @@ function screenCard(d, direction) {
     kind: 'screen', id: d.id, direction: direction || (d.id % 2 ? 'source' : 'quote'),
     quote: d.quote || '', note: d.note || '', color: '',
     title: m.title || '', author: '', character: d.character || '',
-    chapter: '', location: '', timestamp: d.timestamp || '', media_type: m.media_type || 'movie',
+    chapter: '', location: '', timestamp: d.timestamp || '',
+    season: d.season ?? null, episode: d.episode ?? null, media_type: m.media_type || 'movie',
     stability: 7, review_count: 0, status: 'unseen',
   }
   return { ...card, ...demoMCQ(card) }
@@ -452,7 +486,7 @@ function search(q, scope) {
   const bookHit = (b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })
   const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type || 'movie' })
   const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note } }
-  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp } }
+  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null } }
 
   const wantBooks = !scope || scope === 'all' || scope === 'books'
   const wantAnnotations = !scope || scope === 'all' || scope === 'annotations'

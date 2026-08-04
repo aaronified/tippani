@@ -256,7 +256,11 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		kv{"isbn", b.ISBN},
 		kv{"year", zeroBlank(b.PublishedYear)},
 		kv{"genres", strings.Join(b.Genres, ", ")},
-		kv{"series", seriesFrontmatter(b.Series, b.SeriesIndex)})
+		kv{"series", seriesFrontmatter(b.Series, b.SeriesIndex)},
+		kv{"status", b.Status},
+		kv{"progress", progressFrontmatter(b.Status, b.Progress)},
+		kv{"page", posFrontmatter(b.Status, b.position)},
+		kv{"reads", readsFrontmatter(b.Reads)})
 
 	order := []string{""}
 	grouped := map[string][]annotationRow{}
@@ -290,13 +294,13 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 }
 
 // renderMovieExport mirrors renderBookExport for dialogues: no chapter
-// headings, dialogue order (timestamp IS NULL), timestamp, id (PLAN §3b).
+// headings, dialogue order (season, episode, timestamp, id — see dialogueOrder;
+// PLAN §3b).
 func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, quote, COALESCE(note, ''), color, COALESCE(character, ''), COALESCE(actor, ''),
-		       COALESCE(timestamp, ''), favorite
-		FROM dialogues WHERE movie_id = ?
-		ORDER BY (timestamp IS NULL), timestamp, id`, m.ID)
+		       COALESCE(timestamp, ''), season, episode, favorite
+		FROM dialogues WHERE movie_id = ?`+dialogueOrder(""), m.ID)
 	if err != nil {
 		return "", err
 	}
@@ -305,7 +309,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	for rows.Next() {
 		var d dialogueRow
 		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Color, &d.Character, &d.Actor,
-			&d.Timestamp, &d.Favorite); err != nil {
+			&d.Timestamp, &d.Season, &d.Episode, &d.Favorite); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
 			continue
 		}
@@ -327,12 +331,22 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		kv{"year", zeroBlank(m.ReleaseYear)},
 		kv{"genres", strings.Join(m.Genres, ", ")},
 		kv{"collection", seriesFrontmatter(m.Series, m.SeriesIndex)},
-		kv{"type", mediaTypeLine(m.MediaType)}) // always present: it is what routes the re-import
+		kv{"type", mediaTypeLine(m.MediaType)}, // always present: it is what routes the re-import
+		kv{"status", m.Status},
+		kv{"progress", progressFrontmatter(m.Status, m.Progress)},
+		kv{"season", seasonFrontmatter(m.Status, m.position)},
+		kv{"episode", posFrontmatter(m.Status, m.position)},
+		kv{"reads", readsFrontmatter(m.Reads)})
 	for _, d := range dlgs {
 		sb.WriteString("\n")
 		writeQuoteBlock(&sb, d.Quote, d.Note, func(note string) {
 			writeBinding(&sb, "character", d.Character)
 			writeBinding(&sb, "actor", d.Actor)
+			// Coarse to fine, and only when set: a show's line says which episode
+			// it is from, a film's says nothing (both are 0). The keys match the
+			// frontmatter's own season/episode, one level down.
+			writeBinding(&sb, "season", nullBlank(d.Season))
+			writeBinding(&sb, "episode", nullBlank(d.Episode))
 			writeBinding(&sb, "timestamp", d.Timestamp)
 			writeBinding(&sb, "note", note)
 			// Same rule as the book export: the default colour is left out, so
@@ -436,6 +450,80 @@ func zeroBlank(n int) string {
 	}
 	return strconv.Itoa(n)
 }
+
+// nullBlank is zeroBlank for a nullable count: only an unset value (null) drops
+// its line, and 0 writes "0". That distinction is the whole point of the
+// dialogue's season being nullable — season 0 is where a series keeps its
+// specials, and a file that dropped it would re-import as "no season recorded".
+func nullBlank(n *int) string {
+	if n == nil {
+		return ""
+	}
+	return strconv.Itoa(*n)
+}
+
+// progressFrontmatter renders the reading percentage, but only while a work is
+// actually in progress and actually somewhere past the start. Every other status
+// implies its own value (completed is 100, abandoned is 0 — see
+// applyStatusChange), so writing the number there would be noise a re-import
+// has to ignore anyway.
+func progressFrontmatter(status string, progress int) string {
+	if progress <= 0 || !inFlight(status) {
+		return ""
+	}
+	return strconv.Itoa(progress) + "%"
+}
+
+// posFrontmatter renders a position in the work's own units as "128/320" — the
+// page you are on out of the book's pages, or the episode out of the season's.
+// Only while in progress: a finished work is at its own end by definition, and an
+// abandoned one has no position left (see applyStatusChange), so writing either
+// would be noise a re-import has to ignore.
+func posFrontmatter(status string, p position) string {
+	if p.Unit == PosPercent || p.PosTotal == 0 || !inFlight(status) {
+		return ""
+	}
+	return strconv.Itoa(p.Pos) + "/" + strconv.Itoa(p.PosTotal)
+}
+
+// seasonFrontmatter is posFrontmatter for the other half of a show's position.
+func seasonFrontmatter(status string, p position) string {
+	if p.Unit != PosEpisode || p.SeasonTotal == 0 || !inFlight(status) {
+		return ""
+	}
+	return strconv.Itoa(p.Season) + "/" + strconv.Itoa(p.SeasonTotal)
+}
+
+// inFlight covers the statuses where a part-way position still means something:
+// on the go, or set down part-way through.
+func inFlight(status string) bool {
+	return status == StatusReading || status == StatusWatching || status == StatusPaused
+}
+
+// readsFrontmatter renders the read log as one value: semicolon-separated reads,
+// each "start — finish", with an unfinished read left open-ended and an abandoned
+// one marked. Dates stay exactly as partial as they are stored.
+//
+//	reads: 2019-03-04 — 2019-04-01; 2021 — 2021-02 (abandoned); 2026-07 —
+//
+// One line rather than a YAML list because writeFrontmatter is a flat key/value
+// writer (no YAML dep, PLAN §5b) and the importer reads it back with the same
+// hand-rolled split.
+func readsFrontmatter(reads []readRow) string {
+	parts := make([]string, 0, len(reads))
+	for _, r := range reads {
+		s := r.StartedAt + " " + readsDash + " " + r.FinishedAt
+		if r.Outcome == ReadAbandoned {
+			s += " (abandoned)"
+		}
+		parts = append(parts, strings.TrimSpace(s))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// readsDash separates a read's two dates. An em dash reads as a range to a human
+// and cannot appear inside a partial date, so splitting on it is unambiguous.
+const readsDash = "—"
 
 // seriesFrontmatter renders a series/collection and its position as one value,
 // "Name #1.5", mirroring seriesLabel() in the UI. An empty name yields "" so

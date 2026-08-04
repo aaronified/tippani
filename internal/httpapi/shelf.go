@@ -1,0 +1,688 @@
+package httpapi
+
+// Shelf status + the read log (PLAN §3f). One work has one status and a history
+// of reads; this file owns the vocabulary, the partial-date format, the legal
+// transitions, and the bookkeeping that keeps the two consistent. Books and
+// films share every rule here — only the word for "in progress" differs
+// ('reading' vs 'watching'), so each caller passes its own kind.
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"tippani/internal/importer"
+	"tippani/internal/olog"
+)
+
+// Status values. The in-progress one is per-side so a file exports the word a
+// human would write ("status: reading" / "status: watching"); the other three
+// are shared, and "" is the ordinary un-tracked state.
+const (
+	StatusNone      = ""
+	StatusReading   = "reading"  // books
+	StatusWatching  = "watching" // films + shows
+	StatusPaused    = "paused"
+	StatusAbandoned = "abandoned"
+	StatusCompleted = "completed"
+)
+
+// Read outcomes (work_reads.outcome).
+const (
+	ReadOpen      = "open"
+	ReadFinished  = "finished"
+	ReadAbandoned = "abandoned"
+)
+
+// activeStatus is the "in progress" word for a kind: the only status that pins a
+// work to the top of its board and the only one the shelf cap counts.
+func activeStatus(kind string) string {
+	if kind == "movie" {
+		return StatusWatching
+	}
+	return StatusReading
+}
+
+// shelfCap is how many works may be in progress at once before the client's cap
+// dialog asks whether you really mean it. Films are capped hardest: people rarely
+// watch two at a time, whereas five part-read books is an ordinary shelf.
+//
+// The cap is a client-side nudge, deliberately NOT enforced here — the user can
+// always wave it through, and a second device must never be told "no".
+func shelfCap(kind, mediaType string) int {
+	switch {
+	case kind == "book":
+		return 5
+	case mediaType == "show":
+		return 5
+	default:
+		return 2
+	}
+}
+
+// normalizeStatus validates a status against the vocabulary for one side,
+// defaulting "" through unchanged. Returns an error message, "" if ok.
+func normalizeStatus(kind string, status *string) string {
+	*status = strings.ToLower(strings.TrimSpace(*status))
+	switch *status {
+	case StatusNone, StatusPaused, StatusAbandoned, StatusCompleted:
+		return ""
+	case activeStatus(kind):
+		return ""
+	}
+	return fmt.Sprintf("status must be one of '', %q, 'paused', 'abandoned' or 'completed'", activeStatus(kind))
+}
+
+// partialDate matches the three shapes a read date may take: a bare year, a
+// year-month, or a full date. Anything a user knows and nothing they don't —
+// "I read it in 2019" is a legitimate answer, and padding it to 2019-01-01 would
+// invent a precision that was never there.
+var partialDate = regexp.MustCompile(`^\d{4}(-\d{2}(-\d{2})?)?$`)
+
+// normalizePartialDate trims and validates one date. "" (unknown) is legal.
+func normalizePartialDate(field string, v *string) string {
+	*v = strings.TrimSpace(*v)
+	if *v == "" {
+		return ""
+	}
+	if !partialDate.MatchString(*v) {
+		return field + " must be YYYY, YYYY-MM or YYYY-MM-DD"
+	}
+	// Reject the shapes the regexp lets through but a calendar would not, so a
+	// stored date is always a real one.
+	parts := strings.Split(*v, "-")
+	if y, _ := strconv.Atoi(parts[0]); y < 1000 || y > 3000 {
+		return field + " year must be between 1000 and 3000"
+	}
+	if len(parts) > 1 {
+		if m, _ := strconv.Atoi(parts[1]); m < 1 || m > 12 {
+			return field + " month must be 01-12"
+		}
+	}
+	if len(parts) > 2 {
+		if d, _ := strconv.Atoi(parts[2]); d < 1 || d > 31 {
+			return field + " day must be 01-31"
+		}
+	}
+	return ""
+}
+
+// clampProgress folds a percentage into 0-100. Progress only means anything
+// while a work is in progress, so every other status stores the value its
+// transition implies (see applyStatusChange) rather than whatever was sent.
+func clampProgress(p int) int {
+	switch {
+	case p < 0:
+		return 0
+	case p > 100:
+		return 100
+	}
+	return p
+}
+
+// Position units: how someone counts their way through a work. "" means they
+// count in percent and the position columns stay empty.
+const (
+	PosPercent = ""
+	PosPage    = "page"    // books — a physical book has pages, not a percentage
+	PosEpisode = "episode" // shows — season + episode, the units a series is made of
+)
+
+// posUnitFor is the unit a side may count in: pages for a book, episodes for a
+// show. A film has neither, so it tracks in percent only.
+func posUnitFor(kind, mediaType string) string {
+	if kind == "book" {
+		return PosPage
+	}
+	if mediaType == "show" {
+		return PosEpisode
+	}
+	return PosPercent
+}
+
+// position is where someone is in a work, in its own units.
+type position struct {
+	Unit        string `json:"pos_unit"` // "" | page | episode
+	Pos         int    `json:"pos"`
+	PosTotal    int    `json:"pos_total"`
+	Season      int    `json:"season"`
+	SeasonTotal int    `json:"season_total"`
+}
+
+// validate checks a position against the unit its side allows. A count needs
+// something to count towards — that is the one rule worth enforcing, because a
+// page number with no page total cannot become a percentage, and silently
+// storing it would leave a bar that never moves.
+func (p *position) validate(kind, mediaType string) string {
+	allowed := posUnitFor(kind, mediaType)
+	switch p.Unit {
+	case PosPercent:
+		// Tracking by percent: the counters are meaningless, so clear them rather
+		// than keeping stale numbers a later unit switch would resurrect.
+		*p = position{}
+		return ""
+	case allowed:
+	default:
+		if allowed == PosPercent {
+			return "a film tracks progress as a percentage only"
+		}
+		return "pos_unit must be '' or " + strconv.Quote(allowed)
+	}
+	if p.Pos < 0 || p.PosTotal < 0 || p.Season < 0 || p.SeasonTotal < 0 {
+		return "position numbers cannot be negative"
+	}
+	unitName := "page"
+	if p.Unit == PosEpisode {
+		unitName = "episode"
+	}
+	if p.Pos > 0 && p.PosTotal == 0 {
+		return "a " + unitName + " number needs a total to count towards"
+	}
+	if p.PosTotal > 0 && p.Pos > p.PosTotal {
+		return unitName + " cannot be past the total"
+	}
+	if p.Unit == PosEpisode {
+		if p.Season > 0 && p.SeasonTotal == 0 {
+			return "a season number needs a season total"
+		}
+		if p.SeasonTotal > 0 && p.Season > p.SeasonTotal {
+			return "season cannot be past the total"
+		}
+	} else {
+		p.Season, p.SeasonTotal = 0, 0 // books have no seasons
+	}
+	return ""
+}
+
+// percent turns a position into the canonical 0-100 progress, or -1 when there is
+// nothing to derive (tracking by percent, or no total yet) and the client's own
+// percentage should stand.
+//
+// A show spans two dimensions: finishing episode 4 of 10 in season 2 of 5 is
+// (1 season done + 0.4 of this one) / 5 = 28%. Whole seasons before the current
+// one count in full, which is the only reading that makes the bar move forward
+// monotonically as you watch.
+func (p position) percent() int {
+	if p.Unit == PosPercent || p.PosTotal == 0 {
+		return -1
+	}
+	within := float64(p.Pos) / float64(p.PosTotal)
+	if p.Unit == PosEpisode && p.SeasonTotal > 0 && p.Season > 0 {
+		within = (float64(p.Season-1) + within) / float64(p.SeasonTotal)
+	}
+	return clampProgress(int(within*100 + 0.5))
+}
+
+// readRow is one entry in a work's read log.
+type readRow struct {
+	ID         int64  `json:"id"`
+	StartedAt  string `json:"started_at"`
+	FinishedAt string `json:"finished_at"`
+	Outcome    string `json:"outcome"`
+}
+
+// statusChange is the client's requested transition (PUT /books|movies/:id/status).
+// The dates are optional: the client sends today's date by default and whatever
+// the user corrected it to otherwise.
+type statusChange struct {
+	Status     string `json:"status"`
+	Progress   int    `json:"progress"`
+	StartedAt  string `json:"started_at"`  // move INTO reading/watching: opens a read
+	FinishedAt string `json:"finished_at"` // move INTO completed/abandoned: closes it
+	position          // pos_unit / pos / pos_total / season / season_total
+}
+
+// validate normalizes the request for one side. `mediaType` is the film row's
+// movie|show (ignored for books). Returns a message, "" if ok.
+func (c *statusChange) validate(kind, mediaType string) string {
+	if msg := normalizeStatus(kind, &c.Status); msg != "" {
+		return msg
+	}
+	if msg := normalizePartialDate("started_at", &c.StartedAt); msg != "" {
+		return msg
+	}
+	if msg := normalizePartialDate("finished_at", &c.FinishedAt); msg != "" {
+		return msg
+	}
+	if msg := c.position.validate(kind, mediaType); msg != "" {
+		return msg
+	}
+	// A position in the work's own units IS the progress; the client's percentage
+	// is only consulted when there is nothing to derive one from.
+	if pct := c.position.percent(); pct >= 0 {
+		c.Progress = pct
+	} else {
+		c.Progress = clampProgress(c.Progress)
+	}
+	return ""
+}
+
+// statusTransitionAllowed gates the one rule the lifecycle actually enforces:
+// completed is a settled state, and the only way out of it is to start again.
+// Pausing or abandoning something you already finished is not a thing that
+// happens, so those moves are refused rather than quietly accepted.
+//
+// Clearing back to "" stays open from every status, completed included — it is
+// the undo for a mis-tap, not a lifecycle move, and without it a wrong click
+// would be permanent.
+func statusTransitionAllowed(kind, from, to string) bool {
+	if from == to || to == StatusNone {
+		return true
+	}
+	if from == StatusCompleted {
+		return to == activeStatus(kind)
+	}
+	return true
+}
+
+// applyStatusChange performs a transition inside an open tx: it writes the new
+// status + progress and brings the read log along with it. The bookkeeping, in
+// one place because status and log must never disagree:
+//
+//	→ reading/watching  opens a read (started_at), unless one is already open —
+//	                    resuming a pause continues that read rather than
+//	                    starting a second one. Progress carries over, EXCEPT
+//	                    from completed, where a reread starts again at 0.
+//	→ paused            leaves the open read open and freezes progress: coming
+//	                    back picks up where you left off.
+//	→ abandoned         closes the open read as abandoned (finished_at is the
+//	                    stop date) and zeroes progress — the number no longer
+//	                    stands for anything you want to see.
+//	→ completed         closes the open read as finished and fills to 100. With
+//	                    no read open (marking something you read years ago) it
+//	                    writes a closed read so the count is still right.
+//	→ "" (cleared)      drops an open read entirely — nothing was tracked, so
+//	                    there is no history to keep — and leaves closed reads
+//	                    alone, since those did happen.
+//
+// progressFor is applied to the work row; the caller has already validated.
+func applyStatusChange(tx *sql.Tx, kind string, uid, id int64, from string, c statusChange) error {
+	active := activeStatus(kind)
+
+	// The open read, if any.
+	var openID int64
+	err := tx.QueryRow(
+		`SELECT id FROM work_reads WHERE user_id = ? AND kind = ? AND work_id = ? AND outcome = ?
+		 ORDER BY id DESC LIMIT 1`, uid, kind, id, ReadOpen).Scan(&openID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	progress, pos := c.Progress, c.position
+	switch c.Status {
+	case active:
+		if from == StatusCompleted {
+			// A reread starts over: back to the beginning, keeping the totals (the
+			// book still has that many pages) and, for a show, season 1 of the run.
+			progress, pos.Pos = 0, 0
+			if pos.SeasonTotal > 0 {
+				pos.Season = 1
+			}
+		}
+		if openID == 0 {
+			if _, err := tx.Exec(
+				`INSERT INTO work_reads (user_id, kind, work_id, started_at, outcome)
+				 VALUES (?, ?, ?, ?, ?)`, uid, kind, id, c.StartedAt, ReadOpen); err != nil {
+				return err
+			}
+		} else if c.StartedAt != "" {
+			// Resuming: only overwrite the start date if the client sent one.
+			if _, err := tx.Exec(`UPDATE work_reads SET started_at = ? WHERE id = ?`, c.StartedAt, openID); err != nil {
+				return err
+			}
+		}
+	case StatusPaused:
+		// Nothing to do to the log — the read stays open, progress stays put.
+	case StatusAbandoned:
+		// Progress and position both go to zero — the numbers no longer stand for
+		// anything you want to see — but the totals stay, since the book still has
+		// that many pages if you ever come back to it.
+		progress, pos.Pos, pos.Season = 0, 0, 0
+		if openID != 0 {
+			if _, err := tx.Exec(`UPDATE work_reads SET finished_at = ?, outcome = ? WHERE id = ?`,
+				c.FinishedAt, ReadAbandoned, openID); err != nil {
+				return err
+			}
+		} else if _, err := tx.Exec(
+			`INSERT INTO work_reads (user_id, kind, work_id, started_at, finished_at, outcome)
+			 VALUES (?, ?, ?, ?, ?, ?)`, uid, kind, id, c.StartedAt, c.FinishedAt, ReadAbandoned); err != nil {
+			return err
+		}
+	case StatusCompleted:
+		// Finished means the last page of the last season, whatever the counters
+		// last said — leaving them mid-book beside a full green bar would be the
+		// one place status and position could visibly disagree.
+		progress = 100
+		pos.Pos, pos.Season = pos.PosTotal, pos.SeasonTotal
+		if openID != 0 {
+			if _, err := tx.Exec(`UPDATE work_reads SET finished_at = ?, outcome = ? WHERE id = ?`,
+				c.FinishedAt, ReadFinished, openID); err != nil {
+				return err
+			}
+		} else if _, err := tx.Exec(
+			`INSERT INTO work_reads (user_id, kind, work_id, started_at, finished_at, outcome)
+			 VALUES (?, ?, ?, ?, ?, ?)`, uid, kind, id, c.StartedAt, c.FinishedAt, ReadFinished); err != nil {
+			return err
+		}
+	case StatusNone:
+		// Untracked: zero the position but keep the unit and totals, so putting the
+		// book back on the shelf remembers that you count it in pages.
+		progress, pos.Pos, pos.Season = 0, 0, 0
+		if openID != 0 {
+			if _, err := tx.Exec(`DELETE FROM work_reads WHERE id = ?`, openID); err != nil {
+				return err
+			}
+		}
+	}
+
+	if kind == "book" {
+		_, err = tx.Exec(
+			`UPDATE books SET status = ?, progress = ?, pos_unit = ?, pos = ?, pos_total = ?,
+			                  updated_at = datetime('now')
+			  WHERE id = ? AND user_id = ?`,
+			c.Status, progress, pos.Unit, pos.Pos, pos.PosTotal, id, uid)
+		return err
+	}
+	_, err = tx.Exec(
+		`UPDATE movies SET status = ?, progress = ?, pos_unit = ?, pos = ?, pos_total = ?,
+		                   season = ?, season_total = ?, updated_at = datetime('now')
+		  WHERE id = ? AND user_id = ?`,
+		c.Status, progress, pos.Unit, pos.Pos, pos.PosTotal, pos.Season, pos.SeasonTotal, id, uid)
+	return err
+}
+
+// loadReads reads one work's log, oldest first — the order a history is read in.
+func loadReads(db interface {
+	Query(string, ...any) (*sql.Rows, error)
+}, uid int64, kind string, id int64) ([]readRow, error) {
+	rows, err := db.Query(
+		`SELECT id, started_at, finished_at, outcome FROM work_reads
+		  WHERE user_id = ? AND kind = ? AND work_id = ? ORDER BY id`, uid, kind, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []readRow{}
+	for rows.Next() {
+		var r readRow
+		if err := rows.Scan(&r.ID, &r.StartedAt, &r.FinishedAt, &r.Outcome); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// encodeReads / decodeReads carry a parsed read log through staged_works as
+// JSON, the same way cast_json and source_metadata carry structure through a
+// TEXT column. A bad encode/decode degrades to "no history" rather than failing
+// an import of somebody's highlights.
+func encodeReads(reads []importer.Read) string {
+	if len(reads) == 0 {
+		return "[]"
+	}
+	b, err := json.Marshal(reads)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+func decodeReads(s string) []importer.Read {
+	var out []importer.Read
+	if s == "" || s == "[]" {
+		return nil
+	}
+	_ = json.Unmarshal([]byte(s), &out)
+	return out
+}
+
+// encodePos / decodePos do the same for a page/season/episode position. "" means
+// no position was parsed, which is the ordinary case.
+func encodePos(p position) string {
+	if p.Unit == PosPercent {
+		return ""
+	}
+	b, err := json.Marshal(p)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func decodePos(s string) position {
+	var p position
+	if s == "" {
+		return p
+	}
+	_ = json.Unmarshal([]byte(s), &p)
+	return p
+}
+
+// bookShelf / movieShelf read one parsed header's shelf fields into the shape the
+// write path takes, so the two importer sides converge before they touch the DB.
+func bookShelf(b importer.Book) importedShelf {
+	in := importedShelf{Status: b.Status, Progress: b.Progress, Reads: b.Reads}
+	if b.PosTotal > 0 {
+		in.Pos = position{Unit: PosPage, Pos: b.Pos, PosTotal: b.PosTotal}
+	}
+	return in
+}
+
+func movieShelf(m importer.MovieHeader) importedShelf {
+	in := importedShelf{Status: m.Status, Progress: m.Progress, Reads: m.Reads}
+	if m.PosTotal > 0 {
+		in.Pos = position{
+			Unit: PosEpisode, Pos: m.Pos, PosTotal: m.PosTotal,
+			Season: m.Season, SeasonTotal: m.SeasonTotal,
+		}
+	}
+	return in
+}
+
+// importedShelf is what a parsed file says about where a work stands, in the
+// server's own terms. Built from either side's importer header.
+type importedShelf struct {
+	Status   string
+	Progress int
+	Pos      position
+	Reads    []importer.Read
+}
+
+// applyImportedShelf writes an imported status/progress/position/read log onto a
+// work at approval. Fill-empty-only, matching every other backfill on the import
+// path (PLAN §5f): a status already set by hand always wins, and the read log is
+// only adopted when the work has none — re-importing an old export must never
+// duplicate a history that is already there, nor overwrite a newer one.
+//
+// Statuses and positions the server does not recognise are dropped rather than
+// rejected: a hand-edited file should not fail an import over one bad word.
+func applyImportedShelf(tx *sql.Tx, kind, mediaType string, uid, workID int64, in importedShelf) error {
+	table := "movies"
+	if kind == "book" {
+		table = "books"
+	}
+	status, progress, pos := in.Status, in.Progress, in.Pos
+	if msg := normalizeStatus(kind, &status); msg != "" {
+		status, progress, pos = StatusNone, 0, position{}
+	}
+	if pos.validate(kind, mediaType) != "" {
+		pos = position{}
+	}
+	// A position in the work's own units outranks the file's percentage, exactly as
+	// it does on the live path.
+	if pct := pos.percent(); pct >= 0 {
+		progress = pct
+	}
+	if status != StatusNone {
+		set := `status = CASE WHEN status = '' THEN ? ELSE status END,
+		        progress = max(progress, ?), updated_at = datetime('now')`
+		args := []any{status, clampProgress(progress)}
+		if pos.Unit != PosPercent {
+			set += `, pos_unit = CASE WHEN pos_unit = '' THEN ? ELSE pos_unit END,
+			         pos = max(pos, ?), pos_total = max(pos_total, ?)`
+			args = append(args, pos.Unit, pos.Pos, pos.PosTotal)
+			if kind != "book" {
+				set += `, season = max(season, ?), season_total = max(season_total, ?)`
+				args = append(args, pos.Season, pos.SeasonTotal)
+			}
+		}
+		args = append(args, workID, uid)
+		if _, err := tx.Exec(`UPDATE `+table+` SET `+set+` WHERE id = ? AND user_id = ?`, args...); err != nil {
+			return err
+		}
+	}
+	reads := in.Reads
+	if len(reads) == 0 {
+		return nil
+	}
+	var have bool
+	if err := tx.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM work_reads WHERE user_id = ? AND kind = ? AND work_id = ?)`,
+		uid, kind, workID).Scan(&have); err != nil {
+		return err
+	}
+	if have {
+		return nil
+	}
+	for _, rd := range reads {
+		outcome := rd.Outcome
+		switch outcome {
+		case ReadOpen, ReadFinished, ReadAbandoned:
+		default:
+			outcome = ReadFinished
+			if rd.FinishedAt == "" {
+				outcome = ReadOpen
+			}
+		}
+		started, finished := rd.StartedAt, rd.FinishedAt
+		// A date the server would not accept is dropped, not fatal — the read
+		// itself is still worth keeping.
+		if normalizePartialDate("started_at", &started) != "" {
+			started = ""
+		}
+		if normalizePartialDate("finished_at", &finished) != "" {
+			finished = ""
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO work_reads (user_id, kind, work_id, started_at, finished_at, outcome)
+			 VALUES (?, ?, ?, ?, ?, ?)`, uid, kind, workID, started, finished, outcome); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// handleSetBookStatus / handleSetMovieStatus — PUT /books|movies/:id/status.
+// The only way a work's status, progress and read log change. Answers the full
+// work detail so a client can re-render from one response.
+func (s *Server) handleSetBookStatus(w http.ResponseWriter, r *http.Request) {
+	s.setWorkStatus(w, r, "book")
+}
+
+func (s *Server) handleSetMovieStatus(w http.ResponseWriter, r *http.Request) {
+	s.setWorkStatus(w, r, "movie")
+}
+
+func (s *Server) setWorkStatus(w http.ResponseWriter, r *http.Request, kind string) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid "+kind+" id")
+		return
+	}
+	var req statusChange
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[shelf] setWorkStatus kind=%s uid=%v id=%v status=%q", kind, uid, id, req.Status)
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "set status: begin tx", err)
+		return
+	}
+	defer tx.Rollback()
+
+	// Load the current status and, for a film row, its media type: whether a
+	// position may be counted in episodes depends on being a show, so validation
+	// has to know before it can judge the request.
+	var from, mediaType string
+	var loadErr error
+	if kind == "book" {
+		loadErr = tx.QueryRow(`SELECT status FROM books WHERE id = ? AND user_id = ?`, id, uid).Scan(&from)
+	} else {
+		loadErr = tx.QueryRow(`SELECT status, media_type FROM movies WHERE id = ? AND user_id = ?`, id, uid).
+			Scan(&from, &mediaType)
+	}
+	switch {
+	case errors.Is(loadErr, sql.ErrNoRows):
+		writeErr(w, http.StatusNotFound, kind+" not found")
+		return
+	case loadErr != nil:
+		internalError(w, r, "set status: load", loadErr)
+		return
+	}
+	if msg := req.validate(kind, mediaType); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
+	if !statusTransitionAllowed(kind, from, req.Status) {
+		writeErr(w, http.StatusConflict, fmt.Sprintf(
+			"a completed %s can only be started again (%s) or cleared", kind, activeStatus(kind)))
+		return
+	}
+	if err := applyStatusChange(tx, kind, uid, id, from, req); err != nil {
+		internalError(w, r, "set status: apply", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "set status: commit", err)
+		return
+	}
+
+	if kind == "book" {
+		b, err := s.fetchBook(uid, id)
+		if err != nil {
+			internalError(w, r, "set status: fetch book", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, b)
+		return
+	}
+	m, err := s.fetchMovie(uid, id)
+	if err != nil {
+		internalError(w, r, "set status: fetch movie", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, m)
+}
+
+// readCounts maps work id -> finished-read count for one side in a single query,
+// so a list endpoint can print "×2" without an N+1. Only 'finished' rows count:
+// an abandoned attempt is history, not a read.
+func (s *Server) readCounts(uid int64, kind string) (map[int64]int, error) {
+	rows, err := s.Store.DB.Query(
+		`SELECT work_id, count(*) FROM work_reads
+		  WHERE user_id = ? AND kind = ? AND outcome = ? GROUP BY work_id`,
+		uid, kind, ReadFinished)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}

@@ -6,7 +6,24 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { GroupHeading, MobileDetailBar, WorkCard, WorkHero, WorkListScaffold, groupWorks } from './works.jsx'
+import {
+  ACTIVE_STATUS,
+  GroupHeading,
+  InProgressCapDialog,
+  MobileDetailBar,
+  SHELF_CAPS,
+  ShelfControl,
+  ShelfDateDialog,
+  WorkCard,
+  WorkHero,
+  WorkListScaffold,
+  groupWorks,
+  isActive,
+  moveLabel,
+  pinInProgress,
+  statusFilter,
+  wishFilter,
+} from './works.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
@@ -27,6 +44,7 @@ import {
   IconExport,
   IconFilter,
   IconPlus,
+  IconReading,
   Masonry,
   MobileSheet,
   MoreMenu,
@@ -39,6 +57,7 @@ import {
   Select,
   SheetFooter,
   TagChip,
+  todayPartial,
   titleCaseGenre,
   TokenInput,
   ViewToggle,
@@ -108,7 +127,17 @@ function bookState(b) {
     series: b.series || '',
     series_index: b.series_index || 0,
     favorite: !!b.favorite,
+    // status / progress / reads are deliberately absent: they belong to
+    // PUT /books/:id/status, so an ordinary save can never rewrite the shelf or
+    // the read log (see bookDetail in book_handlers.go).
   }
+}
+
+// setBookStatus moves one book to a shelf state. Its own endpoint, because the
+// transition and the read log have to move together. Returns an error string.
+async function setBookStatus(id, body) {
+  const r = await json('PUT', `/books/${id}/status`, body)
+  return r.ok ? '' : errText(r, 'could not save')
 }
 
 // How many genre quick-filter chips to show before the rest collapse into the
@@ -150,6 +179,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
   const [fav, setFav] = useState(false)
   const [tagged, setTagged] = useState(false) // has at least one tagged quote
   const [noted, setNoted] = useState(false) // has at least one quote with a note
+  const [wish, setWish] = useState('') // '' = all | 'wishlist' | 'annotated'
+  const [states, setStates] = useState([]) // shelf states kept; [] = every state
   const [sort, setSort] = useState('recent')
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [adding, setAdding] = useState(false)
@@ -193,13 +224,17 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
     if (fav) list = list.filter((b) => b.favorite)
     if (tagged) list = list.filter((b) => (b.tagged_count || 0) > 0)
     if (noted) list = list.filter((b) => (b.noted_count || 0) > 0)
-    if (sort === 'recent') return list // server order (created_at DESC)
+    list = statusFilter(list, states)
+    list = wishFilter(list, wish, (b) => b.annotation_count || 0)
+    // Default view = server order (created_at DESC) with what you're reading
+    // floated to the top; an explicit sort takes over completely.
+    if (sort === 'recent') return pinInProgress(list, 'book')
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
     else if (sort === 'series') list.sort(bySeries)
     return list
-  }, [books, genre, series, fav, tagged, noted, sort])
+  }, [books, genre, series, fav, tagged, noted, states, wish, sort])
 
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const grouped = useMemo(
@@ -245,6 +280,11 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
       setTagged={setTagged}
       noted={noted}
       setNoted={setNoted}
+      wish={wish}
+      setWish={setWish}
+      states={states}
+      setStates={setStates}
+      kind="book"
       noun="book"
       seriesNames={seriesNames}
       series={series}
@@ -274,7 +314,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
           />
         </div>
       }
-      onReset={() => { setGenre(''); setFav(false); setTagged(false); setNoted(false); setSeries(''); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setGenre(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
       addSurface={
         <AddSurface
           open={adding}
@@ -399,6 +439,17 @@ function BookDetail({ id, onClose, creditSeparators }) {
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
   const [mobileAdd, setMobileAdd] = useState(false)
+  // Live unfiltered quote count, reported up by <Annotations>. It drives the
+  // Wishlist tag, so adding this book's first quote retracts the tag on the spot
+  // rather than at the next visit. null until the quotes land.
+  const [quoteCount, setQuoteCount] = useState(null)
+  // Shelf machinery. `pending` is a transition waiting on its date prompt;
+  // `capPool` the books already reading, held while the cap dialog is open.
+  const [pending, setPending] = useState(null) // { status, date }
+  const [capPool, setCapPool] = useState(null)
+  const [capBusyId, setCapBusyId] = useState(null)
+  const [capError, setCapError] = useState('')
+  const [shelfBusy, setShelfBusy] = useState(false)
   const { map: authorMap } = usePeople('author') // name→metadata, for author face icons
   const reveal = useReveal()
   const mobile = useIsMobileScreen()
@@ -411,8 +462,79 @@ function BookDetail({ id, onClose, creditSeparators }) {
   useEffect(() => {
     setBook(null)
     setEditing(false)
+    setQuoteCount(null)
     load()
   }, [id])
+
+  // ---- shelf transitions -----------------------------------------------------
+  // save is the one path to the status endpoint; every route below funnels here.
+  async function save(status, date) {
+    setShelfBusy(true)
+    // Carry the current position through: a transition is about the status, and
+    // the server derives progress from the position when one is set.
+    const body = {
+      status,
+      progress: book?.progress || 0,
+      pos_unit: book?.pos_unit || '',
+      pos: book?.pos || 0,
+      pos_total: book?.pos_total || 0,
+    }
+    if (status === ACTIVE_STATUS.book) body.started_at = date || ''
+    else if (status === 'completed' || status === 'abandoned') body.finished_at = date || ''
+    const r = await json('PUT', `/books/${id}/status`, body)
+    setShelfBusy(false)
+    if (r.ok) setBook(r.data)
+    else setError(errText(r, 'could not save'))
+  }
+
+  // pick routes the state the user chose. Starting to read checks the soft cap
+  // first, so the choice to run long is made in front of what is already on the
+  // shelf; reading, completing and abandoning then ask for their date. Pausing
+  // and clearing need neither — nothing about the log changes.
+  async function pick(next) {
+    if (!book) return
+    if (next === ACTIVE_STATUS.book && book.status !== 'paused') {
+      const r = await json('GET', '/books')
+      if (!r.ok) return setError(errText(r))
+      const pool = (r.data.books || []).filter((b) => isActive('book', b) && b.id !== book.id)
+      if (pool.length >= SHELF_CAPS.book) {
+        setCapError('')
+        setCapPool(pool)
+        return
+      }
+    }
+    if (next === '' || next === 'paused') return save(next, '')
+    setPending({ status: next, date: todayPartial() })
+  }
+
+  // Settling another book from inside the cap dialog: mark it read as of today
+  // (the dialog says so, and its own page can correct the date), then carry on
+  // into the transition that was blocked once the shelf has room.
+  async function releaseReading(item) {
+    setCapBusyId(item.id)
+    const err = await setBookStatus(item.id, { status: 'completed', finished_at: todayPartial() })
+    setCapBusyId(null)
+    if (err) return setCapError(err)
+    const left = capPool.filter((b) => b.id !== item.id)
+    if (left.length < SHELF_CAPS.book) {
+      setCapPool(null)
+      setPending({ status: ACTIVE_STATUS.book, date: todayPartial() })
+      return
+    }
+    setCapPool(left)
+  }
+
+  // Progress rides the status endpoint with the status unchanged rather than
+  // needing a route of its own. `patch` is either { progress } or a page position
+  // ({ pos_unit, pos, pos_total }) — the server derives the percentage from the
+  // latter, so a physical book's page count is the authoritative number.
+  async function saveProgress(patch) {
+    setShelfBusy(true)
+    const r = await json('PUT', `/books/${id}/status`, { status: book.status, ...patch })
+    setShelfBusy(false)
+    if (r.ok) setBook(r.data)
+    else setError(errText(r, 'could not save'))
+  }
 
   async function remove() {
     if (!confirm(`Delete "${book.title}" and all its annotations?`)) return
@@ -460,6 +582,11 @@ function BookDetail({ id, onClose, creditSeparators }) {
               <IconButton icon={<IconPlus />} ariaLabel="Add annotation" onClick={() => setMobileAdd(true)} />
               <MoreMenu
                 items={[
+                  {
+                    icon: <IconReading size={24} />,
+                    label: moveLabel('book', book?.status || '', ACTIVE_STATUS.book),
+                    onClick: () => pick(ACTIVE_STATUS.book),
+                  },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
                   { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
@@ -504,13 +631,35 @@ function BookDetail({ id, onClose, creditSeparators }) {
             }
             favorite={book.favorite}
             onFavorite={(v) => patch({ favorite: v })}
+            // Shelf state, beside the hearts: the state chip (its popover holds
+            // the transitions and, while reading, the progress field) and the ×N
+            // read counter. A set status wins over the derived Wishlist tag.
+            tags={
+              <ShelfControl
+                kind="book"
+                item={book}
+                status={book.status}
+                progress={book.progress}
+                pos={book}
+                reads={book.reads}
+                wishlist={quoteCount === 0}
+                busy={shelfBusy}
+                onSelect={pick}
+                onProgress={saveProgress}
+              />
+            }
             genres={bookGenres(book)}
             description={book.description}
-            // Desktop only: on mobile these same three live in the sticky bar's
+            // Desktop only: on mobile these same actions live in the sticky bar's
             // ⋯ overflow above, and a second standing row just duplicated them.
             actions={
               mobile ? null : (
                 <>
+                  {/* The one shelf action worth a standing button; the rest of
+                      the lifecycle lives in the state chip's popover. */}
+                  <GhostButton onClick={() => pick(ACTIVE_STATUS.book)} disabled={shelfBusy}>
+                    {moveLabel('book', book.status || '', ACTIVE_STATUS.book)}
+                  </GhostButton>
                   {!DEMO && (
                     <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
                       Export .md
@@ -541,7 +690,29 @@ function BookDetail({ id, onClose, creditSeparators }) {
           />
         </FormModal>
       )}
-      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      <InProgressCapDialog
+        open={!!capPool}
+        items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, b.published_year || null].filter(Boolean).join(' · ') }))}
+        cap={SHELF_CAPS.book}
+        noun="book"
+        verb="reading"
+        pastLabel="Mark as read"
+        busyId={capBusyId}
+        error={capError}
+        onRelease={releaseReading}
+        onCancel={() => setCapPool(null)}
+        onProceed={() => { setCapPool(null); setPending({ status: ACTIVE_STATUS.book, date: todayPartial() }) }}
+      />
+      <ShelfDateDialog
+        open={!!pending}
+        title={pending ? moveLabel('book', book?.status || '', pending.status) : ''}
+        label={pending?.status === ACTIVE_STATUS.book ? 'Started' : pending?.status === 'abandoned' ? 'Gave up' : 'Finished'}
+        value={pending?.date || ''}
+        onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
+        onCancel={() => setPending(null)}
+        onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
+      />
+      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onCount={setQuoteCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </section>
   )
@@ -623,7 +794,9 @@ export function EditBook({ book, onSaved, onCancel }) {
       series_index: Number(seriesIndex) || 0,
       description: description.trim(),
       // favorite is edited on the detail header, not here — but PUT is
-      // full-state, so carry the current value through.
+      // full-state, so carry the current value through. (Shelf status and the
+      // read log are not part of this body at all: PUT /books/:id cannot touch
+      // them, so an ordinary save can never rewrite reading history.)
       favorite: !!book.favorite,
       cover_url: coverUrl || undefined,
       clear_cover: clearCover || undefined,
@@ -954,7 +1127,7 @@ function pinToTop(arr, pinnedIds) {
   return [...top, ...arr.filter((x) => !pset.has(x.id))]
 }
 
-function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // annotation being shared
@@ -977,6 +1150,13 @@ function Annotations({ bookId, book, authorMap = {}, seps, mobileFilterOpen, onM
   useEffect(() => {
     if (mobileAddOpen) { setAddOpen(true); onMobileAddOpen?.(false); }
   }, [mobileAddOpen])
+
+  // Report the unfiltered quote count up to the detail: it is what decides the
+  // Wishlist tag, and `total` is already kept live through adds and deletes, so
+  // adding this book's first quote retracts the tag on the spot.
+  useEffect(() => {
+    if (total != null) onCount?.(total)
+  }, [total])
 
   const { stickers, reload: reloadStickers } = useStickers()
   const filtering = Boolean(color || tag || fav)

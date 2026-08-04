@@ -68,6 +68,10 @@ func normalizeMediaType(mt *string) string {
 }
 
 // movieDetail is the single-movie response shape (POST/GET/PUT /movies).
+//
+// status / progress / reads are read-only here, as on bookDetail: they belong to
+// PUT /movies/:id/status, the only path that keeps the status and the watch log
+// consistent with one another.
 type movieDetail struct {
 	ID          int64                 `json:"id"`
 	Title       string                `json:"title"`
@@ -82,6 +86,10 @@ type movieDetail struct {
 	Series      string                `json:"series"`
 	SeriesIndex float64               `json:"series_index"`
 	Favorite    bool                  `json:"favorite"`
+	Status      string                `json:"status"`   // "" | watching | paused | abandoned | completed
+	Progress    int                   `json:"progress"` // 0-100, derived from the position when one is set
+	position                          // pos_unit ('' | episode) · pos · pos_total · season · season_total
+	Reads       []readRow             `json:"reads"` // oldest first
 	Cast        []metadata.CastMember `json:"cast"`
 	CreatedAt   string                `json:"created_at"`
 }
@@ -92,12 +100,18 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), COALESCE(tmdb_id, 0),
 		       COALESCE(tvdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
-		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, cast_json, created_at
+		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
+		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.TMDBID,
 			&m.TVDBID, &m.MediaType, &m.PosterPath, &m.Description,
-			&m.Series, &m.SeriesIndex, &m.Favorite, &castJSON, &m.CreatedAt)
+			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
+			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
+			&castJSON, &m.CreatedAt)
 	if err != nil {
+		return nil, err
+	}
+	if m.Reads, err = loadReads(s.Store.DB, uid, "movie", id); err != nil {
 		return nil, err
 	}
 	m.Cast = []metadata.CastMember{}
@@ -358,9 +372,13 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		Series        string   `json:"series"`
 		SeriesIndex   float64  `json:"series_index"`
 		Favorite      bool     `json:"favorite"`
+		Status        string   `json:"status"`     // "" | watching | paused | abandoned | completed
+		Progress      int      `json:"progress"`   // 0-100; fills the status bar under the poster
+		ReadCount     int      `json:"read_count"` // finished watches, for the "×2" chip
 		DialogueCount int      `json:"dialogue_count"`
 		// Mirrors the books list: "tagged" means the title has at least one
-		// tagged dialogue, "noted" at least one carrying a note.
+		// tagged dialogue, "noted" at least one carrying a note. "Wishlist" is
+		// likewise derived from dialogue_count == 0 and so needs no field.
 		TaggedCount int `json:"tagged_count"`
 		NotedCount  int `json:"noted_count"`
 	}
@@ -369,7 +387,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	q := `
 		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		       m.media_type, COALESCE(m.poster_path, ''),
-		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite,
+		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite, m.status, m.progress,
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
 		          AND EXISTS (SELECT 1 FROM dialogue_tags dt WHERE dt.dialogue_id = d.id)),
@@ -392,7 +410,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.DialogueCount, &it.TaggedCount, &it.NotedCount); err != nil {
+			&it.Favorite, &it.Status, &it.Progress, &it.DialogueCount, &it.TaggedCount, &it.NotedCount); err != nil {
 			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
 			continue
 		}
@@ -406,10 +424,16 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "list movies: genre names", err)
 		return
 	}
+	reads, err := s.readCounts(uid, "movie")
+	if err != nil {
+		internalError(w, r, "list movies: read counts", err)
+		return
+	}
 	for i := range items {
 		if gs := byMovie[items[i].ID]; gs != nil {
 			items[i].Genres = gs
 		}
+		items[i].ReadCount = reads[items[i].ID]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"movies": items})
 }
@@ -544,8 +568,8 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 
 // resyncMovieFromSource re-pulls details+credits from a supplier and overwrites
 // title/director/year/description/cast/genres/series/poster + the source ids and
-// media_type. User-owned fields (favorite, series_index) are deliberately
-// left untouched. Used by the edit view's "look up" picker.
+// media_type. User-owned fields (favorite, watching, series_index) are
+// deliberately left untouched. Used by the edit view's "look up" picker.
 func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, id int64, source, sourceID, mediaType string) {
 	d, msg, code := s.fetchSourceDetails(r.Context(), source, sourceID, mediaType)
 	if d == nil {

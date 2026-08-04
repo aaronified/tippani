@@ -342,6 +342,11 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 			nullable(b.Series), nullableFloat(b.SeriesIndex), id); err != nil {
 			return 0, false, err
 		}
+		// Shelf state is its own backfill (fill-empty-only, never clearing) so a
+		// re-import of an older export cannot un-mark a book you are reading now.
+		if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {
+			return 0, false, err
+		}
 		return id, false, nil
 	}
 	res, err := tx.Exec(
@@ -353,5 +358,11 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		return 0, false, err
 	}
 	id, err = res.LastInsertId()
-	return id, true, err
+	if err != nil {
+		return 0, false, err
+	}
+	if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {
+		return 0, false, err
+	}
+	return id, true, nil
 }

@@ -273,9 +273,15 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 		if _, err := tx.Exec(
 			`UPDATE staged_works SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?),
 			                         author = COALESCE(author, ?), series = COALESCE(series, ?),
-			                         series_index = COALESCE(series_index, ?) WHERE id = ?`,
+			                         series_index = COALESCE(series_index, ?),
+			                         status = CASE WHEN status = '' THEN ? ELSE status END,
+			                         progress = max(progress, ?),
+			                         pos_json = CASE WHEN pos_json = '' THEN ? ELSE pos_json END,
+			                         reads_json = CASE WHEN reads_json = '[]' THEN ? ELSE reads_json END
+			  WHERE id = ?`,
 			nullable(b.ISBN), nullable(b.ASIN), nullable(b.Author),
-			nullable(b.Series), nullableFloat(b.SeriesIndex), id); err != nil {
+			nullable(b.Series), nullableFloat(b.SeriesIndex),
+			b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads), id); err != nil {
 			return 0, err
 		}
 		return id, nil
@@ -284,10 +290,12 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 		return 0, err
 	}
 	res, err := tx.Exec(
-		`INSERT INTO staged_works (batch_id, kind, title, author, isbn, asin, series, series_index)
-		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO staged_works (batch_id, kind, title, author, isbn, asin, series, series_index,
+		                           status, progress, pos_json, reads_json)
+		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		batchID, b.Title, nullable(b.Author), nullable(b.ISBN), nullable(b.ASIN),
-		nullable(b.Series), nullableFloat(b.SeriesIndex))
+		nullable(b.Series), nullableFloat(b.SeriesIndex),
+		b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads))
 	if err != nil {
 		return 0, err
 	}
@@ -310,10 +318,15 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 		if _, err := tx.Exec(
 			`UPDATE staged_works SET director = COALESCE(director, ?), imdb_id = COALESCE(imdb_id, ?),
 			                         series = COALESCE(series, ?), series_index = COALESCE(series_index, ?),
-			                         genres = CASE WHEN genres = '' THEN ? ELSE genres END
+			                         genres = CASE WHEN genres = '' THEN ? ELSE genres END,
+			                         status = CASE WHEN status = '' THEN ? ELSE status END,
+			                         progress = max(progress, ?),
+			                         pos_json = CASE WHEN pos_json = '' THEN ? ELSE pos_json END,
+			                         reads_json = CASE WHEN reads_json = '[]' THEN ? ELSE reads_json END
 			  WHERE id = ?`,
 			nullable(m.Director), nullable(m.IMDbID), nullable(m.Series),
-			nullableFloat(m.SeriesIndex), strings.Join(m.Genres, ", "), id); err != nil {
+			nullableFloat(m.SeriesIndex), strings.Join(m.Genres, ", "),
+			m.Status, m.Progress, encodePos(movieShelf(m).Pos), encodeReads(m.Reads), id); err != nil {
 			return 0, err
 		}
 		return id, nil
@@ -323,11 +336,13 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 	}
 	res, err := tx.Exec(
 		`INSERT INTO staged_works
-		   (batch_id, kind, title, series, series_index, release_year, imdb_id, director, genres)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		   (batch_id, kind, title, series, series_index, release_year, imdb_id, director, genres,
+		    status, progress, pos_json, reads_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		batchID, kind, m.Title, nullable(m.Series), nullableFloat(m.SeriesIndex),
 		nullableInt(m.Year), nullable(m.IMDbID), nullable(m.Director),
-		strings.Join(m.Genres, ", "))
+		strings.Join(m.Genres, ", "), m.Status, m.Progress,
+		encodePos(movieShelf(m).Pos), encodeReads(m.Reads))
 	if err != nil {
 		return 0, err
 	}
@@ -343,11 +358,11 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, color, favorite, chapter, location, location_orig,
-		   character, actor, timestamp, timestamp_orig, tags, noted_at, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   character, actor, timestamp, timestamp_orig, season, episode, tags, noted_at, dedupe_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	add := func(quote, note, color string, favorite bool, chapter, location, character, actor, timestamp string,
-		tags []string, notedAt string) error {
+		season, episode *int, tags []string, notedAt string) error {
 		if color == "" {
 			color = "yellow" // Kindle and IMDb sources carry no colour (PLAN §3)
 		}
@@ -362,7 +377,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		res, err := tx.Exec(q, workID, nullable(quote), nullable(note), color, favorite,
 			nullable(chapter), nullable(location), nullable(location),
 			nullable(character), nullable(actor), nullable(timestamp), nullable(timestamp),
-			joinTags(tags), nullable(notedAt), hash)
+			season, episode, joinTags(tags), nullable(notedAt), hash)
 		if err != nil {
 			return err
 		}
@@ -376,15 +391,16 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// must too, or the second copy's locators, note, colour and tags are lost
 		// silently before anyone can see them.
 		return enrichStagedQuote(tx, workID, hash, quote, note, color, favorite,
-			chapter, location, character, actor, timestamp, tags, notedAt)
+			chapter, location, character, actor, timestamp, season, episode, tags, notedAt)
 	}
 	for _, a := range anns {
-		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.Location, "", "", "", a.Tags, a.NotedAt); err != nil {
+		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.Location, "", "", "", nil, nil, a.Tags, a.NotedAt); err != nil {
 			return 0, err
 		}
 	}
 	for _, d := range dialogues {
-		if err := add(d.Quote, d.Note, d.Color, d.Favorite, "", "", d.Character, d.Actor, d.Timestamp, d.Tags, d.NotedAt); err != nil {
+		if err := add(d.Quote, d.Note, d.Color, d.Favorite, "", "", d.Character, d.Actor, d.Timestamp,
+			d.Season, d.Episode, d.Tags, d.NotedAt); err != nil {
 			return 0, err
 		}
 	}
@@ -398,7 +414,8 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 // whose edits survive. The _orig snapshots follow their live column, so a locator
 // that arrives only on the second copy is still resettable.
 func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string, favorite bool,
-	chapter, location, character, actor, timestamp string, tags []string, notedAt string) error {
+	chapter, location, character, actor, timestamp string, season, episode *int,
+	tags []string, notedAt string) error {
 
 	var id int64
 	var storedTags string
@@ -421,6 +438,8 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		  actor          = COALESCE(actor, ?),
 		  timestamp      = COALESCE(timestamp, ?),
 		  timestamp_orig = COALESCE(timestamp_orig, ?),
+		  season         = COALESCE(season, ?),
+		  episode        = COALESCE(episode, ?),
 		  color          = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 		  favorite       = MAX(favorite, ?)
 		 WHERE id = ?`,
@@ -428,6 +447,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		nullable(location), nullable(location),
 		nullable(character), nullable(actor),
 		nullable(timestamp), nullable(timestamp),
+		season, episode,
 		color, color, favorite, id); err != nil {
 		return err
 	}
@@ -507,6 +527,8 @@ type stagedQuoteRow struct {
 	Actor         string   `json:"actor"`
 	Timestamp     string   `json:"timestamp"`
 	TimestampOrig string   `json:"timestamp_orig"`
+	Season        *int     `json:"season"`  // shows only; null = the file didn't say
+	Episode       *int     `json:"episode"` // (season 0 is a real season — see 0025)
 	Tags          []string `json:"tags"`
 	NotedAt       string   `json:"noted_at"`
 	CreatedAt     string   `json:"created_at"`
@@ -777,7 +799,8 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	q := `SELECT q.id, q.staged_work_id, w.batch_id, COALESCE(q.quote, ''), COALESCE(q.note, ''),
 	             q.color, q.favorite, COALESCE(q.chapter, ''), COALESCE(q.location, ''),
 	             COALESCE(q.location_orig, ''), COALESCE(q.character, ''), COALESCE(q.actor, ''),
-	             COALESCE(q.timestamp, ''), COALESCE(q.timestamp_orig, ''), COALESCE(q.tags, ''),
+	             COALESCE(q.timestamp, ''), COALESCE(q.timestamp_orig, ''), q.season, q.episode,
+	             COALESCE(q.tags, ''),
 	             COALESCE(q.noted_at, ''), q.created_at` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
 	if !applyPaging(w, r, &q, &args) {
 		return nil, 0, nil
@@ -793,7 +816,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 		var tags string
 		if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.BatchID, &sq.Quote, &sq.Note, &sq.Color,
 			&sq.Favorite, &sq.Chapter, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
-			&sq.Timestamp, &sq.TimestampOrig, &tags, &sq.NotedAt, &sq.CreatedAt); err != nil {
+			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
 			continue
 		}
@@ -987,6 +1010,10 @@ type stagedWorkForApproval struct {
 	IMDbID      string
 	Director    string
 	Genres      []string
+	Status      string // shelf state as parsed; validated per side at approval
+	Progress    int
+	Pos         position
+	Reads       []importer.Read
 	TargetKind  string
 	TargetID    int64
 	Source      string
@@ -996,6 +1023,8 @@ func (w stagedWorkForApproval) book() importer.Book {
 	return importer.Book{
 		Title: w.Title, Author: w.Author, ISBN: w.ISBN, ASIN: w.ASIN,
 		Series: w.Series, SeriesIndex: w.SeriesIndex,
+		Status: w.Status, Progress: w.Progress, Reads: w.Reads,
+		Pos: w.Pos.Pos, PosTotal: w.Pos.PosTotal,
 	}
 }
 
@@ -1004,6 +1033,9 @@ func (w stagedWorkForApproval) header() importer.MovieHeader {
 		Title: w.Title, Year: w.ReleaseYear, IMDbID: w.IMDbID,
 		MediaType: importMediaType(w.Kind), Director: w.Director, Genres: w.Genres,
 		Series: w.Series, SeriesIndex: w.SeriesIndex,
+		Status: w.Status, Progress: w.Progress, Reads: w.Reads,
+		Pos: w.Pos.Pos, PosTotal: w.Pos.PosTotal,
+		Season: w.Pos.Season, SeasonTotal: w.Pos.SeasonTotal,
 	}
 }
 
@@ -1023,7 +1055,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			SELECT w.id, w.kind, w.title, COALESCE(w.author, ''), COALESCE(w.isbn, ''),
 			       COALESCE(w.asin, ''), COALESCE(w.series, ''), COALESCE(w.series_index, 0),
 			       COALESCE(w.release_year, 0), COALESCE(w.imdb_id, ''), COALESCE(w.director, ''),
-			       COALESCE(w.genres, ''), COALESCE(w.target_kind, ''), COALESCE(w.target_id, 0), b.source
+			       COALESCE(w.genres, ''), w.status, w.progress, w.pos_json, w.reads_json,
+			       COALESCE(w.target_kind, ''), COALESCE(w.target_id, 0), b.source
 			  FROM staged_works w
 			  JOIN import_batches b ON b.id = w.batch_id
 			 WHERE w.id IN (`+inClause(len(batch))+`)
@@ -1034,10 +1067,11 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 		defer rows.Close()
 		for rows.Next() {
 			var wk stagedWorkForApproval
-			var genres string
+			var genres, posJSON, readsJSON string
 			if err := rows.Scan(&wk.ID, &wk.Kind, &wk.Title, &wk.Author, &wk.ISBN, &wk.ASIN,
 				&wk.Series, &wk.SeriesIndex, &wk.ReleaseYear, &wk.IMDbID, &wk.Director,
-				&genres, &wk.TargetKind, &wk.TargetID, &wk.Source); err != nil {
+				&genres, &wk.Status, &wk.Progress, &posJSON, &readsJSON,
+				&wk.TargetKind, &wk.TargetID, &wk.Source); err != nil {
 				return err
 			}
 			if seen[wk.ID] { // chunk boundaries must not approve a work twice
@@ -1045,6 +1079,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			}
 			seen[wk.ID] = true
 			wk.Genres = splitStoredList(genres)
+			wk.Pos = decodePos(posJSON)
+			wk.Reads = decodeReads(readsJSON)
 			works = append(works, wk)
 		}
 		return rows.Err()
@@ -1058,7 +1094,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 		rows, err := tx.Query(`
 			SELECT q.id, q.staged_work_id, COALESCE(q.quote, ''), COALESCE(q.note, ''), q.color, q.favorite,
 			       COALESCE(q.chapter, ''), COALESCE(q.location, ''), COALESCE(q.character, ''),
-			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), COALESCE(q.tags, ''),
+			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode, COALESCE(q.tags, ''),
 			       COALESCE(q.noted_at, '')
 			  FROM staged_quotes q
 			 WHERE q.id IN (`+inClause(len(batch))+`)
@@ -1071,7 +1107,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var sq stagedQuoteRow
 			var tags string
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
-				&sq.Chapter, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp, &tags, &sq.NotedAt); err != nil {
+				&sq.Chapter, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
+				&sq.Season, &sq.Episode, &tags, &sq.NotedAt); err != nil {
 				return err
 			}
 			sq.Tags = splitStoredList(tags)
@@ -1141,7 +1178,8 @@ func stagedAsDialogues(quotes []stagedQuoteRow) []importer.Dialogue {
 	for _, q := range quotes {
 		out = append(out, importer.Dialogue{
 			Quote: q.Quote, Note: q.Note, Character: q.Character, Actor: q.Actor,
-			Timestamp: q.Timestamp, Color: q.Color, Tags: q.Tags, Favorite: q.Favorite,
+			Timestamp: q.Timestamp, Season: q.Season, Episode: q.Episode,
+			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite,
 			NotedAt: q.NotedAt,
 		})
 	}

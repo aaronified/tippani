@@ -144,6 +144,7 @@ export function movieShare({
   character,
   actor,
   timestamp,
+  episode,
   tags,
   color,
   tmdbId,
@@ -172,6 +173,9 @@ export function movieShare({
         emphasis: "bold",
         prefix: "played by ",
       },
+      // A show's line says which episode; a film passes nothing and the part is
+      // absent from the dialog altogether (fieldsOf skips empty values).
+      { id: "episode", label: "Episode", value: episode || "" },
       { id: "timestamp", label: "Time", value: timestamp || "" },
     ],
     tags: tags || [],

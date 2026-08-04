@@ -30,7 +30,7 @@ func TestMarkdownFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := Book{Title: "The Book Title", Author: "Author Name", ISBN: "9780000000000"}
-	if res.Book != want {
+	if !reflect.DeepEqual(res.Book, want) {
 		t.Fatalf("book = %+v", res.Book)
 	}
 	if len(res.Annotations) != 1 {
@@ -185,7 +185,7 @@ func TestMarkdownReadestSynth(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := Book{Title: "The Synthetic Compendium", Author: "Ada Example"}
-	if res.Book != want {
+	if !reflect.DeepEqual(res.Book, want) {
 		t.Fatalf("book = %+v", res.Book)
 	}
 	if len(res.Annotations) != 3 {

@@ -130,7 +130,13 @@ func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMov
 		return importMovieResult{}, err
 	}
 	id, err := res.LastInsertId()
-	return importMovieResult{ID: id, Created: true}, err
+	if err != nil {
+		return importMovieResult{}, err
+	}
+	if err := applyImportedShelf(tx, "movie", mediaType, uid, id, movieShelf(m)); err != nil {
+		return importMovieResult{}, err
+	}
+	return importMovieResult{ID: id, Created: true}, nil
 }
 
 // anchorScore ranks a same-title candidate for imported dialogues: an exact
@@ -170,6 +176,17 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader)
 			return err
 		}
 	}
+	// Shelf state, fill-empty-only like the rest: re-importing an older export
+	// must not un-mark something you are part-way through, nor duplicate a watch
+	// history the row already has. The row's OWN media type decides whether an
+	// episode position is meaningful — the file may disagree with what is stored.
+	var mediaType string
+	if err := tx.QueryRow(`SELECT media_type FROM movies WHERE id = ?`, movieID).Scan(&mediaType); err != nil {
+		return err
+	}
+	if err := applyImportedShelf(tx, "movie", mediaType, uid, movieID, movieShelf(m)); err != nil {
+		return err
+	}
 	if len(m.Genres) > 0 { // only when the row has no genres (don't clobber a curated set)
 		var hasGenres bool
 		if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM movie_genres WHERE movie_id = ?)`, movieID).Scan(&hasGenres); err != nil {
@@ -191,13 +208,25 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader)
 // they retarget a misdetected file, and the dedupe, fill-empty enrichment and
 // tag-union rules stay one implementation.
 func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Dialogue) (int, int, error) {
-	// The actor autofill reads the title's stored TMDB cast, so fetch it once.
-	var castJSON string
-	_ = tx.QueryRow(`SELECT COALESCE(cast_json, '') FROM movies WHERE id = ?`, movieID).Scan(&castJSON)
+	// The actor autofill reads the title's stored TMDB cast, so fetch it once —
+	// along with the media type, since only a show's lines may carry an episode.
+	var castJSON, mediaType string
+	_ = tx.QueryRow(`SELECT COALESCE(cast_json, ''), COALESCE(media_type, 'movie') FROM movies WHERE id = ?`,
+		movieID).Scan(&castJSON, &mediaType)
+	show := mediaType == "show"
 
 	added, enriched := 0, 0
 	for _, d := range dialogues {
 		actor := autofillActor(castJSON, d.Character, d.Actor)
+		// A film has one runtime and no episodes. Retargeting a show's file onto a
+		// film is a legitimate repair, so the locator is dropped rather than
+		// treated as an error — the same forgiveness the colour default gets. An
+		// episode with no season is dropped for the same reason it is rejected at
+		// the API: it cannot be ordered against a numbered season.
+		season, episode := d.Season, d.Episode
+		if !show || season == nil {
+			season, episode = nil, nil
+		}
 		// Same rule as the book importer: IMDb quote pages carry no colour, so
 		// an unset one lands on the yellow default (PLAN §3).
 		color := d.Color
@@ -219,10 +248,10 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (movie_id, quote, note, color, character, actor, timestamp, favorite, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			movieID, quote, nullable(note), color, nullable(d.Character), nullable(actor),
-			nullable(d.Timestamp), d.Favorite, store.DedupeHash(quote), nullable(d.NotedAt))
+			nullable(d.Timestamp), season, episode, d.Favorite, store.DedupeHash(quote), nullable(d.NotedAt))
 		if err != nil {
 			return 0, 0, err
 		}
@@ -233,6 +262,8 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				  character = COALESCE(character, ?),
 				  actor     = COALESCE(actor, ?),
 				  timestamp = COALESCE(timestamp, ?),
+				  season    = COALESCE(season, ?),
+				  episode   = COALESCE(episode, ?),
 				  noted_at  = COALESCE(noted_at, ?),
 				  color     = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite  = MAX(favorite, ?),
@@ -242,13 +273,17 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				       OR (character IS NULL AND ? IS NOT NULL)
 				       OR (actor IS NULL AND ? IS NOT NULL)
 				       OR (timestamp IS NULL AND ? IS NOT NULL)
+				       OR (season IS NULL AND ? IS NOT NULL)
+				       OR (episode IS NULL AND ? IS NOT NULL)
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
-				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), nullable(d.NotedAt),
+				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
+				season, episode, nullable(d.NotedAt),
 				color, color, d.Favorite,
 				movieID, store.DedupeHash(quote),
-				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp), nullable(d.NotedAt),
+				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
+				season, episode, nullable(d.NotedAt),
 				color, d.Favorite)
 			if err != nil {
 				return 0, 0, err

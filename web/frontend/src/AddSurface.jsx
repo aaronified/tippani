@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
-import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm } from './Movies.jsx'
+import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
 import ImportPage from './ImportPage.jsx'
 import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Toggle, toast, useIsMobileScreen } from './ui.jsx'
 
@@ -27,7 +27,9 @@ export function workFromBook(b) {
   return { kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' }
 }
 export function workFromMovie(m) {
-  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', tag: m.media_type === 'show' ? 'SHOW' : 'FILM' }
+  // media_type rides along beside the display tag: capture needs the fact (a show
+  // gains season/episode fields), not the label.
+  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', media_type: m.media_type === 'show' ? 'show' : 'movie', tag: m.media_type === 'show' ? 'SHOW' : 'FILM' }
 }
 
 // AddLookup — the canonical "look up / add a Book, Film or Show" card: a kind
@@ -483,7 +485,7 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
   const [busy, setBusy] = useState(false)
   // No default target — a search-first picker with a silently pre-filled
   // work invites mis-filed quotes; picking is one keystroke away.
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', tags: '', color: 'yellow' })
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: '', color: 'yellow' })
 
   useEffect(() => {
     Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
@@ -495,13 +497,7 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
       }
       if (rm.ok && rm.data) {
         for (const m of rm.data.movies || []) {
-          list.push({
-            kind: 'screen',
-            id: m.id,
-            title: m.title,
-            sub: m.release_year ? String(m.release_year) : '',
-            tag: m.media_type === 'show' ? 'SHOW' : 'FILM',
-          })
+          list.push(workFromMovie(m))
         }
       }
       setWorks(list)
@@ -510,6 +506,8 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
   const isScreen = draft.target?.kind === 'screen'
+  // Only a series has episodes to locate a line in; a film has just its runtime.
+  const isShow = isScreen && draft.target?.media_type === 'show'
 
   // targetCreated adopts a freshly-added work (from the look-up card) as the
   // capture target and slots it into the picker list. The shell's stat tiles
@@ -525,6 +523,9 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
     const t = draft.target
     if (!t) return setErr('pick a book, film or show — or add one')
     if (isScreen && !draft.quote.trim()) return setErr('a dialogue needs the quote itself')
+    if (isShow && countOrNull(draft.episode) != null && countOrNull(draft.season) == null) {
+      return setErr('an episode needs the season it is in')
+    }
     if (!isScreen && !draft.quote.trim() && !draft.note.trim()) return setErr('quote or note is required')
     setBusy(true)
     setErr('')
@@ -540,6 +541,10 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
           note: draft.note.trim(),
           character: draft.character.trim(),
           timestamp: draft.timestamp.trim(),
+          // Blank means "not recorded", and 0 is a real season — so '' has to
+          // become null rather than 0. Films send neither.
+          season: isShow ? countOrNull(draft.season) : null,
+          episode: isShow ? countOrNull(draft.episode) : null,
           color: draft.color,
           tags,
         })
@@ -611,6 +616,7 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
         />
       </label>
       {isScreen ? (
+        <>
         <div className="grid grid-cols-2 gap-3">
           <label className="tp-field">
             <MonoLabel>Character</MonoLabel>
@@ -621,6 +627,19 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
             <input className="tp-input" placeholder="e.g. 01:12:40" value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
           </label>
         </div>
+        {isShow && (
+          <div className="grid grid-cols-2 gap-3">
+            <label className="tp-field">
+              <MonoLabel>Season</MonoLabel>
+              <input className="tp-input" type="number" min="0" max="999" placeholder="e.g. 2" value={draft.season} onChange={(e) => set({ season: e.target.value })} />
+            </label>
+            <label className="tp-field">
+              <MonoLabel>Episode</MonoLabel>
+              <input className="tp-input" type="number" min="0" max="9999" placeholder="e.g. 5" value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
+            </label>
+          </div>
+        )}
+        </>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <label className="tp-field">
