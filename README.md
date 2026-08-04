@@ -35,7 +35,9 @@ metadata lookups are on-demand and optional (nothing external is required to run
 posters are served from your own disk.
 
 The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
-[`CHANGELOG.md`](CHANGELOG.md).
+[`CHANGELOG.md`](CHANGELOG.md). Tippani was **written with AI assistance** and the
+app itself **contains no AI** — no model calls, nothing sent anywhere. Both halves
+of that are spelled out in [`AI.md`](AI.md).
 
 ## Screenshots
 
@@ -411,6 +413,7 @@ web/dist/             built SPA, embedded via go:embed
 deploy/               Caddyfile + systemd examples
 docs/PLAN.md          the design document this repo implements
 docs/ui-glossary.html visual glossary of every UI component
+AI.md                 how this repo was written, and why the app has no AI in it
 .github/workflows/    CI (go test/vet, frontend build), GHCR image publish, Pages demo deploy
 ```
 
@@ -444,4 +447,4 @@ Standing on the shoulders of:
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE). On how the code was written, see [`AI.md`](AI.md).
