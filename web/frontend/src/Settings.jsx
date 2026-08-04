@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
+import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import {
@@ -54,6 +54,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
     <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
     <DevicesCard key="devices" />,
+    <ReferenceCard key="reference" />,
     user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
     user.is_admin && <BackupCard key="backup" />,
   ].filter(Boolean)
@@ -372,6 +373,33 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
 // starts / replays / resumes the tour. The tour runs by itself on a user's
 // first launch; "finish later" parks it here as a Resume button. The sample
 // content is built in — onboarding never asks for the user's files.
+// Where the two hand-written reference pages live. Both are self-contained static
+// HTML under docs/ and are NOT embedded in the binary, so a self-hosted instance
+// cannot serve them from its own origin — it links out to the published copies.
+// The demo can use relative paths, because pages.yml copies both files in beside
+// the built app.
+const DOCS_BASE = DEMO ? '' : 'https://aaronified.github.io/tippani/'
+
+function ReferenceCard() {
+  return (
+    <Card>
+      <SectionTitle>Reference</SectionTitle>
+      <p className="microcopy" style={{ fontSize: 12.5 }}>
+        The two written-down references: every control in the interface, named and
+        explained, and where the app is headed next.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <a className="tp-btn tp-btn-ghost" href={`${DOCS_BASE}ui-glossary.html`} target="_blank" rel="noreferrer">
+          UI glossary →
+        </a>
+        <a className="tp-btn tp-btn-ghost" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
+          Roadmap →
+        </a>
+      </div>
+    </Card>
+  )
+}
+
 function OnboardingCard({ user, onStartTour }) {
   const state = user.preferences?.tour || ''
   const step = user.preferences?.tourStep || 0
@@ -533,7 +561,7 @@ function DevicesCard() {
           ))}
         </ul>
       )}
-      {devices !== null && devices.length === 0 && !pair && (
+      {devices?.length === 0 && !pair && (
         <p className="microcopy mt-3" style={{ fontSize: 12, color: 'var(--soft)' }}>
           No devices paired yet.
         </p>

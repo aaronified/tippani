@@ -633,6 +633,14 @@ function route(method, path, params, body) {
     case path === '/metadata/status': return [200, { tmdb: { source: 'none' }, tvdb: { source: 'none' }, google_books: { key_set: false }, books_lookup: { ok: null, error: '', checked_at: '' } }]
     case path === '/admin/metadata-keys': return [200, { tmdb_key_set: false, tvdb_key_set: false, google_books_key_set: false, amazon_cookie_set: false, amazon_domain: '', tmdb_source: 'none', tvdb_source: 'none' }]
     case path === '/admin/users': return [200, { users: [{ id: 1, username: 'reader', is_admin: true, created_at: '2026-01-05' }] }]
+    // Settings' Devices and Backup cards. Both were falling through to the
+    // catch-all below, which answers 200 {} — so `r.data.devices` came back
+    // undefined and the card threw on it, taking the whole Settings page down
+    // with it. Anything Settings reads has to be answered explicitly here.
+    case path === '/auth/devices':
+      return [200, { devices: [{ id: 1, name: 'Pixel 8', created_at: '2026-07-28', last_seen_at: '2026-08-03' }] }]
+    case path === '/admin/backup':
+      return [200, { backup: { name: 'tippani-2026-08-03.tar.gz', size: 4823910, created_at: '2026-08-03' } }]
     case path === '/search': return [200, search(params.get('q'), params.get('scope'))]
     case path === '/people/names': {
       const kind = params.get('kind')
@@ -654,7 +662,16 @@ function route(method, path, params, body) {
       }
       return [200, { people: list }]
     }
-    default: return [200, {}]
+    // A GET nobody taught the shim about. 200 {} is the least-bad answer — a 404
+    // would light up error states all over a demo that is meant to look calm —
+    // but it is exactly how the Devices card broke: the component read a list
+    // field that wasn't there and threw on it.
+    //
+    // So it stays permissive and gets loud. Any unhandled path here is a real
+    // gap: add a case above with the shape the caller actually reads.
+    default:
+      console.warn(`[demo] unhandled GET ${path} — returning {}. Add a case in demo/install.js; a caller reading a missing array will throw.`)
+      return [200, {}]
   }
 }
 

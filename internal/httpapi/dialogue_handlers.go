@@ -77,6 +77,15 @@ type dialogueReq struct {
 	episodeRef
 }
 
+// hash shadows quoteReq.hash to qualify a show's line by its episode — see
+// store.DialogueDedupeHash for why a series needs that and a book does not.
+// Films and un-episoded lines hash exactly as quoteReq would, so this changes
+// nothing for them. Must be called AFTER episodeRef.normalize, or a film that
+// still carries stale episode numbers would hash as though it were a show.
+func (d *dialogueReq) hash() string {
+	return store.DialogueDedupeHash(d.Quote, d.Season, d.Episode)
+}
+
 func (d *dialogueReq) validate() string {
 	if msg := d.quoteReq.validate(); msg != "" {
 		return msg
@@ -298,7 +307,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
 		req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode, req.Favorite, req.Source,
-		store.DedupeHash(req.Quote), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
+		req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert dialogue", err)
 		return
@@ -314,7 +323,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		var existingID int64
 		switch err := s.Store.DB.QueryRow(
 			`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
-			req.MovieID, store.DedupeHash(req.Quote)).Scan(&existingID); {
+			req.MovieID, req.hash()).Scan(&existingID); {
 		case errors.Is(err, sql.ErrNoRows):
 			writeErr(w, http.StatusConflict, "duplicate dialogue") // concurrently deleted
 			return
@@ -475,7 +484,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Actor = autofillActor(castJSON, req.Character, req.Actor)
-	hash := store.DedupeHash(req.Quote)
+	hash := req.hash()
 	var clash bool
 	if err := s.Store.DB.QueryRow(
 		`SELECT EXISTS(SELECT 1 FROM dialogues WHERE movie_id = ? AND dedupe_hash = ? AND id <> ?)`,

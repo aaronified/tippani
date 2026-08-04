@@ -286,13 +286,29 @@ export function posUnitFor(kind, item = {}) {
   return (item.media_type || 'movie') === 'show' ? 'episode' : ''
 }
 
+// ofTotal renders "current of total" as a zero-padded pair, the way an episode is
+// actually cited: 6 of 10 is "06/10", 2 of 3 is "02/03", 6 of 456 is "006/456",
+// 11 of 123 is "011/123".
+//
+// Two digits is the floor even when the total needs only one, so a short run reads
+// like a long one; past 99 the pair widens together. BOTH sides are padded, so the
+// two halves are always the same width and a column of these cannot rag.
+function ofTotal(current, total) {
+  const width = Math.max(2, String(total).length)
+  return `${String(current).padStart(width, '0')}/${String(total).padStart(width, '0')}`
+}
+
 // positionLabel reads a position back in its own units: "p. 128 of 320",
-// "S2 E4 of 10". '' when a work is tracked as a bare percentage.
+// "E06/10 · S02/03". '' when a work is tracked as a bare percentage.
 export function positionLabel(pos) {
   if (!pos || !pos.pos_unit || !pos.pos_total) return ''
   if (pos.pos_unit === 'episode') {
-    const season = pos.season_total ? `S${pos.season || 1} ` : ''
-    return `${season}E${pos.pos || 0} of ${pos.pos_total}${pos.season_total ? ` · season ${pos.season || 1}/${pos.season_total}` : ''}`
+    // Episode first: it is the finer of the two, and the thing you are actually
+    // on. The season follows as the coarser context, and only when there is a
+    // run to place it in.
+    const episode = `E${ofTotal(pos.pos || 0, pos.pos_total)}`
+    if (!pos.season_total) return episode
+    return `${episode} · S${ofTotal(pos.season || 1, pos.season_total)}`
   }
   return `p. ${pos.pos || 0} of ${pos.pos_total}`
 }
@@ -306,7 +322,11 @@ export function ShelfProgress({ status, progress = 0, pos }) {
     <span style={{ display: 'block', minWidth: 168, maxWidth: 260 }}>
       <StatusBar state={status} progress={progress} radius={3} />
       <span style={{ display: 'block', marginTop: 3, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.06em', color: 'var(--faint)' }}>
-        {label ? `${label} · ${progress}%` : `${progress}%`}
+        {/* The percentage is only worth words when it is the ONLY thing known.
+            Where the work counts in its own units, "E06/10" already says where
+            you are more precisely than "53%" does, and the bar beside it is
+            drawn from that percentage anyway — so printing both just crowds it. */}
+        {label || `${progress}%`}
       </span>
     </span>
   )
@@ -827,6 +847,10 @@ export function WorkListScaffold({
   // Books group into a "series"; films and shows into a "collection" — the same
   // movies.series column, but "series" already means a TV show on that page.
   seriesNoun = 'series',
+  // Carried separately because "series" is its own plural: appending an s gave
+  // the books filter "all seriess". Defaults to the regular English form, so
+  // "collection" still needs no call-site change.
+  seriesNounPlural = seriesNoun === 'series' ? 'series' : `${seriesNoun}s`,
   seriesNames,
   series,
   setSeries,
@@ -898,7 +922,7 @@ export function WorkListScaffold({
       ariaLabel={`Filter by ${seriesNoun}`}
       value={series}
       onChange={setSeries}
-      options={[['', `all ${seriesNoun}s`], ...seriesNames.map((s) => [s, s])]}
+      options={[['', `all ${seriesNounPlural}`], ...seriesNames.map((s) => [s, s])]}
     />
   )
   const sortSelect = <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />

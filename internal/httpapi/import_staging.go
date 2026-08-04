@@ -373,7 +373,11 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		if text == "" {
 			text = note
 		}
-		hash := store.DedupeHash(text)
+		// Episode-qualified, so two occurrences of a recurring line stage as two
+		// rows rather than one. season/episode are nil for every book, and
+		// DialogueDedupeHash is then byte-identical to DedupeHash — so this is a
+		// no-op on the annotation half of the queue.
+		hash := store.DialogueDedupeHash(text, season, episode)
 		res, err := tx.Exec(q, workID, nullable(quote), nullable(note), color, favorite,
 			nullable(chapter), nullable(location), nullable(location),
 			nullable(character), nullable(actor), nullable(timestamp), nullable(timestamp),

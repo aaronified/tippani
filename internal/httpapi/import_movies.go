@@ -251,7 +251,7 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 			  (movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			movieID, quote, nullable(note), color, nullable(d.Character), nullable(actor),
-			nullable(d.Timestamp), season, episode, d.Favorite, store.DedupeHash(quote), nullable(d.NotedAt))
+			nullable(d.Timestamp), season, episode, d.Favorite, store.DialogueDedupeHash(quote, season, episode), nullable(d.NotedAt))
 		if err != nil {
 			return 0, 0, err
 		}
@@ -281,7 +281,7 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
 				season, episode, nullable(d.NotedAt),
 				color, color, d.Favorite,
-				movieID, store.DedupeHash(quote),
+				movieID, store.DialogueDedupeHash(quote, season, episode),
 				nullable(note), nullable(d.Character), nullable(actor), nullable(d.Timestamp),
 				season, episode, nullable(d.NotedAt),
 				color, d.Favorite)
@@ -294,7 +294,7 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 			if len(d.Tags) > 0 {
 				var did int64
 				if err := tx.QueryRow(`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
-					movieID, store.DedupeHash(quote)).Scan(&did); err == nil {
+					movieID, store.DialogueDedupeHash(quote, season, episode)).Scan(&did); err == nil {
 					if err := addTags(tx, "dialogue", uid, did, d.Tags); err != nil {
 						return 0, 0, err
 					}
