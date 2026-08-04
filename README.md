@@ -87,7 +87,25 @@ The full design lives in [`docs/PLAN.md`](docs/PLAN.md); release history is in
 - 🎬 **Movies & dialogues** — capture memorable lines with timestamp, character, and actor; the
   actor auto-fills from the film's cast. Same colours / tags / favourite / views / filters as
   books: a film line and a book highlight are the same kind of thing, and differ only in how they
-  point back at their source.
+  point back at their source. **A show's lines also carry the episode** — a timestamp is the whole
+  answer for a film and no answer at all for a series — so they read as *S2E6* and sort through the
+  run rather than by the clock alone. Season 0 is a real season, so your specials keep their place.
+- 🔖 **Shelves — what you're reading, what you gave up on, what you've never opened.** Every work
+  carries a **status** — *reading* / *watching* · *paused* · *abandoned* · *completed* — drawn as a
+  Radarr-style **colour bar under the cover** (the artwork itself stays unobscured): blue in flight
+  and filled to your progress, amber held, red given up, green done. Whatever you're on with right
+  now pins to the **top of the default sort** and wears an open-book (or ▶) mark. Anything you
+  haven't quoted from yet is automatically on the **Wishlist** — no bookkeeping, it clears itself the
+  moment you add a quote — and the filter row's `all · wishlist · annotated` chips let you browse
+  just those, or hide them and see only what you've actually marked up.
+
+  Progress is yours to keep, in the units the thing is made of: a **percentage**, or the **page
+  you're on out of the book's pages** (for physical books, no arithmetic in your head), or a show's
+  **season and episode**. Finishing a work logs a **read**, so a reread is history rather than an
+  overwrite: a `×3` chip opens the dates you read it, each as precise as you actually know —
+  `2019`, `2021-02`, or a full day, via a calendar that lets you stop at a year. A soft cap
+  (5 books · 2 films · 5 shows) offers to settle something when the shelf gets crowded, and always
+  lets you carry on anyway. All of it round-trips through the Markdown export.
 - 📱 **Phone-first ergonomics** — an installable PWA with a hamburger-drawer nav, a Home screen
   (daily quiz · practice · stats · recent favourites) a logo-tap away, quote capture one ❝ tap away
   in every top bar and the drawer, sticky page bars, full-screen filter sheets with a

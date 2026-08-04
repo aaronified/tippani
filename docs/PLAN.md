@@ -205,10 +205,13 @@ differ in exactly one respect — **how a quote points back at its source**:
 | | locator |
 | :-- | :-- |
 | annotation (book) | `chapter`, `location` |
-| dialogue (film/show) | `character`, `actor`, `timestamp` |
+| dialogue (film/show) | `character`, `actor`, `timestamp`, and for a **show** `season`, `episode` |
 
 A test asserts that boundary directly, listing each kind's own fields, so a field added to one
-side fails the build until it is either moved into the shared shape or justified as a locator.
+side fails the build until it is either moved into the shared shape or justified as a locator. It
+**flattens embedded structs** rather than skipping them (all but `quoteRow` itself): `episodeRef`
+arrived as an embed and would otherwise have carried two new fields onto one kind unseen, which is
+the exact failure the test exists to prevent.
 The one remaining asymmetry is deliberate: an annotation may be **note-only** (a thought about a
 page), a dialogue may not — a thought about a film belongs on the film.
 
@@ -252,6 +255,8 @@ CREATE TABLE dialogues (
   actor TEXT,                            -- who plays them (auto-filled from cast_json on match)
   timestamp TEXT,                        -- free text, like annotations.location; use HH:MM:SS
                                          --   for clean lexical ordering (no normalization — KISS)
+  season INTEGER,                        -- SHOWS ONLY (0025): which episode the line is from.
+  episode INTEGER,                       --   NULL = not recorded; 0 is a real season (specials)
   favorite INTEGER NOT NULL DEFAULT 0,   -- star flag, same as annotations
   dedupe_hash TEXT NOT NULL,             -- sha256(lower(collapse_ws(quote))), same fn as annotations
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -277,8 +282,25 @@ Rules:
   written; the two quote kinds now differ **only** in locator (chapter/location vs
   character/actor/timestamp), and a parity test fails the build if a field is added to one side
   and not the other.
-- Dialogue lists order by `(timestamp IS NULL), timestamp, id` — lexical, correct when timestamps
-  are consistently formatted; deliberate KISS over parsing/normalizing time formats.
+- Dialogue lists order by season, then episode, then `(timestamp IS NULL), timestamp, id` — NULLs
+  last at each level (`dialogueOrder` in `dialogue_handlers.go`, shared with the export so a file
+  reads in the order the screen shows). The timestamp comparison is lexical, correct when
+  timestamps are consistently formatted; deliberate KISS over parsing/normalizing time formats. A
+  film's season/episode are always NULL, so this collapses to the timestamp order dialogues have
+  always had.
+- **Season + episode are a show's locator, and only a show's** (migration 0025). A film is one
+  runtime, so a timestamp locates a line completely; a series with sixty episodes needs to say
+  which of them "01:12:40" belongs to. Three consequences worth stating:
+  - **NULL is the only "unset"**, unlike 0024's position columns where 0 means it. **Season 0 is a
+    real season** — where TVDB and everything following it put specials and pilots — so 0 and "not
+    recorded" cannot share a value. It also matches the rest of the locator, nullable since 0003.
+  - A season alone is legal (sometimes it is all anyone remembers); an **episode without a season
+    is refused**, because it cannot be ordered against a numbered season.
+  - A **film's line is stored with neither, dropped rather than refused** (`episodeRef.normalize`,
+    and the same in `writeMovieDialogues`). Flipping a show to a film leaves its old lines holding
+    numbers that no longer mean anything; refusing them would make every later edit of those lines
+    fail, from a form that correctly no longer offers the fields. Clearing heals the row on its next
+    save. The rule cannot be a `CHECK`: SQLite cannot reach across to `movies.media_type`.
 
 ---
 
@@ -350,6 +372,8 @@ CREATE TABLE staged_quotes (
   actor          TEXT,                    -- film locator; autofilled from the title's cast at approval
   timestamp      TEXT,                    -- film locator; HH:MM:SS shape preserved by the formula
   timestamp_orig TEXT,
+  season         INTEGER,                 -- show locator (0025); NULL = unset, 0 = specials
+  episode        INTEGER,                 --   no _orig pair: no formula renumbers episodes
   tags           TEXT NOT NULL DEFAULT '',-- comma-joined, NOT join rows (see Rules)
   noted_at       TEXT,                    -- the source's own date, when it carried one
   dedupe_hash    TEXT NOT NULL,           -- store.DedupeHash(quote or note); locators excluded
@@ -378,6 +402,98 @@ Rules:
 - Column order is **append-only** from here: `store.Recover()` copies base tables with
   `INSERT INTO main.t SELECT * FROM old.t`, which needs a freshly-migrated database's physical
   column order to match an upgraded one.
+
+---
+
+## 3f. Shelf status, progress and the read log (migration 0024)
+
+Where a work stands *with you*, as opposed to what it is. Two axes, one stored and one derived:
+
+| axis | source | values |
+| --- | --- | --- |
+| **status** | you set it | `''` · `reading`/`watching` · `paused` · `abandoned` · `completed` |
+| **wishlist** | derived, no column | a work with **zero** annotations/dialogues |
+
+The in-progress word is per side (`books.status = 'reading'`, `movies.status = 'watching'`) for the
+same reason `author`/`director` and `cover_path`/`poster_path` are: each reads correctly in SQL, in
+the JSON, and in an export a human opens. The other three values are shared. No `CHECK` — 0004
+established that SQLite cannot evolve one, so the vocabulary is validated in app code
+(`normalizeStatus`).
+
+**Wishlist gets no column on purpose.** It *is* the annotation count, so deriving it costs nothing
+and it can never drift out of sync with the quotes it counts. Adding the first quote retracts the
+tag by itself. The one subtlety: a status **wins** over the wishlist label on screen (a book you
+started last night has no quotes yet, and "Reading" is the truer thing to say), but the wishlist
+**filter** keys on the count alone — otherwise the `wishlist` and `annotated` chips would disagree
+about the same row.
+
+### Position — pages and episodes, not just percentages
+
+`progress` (0-100) is the canonical number every consumer reads: the bar under a cover, the export,
+any client. It is **derived** whenever a position in the work's own units is set, so the two can
+never disagree:
+
+```sql
+pos_unit  '' = track by percent · 'page' (books) · 'episode' (shows)
+pos       the page / episode you are on
+pos_total pages in the book / episodes in the CURRENT season
+season, season_total   -- shows only; a series is positioned in two dimensions
+```
+
+A film has neither pages nor episodes, so it tracks in percent only. A show spans two dimensions —
+season 2 of 5, episode 6 of 10 → `((2-1) + 6/10) / 5`; whole earlier seasons count in full, which is
+the only reading that moves the bar forward monotonically as you watch. Episodes-per-season is the
+*current* season's own count, because that is what a viewer knows and nothing here stores a
+per-season episode map. A count with no total is **rejected**, not stored: it cannot become a
+percentage, and accepting it would leave a bar that never moves.
+
+### The read log
+
+```sql
+CREATE TABLE work_reads (            -- one row per read/watch
+  id, user_id, kind ('book'|'movie'), work_id,
+  started_at  TEXT,                  -- PARTIAL date: 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'
+  finished_at TEXT,                  -- '' while open
+  outcome     TEXT                   -- open | finished | abandoned
+);
+```
+
+Dates are partial **by design**: "I read it in 2019" is a real answer, and padding it to `2019-01-01`
+would invent a precision nobody has. Stored as text and compared as text — the three shapes sort
+correctly against each other, the same trick `noted_at` (0008) relies on.
+
+`outcome` rather than a bare `finished_at` is what keeps the counter honest: an abandoned attempt has
+a stop date but was never finished, and only `finished` rows count towards "read 3 times".
+`kind`+`work_id` is a polymorphic pointer, so no FK is possible — two `AFTER DELETE` triggers stand
+in for the cross-table `ON DELETE CASCADE`.
+
+### Transitions
+
+`PUT /books|movies/{id}/status` is the **only** path that changes status, progress, position or the
+log, and it moves them together in one transaction. Deliberately *not* part of the full-state
+`PUT /{id}`: an ordinary Edit-form save must never be able to rewrite reading history.
+
+| → | read log | progress |
+| --- | --- | --- |
+| `reading`/`watching` | opens a read; **resuming a pause continues the open one** | carries over, except a reread from `completed` starts at 0 |
+| `paused` | left open | frozen |
+| `abandoned` | closes it as `abandoned` (stop date) | 0 |
+| `completed` | closes it as `finished`; with none open, writes a closed one (a book read before Tippani) | 100, position → the last page / last season |
+| `''` | drops an **open** read (nothing was tracked); closed ones stay | 0 |
+
+One rule is enforced: `completed` is settled, and the only lifecycle move out of it is starting
+again. Clearing to `''` stays open from everywhere — it is the undo for a mis-tap, and without it a
+wrong click would be permanent.
+
+**The shelf cap is a client-side nudge, never enforced here** (5 books · 2 films · 5 shows, counting
+only the in-progress state). The board offers to settle something instead, and you can always wave
+it through; a second device must not be told "no" for a rule the user can override anyway.
+
+Export/import round-trips the lot — `status`, `progress: 40%`, `page: 96/214`, `season: 2/3`,
+`episode: 6/10`, and `reads: 2019-03-04 — 2019-04-01; 2021 — 2021-02 (abandoned); 2026-07 —`. On the
+way back in it is fill-empty-only like every other backfill (§5f): a hand-set status wins, and the
+log is adopted only when the work has none, so re-importing an old export cannot un-mark what you
+are reading now or duplicate a history that is already there.
 
 ---
 
@@ -631,7 +747,13 @@ Format: YAML frontmatter (Obsidian Properties) with the item's metadata (title, 
 isbn/year, genres); body = the §5b format **(a)** shape — `##` chapter headings (books), one
 blockquote per quote (multi-line quotes get `> ` per line), then `- key: value` lines for
 **non-default metadata only**: note, color (≠ yellow), tags, loc / timestamp, character, actor,
-favorite (true). Books order by insertion (id), dialogues by timestamp — reading order.
+season / episode (a show's lines only), favorite (true). Books order by insertion (id), dialogues by
+season → episode → timestamp — reading order.
+
+A show's `- season:` / `- episode:` are written as plain numbers, one per key, and `- season: 0` is
+written like any other value — it is a real season, so omitting it would re-import as "no season
+recorded". Read back, **either** key also accepts the combined form people type by hand (`S2E5`,
+`s02e05`, `2x05`) and fills both from it; `- ep:` is an accepted alias.
 
 Property: **both** exports round-trip — re-importing one is a dedupe no-op. A book export is valid
 §5b(a) input; a catalogue export is read by the movie-markdown importer, which arrived after this
