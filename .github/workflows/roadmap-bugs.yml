@@ -48,6 +48,45 @@ jobs:
         with:
           node-version: "22"
 
+      # An issue form's `labels:` is applied with the AUTHOR's permissions, and applying
+      # a label needs Triage. So the one case this whole pipeline exists for — someone
+      # outside the repo reporting a bug — is the one case where `labels: ["bug"]` does
+      # nothing at all, and the report would never reach the page. Recover the label from
+      # the form's own field headings, which are the most reliable evidence of which
+      # template was used (the title prefix is only a prefill and can be edited away).
+      #
+      # This lives here, as a step, rather than in a workflow of its own: an action
+      # authenticated with GITHUB_TOKEN does not trigger further workflow runs, so a
+      # separate labelling workflow would apply `bug` and never wake this one. Labelling
+      # first, in the same job, means the tracker read below already sees it.
+      #
+      # Only ever ADDS. A label a maintainer removed on purpose stays removed.
+      - name: Recover the label the form could not apply
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUMBER: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          BODY: ${{ github.event.issue.body }}
+          LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          case ",$LABELS," in
+            *,bug,*|*,enhancement,*) echo "already classified: $LABELS"; exit 0 ;;
+          esac
+          want=""
+          if   printf '%s' "$BODY" | grep -qF '### Steps to reproduce'; then want=bug
+          elif printf '%s' "$BODY" | grep -qF '### What do you want to be able to do'; then want=enhancement
+          elif printf '%s' "$TITLE" | grep -qiE '^\[bug\]'; then want=bug
+          elif printf '%s' "$TITLE" | grep -qiE '^\[(feature|request)\]'; then want=enhancement
+          fi
+          if [ -z "$want" ]; then
+            echo "not from either form and no prefix — leaving it unlabelled for manual triage"
+            exit 0
+          fi
+          echo "applying '$want' to #$NUMBER"
+          gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "$want"
+
       - name: Read the tracker
         run: node scripts/roadmap-tracker.mjs
         env:

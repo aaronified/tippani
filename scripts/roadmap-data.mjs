@@ -184,7 +184,9 @@ function region(html, name, lines) {
 const railLinks = (items, indent) =>
   items.map(({ id, label }) => `${indent}<li><a href="#${esc(id)}">${esc(typo(label))}</a></li>`)
 
-const railList = (items, { indent = '    ', empty } = {}) =>
+// Six spaces: the rail's marked regions sit inside a <details class="grp">, one level in
+// from where they started.
+const railList = (items, { indent = '      ', empty } = {}) =>
   items.length
     ? [`${indent}<ul class="sub">`, ...railLinks(items, `${indent}  `), `${indent}</ul>`]
     : [`${indent}<ul class="sub">`, `${indent}  <li><a href="#${empty.id}">${esc(empty.label)}</a></li>`, `${indent}</ul>`]
@@ -369,7 +371,7 @@ html = region(
 )
 html = region(html, 'RAIL_FEATURES', railList(a.rail, { empty: { id: 'requests', label: 'Nothing accepted yet' } }))
 html = region(html, 'CONSIDERED', c.items)
-html = region(html, 'RAIL_CONSIDERED', railLinks(c.rail, '      '))
+html = region(html, 'RAIL_CONSIDERED', railLinks(c.rail, '        '))
 
 const secs = sectionIssues(html, readJSONIfAny('docs/data/issue-map.json'))
 html = secs.html

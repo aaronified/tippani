@@ -36,6 +36,51 @@
     "",
     "Render with `node scripts/roadmap-data.mjs`."
   ],
-  "accepted": [],
+  "accepted": [
+    {
+      "id": "req-audio-review",
+      "title": "Audio review, in the browser only",
+      "railLabel": "Audio review",
+      "issue": 12,
+      "credit": null,
+      "near": "§2 The review loop",
+      "html": [
+        "<p>",
+        "  Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It",
+        "  costs the server nothing, needs no key, and works offline once §8's service worker",
+        "  exists — which is the entire reason this can be accepted while server-side speech",
+        "  stays refused. Those are not the same feature wearing different clothes: one is a",
+        "  model and an audio pipeline on a box that cannot spare either, and the other is an",
+        "  API the browser already ships.",
+        "</p>",
+        "<p>",
+        "  Accepted rather than parked because the line it sat next to turned out to be drawn",
+        "  in the right place already — see",
+        "  <a href=\"#aside-ocr\">OCR, and speech, on the server</a>. Scope: a play control on a",
+        "  review card and nothing else. No stored audio, no transcription, no server route.",
+        "</p>"
+      ]
+    },
+    {
+      "id": "req-author-portraits",
+      "title": "Richer author portraits",
+      "railLabel": "Author portraits",
+      "issue": 7,
+      "credit": null,
+      "near": "§25 Choose your metadata sources",
+      "html": [
+        "<p>",
+        "  Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even",
+        "  when the Open Library record is sparse. The disambiguation already picks the right",
+        "  person; this only widens coverage, which is why it is small enough to say yes to.",
+        "</p>",
+        "<p>",
+        "  It should land after <a href=\"#s25\">§25</a>, not before: once sources are mine to",
+        "  pick, looking a person up should query Wikidata and not waste a call on TMDB.",
+        "  Doing it in the other order would bake in the fan-out §25 exists to end.",
+        "</p>"
+      ]
+    }
+  ],
   "considered": []
 }

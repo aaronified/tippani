@@ -309,6 +309,9 @@
     <details class="grp" open>
       <summary>Known bugs</summary>
       <!-- ROADMAP:RAIL_BUGS:START -->
+    <ul class="sub">
+      <li><a href="#bug-legacy-exports">Legacy catalogue exports</a></li>
+    </ul>
       <!-- ROADMAP:RAIL_BUGS:END -->
     </details>
 
@@ -346,6 +349,10 @@
     <details class="grp" open>
       <summary>From your requests</summary>
       <!-- ROADMAP:RAIL_FEATURES:START -->
+    <ul class="sub">
+      <li><a href="#req-audio-review">Audio review</a></li>
+      <li><a href="#req-author-portraits">Author portraits</a></li>
+    </ul>
       <!-- ROADMAP:RAIL_FEATURES:END -->
     </details>
 
@@ -357,12 +364,10 @@
         <li><a href="#later-anki">Anki export / import</a></li>
         <li><a href="#later-backlinks">Backlinks &amp; notes</a></li>
         <li><a href="#later-shared">Shared libraries</a></li>
-        <li><a href="#later-portraits">Author portraits</a></li>
         <li><a href="#later-email">Email digest</a></li>
         <li><a href="#later-semantic">Semantic search</a></li>
         <li><a href="#later-export">Summary export</a></li>
         <li><a href="#later-rating">Reviving a rating</a></li>
-        <li><a href="#later-audio">Audio review</a></li>
         <li><a href="#later-voice">Voice notes</a></li>
         <!-- ROADMAP:RAIL_CONSIDERED:START -->
         <!-- ROADMAP:RAIL_CONSIDERED:END -->
@@ -449,6 +454,7 @@
 <!-- ROADMAP:BUGS:START -->
 <div class="card bug" id="bug-legacy-exports">
   <h3>Legacy catalogue exports can still re-import as books</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/14">#14</a></p>
   <p>
     1.1.1 made the catalogue export always write <code>type: movie</code> /
     <code>type: show</code>, which is what routes a file back to the right importer.
@@ -472,7 +478,7 @@
 </p>
 
 <details class="sec" id="s1">
-  <summary><h3><span class="n">§1</span>Quick wins</h3><span class="sec-issue" data-for="s1"></span></summary>
+  <summary><h3><span class="n">§1</span>Quick wins</h3><a class="sec-issue" data-for="s1" href="https://github.com/aaronified/tippani/issues/15" title="Track s1 on the issue tracker">#15</a></summary>
   <div class="sec-body">
   <p>
     Things that are an afternoon each and pay for themselves immediately. I have
@@ -532,7 +538,7 @@
 </details>
 
 <details class="sec" id="s2">
-  <summary><h3><span class="n">§2</span>The review loop, deepened</h3><span class="sec-issue" data-for="s2"></span></summary>
+  <summary><h3><span class="n">§2</span>The review loop, deepened</h3><a class="sec-issue" data-for="s2" href="https://github.com/aaronified/tippani/issues/16" title="Track s2 on the issue tracker">#16</a></summary>
   <div class="sec-body">
   <p>
     The review loop is the part of Tippani with no real equivalent elsewhere — the
@@ -574,7 +580,7 @@
 </details>
 
 <details class="sec" id="s3">
-  <summary><h3><span class="n">§3</span>Account, continued — sign-in, trash, tokens</h3><span class="sec-issue" data-for="s3"></span></summary>
+  <summary><h3><span class="n">§3</span>Account, continued — sign-in, trash, tokens</h3><a class="sec-issue" data-for="s3" href="https://github.com/aaronified/tippani/issues/17" title="Track s3 on the issue tracker">#17</a></summary>
   <div class="sec-body">
   <p>
     The consolidated Profile (photo · display name · password) and admin role
@@ -594,7 +600,7 @@
 </details>
 
 <details class="sec" id="s4">
-  <summary><h3><span class="n">§4</span>Anthologies — ordered, curated collections of quotes</h3><span class="sec-issue" data-for="s4"></span></summary>
+  <summary><h3><span class="n">§4</span>Anthologies — ordered, curated collections of quotes</h3><a class="sec-issue" data-for="s4" href="https://github.com/aaronified/tippani/issues/18" title="Track s4 on the issue tracker">#18</a></summary>
   <div class="sec-body">
   <p>
     A named, ordered list of quotes drawn from anywhere in the library, carrying prose
@@ -621,7 +627,7 @@
 </details>
 
 <details class="sec" id="s5">
-  <summary><h3><span class="n">§5</span>Capture from anywhere (share-target + bookmarklet)</h3><span class="sec-issue" data-for="s5"></span></summary>
+  <summary><h3><span class="n">§5</span>Capture from anywhere (share-target + bookmarklet)</h3><a class="sec-issue" data-for="s5" href="https://github.com/aaronified/tippani/issues/19" title="Track s5 on the issue tracker">#19</a></summary>
   <div class="sec-body">
   <p>Low-cost ways to get text in without a file:</p>
   <ul>
@@ -633,7 +639,7 @@
 </details>
 
 <details class="sec" id="s6">
-  <summary><h3><span class="n">§6</span>Search precision</h3><span class="sec-issue" data-for="s6"></span></summary>
+  <summary><h3><span class="n">§6</span>Search precision</h3><a class="sec-issue" data-for="s6" href="https://github.com/aaronified/tippani/issues/20" title="Track s6 on the issue tracker">#20</a></summary>
   <div class="sec-body">
   <p>
     Search is already good at finding things when you half-remember them: prefix
@@ -655,7 +661,7 @@
 </details>
 
 <details class="sec" id="s7">
-  <summary><h3><span class="n">§7</span>More import sources</h3><span class="sec-issue" data-for="s7"></span></summary>
+  <summary><h3><span class="n">§7</span>More import sources</h3><a class="sec-issue" data-for="s7" href="https://github.com/aaronified/tippani/issues/21" title="Track s7 on the issue tracker">#21</a></summary>
   <div class="sec-body">
   <p>
     Kobo (<code>KoboReader.sqlite</code>), Apple Books, a <strong>Readwise</strong>
@@ -676,7 +682,7 @@
 </details>
 
 <details class="sec" id="s8">
-  <summary><h3><span class="n">§8</span>Mobile &amp; PWA — offline first, then gestures</h3><span class="sec-issue" data-for="s8"></span></summary>
+  <summary><h3><span class="n">§8</span>Mobile &amp; PWA — offline first, then gestures</h3><a class="sec-issue" data-for="s8" href="https://github.com/aaronified/tippani/issues/22" title="Track s8 on the issue tracker">#22</a></summary>
   <div class="sec-body">
   <p>
     Tippani installs as a PWA and then behaves like a browser tab with a nicer frame,
@@ -745,7 +751,7 @@
 </details>
 
 <details class="sec" id="s9">
-  <summary><h3><span class="n">§9</span>Help &amp; density — one registry, four consumers</h3><span class="sec-issue" data-for="s9"></span></summary>
+  <summary><h3><span class="n">§9</span>Help &amp; density — one registry, four consumers</h3><a class="sec-issue" data-for="s9" href="https://github.com/aaronified/tippani/issues/23" title="Track s9 on the issue tracker">#23</a></summary>
   <div class="sec-body">
   <p>
     Two problems that are really one. The app explains itself in standing prose —
@@ -796,7 +802,7 @@
 </details>
 
 <details class="sec" id="s10">
-  <summary><h3><span class="n">§10</span>Interop — feeds, formats, a CLI</h3><span class="sec-issue" data-for="s10"></span></summary>
+  <summary><h3><span class="n">§10</span>Interop — feeds, formats, a CLI</h3><a class="sec-issue" data-for="s10" href="https://github.com/aaronified/tippani/issues/24" title="Track s10 on the issue tracker">#24</a></summary>
   <div class="sec-body">
   <p>
     The way a self-hosted app wins "works with everything" is not by writing thirty
@@ -831,7 +837,7 @@
 </details>
 
 <details class="sec" id="s11">
-  <summary><h3><span class="n">§11</span>Homepage dashboard widget</h3><span class="sec-issue" data-for="s11"></span></summary>
+  <summary><h3><span class="n">§11</span>Homepage dashboard widget</h3><a class="sec-issue" data-for="s11" href="https://github.com/aaronified/tippani/issues/25" title="Track s11 on the issue tracker">#25</a></summary>
   <div class="sec-body">
   <p>
     A widget for <a href="https://gethomepage.dev">Homepage</a> (and similar
@@ -851,7 +857,7 @@
 </details>
 
 <details class="sec" id="s12">
-  <summary><h3><span class="n">§12</span>Collections &amp; tag shelves</h3><span class="sec-issue" data-for="s12"></span></summary>
+  <summary><h3><span class="n">§12</span>Collections &amp; tag shelves</h3><a class="sec-issue" data-for="s12" href="https://github.com/aaronified/tippani/issues/26" title="Track s12 on the issue tracker">#26</a></summary>
   <div class="sec-body">
   <p>
     Extend tagging <strong>to books</strong> (tags live only on annotations today), then
@@ -876,7 +882,7 @@
 </details>
 
 <details class="sec" id="s13">
-  <summary><h3><span class="n">§13</span>Serendipity &amp; looking back</h3><span class="sec-issue" data-for="s13"></span></summary>
+  <summary><h3><span class="n">§13</span>Serendipity &amp; looking back</h3><a class="sec-issue" data-for="s13" href="https://github.com/aaronified/tippani/issues/27" title="Track s13 on the issue tracker">#27</a></summary>
   <div class="sec-body">
   <ul>
     <li><strong>Ambient mode</strong> — full screen, one quote at a time, slowly cycling, in whichever skin is current. The paper and film aesthetics are the nicest thing about the app and are currently only ever seen at card size. This is also the version that earns its keep on a display wired to the NAS.</li>
@@ -887,7 +893,7 @@
 </details>
 
 <details class="sec" id="s14">
-  <summary><h3><span class="n">§14</span>Data hygiene &amp; bulk editing</h3><span class="sec-issue" data-for="s14"></span></summary>
+  <summary><h3><span class="n">§14</span>Data hygiene &amp; bulk editing</h3><a class="sec-issue" data-for="s14" href="https://github.com/aaronified/tippani/issues/28" title="Track s14 on the issue tracker">#28</a></summary>
   <div class="sec-body">
   <p>The tools you need after an import rather than during one.</p>
   <ul>
@@ -901,7 +907,7 @@
 </details>
 
 <details class="sec" id="s15">
-  <summary><h3><span class="n">§15</span>Fields users will name</h3><span class="sec-issue" data-for="s15"></span></summary>
+  <summary><h3><span class="n">§15</span>Fields users will name</h3><a class="sec-issue" data-for="s15" href="https://github.com/aaronified/tippani/issues/29" title="Track s15 on the issue tracker">#29</a></summary>
   <div class="sec-body">
   <p>Unglamorous, low-risk, and the sort of thing that turns up as an issue rather than a feature request.</p>
   <ul>
@@ -916,7 +922,7 @@
 </details>
 
 <details class="sec" id="s16">
-  <summary><h3><span class="n">§16</span>Desktop keyboard</h3><span class="sec-issue" data-for="s16"></span></summary>
+  <summary><h3><span class="n">§16</span>Desktop keyboard</h3><a class="sec-issue" data-for="s16" href="https://github.com/aaronified/tippani/issues/30" title="Track s16 on the issue tracker">#30</a></summary>
   <div class="sec-body">
   <p>There is no global shortcut registry at all today, which for a text app with a large library is the biggest single desktop gap.</p>
   <ul>
@@ -930,7 +936,7 @@
 </details>
 
 <details class="sec" id="s17">
-  <summary><h3><span class="n">§17</span>Achievements — quiet milestones, and one gentle streak</h3><span class="sec-issue" data-for="s17"></span></summary>
+  <summary><h3><span class="n">§17</span>Achievements — quiet milestones, and one gentle streak</h3><a class="sec-issue" data-for="s17" href="https://github.com/aaronified/tippani/issues/31" title="Track s17 on the issue tracker">#31</a></summary>
   <div class="sec-body">
   <p>
     A deliberately restrained take. Achievements mostly mark <em>distance
@@ -963,7 +969,7 @@
 </details>
 
 <details class="sec" id="s18">
-  <summary><h3><span class="n">§18</span>Access &amp; reading comfort</h3><span class="sec-issue" data-for="s18"></span></summary>
+  <summary><h3><span class="n">§18</span>Access &amp; reading comfort</h3><a class="sec-issue" data-for="s18" href="https://github.com/aaronified/tippani/issues/32" title="Track s18 on the issue tracker">#32</a></summary>
   <div class="sec-body">
   <ul>
     <li><strong>Internationalisation scaffolding.</strong> The app is named in Bengali, ships a Bengali wordmark and a Noto Serif Bengali subset, and its interface is English only. Extracting strings gets more expensive every release, so the argument for starting is not that translations are next — it is that the cost only goes up. English plus one real translation, to prove the seams are in the right places.</li>
@@ -976,7 +982,7 @@
 </details>
 
 <details class="sec" id="s19">
-  <summary><h3><span class="n">§19</span>Ops</h3><span class="sec-issue" data-for="s19"></span></summary>
+  <summary><h3><span class="n">§19</span>Ops</h3><a class="sec-issue" data-for="s19" href="https://github.com/aaronified/tippani/issues/33" title="Track s19 on the issue tracker">#33</a></summary>
   <div class="sec-body">
   <ul>
     <li><strong>A <code>/metrics</code> endpoint</strong> (Prometheus), behind a token and off by default. This audience runs Grafana, and the numbers are already computed for Stats.</li>
@@ -988,7 +994,7 @@
 </details>
 
 <details class="sec" id="s20">
-  <summary><h3><span class="n">§20</span>Verbose, structured logs</h3><span class="sec-issue" data-for="s20"></span></summary>
+  <summary><h3><span class="n">§20</span>Verbose, structured logs</h3><a class="sec-issue" data-for="s20" href="https://github.com/aaronified/tippani/issues/34" title="Track s20 on the issue tracker">#34</a></summary>
   <div class="sec-body">
   <p>
     A failed request should tell you <em>why</em> from the Docker logs, not just that
@@ -1003,7 +1009,7 @@
 </details>
 
 <details class="sec" id="s21">
-  <summary><h3><span class="n">§21</span>Grimmory sync (self-hosted, direct MariaDB)</h3><span class="sec-issue" data-for="s21"></span></summary>
+  <summary><h3><span class="n">§21</span>Grimmory sync (self-hosted, direct MariaDB)</h3><a class="sec-issue" data-for="s21" href="https://github.com/aaronified/tippani/issues/35" title="Track s21 on the issue tracker">#35</a></summary>
   <div class="sec-body">
   <p>
     A pull source for anyone already running <strong>Grimmory</strong> self-hosted:
@@ -1022,7 +1028,7 @@
 </details>
 
 <details class="sec" id="s22">
-  <summary><h3><span class="n">§22</span>Out in the world — directories &amp; icon CDNs</h3><span class="sec-issue" data-for="s22"></span></summary>
+  <summary><h3><span class="n">§22</span>Out in the world — directories &amp; icon CDNs</h3><a class="sec-issue" data-for="s22" href="https://github.com/aaronified/tippani/issues/36" title="Track s22 on the issue tracker">#36</a></summary>
   <div class="sec-body">
   <p>
     Getting Tippani discoverable where self-hosters actually browse. No code here —
@@ -1044,7 +1050,7 @@
 </details>
 
 <details class="sec" id="s23">
-  <summary><h3><span class="n">§23</span>Android app — capture by camera, with on-device OCR</h3><span class="sec-issue" data-for="s23"></span></summary>
+  <summary><h3><span class="n">§23</span>Android app — capture by camera, with on-device OCR</h3><a class="sec-issue" data-for="s23" href="https://github.com/aaronified/tippani/issues/37" title="Track s23 on the issue tracker">#37</a></summary>
   <div class="sec-body">
   <p>
     A native Android client, Flutter so the source stays portable, in
@@ -1091,7 +1097,7 @@
 </details>
 
 <details class="sec" id="s24">
-  <summary><h3><span class="n">§24</span>Quotes without a work — speeches, letters, anything said</h3><span class="sec-issue" data-for="s24"></span></summary>
+  <summary><h3><span class="n">§24</span>Quotes without a work — speeches, letters, anything said</h3><a class="sec-issue" data-for="s24" href="https://github.com/aaronified/tippani/issues/38" title="Track s24 on the issue tracker">#38</a></summary>
   <div class="sec-body">
   <p>
     Every quote in Tippani currently hangs off a book or a film. That covers what I
@@ -1155,7 +1161,7 @@
 </details>
 
 <details class="sec" id="s25">
-  <summary><h3><span class="n">§25</span>Choose your metadata sources</h3><span class="sec-issue" data-for="s25"></span></summary>
+  <summary><h3><span class="n">§25</span>Choose your metadata sources</h3><a class="sec-issue" data-for="s25" href="https://github.com/aaronified/tippani/issues/39" title="Track s25 on the issue tracker">#39</a></summary>
   <div class="sec-body">
   <p>
     Today a lookup fans out to whatever happens to be configured, in an order baked
@@ -1212,7 +1218,39 @@
   commit. Run `node scripts/roadmap-data.mjs` after editing it.
 -->
 <!-- ROADMAP:FEATURES:START -->
-<p class="mono">Nothing accepted yet — the list starts with the first request I say yes to.</p>
+<div class="card req" id="req-audio-review">
+  <h3>Audio review, in the browser only</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/12">#12</a> · sits beside §2 The review loop</p>
+  <p>
+    Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It
+    costs the server nothing, needs no key, and works offline once §8's service worker
+    exists — which is the entire reason this can be accepted while server-side speech
+    stays refused. Those are not the same feature wearing different clothes: one is a
+    model and an audio pipeline on a box that cannot spare either, and the other is an
+    API the browser already ships.
+  </p>
+  <p>
+    Accepted rather than parked because the line it sat next to turned out to be drawn
+    in the right place already — see
+    <a href="#aside-ocr">OCR, and speech, on the server</a>. Scope: a play control on a
+    review card and nothing else. No stored audio, no transcription, no server route.
+  </p>
+</div>
+
+<div class="card req" id="req-author-portraits">
+  <h3>Richer author portraits</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/7">#7</a> · sits beside §25 Choose your metadata sources</p>
+  <p>
+    Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even
+    when the Open Library record is sparse. The disambiguation already picks the right
+    person; this only widens coverage, which is why it is small enough to say yes to.
+  </p>
+  <p>
+    It should land after <a href="#s25">§25</a>, not before: once sources are mine to
+    pick, looking a person up should query Wikidata and not waste a call on TMDB.
+    Doing it in the other order would bake in the fan-out §25 exists to end.
+  </p>
+</div>
 <!-- ROADMAP:FEATURES:END -->
 
 <hr>
@@ -1249,12 +1287,10 @@
   <li id="later-anki"><strong>Anki export / import</strong> — bridge the daily review to and from Anki decks (<code>.apkg</code>), a natural pairing for the spaced-repetition audience. Still being scoped; I need to learn the format first.</li>
   <li id="later-backlinks"><strong>Backlinks &amp; freeform notes</strong> — manually-maintained links between related highlights, Zettelkasten-style, and standalone notes not tied to any book. Kept deliberately manual; no auto-suggested "related" magic.</li>
   <li id="later-shared"><strong>Shared / household libraries</strong> — collaborative or shared-view libraries across the users on one box.</li>
-  <li id="later-portraits"><strong>Richer author portraits</strong> — resolve the author's Wikidata entry via the <em>book</em> so a photo appears even when the Open Library record is sparse. The disambiguation already picks the right person; this widens coverage.</li>
   <li id="later-email"><strong>Email digest fallback</strong> (SMTP) — the same delivery slot as the notifier above, for people who would rather not run one.</li>
   <li id="later-semantic"><strong>Semantic search</strong> (<code>sqlite-vec</code>) — note that §6's "more like this", built from the term dictionaries already in the database, ships first and costs no dependency at all. It may remove the need for this entirely.</li>
   <li id="later-export"><strong>Summary export</strong> to Markdown / Obsidian.</li>
   <li id="later-rating"><strong>Reviving a rating.</strong> The 1–5 stars were retired <strong>on purpose</strong> in 0.4.3 and ♥ is the cleaner signal, so this is recorded as a reversal to weigh rather than as planned work — but half-stars are the single most-cited feature of the trackers people arrive from, and the columns are still there, inert, from before the drop. If it ever comes back it should be per-user and opt-in, so the default library looks exactly as it does now.</li>
-  <li id="later-audio"><strong>Audio review, in the browser only.</strong> Reading a due card aloud is well liked elsewhere. Server-side speech is out for the same reasons as server-side OCR, but the browser's own <code>SpeechSynthesis</code> costs the server nothing, needs no key, and works offline once §8's service worker exists. Parked here rather than in the backlog because it sits next to a line I drew deliberately.</li>
   <li id="later-voice"><strong>A voice note on a quote</strong> — record, store, play back, with no transcription, which would be a dependency. For the reaction you can't type while reading.</li>
   <!-- ROADMAP:CONSIDERED — generated from the "considered" array in docs/data/features.json. -->
   <!-- ROADMAP:CONSIDERED:START -->

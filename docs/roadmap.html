@@ -309,9 +309,9 @@
     <details class="grp" open>
       <summary>Known bugs</summary>
       <!-- ROADMAP:RAIL_BUGS:START -->
-    <ul class="sub">
-      <li><a href="#bug-legacy-exports">Legacy catalogue exports</a></li>
-    </ul>
+      <ul class="sub">
+        <li><a href="#bug-legacy-exports">Legacy catalogue exports</a></li>
+      </ul>
       <!-- ROADMAP:RAIL_BUGS:END -->
     </details>
 
@@ -349,9 +349,10 @@
     <details class="grp" open>
       <summary>From your requests</summary>
       <!-- ROADMAP:RAIL_FEATURES:START -->
-    <ul class="sub">
-      <li><a href="#requests">Nothing accepted yet</a></li>
-    </ul>
+      <ul class="sub">
+        <li><a href="#req-audio-review">Audio review</a></li>
+        <li><a href="#req-author-portraits">Author portraits</a></li>
+      </ul>
       <!-- ROADMAP:RAIL_FEATURES:END -->
     </details>
 
@@ -363,12 +364,10 @@
         <li><a href="#later-anki">Anki export / import</a></li>
         <li><a href="#later-backlinks">Backlinks &amp; notes</a></li>
         <li><a href="#later-shared">Shared libraries</a></li>
-        <li><a href="#later-portraits">Author portraits</a></li>
         <li><a href="#later-email">Email digest</a></li>
         <li><a href="#later-semantic">Semantic search</a></li>
         <li><a href="#later-export">Summary export</a></li>
         <li><a href="#later-rating">Reviving a rating</a></li>
-        <li><a href="#later-audio">Audio review</a></li>
         <li><a href="#later-voice">Voice notes</a></li>
         <!-- ROADMAP:RAIL_CONSIDERED:START -->
         <!-- ROADMAP:RAIL_CONSIDERED:END -->
@@ -1219,7 +1218,39 @@
   commit. Run `node scripts/roadmap-data.mjs` after editing it.
 -->
 <!-- ROADMAP:FEATURES:START -->
-<p class="mono">Nothing accepted yet — the list starts with the first request I say yes to.</p>
+<div class="card req" id="req-audio-review">
+  <h3>Audio review, in the browser only</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/12">#12</a> · sits beside §2 The review loop</p>
+  <p>
+    Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It
+    costs the server nothing, needs no key, and works offline once §8's service worker
+    exists — which is the entire reason this can be accepted while server-side speech
+    stays refused. Those are not the same feature wearing different clothes: one is a
+    model and an audio pipeline on a box that cannot spare either, and the other is an
+    API the browser already ships.
+  </p>
+  <p>
+    Accepted rather than parked because the line it sat next to turned out to be drawn
+    in the right place already — see
+    <a href="#aside-ocr">OCR, and speech, on the server</a>. Scope: a play control on a
+    review card and nothing else. No stored audio, no transcription, no server route.
+  </p>
+</div>
+
+<div class="card req" id="req-author-portraits">
+  <h3>Richer author portraits</h3>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/7">#7</a> · sits beside §25 Choose your metadata sources</p>
+  <p>
+    Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even
+    when the Open Library record is sparse. The disambiguation already picks the right
+    person; this only widens coverage, which is why it is small enough to say yes to.
+  </p>
+  <p>
+    It should land after <a href="#s25">§25</a>, not before: once sources are mine to
+    pick, looking a person up should query Wikidata and not waste a call on TMDB.
+    Doing it in the other order would bake in the fan-out §25 exists to end.
+  </p>
+</div>
 <!-- ROADMAP:FEATURES:END -->
 
 <hr>
@@ -1256,12 +1287,10 @@
   <li id="later-anki"><strong>Anki export / import</strong> — bridge the daily review to and from Anki decks (<code>.apkg</code>), a natural pairing for the spaced-repetition audience. Still being scoped; I need to learn the format first.</li>
   <li id="later-backlinks"><strong>Backlinks &amp; freeform notes</strong> — manually-maintained links between related highlights, Zettelkasten-style, and standalone notes not tied to any book. Kept deliberately manual; no auto-suggested "related" magic.</li>
   <li id="later-shared"><strong>Shared / household libraries</strong> — collaborative or shared-view libraries across the users on one box.</li>
-  <li id="later-portraits"><strong>Richer author portraits</strong> — resolve the author's Wikidata entry via the <em>book</em> so a photo appears even when the Open Library record is sparse. The disambiguation already picks the right person; this widens coverage.</li>
   <li id="later-email"><strong>Email digest fallback</strong> (SMTP) — the same delivery slot as the notifier above, for people who would rather not run one.</li>
   <li id="later-semantic"><strong>Semantic search</strong> (<code>sqlite-vec</code>) — note that §6's "more like this", built from the term dictionaries already in the database, ships first and costs no dependency at all. It may remove the need for this entirely.</li>
   <li id="later-export"><strong>Summary export</strong> to Markdown / Obsidian.</li>
   <li id="later-rating"><strong>Reviving a rating.</strong> The 1–5 stars were retired <strong>on purpose</strong> in 0.4.3 and ♥ is the cleaner signal, so this is recorded as a reversal to weigh rather than as planned work — but half-stars are the single most-cited feature of the trackers people arrive from, and the columns are still there, inert, from before the drop. If it ever comes back it should be per-user and opt-in, so the default library looks exactly as it does now.</li>
-  <li id="later-audio"><strong>Audio review, in the browser only.</strong> Reading a due card aloud is well liked elsewhere. Server-side speech is out for the same reasons as server-side OCR, but the browser's own <code>SpeechSynthesis</code> costs the server nothing, needs no key, and works offline once §8's service worker exists. Parked here rather than in the backlog because it sits next to a line I drew deliberately.</li>
   <li id="later-voice"><strong>A voice note on a quote</strong> — record, store, play back, with no transcription, which would be a dependency. For the reaction you can't type while reading.</li>
   <!-- ROADMAP:CONSIDERED — generated from the "considered" array in docs/data/features.json. -->
   <!-- ROADMAP:CONSIDERED:START -->
