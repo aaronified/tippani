@@ -158,4 +158,4 @@ Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 
-*Last verified against the tree at v1.3.0.*
+*Last verified against the tree at v1.3.1.*

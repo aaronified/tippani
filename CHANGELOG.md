@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.1] - 2026-08-04
+
+1.3.0 taught a show's dialogue which episode it came from, and then would not let
+you save the second occurrence of a recurring line — the episode was recorded but
+took no part in deciding what counted as a duplicate. For a format built on
+catchphrases that is the wrong way round, so the episode now helps identify a
+line. Two demo bugs and a label format go with it, and the roadmap moves out of
+Markdown into a page you can actually read.
 
 ### Fixed
 
