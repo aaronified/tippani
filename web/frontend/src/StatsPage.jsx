@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json } from './api.js'
+import { PageHelp } from './help.jsx'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { Card, MonoLabel, PageHeader, STATUS_META, Toggle, fmtHalfLife, toast, useIsMobileScreen } from './ui.jsx'
+import { Card, MonoLabel, PageHeader, STATUS_META, Toggle, Tooltip, fmtHalfLife, toast, useIsMobileScreen } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -320,7 +321,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
   // bar is the same width whether or not a given entity has an image.
   const showArtCol = art || !!personMap
   return (
-    <div className="flex gap-2" title={`#${rank} ${r.name}: ${r.quotes} quotes`}>
+    <div className="flex gap-2">
       <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
         {rank}
       </span>
@@ -339,15 +340,16 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <button
-            type="button"
-            className="truncate text-left"
-            title={`search “${r.name}”`}
-            style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
-            onClick={() => onSearch?.(r.name)}
-          >
-            {r.name}
-          </button>
+          <Tooltip label="Search the library for this name" side="bottom" className="min-w-0">
+            <button
+              type="button"
+              className="truncate text-left"
+              style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+              onClick={() => onSearch?.(r.name)}
+            >
+              {r.name}
+            </button>
+          </Tooltip>
           <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
         </div>
         {segs.length > 0 && (
@@ -471,21 +473,22 @@ function LeaderList({ rows, onSearch }) {
   return (
     <div className="space-y-3" style={{ maxHeight: 220, overflowY: 'auto', paddingRight: 6 }}>
       {rows.map((r, i) => (
-        <div key={r.name + i} className="flex gap-2" title={`#${i + 1} ${r.name}: ${r.count}`}>
+        <div key={r.name + i} className="flex gap-2">
           <span className="mono-label" style={{ flex: '0 0 auto', width: 20, textAlign: 'right', paddingTop: 2, color: 'var(--faint)' }}>
             {i + 1}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <button
-                type="button"
-                className="truncate text-left"
-                title={`search “${r.name}”`}
-                style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
-                onClick={() => onSearch?.(r.name)}
-              >
-                {r.name}
-              </button>
+              <Tooltip label="Search the library for this tag" side="bottom" className="min-w-0">
+                <button
+                  type="button"
+                  className="truncate text-left"
+                  style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                  onClick={() => onSearch?.(r.name)}
+                >
+                  {r.name}
+                </button>
+              </Tooltip>
               <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
             </div>
             <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 3 }}>
@@ -525,15 +528,16 @@ function SuperTile({ label, title, count, amber, cover, onOpen }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
             {title && onOpen ? (
-              <button
-                type="button"
-                className="truncate text-left"
-                title={`search “${title}”`}
-                style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
-                onClick={onOpen}
-              >
-                {title}
-              </button>
+              <Tooltip label="Search the library for this title" side="top" className="min-w-0">
+                <button
+                  type="button"
+                  className="truncate text-left"
+                  style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                  onClick={onOpen}
+                >
+                  {title}
+                </button>
+              </Tooltip>
             ) : (
               <span
                 title={title || undefined}
@@ -590,7 +594,7 @@ export default function StatsPage({ onSearch }) {
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0)} saved` : ''} />
+        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0)} saved` : ''} right={<PageHelp screen="stats" />} />
       </div>
       {!s ? (
         <Card><p className="tp-empty" style={{ padding: '32px 0' }}>loading…</p></Card>

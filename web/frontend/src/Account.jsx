@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, GhostButton, MonoLabel, StickerButton } from './ui.jsx'
+import { Card, ErrorText, GhostButton, IconDelete, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
 
 // Account.jsx — the chip-reached account surfaces: Profile (photo · display name
 // · password) and User management (admin roles). On desktop these render inside
@@ -41,18 +41,20 @@ function AvatarRow({ user, onUser }) {
         {user.avatar_path ? <img src={coverImgURL(user.avatar_path)} alt="" /> : (user.username || '?').trim().charAt(0).toLowerCase()}
       </span>
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="tp-btn tp-btn-primary" style={{ cursor: 'pointer' }}>
             {busy ? 'Uploading…' : user.avatar_path ? 'Change photo' : 'Upload photo'}
             <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
           </label>
+          <InfoDot title="Profile photo" text="Shown as your avatar chip in the top bar, the drawer and the user list. A square image reads best; up to 5 MB." />
           {user.avatar_path && (
-            <GhostButton type="button" style={{ color: 'var(--error)' }} onClick={remove}>
-              Remove
-            </GhostButton>
+            <Tooltip label="Remove the photo">
+              <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Remove photo" onClick={remove}>
+                <IconDelete />
+              </button>
+            </Tooltip>
           )}
         </div>
-        <p className="microcopy">a square image reads best; shown as your chip</p>
         <ErrorText>{err}</ErrorText>
       </div>
     </div>
@@ -132,14 +134,16 @@ function PasswordForm() {
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <FieldLabel>Change password</FieldLabel>
+      <span className="flex items-center gap-1.5">
+        <FieldLabel>Change password</FieldLabel>
+        <InfoDot title="Change password" text="Changing your password signs out every other browser session. Paired phones are deliberately left alone, so a routine password change can’t silently unpair a device you can’t easily get to." />
+      </span>
       <input className="tp-input" placeholder="current password" type="password" value={current} autoComplete="current-password" onChange={(e) => setCurrent(e.target.value)} />
       <input className="tp-input" placeholder="new password (min 8)" type="password" value={next} autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
       <input className="tp-input" placeholder="repeat new password" type="password" value={repeat} autoComplete="new-password" onChange={(e) => setRepeat(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       {done && <p style={{ fontSize: 13.5, color: 'var(--soft)' }}>Password updated.</p>}
       <StickerButton className="w-full" disabled={busy}>Update password</StickerButton>
-      <p className="microcopy">changing your password signs out every other session</p>
     </form>
   )
 }
@@ -185,17 +189,21 @@ function MaintenanceCard() {
     setErr(errText(r, 'could not reset the database'))
   }
 
+  // Both explanations moved into InfoDots. The reset one is deliberately still
+  // long — a wall of consequences is the right amount of words for a button that
+  // deletes an instance — but it now sits one tap behind a dot instead of
+  // standing permanently between you and the harmless button above it.
   return (
     <Card pad="p-5">
       <FieldLabel>Maintenance</FieldLabel>
       <div className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <p className="text-sm font-semibold">Rebuild search index</p>
-            <p className="microcopy" style={{ color: 'var(--soft)' }}>
-              Fixes “search failed / internal error” by rebuilding the full-text indexes from your
-              library. Non-destructive — no books, quotes or settings are touched.
-            </p>
+            <InfoDot
+              title="Rebuild search index"
+              text="Fixes “search failed / internal error” by rebuilding the full-text indexes from your library. Non-destructive — no books, quotes or settings are touched."
+            />
           </div>
           <GhostButton disabled={busy === 'reindex'} onClick={reindex}>
             {busy === 'reindex' ? 'Rebuilding…' : 'Rebuild'}
@@ -205,14 +213,15 @@ function MaintenanceCard() {
         <hr style={{ border: 'none', borderTop: '1px dashed var(--line)' }} />
 
         <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--error)' }}>
-            Reset all data
-          </p>
-          <p className="microcopy" style={{ color: 'var(--soft)' }}>
-            Permanently deletes <b>everything</b> — every account, all books, films, quotes, dialogue,
-            tags, people, stickers, saved covers, metadata keys and preferences — and restarts Tippani at
-            first-run admin-account creation. This cannot be undone.
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-semibold" style={{ color: 'var(--error)' }}>
+              Reset all data
+            </p>
+            <InfoDot
+              title="Reset all data"
+              text="Permanently deletes everything — every account, all books, films, quotes, dialogue, tags, people, stickers, saved covers, metadata keys and preferences — and restarts Tippani at first-run admin-account creation. This cannot be undone, and there is no backup taken on the way."
+            />
+          </div>
           {!showReset ? (
             <GhostButton className="mt-2" onClick={() => setShowReset(true)}>
               Reset all data…
@@ -338,15 +347,16 @@ export function UserManagement({ me }) {
                   {u.is_admin ? 'Revoke admin' : 'Make admin'}
                 </button>
                 {!isMe && (
-                  <button
-                    type="button"
-                    onClick={() => removeUser(u)}
-                    aria-label={`Delete ${u.username}`}
-                    title={`Delete ${u.username}`}
-                    style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 16, padding: 4, lineHeight: 1, cursor: 'pointer' }}
-                  >
-                    ✕
-                  </button>
+                  <Tooltip label={`Delete ${u.username} and their library`} side="top">
+                    <button
+                      type="button"
+                      onClick={() => removeUser(u)}
+                      aria-label={`Delete ${u.username}`}
+                      style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 16, padding: 4, lineHeight: 1, cursor: 'pointer' }}
+                    >
+                      ✕
+                    </button>
+                  </Tooltip>
                 )}
               </span>
             </li>
@@ -358,8 +368,8 @@ export function UserManagement({ me }) {
         <input className="tp-input" style={{ flex: 1, minWidth: 130 }} placeholder="username" value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} />
         <input className="tp-input" style={{ flex: 1, minWidth: 130 }} placeholder="password (min 8)" type="password" value={password} autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
         <StickerButton>Add user</StickerButton>
+        <InfoDot title="Adding users" text="Every user gets a fully separate library — books, quotes, tags, stickers and preferences are never shared. To hand over the primary admin, grant another user admin first, then revoke your own; the last remaining admin cannot be demoted." />
       </form>
-      <p className="microcopy mt-2">to hand over the primary admin: grant another user admin, then revoke your own</p>
       <ErrorText>{error}</ErrorText>
     </Card>
   )

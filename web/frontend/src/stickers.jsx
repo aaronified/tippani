@@ -5,7 +5,7 @@
 // sticker_id column on annotations/dialogues (migrations 0011).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, useSort } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, Tooltip, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -79,26 +79,32 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
           none
         </button>
         {stickers.map((s) => (
-          <button
+          <Tooltip
             key={s.id}
-            type="button"
-            className={`sticker-opt${value === s.id ? ' is-sel' : ''}`}
-            onClick={() => onChange(s.id)}
-            title={s.name || 'sticker'}
-            aria-pressed={value === s.id}
+            label={s.name ? `Use “${s.name}” as the seal` : 'Use this sticker as the seal'}
+            side="top"
+            className="shrink-0"
           >
-            <img src={stickerURL(s.path)} alt={s.name || 'sticker'} />
-          </button>
+            <button
+              type="button"
+              className={`sticker-opt${value === s.id ? ' is-sel' : ''}`}
+              onClick={() => onChange(s.id)}
+              aria-pressed={value === s.id}
+            >
+              <img src={stickerURL(s.path)} alt={s.name || 'sticker'} />
+            </button>
+          </Tooltip>
         ))}
-        <button
-          type="button"
-          className="sticker-opt sticker-add"
-          onClick={() => fileRef.current && fileRef.current.click()}
-          disabled={busy}
-          title="Upload a new sticker"
-        >
-          {busy ? '…' : '＋'}
-        </button>
+        <Tooltip label={busy ? 'Uploading…' : 'Upload a new sticker'} side="top" className="shrink-0">
+          <button
+            type="button"
+            className="sticker-opt sticker-add"
+            onClick={() => fileRef.current && fileRef.current.click()}
+            disabled={busy}
+          >
+            {busy ? '…' : '＋'}
+          </button>
+        </Tooltip>
         <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />
       </div>
       <ErrorText>{error}</ErrorText>

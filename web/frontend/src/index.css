@@ -1086,11 +1086,22 @@
     .tp-tip-wrap:focus-within .tp-tip-holder[data-side="bottom"] .tp-tip { transform: translateY(-4px); }
   }
   @media (prefers-reduced-motion: reduce) { .tp-tip { transition: opacity .16s ease; transform: none; } }
+  /* An open InfoDot/Help popover suppresses its own hover bubble: the tap that
+     opened it also lands focus, and :focus-within would otherwise show the same
+     words a second time behind the sheet. */
+  .tp-tip-wrap.is-open .tp-tip-holder { display: none !important; }
+  /* .info-dot is a real <button> now (a tap has to open the popover on a phone,
+     where there is no hover). The 16px disc is the visual size; a transparent
+     ::after grows the hit target to the 30px a thumb needs without moving any
+     neighbouring text. */
   .info-dot {
+    position: relative;
     font-family: var(--font-mono);
     font-size: 10.5px;
     font-weight: 600;
     color: var(--faint);
+    background: none;
+    padding: 0;
     border: 1px solid var(--line);
     border-radius: 999px;
     width: 16px;
@@ -1102,26 +1113,294 @@
     flex-shrink: 0;
     cursor: help;
   }
-  .info-dot:hover, .info-dot:focus-visible { color: var(--accent-ui); border-color: var(--accent-ui); }
-  /* .status-dot — the spaced-repetition repetition-status dot on quote cards
-     (remembered/forgetting/probably-forgotten; hollow when unseen). Colour is
-     set inline per status; hover reveals a Tooltip with the half-life. */
-  .status-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    border: 1.5px solid var(--line);
-    display: inline-flex;
-    flex-shrink: 0;
-    cursor: help;
-    transition: transform .12s ease;
+  .info-dot::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    transform: translate(-50%, -50%);
   }
-  .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
+  .info-dot:hover, .info-dot:focus-visible, .info-dot.is-open { color: var(--accent-ui); border-color: var(--accent-ui); }
+  .info-dot.is-open { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+
+  /* ---- page Help button (§ declutter): the "?" on every screen ---- */
+  /* 44px square, matching IconButton and .tp-btn's min-height: it shares a row
+     with both (page headers, the mobile detail bar, a work's action cluster) and
+     a 38px disc among 44px controls reads as a mistake. */
+  .help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    padding: 0;
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--soft);
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .help-btn:hover, .help-btn:focus-visible, .help-btn.is-open {
+    color: var(--accent-ui);
+    border-color: var(--accent-ui);
+  }
+  .help-btn.is-open { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+  /* In the phone bars it sits among borderless glyph buttons, so it drops its
+     ring there and lets the "?" carry the affordance on its own. */
+  @media (max-width: 768px) {
+    .help-btn { border-color: transparent; }
+  }
+
+  /* ---- InfoPopover: what an info dot actually opens ---- */
+  /* Anchored to the dot on a pointer device, a compact centred card on a phone.
+     Deliberately NOT the full-screen help sheet — that is right for a screen's
+     whole glossary and absurd for one sentence. */
+  .info-pop {
+    position: fixed;
+    z-index: 75;                 /* over sheets/modals (50) and the grain (60) */
+    padding: 13px 15px 14px;
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .info-pop-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--accent-ui);
+    margin-bottom: 6px;
+  }
+  .info-pop-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); }
+
+  .info-pop-anchored { width: min(320px, calc(100vw - 24px)); }
+  /* The caret sits at the dot's centre, which is handed in as --caret-x — a
+     several-dots-in-a-row header is exactly where "which one was that?" gets
+     asked, and a bubble with no tail cannot answer it. */
+  .info-pop-caret {
+    position: absolute;
+    left: var(--caret-x, 50%);
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    background: var(--card);
+    border: 1px solid var(--ink-border);
+    transform: rotate(45deg);
+  }
+  .info-pop-anchored.is-below .info-pop-caret { top: -6px; border-right: none; border-bottom: none; }
+  .info-pop-anchored.is-above .info-pop-caret { bottom: -6px; border-left: none; border-top: none; }
+  /* A transparent catcher, not a scrim: an anchored popover should not black out
+     the page it is explaining. */
+  .info-pop-catcher { position: fixed; inset: 0; z-index: 74; }
+
+  .info-pop-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 74;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background: rgba(21, 16, 12, .5);
+    animation: drawer-fade .16s ease;
+  }
+  .info-pop-centred {
+    position: relative;
+    width: min(360px, 100%);
+    animation: info-pop-in .18s cubic-bezier(.2, .68, .28, 1);
+  }
+  .info-pop-close { width: 100%; margin-top: 13px; min-height: 42px; }
+  @keyframes info-pop-in {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ---- hint toast: a control's label after a long press, on touch ---- */
+  /* Pinned to the TOP. The bottom of a phone is where the finger, the floating
+     nav bar and the OS gesture strip are — a label that appears under the thumb
+     that asked for it is not a label. */
+  .hint-toast {
+    position: fixed;
+    left: 50%;
+    top: 14px;
+    top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px));
+    z-index: 95;                 /* above the lightbox (90): it explains that too */
+    transform: translateX(-50%);
+    max-width: min(88%, 420px);
+    padding: 9px 15px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 11px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: center;
+    box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .55);
+    animation: hint-down .2s cubic-bezier(.2, .68, .28, 1);
+    pointer-events: none;
+  }
+  @keyframes hint-down {
+    from { opacity: 0; transform: translate(-50%, -10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  /* A long press must not also raise Android's text-selection handles or the
+     iOS callout over the label it just produced. */
+  .tp-tip-wrap {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ---- help popover contents ---- */
+  .help-sheet-body { font-size: 13.5px; line-height: 1.6; color: var(--soft); }
+  .help-body { font-size: 14px; line-height: 1.6; color: var(--soft); }
+  .help-list { display: flex; flex-direction: column; gap: 14px; }
+  .help-row { display: flex; align-items: flex-start; gap: 11px; }
+  .help-row-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    color: var(--accent-ui);
+    background: var(--raised);
+  }
+  .help-row-icon svg { width: 19px; height: 19px; }
+  .help-list dt { font-family: var(--font-ui); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .help-list dd { margin-top: 2px; font-size: 12.5px; line-height: 1.55; color: var(--soft); }
+
+  /* ---- InlineField: read at rest, edit in place ---- */
+  /* Every field that used to live in a modal behind Edit/Save text buttons now
+     reads as plain text with a pencil beside it; the pencil swaps in an input
+     with ✓/✕ discs. Same control set in the work Details panel and the metadata
+     keys, so one pattern covers both. */
+  .inline-field { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .inline-field:last-child { border-bottom: none; }
+  .inline-field-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
+  .inline-field-value {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .inline-field-value.is-empty { color: var(--faint); font-style: italic; }
+  .field-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    padding: 0;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    color: var(--soft);
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .field-icon-btn svg { width: 18px; height: 18px; }
+  .field-icon-btn:hover:not(:disabled), .field-icon-btn:focus-visible {
+    color: var(--accent-ui);
+    border-color: var(--line);
+    background: var(--raised);
+  }
+  .field-icon-btn:disabled { opacity: .5; cursor: default; }
+  .field-icon-btn-ok { color: var(--ok); }
+  .field-icon-btn-ok:hover:not(:disabled), .field-icon-btn-ok:focus-visible { color: var(--ok); }
+  .field-icon-btn-danger { color: var(--error); }
+  /* Phones get the 44px minimum; desktop keeps the tighter 34px disc. */
+  @media (max-width: 768px) {
+    .field-icon-btn { width: 42px; height: 42px; }
+  }
+
+  /* ---- metadata merge screen (work Details → Fetch metadata → a match) ---- */
+  /* Yours above, theirs below, one tap-target per field. Stacked rather than
+     two columns: the phone is the first target, and two ~150px columns of prose
+     are unreadable there — a description would wrap to a ribbon. */
+  .merge-list { display: flex; flex-direction: column; gap: 8px; }
+  .merge-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .merge-row.is-taken {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+    background: color-mix(in srgb, var(--accent) 8%, var(--raised));
+  }
+  .merge-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    flex: none;
+    border: 1.5px solid var(--line);
+    border-radius: 7px;
+    color: #FFF9EC;
+  }
+  .merge-row.is-taken .merge-check { background: var(--accent); border-color: var(--accent); }
+  .merge-check svg { width: 15px; height: 15px; }
+  .merge-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  /* The old value is struck-through only while its row is taken — that is the
+     moment it is actually about to be replaced, and striking it always would
+     read as "this is already gone". */
+  .merge-old {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--faint);
+  }
+  .merge-row.is-taken .merge-old { text-decoration: line-through; }
+  .merge-new {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 3px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .merge-row.is-taken .merge-new { color: var(--accent-ui); font-weight: 500; }
+  .merge-art { display: flex; gap: 14px; margin-top: 5px; }
+  .merge-art-side { display: flex; flex-direction: column; gap: 4px; }
 
   /* ---- reading / watching badge on a cover ---- */
   /* A solid disc, not a glowing glyph: the old blurred halo was a soft gradient,
      and at the ~18px this sits at on a phone it swallowed the strokes it existed
-     to protect. An opaque ground plus a hard rim survives any artwork at any
+     to protect. An opaque ground plus a hard dark rim survives any artwork at any
      size, and the shadow is a real drop shadow for lift rather than a halo doing
      contrast's job. 22px keeps the disc inside a small cover's corner; the glyph
      inside is 15px, so it grew in apparent size even as the box got tighter. */
@@ -1148,6 +1427,20 @@
   @media (max-width: 768px) {
     .reading-badge { width: 24px; height: 24px; }
   }
+  /* .status-dot — the spaced-repetition repetition-status dot on quote cards
+     (remembered/forgetting/probably-forgotten; hollow when unseen). Colour is
+     set inline per status; hover reveals a Tooltip with the half-life. */
+  .status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: help;
+    transition: transform .12s ease;
+  }
+  .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
   /* Each .hand-card is an isolated stacking context, so a tooltip (z-index 70
      inside its own card) is still painted UNDER an adjacent card that sits later
      in the flow — the bubble gets clipped by the neighbour. While a tooltip is
@@ -2067,7 +2360,46 @@ html[data-theme="dark"] .mobile-topbar {
   /* keep native vertical panning of the nav; hand horizontal movement to the
      swipe-to-close pointer handlers instead of firing pointercancel */
   touch-action: pan-y;
+  /* isolate + a z-index:-1 ::before is the same recipe .hand-card uses: the
+     texture sits above the element's own background and below its content. */
+  isolation: isolate;
 }
+
+/* ---- shell-nav material (§ design) ----
+   The two nav surfaces a phone actually touches — the drawer and the floating
+   bottom bar — were the only bare surfaces left in the app: every card, button,
+   toggle thumb and select thumb already wears a tile, and these two read as
+   plastic beside them. They take the SHELL material (wood on paper, brushed
+   metal on film), the same tile .nav-toggle's thumb wears, rather than the
+   card material — the shell is deliberately a different substance from the
+   things sitting on it, and the nav toggle already established which. */
+.drawer::before,
+.mobile-bottom-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: 320px;
+  opacity: .17;
+  mix-blend-mode: multiply;
+}
+/* Dark theme flips the blend: multiplying a grayscale tile over a dark ground
+   just darkens it into mud, where screen lifts the grain into view. */
+html[data-theme="dark"] .drawer::before,
+html[data-theme="dark"] .mobile-bottom-nav::before {
+  mix-blend-mode: screen;
+  opacity: .1;
+}
+html[data-aesthetic="paper"] .drawer::before,
+html[data-aesthetic="paper"] .mobile-bottom-nav::before { background-image: url("./textures/wood.webp"); }
+html[data-aesthetic="film"] .drawer::before,
+html[data-aesthetic="film"] .mobile-bottom-nav::before { background-image: url("./textures/metal.webp"); }
+/* The bar is a 999px pill and small, so its tile is scaled down to read as
+   grain rather than as one blurry plank crossing the whole control. */
+.mobile-bottom-nav::before { background-size: 190px; }
 .drawer-header {
   display: flex;
   align-items: center;
@@ -2203,6 +2535,9 @@ html[data-theme="dark"] .mobile-topbar {
               0 8px 24px -10px rgba(41, 38, 29, .34),
               inset 0 1px 0 rgba(255, 255, 255, .5);
   transition: transform .26s cubic-bezier(.2, .68, .28, 1), opacity .2s ease;
+  /* Scopes the ::before texture's z-index:-1 to the bar (see the shell-nav
+     material block above), so it can't fall behind the page. */
+  isolation: isolate;
 }
 html[data-theme="dark"] .mobile-bottom-nav {
   box-shadow: 0 -2px 10px -6px rgba(0, 0, 0, .4),

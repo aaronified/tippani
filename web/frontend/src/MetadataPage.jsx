@@ -3,7 +3,8 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, normName, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { PageHelp } from './help.jsx'
+import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconMetadata, IconMore, IconSearch, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, normName, splitCommas, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
@@ -120,23 +121,27 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           title="Metadata"
           counts={mobile ? 'maintenance' : 'stats · filters · bulk actions'}
           right={
-            mobile ? (
-              <InfoDot
-                side="bottom"
-                text="This is the trimmed-down maintenance view. Open Tippani on a desktop for the full metadata console — coverage stats, filterable book & film lists, and bulk actions."
-              />
-            ) : (
-              user?.is_admin && (
-                <Tooltip
+            <>
+              {mobile ? (
+                <InfoDot
                   side="bottom"
-                  label="Admin maintenance: fetches missing covers/posters (and replaces low-res ones) and backfills author/description/year/genres across all libraries on this instance (fill-empty, non-destructive). Caps genres at 5 per item to avoid low-quality random tagging."
-                >
-                  <GhostButton disabled={busy} onClick={() => fetchMissingCovers(false)}>
-                    Fetch missing covers &amp; metadata
-                  </GhostButton>
-                </Tooltip>
-              )
-            )
+                  title="Metadata on a phone"
+                  text="This is the trimmed-down maintenance view. Open Tippani on a desktop for the full metadata console — coverage stats, filterable book & film lists, and bulk actions."
+                />
+              ) : (
+                user?.is_admin && (
+                  <IconButton
+                    icon={<IconMetadata />}
+                    ariaLabel="Fetch missing covers and metadata"
+                    tooltip="Fetch missing covers & metadata — fills gaps across every library on this instance, and never replaces what is already there"
+                    tipSide="bottom"
+                    onClick={() => fetchMissingCovers(false)}
+                    disabled={busy}
+                  />
+                )
+              )}
+              <PageHelp screen="metadata" />
+            </>
           }
       />
       </div>
@@ -165,16 +170,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           {user?.is_admin && (
             <MobileAction
               title="Fetch covers & metadata"
-              desc="Fill missing covers, posters and details — never replaces what you already have."
+              desc="Fills missing covers, posters, authors, descriptions, years and genres across every library on this instance. It only fills blanks — nothing you already have is replaced — and it caps genres at five per item so a source cannot bury a work in low-quality tags."
               actionLabel="Fetch"
+              icon={<IconMetadata />}
               busy={busy}
               onClick={() => fetchMissingCovers(true)}
             />
           )}
           <MobileAction
             title="Re-verify metadata"
-            desc="Re-check every pinned book, film and show against the live sources and review each change before it's applied."
+            desc="Re-checks every pinned book, film and show against the live sources. Nothing is written until you have seen each proposed change and accepted it."
             actionLabel="Re-verify"
+            icon={<IconCheck />}
             busy={!!reverify}
             onClick={() =>
               setReverify({
@@ -224,16 +231,21 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
 
 // MobileAction — a compact action card for the stripped-down mobile Metadata
 // screen (§5): a title, a one-line what-it-does, and a single run button.
-function MobileAction({ title, desc, actionLabel = 'Run', busy, onClick, disabled }) {
+function MobileAction({ title, desc, actionLabel = 'Run', icon, busy, onClick, disabled }) {
   return (
     <HandCard className="flex items-center gap-3 p-4">
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <h2 style={H2}>{title}</h2>
-        {desc && <p className="microcopy" style={{ color: 'var(--soft)' }}>{desc}</p>}
+        {desc && <InfoDot title={title} text={desc} />}
       </div>
-      <GhostButton className="shrink-0" disabled={busy || disabled} onClick={onClick}>
-        {busy ? '…' : actionLabel}
-      </GhostButton>
+      <IconButton
+          icon={busy ? <IconMore /> : icon || <IconMetadata />}
+          ariaLabel={actionLabel}
+          className="shrink-0"
+          disabled={busy || disabled}
+          onClick={onClick}
+        tooltip={actionLabel}
+      />
     </HandCard>
   )
 }
@@ -270,28 +282,29 @@ function Stat({ n, label, warn, onClick }) {
   const bad = warn && n > 0
   const clickable = !!onClick && (n > 0 || !warn)
   return (
-    <button
-      type="button"
-      onClick={clickable ? onClick : undefined}
-      disabled={!clickable}
-      title={clickable ? `Filter below to ${label}` : undefined}
-      style={{
-        textAlign: 'left',
-        background: 'var(--raised)',
-        border: `1px solid ${bad ? 'color-mix(in srgb, var(--error) 40%, var(--line))' : 'var(--line)'}`,
-        borderRadius: 9,
-        padding: '8px 13px',
-        minWidth: 74,
-        cursor: clickable ? 'pointer' : 'default',
-      }}
-    >
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, lineHeight: 1, color: bad ? 'var(--error)' : 'var(--ink)' }}>
-        {n}
-      </div>
-      <div className="mono-label" style={{ marginTop: 4, color: bad ? 'var(--error)' : undefined }}>
-        {label}
-      </div>
-    </button>
+    <Tooltip label={clickable ? `Filter the catalogue below to ${label}` : null} side="bottom">
+      <button
+        type="button"
+        onClick={clickable ? onClick : undefined}
+        disabled={!clickable}
+        style={{
+          textAlign: 'left',
+          background: 'var(--raised)',
+          border: `1px solid ${bad ? 'color-mix(in srgb, var(--error) 40%, var(--line))' : 'var(--line)'}`,
+          borderRadius: 9,
+          padding: '8px 13px',
+          minWidth: 74,
+          cursor: clickable ? 'pointer' : 'default',
+        }}
+      >
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, lineHeight: 1, color: bad ? 'var(--error)' : 'var(--ink)' }}>
+          {n}
+        </div>
+        <div className="mono-label" style={{ marginTop: 4, color: bad ? 'var(--error)' : undefined }}>
+          {label}
+        </div>
+      </button>
+    </Tooltip>
   )
 }
 
@@ -533,9 +546,11 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           <select className="tp-input w-auto" title="Type" value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
             {CATALOGUE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
-          <select className="tp-input w-auto" title="Filter" value={filterVal} onChange={(e) => setFilter(e.target.value)}>
-            {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
+          <Tooltip label="Show only titles with this gap" side="top">
+            <select className="tp-input w-auto" value={filterVal} onChange={(e) => setFilter(e.target.value)}>
+              {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Tooltip>
           <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
@@ -671,7 +686,9 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
   return (
     <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
-        <input type="checkbox" checked={checked} onChange={onCheck} />
+        <Tooltip label="Select this book for bulk actions" side="top">
+          <input type="checkbox" checked={checked} onChange={onCheck} />
+        </Tooltip>
         <div className="min-w-0 flex-1">
           <p className="truncate">
             <b>{book.title}</b>
@@ -714,7 +731,9 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
   return (
     <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
-        <input type="checkbox" checked={checked} onChange={onCheck} />
+        <Tooltip label="Select this title for bulk actions" side="top">
+          <input type="checkbox" checked={checked} onChange={onCheck} />
+        </Tooltip>
         <div className="min-w-0 flex-1">
           <p className="truncate">
             <b>{movie.title}</b>
@@ -824,10 +843,18 @@ function DuplicatesPanel({ onDone, onFlash }) {
     <HandCard className="space-y-3 p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>Duplicate books</h2>
+        <InfoDot
+          title="Duplicate books"
+          text="Finds books whose titles and authors match closely enough to be the same book entered twice — usually one from an import and one added by hand. Merging moves every quote onto the copy you keep and deletes the others; the keeper defaults to whichever has the most quotes, so the default choice loses nothing."
+        />
         {groups && <MonoLabel>{groups.length} group{groups.length === 1 ? '' : 's'}</MonoLabel>}
-        <GhostButton className="ml-auto" disabled={busy} onClick={scan}>
-          {busy ? 'Scanning…' : open ? 'Rescan' : 'Scan for duplicates'}
-        </GhostButton>
+        <IconButton
+            icon={<IconSearch />}
+            ariaLabel={open ? 'Scan again for duplicates' : 'Scan for duplicate books'}
+            disabled={busy}
+            onClick={scan}
+          tooltip={open ? 'Scan again' : 'Scan for duplicate books'} wrapClassName="ml-auto"
+        />
       </div>
       <ErrorText>{err}</ErrorText>
       {open && groups && groups.length === 0 && <p className="microcopy">no duplicate titles found ✓</p>}
@@ -933,10 +960,13 @@ function SpeakerRemap({ movies, onDone }) {
 
   return (
     <HandCard className="space-y-3 p-5">
-      <h2 style={H2}>Speaker &amp; character remap</h2>
-      <p className="microcopy">
-        Reconcile imported speaker labels with a title’s cast, then fill the actors. Pick a title with dialogues:
-      </p>
+      <div className="flex items-center gap-1.5">
+        <h2 style={H2}>Speaker &amp; character remap</h2>
+        <InfoDot
+          title="Speaker & character remap"
+          text="Imported dialogue arrives with whatever speaker label the source used — “RICK”, “Rick Blaine”, “Bogart”. This maps each label onto a real cast member across the whole title at once, and can then fill in the actor on every line from the cast. A title with no cast has nothing to map onto: look it up first."
+        />
+      </div>
       <select className="tp-input w-auto" value={movieId} onChange={(e) => setMovieId(e.target.value)}>
         <option value="">— choose a title —</option>
         {movies.map((m) => (
@@ -1304,13 +1334,14 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
                             hits and actors on dialogue hits. Saved-but-no-
                             longer-referenced rows count 0 — nothing to find. */}
                         {p.count > 0 ? (
-                          <button
-                            className="tp-link"
-                            title={`search “${p.name}”`}
-                            onClick={() => onSearch?.(p.name)}
-                          >
-                            {p.count}
-                          </button>
+                          <Tooltip label={`Search the library for “${p.name}”`} side="top">
+                            <button
+                              className="tp-link"
+                              onClick={() => onSearch?.(p.name)}
+                            >
+                              {p.count}
+                            </button>
+                          </Tooltip>
                         ) : (
                           <span className="microcopy">0</span>
                         )}

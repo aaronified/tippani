@@ -3,6 +3,8 @@ import { DEMO, json, errText, downloadPost } from './api.js'
 import AddSurface from './AddSurface.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
+import { PageHelp, ScreenHelpSheet } from './help.jsx'
+import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
@@ -40,7 +42,8 @@ import {
   Hearts,
   IconButton,
   IconDelete,
-  IconEdit,
+  IconDetails,
+  IconHelp,
   IconExport,
   IconFilter,
   IconPlus,
@@ -60,6 +63,7 @@ import {
   todayPartial,
   titleCaseGenre,
   TokenInput,
+  Tooltip,
   ViewToggle,
   bySeries,
   filterChipClass,
@@ -261,6 +265,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
       mobile={mobile}
       title="Books"
       counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
+      helpScreen="library"
       error={error}
       add={{ label: '＋ Add book', aria: 'Add book', onClick: () => setAdding(true) }}
       onExport={() => setExporting(true)}
@@ -435,6 +440,7 @@ export function ManualTab({ onAdded }) {
 function BookDetail({ id, onClose, creditSeparators }) {
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
   const [error, setError] = useState('')
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
@@ -554,6 +560,11 @@ function BookDetail({ id, onClose, creditSeparators }) {
   // Meta parts: each author is a clickable PersonName (opens the metadata
   // panel) — a joined multi-author credit renders one link per person (§11);
   // the rest are plain, interleaved with " · ".
+  //
+  // ISBN and ASIN deliberately do NOT appear here any more. They are catalogue
+  // plumbing — nobody reads a book page to check its ISBN — and they cost the
+  // credit line two segments above the quotes you came for. Both live in the
+  // Details panel now, each with an InfoDot saying what it is for.
   const metaParts = book
     ? [
         ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
@@ -561,8 +572,6 @@ function BookDetail({ id, onClose, creditSeparators }) {
         )),
         book.published_year || null,
         seriesLabel(book) || null,
-        book.isbn && `ISBN ${book.isbn}`,
-        book.asin && `ASIN ${book.asin}`,
       ].filter(Boolean)
     : []
 
@@ -588,7 +597,8 @@ function BookDetail({ id, onClose, creditSeparators }) {
                     onClick: () => pick(ACTIVE_STATUS.book),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
-                  { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
+                  { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
+                  { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
                 ]}
               />
@@ -652,6 +662,10 @@ function BookDetail({ id, onClose, creditSeparators }) {
             description={book.description}
             // Desktop only: on mobile these same actions live in the sticky bar's
             // ⋯ overflow above, and a second standing row just duplicated them.
+            // Desktop only: on mobile these same actions live in the sticky
+            // bar's ⋯ overflow above. Everything but the shelf move is a glyph
+            // now — the row used to be four wide word-buttons floated over the
+            // description, which is the one thing on the page worth reading.
             actions={
               mobile ? null : (
                 <>
@@ -661,17 +675,22 @@ function BookDetail({ id, onClose, creditSeparators }) {
                     {moveLabel('book', book.status || '', ACTIVE_STATUS.book)}
                   </GhostButton>
                   {!DEMO && (
-                    <GhostButton onClick={() => (window.location.href = `/api/books/${book.id}/export`)}>
-                      Export .md
-                    </GhostButton>
+                    <IconButton
+                        icon={<IconExport />}
+                        ariaLabel="Export as Markdown"
+                        onClick={() => (window.location.href = `/api/books/${book.id}/export`)}
+                      tooltip="Export this book and its quotes as Markdown"
+                    />
                   )}
-                  <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-                  <GhostButton
-                    style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 55%, transparent)' }}
-                    onClick={remove}
-                  >
-                    Delete
-                  </GhostButton>
+                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details — every field, cover, and metadata lookup" />
+                  <PageHelp screen="book-detail" />
+                  <IconButton
+                      icon={<IconDelete />}
+                      ariaLabel="Delete this book"
+                      onClick={remove}
+                      style={{ width: 44, height: 44, padding: 0, flexShrink: 0, color: 'var(--error)' }}
+                    tooltip="Delete this book and its quotes"
+                  />
                 </>
               )
             }
@@ -679,16 +698,14 @@ function BookDetail({ id, onClose, creditSeparators }) {
         </div>
       )}
       {book && (
-        <FormModal open={editing} onClose={() => setEditing(false)} title="Edit book">
-          <EditBook
-            book={book}
-            onSaved={() => {
-              setEditing(false)
-              load()
-            }}
-            onCancel={() => setEditing(false)}
-          />
-        </FormModal>
+        <WorkDetails
+          open={editing}
+          onClose={() => setEditing(false)}
+          kind="book"
+          item={book}
+          onChanged={setBook}
+          onDelete={remove}
+        />
       )}
       <InProgressCapDialog
         open={!!capPool}
@@ -714,6 +731,9 @@ function BookDetail({ id, onClose, creditSeparators }) {
       />
       {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onCount={setQuoteCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
+      {/* Phone-only route into this screen's help: the sticky bar has no room
+          for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
+      <ScreenHelpSheet screen="book-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
     </section>
   )
 }
@@ -1060,8 +1080,10 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           <tr>
             {TABLE_COLS.map((c) => (
               <th key={c.key} className="sortable" onClick={() => onSort(c.key)} aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                {c.label}
-                {arrow(c.key)}
+                <Tooltip label="Sort by this column" side="bottom">
+                  {c.label}
+                  {arrow(c.key)}
+                </Tooltip>
               </th>
             ))}
             <th></th>

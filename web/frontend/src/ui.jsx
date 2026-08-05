@@ -336,9 +336,11 @@ export function BulkBar({ n, onClear, children }) {
     >
       <MonoLabel style={{ color: "var(--accent-ui)" }}>{n} selected</MonoLabel>
       {children}
-      <GhostButton className="ml-auto" onClick={onClear}>
-        Clear
-      </GhostButton>
+      <Tooltip label="Clear the selection" className="ml-auto">
+        <button type="button" className="field-icon-btn tactile" aria-label="Clear the selection" onClick={onClear}>
+          <IconClose />
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -496,23 +498,28 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
   const head = (title, onPrev, onNext, onUp) => (
     <div className="mb-1.5 flex items-center gap-1">
       {onPrev && (
-        <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onPrev} aria-label="Previous">
-          ‹
-        </button>
+        <Tooltip label="Show earlier dates">
+          <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onPrev} aria-label="Previous">
+            ‹
+          </button>
+        </Tooltip>
       )}
-      <button
-        type="button"
-        className="mono-label"
-        style={{ flex: 1, background: "none", border: "none", cursor: onUp ? "pointer" : "default", padding: "4px 0" }}
-        onClick={onUp || undefined}
-        title={onUp ? "Back a level" : undefined}
-      >
-        {title}
-      </button>
-      {onNext && (
-        <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onNext} aria-label="Next">
-          ›
+      <Tooltip label={onUp ? "Go back a level" : null} className="flex-1">
+        <button
+          type="button"
+          className="mono-label"
+          style={{ flex: 1, background: "none", border: "none", cursor: onUp ? "pointer" : "default", padding: "4px 0" }}
+          onClick={onUp || undefined}
+        >
+          {title}
         </button>
+      </Tooltip>
+      {onNext && (
+        <Tooltip label="Show later dates">
+          <button type="button" className="tp-btn tp-btn-ghost" style={{ padding: "2px 8px" }} onClick={onNext} aria-label="Next">
+            ›
+          </button>
+        </Tooltip>
       )}
     </div>
   );
@@ -624,16 +631,18 @@ export function PartialDateField({
           onChange={(e) => onChange(e.target.value.replace(/[^\d-]/g, "").slice(0, 10))}
           style={bad ? { borderColor: "var(--error)" } : undefined}
         />
-        <button
-          type="button"
-          className="tp-btn tp-btn-ghost tactile"
-          style={{ padding: "6px 9px", flex: "none" }}
-          aria-label={`Pick ${label || "a date"}`}
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-        >
-          <IconCalendar />
-        </button>
+        <Tooltip label="Pick a date from the calendar" className="shrink-0">
+          <button
+            type="button"
+            className="tp-btn tp-btn-ghost tactile"
+            style={{ padding: "6px 9px", flex: "none" }}
+            aria-label={`Pick ${label || "a date"}`}
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+          >
+            <IconCalendar />
+          </button>
+        </Tooltip>
         {open && (
           <span className="date-pop">
             <DatePicker value={value} granularity={granularity} onPick={onChange} onClose={() => setOpen(false)} />
@@ -922,7 +931,7 @@ export function ReadingBadge({ kind = "book", stacked = false }) {
 // hearts. Clicking opens a popover under it: the transitions menu for a state you
 // set, or a one-line explanation for the derived wishlist tag. `children` may be
 // a function receiving `close`, for popovers whose items dismiss it.
-export function StateTag({ state, label, children }) {
+export function StateTag({ state, label, tip, children }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -943,17 +952,19 @@ export function StateTag({ state, label, children }) {
   const color = (SHELF_META[state] || {}).color || "var(--soft)";
   return (
     <span className="relative" ref={ref} style={{ display: "inline-flex" }}>
-      <button
-        type="button"
-        className="tp-chip tp-chip-btn"
-        style={{ gap: 6, color, borderColor: "color-mix(in srgb, currentColor 45%, transparent)" }}
-        aria-expanded={open}
-        aria-haspopup="true"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: "none" }} />
-        {label}
-      </button>
+      <Tooltip label={tip} side="bottom">
+        <button
+          type="button"
+          className="tp-chip tp-chip-btn"
+          style={{ gap: 6, color, borderColor: "color-mix(in srgb, currentColor 45%, transparent)" }}
+          aria-expanded={open}
+          aria-haspopup="true"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 2, background: color, flex: "none" }} />
+          {label}
+        </button>
+      </Tooltip>
       {open && (
         <div className="hand-card hc-r2 more-menu" style={{ right: "auto", left: 0, minWidth: 210, maxWidth: 280 }} role="menu">
           {typeof children === "function" ? children(() => setOpen(false)) : children}
@@ -967,24 +978,25 @@ export function Hearts({ value, onChange }) {
   const wob = useMemo(() => randWobble(9, 1), []);
   const { play, animClass, onAnimationEnd } = usePlayful("anim-heart", 3);
   return (
-    <button
-      type="button"
-      className={`heart ${animClass}${value ? " on" : ""}`}
-      style={wob}
-      title={value ? "Unfavourite" : "Favourite"}
-      aria-pressed={!!value}
-      onAnimationEnd={onAnimationEnd}
-      onClick={
-        onChange
-          ? () => {
-              play();
-              onChange(!value);
-            }
-          : undefined
-      }
-    >
-      {value ? "♥" : "♡"}
-    </button>
+    <Tooltip label={value ? "Remove from favourites" : "Add to favourites"}>
+      <button
+        type="button"
+        className={`heart ${animClass}${value ? " on" : ""}`}
+        style={wob}
+        aria-pressed={!!value}
+        onAnimationEnd={onAnimationEnd}
+        onClick={
+          onChange
+            ? () => {
+                play();
+                onChange(!value);
+              }
+            : undefined
+        }
+      >
+        {value ? "♥" : "♡"}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -1080,7 +1092,11 @@ export function ExpandableDescription({ text, style, lines = 3, className = "" }
       >
         {text}
       </p>
-      {canToggle && <ClampMore open={open} />}
+      {canToggle && (
+        <Tooltip label={open ? "Show less" : "Show the whole description"} side="bottom" className="flex w-full justify-center">
+          <ClampMore open={open} />
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -1154,7 +1170,11 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
       >
         {text}
       </p>
-      {canToggle && <ClampMore open={open} />}
+      {canToggle && (
+        <Tooltip label={open ? "Show less" : "Show the full text"} side="bottom" className="flex w-full justify-center">
+          <ClampMore open={open} />
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -1673,14 +1693,16 @@ export function TokenInput({
         {value.map((t, i) => (
           <span key={t} className="token-pill">
             {t}
-            <button
-              type="button"
-              className="token-x"
-              onClick={() => removeAt(i)}
-              aria-label={`Remove ${t}`}
-            >
-              ×
-            </button>
+            <Tooltip label={`Remove ${t}`}>
+              <button
+                type="button"
+                className="token-x"
+                onClick={() => removeAt(i)}
+                aria-label={`Remove ${t}`}
+              >
+                ×
+              </button>
+            </Tooltip>
           </span>
         ))}
         <input
@@ -2100,15 +2122,14 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
           <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
             {title}
           </h2>
-          <button
-            type="button"
-            className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
-            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+          <IconButton
+            icon={<IconClose />}
+            ariaLabel="Close"
+            tooltip="Close without saving"
             onClick={onClose}
-            aria-label="Close"
-          >
-            <IconClose />
-          </button>
+            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+            wrapClassName="shrink-0"
+          />
         </div>
         {children}
       </div>
@@ -2117,16 +2138,77 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
   );
 }
 
-// Tooltip — an on-brand hover/focus bubble that replaces native title= tooltips.
-// Visibility is pure CSS (hover + focus-within) so it works for pointer and
-// keyboard focus; the label wraps in an inverse chip. Wrap any trigger.
-// The zero-width holder centers the bubble via flex layout rather than
-// translateX(-50%): transform-positioned text lands on half-pixels and skips
-// paint-time glyph snapping, which rendered the bubble blurry.
+// LONG_PRESS_MS — how long a thumb has to rest on a control before its label
+// appears. 500ms is the platform long-press convention, and the margin matters
+// more than it looks: a fired long-press SWALLOWS the click behind it (holding
+// a Delete button to find out what it does must not delete anything), which is
+// what Material does too — but it means a merely slow tap that crosses the
+// threshold silently does nothing. 500ms keeps that out of ordinary tapping.
+const LONG_PRESS_MS = 500;
+// How far a finger may drift and still count as a press rather than a scroll.
+const LONG_PRESS_SLOP = 10;
+
+// Tooltip — an on-brand label bubble that replaces native title= tooltips, on
+// every device.
+//
+//   pointer  the CSS bubble, on hover or keyboard focus (unchanged).
+//   touch    press and hold. There is no hover on a phone, so the label arrives
+//            as a toast pinned to the top of the screen — top, not bottom,
+//            because the bottom is where the finger and the nav bar are, and a
+//            label that appears under your own thumb is not a label.
+//
+// A fired long-press swallows the click that follows it: holding a Delete button
+// to find out what it does must never also delete the thing.
 export function Tooltip({ label, side = "top", className = "", children }) {
+  const timer = useRef(null);
+  const origin = useRef(null);
+  const fired = useRef(false);
   if (!label) return children;
+
+  const clear = () => {
+    clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const onPointerDown = (e) => {
+    if (e.pointerType !== "touch") return;
+    fired.current = false;
+    origin.current = { x: e.clientX, y: e.clientY };
+    clear();
+    timer.current = setTimeout(() => {
+      fired.current = true;
+      hintToast(label);
+    }, LONG_PRESS_MS);
+  };
+  const onPointerMove = (e) => {
+    // A drag is a scroll, not a question. Let go of the timer as soon as the
+    // finger leaves the control, or every flick down a list would flash a label.
+    if (!timer.current || !origin.current) return;
+    if (
+      Math.abs(e.clientX - origin.current.x) > LONG_PRESS_SLOP ||
+      Math.abs(e.clientY - origin.current.y) > LONG_PRESS_SLOP
+    ) {
+      clear();
+    }
+  };
+  const onClickCapture = (e) => {
+    if (!fired.current) return;
+    fired.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
-    <span className={`tp-tip-wrap ${className}`}>
+    <span
+      className={`tp-tip-wrap ${className}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={clear}
+      onPointerCancel={clear}
+      onClickCapture={onClickCapture}
+      // Long-pressing a control on Android otherwise raises the text-selection
+      // handles or the context menu over the label we just showed.
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {children}
       <span className="tp-tip-holder" data-side={side}>
         <span className="tp-tip" role="tooltip">
@@ -2137,15 +2219,410 @@ export function Tooltip({ label, side = "top", className = "", children }) {
   );
 }
 
-// InfoDot — a small circled "i" carrying a Tooltip; keeps dense help off the
-// page until hovered/focused (replaces the old title= version).
-export function InfoDot({ text, side = "top" }) {
+// InfoPopover — the small panel an InfoDot opens. Deliberately NOT the
+// full-screen HelpSheet: that is right for a screen's whole glossary and absurd
+// for one sentence, which is what an info dot carries.
+//
+//   pointer  anchored to the dot — below it, flipped above when the bottom of
+//            the viewport is closer, always clamped inside the window, with a
+//            caret pointing back at the dot it came from (several dots often sit
+//            within a few pixels of each other, so "which one was that" is a
+//            real question).
+//   phone    a compact centred card over a scrim. Centred rather than anchored
+//            because a 40px-wide anchor on a 360px screen gives no meaningful
+//            direction, and the finger is already covering it.
+function InfoPopover({ anchor, title, onClose, children }) {
+  const mobile = useIsMobileScreen();
+  const cardRef = useRef(null);
+  const [pos, setPos] = useState(null);
+
+  // Anchored placement needs the card's real height, which needs one paint —
+  // hence useLayoutEffect and the hidden first frame (pos === null).
+  useLayoutEffect(() => {
+    if (mobile) return undefined;
+    const place = () => {
+      const el = anchor?.current;
+      const card = cardRef.current;
+      if (!el || !card) return;
+      const r = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = card.offsetWidth;
+      const h = card.offsetHeight;
+      const below = r.bottom + 12 + h <= vh - 10;
+      const top = below ? r.bottom + 12 : Math.max(10, r.top - 12 - h);
+      const left = Math.max(12, Math.min(r.left + r.width / 2 - w / 2, vw - w - 12));
+      setPos({ top, left, below, caret: Math.max(14, Math.min(r.left + r.width / 2 - left, w - 14)) });
+    };
+    place();
+    // `true` captures scrolls in any ancestor container, not just the window —
+    // these dots live inside scrollable cards and sheets.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [mobile, anchor]);
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const body = (
+    <>
+      <p className="info-pop-title">{title}</p>
+      <div className="info-pop-body">{children}</div>
+    </>
+  );
+
+  if (mobile) {
+    return createPortal(
+      <div className="info-pop-scrim" onMouseDown={onClose} role="presentation">
+        <div
+          className="info-pop info-pop-centred hand-card hc-r2"
+          role="dialog"
+          aria-label={title}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {body}
+          <button type="button" className="info-pop-close tp-btn tp-btn-ghost tactile" onClick={onClose}>
+            Got it
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  return createPortal(
+    <>
+      {/* A transparent catcher rather than a dim scrim: an anchored popover on a
+          desktop should not black out the page it is explaining. */}
+      <div className="info-pop-catcher" onMouseDown={onClose} role="presentation" />
+      <div
+        ref={cardRef}
+        className={"info-pop info-pop-anchored hand-card hc-r2" + (pos?.below ? " is-below" : " is-above")}
+        role="dialog"
+        aria-label={title}
+        style={pos ? { top: pos.top, left: pos.left, "--caret-x": `${pos.caret}px` } : { top: 0, left: 0, visibility: "hidden" }}
+      >
+        {body}
+        <span className="info-pop-caret" aria-hidden="true" />
+      </div>
+    </>,
+    document.body,
+  );
+}
+
+// InfoDot — a small circled "i" carrying the explanation a paragraph used to.
+// Clicking or tapping opens an InfoPopover: anchored beside the dot on a
+// pointer device, a compact centred card on a phone. While it is open the hover
+// bubble is suppressed (`is-open`), so a tap that also lands focus can't show
+// the same words twice. `title` names the thing being explained; it falls back
+// to "About this".
+export function InfoDot({ text, title, side = "top" }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef(null);
+  const wrap = useRef(null);
+  const heading = title || "About this";
+  // Named dots announce as "More information: ISBN" — the button's job, not its
+  // payload, which a screen reader gets from the popover once it opens. Dots
+  // with no title fall back to reading the text, as they always did, because
+  // "More information: About this" tells nobody anything.
+  const label = title
+    ? `More information: ${title}`
+    : typeof text === "string"
+      ? text
+      : heading;
   return (
-    <Tooltip label={text} side={side}>
-      <span tabIndex={0} className="info-dot" aria-label={text}>
-        i
-      </span>
-    </Tooltip>
+    <>
+      <Tooltip label={text} side={side} className={open ? "is-open" : ""}>
+        <button
+          ref={btn}
+          type="button"
+          className={"info-dot" + (open ? " is-open" : "")}
+          aria-label={label}
+          aria-expanded={open}
+          onClick={(e) => {
+            // Info dots sit inside cards and rows that are themselves clickable;
+            // asking for help must never also open the thing behind it.
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+        >
+          i
+        </button>
+      </Tooltip>
+      {open && (
+        <InfoPopover
+          anchor={btn}
+          title={heading}
+          onClose={() => {
+            setOpen(false);
+            // Drop focus, or :focus-within re-opens the hover bubble the moment
+            // the popover closes — the same words, twice, from one tap.
+            btn.current?.blur();
+          }}
+        >
+          {text}
+        </InfoPopover>
+      )}
+    </>
+  );
+}
+
+// HelpSheet — the popover an InfoDot or the page Help button opens. Mobile-first:
+// a full-screen sheet on a phone (thumb-sized close, room for real prose) and a
+// centred dialog on desktop. Portalled to <body> so it escapes the isolated
+// stacking context of whatever card it was opened from. Escape and a backdrop
+// click both close.
+export function HelpSheet({ open, title = "Help", onClose, children }) {
+  const mobile = useIsMobileScreen();
+  useBodyScrollLock(open);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  if (mobile) {
+    return createPortal(
+      <MobileSheet open={open} onClose={onClose} title={title}>
+        <div className="help-sheet-body">{children}</div>
+      </MobileSheet>,
+      document.body,
+    );
+  }
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      style={{ background: "rgba(21,16,12,.55)" }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="hand-card hc-r2 w-full"
+        style={{ maxWidth: 520, padding: "18px 20px 20px" }}
+      >
+        <div className="mb-3 flex items-center gap-3">
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
+            {title}
+          </h2>
+          <IconButton
+            icon={<IconClose />}
+            ariaLabel="Close"
+            onClick={onClose}
+            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+          />
+        </div>
+        <div className="help-sheet-body">{children}</div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// HelpList — the body of a screen's help: one row per control, glyph + name +
+// what it does. Its own component because two things open it — the "?" button on
+// most screens, and a ⋯ menu row on the detail screens, whose top bar has no
+// room for a sixth 44px control.
+export function HelpList({ entries = [] }) {
+  return (
+    <dl className="help-list">
+      {entries.map((e) => (
+        <div className="help-row" key={e.term}>
+          {e.icon && (
+            <span className="help-row-icon" aria-hidden="true">
+              {e.icon}
+            </span>
+          )}
+          <div className="min-w-0">
+            <dt>{e.term}</dt>
+            <dd>{e.what}</dd>
+          </div>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// HelpButton — the "?" a screen carries (§ declutter). It opens that screen's
+// own glossary: every control on the page, named and explained, so the layout
+// itself needs no standing explanatory prose. `entries` is
+// [{ term, what, icon? }]; `title` names the screen.
+export function HelpButton({ title, entries = [], side = "bottom" }) {
+  const [open, setOpen] = useState(false);
+  if (!entries.length) return null;
+  return (
+    <>
+      <Tooltip label={`What's on this screen — ${title}`} side={side} className={open ? "is-open" : ""}>
+        <button
+          type="button"
+          className={"help-btn tactile" + (open ? " is-open" : "")}
+          aria-label={`Help for ${title}`}
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
+        >
+          <IconHelp />
+        </button>
+      </Tooltip>
+      <HelpSheet open={open} title={title} onClose={() => setOpen(false)}>
+        <HelpList entries={entries} />
+      </HelpSheet>
+    </>
+  );
+}
+
+// InlineField — read-at-rest, edit-in-place. The house pattern for every field
+// that used to sit in a modal behind an "Edit" button and save with a "Save"
+// one: the value reads as plain text with a pencil beside it, the pencil swaps
+// it for an input with ✓ / ✕ discs, and ✓ saves that one field. `render` draws
+// the resting value (defaults to the text); `input` draws the editor, given
+// { value, onChange } — so a token list or a textarea drops straight in.
+export function InlineField({
+  label,
+  value = "",
+  display,
+  placeholder = "not set",
+  hint,
+  multiline = false,
+  inputMode,
+  maxLength,
+  input,
+  onSave,
+  busy = false,
+  disabled = false,
+  editLabel,
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef(null);
+  // A save elsewhere (adopting a lookup match) must be reflected at rest.
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+  useEffect(() => {
+    if (editing) ref.current?.focus();
+  }, [editing]);
+
+  // commit waits for the save before closing the editor. Closing first would be
+  // snappier and would also throw away what you typed the moment the request
+  // failed — the row would snap back to the old value with the new one gone.
+  // `onSave` returning false (or throwing) keeps the editor open, text intact,
+  // beside whatever error the caller rendered.
+  async function commit() {
+    if (draft === value) return setEditing(false);
+    try {
+      const ok = await onSave?.(draft);
+      if (ok !== false) setEditing(false);
+    } catch {
+      // stay open — the caller shows the error
+    }
+  }
+  function cancel() {
+    setDraft(value);
+    setEditing(false);
+  }
+  // Enter saves a plain one-line field. It must NOT save when the caller
+  // supplied its own editor: in a TokenInput, Enter is how you add a token, and
+  // committing on it would close the row the moment you typed your first genre.
+  // Escape always backs out, whatever the editor.
+  const enterCommits = !multiline && !input;
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cancel();
+    } else if (e.key === "Enter" && enterCommits) {
+      e.preventDefault();
+      commit();
+    }
+  };
+
+  const filled = Array.isArray(value) ? value.length > 0 : String(value ?? "").trim() !== "";
+  return (
+    <div className="inline-field">
+      <div className="inline-field-head">
+        <MonoLabel>{label}</MonoLabel>
+        {hint && <InfoDot text={hint} title={label} />}
+        <span className="flex-1" />
+        {!editing && !disabled && (
+          <Tooltip label={editLabel || `Edit ${String(label).toLowerCase()}`}>
+            <button
+              type="button"
+              className="field-icon-btn tactile"
+              aria-label={editLabel || `Edit ${String(label).toLowerCase()}`}
+              onClick={() => setEditing(true)}
+            >
+              <IconEdit />
+            </button>
+          </Tooltip>
+        )}
+        {editing && (
+          <>
+            <Tooltip label="Save">
+              <button
+                type="button"
+                className="field-icon-btn field-icon-btn-ok tactile"
+                aria-label={`Save ${String(label).toLowerCase()}`}
+                disabled={busy}
+                onClick={commit}
+              >
+                <IconCheck />
+              </button>
+            </Tooltip>
+            <Tooltip label="Cancel">
+              <button
+                type="button"
+                className="field-icon-btn tactile"
+                aria-label="Cancel"
+                disabled={busy}
+                onClick={cancel}
+              >
+                <IconClose />
+              </button>
+            </Tooltip>
+          </>
+        )}
+      </div>
+      {editing ? (
+        <div onKeyDown={onKey}>
+          {input ? (
+            input({ value: draft, onChange: setDraft, ref })
+          ) : multiline ? (
+            <textarea
+              ref={ref}
+              className="tp-input"
+              rows={4}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+          ) : (
+            <input
+              ref={ref}
+              className="tp-input"
+              value={draft}
+              inputMode={inputMode}
+              maxLength={maxLength}
+              autoComplete="off"
+              onChange={(e) => setDraft(e.target.value)}
+            />
+          )}
+        </div>
+      ) : (
+        <div className={"inline-field-value" + (filled ? "" : " is-empty")}>
+          {filled ? display || String(value) : placeholder}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2433,14 +2910,16 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
       if (!zoomable) return img;
       return (
         <>
-          <button
-            type="button"
-            className="cover-zoom-btn"
-            aria-label={title ? `View cover of ${title} full screen` : "View cover full screen"}
-            onClick={() => setZoom(true)}
-          >
-            {img}
-          </button>
+          <Tooltip label="See this cover full screen" className="block w-full">
+            <button
+              type="button"
+              className="cover-zoom-btn"
+              aria-label={title ? `View cover of ${title} full screen` : "View cover full screen"}
+              onClick={() => setZoom(true)}
+            >
+              {img}
+            </button>
+          </Tooltip>
           {zoom && <Lightbox path={path} title={title} onClose={() => setZoom(false)} />}
         </>
       );
@@ -2574,8 +3053,12 @@ export function SortableTh({ col, label, sort, onSort, className = "" }) {
           : "none"
       }
     >
-      {label}
-      {arrow}
+      <Tooltip label="Sort by this column" side="bottom">
+        <span>
+          {label}
+          {arrow}
+        </span>
+      </Tooltip>
     </th>
   );
 }
@@ -2739,19 +3222,19 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour" }) {
       className="flex items-center gap-1.5"
     >
       {ANNOTATION_COLORS.map((c, i) => (
-        <button
-          key={c}
-          type="button"
-          role="radio"
-          aria-checked={value === c}
-          aria-label={c}
-          title={c}
-          tabIndex={i === focusIndex ? 0 : -1}
-          onClick={() => onChange(c)}
-          className="color-dot-btn"
-        >
-          <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
-        </button>
+        <Tooltip key={c} label={`Pick ${c}`}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === c}
+            aria-label={c}
+            tabIndex={i === focusIndex ? 0 : -1}
+            onClick={() => onChange(c)}
+            className="color-dot-btn"
+          >
+            <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
+          </button>
+        </Tooltip>
       ))}
     </span>
   );
@@ -2761,18 +3244,27 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour" }) {
 
 const ICON_SIZE = 24
 
-export function IconButton({ icon, ariaLabel, className = "", onClick, ...rest }) {
+// IconButton — a glyph-only 44px control. It carries its OWN Tooltip: a button
+// with no words has to say what it is on every device, and threading a wrapper
+// through forty call sites is how half of them end up without one. `ariaLabel`
+// doubles as the tooltip label (they should say the same thing anyway); pass
+// `tooltip` to differ, or `tooltip={null}` for the rare button whose label is
+// already visible beside it. `tipSide` picks which way the bubble opens.
+export function IconButton({ icon, ariaLabel, tooltip, tipSide = "top", className = "", wrapClassName = "", onClick, ...rest }) {
+  const label = tooltip === undefined ? ariaLabel : tooltip
   return (
-    <button
-      type="button"
-      className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full ${className}`}
-      style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
-      aria-label={ariaLabel}
-      onClick={onClick}
-      {...rest}
-    >
-      {icon}
-    </button>
+    <Tooltip label={label} side={tipSide} className={wrapClassName}>
+      <button
+        type="button"
+        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full ${className}`}
+        style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
+        aria-label={ariaLabel}
+        onClick={onClick}
+        {...rest}
+      >
+        {icon}
+      </button>
+    </Tooltip>
   )
 }
 
@@ -2817,6 +3309,18 @@ export function IconSearch2() { return <svg {...iconStroke}><circle cx="11" cy="
 export function IconReading({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 7.2C10.3 5.6 7.6 5 4 5.4v12.3c3.6-.4 6.3.2 8 1.8"/><path d="M12 7.2c1.7-1.6 4.4-2.2 8-1.8v12.3c-3.6-.4-6.3.2-8 1.8"/><path d="M12 7.2v13.3"/></svg> }
 export function IconWatching({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><path d="M7.5 4.8v14.4L19 12z" fill="currentColor"/></svg> }
 export function IconCalendar({ size = 18 }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3.5v3"/><path d="M16 3.5v3"/></svg> }
+// IconHelp — the "?" every screen's help button wears. Circled so it reads as a
+// standing affordance rather than punctuation someone forgot to delete.
+export function IconHelp({ size = 22 }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="12" r="8.75"/><path d="M9.4 9.5a2.6 2.6 0 1 1 3.2 2.5c-.5.15-.75.5-.75 1v.6"/><path d="M11.85 16.6v.01"/></svg> }
+// IconDetails — the work Details panel (the old "Edit" button's replacement): a
+// record card with its lines of metadata, not a pencil, because Details is a
+// place to read first and edit second.
+export function IconDetails({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9h9"/><path d="M7.5 12.5h9"/><path d="M7.5 16h5"/></svg> }
+// IconCopy — copy a value to the clipboard (the device pairing code).
+export function IconCopy({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="9" y="9" width="11.5" height="11.5" rx="2.5"/><path d="M15 6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15"/></svg> }
+// IconRevert — put a field back to the value it had before a lookup match
+// overwrote it (the merge screen's per-row undo).
+export function IconRevert({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 10h9.5a5 5 0 0 1 0 10H8"/><path d="m7.5 6-3.5 4 3.5 4"/></svg> }
 
 // ---- metadata-source marks ----
 // A look-up row shows WHERE a match came from. It used to be a "GOOGLE BOOKS"
@@ -2951,9 +3455,11 @@ export function MobileSheet({ open, onClose, title, children, footer }) {
     <div className="mobile-sheet" onClick={onClose}>
       <div className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
         <div className="mobile-sheet-header">
-          <button type="button" className="mobile-sheet-close" onClick={onClose} aria-label="Close">
-            <IconBack />
-          </button>
+          <Tooltip label="Close this sheet" side="bottom" className="shrink-0">
+            <button type="button" className="mobile-sheet-close" onClick={onClose} aria-label="Close">
+              <IconBack />
+            </button>
+          </Tooltip>
           <h2 className="mobile-sheet-title">{title}</h2>
           <span className="mobile-sheet-spacer" />
         </div>
@@ -2973,9 +3479,11 @@ export function SheetFooter({ count, onReset, onDone }) {
   return (
     <>
       {onReset && (
-        <GhostButton type="button" onClick={onReset}>
-          Reset
-        </GhostButton>
+        <Tooltip label="Reset every filter">
+          <button type="button" className="field-icon-btn tactile" aria-label="Reset every filter" onClick={onReset}>
+            <IconRevert />
+          </button>
+        </Tooltip>
       )}
       {count != null && <span className="microcopy">{count}</span>}
       <button type="button" className="tp-btn tp-btn-primary ml-auto" style={{ minWidth: 110 }} onClick={onDone}>
@@ -3014,26 +3522,51 @@ export function ProgressBar({ value, max, label }) {
 // threading a prop chain — ToastHost (mounted once in App) does the rendering.
 
 let toastSink = null
+let hintSink = null
 
 export function toast(msg) {
   if (toastSink) toastSink(msg)
 }
 
+// hintToast — the touch answer to a hover tooltip: a control's label, shown at
+// the TOP of the screen after a long press. Its own slot rather than a variant
+// of toast(), because the two can legitimately be on screen at once (hold a
+// button, read its label, tap it, get its confirmation) and they must not fight
+// over one message. Shorter-lived than a toast: it is a label, not news.
+export function hintToast(msg) {
+  if (hintSink) hintSink(msg)
+}
+
 export function ToastHost() {
   const [t, setT] = useState({ msg: "", n: 0 })
+  const [h, setH] = useState({ msg: "", n: 0 })
   useEffect(() => {
     toastSink = (msg) => setT((s) => ({ msg, n: s.n + 1 }))
-    return () => { toastSink = null }
+    hintSink = (msg) => setH((s) => ({ msg, n: s.n + 1 }))
+    return () => { toastSink = null; hintSink = null }
   }, [])
   useEffect(() => {
     if (!t.msg) return
     const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), 2200)
     return () => clearTimeout(id)
   }, [t])
-  if (!t.msg) return null
+  useEffect(() => {
+    if (!h.msg) return
+    const id = setTimeout(() => setH((s) => ({ ...s, msg: "" })), 1700)
+    return () => clearTimeout(id)
+  }, [h])
   return (
-    <div className="toast" key={t.n} role="status">
-      {t.msg}
-    </div>
+    <>
+      {t.msg && (
+        <div className="toast" key={t.n} role="status">
+          {t.msg}
+        </div>
+      )}
+      {h.msg && (
+        <div className="hint-toast" key={h.n} role="status">
+          {h.msg}
+        </div>
+      )}
+    </>
   )
 }

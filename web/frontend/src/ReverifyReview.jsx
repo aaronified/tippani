@@ -17,6 +17,7 @@ import {
   MobileSheet,
   MonoLabel,
   ProgressBar,
+  Tooltip,
   useIsMobileScreen,
 } from './ui.jsx'
 
@@ -84,7 +85,9 @@ function FieldDiffRow({ diff, approved, onToggle }) {
   return (
     <div className="flex items-start gap-3 py-2" style={{ borderTop: '1px solid var(--line)' }}>
       <label className="flex items-center gap-2" style={{ cursor: 'pointer', flex: 'none', paddingTop: 2 }}>
-        <input type="checkbox" checked={approved} onChange={onToggle} />
+        <Tooltip label="Approve this change" side="top">
+          <input type="checkbox" checked={approved} onChange={onToggle} />
+        </Tooltip>
         <MonoLabel style={{ width: 92 }}>{diff.field.replace(/_/g, ' ')}</MonoLabel>
       </label>
       <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
@@ -107,21 +110,23 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
   const kindChip = item.type === 'person' ? item.kind : item.type
   return (
     <HandCard className="px-4 py-3">
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 text-left"
-        style={{ background: 'none', border: 'none', padding: 0 }}
-        onClick={onToggleOpen}
-        aria-expanded={open}
-      >
-        <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}>
-          {item.title || item.name}
-        </span>
-        <MonoLabel style={{ fontSize: 9.5, flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
-        <MonoLabel className="ml-auto" style={{ fontSize: 10, color: 'var(--accent-ui)', flex: 'none' }}>
-          {approvedCount}/{item.diffs.length} approved {open ? '▾' : '▸'}
-        </MonoLabel>
-      </button>
+      <Tooltip label="Show or hide the proposed changes" side="top" className="w-full">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 text-left"
+          style={{ background: 'none', border: 'none', padding: 0 }}
+          onClick={onToggleOpen}
+          aria-expanded={open}
+        >
+          <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}>
+            {item.title || item.name}
+          </span>
+          <MonoLabel style={{ fontSize: 9.5, flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
+          <MonoLabel className="ml-auto" style={{ fontSize: 10, color: 'var(--accent-ui)', flex: 'none' }}>
+            {approvedCount}/{item.diffs.length} approved {open ? '▾' : '▸'}
+          </MonoLabel>
+        </button>
+      </Tooltip>
       {open && (
         <div className="mt-2">
           <div className="mb-1 flex justify-end gap-3">

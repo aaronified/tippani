@@ -7,6 +7,8 @@ import { coverImgURL, json, upload, errText } from './api.js'
 import {
   ErrorText,
   GhostButton,
+  IconCheck,
+  IconClose,
   IconDelete,
   IconLink,
   IconMetadata,
@@ -88,7 +90,10 @@ export function CoverPreview({ url, label, showRes = false, compact = false, cla
 
 // hiResPoster upgrades a TMDB picker-thumbnail URL (w342) to the original so
 // what gets stored from a cover search is full quality, not the preview size.
-const hiResPoster = (u) => (u || '').replace('/t/p/w342/', '/t/p/original/')
+// Exported because the work Details merge screen adopts a candidate's poster
+// directly and has to make the same upgrade — a match taking the thumbnail
+// would store a worse image than the cover search stores for the same title.
+export const hiResPoster = (u) => (u || '').replace('/t/p/w342/', '/t/p/original/')
 
 // CoverControls: preview + set/replace/clear. The parent owns the pending
 // {coverUrl, clearCover} that ride along in its Save PUT; file upload is
@@ -250,16 +255,20 @@ export function CoverControls({
               value={urlText}
               onChange={(e) => setUrlText(e.target.value)}
             />
-            <GhostButton
-              type="button"
-              onClick={() => {
-                if (urlText.trim()) onSetUrl(urlText.trim())
-                setUrlOpen(false)
-                setUrlText('')
-              }}
-            >
-              Set
-            </GhostButton>
+            <Tooltip label="Use this image">
+              <button
+                type="button"
+                className="field-icon-btn field-icon-btn-ok tactile shrink-0"
+                aria-label="Use this image URL"
+                onClick={() => {
+                  if (urlText.trim()) onSetUrl(urlText.trim())
+                  setUrlOpen(false)
+                  setUrlText('')
+                }}
+              >
+                <IconCheck />
+              </button>
+            </Tooltip>
           </div>
         )}
         {covers && (
@@ -300,24 +309,26 @@ function CoverPickThumb({ url, source, label, onPick }) {
   if (hide) return null
   const lowRes = dim && dim.w > 0 && dim.w < LOW_RES_W
   return (
-    <button
-      type="button"
-      className={'cover-pick' + (lowRes ? ' is-low' : '')}
-      title={`${source} · ${resLabel(dim) || 'loading…'} — use this ${label.toLowerCase()}`}
-      onClick={onPick}
-    >
-      <span className="relative block">
-        <img
-          src={url}
-          alt=""
-          loading="lazy"
-          onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
-          onError={() => setHide(true)}
-        />
-        {resLabel(dim) && <span className={'cover-res-badge' + (lowRes ? ' is-low' : '')}>{resLabel(dim)}</span>}
-      </span>
-      <span className="microcopy">{source}</span>
-    </button>
+    <Tooltip label={`Use this ${label.toLowerCase()} — ${source} · ${resLabel(dim) || 'loading…'}`}>
+      <button
+        type="button"
+        className={'cover-pick' + (lowRes ? ' is-low' : '')}
+        aria-label={`Use this ${label.toLowerCase()} — ${source} · ${resLabel(dim) || 'loading…'}`}
+        onClick={onPick}
+      >
+        <span className="relative block">
+          <img
+            src={url}
+            alt=""
+            loading="lazy"
+            onLoad={(e) => setDim({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+            onError={() => setHide(true)}
+          />
+          {resLabel(dim) && <span className={'cover-res-badge' + (lowRes ? ' is-low' : '')}>{resLabel(dim)}</span>}
+        </span>
+        <span className="microcopy">{source}</span>
+      </button>
+    </Tooltip>
   )
 }
 
@@ -383,16 +394,18 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
       ) : (
         <SourceIcon source={source} detail={sourceDetail} />
       )}
-      <button
-        type="button"
-        className="cand-add tactile"
-        onClick={onAdd}
-        disabled={busy}
-        aria-label={group ? `Choose an edition of ${title}` : `${addLabel} ${title}`}
-        aria-expanded={group ? !!expanded : undefined}
-      >
-        {group ? <IconChevron open={!!expanded} /> : <IconPlus />}
-      </button>
+      <Tooltip label={group ? 'Show the editions of this title' : 'Add this match to your library'} className="shrink-0">
+        <button
+          type="button"
+          className="cand-add tactile"
+          onClick={onAdd}
+          disabled={busy}
+          aria-label={group ? `Choose an edition of ${title}` : `${addLabel} ${title}`}
+          aria-expanded={group ? !!expanded : undefined}
+        >
+          {group ? <IconChevron open={!!expanded} /> : <IconPlus />}
+        </button>
+      </Tooltip>
     </li>
   )
 }
@@ -452,9 +465,11 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
             {busy ? 'finding editions…' : 'pick the right edition — replaces the fields below'}
           </MonoLabel>
           {onClose && (
-            <GhostButton type="button" onClick={onClose}>
-              Close
-            </GhostButton>
+            <Tooltip label="Close the picker">
+              <button type="button" className="field-icon-btn tactile" aria-label="Close the picker" onClick={onClose}>
+                <IconClose />
+              </button>
+            </Tooltip>
           )}
         </div>
       ) : (
@@ -468,9 +483,11 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
         <ul className="lookup-grid">
           {cands.map((c, i) => (
             <li key={i} className="lookup-card">
-              <button type="button" className="lookup-card-cover" onClick={() => onPick(c)} title={`Use: ${c.title}`}>
-                <CoverPreview url={c.cover_url} label="" showRes className="w-full" />
-              </button>
+              <Tooltip label="Use this edition">
+                <button type="button" className="lookup-card-cover" aria-label={`Use ${c.title}`} onClick={() => onPick(c)}>
+                  <CoverPreview url={c.cover_url} label="" showRes className="w-full" />
+                </button>
+              </Tooltip>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold" title={c.title}>{c.title}</p>
                 <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>
@@ -484,9 +501,16 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="tp-chip shrink-0" style={{ fontSize: 9.5 }}>{(c.source || '').toUpperCase()}</span>
-                <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
-                  Use
-                </GhostButton>
+                <Tooltip label={`Use: ${c.title}`}>
+                  <button
+                    type="button"
+                    className="field-icon-btn field-icon-btn-ok tactile shrink-0"
+                    aria-label={`Use ${c.title}`}
+                    onClick={() => onPick(c)}
+                  >
+                    <IconCheck />
+                  </button>
+                </Tooltip>
               </div>
             </li>
           ))}
@@ -541,9 +565,17 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, au
       <div className="flex gap-2">
         <input className="tp-input" placeholder="Title" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnter} />
         <input className="tp-input w-24 shrink-0" placeholder="Year" inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} onKeyDown={onEnter} />
-        <GhostButton type="button" className="shrink-0" onClick={look} disabled={busy}>
-          {busy ? 'Searching…' : 'Search'}
-        </GhostButton>
+        <Tooltip label="Search TMDB & TheTVDB">
+          <button
+            type="button"
+            className="field-icon-btn tactile shrink-0"
+            aria-label="Search"
+            onClick={look}
+            disabled={busy}
+          >
+            <IconSearch />
+          </button>
+        </Tooltip>
       </div>
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches found</p>}
@@ -551,9 +583,11 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, au
         <ul className="lookup-grid">
           {cands.map((c) => (
             <li key={`${c.source}-${c.source_id || c.tmdb_id}`} className="lookup-card">
-              <button type="button" className="lookup-card-cover" onClick={() => onPick(c)} title={`Use: ${c.title}`}>
-                <CoverPreview url={c.poster_url} label="" showRes className="w-full" />
-              </button>
+              <Tooltip label="Use this match">
+                <button type="button" className="lookup-card-cover" aria-label={`Use ${c.title}`} onClick={() => onPick(c)}>
+                  <CoverPreview url={c.poster_url} label="" showRes className="w-full" />
+                </button>
+              </Tooltip>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold" title={c.title}>{c.title}</p>
                 {c.release_year ? <p className="truncate text-xs" style={{ color: 'var(--soft)' }}>{c.release_year}</p> : null}
@@ -562,9 +596,16 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, au
                 <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
                   {(c.source || 'tmdb').toUpperCase()}
                 </span>
-                <GhostButton type="button" className="shrink-0" onClick={() => onPick(c)}>
-                  Use
-                </GhostButton>
+                <Tooltip label={`Use: ${c.title}`}>
+                  <button
+                    type="button"
+                    className="field-icon-btn field-icon-btn-ok tactile shrink-0"
+                    aria-label={`Use ${c.title}`}
+                    onClick={() => onPick(c)}
+                  >
+                    <IconCheck />
+                  </button>
+                </Tooltip>
               </div>
             </li>
           ))}

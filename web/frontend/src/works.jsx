@@ -5,6 +5,7 @@
 // import cycle — this layer is free to import from both).
 import { useState } from 'react'
 import { DEMO, coverImgURL } from './api.js'
+import { PageHelp } from './help.jsx'
 import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
 import {
   ConfirmDialog,
@@ -13,7 +14,6 @@ import {
   ExpandableDescription,
   FavBadge,
   GenreFilter,
-  GhostButton,
   HandCard,
   Hearts,
   IconBack,
@@ -35,6 +35,7 @@ import {
   StatusBar,
   ReadingBadge,
   Toggle,
+  Tooltip,
   filterChipClass,
   formatPartialDate,
   seriesLabel,
@@ -472,7 +473,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   // quoted from can go on a shelf without first being marked up.
   if (state === 'wishlist') {
     return (
-      <StateTag state="wishlist" label="Wishlist">
+      <StateTag state="wishlist" label="Wishlist" tip="Why this is on the wishlist">
         {(close) => (
           <>
             <p style={{ padding: '4px 6px 8px', fontSize: 13, lineHeight: 1.5, color: 'var(--soft)' }}>
@@ -487,7 +488,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
   }
   return (
     <>
-      <StateTag state={state} label={shelfLabel(state, kind)}>
+      <StateTag state={state} label={shelfLabel(state, kind)} tip="Change the shelf state">
         {(close) => (
           <>
             {status === active && (
@@ -510,7 +511,7 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
         <ShelfProgress status={status} progress={progress} pos={pos} />
       )}
       {finished > 0 && (
-        <StateTag state={state} label={`×${finished}`}>
+        <StateTag state={state} label={`×${finished}`} tip="Open the read log">
           <ul className="read-log">
             {reads.map((r, i) => (
               <li key={r.id ?? i}>
@@ -692,15 +693,16 @@ export function GroupHeading({ label, count, noun = 'item', person, onOpenPerson
     <div className="mb-4 flex items-center gap-3">
       {person && <PersonPortrait person={person} size={34} />}
       {onOpenPerson ? (
-        <button
-          type="button"
-          className="display-title truncate"
-          style={{ fontSize: 19, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-          onClick={onOpenPerson}
-          title={`${label} — details`}
-        >
-          {label}
-        </button>
+        <Tooltip label="Open this person's details" className="min-w-0">
+          <button
+            type="button"
+            className="display-title truncate"
+            style={{ fontSize: 19, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+            onClick={onOpenPerson}
+          >
+            {label}
+          </button>
+        </Tooltip>
       ) : (
         <h3 className="display-title truncate" style={{ fontSize: 19 }}>
           {label}
@@ -718,19 +720,28 @@ export function GroupHeading({ label, count, noun = 'item', person, onOpenPerson
 // back button, the title + a meta subtitle, and a caller-supplied actions
 // cluster (filter / add / overflow — these differ per detail). Shared so the
 // bar structure lives in one place.
+// MobileDetailBar — the phone's in-page top bar for a detail screen (the shell
+// bar steps aside for it).
+//
+// No help button here on purpose: this bar already carries a back arrow, a
+// filter, a ＋ and a ⋯ , and a fifth 44px control would leave a book title about
+// eighty pixels of a 360px screen. The detail screens put help in the ⋯ menu
+// instead (see ScreenHelpSheet), which costs the bar nothing.
 export function MobileDetailBar({ onClose, title, meta, actions }) {
   return (
     <div className="mobile-sticky-bar">
       <div className="mobile-detail-bar">
-        <button
-          type="button"
-          className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
-          style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
-          onClick={onClose}
-          aria-label="Back"
-        >
-          <IconBack />
-        </button>
+        <Tooltip label="Back to the list" side="bottom" className="shrink-0">
+          <button
+            type="button"
+            className="tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full"
+            style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
+            onClick={onClose}
+            aria-label="Back"
+          >
+            <IconBack />
+          </button>
+        </Tooltip>
         <div className="min-w-0 flex-1">
           <div className="mobile-detail-title">{title}</div>
           {meta && <div className="mobile-detail-meta">{meta}</div>}
@@ -819,6 +830,7 @@ export function WorkListScaffold({
   mobile,
   title,
   counts,
+  helpScreen, // which help.jsx entry the header's "?" opens
   error,
   add, // { label, aria, onClick }
   onExport,
@@ -874,15 +886,21 @@ export function WorkListScaffold({
   // breakpoint with no control left to see or clear it.
   const onlyChips = (
     <>
-      <button onClick={() => setFav(!fav)} className={filterChipClass(fav)} title="Only favourites">
-        ♥ favourites
-      </button>
-      <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)} title={`Only ${noun}s with a tagged quote`}>
-        tagged
-      </button>
-      <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)} title={`Only ${noun}s with a quote carrying a note`}>
-        has notes
-      </button>
+      <Tooltip label="Show only favourites">
+        <button onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
+          ♥ favourites
+        </button>
+      </Tooltip>
+      <Tooltip label={`Show only ${noun}s with a tagged quote`}>
+        <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
+          tagged
+        </button>
+      </Tooltip>
+      <Tooltip label={`Show only ${noun}s with a quote carrying a note`}>
+        <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
+          has notes
+        </button>
+      </Tooltip>
     </>
   )
   // The wishlist control is a 3-way scope, not a toggle: a work with nothing
@@ -894,9 +912,11 @@ export function WorkListScaffold({
     ['wishlist', 'wishlist', `Only ${noun}s with nothing quoted yet`],
     ['annotated', 'annotated', `Hide ${noun}s with nothing quoted yet`],
   ].map(([k, label, hint]) => (
-    <button key={k || 'all'} className={filterChipClass(wish === k)} onClick={() => setWish(k)} title={hint}>
-      {label}
-    </button>
+    <Tooltip key={k || 'all'} label={hint}>
+      <button className={filterChipClass(wish === k)} onClick={() => setWish(k)}>
+        {label}
+      </button>
+    </Tooltip>
   ))
   // Shelf state is a multi-select rather than a chip per state: five states would
   // double the length of the filter row, and "paused or abandoned" — the unfinished
@@ -938,11 +958,18 @@ export function WorkListScaffold({
                 <div className="flex items-center gap-2">
                   <IconButton icon={<IconPlus />} ariaLabel={add.aria} onClick={add.onClick} />
                   <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+                  <PageHelp screen={helpScreen} />
                   {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: onExport }]} />}
                 </div>
               )}
               {!mobile && headerAside}
-              {!mobile && !DEMO && <GhostButton onClick={onExport}>Export all</GhostButton>}
+              {/* Export is a glyph, not a word: the header row is the tightest
+                  real estate on the page and "Export all" spent it on a label
+                  the ⬇ already carries. */}
+              {!mobile && !DEMO && (
+                <IconButton icon={<IconExport />} ariaLabel="Export all" onClick={onExport} tooltip="Export everything as Markdown" />
+              )}
+              {!mobile && <PageHelp screen={helpScreen} />}
               {!mobile && (
                 <button className="tp-btn tp-btn-primary" onClick={add.onClick}>
                   {add.label}

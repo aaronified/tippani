@@ -59,3 +59,8 @@ jobs:
         with:
           node-version: "22"
       - run: node scripts/roadmap-data.mjs --check
+      # greetings.js is a large table of fixed-date national days and IANA zones
+      # whose failure modes are all silent — a literal "{name}", a "Happy" on a
+      # commemoration, a country resolving to its neighbour's time zone. None of
+      # those throw or break a build, so they get their own check.
+      - run: node scripts/greetings-check.mjs

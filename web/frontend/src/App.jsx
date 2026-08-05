@@ -26,6 +26,7 @@ import {
   StickerButton,
   ToastHost,
   Toggle,
+  Tooltip,
   frameCode,
   toast,
   useBodyScrollLock,
@@ -35,6 +36,7 @@ import {
   useResolvedDark,
 } from './ui.jsx'
 import { Profile, UserManagement } from './Account.jsx'
+import { PageHelp } from './help.jsx'
 import { FeatureTour } from './tour.jsx'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
@@ -580,9 +582,11 @@ function AccountMenu({ user, onOpenView, logout }) {
   const openView = (v) => { setOpen(false); onOpenView(v) }
   return (
     <div className="relative user-menu" ref={ref}>
-      <button className="user-chip" data-tour="account" title={user.username} aria-haspopup="true" aria-expanded={open} aria-label="Account" onClick={() => setOpen((m) => !m)}>
-        <UserAvatar user={user} />
-      </button>
+      <Tooltip label="Open your account menu" side="bottom" className="shrink-0">
+        <button className="user-chip" data-tour="account" aria-haspopup="true" aria-expanded={open} aria-label="Account" onClick={() => setOpen((m) => !m)}>
+          <UserAvatar user={user} />
+        </button>
+      </Tooltip>
       {open && (
         <div className="hand-card hc-r2 user-menu-panel z-50 min-w-48 px-3 py-3 text-left" style={{ right: 0 }}>
           <p className="mono-label mb-2 px-1">{user.username}{user.is_admin ? ' · admin' : ''}</p>
@@ -613,13 +617,15 @@ function AccountOverlay({ view, user, onUser, onClose }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
   const title = view === 'users' ? 'User management' : 'Profile'
+  const help = view === 'users' ? 'users' : 'profile'
   const body = view === 'users' ? <UserManagement me={user} /> : <Profile user={user} onUser={onUser} />
   if (mobile) {
     return (
       <div className="account-page" role="dialog" aria-label={title}>
         <header className="account-page-bar">
-          <button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label="Back"><IconBack /></button>
+          <Tooltip label="Close and go back" side="bottom"><button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label="Back"><IconBack /></button></Tooltip>
           <span className="account-page-title">{title}</span>
+          <span className="ml-auto"><PageHelp screen={help} /></span>
         </header>
         <div className="account-page-body">{body}</div>
       </div>
@@ -630,7 +636,8 @@ function AccountOverlay({ view, user, onUser, onClose }) {
       <div className="account-modal" role="dialog" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
         <div className="account-modal-bar">
           <h2 className="account-modal-title">{title}</h2>
-          <button type="button" className="account-close" onClick={onClose} aria-label="Close">×</button>
+          <PageHelp screen={help} />
+          <Tooltip label="Close this panel" side="bottom"><button type="button" className="account-close" onClick={onClose} aria-label="Close">×</button></Tooltip>
         </div>
         <div className="account-modal-body">{body}</div>
       </div>
@@ -889,16 +896,17 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
           className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pb-3 pt-2"
           style={{ borderTop: '1px solid var(--line)' }}
         >
-          <a
-            href={user.releases_url || 'https://github.com/aaronified/tippani/releases'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mono-label"
-            style={{ fontSize: 10, letterSpacing: '.04em', color: 'var(--faint)' }}
-            title="Release notes & changelog on GitHub"
-          >
-            v{user.version || 'dev'} · changelog ↗
-          </a>
+          <Tooltip label="Open the release notes on GitHub" side="top">
+            <a
+              href={user.releases_url || 'https://github.com/aaronified/tippani/releases'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mono-label"
+              style={{ fontSize: 10, letterSpacing: '.04em', color: 'var(--faint)' }}
+            >
+              v{user.version || 'dev'} · changelog ↗
+            </a>
+          </Tooltip>
           {update?.update_available && update.notes_url && (
             <a
               href={update.notes_url}
@@ -922,10 +930,10 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
 // /catalogue). Icon-only: TabIcon's glyph is the affordance, the aria-label
 // carries the name.
 const BOTTOM_TABS = [
-  ['search', 'Search'],
-  ['home', 'Home'],
-  ['library', 'Library'],
-  ['movies', 'Catalogue'],
+  ['search', 'Search', 'Search titles, authors, quotes and notes'],
+  ['home', 'Home', "Go home to today's review"],
+  ['library', 'Library', 'Open your book library'],
+  ['movies', 'Catalogue', 'Open your film catalogue'],
 ]
 
 // MobileBottomNav — the floating phone nav: four thumb-reachable icons, hovering
@@ -951,20 +959,21 @@ function MobileBottomNav({ tab, selectTab, hidden }) {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      {BOTTOM_TABS.map(([key, label]) => {
+      {BOTTOM_TABS.map(([key, label, tip]) => {
         const active = tab === key
         return (
-          <button
-            key={key}
-            type="button"
-            className={'mobile-bottom-nav-btn' + (active ? ' active' : '')}
-            aria-label={label}
-            aria-current={active ? 'page' : undefined}
-            onClick={() => selectTab(key)}
-          >
-            <TabIcon name={key} />
-            <span className="mobile-bottom-nav-mark" aria-hidden="true" />
-          </button>
+          <Tooltip key={key} label={tip} side="top">
+            <button
+              type="button"
+              className={'mobile-bottom-nav-btn' + (active ? ' active' : '')}
+              aria-label={label}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => selectTab(key)}
+            >
+              <TabIcon name={key} />
+              <span className="mobile-bottom-nav-mark" aria-hidden="true" />
+            </button>
+          </Tooltip>
         )
       })}
     </nav>
@@ -1139,44 +1148,52 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
       <header className="topbar">
         <div className="topbar-inner">
-          <button type="button" className="brand" title="Home — daily review" onClick={() => selectTab('home')}>
-            {/* the mark matches the 28px nav tab icons so the row reads level */}
-            <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
-            <span className="wordmark">tippani</span>
-            {brandDot}
-          </button>
+          <Tooltip label="Go home to today's review" side="bottom" className="shrink-0">
+            <button type="button" className="brand" onClick={() => selectTab('home')}>
+              {/* the mark matches the 28px nav tab icons so the row reads level */}
+              <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
+              <span className="wordmark">tippani</span>
+              {brandDot}
+            </button>
+          </Tooltip>
           <nav ref={navRef} aria-label="Primary" className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
             <DesktopNav tab={tab} onChange={selectTab} />
           </nav>
           <div className="ml-auto flex items-center gap-2.5">
             {/* §7 One "＋ Add": the single way to add a book, a film, or import. */}
-            <button
-              type="button"
-              className="topbar-add-btn tactile"
-              data-tour="add"
-              onClick={() => openAdd('book')}
-              title={pendingImport > 0
+            <Tooltip
+              side="bottom"
+              className="shrink-0"
+              label={pendingImport > 0
                 ? `Add a book, film or quote, or import highlights — ${pendingImport} imported quotes are waiting for review`
                 : 'Add a book, film or quote, or import highlights'}
             >
-              <IconPlus />
-              <span>Add</span>
-              {importBadge}
-            </button>
+              <button
+                type="button"
+                className="topbar-add-btn tactile"
+                data-tour="add"
+                onClick={() => openAdd('book')}
+              >
+                <IconPlus />
+                <span>Add</span>
+                {importBadge}
+              </button>
+            </Tooltip>
             {/* Search rides beside ＋ Add as an icon-only pill in the same
                 accent texture — the phone top bar already works this way.
                 (Quote capture lives inside the ＋ Add surface's Capture tab —
                 no separate top-bar pill.) */}
-            <button
-              type="button"
-              className="topbar-add-btn tactile icon-only"
-              data-tour="search"
-              onClick={() => selectTab('search')}
-              title="Search"
-              aria-label="Search"
-            >
-              <IconSearch />
-            </button>
+            <Tooltip label="Search titles, authors, quotes and notes" side="bottom" className="shrink-0">
+              <button
+                type="button"
+                className="topbar-add-btn tactile icon-only"
+                data-tour="search"
+                onClick={() => selectTab('search')}
+                aria-label="Search"
+              >
+                <IconSearch />
+              </button>
+            </Tooltip>
             <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
           </div>
         </div>
@@ -1187,24 +1204,32 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             (inside the page) takes over the top edge instead. */}
         {!detail && (
           <header className="mobile-topbar">
-            <button type="button" className="mobile-topbar-btn" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
-              <IconMenu />
-            </button>
-            <button type="button" className="brand" title="Home — daily review" onClick={() => selectTab('home')}>
-              <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
-              <span className="wordmark">tippani</span>
-              {brandDot}
-            </button>
+            <Tooltip label="Open the navigation menu" side="bottom" className="shrink-0">
+              <button type="button" className="mobile-topbar-btn" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
+                <IconMenu />
+              </button>
+            </Tooltip>
+            <Tooltip label="Go home to today's review" side="bottom" className="min-w-0">
+              <button type="button" className="brand" onClick={() => selectTab('home')}>
+                <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
+                <span className="wordmark">tippani</span>
+                {brandDot}
+              </button>
+            </Tooltip>
             <span className="flex-1" />
             {/* §7 One "＋ Add": same surface as the desktop pill — book · film ·
                 quote · import toggle; ❝ opens it straight on Capture quote. */}
-            <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
-              <IconPlus />
-              {importBadge}
-            </button>
-            <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
-              <IconSearch />
-            </button>
+            <Tooltip label="Add a book, film or quote, or import highlights" side="bottom" className="shrink-0">
+              <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
+                <IconPlus />
+                {importBadge}
+              </button>
+            </Tooltip>
+            <Tooltip label="Search titles, authors, quotes and notes" side="bottom" className="shrink-0">
+              <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
+                <IconSearch />
+              </button>
+            </Tooltip>
             <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
           </header>
         )}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
+import { PageHelp } from './help.jsx'
 import { episodeLabel } from './Movies.jsx'
 import {
   BulkBar,
@@ -19,6 +20,7 @@ import {
   Select,
   TagChip,
   TokenInput,
+  Tooltip,
   useIsMobileScreen,
   splitCommas,
 } from './ui.jsx'
@@ -225,7 +227,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
               ? `${queue.pending} quote${queue.pending === 1 ? '' : 's'} waiting`
               : `${works.length} work${works.length === 1 ? '' : 's'} waiting, no quotes`
           }
-          right={mobile ? null : pageActions}
+          right={mobile ? <PageHelp screen="staging" /> : <>{pageActions}<PageHelp screen="staging" /></>}
         />
       </div>
       {mobile && <div className="flex flex-wrap items-center gap-2">{pageActions}</div>}
@@ -250,9 +252,11 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         <GhostButton disabled={busy} onClick={() => apply({ favorite: true }, 'favourited')}>
           ♥ favourite
         </GhostButton>
-        <GhostButton disabled={busy} onClick={() => apply({ favorite: false }, 'unfavourited')}>
-          un-♥
-        </GhostButton>
+        <Tooltip label="Remove the favourite mark">
+          <GhostButton disabled={busy} onClick={() => apply({ favorite: false }, 'unfavourited')}>
+            un-♥
+          </GhostButton>
+        </Tooltip>
         <GhostButton onClick={() => setPanel(panel === 'fields' ? '' : 'fields')}>Edit fields…</GhostButton>
         <GhostButton onClick={() => setPanel(panel === 'move' ? '' : 'move')}>Move to…</GhostButton>
         <GhostButton onClick={() => setPanel(panel === 'formula' ? '' : 'formula')}>Locations…</GhostButton>
@@ -347,12 +351,14 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <input
-          type="checkbox"
-          checked={allOn}
-          onChange={onToggleGroup}
-          aria-label={`Select every staged quote for ${work.title}`}
-        />
+        <Tooltip label="Select every quote in this group" side="bottom">
+          <input
+            type="checkbox"
+            checked={allOn}
+            onChange={onToggleGroup}
+            aria-label={`Select every staged quote for ${work.title}`}
+          />
+        </Tooltip>
         <h3 className="display-title truncate" style={{ fontSize: 19 }}>
           {work.title}
         </h3>
@@ -426,7 +432,9 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         borderLeft: `4px solid ${COLOR_HEX[quote.color] || 'var(--line)'}`,
       }}
     >
-      <input type="checkbox" checked={selected} onChange={onToggle} aria-label="Select this staged quote" style={{ marginTop: 3 }} />
+      <Tooltip label="Select this quote">
+        <input type="checkbox" checked={selected} onChange={onToggle} aria-label="Select this staged quote" style={{ marginTop: 3 }} />
+      </Tooltip>
       <div className="min-w-0 flex-1">
         <p
           className="whitespace-pre-wrap"

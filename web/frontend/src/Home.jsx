@@ -6,6 +6,8 @@
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
+import { dateLine, greetingFor } from './greetings.js'
+import { PageHelp } from './help.jsx'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState, episodeLabel } from './Movies.jsx'
 import { PendingImportCard } from './StagingPage.jsx'
@@ -31,11 +33,14 @@ import {
   HandCard,
   HandNote,
   Hearts,
+  IconDelete,
+  InfoDot,
   Masonry,
   MonoLabel,
   QuoteActions,
   STATUS_META,
   toast,
+  Tooltip,
   useColumnsAt,
   usePersistedState,
 } from './ui.jsx'
@@ -46,18 +51,9 @@ export function tzOffsetMinutes() {
   return -new Date().getTimezoneOffset()
 }
 
-function todayLabel() {
-  const now = new Date()
-  const weekday = now.toLocaleDateString(undefined, { weekday: 'long' })
-  const date = now.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
-  return `${weekday} · ${date}`
-}
-
-function greeting(username) {
-  const h = new Date().getHours()
-  const part = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening'
-  return `Good ${part}, ${username || 'reader'}`
-}
+// The date line and the greeting both come from greetings.js now — the device's
+// clock, date and IANA time zone pick the pool (time of day, weekend, or a
+// holiday in the reader's region) and one line is drawn from it at random.
 
 // ---- shared quiz pieces (Daily Quiz + Practice) ----
 
@@ -518,17 +514,23 @@ function PracticeCard({ onStates, userId }) {
 
   return (
     <HandCard variant={3} style={{ padding: '16px 18px 14px' }}>
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <MonoLabel style={{ color: 'var(--accent-ui)' }}>Practice</MonoLabel>
+      {/* The paragraph that used to explain Practice now hangs off this dot.
+          The card is two taps of a ritual you do daily — after the first week
+          the explanation is furniture, and on a phone it was four lines of
+          furniture above the only button that matters. */}
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5">
+          <MonoLabel style={{ color: 'var(--accent-ui)' }}>Practice</MonoLabel>
+          <InfoDot
+            title="Practice"
+            text="Free retrieval practice across your whole library — recall the source of a quote, or a quote from a work. Unlimited and skippable, and it won’t touch your review schedule unless you turn that on in Settings. It keeps its own score, which you can reset without losing any learning history."
+          />
+        </span>
         {phase === 'active' && <span className="mono-label" style={{ letterSpacing: '.06em' }}>unlimited</span>}
       </div>
 
       {phase === 'idle' && (
         <div className="review-card-body">
-          <p className="microcopy mb-3">
-            free retrieval practice across your whole library — recall the source of a quote, or a quote
-            from a work. Skippable, and it won’t touch your schedule unless you turn that on in settings.
-          </p>
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy} onClick={start}>
               {busy ? 'Loading…' : 'Start practice'}
@@ -538,7 +540,16 @@ function PracticeCard({ onStates, userId }) {
                 <MonoLabel style={{ fontSize: 10.5 }}>
                   {score.answered} answered · {Math.round(score.accuracy * 100)}% recalled
                 </MonoLabel>
-                <button type="button" className="tp-link" onClick={reset}>reset score</button>
+                <Tooltip label="Reset the practice score — learning history is untouched">
+                  <button
+                    type="button"
+                    className="field-icon-btn tactile"
+                    aria-label="Reset practice score"
+                    onClick={reset}
+                  >
+                    <IconDelete />
+                  </button>
+                </Tooltip>
               </>
             )}
           </div>
@@ -648,6 +659,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // every /review/answer response carries fresh counts, so the row ticks live.
   const [states, setStates] = useState(null)
   const { stickers, reload: reloadStickers } = useStickers()
+  // Drawn once per mount, not per render: a greeting that reshuffled every time
+  // a quiz card re-rendered would be a flicker, not a flourish. A reload picks
+  // again, which is exactly the intent.
+  const hello = useMemo(() => greetingFor(user?.username), [user?.username])
+  const today = useMemo(() => dateLine(), [])
 
   // Favourites across both media — books (annotations) and films/shows
   // (dialogues) — merged newest-first. A few show as tiles; the rest wait
@@ -735,20 +751,23 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 pt-4" data-screen-label="home-body">
-      <div className="px-0.5">
-        <MonoLabel>{todayLabel()}</MonoLabel>
-        <h1
-          className="mt-0.5"
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 600,
-            fontSize: 26,
-            letterSpacing: '-0.01em',
-            lineHeight: 1.15,
-          }}
-        >
-          {greeting(user?.username)}
-        </h1>
+      <div className="flex items-start gap-2 px-0.5">
+        <div className="min-w-0 flex-1">
+          <MonoLabel>{today}</MonoLabel>
+          <h1
+            className="mt-0.5"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              fontSize: 26,
+              letterSpacing: '-0.01em',
+              lineHeight: 1.15,
+            }}
+          >
+            {hello}
+          </h1>
+        </div>
+        <PageHelp screen="home" />
       </div>
 
       {/* A staged import sits above the deck until it is dealt with: nothing has
@@ -760,20 +779,24 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       <PracticeCard onStates={setStates} userId={user?.id} />
 
       <div className="grid grid-cols-2 gap-2.5">
-        <HandCard variant={1} className="cursor-pointer" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
-          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>
-            {stats ? stats.books : '–'}
-          </p>
-          <MonoLabel style={{ fontSize: 11 }}>books · {stats ? stats.annotations : '–'} quotes</MonoLabel>
-        </HandCard>
-        <HandCard variant={2} className="cursor-pointer" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
-          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>
-            {stats ? stats.movies : '–'}
-          </p>
-          <MonoLabel style={{ fontSize: 11, color: 'var(--amber)' }}>
-            films · {stats ? stats.dialogues : '–'} dialogues
-          </MonoLabel>
-        </HandCard>
+        <Tooltip label="Open the Library" className="flex items-stretch">
+          <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
+            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>
+              {stats ? stats.books : '–'}
+            </p>
+            <MonoLabel style={{ fontSize: 11 }}>books · {stats ? stats.annotations : '–'} quotes</MonoLabel>
+          </HandCard>
+        </Tooltip>
+        <Tooltip label="Open the Catalogue" className="flex items-stretch">
+          <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
+            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>
+              {stats ? stats.movies : '–'}
+            </p>
+            <MonoLabel style={{ fontSize: 11, color: 'var(--amber)' }}>
+              films · {stats ? stats.dialogues : '–'} dialogues
+            </MonoLabel>
+          </HandCard>
+        </Tooltip>
       </div>
 
       {favs.length > 0 && (
@@ -909,29 +932,31 @@ function FavouriteTile({
         <>
           {/* Click anywhere on the tile head to expand — a chevron is the only
               affordance (no "show more"); the quote clamps to a per-card 3–5. */}
-          <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
-            <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
-              {isBook ? 'BOOK' : f.media}
-            </MonoLabel>
-            <p
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontStyle: 'italic',
-                fontSize: 15,
-                lineHeight: 1.5,
-                margin: 0,
-                whiteSpace: 'pre-wrap', // keep the quote's line breaks (collapsed clamp still limits height)
-                ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
-              }}
-            >
-              {isBook ? `“${f.text}”` : f.text}
-            </p>
-            <span className="mt-1.5 flex items-center gap-1.5">
-              <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
-              <MonoLabel style={{ fontSize: 10.5 }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
-            </span>
-            <ClampMore open={open} />
-          </button>
+          <Tooltip label={open ? 'Collapse this quote' : 'Show the whole quote'} className="flex w-full">
+            <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
+              <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
+                {isBook ? 'BOOK' : f.media}
+              </MonoLabel>
+              <p
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontStyle: 'italic',
+                  fontSize: 15,
+                  lineHeight: 1.5,
+                  margin: 0,
+                  whiteSpace: 'pre-wrap', // keep the quote's line breaks (collapsed clamp still limits height)
+                  ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+                }}
+              >
+                {isBook ? `“${f.text}”` : f.text}
+              </p>
+              <span className="mt-1.5 flex items-center gap-1.5">
+                <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
+                <MonoLabel style={{ fontSize: 10.5 }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
+              </span>
+              <ClampMore open={open} />
+            </button>
+          </Tooltip>
           {open && (
             <div className="mt-2.5 space-y-2">
               {f.note && <HandNote>{f.note}</HandNote>}

@@ -3,6 +3,8 @@ import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import AddSurface from './AddSurface.jsx'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
+import { PageHelp, ScreenHelpSheet } from './help.jsx'
+import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
@@ -41,10 +43,10 @@ import {
   Hearts,
   IconButton,
   IconDelete,
-  IconEdit,
+  IconDetails,
+  IconHelp,
   IconExport,
   IconFilter,
-  IconMore,
   IconPlus,
   Lightbox,
   Masonry,
@@ -61,6 +63,7 @@ import {
   TagChip,
   Toggle,
   TokenInput,
+  Tooltip,
   ViewToggle,
   bySeries,
   clampSequence,
@@ -145,14 +148,16 @@ function Poster({ path, title, className = '', zoomable = false }) {
     if (!zoomable) return img
     return (
       <>
-        <button
-          type="button"
-          className="cover-zoom-btn"
-          aria-label={title ? `View poster of ${title} full screen` : 'View poster full screen'}
-          onClick={() => setZoom(true)}
-        >
-          {img}
-        </button>
+        <Tooltip label="View this poster full screen" className="w-full">
+          <button
+            type="button"
+            className="cover-zoom-btn"
+            aria-label={title ? `View poster of ${title} full screen` : 'View poster full screen'}
+            onClick={() => setZoom(true)}
+          >
+            {img}
+          </button>
+        </Tooltip>
         {zoom && <Lightbox path={path} title={title} onClose={() => setZoom(false)} />}
       </>
     )
@@ -285,6 +290,7 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
       mobile={mobile}
       title="Movies & Shows"
       counts={counts}
+      helpScreen="movies"
       error={error}
       add={{ label: '＋ Add title', aria: 'Add title', onClick: () => setAdding(true) }}
       onExport={() => setExporting(true)}
@@ -573,6 +579,7 @@ export function MediaTypeToggle({ value, onChange }) {
 function MovieDetail({ id, onClose, creditSeparators }) {
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
   const [error, setError] = useState('')
   const [mobileFilter, setMobileFilter] = useState(false)
   const [mobileAdd, setMobileAdd] = useState(false)
@@ -715,27 +722,15 @@ function MovieDetail({ id, onClose, creditSeparators }) {
         ))}
       </span>
     ) : null
-  // TMDB / TheTVDB ids link out to the source record (dereferrer resolves a bare
-  // numeric TheTVDB id to the right series/movie page); styled to inherit the
-  // amber mono voice.
-  const idLink = (label, href) => (
-    <a
-      key={label}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ font: 'inherit', color: 'inherit', letterSpacing: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
-    >
-      {label}
-    </a>
-  )
+  // The TMDB / TheTVDB ids used to ride this line as two more segments. They are
+  // supplier plumbing — what a re-sync pulls from — not something anyone reads a
+  // film page to learn, so they moved into the Details panel, where each carries
+  // an InfoDot explaining what it is and a link out to the source record.
   const metaParts = movie
     ? [
         directorNode,
         movie.release_year && String(movie.release_year),
         seriesLabel(movie) || null,
-        movie.tmdb_id && idLink(`TMDB #${movie.tmdb_id}`, `https://www.themoviedb.org/${isShow ? 'tv' : 'movie'}/${movie.tmdb_id}`),
-        movie.tvdb_id && idLink(`TVDB #${movie.tvdb_id}`, `https://thetvdb.com/dereferrer/${isShow ? 'series' : 'movie'}/${movie.tvdb_id}`),
       ].filter(Boolean)
     : []
 
@@ -761,7 +756,8 @@ function MovieDetail({ id, onClose, creditSeparators }) {
                     onClick: () => pick(ACTIVE_STATUS.movie),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
-                  { icon: <IconEdit />, label: 'Edit', onClick: () => setEditing(true) },
+                  { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
+                  { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
                 ]}
               />
@@ -833,14 +829,22 @@ function MovieDetail({ id, onClose, creditSeparators }) {
                     {moveLabel('movie', movie.status || '', ACTIVE_STATUS.movie)}
                   </GhostButton>
                   {!DEMO && (
-                    <GhostButton onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}>
-                      Export .md
-                    </GhostButton>
+                    <IconButton
+                        icon={<IconExport />}
+                        ariaLabel="Export as Markdown"
+                        onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}
+                      tooltip="Export this title and its dialogue as Markdown"
+                    />
                   )}
-                  <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton>
-                  <GhostButton style={{ color: 'var(--error)' }} onClick={remove}>
-                    Delete
-                  </GhostButton>
+                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details — every field, poster, and metadata lookup" />
+                  <PageHelp screen="movie-detail" />
+                  <IconButton
+                      icon={<IconDelete />}
+                      ariaLabel="Delete this title"
+                      onClick={remove}
+                      style={{ width: 44, height: 44, padding: 0, flexShrink: 0, color: 'var(--error)' }}
+                    tooltip="Delete this title and its dialogue"
+                  />
                 </>
               )
             }
@@ -848,16 +852,14 @@ function MovieDetail({ id, onClose, creditSeparators }) {
         </Reveal>
       )}
       {movie && (
-        <FormModal open={editing} onClose={() => setEditing(false)} title="Edit title">
-          <EditMovie
-            movie={movie}
-            onSaved={() => {
-              setEditing(false)
-              load()
-            }}
-            onCancel={() => setEditing(false)}
-          />
-        </FormModal>
+        <WorkDetails
+          open={editing}
+          onClose={() => setEditing(false)}
+          kind="movie"
+          item={movie}
+          onChanged={setMovie}
+          onDelete={remove}
+        />
       )}
       <InProgressCapDialog
         open={!!capPool}
@@ -883,6 +885,8 @@ function MovieDetail({ id, onClose, creditSeparators }) {
       />
       {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onCount={setLineCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
+      {/* Phone-only route into this screen's help — see the Library twin. */}
+      <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
     </section>
   )
 }
@@ -1487,8 +1491,12 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 onClick={() => onSort(c.key)}
                 aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
-                {c.label}
-                {arrow(c.key)}
+                <Tooltip label="Sort dialogues by this column" side="bottom">
+                  <span>
+                    {c.label}
+                    {arrow(c.key)}
+                  </span>
+                </Tooltip>
               </th>
             ))}
             <th></th>

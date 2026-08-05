@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
+import { PageHelp } from './help.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import {
   Card,
   ErrorText,
   GhostButton,
+  IconCheck,
+  IconClose,
+  IconCopy,
+  IconDelete,
+  IconEdit,
   InfoDot,
   Masonry,
   MonoLabel,
   PageHeader,
   StickerButton,
   Toggle,
+  Tooltip,
   toast,
   frameCode,
   useCoverSize,
@@ -23,6 +30,12 @@ import {
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
 // (StatsPage.jsx). Appearance applies instantly via applyTheme and persists via
 // PUT /auth/me/preferences.
+// Where the roadmap lives. It is a self-contained static page under docs/ and is
+// NOT embedded in the binary, so a self-hosted instance cannot serve it from its
+// own origin — it links out to the published copy. The demo can use a relative
+// path, because pages.yml copies the file in beside the built app.
+const DOCS_BASE = DEMO ? '' : 'https://aaronified.github.io/tippani/'
+
 // useColumnCount tracks how many masonry columns fit: 1 (mobile) / 2 / 3 (wide).
 function useColumnCount() {
   const mobile = useIsMobileScreen()
@@ -54,14 +67,13 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
     <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
     <DevicesCard key="devices" />,
-    <ReferenceCard key="reference" />,
     user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
     user.is_admin && <BackupCard key="backup" />,
   ].filter(Boolean)
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
+        <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} right={<PageHelp screen="settings" />} />
       </div>
       <Appearance onPreferences={onPreferences} />
       <Masonry columns={ncols} gap={24}>{cards}</Masonry>
@@ -109,16 +121,17 @@ function CreditSepsCard({ user, onPreferences }) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {CREDIT_SEP_OPTIONS.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            className={'tp-filter-chip' + (active.has(key) ? ' active' : '')}
-            aria-pressed={active.has(key)}
-            aria-label={key}
-            onClick={() => toggle(key)}
-          >
-            {label}
-          </button>
+          <Tooltip key={key} label="Split credits on this separator" side="top">
+            <button
+              type="button"
+              className={'tp-filter-chip' + (active.has(key) ? ' active' : '')}
+              aria-pressed={active.has(key)}
+              aria-label={key}
+              onClick={() => toggle(key)}
+            >
+              {label}
+            </button>
+          </Tooltip>
         ))}
       </div>
       {active.size === 0 && (
@@ -260,16 +273,17 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
         <div className="flex items-baseline gap-2">
           <MonoLabel>version</MonoLabel>
           {user?.releases_url ? (
-            <a
-              href={user.releases_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="tp-link"
-              style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
-              title="Release notes & changelog on GitHub"
-            >
-              {current} ↗
-            </a>
+            <Tooltip label="Read the release notes on GitHub" side="bottom">
+              <a
+                href={user.releases_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tp-link"
+                style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+              >
+                {current} ↗
+              </a>
+            </Tooltip>
           ) : (
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{current}</span>
           )}
@@ -381,38 +395,22 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
 // EVERYTHING on the server with its contents, in-process — no Docker socket.
 // A second restore path uploads a backup file (from this or ANOTHER Tippani
 // server), the move-to-a-new-box / point-in-time path.
+// The Reference card — two link-out buttons to the hand-written UI glossary and
+// the roadmap — was removed here and from the demo. The glossary it pointed at
+// is the one thing on this screen the "?" button on every screen now does
+// better: help that sits beside the control, cannot 404, and cannot lag the code
+// by a release. The roadmap link survives, in the Updates card, where "what
+// version am I on" and "what is coming" are the same question asked twice.
+
 // OnboardingCard — the guided tour's home (ROADMAP: onboarding). Lists every
 // feature (the same tourFeatures the tour walks, so the list can't drift), and
 // starts / replays / resumes the tour. The tour runs by itself on a user's
 // first launch; "finish later" parks it here as a Resume button. The sample
 // content is built in — onboarding never asks for the user's files.
-// Where the two hand-written reference pages live. Both are self-contained static
-// HTML under docs/ and are NOT embedded in the binary, so a self-hosted instance
-// cannot serve them from its own origin — it links out to the published copies.
-// The demo can use relative paths, because pages.yml copies both files in beside
-// the built app.
-const DOCS_BASE = DEMO ? '' : 'https://aaronified.github.io/tippani/'
-
-function ReferenceCard() {
-  return (
-    <Card>
-      <SectionTitle>Reference</SectionTitle>
-      <p className="microcopy" style={{ fontSize: 12.5 }}>
-        The two written-down references: every control in the interface, named and
-        explained, and where the app is headed next.
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <a className="tp-btn tp-btn-ghost" href={`${DOCS_BASE}ui-glossary.html`} target="_blank" rel="noreferrer">
-          UI glossary →
-        </a>
-        <a className="tp-btn tp-btn-ghost" href={`${DOCS_BASE}roadmap.html`} target="_blank" rel="noreferrer">
-          Roadmap →
-        </a>
-      </div>
-    </Card>
-  )
-}
-
+//
+// The card's own explanation and each feature's blurb are InfoDots now: the
+// blurbs made a wall of ~12 two-line rows that pushed the Start button off a
+// phone screen, and the feature NAMES are the part worth scanning.
 function OnboardingCard({ user, onStartTour }) {
   const state = user.preferences?.tour || ''
   const step = user.preferences?.tourStep || 0
@@ -422,15 +420,12 @@ function OnboardingCard({ user, onStartTour }) {
     <Card>
       <SectionTitle
         right={state === 'done' && <MonoLabel style={{ color: 'var(--ok)' }}>✓ completed</MonoLabel>}
+        info="A guided tour of every feature. It runs once on first launch and never needs your files — a sample book quote and film dialogue are built in. Next skips a step, “finish later” parks it, and you pick it back up here."
+        infoTitle="Onboarding"
       >
         Onboarding
       </SectionTitle>
-      <p className="microcopy" style={{ fontSize: 12.5 }}>
-        A guided tour of every feature — it runs once on first launch and never needs your files
-        (a sample book quote and film dialogue are built in). Skip a step with Next, park it with
-        “finish later”, and pick it back up here.
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {state === 'postponed' ? (
           <>
             <StickerButton onClick={() => onStartTour?.(step)}>
@@ -444,11 +439,11 @@ function OnboardingCard({ user, onStartTour }) {
           </StickerButton>
         )}
       </div>
-      <ul className="mt-4 space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+      <ul className="mt-4 space-y-1.5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
         {feats.map((f) => (
-          <li key={f.key} style={{ fontSize: 12.5, lineHeight: 1.45 }}>
-            <b>{f.name}</b>
-            <span style={{ color: 'var(--soft)' }}> — {f.blurb}</span>
+          <li key={f.key} className="flex items-center gap-1.5" style={{ fontSize: 12.5, lineHeight: 1.45 }}>
+            <span>{f.name}</span>
+            <InfoDot title={f.name} text={f.blurb} />
           </li>
         ))}
       </ul>
@@ -509,18 +504,19 @@ function DevicesCard() {
 
   return (
     <Card>
-      <SectionTitle right={devices?.length ? <MonoLabel>{devices.length} paired</MonoLabel> : null}>
+      <SectionTitle
+        right={devices?.length ? <MonoLabel>{devices.length} paired</MonoLabel> : null}
+        info="Pairs the Android app with this account. A device stays paired until you unpair it here — changing your password signs out browsers but deliberately leaves phones alone, so a routine password change can’t silently unpair them."
+      >
         Devices
       </SectionTitle>
-      <p className="microcopy" style={{ fontSize: 12.5 }}>
-        Pair the Android app with this account. A device stays paired until you unpair it here —
-        changing your password signs out browsers but deliberately leaves phones alone, so a
-        routine password change can’t silently unpair them.
-      </p>
 
       {pair ? (
-        <div className="mt-3" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-          <MonoLabel>pairing code</MonoLabel>
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+          <div className="flex items-center gap-1.5">
+            <MonoLabel>pairing code</MonoLabel>
+            <InfoDot title="Pairing code" text="Enter it in the app within five minutes. It works once, then expires — start another pairing for a second device." />
+          </div>
           <div
             className="mt-1 select-all"
             style={{
@@ -532,27 +528,39 @@ function DevicesCard() {
           >
             {pair.code}
           </div>
-          <p className="microcopy mt-1" style={{ fontSize: 12 }}>
-            Enter it in the app within five minutes. It works once, then expires.
-          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <GhostButton onClick={() => copyText(pair.code)}>Copy code</GhostButton>
-            <GhostButton
-              onClick={() => {
-                setPair(null)
-                load()
-              }}
-            >
-              Done
-            </GhostButton>
+            <Tooltip label="Copy the code">
+              <button type="button" className="field-icon-btn tactile" aria-label="Copy the pairing code" onClick={() => copyText(pair.code)}>
+                <IconCopy />
+              </button>
+            </Tooltip>
+            <Tooltip label="Done">
+              <button
+                type="button"
+                className="field-icon-btn field-icon-btn-ok tactile"
+                aria-label="Done pairing"
+                onClick={() => {
+                  setPair(null)
+                  load()
+                }}
+              >
+                <IconCheck />
+              </button>
+            </Tooltip>
           </div>
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StickerButton onClick={startPairing} disabled={busy}>
             Pair a device
           </StickerButton>
-          {devices?.length > 0 && <GhostButton onClick={revokeAll}>Unpair all</GhostButton>}
+          {devices?.length > 0 && (
+            <Tooltip label="Unpair every device">
+              <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Unpair every device" onClick={revokeAll}>
+                <IconDelete />
+              </button>
+            </Tooltip>
+          )}
         </div>
       )}
 
@@ -568,7 +576,16 @@ function DevicesCard() {
                 </span>
               </span>
               <span className="ml-auto">
-                <GhostButton onClick={() => revoke(d)}>Unpair</GhostButton>
+                <Tooltip label={`Unpair ${d.name}`}>
+                  <button
+                    type="button"
+                    className="field-icon-btn field-icon-btn-danger tactile"
+                    aria-label={`Unpair ${d.name}`}
+                    onClick={() => revoke(d)}
+                  >
+                    <IconClose />
+                  </button>
+                </Tooltip>
               </span>
             </li>
           ))}
@@ -768,10 +785,17 @@ function BackupCard() {
 
 // ---- shared bits ----
 
-function SectionTitle({ children, right }) {
+// SectionTitle — a settings card's heading. `info` is the paragraph that used to
+// sit under it: every card on this screen opened with two or three lines of
+// explanation, which on a phone meant scrolling past the prose to reach the one
+// control each card exists for.
+function SectionTitle({ children, right, info, infoTitle }) {
   return (
-    <div className="mb-4 flex items-baseline justify-between gap-3">
-      <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }}>{children}</h2>
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-1.5">
+        <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }}>{children}</h2>
+        {info && <InfoDot text={info} title={infoTitle || (typeof children === 'string' ? children : 'About this')} />}
+      </div>
       {right}
     </div>
   )
@@ -1022,21 +1046,22 @@ function Appearance({ onPreferences }) {
             {Object.entries(ACCENTS).map(([name, hex]) => {
               const on = accent === name
               return (
-                <button
-                  key={name}
-                  type="button"
-                  title={name}
-                  aria-pressed={on}
-                  onClick={() => persist({ accent: name })}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 999,
-                    background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})`,
-                    border: '1.4px solid var(--ink-border)',
-                    boxShadow: on ? '0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)' : 'none',
-                  }}
-                />
+                <Tooltip key={name} label={`Use the ${name} accent`} side="top">
+                  <button
+                    type="button"
+                    aria-label={`${name} accent`}
+                    aria-pressed={on}
+                    onClick={() => persist({ accent: name })}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 999,
+                      background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})`,
+                      border: '1.4px solid var(--ink-border)',
+                      boxShadow: on ? '0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)' : 'none',
+                    }}
+                  />
+                </Tooltip>
               )
             })}
           </div>
@@ -1050,41 +1075,97 @@ function Appearance({ onPreferences }) {
 
 // ---- 2. Metadata sources (§2, mockup 27) ----
 
-// SecretField masks a stored write-only secret. When set and not being edited
-// it shows a "saved" chip + Edit button; there is no way to reveal the value.
-function SecretField({ set, editing, onEdit, value, onChange, placeholder }) {
-  if (set && !editing) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="tp-chip" title="stored — cannot be shown">•••••••••• saved</span>
-        {/* Edit is a pill to sit in line with the "saved" chip (not a full button). */}
-        <button type="button" className="tp-chip tp-chip-btn" onClick={onEdit}>Edit</button>
-      </div>
-    )
+// KeyField — one metadata secret, edited and saved on its own.
+//
+// It used to be a "saved" chip with an Edit pill, and a single "Save keys"
+// button at the bottom of the card that wrote whichever fields happened to be
+// visible. That coupling was the whole problem: the card had to reason about
+// which inputs were shown so a revealed field couldn't wipe an unrelated one.
+// Now each field owns its write — the API takes pointers, so a PUT carrying one
+// key leaves every other untouched — and the icons match the work Details panel:
+// pencil to edit, ✓ to save, ✕ to back out.
+//
+// A stored secret is never echoed by the server, so editing always starts from
+// an empty box: saving a blank clears the key, which is how you remove one.
+function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(secret ? '' : value)
+  useEffect(() => { if (!editing) setDraft(secret ? '' : value) }, [value, editing, secret])
+
+  async function commit() {
+    const ok = await onSave(draft)
+    if (ok) setEditing(false)
   }
+
   return (
-    <input
-      className="tp-input"
-      style={{ maxWidth: 320 }}
-      placeholder={placeholder}
-      value={value}
-      autoComplete="off"
-      onChange={onChange}
-    />
+    <div className="inline-field">
+      <div className="inline-field-head">
+        <MonoLabel>{label}</MonoLabel>
+        {hint && <InfoDot text={hint} title={label} />}
+        <span className="flex-1" />
+        {!editing ? (
+          <Tooltip label={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}>
+            <button
+              type="button"
+              className="field-icon-btn tactile"
+              aria-label={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}
+              onClick={() => setEditing(true)}
+            >
+              <IconEdit />
+            </button>
+          </Tooltip>
+        ) : (
+          <>
+            <Tooltip label={draft.trim() ? 'Save' : 'Save blank — clears this key'}>
+              <button
+                type="button"
+                className="field-icon-btn field-icon-btn-ok tactile"
+                aria-label={`Save ${label.toLowerCase()}`}
+                disabled={busy}
+                onClick={commit}
+              >
+                <IconCheck />
+              </button>
+            </Tooltip>
+            <Tooltip label="Cancel">
+              <button
+                type="button"
+                className="field-icon-btn tactile"
+                aria-label="Cancel"
+                disabled={busy}
+                onClick={() => { setEditing(false); setDraft(secret ? '' : value) }}
+              >
+                <IconClose />
+              </button>
+            </Tooltip>
+          </>
+        )}
+      </div>
+      {editing ? (
+        <input
+          className="tp-input"
+          placeholder={placeholder}
+          value={draft}
+          autoFocus
+          autoComplete="off"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { e.preventDefault(); setEditing(false); setDraft(secret ? '' : value) }
+          }}
+        />
+      ) : (
+        <div className={'inline-field-value' + (set || value ? '' : ' is-empty')}>
+          {secret ? (set ? '•••••••••• saved' : 'not set') : value || 'not set'}
+        </div>
+      )}
+    </div>
   )
 }
 
 function Metadata({ user }) {
   const admin = user.is_admin
   const [status, setStatus] = useState(null)
-  const [tmdbKey, setTmdbKey] = useState('')
-  const [tvdbKey, setTvdbKey] = useState('')
-  const [googleKey, setGoogleKey] = useState('')
-  const [amazonCookie, setAmazonCookie] = useState('')
-  const [amazonDomain, setAmazonDomain] = useState('')
-  // Which secret fields are being edited (a saved secret is masked until then).
-  const [edit, setEdit] = useState({}) // {tmdb, google, amazon}
-  const [amazonHelp, setAmazonHelp] = useState(false)
   const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -1095,10 +1176,7 @@ function Metadata({ user }) {
   }
   async function loadKeys() {
     const r = await json('GET', '/admin/metadata-keys')
-    if (r.ok) {
-      setKeys(r.data)
-      setAmazonDomain(r.data.amazon_domain || '')
-    }
+    if (r.ok) setKeys(r.data)
   }
   useEffect(() => {
     loadStatus()
@@ -1118,41 +1196,30 @@ function Metadata({ user }) {
   const tvdbTone = tvdbSource === 'none' || !tvdbSource ? 'muted' : 'active'
   const tvdbLabel = tvdbSource === 'custom' ? 'Custom key' : 'No key (optional)'
 
-  // Secrets are write-only: GET reports only whether each is set, never the
-  // value. Only fields the admin actually edited are sent (the PUT leaves any
-  // omitted field untouched), so revealing one field to change it can't wipe
-  // the others. The Amazon domain is not secret, so it always rides along.
-  async function saveKeys() {
+  // saveKey writes exactly one field. The endpoint decodes every key as a
+  // pointer, so an omitted field is left alone and a present-but-empty one is
+  // cleared — which is what makes a per-field save correct here rather than a
+  // convenience that quietly wipes its neighbours. Secrets are write-only: GET
+  // reports only whether each is set, never the value.
+  async function saveKey(field, value) {
     setSaving(true)
     setError('')
-    // Send a secret whenever its input is visible — it isn't set yet (and the
-    // key-state has loaded), or its Edit button was clicked. A masked field is
-    // omitted so it stays untouched. The `keys &&` guard matters: before the
-    // state loads, sending a blank field would clear an already-saved key.
-    const shown = (setFlag, editing) => editing || (keys && !setFlag)
-    const body = { amazon_domain: amazonDomain.trim() }
-    if (shown(keys?.tmdb_key_set, edit.tmdb)) body.tmdb_key = tmdbKey
-    if (shown(keys?.tvdb_key_set, edit.tvdb)) body.tvdb_key = tvdbKey
-    if (shown(keys?.google_books_key_set, edit.google)) body.google_books_key = googleKey
-    if (shown(keys?.amazon_cookie_set, edit.amazon)) body.amazon_cookie = amazonCookie
-    const r = await json('PUT', '/admin/metadata-keys', body)
+    const r = await json('PUT', '/admin/metadata-keys', { [field]: value.trim() })
     setSaving(false)
-    if (r.ok) {
-      setTmdbKey('')
-      setTvdbKey('')
-      setGoogleKey('')
-      setAmazonCookie('')
-      setEdit({})
-      loadStatus()
-      loadKeys()
-    } else {
-      setError(errText(r, 'could not save keys'))
+    if (!r.ok) {
+      setError(errText(r, 'could not save'))
+      return false
     }
+    await Promise.all([loadStatus(), loadKeys()])
+    toast(value.trim() ? 'saved' : 'cleared')
+    return true
   }
 
   return (
     <Card data-tour="metadata-keys">
-      <SectionTitle>Metadata sources</SectionTitle>
+      <SectionTitle info="The keys lookups run on. Every field here edits and saves on its own — a ✓ writes just that key and leaves the others alone. Saved secrets show masked and can never be revealed; save a blank field to clear one.">
+        Metadata sources
+      </SectionTitle>
 
       {/* Books */}
       <div className="mb-5">
@@ -1160,7 +1227,7 @@ function Metadata({ user }) {
           <MonoLabel>Books</MonoLabel>
           <span style={{ fontWeight: 600 }}>Google Books + Open Library</span>
           <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
-          <InfoDot text="Merged best-effort, on demand — manual entry always works. Optional Google Books key only if you exceed ~1,000 lookups/day: console.cloud.google.com → enable Books API → paste it below." />
+          <InfoDot title="Book lookups" text="Google Books and Open Library, merged best-effort and on demand. No key is needed, and manual entry always works." />
         </div>
         {lookup?.ok === false && lookup.error && (
           <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
@@ -1169,13 +1236,13 @@ function Metadata({ user }) {
         )}
         {admin && (
           <div className="mt-2.5">
-            <SecretField
+            <KeyField
+              label="Google Books key"
+              hint="Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all."
               set={keys?.google_books_key_set}
-              editing={edit.google}
-              onEdit={() => setEdit((e) => ({ ...e, google: true }))}
-              value={googleKey}
-              onChange={(e) => setGoogleKey(e.target.value)}
               placeholder="Google Books API key — optional"
+              busy={saving}
+              onSave={(v) => saveKey('google_books_key', v)}
             />
           </div>
         )}
@@ -1189,30 +1256,26 @@ function Metadata({ user }) {
           <StatusChip tone={tmdbTone}>{tmdbLabel}</StatusChip>
           <span style={{ fontWeight: 600 }}>+ TheTVDB</span>
           <StatusChip tone={tvdbTone}>{tvdbLabel}</StatusChip>
-          <InfoDot text="Both cover movies and shows; lookup merges them. TMDB: themoviedb.org → Settings → API → free v3 key (or set TIPPANI_TMDB_API_KEY). TheTVDB optional: thetvdb.com → account → API key (or TIPPANI_TVDB_API_KEY). No key ⇒ lookup 503; manual entry still works." />
+          <InfoDot title="Film & show lookups" text="Both sources cover films and shows, and a lookup merges them. Each key is added in its own field below." />
         </div>
         {admin && (
-          <div className="mt-3 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <SecretField
-                set={keys?.tmdb_key_set}
-                editing={edit.tmdb}
-                onEdit={() => setEdit((e) => ({ ...e, tmdb: true }))}
-                value={tmdbKey}
-                onChange={(e) => setTmdbKey(e.target.value)}
-                placeholder="TMDB v3 key or v4 token — overrides built-in"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <SecretField
-                set={keys?.tvdb_key_set}
-                editing={edit.tvdb}
-                onEdit={() => setEdit((e) => ({ ...e, tvdb: true }))}
-                value={tvdbKey}
-                onChange={(e) => setTvdbKey(e.target.value)}
-                placeholder="TheTVDB v4 API key — optional"
-              />
-            </div>
+          <div className="mt-3">
+            <KeyField
+              label="TMDB key"
+              hint="themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works."
+              set={keys?.tmdb_key_set}
+              placeholder="TMDB v3 key or v4 token — overrides built-in"
+              busy={saving}
+              onSave={(v) => saveKey('tmdb_key', v)}
+            />
+            <KeyField
+              label="TheTVDB key"
+              hint="Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys."
+              set={keys?.tvdb_key_set}
+              placeholder="TheTVDB v4 API key — optional"
+              busy={saving}
+              onSave={(v) => saveKey('tvdb_key', v)}
+            />
           </div>
         )}
       </div>
@@ -1228,46 +1291,30 @@ function Metadata({ user }) {
               {keys?.amazon_cookie_set ? 'Cookie saved' : 'Covers only'}
             </StatusChip>
           </div>
-          <p className="mt-2" style={{ fontSize: 13, color: 'var(--soft)', lineHeight: 1.5 }}>
-            Covers work from an ASIN with no setup. Optional cookie adds description + genres.{' '}
-            <InfoDot text="The cookie is fragile, against Amazon's terms, and grants access to your account — stored write-only and never shown." />{' '}
-            <button type="button" className="tp-link" onClick={() => setAmazonHelp((v) => !v)}>
-              {amazonHelp ? 'hide' : 'how to get the cookie'}
-            </button>
-          </p>
-          {amazonHelp && (
-            <ol className="mt-2 space-y-1" style={{ fontSize: 12.5, color: 'var(--soft)', paddingLeft: 18, listStyle: 'decimal' }}>
-              <li>Sign in to Amazon in your browser, on the marketplace your books live on.</li>
-              <li>Open DevTools (F12) → <b>Application</b> (Chrome) or <b>Storage</b> (Firefox) → Cookies → the amazon domain.</li>
-              <li>Copy the <b>Cookie header</b>: easiest is the Network tab → click any amazon request → Request Headers → copy the whole <code>cookie:</code> value.</li>
-              <li>Paste it below and set the domain (e.g. <code>www.amazon.com</code> or <code>www.amazon.de</code>).</li>
-            </ol>
-          )}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <SecretField
+          <div className="mt-3">
+            <KeyField
+              label="Amazon cookie"
+              hint={
+                'Optional. Covers already work from an ASIN with no setup at all; the cookie only adds description and genres by reading the product page. ' +
+                'It is fragile, it is against Amazon’s terms, and it grants access to your account — it is stored write-only and never shown. ' +
+                'To get it: sign in to Amazon on the marketplace your books live on, open DevTools (F12) → Network → click any amazon request → Request Headers, and copy the whole "cookie:" value.'
+              }
               set={keys?.amazon_cookie_set}
-              editing={edit.amazon}
-              onEdit={() => setEdit((e) => ({ ...e, amazon: true }))}
-              value={amazonCookie}
-              onChange={(e) => setAmazonCookie(e.target.value)}
               placeholder="Amazon session cookie — optional"
+              busy={saving}
+              onSave={(v) => saveKey('amazon_cookie', v)}
             />
-            <input
-              className="tp-input"
-              style={{ maxWidth: 200 }}
+            <KeyField
+              label="Amazon domain"
+              hint="The marketplace your books were bought on, e.g. www.amazon.com or www.amazon.de. Not a secret, so this one shows its value."
+              secret={false}
+              value={keys?.amazon_domain || ''}
+              set={!!keys?.amazon_domain}
               placeholder="www.amazon.com"
-              value={amazonDomain}
-              autoComplete="off"
-              onChange={(e) => setAmazonDomain(e.target.value)}
+              busy={saving}
+              onSave={(v) => saveKey('amazon_domain', v)}
             />
           </div>
-        </div>
-      )}
-
-      {admin && (
-        <div className="flex items-center gap-2">
-          <StickerButton onClick={saveKeys} disabled={saving}>{saving ? 'Saving…' : 'Save keys'}</StickerButton>
-          <InfoDot text="Secrets are write-only — saved keys show masked. Edit to replace, or save a blank field to clear." />
         </div>
       )}
 
@@ -1332,14 +1379,15 @@ function AdminUsers({ me }) {
               {u.id === me.id ? (
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--soft)' }}>you</span>
               ) : (
-                <button
-                  onClick={() => removeUser(u)}
-                  title={`Delete ${u.username}`}
-                  aria-label={`Delete ${u.username}`}
-                  style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 16, padding: 4, lineHeight: 1 }}
-                >
-                  ✕
-                </button>
+                <Tooltip label={`Delete ${u.username} and their library`} side="top">
+                  <button
+                    onClick={() => removeUser(u)}
+                    aria-label={`Delete ${u.username}`}
+                    style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 16, padding: 4, lineHeight: 1 }}
+                  >
+                    ✕
+                  </button>
+                </Tooltip>
               )}
             </span>
           </li>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, Lightbox, MonoLabel, PartialDateField, Placeholder, isPartialDate } from './ui.jsx'
+import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, Lightbox, MonoLabel, PartialDateField, Placeholder, Tooltip, isPartialDate } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -296,19 +296,23 @@ function PersonView({ person, name, onEdit, onDelete }) {
   // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
   // and continue below — no dead space beside a short photo. Click → full screen.
   const photo = person.image_path ? (
-    <button
-      type="button"
-      className="person-photo-btn"
-      onClick={() => setZoom(true)}
-      aria-label={`View photo of ${name} full screen`}
-      style={{ float: 'left', width: 104, margin: '2px 14px 8px 0', padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
-    >
-      <img
-        src={personImgURL(person.image_path)}
-        alt={name}
-        style={{ display: 'block', width: '100%', aspectRatio: '7 / 9', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--ink-border)' }}
-      />
-    </button>
+    // The float rides the Tooltip's wrapper span, not the button inside it —
+    // left on the button it would float within the span and the text would
+    // stop wrapping around the photo.
+    <Tooltip label="View this photo full screen" side="bottom" className="person-photo-btn float-left mt-[2px] mr-[14px] mb-[8px]">
+      <button
+        type="button"
+        onClick={() => setZoom(true)}
+        aria-label={`View photo of ${name} full screen`}
+        style={{ width: 104, padding: 0, background: 'none', border: 'none', cursor: 'zoom-in' }}
+      >
+        <img
+          src={personImgURL(person.image_path)}
+          alt={name}
+          style={{ display: 'block', width: '100%', aspectRatio: '7 / 9', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--ink-border)' }}
+        />
+      </button>
+    </Tooltip>
   ) : (
     <div style={{ float: 'left', width: 104, margin: '2px 14px 8px 0' }}>
       <Placeholder kind="" style={{ width: '100%', aspectRatio: '7 / 9' }} />

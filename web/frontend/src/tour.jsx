@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json } from './api.js'
-import { GhostButton, MonoLabel, StickerButton, toast, useIsMobileScreen } from './ui.jsx'
+import { IconBack, InfoDot, MonoLabel, StickerButton, Tooltip, toast, useIsMobileScreen } from './ui.jsx'
 
 // The guided feature tour (Settings → Onboarding). It auto-opens once per user
 // on their first launch (App.jsx checks preferences.tour === ''), and can be
@@ -37,6 +37,13 @@ export const SAMPLE_QUOTES = {
 // (desktop and mobile render separate buttons for the same control); `admin`
 // hides a step from non-admins (they can't act on it); `demo` renders a
 // built-in sample quote under the copy.
+//
+// `body` is the sentence or two a step is actually about; `more` is the detail
+// that used to be crammed into it, now behind an InfoDot next to the step title.
+// A guided tour is prose by nature and cannot become a wall of dots — but on a
+// phone six of these steps were a scrolling paragraph, and the paragraph was the
+// part people skipped. What stands is what a first-time reader needs in order to
+// press Next; everything else is one tap away and still there.
 const TOUR_STEPS = [
   {
     key: 'welcome',
@@ -44,13 +51,14 @@ const TOUR_STEPS = [
     tab: 'home',
     body: (
       <>
-        Tippani is a home for the lines worth keeping — book highlights and film dialogues, with
-        covers, tags, instant search and a daily memory quiz. This tour walks through every
-        feature. <b>Next</b> moves on step by step, <b>skip tour</b> ends it, and{' '}
-        <b>finish later</b> saves your place — a Resume button waits in Settings → Onboarding.
-        Nothing in the tour needs your files: the examples are built in.
+        Tippani is a home for the lines worth keeping — book highlights and film dialogue, with
+        covers, tags, instant search and a daily memory quiz. This tour walks through every feature.
       </>
     ),
+    more:
+      'Next moves on step by step, “skip tour” ends it, and “finish later” saves your place — a Resume button waits in Settings → Onboarding. ' +
+      'Nothing here needs your files: every example is built in. ' +
+      'Every screen also carries a “?” button of its own listing what each control on it does — this tour is the once-over, that is the reference.',
   },
   {
     key: 'add',
@@ -60,18 +68,16 @@ const TOUR_STEPS = [
     anchor: '[data-tour="add"]',
     body: (
       <>
-        The ＋ pill is the single way in — one surface, three tabs you can rotate between: add a{' '}
-        <b>book</b> by title, author or ISBN (covers and metadata fetched for you), a <b>film or
-        show</b> from TMDB/TheTVDB; <b>capture a quote</b> against any work (the ❝ pill beside ＋
-        jumps straight there); or <b>bulk-import</b> highlights: Markdown &amp; Readest exports,
-        Kindle Bookcision &amp; your Kindle notebook, Goodreads and Hardcover pages, IMDb quote
-        pages. An import lands in <b>Pending import</b> first and stays there until you okay it —
-        fix chapters and locations in bulk, move quotes to the right book or film, then approve or
-        discard. A count on the ＋ pill says how much is waiting. Re-imports are idempotent, so
-        approving the same file twice never duplicates. No file needed today; a built-in sample
-        quote rides along on the next steps.
+        The ＋ pill is the single way in: add a <b>book</b>, add a <b>film or show</b>,{' '}
+        <b>capture a quote</b> against anything you already have, or <b>bulk-import</b> highlights
+        from a file.
       </>
     ),
+    more:
+      'Books are looked up by title, author or ISBN and films on TMDB/TheTVDB, with covers and details fetched for you. ' +
+      'Import reads Markdown and Readest exports, Kindle Bookcision and your Kindle notebook, Goodreads and Hardcover pages, and IMDb quote pages. ' +
+      'An import lands in Pending import first and stays there until you okay it — fix chapters and locations in bulk, move quotes to the right work, then approve or discard. ' +
+      'A count on the ＋ pill says how much is waiting, and re-importing the same file never duplicates anything.',
   },
   {
     key: 'library',
@@ -82,12 +88,14 @@ const TOUR_STEPS = [
     demo: 'book',
     body: (
       <>
-        Books live here with real covers and series &amp; reading order. Every annotation carries a
-        highlight colour, tags, chapter/location and a favourite ♥. Browse as a packed masonry, a
-        list or a sortable table; filter by anything and <b>group by series, author, decade or
-        genre</b>. A book highlight looks like this:
+        Books live here with their covers, and every highlight you have kept from them. A book
+        highlight looks like this:
       </>
     ),
+    more:
+      'Each annotation carries a highlight colour, tags, a chapter and location, and a favourite ♥. ' +
+      'Browse as a packed masonry, a plain list or a sortable table; filter by genre, shelf state, favourites, tags or notes; and group by series, author, decade or genre. ' +
+      'Series keep their reading order.',
   },
   {
     key: 'catalogue',
@@ -98,11 +106,13 @@ const TOUR_STEPS = [
     demo: 'movie',
     body: (
       <>
-        Films &amp; shows keep their dialogues the same way — each line with a timestamp, the
-        character, and the actor <b>auto-filled from the cast</b>. Same tags, favourites, views and
-        group-bys as the Library. A dialogue looks like this:
+        Films and shows keep their dialogue the same way — each line with its timestamp and
+        character. A dialogue looks like this:
       </>
     ),
+    more:
+      'The actor is auto-filled from the title’s cast, so you only type the character. ' +
+      'Shows carry a season and episode too. Everything else matches the Library: the same tags, favourites, views and group-bys.',
   },
   {
     key: 'share',
@@ -111,12 +121,12 @@ const TOUR_STEPS = [
     title: 'Share a line, export the lot',
     body: (
       <>
-        Any quote shares in one tap: rich Markdown, WhatsApp, plain text or Reddit — or a{' '}
-        <b>shareable image</b> rendered locally in your paper/film skin, with a live preview.
-        Export any work, a filtered set, or the whole library as Obsidian-friendly Markdown that
-        round-trips cleanly back through the importer.
+        Any quote shares in one tap — as text, or as an <b>image card</b> drawn in your own skin.
       </>
     ),
+    more:
+      'Share formats: rich Markdown, WhatsApp, plain text or Reddit, plus a shareable image rendered locally (nothing is uploaded) with a live preview. ' +
+      'Export works at any scale — one work, a filtered set, or the whole library — as Obsidian-friendly Markdown that round-trips cleanly back through the importer.',
   },
   {
     key: 'quiz',
@@ -126,13 +136,14 @@ const TOUR_STEPS = [
     tab: 'home',
     body: (
       <>
-        Home deals a short multiple-choice quiz over your own quotes, scheduled on the forgetting
-        curve — each card resurfaces right as you&rsquo;d forget it, and every quote wears a status
-        dot (remembered · forgetting · probably forgotten). <b>Practice</b> is the unlimited,
-        skippable twin that by default never moves the schedule. A stray quote is one tap away —
-        the ❝ pill in the top bar. Two to three minutes a day; the knobs live in Settings.
+        Home deals a short quiz over your own quotes, scheduled so each card comes back right as
+        you&rsquo;d start to forget it. Two or three minutes a day.
       </>
     ),
+    more:
+      'Every quote wears a status dot — remembered, forgetting, or probably forgotten — and answering honestly is what moves it. ' +
+      'Practice is the unlimited, skippable twin: it keeps its own score and by default never touches the schedule. ' +
+      'How many cards, whether covers show, and how much a look lengthens a half-life all live in Settings.',
   },
   {
     key: 'search',
@@ -142,14 +153,14 @@ const TOUR_STEPS = [
     anchor: '[data-tour="search"]',
     body: (
       <>
-        Instant, <b>typo-tolerant</b> search across titles, authors, directors, genres, series,
-        quotes, notes, tags and dialogue — results arrive <b>sectioned by what matched</b>: books,
-        films, people, annotations, dialogues, notes, tags, genres, even a decade
-        (&ldquo;1990s&rdquo;) or a day (&ldquo;2026-07-14&rdquo;). Group results like the Library,
-        open a hit in place to share or edit, or select a set for a bulk tag/field edit. Your last
-        search is remembered.
+        Instant, <b>typo-tolerant</b> search over everything you have kept, with results sectioned
+        by what matched.
       </>
     ),
+    more:
+      'It searches titles, authors, directors, genres, series, quotes, notes, tags and dialogue, and the sections mirror that: books, films, people, annotations, dialogues, notes, tags, genres. ' +
+      'A decade (“1990s”) or a day (“2026-07-14”) is a valid search and finds what you captured then. ' +
+      'Group results like the Library, open a hit in place to share or edit, or tick a set for a bulk tag or field edit. Your last search is remembered.',
   },
   {
     key: 'tags',
@@ -160,10 +171,12 @@ const TOUR_STEPS = [
     body: (
       <>
         Tags cut across books and films alike, each with its own look. <b>Stickers</b> are your own
-        transparent PNG/SVG images — manage them here, pin one to any quote as a seal the text
-        flows around, and drag it wherever you like.
+        images, pinned to a quote as a seal.
       </>
     ),
+    more:
+      'A tag draws as a sticker, banner, flyout, tape or reel, in a colour you choose; renaming one updates every quote carrying it. ' +
+      'Stickers are transparent PNG or SVG files you upload. The quote’s text flows around a pinned sticker, and you can drag it wherever you like on the card.',
   },
   {
     key: 'metadata',
@@ -173,12 +186,14 @@ const TOUR_STEPS = [
     tab: 'metadata',
     body: (
       <>
-        The console shows per-field coverage, filters by what&rsquo;s missing, bulk-corrects a
-        selection and merges duplicates; <b>fetch missing covers &amp; metadata</b> runs in chunks
-        behind a real progress bar. <b>People</b> get portraits and IMDb · TMDB · Wikipedia · Open
-        Library links resolved automatically — tap any author or actor name anywhere.
+        The console shows what is missing across the library and fixes it in bulk. <b>People</b>{' '}
+        get portraits and reference links — tap any author or actor name, anywhere.
       </>
     ),
+    more:
+      'Per-field coverage tiles double as filters: tap “no cover” to list exactly those books. ' +
+      'From there you can bulk-correct a selection, merge duplicate titles, remap speaker labels onto a cast, and re-verify pinned works against the live sources before anything is written. ' +
+      'Fetching missing covers and metadata runs in chunks behind a real progress bar. People resolve to IMDb, TMDB, TheTVDB, Wikipedia and Open Library.',
   },
   {
     key: 'stats',
@@ -188,12 +203,12 @@ const TOUR_STEPS = [
     tab: 'stats',
     body: (
       <>
-        A GitHub-style calendar of your captures, memory health straight from the quiz, and
-        breakdowns of the people and tags your library leans on — with covers and portraits.
-        Everything is a doorway: a calendar dot opens that day&rsquo;s additions in Search, and any
-        book, author, actor, director or tag clicks through the same way.
+        A calendar of your captures, memory health from the quiz, and the people and tags your
+        library leans on.
       </>
     ),
+    more:
+      'Everything on this screen is a doorway rather than a read-out: a calendar dot opens that day’s additions in Search, and any book, author, actor, director or tag clicks through the same way.',
   },
   {
     key: 'appearance',
@@ -219,34 +234,17 @@ const TOUR_STEPS = [
     admin: true,
     body: (
       <>
-        Lookups run on keys saved in the highlighted card — you can paste them now (the tour
-        waits) or press Next and add them later:
-        <ul className="mt-2 space-y-1.5" style={{ paddingLeft: 16, listStyle: 'disc' }}>
-          <li>
-            <b>TMDB</b> (films &amp; shows) — usually active out of the box on the shared built-in
-            key; for your own free v3 key: <b>themoviedb.org → Settings → API</b>.
-          </li>
-          <li>
-            <b>TheTVDB</b> (optional, better show coverage) — <b>thetvdb.com → Dashboard → API
-            keys</b>.
-          </li>
-          <li>
-            <b>Google Books</b> (optional — only if you pass ~1,000 lookups/day) —{' '}
-            <b>console.cloud.google.com → enable the Books API → create a key</b>.
-          </li>
-          <li>
-            <b>Amazon cookie</b> (optional, advanced) — adds description + genres for Kindle/ASIN
-            books. Sign in to Amazon, then DevTools (F12) → Network → any amazon request → copy the
-            whole <b>cookie:</b> header, and set your marketplace domain. Fragile, against
-            Amazon&rsquo;s terms, and stored write-only — the card has the full walkthrough.
-          </li>
-        </ul>
-        <p className="mt-2">
-          Books need no key at all — Google Books + Open Library lookups work without one, and
-          manual entry always works.
-        </p>
+        Lookups run on keys saved in the highlighted card. Each field there edits and saves on its
+        own, and each carries its own info dot with where to get that key. Paste them now — the
+        tour waits — or press Next and add them later.
       </>
     ),
+    more:
+      'TMDB (films & shows) is usually active out of the box on a shared built-in key; your own free v3 key comes from themoviedb.org → Settings → API. ' +
+      'TheTVDB is optional and usually better for long-running shows: thetvdb.com → Dashboard → API keys. ' +
+      'Google Books is optional and only matters past roughly 1,000 lookups a day. ' +
+      'The Amazon cookie is optional and advanced — it only adds description and genres for Kindle/ASIN books, and covers already work without it. ' +
+      'Books need no key at all: Google Books and Open Library work without one, and manual entry always works.',
   },
   {
     key: 'backup',
@@ -258,12 +256,13 @@ const TOUR_STEPS = [
     admin: true,
     body: (
       <>
-        One click builds a dated archive of everything — database, images, users, settings — and
-        downloads it; the newest stays on the server. Restore it in place, or upload a backup from
-        another Tippani box to move house. Updates are checked <b>on demand only</b> in the card
-        above; with the Docker socket mounted, applying one is a single click.
+        One click builds a dated archive of everything and downloads it. Restore it in place, or
+        upload one from another Tippani server to move house.
       </>
     ),
+    more:
+      'The archive holds the database, images, users and settings, and the newest copy stays on the server as well as coming down to you. ' +
+      'Updates are checked on demand only — never in the background — in the card above; with the Docker socket mounted, applying one is a single click.',
   },
   {
     key: 'account',
@@ -274,18 +273,20 @@ const TOUR_STEPS = [
     body: (
       <>
         Behind the avatar chip: your <b>Profile</b> — photo, display name, password. Every user
-        gets a fully separate library. Admins also manage users there — add, remove, grant, revoke
-        or hand over admin (the last admin is protected).
+        gets a fully separate library.
       </>
     ),
+    more:
+      'Admins manage users from the same place: add, remove, grant or revoke admin. The last remaining admin cannot be demoted, so an instance can never be locked out of itself. ' +
+      'To hand over, grant another user admin first, then revoke your own.',
   },
   {
     key: 'done',
     title: 'That’s the tour',
     body: (
       <>
-        You&rsquo;ve seen everything. Replay this tour anytime from <b>Settings → Onboarding</b> —
-        the feature list there doubles as a cheat-sheet. Enjoy the margins.
+        You&rsquo;ve seen everything. Replay this tour anytime from <b>Settings → Onboarding</b>,
+        and use the <b>?</b> on any screen for what its controls do. Enjoy the margins.
       </>
     ),
   },
@@ -463,9 +464,12 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
           <MonoLabel>{i + 1} of {steps.length}</MonoLabel>
           <button type="button" className="tp-link" onClick={later}>finish later</button>
         </div>
-        <h2 className="mt-1.5" style={{ fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }}>
-          {step.title}
-        </h2>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }}>
+            {step.title}
+          </h2>
+          {step.more && <InfoDot title={step.title} text={step.more} />}
+        </div>
         <div className="mt-2" style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--soft)' }}>
           {step.body}
         </div>
@@ -473,7 +477,13 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
         <div className="mt-4 flex items-center gap-2">
           <button type="button" className="tp-link" onClick={skip}>skip tour</button>
           <span className="flex-1" />
-          {i > 0 && <GhostButton onClick={back}>Back</GhostButton>}
+          {i > 0 && (
+            <Tooltip label="Previous step">
+              <button type="button" className="field-icon-btn tactile" aria-label="Previous step" onClick={back}>
+                <IconBack />
+              </button>
+            </Tooltip>
+          )}
           <StickerButton onClick={next}>{i >= steps.length - 1 ? 'Finish' : 'Next'}</StickerButton>
         </div>
       </section>

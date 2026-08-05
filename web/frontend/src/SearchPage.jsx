@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
+import { PageHelp } from './help.jsx'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
@@ -21,6 +22,7 @@ import {
   Select,
   SortableTh,
   splitCommas,
+  Tooltip,
   useColumnsAt,
   useIsMobileScreen,
   usePersistedState,
@@ -117,29 +119,37 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 
   return (
     <section className="space-y-5">
+      {/* Search has no PageHeader — the box IS the header — so the screen's "?"
+          rides beside it rather than in a title row that doesn't exist. */}
       {mobile && (
         <div className="mobile-sticky-bar">
+          <div className="flex items-center gap-2">
+            <input
+              className="tp-input"
+              style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }}
+              placeholder="Search titles, authors, genres, quotes, notes…"
+              value={q}
+              autoFocus
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <PageHelp screen="search" />
+          </div>
+        </div>
+      )}
+      {!mobile && (
+        <div className="flex items-center gap-3">
           <input
             className="tp-input"
-            style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }}
+            // lineHeight:1 tightens the display serif's tall line box so the UA
+            // centres the glyphs in the field instead of seating them high.
+            style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px' }}
             placeholder="Search titles, authors, genres, quotes, notes…"
             value={q}
             autoFocus
             onChange={(e) => setQ(e.target.value)}
           />
+          <PageHelp screen="search" />
         </div>
-      )}
-      {!mobile && (
-        <input
-          className="tp-input"
-          // lineHeight:1 tightens the display serif's tall line box so the UA
-          // centres the glyphs in the field instead of seating them high.
-          style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px' }}
-          placeholder="Search titles, authors, genres, quotes, notes…"
-          value={q}
-          autoFocus
-          onChange={(e) => setQ(e.target.value)}
-        />
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -631,7 +641,9 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
             <tr>
               {bulk && (
                 <th style={{ width: 34 }}>
-                  <input type="checkbox" checked={allSel} onChange={toggleAll} aria-label="Select all" />
+                  <Tooltip label="Select every row" side="bottom">
+                    <input type="checkbox" checked={allSel} onChange={toggleAll} aria-label="Select all" />
+                  </Tooltip>
                 </th>
               )}
               {cols.map((c) =>
@@ -648,7 +660,9 @@ function ResultTable({ label, rows, cols, terms, onOpen, bulk, reload }) {
               <tr key={row.id}>
                 {bulk && (
                   <td className="col-center" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={sel.has(row.id)} onChange={() => toggleId(row.id)} aria-label="Select row" />
+                    <Tooltip label="Select this row" side="bottom">
+                      <input type="checkbox" checked={sel.has(row.id)} onChange={() => toggleId(row.id)} aria-label="Select row" />
+                    </Tooltip>
                   </td>
                 )}
                 {cols.map((c) => (
@@ -732,18 +746,20 @@ function MediaGroup({ kind, cover, title, mediaTag, credits, genres = [], terms,
   return (
     <HandCard className="p-4">
       <div className="flex gap-4">
-        <button type="button" onClick={onOpen} className="shrink-0" title={title} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-          {cover ? (
-            <img
-              src={coverImgURL(cover)}
-              alt=""
-              className="block w-16 object-cover"
-              style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }}
-            />
-          ) : (
-            <Placeholder kind={kind} className="w-16" />
-          )}
-        </button>
+        <Tooltip label="Open this work" className="shrink-0">
+          <button type="button" onClick={onOpen} aria-label={`Open ${title}`} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+            {cover ? (
+              <img
+                src={coverImgURL(cover)}
+                alt=""
+                className="block w-16 object-cover"
+                style={{ aspectRatio: '2 / 3', borderRadius: 6, border: '1px solid var(--ink-border)' }}
+              />
+            ) : (
+              <Placeholder kind={kind} className="w-16" />
+            )}
+          </button>
+        </Tooltip>
         <div className="min-w-0 flex-1">
           {/* Only the title opens the parent — the credit chips below are their
               own click targets (open the person), so they sit OUTSIDE this button. */}
@@ -938,15 +954,16 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
             <div className="flex items-center gap-3">
               {portrait && <PersonPortrait person={portrait} size={28} />}
               {isPersonGroup && onOpenPerson ? (
-                <button
-                  type="button"
-                  className="display-title truncate"
-                  style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                  onClick={() => onOpenPerson({ kind: personKind, name: b.label })}
-                  title={`${b.label} — details`}
-                >
-                  {b.label}
-                </button>
+                <Tooltip label="Open this person's details" side="bottom" className="min-w-0">
+                  <button
+                    type="button"
+                    className="display-title truncate"
+                    style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                    onClick={() => onOpenPerson({ kind: personKind, name: b.label })}
+                  >
+                    {b.label}
+                  </button>
+                </Tooltip>
               ) : (
                 <h3 className="display-title truncate" style={{ fontSize: 16.5 }}>{b.label}</h3>
               )}
@@ -984,15 +1001,16 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
         <div key={e.name} className="space-y-2">
           <div className="flex items-center gap-3">
             {people?.[e.name] && <PersonPortrait person={people[e.name]} size={28} />}
-            <button
-              type="button"
-              className="display-title truncate"
-              style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-              onClick={() => onOpenPerson({ kind, name: e.name })}
-              title={`${e.name} — details`}
-            >
-              {e.name}
-            </button>
+            <Tooltip label="Open this person's details" side="bottom" className="min-w-0">
+              <button
+                type="button"
+                className="display-title truncate"
+                style={{ fontSize: 16.5, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                onClick={() => onOpenPerson({ kind, name: e.name })}
+              >
+                {e.name}
+              </button>
+            </Tooltip>
             <MonoLabel style={{ color: 'var(--accent-ui)' }}>{e.count}</MonoLabel>
             <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
           </div>
