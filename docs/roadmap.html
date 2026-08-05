@@ -428,6 +428,14 @@
   queueing behind imports. This unblocks §23 and §8, whose offline queues are exactly
   the concurrent writes that used to fail.
 </p>
+<p>
+  <strong>§9's two headline pieces have shipped</strong> — the density pass, and a
+  <code>?</code> on every screen that lists what each control on it does. The section
+  stays because the interesting half is still open: the copy now lives in a registry,
+  but only the help panel reads it, so the info dots, the UI glossary and the tour can
+  still drift apart from each other. Single-sourcing them, and a test that fails when a
+  control has no help, is what is left.
+</p>
 <p>For a cheap start, §1 collects the items that are an afternoon each.</p>
 <p>
   The numbers are labels and they move, so read them as grouping rather than as
@@ -764,50 +772,39 @@
   <summary><h3><span class="n">§9</span>Help &amp; density — one registry, four consumers</h3><a class="sec-issue" data-for="s9" href="https://github.com/aaronified/tippani/issues/23" title="Track s9 on the issue tracker">#23</a></summary>
   <div class="sec-body">
   <p>
-    Two problems that are really one. The app explains itself in standing prose —
-    drawer subtexts, Settings card copy, staging destination lines, microcopy under
-    controls — which is good writing and a lot of it, and it is why some screens read
-    dense. Meanwhile there is nowhere to look up what a control does.
+    <strong>Both halves shipped.</strong> The density pass went through Settings, the
+    Metadata console, onboarding, the profile page, the Practice card and the work
+    detail screens: every standing paragraph that explained <em>why</em> a control
+    exists moved into an info dot beside it, leaving labels and state — counts, "→ joins
+    your existing <em>Dune</em>" — on the page, which was always the rule. And there is
+    now a <strong><code>?</code> on every screen</strong>, opening a panel that names
+    every control on it and says what it does. It sits in the page header on most
+    screens and in the ⋯ menu on the two detail screens, whose phone bar already carries
+    a back arrow, a filter, a ＋ and a ⋯ — a fifth 44px control there would have left a
+    book title about eighty pixels to live in.
   </p>
   <p>
-    The first half is a density pass. Every piece of text on a screen is one of three
-    things: a <strong>label</strong> (what this control is — stays),
-    <strong>state</strong> (what is true right now: counts, "→ joins your existing
-    <em>Dune</em>" — stays, that's feedback), or an <strong>explanation</strong> (why it
-    exists, what the trade-off is — moves into an info dot). The
-    <code>InfoDot</code> and <code>Tooltip</code> primitives already exist, so this is
-    a content migration rather than new machinery. Settings, the Metadata console and
-    the staging page carry the most explanation and go first, and the same rule becomes
-    the convention for new code.
+    Two things I had wrong going in, both of them mobile. An info dot that opens a
+    full-screen sheet spends an entire viewport on one sentence, so it opens a small
+    popover instead — anchored to the dot with a caret on a pointer device, a compact
+    centred card on a phone. And a hover bubble is simply unreachable with a thumb,
+    which quietly made "move it into an info dot" a non-answer on the device this app is
+    built for; a long press now puts any control's label in a toast at the <em>top</em>
+    of the screen, because the bottom is where the finger, the floating nav bar and the
+    OS gesture strip already are.
   </p>
   <p>
-    The second half is a <strong><code>?</code> on every screen</strong> — a drawer row
-    on phones — opening a panel that documents every control on that screen, grouped by
-    the screen's own sections, searchable, and deep-linkable
-    (<code>/library?help=filters</code>, which the URL routing already supports).
+    The registry is <code>web/frontend/src/help.jsx</code>, keyed by screen. What remains
+    is the part that makes it a <em>single</em> source rather than one more place to
+    keep in step:
   </p>
-  <p>
-    The design decision that makes both affordable is to write each explanation
-    <strong>once</strong>, in one registry keyed by screen and control, and read it from
-    four places: the info-dot tooltips, the help panel,
-    <a href="ui-glossary.html">the UI glossary</a> (hand-maintained today, and it
-    drifts), and the tour's step copy. A control explained in one place cannot
-    contradict itself in another.
-  </p>
-  <p>
-    Completeness gets enforced the way this repo already enforces it elsewhere: a
-    build-time test keeps <code>docs/troubleshoot.md</code> in lockstep with
-    <code>internal/olog/codes.go</code>, and the same shape of test can require that
-    every registered control has help copy and every info dot resolves to a registry
-    key. That is the difference between "explains every option" as an intention and as
-    a guarantee.
-  </p>
-  <p>
-    Sequencing matters here: build the registry and the panel shell
-    <strong>early</strong>, so every feature after it adds its own copy as it lands, and
-    do the exhaustive fill <strong>last</strong>, once the release's surface has stopped
-    moving.
-  </p>
+  <ul>
+    <li><strong>The info dots should read from it.</strong> The panel does; the dots still carry their copy inline, which is precisely the drift this section exists to end.</li>
+    <li><strong><a href="ui-glossary.html">The glossary</a> should be generated from it</strong> — rendered the way this page's own regions are, by a script with a <code>--check</code> mode in CI. Hand-maintained, it is still the document most likely to go quietly stale.</li>
+    <li><strong>The tour should read it too.</strong> Step copy and panel copy overlap today and neither knows about the other.</li>
+    <li><strong>Deep links</strong> — <code>/library?help=filters</code>, which the URL routing already supports.</li>
+    <li><strong>The completeness test</strong>, the same shape as the one keeping <code>docs/troubleshoot.md</code> in lockstep with <code>internal/olog/codes.go</code>: every screen has an entry, every entry has copy, every dot resolves to a key. That is the difference between "explains every option" as an intention and as a guarantee.</li>
+  </ul>
   </div>
 </details>
 

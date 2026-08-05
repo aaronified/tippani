@@ -52,9 +52,9 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 253 |
-| Commits with an AI co-author trailer | **249** |
-| Period | 2026-07-02 → 2026-08-04 |
+| Commits in the repository | 257 |
+| Commits with an AI co-author trailer | **253** |
+| Period | 2026-07-02 → 2026-08-05 |
 
 Models used, by commit count:
 
@@ -62,7 +62,7 @@ Models used, by commit count:
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
-| Claude Opus 5 | 33 |
+| Claude Opus 5 | 37 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
 | Claude Sonnet 4.6 | 1 |
@@ -101,8 +101,14 @@ worth nothing here and only execution counts. What the repo actually runs:
 - **367 test functions across 70 test files**, over real HTTP handlers against a
   real SQLite database — not mocks.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
-  the server and health-checks it, a frontend build, and a check that the roadmap's
-  generated regions still match the data files they come from.
+  the server and health-checks it, a frontend build, a check that the roadmap's
+  generated regions still match the data files they come from, a check that the
+  UI glossary's inlined stylesheet matches the one the app actually ships, and a
+  check over the Home greeting's fixed-date tables — 129,210 greetings across 59
+  regions, every day of a year and every hour bucket. That last one exists because
+  every way it can break is silent: a greeting rendering `{name}` literally, a
+  commemoration wishing you a happy one, or a country resolving to its neighbour's
+  time zone. None of those throw, and none of them fail a build.
 - **`docs/PLAN.md`** carries the design and, more usefully, the *reasoning* —
   including decisions that were wrong once and why the current shape replaced
   them. Comments in the code explain why rather than what, for the same reason.
@@ -120,10 +126,15 @@ What that honestly does not cover:
 - **Confident documentation is not verified documentation.** Where this file
   makes a claim, it was checked against the tree; treat prose elsewhere in the
   repo as a strong hint and the code as the truth.
-- **`docs/ui-glossary.html` is hand-maintained, so it lags by construction.** It
-  was several releases behind until the shelf and pending-import sections were
-  added at 1.3.0; nothing keeps it honest but me noticing, which is exactly the
-  failure mode the help-registry item on the roadmap exists to end.
+- **`docs/ui-glossary.html` is half honest by machine now, and half still by
+  hand.** Its oldest failure mode was mechanical: the page inlines the built
+  stylesheet so its samples are styled by real app rules, and every frontend build
+  renames `index-<hash>.css`, so the snapshot rotted silently. `scripts/glossary-css.mjs`
+  regenerates it and CI fails when it is stale, which ends that half. The *entries*
+  are still written by hand and can still lag — 1.4.0 moved the app's explanatory
+  copy into one registry (`web/frontend/src/help.jsx`) that the in-app help panel
+  reads, and feeding the glossary from the same registry is the remaining half of
+  [the roadmap's §9](docs/roadmap.html).
 - **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* on
   [the roadmap](https://aaronified.github.io/tippani/roadmap.html#bugs). That list is
   **generated from the issues I have accepted**, so it cannot quietly go stale in either
@@ -176,4 +187,4 @@ Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 
-*Last verified against the tree at v1.3.2.*
+*Last verified against the tree at v1.4.0.*
