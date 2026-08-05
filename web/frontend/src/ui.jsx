@@ -889,6 +889,14 @@ export function StatusBar({ state, progress = 0, radius = 0, title }) {
 //
 // `stacked` drops it below the film grid's "SHOW" chip, which claims the same
 // corner on a show's poster.
+//
+// It was a bare blue glyph carrying a dark blur halo, which is the trick that
+// fails at exactly the size it mattered: a halo is a soft gradient, so at the
+// ~18px a phone cover gives it, it ate the thin strokes it existed to protect
+// and the mark read as a smudge on anything but plain artwork. It is an OPAQUE
+// disc now — shelf blue, white glyph, hard rim — so the contrast comes from an
+// edge that does not scale away, and the badge reads over busy art and pale art
+// alike. It also stops being the one thing in the app with a glow.
 export function ReadingBadge({ kind = "book", stacked = false }) {
   const wob = useMemo(() => randWobble(11, 0), []);
   const isBook = kind !== "movie";
@@ -897,19 +905,15 @@ export function ReadingBadge({ kind = "book", stacked = false }) {
     <span
       aria-label={label}
       title={label}
-      className="absolute left-1.5"
+      className="absolute left-1.5 reading-badge"
       style={{
         ...wob,
         top: stacked ? 26 : 6,
-        display: "inline-flex",
-        color: SHELF_BLUE,
-        // Two shadows: a dark halo so a light icon survives pale artwork, and a
-        // drop shadow for the lift the ♥ badge has.
-        filter: "drop-shadow(0 0 3px rgba(21,16,12,.85)) drop-shadow(0 1px 2px rgba(0,0,0,.5))",
+        background: SHELF_BLUE,
         transform: "rotate(var(--grot))",
       }}
     >
-      {isBook ? <IconReading /> : <IconWatching />}
+      {isBook ? <IconReading size={15} /> : <IconWatching size={15} />}
     </span>
   );
 }

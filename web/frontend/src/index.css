@@ -1117,6 +1117,37 @@
     transition: transform .12s ease;
   }
   .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
+
+  /* ---- reading / watching badge on a cover ---- */
+  /* A solid disc, not a glowing glyph: the old blurred halo was a soft gradient,
+     and at the ~18px this sits at on a phone it swallowed the strokes it existed
+     to protect. An opaque ground plus a hard rim survives any artwork at any
+     size, and the shadow is a real drop shadow for lift rather than a halo doing
+     contrast's job. 22px keeps the disc inside a small cover's corner; the glyph
+     inside is 15px, so it grew in apparent size even as the box got tighter. */
+  .reading-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    color: #FFFDF6;
+    border: 1.5px solid rgba(21, 16, 12, .55);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+  }
+  .reading-badge svg { flex: none; }
+  /* Dark theme: the rim goes light instead, or a dark-on-dark edge disappears
+     against a dark cover and the disc loses its shape. */
+  html[data-theme="dark"] .reading-badge {
+    border-color: rgba(255, 253, 246, .5);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+  }
+  /* Phones get a slightly larger disc: covers shrink there, and the badge is the
+     only signal that a work is in progress. */
+  @media (max-width: 768px) {
+    .reading-badge { width: 24px; height: 24px; }
+  }
   /* Each .hand-card is an isolated stacking context, so a tooltip (z-index 70
      inside its own card) is still painted UNDER an adjacent card that sits later
      in the flow — the bubble gets clipped by the neighbour. While a tooltip is
