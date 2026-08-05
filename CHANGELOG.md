@@ -5,6 +5,181 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-05
+
+This one is about the phone, and about the app talking less.
+
+Tippani explained itself in standing prose — Settings card copy, drawer
+subtexts, microcopy under every control. It is good writing and there is a lot
+of it, and on a 390px screen it meant scrolling past the explanation to reach
+the single control each card exists for. So: a **label** (what this control is)
+and **state** (what is true right now) stay on the page; an **explanation** (why
+it exists, what the trade-off is) moves into an info dot. Every screen now
+carries a **?** that lists its own controls.
+
+Two things had to be built before that was honest on a phone at all. An info dot
+was a hover bubble, and there is no hover on a phone — which quietly made "move
+it into an info dot" a non-answer on the device this app is built for. And a
+tooltip was pointer-only, so every glyph-only control was simply unexplained on
+touch. Both are fixed, and the second one turned into a sweep: 69 controls that
+had only an `aria-label` or a native `title=` now say what they are.
+
+The other headline is the work pages. ISBN, ASIN, TMDB and TVDB ids came off the
+book and film heroes, **Edit** became **Details**, and fetching metadata stopped
+being an all-or-nothing overwrite.
+
+### Added
+
+- **A `?` on every screen**, opening that screen's own glossary: every control
+  named, with what it does. The copy lives in **one registry keyed by screen**
+  (`web/frontend/src/help.jsx`) rather than beside each component, so a control
+  explained in one place cannot contradict itself in another — and every screen's
+  list appends the shell's own controls (☰ · ＋ · Search · the bottom bar · the
+  avatar chip), so the phone bars are explained wherever you happen to ask.
+
+  It sits in the page header on most screens. On the two work-detail screens it
+  is a **⋯ menu row** instead: that phone bar already carries a back arrow, a
+  filter, a ＋ and a ⋯, and a fifth 44px control would have left a book title
+  about eighty pixels to live in.
+
+- **Tooltips on touch, by long press.** Hold any control for 500ms and its label
+  appears as a toast at the **top** of the screen — the top, because the bottom
+  is where the finger, the floating nav bar and the OS gesture strip already are,
+  and a label that appears under the thumb that asked for it is not a label. It
+  has its own slot rather than sharing the bottom action toast, since both can
+  legitimately be on screen at once (hold a button, read its label, tap it, get
+  its confirmation).
+
+  A fired long-press **swallows the click behind it**, exactly as Material does:
+  holding Delete to find out what it does must never delete anything.
+
+  `IconButton` now renders its own tooltip from its `ariaLabel`, because
+  threading a wrapper through forty call sites is how half of them end up
+  without one.
+
+- **A Details panel on every work**, replacing Edit. It shows every stored field
+  and **saves each one on its own** — pencil to edit, ✓ to save that field —
+  rather than making you re-save the whole record to change a year. Cover
+  controls, an inline metadata lookup, and delete live in the same sheet.
+
+- **Metadata merge: you choose, field by field.** Picking a lookup match no
+  longer *applies* it, it **proposes** it — every field it would change, yours
+  and theirs side by side, with a toggle you own. Fields you have nothing in are
+  ticked for you, because filling a blank is never a loss; anything already
+  filled starts unticked, because overwriting what you typed is. Rows that would
+  change nothing are not shown. Films keep a **re-sync everything** option
+  alongside, because a cast exists in no search result and field-picking alone
+  can never produce one.
+
+  This is the end of "it fetched metadata and clobbered my author".
+
+- **A greeting that knows what day it is.** Home said
+  `Good ${morning|afternoon|evening}` — three strings for 365 days. It now draws
+  from a pool chosen by the device's clock, date and IANA time zone: six time
+  buckets (because "Good evening" at 23:50 and at 17:05 are the same sentence
+  for very different moments), weekend and Sunday variants, and **114 fixed-date
+  national days across 58 regions**. Everything is local — no locale asked of the
+  server, nothing sent anywhere, no network call — and it re-picks on reload.
+
+  A date earns a place only if it falls on the **same Gregorian month and day
+  every year**, or is computable from an exact rule (Easter's computus; "the
+  fourth Thursday in November"). Nothing lunar or lunisolar: Diwali, Holi, Eid,
+  Lunar New Year and Vesak move every year and several differ by country in the
+  same year, so a table of them would be confidently wrong, and a wrong festival
+  greeting is worse than none. There is deliberately no "add your own dates"
+  escape hatch, because that is an invitation to break the rule later.
+
+  A country's own day beats an international one on a shared date (25 December is
+  Quaid-e-Azam Day in Pakistan), and commemorations say **"Marking …"**, never
+  "Happy" — Remembrance Day, Anzac Day, Truth and Reconciliation, Shaheed Dibash.
+
+- **`scripts/greetings-check.mjs`**, in CI: 129,210 greetings over every region,
+  every day of a year and every hour bucket. Every way those tables break is
+  silent — a greeting rendering `{name}` literally, a "Happy" on a day of
+  mourning, a country resolving to its neighbour's time zone. None of it throws
+  and none of it fails a build. Two assertions exist because the bug had already
+  happened: `America/Bahia_Banderas` (Mexico) `startsWith` `America/Bahia`
+  (Brazil), so an ordered prefix scan handed Mexican devices Brazilian national
+  days; and `Africa/Addis_Ababa` is a tzdb *Link* to `Africa/Nairobi`, so
+  Ethiopia has no identifier of its own and is **absent rather than mislabelled**.
+
+- **`scripts/glossary-css.mjs`**, also in CI. `docs/ui-glossary.html` inlines the
+  built stylesheet so its samples are styled by the rules the app really ships;
+  every build renames `index-<hash>.css`, so that snapshot rotted silently and
+  AI.md had been admitting it for two releases. It is generated now, and
+  `--check` fails when it is stale.
+
+### Changed
+
+- **Info dots open a popover, not a sheet.** Anchored to the dot with a caret on
+  a pointer device — several dots often sit within a few pixels of each other, so
+  "which one was that" is a real question — and a compact **centred card** on a
+  phone, where a 40px anchor on a 360px screen gives no useful direction and the
+  finger is already covering it. A full-screen sheet is right for a screen's
+  whole glossary and absurd for one sentence.
+
+- **Explanations moved into info dots** across Settings (Devices, Metadata
+  sources, Onboarding, Multi-author credits), the Metadata console (duplicates,
+  speaker remap, the mobile actions), Profile's maintenance tools, the Practice
+  card, and the tour's step copy — which keeps a short lead with its detail one
+  tap away, because on a phone six of those steps were a scrolling paragraph and
+  the paragraph was the part people skipped.
+
+- **The metadata keys edit and save per field.** The card had one "Save keys"
+  button that wrote whichever inputs happened to be visible, so it had to reason
+  about which fields were shown lest revealing one wipe another. Each field owns
+  its write now — the endpoint decodes every key as a pointer, so a PUT carrying
+  one leaves the rest untouched — and the icons match the Details panel.
+
+- **The ☰ drawer and the floating bottom bar wear the shell material** (wood on
+  paper, brushed metal on film). They were the last bare surfaces in an app where
+  every card, button, toggle thumb and select thumb already carries a tile, and
+  they read as plastic beside them.
+
+- **Word buttons became glyphs** where the glyph is unambiguous: export, the
+  cover controls, lookup matches, the duplicate scan, the bulk bar's Clear, the
+  filter sheet's Reset, the tour's Back. Buttons whose visible words *are* their
+  label were deliberately left alone — a tooltip repeating a word is noise.
+
+- **`docs/ui-glossary.html`** gains the 1.4.0 components and has the entries this
+  release invalidated corrected.
+
+### Fixed
+
+- **The reading mark disappeared into its own glow on a phone.** The open-book /
+  play-triangle badge on a work in progress carried a dark blur halo, on the
+  theory that a halo lets a light icon survive pale artwork. It does, at desktop
+  cover sizes. At the ~18px a phone gives it, the halo *is* the problem: it is a
+  soft gradient, so it eats the thin strokes it exists to protect and the mark
+  reads as a smudge on any cover that is not flat colour. It is an opaque disc
+  now — shelf blue, white glyph, hard rim — because contrast from an edge does
+  not scale away.
+
+- **A failed field save no longer discards what you typed.** The inline editor
+  closed before the request landed, so a failure snapped the row back to the old
+  value with the new one gone.
+
+- **`Enter` no longer closes the editor while you are adding genres.** In a token
+  list Enter is how you add a token; committing on it closed the row on the first
+  tag.
+
+- **A poster taken from a metadata match is stored at full size.** It was saving
+  the picker's `w342` thumbnail — a worse image than the cover search stores for
+  the same title.
+
+- **An unset year stopped reading as a filled one.** The numeric fields spell
+  "nothing" as `0`, so a merge would refuse to pre-tick a blank year and could
+  offer "0" as a change.
+
+### Removed
+
+- **Settings → Reference.** Its two link-outs were the UI glossary and the
+  roadmap. The per-screen `?` does what the glossary link was for, and better:
+  help beside the control, which cannot 404 and cannot lag the code by a release.
+  The roadmap link survives in the Updates card, where "what version am I on" and
+  "what is coming" are the same question asked twice. The glossary itself is
+  still published and still linked from the README and the roadmap.
+
 ## [1.3.2] - 2026-08-04
 
 The concurrent-write 500 is fixed, and it turned out not to be the bug I had written
