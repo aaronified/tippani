@@ -2031,12 +2031,11 @@
     background-blend-mode: normal, overlay, normal;
   }
   html[data-aesthetic="film"] .tp-filter-chip { border-radius: 8px; }
-  /* One-line filter row: the genre chips scroll horizontally if they overflow,
-     keeping the whole row on a single line; the scrollbar is hidden. */
+  /* One-line filter row. It holds only selects and short chips now — the
+     measured genre chip strip (and its .genre-chips rule) went with GenreFilter
+     in 1.4.2, so nothing on this row has to be sized against the row's leftover
+     width any more, which is what used to clip a chip mid-word. */
   .filter-row { display: flex; align-items: center; gap: 10px; }
-  /* Chips are measured to fit (GenreFilter), so the strip never scrolls; hidden
-     is a hard backstop against a sub-pixel spill. */
-  .genre-chips { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
   /* On phones the right-hand filter cluster (favourites/series/group/
      sort) is wider than the screen; let it wrap instead of forcing the page
      wider. Scoped to .filter-row's own ml-auto cluster only. */

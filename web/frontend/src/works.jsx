@@ -846,7 +846,6 @@ export function WorkListScaffold({
   genres,
   genre,
   setGenre,
-  chipBudget,
   fav,
   setFav,
   tagged,
@@ -977,7 +976,7 @@ export function WorkListScaffold({
 
       {hasItems && !mobile && (
         <div className="filter-row mb-5">
-          <GenreFilter genres={genres} value={genre} onChange={setGenre} budget={chipBudget} />
+          <GenreFilter genres={genres} value={genre} onChange={setGenre} />
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {leading}
             {wishChips}
@@ -1009,19 +1008,11 @@ export function WorkListScaffold({
           <div className="space-y-5">
             <div>
               <MonoLabel className="mb-2 block">genre</MonoLabel>
-              {/* One control, not a chip strip plus a "More…" dropdown. In the
-                  sheet GenreFilter's width measurement always collapsed to zero
-                  visible chips (its section label is a full-width block, so the
-                  space it thinks is taken is the whole row), leaving a lone
-                  "All" chip above a full-width select of every genre. "All" is
-                  now just the select's first option, which is also how series,
-                  sort and group already read here. */}
-              <Select
-                ariaLabel="Filter by genre"
-                value={genre}
-                onChange={setGenre}
-                options={[['', 'All'], ...genres.map((g) => [g, g])]}
-              />
+              {/* The same GenreFilter the desktop row uses — one select over every
+                  genre. The sheet reached that shape first (1.4.0), because a
+                  measured chip strip inside a full-width section always collapsed
+                  to zero visible chips; the desktop row joined it in 1.4.2. */}
+              <GenreFilter genres={genres} value={genre} onChange={setGenre} />
             </div>
             {leadingMobile}
             <div>

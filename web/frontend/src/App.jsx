@@ -439,16 +439,20 @@ function Login({ onLogin }) {
 // the "＋ Add" surface (§7 One "＋ Add"). Mobile uses the drawer.
 // Search is not a labelled tab: it lives as an icon-only button beside the
 // ＋ Add pill (both bars), mirroring the phone top bar. Still a ROUTE_TAB.
+// The desktop tab strip. The third element is the tab's hover label — the strip
+// collapses to icon-only when the window is too narrow for the words (see
+// useIconOnlyNav), and at that width the glyph is all there is, so each tab has
+// to be able to name itself. Five words or fewer, like every other label.
 const CONTENT_TABS = [
-  ['home', 'Home'],
-  ['library', 'Library'],
-  ['movies', 'Catalogue'],
+  ['home', 'Home', "Today's review"],
+  ['library', 'Library', 'Your books'],
+  ['movies', 'Catalogue', 'Your films and shows'],
 ]
 const UTILITY_TABS = [
-  ['tags', 'Tags'],
-  ['metadata', 'Metadata'],
-  ['stats', 'Stats'],
-  ['settings', 'Settings'],
+  ['tags', 'Tags', 'Tags and stickers'],
+  ['metadata', 'Metadata', 'Covers, people and duplicates'],
+  ['stats', 'Stats', 'Calendar, memory, breakdowns'],
+  ['settings', 'Settings', 'Appearance, keys, backups'],
 ]
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
@@ -557,9 +561,14 @@ function TabIcon({ name }) {
 // DesktopNav renders in the topbar. It is a real component (not an inline
 // closure in Shell) so a Shell re-render does not remount the Toggle and lose the
 // DOM measurements its sliding thumb is positioned from.
-// tabOptions renders a [key,label] list as Toggle segments (icon + label).
-function tabOptions(pairs) {
-  return pairs.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])
+// tabOptions renders a [key, label, tip] list as Toggle segments (icon + label),
+// carrying the tip through as the segment's hover label.
+function tabOptions(rows) {
+  return rows.map(([key, label, tip]) => [
+    key,
+    <><TabIcon name={key} /> <span className="tab-label">{label}</span></>,
+    tip,
+  ])
 }
 
 // DesktopNav: content tabs · divider · utility tabs, all inline.
@@ -1291,8 +1300,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             {/* Help moved out of the page headers and into the bar in 1.4.1: it
                 is a shell control like the other three, it was drawn in eleven
                 different places, and on a phone it was competing for the one row
-                a page title also needs. */}
-            <PageHelp screen={help} />
+                a page title also needs. `pill` skins it as the Search button
+                beside it — they are peers in this row and should look it. */}
+            <PageHelp screen={help} variant="pill" />
             <AccountChip user={user} onOpen={() => setProfileOpen(true)} />
           </div>
         </div>

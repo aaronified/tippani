@@ -29,20 +29,40 @@ import {
   IconSearch,
   IconShare,
   IconUpload,
+  useIsMobileScreen,
 } from './ui.jsx'
 
-// Controls the shell puts on every screen — prepended to each page's own list so
-// the bars are explained wherever you happen to ask. The top bar is ＋ · Search ·
-// ? · your avatar, in that order, on a phone and on a desktop alike; the first
-// three read the screen you are on.
-const SHELL = [
-  { term: 'Menu (☰)', icon: <IconMenu />, what: 'The drawer: every screen, your profile, and the pending-import queue. Its Add and Search are the deliberately context-free pair — they open with nothing pre-filled, whatever page you came from. Swipe it left or tap outside to close.' },
+// Controls the shell puts on every screen — appended to each page's own list so
+// the bars are explained wherever you happen to ask.
+//
+// TWO LISTS, because the two shells are not the same shell. A phone has a ☰
+// drawer and a floating bottom bar; a desktop or tablet has neither — it has an
+// always-visible tab strip instead. Describing the drawer to someone who cannot
+// see one is worse than saying nothing: they go looking for it. So the shared
+// controls live in SHELL_COMMON and each form factor adds only what it actually
+// has. helpFor() picks by the same breakpoint the components render against.
+//
+// The top bar is ＋ · Search · ? · your avatar, in that order, on both — and the
+// first three read the screen you are on.
+const SHELL_COMMON = [
   { term: 'Add (＋)', icon: <IconPlus />, what: 'The single way in, and it knows where you are: a book on Library, a film or show on the Catalogue, and a quote against the work whose page you have open. Look-up, capture and bulk import are all tabs of the one surface. A badge on it counts imports waiting for review.' },
-  { term: 'Search', icon: <IconSearch />, what: 'Typo-tolerant search across titles, people, quotes, notes, tags and genres. From Library or the Catalogue it lands scoped to that side; the drawer’s Search clears the scope.' },
+  { term: 'Search', icon: <IconSearch />, what: 'Typo-tolerant search across titles, people, quotes, notes, tags and genres. Started from Library or the Catalogue it lands scoped to that side.' },
   { term: 'Help (?)', icon: <IconHelp />, what: 'This list — the controls on whichever screen you are looking at, with the shell’s own appended. It sits in the top bar rather than in each page’s header, so it is in the same place on every screen.' },
-  { term: 'Bottom bar', what: 'Four thumb-reachable screens — Search, Home, Library, Catalogue. It slides away as you scroll down and comes back as you scroll up.' },
   { term: 'Avatar chip', what: 'Opens your profile directly: photo, display name, password, switching accounts, logging out — and, for an admin, the user list and the recovery tools.' },
+  { term: 'Info dots', what: 'The small circled “i” beside a control carries the explanation that used to sit under it as a paragraph. Hover one on a desktop and it opens on its own; click it and it stays open until you click it again. On a phone, tap.' },
+]
+
+// Phone only: the drawer, the floating bottom bar, and the long-press label.
+const SHELL_TOUCH = [
+  { term: 'Menu (☰)', icon: <IconMenu />, what: 'The drawer: every screen, your profile, and the pending-import queue. Its Add and Search are the deliberately context-free pair — they open with nothing pre-filled, whatever page you came from. Swipe it left or tap outside to close.' },
+  { term: 'Bottom bar', what: 'Four thumb-reachable screens — Search, Home, Library, Catalogue. It slides away as you scroll down and comes back as you scroll up.' },
   { term: 'Long press', what: 'There is no hover on a phone, so holding any control for half a second shows its label beside it. The hold swallows the tap, so holding Delete to find out what it does never deletes anything.' },
+]
+
+// Pointer only: the tab strip that stands in for the drawer, and hover labels.
+const SHELL_POINTER = [
+  { term: 'Tab strip', what: 'Every screen, always visible in the top bar: Home, Library, Catalogue, then the tools — Tags, Metadata, Stats, Settings. It collapses to icons when the window is too narrow for the labels, and each one names itself on hover.' },
+  { term: 'Hover labels', what: 'Every glyph-only control says what it is when you hover or tab to it, in a small bubble anchored to the control itself.' },
 ]
 
 export const HELP = {
@@ -184,20 +204,23 @@ export const HELP = {
 }
 
 // helpFor returns { title, entries } for a screen key, with the shell controls
-// appended so the phone bars are always explained. Unknown keys yield null, and
+// appended so the bars are always explained — the phone's set or the pointer's,
+// never both (see SHELL_TOUCH / SHELL_POINTER). Unknown keys yield null, and
 // HelpButton renders nothing for an empty list.
-export function helpFor(key) {
+export function helpFor(key, touch = false) {
   const h = HELP[key]
   if (!h) return null
-  return { title: h.title, entries: [...h.entries, ...SHELL] }
+  return { title: h.title, entries: [...h.entries, ...SHELL_COMMON, ...(touch ? SHELL_TOUCH : SHELL_POINTER)] }
 }
 
-// PageHelp — the "?" a screen drops into its header. One call site per screen,
-// so adding a screen is one entry above and one tag in its header.
-export function PageHelp({ screen, side = 'bottom' }) {
-  const h = helpFor(screen)
+// PageHelp — the "?" the shell's top bar carries. `variant` is passed through to
+// HelpButton: "pill" makes it match the Search button it sits beside in the
+// desktop bar.
+export function PageHelp({ screen, side = 'bottom', variant = 'ring' }) {
+  const mobile = useIsMobileScreen()
+  const h = helpFor(screen, mobile)
   if (!h) return null
-  return <HelpButton title={h.title} entries={h.entries} side={side} />
+  return <HelpButton title={h.title} entries={h.entries} side={side} variant={variant} />
 }
 
 // ScreenHelpSheet — the same panel, opened by something other than the "?".
@@ -206,7 +229,8 @@ export function PageHelp({ screen, side = 'bottom' }) {
 // title about eighty pixels to live in. Help becomes a ⋯ row there instead, which
 // costs the bar nothing.
 export function ScreenHelpSheet({ screen, open, onClose }) {
-  const h = helpFor(screen)
+  const mobile = useIsMobileScreen()
+  const h = helpFor(screen, mobile)
   if (!h || !open) return null
   return (
     <HelpSheet open title={h.title} onClose={onClose}>

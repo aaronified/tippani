@@ -147,23 +147,6 @@ async function setBookStatus(id, body) {
   return r.ok ? '' : errText(r, 'could not save')
 }
 
-// How many genre quick-filter chips to show before the rest collapse into the
-// "More…" dropdown — scaled to viewport width so the row never wraps hard.
-function useChipBudget() {
-  const mobile = useIsMobileScreen()
-  const [n, setN] = useState(6)
-  useEffect(() => {
-    const calc = () => {
-      const w = window.innerWidth
-      setN(w < 480 ? 3 : mobile || w < 768 ? 4 : w < 1100 ? 6 : 9)
-    }
-    calc()
-    window.addEventListener('resize', calc)
-    return () => window.removeEventListener('resize', calc)
-  }, [mobile])
-  return n
-}
-
 // BookGrid is the cover-tile board, shared by the flat list and each group.
 function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
   return (
@@ -193,7 +176,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
-  const chipBudget = useChipBudget()
   const mobile = useIsMobileScreen()
   const authors = usePeople('author') // name→metadata, for author-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
@@ -282,7 +264,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       genres={genres}
       genre={genre}
       setGenre={setGenre}
-      chipBudget={chipBudget}
       fav={fav}
       setFav={setFav}
       tagged={tagged}

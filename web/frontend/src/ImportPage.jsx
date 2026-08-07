@@ -359,7 +359,7 @@ function SourceCard({ variant, ext, title, desc, steps, accept, busy, onFiles, c
       <div className="flex items-center gap-1.5">
         <h3 className="text-base font-semibold">{title}</h3>
         {steps && steps.length > 0 && (
-          <InfoDot text={steps.map((s, i) => `${i + 1}. ${s}`).join('  ')} side="bottom" />
+          <InfoDot text={steps.map((s, i) => `${i + 1}. ${s}`).join('  ')} />
         )}
         {/* An honest label, not decoration: the caveat itself is one tap away
             rather than buried in the steps. */}

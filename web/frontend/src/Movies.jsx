@@ -238,7 +238,8 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
 
   const tmdbSource = status?.tmdb?.source
   const hasShows = (movies || []).some((m) => (m.media_type || 'movie') === 'show')
-  // Most-common genres first (GenreFilter shows as many as fit, tail into More…).
+  // Most-common genres first — the select lists them in that order, so the ones
+  // you actually use are at the top of it.
   const genres = useMemo(() => {
     const counts = new Map()
     for (const m of movies || []) for (const g of m.genres || []) counts.set(g, (counts.get(g) || 0) + 1)

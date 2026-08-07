@@ -1457,6 +1457,12 @@ export function Toggle({
   const thumbRef = useRef(null);
   const drag = useRef(null); // live drag state (never triggers a re-render)
   const suppressClick = useRef(false); // eat the click that trails a real drag
+  // The hint slot's token for whichever option is currently hovered — one ref for
+  // the whole control, since only one option can be under the pointer at a time.
+  const hint = useRef(0);
+  // A toggle inside a sheet or a card can be unmounted with the pointer still on
+  // it, which would leave its label with nothing to close it.
+  useEffect(() => () => hideHint(hint.current), []);
   const rawIdx = options.findIndex(([k]) => k === value);
   // Place the thumb under the active option; this is also the snap target the
   // thumb animates to after a drag (with the material's ease, since dragging
@@ -1577,7 +1583,7 @@ export function Toggle({
       onPointerDown={onPointerDown}
     >
       <span ref={thumbRef} className="tp-toggle-thumb" aria-hidden="true" />
-      {options.map(([k, lbl]) => (
+      {options.map(([k, lbl, tip]) => (
         <button
           key={k}
           type="button"
@@ -1585,7 +1591,23 @@ export function Toggle({
           aria-selected={value === k}
           aria-pressed={value === k}
           className={"tp-toggle-opt" + (value === k ? " is-on" : "")}
+          // A third element in an option tuple is its hover label. Driven from
+          // here rather than by wrapping each button in a <Tooltip>: the thumb is
+          // positioned from each option's offsetLeft, and .tp-tip-wrap is
+          // position:relative, so a wrapper would reset every offset to ~0 and
+          // park the thumb under the first tab forever. Since 1.4.1 the bubble is
+          // script-driven, so it can be asked for directly, with no DOM at all.
+          onPointerEnter={(e) => {
+            if (!tip || e.pointerType === "touch") return;
+            hideHint(hint.current);
+            hint.current = showHint(tip, e.currentTarget.getBoundingClientRect(), "bottom");
+          }}
+          onPointerLeave={() => { hideHint(hint.current); hint.current = 0 }}
           onClick={() => {
+            // The label describes where you were about to go; once you are there
+            // it is stale, and it would otherwise hang over the new screen.
+            hideHint(hint.current);
+            hint.current = 0;
             if (suppressClick.current) {
               suppressClick.current = false;
               return;
@@ -2289,7 +2311,10 @@ export function Tooltip({ label, side = "top", className = "", children }) {
 //   phone    a compact centred card over a scrim. Centred rather than anchored
 //            because a 40px-wide anchor on a 360px screen gives no meaningful
 //            direction, and the finger is already covering it.
-function InfoPopover({ anchor, title, onClose, children }) {
+// `pinned` says a click opened it, so it must not close when the pointer leaves;
+// `onHold` / `onLeave` let the card itself keep an UNPINNED popover alive while
+// the pointer is inside it (see HOVER_CLOSE_MS).
+function InfoPopover({ anchor, title, pinned = true, onHold, onLeave, onClose, children }) {
   const mobile = useIsMobileScreen();
   const cardRef = useRef(null);
   const [pos, setPos] = useState(null);
@@ -2358,14 +2383,20 @@ function InfoPopover({ anchor, title, onClose, children }) {
   return createPortal(
     <>
       {/* A transparent catcher rather than a dim scrim: an anchored popover on a
-          desktop should not black out the page it is explaining. */}
-      <div className="info-pop-catcher" onMouseDown={onClose} role="presentation" />
+          desktop should not black out the page it is explaining. Only a PINNED
+          popover gets one — an unpinned, hover-opened card must not swallow the
+          click you were aiming at the page underneath it. */}
+      {pinned && <div className="info-pop-catcher" onMouseDown={onClose} role="presentation" />}
       <div
         ref={cardRef}
-        className={"info-pop info-pop-anchored hand-card hc-r2" + (pos?.below ? " is-below" : " is-above")}
+        className={"info-pop info-pop-anchored hand-card hc-r2" + (pos?.below ? " is-below" : " is-above") }
         role="dialog"
         aria-label={title}
         style={pos ? { top: pos.top, left: pos.left, "--caret-x": `${pos.caret}px` } : { top: 0, left: 0, visibility: "hidden" }}
+        // Reaching into the card to read or select must not close it: entering
+        // cancels the pending close, leaving restarts it.
+        onPointerEnter={onHold}
+        onPointerLeave={onLeave}
       >
         {body}
         <span className="info-pop-caret" aria-hidden="true" />
@@ -2375,16 +2406,38 @@ function InfoPopover({ anchor, title, onClose, children }) {
   );
 }
 
-// InfoDot — a small circled "i" carrying the explanation a paragraph used to.
-// Clicking or tapping opens an InfoPopover: anchored beside the dot on a
-// pointer device, a compact centred card on a phone. While it is open the hover
-// bubble is suppressed (`is-open`), so a tap that also lands focus can't show
-// the same words twice. `title` names the thing being explained; it falls back
-// to "About this".
-export function InfoDot({ text, title, side = "top" }) {
+// HOVER_CLOSE_MS — how long an unpinned popover survives the pointer leaving the
+// dot. It exists so the pointer can cross the 12px gap into the card: without a
+// grace period, reaching for text you want to select closes the thing you were
+// reaching for. Entering the card cancels it (see `hold` below).
+const HOVER_CLOSE_MS = 140;
+
+// InfoDot — a small circled "i" carrying the explanation a paragraph used to. It
+// opens an InfoPopover: anchored beside the dot on a pointer device, a compact
+// centred card on a phone.
+//
+// It carries NO tooltip. It had one — "About ISBN" — and on a phone that was two
+// mechanisms answering the same question: hold the dot to be told it explains the
+// ISBN, tap it to be told what an ISBN is. The first is a label for a control
+// whose entire content is a label. It only confused people, so the dot is now the
+// one affordance and the popover is the one answer.
+//
+// Opening, per input style:
+//
+//   pointer  hover opens it, and moving away closes it — an explanation should
+//            cost a glance, not a click and a dismissal. A CLICK pins it, and a
+//            pinned popover stays until it is clicked again (or Escape, or a
+//            click outside), because text you want to re-read or copy must not
+//            evaporate the moment the mouse drifts.
+//   touch    tap toggles. There is no hover to open it with, and nothing to pin
+//            against — every touch-opened popover behaves as pinned.
+export function InfoDot({ text, title }) {
   const [open, setOpen] = useState(false);
+  // pinned = opened (or confirmed) by a click, so the pointer leaving must not
+  // close it. Touch always pins, because a tap is the only thing it has.
+  const [pinned, setPinned] = useState(false);
   const btn = useRef(null);
-  const wrap = useRef(null);
+  const closeTimer = useRef(null);
   const heading = title || "About this";
   // Named dots announce as "More information: ISBN" — the button's job, not its
   // payload, which a screen reader gets from the popover once it opens. Dots
@@ -2395,39 +2448,74 @@ export function InfoDot({ text, title, side = "top" }) {
     : typeof text === "string"
       ? text
       : heading;
+
+  const hold = () => { clearTimeout(closeTimer.current); closeTimer.current = null };
+  const shut = () => {
+    hold();
+    setOpen(false);
+    setPinned(false);
+    // Drop focus too: a dot left focused inside a scrollable card is a control
+    // the next Escape or Enter would re-trigger.
+    btn.current?.blur();
+  };
+  // Leaving closes an unpinned popover after a grace period the card can cancel.
+  const leave = () => {
+    if (pinned) return;
+    hold();
+    closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_MS);
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
   return (
     <>
-      {/* The dot's own hover label names the subject; the PARAGRAPH is what the
-          popover is for. It used to be the label too, which put a hundred-word
-          bubble on a hover and broke the five-word rule every label follows. */}
-      <Tooltip label={title ? `About ${title}` : "More information"} side={side} className={open ? "is-open" : ""}>
-        <button
-          ref={btn}
-          type="button"
-          className={"info-dot" + (open ? " is-open" : "")}
-          aria-label={label}
-          aria-expanded={open}
-          onClick={(e) => {
-            // Info dots sit inside cards and rows that are themselves clickable;
-            // asking for help must never also open the thing behind it.
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen((v) => !v);
-          }}
-        >
-          i
-        </button>
-      </Tooltip>
+      <button
+        ref={btn}
+        type="button"
+        className={"info-dot" + (open ? " is-open" : "")}
+        aria-label={label}
+        aria-expanded={open}
+        onPointerEnter={(e) => {
+          // Touch fires pointerenter on the tap; that path is the click below.
+          if (e.pointerType === "touch") return;
+          hold();
+          setOpen(true);
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType === "touch") return;
+          leave();
+        }}
+        onClick={(e) => {
+          // Info dots sit inside cards and rows that are themselves clickable;
+          // asking for help must never also open the thing behind it.
+          e.preventDefault();
+          e.stopPropagation();
+          // Clicking a hover-opened popover pins it; clicking a pinned one (or a
+          // tapped one, which is pinned) closes it.
+          if (pinned) shut();
+          else { hold(); setOpen(true); setPinned(true) }
+        }}
+        // Keyboard: Escape closes, and the popover's own handler covers that, but
+        // a focused dot has to be openable without a pointer at all.
+        onFocus={(e) => {
+          let keyboard = false;
+          try {
+            keyboard = !!e.target.matches?.(":focus-visible");
+          } catch {
+            keyboard = false;
+          }
+          if (keyboard) { hold(); setOpen(true); setPinned(true) }
+        }}
+      >
+        i
+      </button>
       {open && (
         <InfoPopover
           anchor={btn}
           title={heading}
-          onClose={() => {
-            setOpen(false);
-            // Drop focus, or :focus-within re-opens the hover bubble the moment
-            // the popover closes — the same words, twice, from one tap.
-            btn.current?.blur();
-          }}
+          pinned={pinned}
+          onHold={hold}
+          onLeave={leave}
+          onClose={shut}
         >
           {text}
         </InfoPopover>
@@ -2516,24 +2604,34 @@ export function HelpList({ entries = [] }) {
   );
 }
 
-// HelpButton — the "?" a screen carries (§ declutter). It opens that screen's
-// own glossary: every control on the page, named and explained, so the layout
-// itself needs no standing explanatory prose. `entries` is
+// HelpButton — the "?" the shell's top bar carries (§ declutter). It opens the
+// current screen's own glossary: every control on it, named and explained, so the
+// layout itself needs no standing explanatory prose. `entries` is
 // [{ term, what, icon? }]; `title` names the screen.
-export function HelpButton({ title, entries = [], side = "bottom" }) {
+//
+// `variant` picks the skin. "pill" is the desktop top bar's, matching the Search
+// button beside it exactly — same accent texture, same 38px round pill — because
+// the two sit side by side as peers and a bordered 44px disc between Search and
+// the avatar read as a control from a different set. The default ring is for the
+// two places the bar is not on screen: the work-detail ⋯ menu and the full-screen
+// Profile page.
+export function HelpButton({ title, entries = [], side = "bottom", variant = "ring" }) {
   const [open, setOpen] = useState(false);
   if (!entries.length) return null;
+  const pill = variant === "pill";
   return (
     <>
       <Tooltip label={`What's on this screen — ${title}`} side={side} className={open ? "is-open" : ""}>
         <button
           type="button"
-          className={"help-btn tactile" + (open ? " is-open" : "")}
+          className={
+            (pill ? "topbar-add-btn tactile icon-only" : "help-btn tactile") + (open ? " is-open" : "")
+          }
           aria-label={`Help for ${title}`}
           aria-expanded={open}
           onClick={() => setOpen(true)}
         >
-          <IconHelp />
+          <IconHelp size={pill ? 18 : 22} />
         </button>
       </Tooltip>
       <HelpSheet open={open} title={title} onClose={() => setOpen(false)}>
@@ -3133,95 +3231,33 @@ export function filterChipClass(active) {
 }
 
 // GenreFilter — the shared genre picker used by Library + Catalogue so both
-// toolbars read identically: visible tactile chips (All + the most common
-// genres, which the caller sorts by frequency) with only the genuine overflow
-// tucked into a "More…" tactile dropdown. Rather than a fixed budget (which
-// clipped chips behind More on a narrow row), it MEASURES how many chips fit the
-// available width — each genre's rendered text width plus a fixed per-chip
-// allowance — and shows exactly that many. Recomputes on resize.
+// toolbars read identically: ONE dropdown holding every genre, with "All" as its
+// first option.
+//
+// It was a strip of tactile chips (All + the most common genres) with the
+// overflow tucked into a "More…" dropdown, sized by MEASURING how many chips fit
+// the available width. That measurement was the problem, and 1.4.2 gives up on
+// it rather than tuning it again. The row it measures against holds a dozen other
+// controls whose widths change as the data does — a long series name, a
+// two-digit count — so the answer was right only until something else on the row
+// moved, and the failure was ugly in a specific way: a chip clipped mid-word
+// against "More…", which reads as a rendering bug rather than a fitted layout.
+// Chips also sorted the genres by frequency, so which ones were reachable
+// without opening a dropdown changed as the library grew.
+//
+// A select has none of those failure modes, costs one tap for any genre instead
+// of one tap for some and two for the rest, and is already how series, sort,
+// group and shelf read on the same row — and how genre itself has read in the
+// mobile filter sheet since 1.4.0. This is the chip strip catching up with it.
 export function GenreFilter({ genres, value, onChange }) {
-  const chipsRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [count, setCount] = useState(genres ? genres.length : 0);
-  useLayoutEffect(() => {
-    const chips = chipsRef.current;
-    if (!chips || !genres || genres.length === 0) return;
-    const row = chips.closest(".filter-row") || chips.parentElement;
-    if (!row) return;
-    const measure = () => {
-      const canvas =
-        canvasRef.current ||
-        (canvasRef.current = document.createElement("canvas"));
-      const ctx = canvas.getContext("2d");
-      const cs = getComputedStyle(chips);
-      const fam =
-        cs.getPropertyValue("--font-ui").trim() ||
-        cs.fontFamily ||
-        "sans-serif";
-      ctx.font = `600 13px ${fam}`;
-      const EXTRA = 38; // per-chip: padding (13×2) + border + inter-chip gap, with slack
-      const w = (t) => Math.ceil(ctx.measureText(t).width) + EXTRA;
-      // Available width = the row minus its other children (the right-hand
-      // controls); the More… select is reserved for separately when it's needed.
-      let others = 0;
-      for (const c of row.children) {
-        if (c === chips || c.classList.contains("tp-select")) continue;
-        others += c.getBoundingClientRect().width;
-      }
-      const avail = row.clientWidth - others - 28; // ≈ inter-item gaps
-      const allW = w("All");
-      const totalW = allW + genres.reduce((s, g) => s + w(g), 0);
-      if (totalW <= avail) return setCount(genres.length); // all chips fit — no More…
-      const MORE = 112; // reserve for the More… select once we know it's needed
-      let used = allW;
-      let n = 0;
-      for (let i = 0; i < genres.length; i++) {
-        const cw = w(genres[i]);
-        if (used + cw <= avail - MORE) {
-          used += cw;
-          n++;
-        } else break;
-      }
-      setCount(n);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(row);
-    return () => ro.disconnect();
-  }, [genres]);
-
   if (!genres || genres.length === 0) return null;
-  const top = genres.slice(0, count);
-  const more = genres.slice(count);
-  const activeInMore = value && more.includes(value);
   return (
-    <>
-      <div className="genre-chips" ref={chipsRef}>
-        <button
-          className={filterChipClass(value === "")}
-          onClick={() => onChange("")}
-        >
-          All
-        </button>
-        {top.map((g) => (
-          <button
-            key={g}
-            className={filterChipClass(value === g)}
-            onClick={() => onChange(value === g ? "" : g)}
-          >
-            {g}
-          </button>
-        ))}
-      </div>
-      {more.length > 0 && (
-        <Select
-          ariaLabel="More genres"
-          value={activeInMore ? value : ""}
-          onChange={onChange}
-          options={[["", "More…"], ...more.map((g) => [g, g])]}
-        />
-      )}
-    </>
+    <Select
+      ariaLabel="Filter by genre"
+      value={value}
+      onChange={onChange}
+      options={[["", "All genres"], ...genres.map((g) => [g, g])]}
+    />
   );
 }
 
