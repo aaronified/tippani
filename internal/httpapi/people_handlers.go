@@ -56,6 +56,41 @@ func (s *Server) creditSeps(uid int64) metadata.CreditSeps {
 	return metadata.ParseCreditSeps(pf.CreditSeparators)
 }
 
+// orphanRefQuery names the column that decides whether a saved person of this
+// kind is still referenced by the library: authors come from books.author,
+// actors from dialogues.actor, directors from movies.director. Each query takes
+// one argument, the user id, and returns the referenced names.
+//
+// An unrecognised kind returns "", and gcOrphanPeople sweeps nothing for it.
+// That empty case is the entire point of this function existing separately.
+//
+// It used to be written inline as a default plus two overrides — ref started as
+// the books.author query and a switch replaced it for actor and director. With
+// exactly three valid kinds that is correct, and it is correct ONLY for that
+// reason. gcOrphanPeople's guard is `if !validPersonKind(kind) { return }`, so
+// it stops protecting the moment a fourth kind becomes valid, and that kind
+// would silently inherit the books.author query: every person of it whose name
+// is not also one of your book authors would be deleted and its portrait file
+// unlinked, by a best-effort sweep that logs at Warn and still answers 200.
+//
+// Failing to sweep leaves clutter. Sweeping wrongly loses a bio and a portrait.
+// So a missing case does nothing, and adding a kind without adding its query
+// here is now a visible gap rather than a deletion.
+func orphanRefQuery(kind string) string {
+	switch kind {
+	case "author":
+		return `SELECT TRIM(author) FROM books
+		        WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
+	case "actor":
+		return `SELECT TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		        WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
+	case "director":
+		return `SELECT TRIM(director) FROM movies
+		        WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
+	}
+	return ""
+}
+
 // gcOrphanPeople deletes saved person rows (of one kind) whose name is no
 // longer referenced by any of the user's books (authors) or dialogues
 // (actors) — e.g. after a book's author is renamed, the old author's metadata
@@ -71,15 +106,10 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 		return
 	}
 	seps := s.creditSeps(uid)
-	ref := `SELECT TRIM(author) FROM books
-	        WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
-	switch kind {
-	case "actor":
-		ref = `SELECT TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		       WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
-	case "director":
-		ref = `SELECT TRIM(director) FROM movies
-		       WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
+	ref := orphanRefQuery(kind)
+	if ref == "" {
+		olog.Warnf(olog.CodePeopleOrphanGC, "[people] orphan GC has no reference query for kind %q; skipping", kind)
+		return
 	}
 	rows, err := s.Store.DB.Query(ref, uid)
 	if err != nil {
