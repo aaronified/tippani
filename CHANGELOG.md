@@ -5,6 +5,148 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-08-07
+
+**Changing your password no longer orphans your backups**, and a batch of 1.4.1's
+new shell controls behave the way they should have on the first try.
+
+1.4.1 sealed backup archives with a key derived from the password that was current
+when the archive was written. That is a file on a laptop whose key is a string you
+have stopped using — and there is no getting it back. This release fixes it, and
+the fix took three tries, because the first two were wrong in the same instructive
+way. See *Added* for what shipped and *Notes* for what those two were.
+
+### Added
+
+- **An instance recovery key.** 32 random bytes in `<data>/.recovery-key`. Every
+  archive's own random key now goes into its header **twice**: under the password
+  you typed, which travels with the file, and under this key, which does not. So
+  on the server that made an archive, **your current password opens it** —
+  whichever password sealed it. Carried to another machine, an archive still needs
+  the password it was sealed with, which is unavoidable: the only durable record of
+  an old password is the archive itself, and a design that could open it without
+  one would be a design with a back door.
+
+  The key is never inside an archive (an archive carrying its own key is not an
+  encrypted archive), never moved by a restore, never logged, and never returned by
+  any endpoint. A factory reset deliberately leaves it, because "reset to clear a
+  corrupt database, then restore last night's archive" is exactly what it is for.
+
+- **Tooltips on the desktop tab strip.** The nav collapses to icons when the
+  window is too narrow for the labels, and at that width the glyph was all there
+  was. Driven from the Toggle itself rather than by wrapping each tab: the sliding
+  thumb is positioned from each tab's `offsetLeft`, and a wrapper would have reset
+  every offset and parked the thumb under the first tab forever.
+
+- **A CI check for the archive header.** `secret.js` parses that binary header in
+  the browser, by fixed byte offsets into a format defined in Go, and this app has
+  no frontend test runner — so nothing would have noticed the day the two
+  disagreed. `scripts/archive-header-check.mjs` builds headers from the shared
+  constants and asserts the parser reads them back, and that it *refuses* a version
+  it does not know rather than guessing. It failed on its first run, on a bug
+  written minutes earlier: the read window covered a maximal account name but
+  stopped short of the field after it, so an archive's recoverability read as absent
+  for exactly the accounts with long names.
+
+### Changed
+
+- **The archive format is v2**, and the key is derived from the **password alone**.
+  The account name is still in the header, as a label, so a restore can say whose
+  password it wants. Two things go with that: the ambiguity is gone (v1's
+  `"<username>#<password>"` meant `"a#b"`+`"cd"` and `"a"`+`"b#cd"` derived the
+  *same* key, because a `#` in a username was always legal — the comment claiming
+  otherwise was simply wrong), and each archive now has a random key of its own
+  rather than using the derived key directly, which is what makes two ways in
+  possible at all.
+
+- **Wrong password and damaged archive are told apart.** In v1 a failure on the
+  first block could only mean a wrong key, so it was reported that way. In v2 the
+  credential is proven the moment a wrap opens, so anything failing afterwards means
+  the body was altered or truncated — and reporting *that* as "wrong password"
+  sends someone whose archive has been tampered with to go and doubt their memory.
+  A refusal now also says which *kind* of secret it wants, and whether this box can
+  recover the archive at all, because "does not open this backup" left an operator
+  being asked for the wrong thing with no way to work that out.
+
+- **Restoring asks for less.** One password field, no account field — the key is
+  the password. The dialog says up front whether this server can open the archive
+  with your current password or needs the one it was sealed with.
+
+- **The genre filter is one dropdown.** It was a strip of chips sized by measuring
+  each chip's text width against the row's leftover space, with the overflow in a
+  "More…" dropdown. That row holds a dozen other controls whose widths change with
+  the data, so the answer was right only until something else moved — and the
+  failure was a chip clipped mid-word against "More…", which reads as a rendering
+  bug. Every genre is now one tap away instead of some being one and the rest two,
+  and it matches how series, sort, group and shelf already read beside it — and how
+  genre itself has read in the mobile filter sheet since 1.4.0.
+
+- **Info dots open on hover** on a pointer device, and close when you move away: an
+  explanation should cost a glance, not a click and then a dismissal. A **click
+  pins** one open until it is clicked again, so text you want to re-read or select
+  does not evaporate when the mouse drifts, and reaching across the gap into the
+  card keeps it open. On touch, a tap toggles.
+
+- **Info dots carry no tooltip.** On a phone that was two mechanisms answering the
+  same question: hold the dot to be told it explains the ISBN, tap it to be told
+  what an ISBN is. The first is a label for a control whose whole content is a
+  label.
+
+- **The desktop Help button matches the Search button** beside it — same accent
+  texture, same round pill. A bordered disc between Search and the avatar read as a
+  control from a different set.
+
+- **The desktop help panel stops describing controls that are not there.** It
+  listed the ☰ drawer and the floating bottom bar, neither of which exists above
+  the phone breakpoint; describing them to someone who cannot see one is worse than
+  saying nothing, because they go looking. Each form factor now lists its own shell,
+  and the pointer one describes the tab strip and hover labels instead.
+
+### Fixed
+
+- **An archive could be restored with no credential at all.** With a recovery key
+  present, the durable path opened any local archive for anyone who could reach the
+  endpoint — so a stolen session cookie could have overwritten the whole instance
+  with an empty request body. The recovery path now requires the caller's own
+  current password, verified server-side; the round-trip test caught this.
+
+- **A correction to 1.4.1's release notes.** They said renaming an account orphaned
+  its archives. It did not: the name was written into the header at seal time and
+  the restore path defaults to it, so an archive made as "alice" still opened as
+  "arani" with the era password. What a rename broke was the dialog's *label*, which
+  called your own archive somebody else's. The password change was the real fault,
+  and it was the whole case for v2 on its own.
+
+### Notes
+
+- **1.4.1 archives cannot be restored by 1.4.2.** That format lived for about an
+  hour and no archive of it exists outside this repository's tests; reading it would
+  have meant keeping the ambiguous `"<username>#<password>"` secret alive. If you
+  have one, 1.4.1 is still tagged and its image still published. The refusal says
+  so by name rather than failing as corruption. Archives from *before* 1.4.1 are
+  plain `.tar.gz` and still restore, as they always have.
+
+- **There is no database migration**, so a 1.4.2 database is still readable by
+  1.4.1. Only the archive format blocks a downgrade.
+
+- **What the two earlier designs got wrong**, since the reasoning is more useful
+  than the result. The recovery key was first going to live in a column of the
+  `users` table — the one table a restore replaces wholesale, so restoring any
+  archive, resetting the instance, or deleting the account would have destroyed it
+  silently, with the only surviving copy in a directory the next restore deletes.
+  The second version wrapped it under each user's password, which needs both
+  plaintexts to re-wrap: the HTTP password-change handler has them, and
+  `tippani user passwd` — the only forgot-my-password route on a self-hosted box —
+  does not. So the documented recovery path would have destroyed the recovery key,
+  at exactly the moment it was needed. A file the restore is told to leave alone has
+  neither failure, needs no migration, needs no re-wrapping, and lets *any* admin's
+  password open *any* archive the box made.
+
+- **The one way still left to lose an archive** is a passphrase you set and then
+  forget. That is deliberate: a passphrase archive gets no recovery wrap, because
+  choosing a passphrase is choosing not to tie the archive to this instance or any
+  login. The dialog says so where you choose it.
+
 ## [1.4.1] - 2026-08-07
 
 A phone-first pass, and one thing that should have been true from the start:
