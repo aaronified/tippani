@@ -66,7 +66,9 @@ export function readTheme() {
 }
 
 // hexToRgba turns an #RRGGBB (or #RGB) hex into an rgba() string canvas accepts.
-function hexToRgba(hex, a) {
+// Exported for testing (test/pure/quote-image.test.js); nothing outside this
+// module uses it.
+export function hexToRgba(hex, a) {
   let h = String(hex).trim().replace('#', '')
   if (h.length === 3) h = h.split('').map((c) => c + c).join('')
   const n = parseInt(h, 16)
@@ -90,7 +92,9 @@ function roundRectPath(ctx, x, y, w, h, r) {
 // still wrap). Returns lines, each an array of {text, font, w} segments. Widths
 // are measured off ctx.font — unaffected by the canvas transform — so they stay
 // valid after the canvas is resized between the measure and draw phases.
-function flowRuns(ctx, runs, maxWidth) {
+// Exported for testing (test/pure/quote-image.test.js): it only ever touches
+// ctx.font/ctx.measureText, so it can be driven by a fake ctx with no canvas.
+export function flowRuns(ctx, runs, maxWidth) {
   const tokens = []
   for (const run of runs) {
     // Honour explicit newlines as HARD breaks (a quote's own paragraphs / speaker
