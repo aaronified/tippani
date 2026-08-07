@@ -36,9 +36,15 @@ describe('groupWorks — series', () => {
     expect(labels(groupWorks(list, 'series'))).toEqual(['Dune', 'Earthsea', 'No series'])
   })
 
-  it('keeps members in the incoming order', () => {
-    const g = groupWorks(list, 'series').find((x) => x.label === 'Earthsea')
-    expect(titles(g)).toEqual(['A', 'D'])
+  // D comes before A in the input. If members were ever sorted by title this
+  // would read ['A','D'] — which is exactly what the old fixture asserted, and
+  // why it could not tell the two apart.
+  it('keeps members in the incoming order, not sorted', () => {
+    const unsorted = [
+      { title: 'D', series: 'Earthsea' },
+      { title: 'A', series: 'Earthsea' },
+    ]
+    expect(titles(groupWorks(unsorted, 'series')[0])).toEqual(['D', 'A'])
   })
 
   it('marks the catch-all bucket as residual', () => {
@@ -118,6 +124,24 @@ describe('groupWorks — genre', () => {
     const tied = [{ title: 'A', genres: ['Zoology'] }, { title: 'B', genres: ['Archery'] }]
     expect(labels(groupWorks(tied, 'genre', { genres }))).toEqual(['Archery', 'Zoology'])
   })
+
+  // The documented rule is "a work with several credits or genres appears in
+  // each". The author side asserted it; the genre side only asserted LABELS,
+  // and the labels come out identical whether or not the multi-genre work is
+  // filed under every genre — dropping C from Fantasy changes the sizes from
+  // 3/2/1 to 3/1/1, but SF still leads and the residual still sinks. So the
+  // membership has to be asserted directly.
+  it('files a multi-genre work under every one of its genres', () => {
+    const groups = groupWorks(list, 'genre', { genres })
+    expect(titles(groups.find((g) => g.label === 'SF'))).toEqual(['A', 'C', 'D'])
+    expect(titles(groups.find((g) => g.label === 'Fantasy'))).toEqual(['C', 'E'])
+    expect(titles(groups.find((g) => g.label === 'No genre'))).toEqual(['B'])
+  })
+
+  it('counts a multi-genre work once per genre when sizing the buckets', () => {
+    const groups = groupWorks(list, 'genre', { genres })
+    expect(groups.map((g) => g.items.length)).toEqual([3, 2, 1])
+  })
 })
 
 describe('groupWorks — general', () => {
@@ -138,6 +162,38 @@ describe('groupWorks — general', () => {
     expect(titles(groups[0])).toEqual(['A', 'B'])
     // The residual bucket is deliberately left in incoming order.
     expect(titles(groups[1])).toEqual(['Z', 'Y'])
+  })
+
+  // The contract is sortMembers(members, dim), and BOTH production callers
+  // branch on dim — Library and Movies pass
+  //   (items, dim) => dim === 'series' ? [...items].sort(bySeries) : items
+  // so if dim stopped being passed, series group-by would silently stop sorting
+  // its members on both screens with nothing to notice.
+  it('passes the dimension to sortMembers', () => {
+    const seen = []
+    groupWorks([{ title: 'A', series: 'S' }], 'series', {
+      sortMembers: (items, dim) => {
+        seen.push(dim)
+        return items
+      },
+    })
+    expect(seen).toEqual(['series'])
+  })
+
+  it('passes the dimension for every dimension, not just series', () => {
+    const seen = []
+    const opts = {
+      credit: (it) => it.author,
+      year: (it) => it.year,
+      genres: (it) => it.genres || [],
+      sortMembers: (items, dim) => {
+        seen.push(dim)
+        return items
+      },
+    }
+    const one = [{ title: 'A', series: 'S', author: 'X', year: 1990, genres: ['SF'] }]
+    for (const dim of ['series', 'author', 'decade', 'genre']) groupWorks(one, dim, opts)
+    expect(seen).toEqual(['series', 'author', 'decade', 'genre'])
   })
 })
 
@@ -220,9 +276,19 @@ describe('pinInProgress', () => {
 
   // Only the active state pins. Paused, abandoned and completed are not what
   // you are on with right now.
+  // The name of this test used to claim abandoned and the fixture did not
+  // contain one, so isActive could have started matching it freely.
   it('does not pin paused, abandoned or completed', () => {
-    const list = [{ id: 1 }, { id: 2, status: 'paused' }, { id: 3, status: 'completed' }]
-    expect(pinInProgress(list, 'book').map((x) => x.id)).toEqual([1, 2, 3])
+    const list = [
+      { id: 1 },
+      { id: 2, status: 'paused' },
+      { id: 3, status: 'completed' },
+      { id: 4, status: 'abandoned' },
+    ]
+    expect(pinInProgress(list, 'book').map((x) => x.id)).toEqual([1, 2, 3, 4])
+    for (const status of ['paused', 'completed', 'abandoned', 'wishlist', undefined]) {
+      expect(isActive('book', { status })).toBe(false)
+    }
   })
 
   it('pins on watching for the screen side', () => {
@@ -249,6 +315,14 @@ describe('positionLabel', () => {
 
   it('drops the season when there is no run to place it in', () => {
     expect(positionLabel({ pos_unit: 'episode', pos: 3, pos_total: 8 })).toBe('E03/08')
+  })
+
+  // season and season_total are separate fields, so "I know it runs to three
+  // series, I have not said which I am on" is a real shape. It defaults to the
+  // first, not to a zeroth that does not exist.
+  it('defaults to season one when the run is known but the position is not', () => {
+    expect(positionLabel({ pos_unit: 'episode', pos: 6, pos_total: 10, season_total: 3 }))
+      .toBe('E06/10 · S01/03')
   })
 
   it('is empty for a work tracked as a bare percentage', () => {

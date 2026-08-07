@@ -69,6 +69,54 @@ describe('splitCredits — ported from internal/metadata/credits_test.go', () =>
     expect(splitCredits('Gaiman & Pratchett')).toEqual(['Gaiman', 'Pratchett'])
   })
 
+  // Every case in the Go table reaches list context through the COMMA branch,
+  // so the semicolon and ampersand branches setting listCtx were uncovered on
+  // both sides. They matter: list context waives the two-words-each guard, so
+  // it is the difference between three names and two here. Go sets listCtx on
+  // all three separators; these cases pin that the JS does too.
+  it('lets a semicolon or ampersand unlock short-name "and" splitting', () => {
+    expect(splitCredits('Gaiman & Pratchett and Adams', def)).toEqual(['Gaiman', 'Pratchett', 'Adams'])
+    expect(splitCredits('Gaiman; Pratchett and Adams', def)).toEqual(['Gaiman', 'Pratchett', 'Adams'])
+  })
+
+  // ...and without any list separator, the guard still holds.
+  it('keeps a two-word firm whole when nothing established a list', () => {
+    expect(splitCredits('Daniels and Sons', def)).toEqual(['Daniels and Sons'])
+  })
+
+  it('drops "et al" with or without the full stop', () => {
+    expect(splitCredits('John Smith, et al.', def)).toEqual(['John Smith'])
+    expect(splitCredits('John Smith, et al', def)).toEqual(['John Smith'])
+  })
+
+  // Only jr. and inc. were exercised, so the other fourteen suffixes could be
+  // deleted freely. A lost suffix turns one publisher into two people in the
+  // People console.
+  it('re-attaches every recognised suffix rather than splitting it off', () => {
+    const cases = [
+      ['Cordwainer Smith, III', ['Cordwainer Smith, III']],
+      ['Dale Carnegie, Sr.', ['Dale Carnegie, Sr.']],
+      ['Penguin Books, Ltd.', ['Penguin Books, Ltd.']],
+      ['Acme Holdings, LLC', ['Acme Holdings, LLC']],
+      ['Smith, Co.', ['Smith, Co.']],
+      ['Henry Ford, II', ['Henry Ford, II']],
+    ]
+    for (const [input, want] of cases) expect(splitCredits(input, def)).toEqual(want)
+  })
+
+  // Imported film metadata routinely arrives upper-cased, and both regexes
+  // carry /i for exactly that. Go uses (?i) on both.
+  it('matches "and" case-insensitively, as Go does', () => {
+    expect(splitCredits('Neil Gaiman AND Terry Pratchett', def)).toEqual(['Neil Gaiman', 'Terry Pratchett'])
+    expect(splitCredits('Smith, Jones, And Lee', def)).toEqual(['Smith', 'Jones', 'Lee'])
+  })
+
+  // The Oxford-comma strip is gated on list context. Ungated, a name that
+  // simply begins with "and" would lose its first word.
+  it('only strips a leading "and" inside a list', () => {
+    expect(splitCredits('and Sons', def)).toEqual(['and Sons'])
+  })
+
   it('is Unicode-aware about whitespace, matching Go strings.Fields', () => {
     // Non-breaking space between the names — \s covers it in JS, unicode.IsSpace
     // covers it in Go. A credit pasted from a web page routinely contains one.

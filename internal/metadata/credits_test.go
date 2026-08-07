@@ -28,6 +28,28 @@ func TestSplitCredits(t *testing.T) {
 		{"Daniels and Sons", def, []string{"Daniels and Sons"}},
 		{"William and Mary", def, []string{"William and Mary"}},
 		// ...but list context unlocks the "and" ("Smith, Jones and Lee" above).
+		// Every case above reaches list context through the COMMA. The semicolon
+		// and ampersand set it too, and that was untested on both sides of the
+		// mirror until a mutation test found it: neutering either assignment
+		// left the whole table green, yet it is the difference between three
+		// names and two.
+		{"Gaiman & Pratchett and Adams", def, []string{"Gaiman", "Pratchett", "Adams"}},
+		{"Gaiman; Pratchett and Adams", def, []string{"Gaiman", "Pratchett", "Adams"}},
+		// The Oxford strip is gated on list context; ungated, a name that simply
+		// begins with "and" would lose its first word.
+		{"and Sons", def, []string{"and Sons"}},
+		// Imported film metadata routinely arrives upper-cased, which is what
+		// the (?i) on both patterns is for.
+		{"Neil Gaiman AND Terry Pratchett", def, []string{"Neil Gaiman", "Terry Pratchett"}},
+		{"Smith, Jones, And Lee", def, []string{"Smith", "Jones", "Lee"}},
+		// Only jr. and inc. were exercised, so the other fourteen suffixes could
+		// be dropped freely — and a lost suffix turns one publisher into two
+		// people in the People console.
+		{"Cordwainer Smith, III", def, []string{"Cordwainer Smith, III"}},
+		{"Penguin Books, Ltd.", def, []string{"Penguin Books, Ltd."}},
+		{"Acme Holdings, LLC", def, []string{"Acme Holdings, LLC"}},
+		// "et al" drops with or without the full stop.
+		{"John Smith, et al", def, []string{"John Smith"}},
 		// Suffixes re-attach to the previous component.
 		{"Martin Luther King, Jr.", def, []string{"Martin Luther King, Jr."}},
 		{"Sammy Davis, Jr. and Frank Sinatra", def, []string{"Sammy Davis, Jr.", "Frank Sinatra"}},

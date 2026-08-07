@@ -29,10 +29,22 @@ describe('parsePath', () => {
     expect(parsePath('/books/42').detail.id).toBe(42)
   })
 
+  // Asserted as a literal, not by looping over ROUTE_TABS imported from the
+  // source. The loop version was tautological: deleting an entry from the table
+  // just made it run one fewer iteration, so '/staging' could stop routing and
+  // nothing would fail. This is the only test protecting that table, so it has
+  // to state the expected contents rather than read them.
+  it('has exactly these plain tabs', () => {
+    expect(ROUTE_TABS).toEqual(['search', 'tags', 'metadata', 'stats', 'settings', 'staging'])
+  })
+
   it('routes every plain tab by name', () => {
-    for (const tab of ROUTE_TABS) {
-      expect(parsePath(`/${tab}`)).toEqual({ tab, detail: null })
-    }
+    expect(parsePath('/search')).toEqual({ tab: 'search', detail: null })
+    expect(parsePath('/tags')).toEqual({ tab: 'tags', detail: null })
+    expect(parsePath('/metadata')).toEqual({ tab: 'metadata', detail: null })
+    expect(parsePath('/stats')).toEqual({ tab: 'stats', detail: null })
+    expect(parsePath('/settings')).toEqual({ tab: 'settings', detail: null })
+    expect(parsePath('/staging')).toEqual({ tab: 'staging', detail: null })
   })
 
   it('maps /pending onto the staging tab', () => {

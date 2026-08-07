@@ -105,13 +105,34 @@ describe('the half-life floor', () => {
     // With the floor: p = 2^(-3/7) = 0.74 -> forgetting.
     // Without it:     p = 2^(-3/1) = 0.125 -> probably-forgotten.
     expect(s.key).toBe('forgetting')
+    // The key alone proves a floor EXISTS but not that it is SEVEN — 'forgetting'
+    // covers the whole p in [0.5, 0.9) band, so any floor from about 3 to 19
+    // gives the same answer here. The tip names the number, and the number has
+    // to stay in lockstep with the server's reviewMinStability: the same
+    // MAX(stability, 7) is spliced into the deck's due-ness SQL, so a drift
+    // makes the dot disagree with whether the card is really due.
+    expect(s.tip).toBe('Forgetting · half-life 7d')
   })
 
   it('treats a zero or missing stability as the floor', () => {
     const zero = reviewStatus({ reviewed: true, created_at: OLD(), last_result: 'got', stability: 0, last_reviewed_at: daysAgo(3) })
     const missing = reviewStatus({ reviewed: true, created_at: OLD(), last_result: 'got', last_reviewed_at: daysAgo(3) })
-    expect(zero.key).toBe('forgetting')
-    expect(missing.key).toBe('forgetting')
+    expect(zero.tip).toBe('Forgetting · half-life 7d')
+    expect(missing.tip).toBe('Forgetting · half-life 7d')
+  })
+})
+
+describe('a reviewed card with no last_reviewed_at', () => {
+  // This is a real wire shape, not a hypothetical: both list endpoints select
+  // COALESCE(r.last_reviewed_at, ''), and the server explicitly contemplates a
+  // review row with a NULL timestamp — a bumpSeen-only row, which its own
+  // comment calls "maximally due". The client disagrees on purpose: utcDays
+  // falls back to 0 elapsed, so the dot reads remembered rather than shouting.
+  // Whichever way that goes it should be a decision, not an accident.
+  it('reads as freshly reviewed rather than maximally overdue', () => {
+    const s = reviewStatus({ reviewed: true, created_at: OLD(), last_result: 'got', stability: 30 })
+    expect(s.key).toBe('remembered')
+    expect(s.tip).toBe('Remembered · half-life 4w')
   })
 })
 
@@ -179,10 +200,13 @@ describe('fmtHalfLife', () => {
     [7, '7d'],
     [13.6, '14d'], // still days below the 14 boundary, even when it rounds to it
     [14, '2w'],
+    [20, '3w'], // 20/7 = 2.86 — rounds up; floor would say 2w
     [30, '4w'],
     [59, '8w'],
     [60, '2mo'],
+    [75, '3mo'], // 75/30 = 2.5 — rounds up; floor would say 2mo
     [100, '3mo'],
+    [0.4, '10h'], // 0.4*24 = 9.6 — rounds up; floor would say 9h
   ]
   for (const [input, want] of cases) {
     it(`renders ${input} days as ${want}`, () => {

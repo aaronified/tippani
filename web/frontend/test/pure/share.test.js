@@ -148,12 +148,49 @@ describe('the whole card', () => {
     )
   })
 
+  // This was four toContain calls, which is why it caught nothing. An auditor
+  // swapped the character and actor VALUES inside movieShare — so Bogart was
+  // emitted as the character and Rick Blaine as the actor — and the test stayed
+  // green, because toContain passes whichever slot a name lands in. For a file
+  // whose whole point is that a wrong attribution is a misquote, that was the
+  // one thing it had to catch. It is an exact-string assertion now.
   it('assembles a film line with its speaker', () => {
-    const out = buildShareText(casablanca(), ALL, 'plaintext')
-    expect(out).toContain('“Here is looking at you, kid.”')
-    expect(out).toContain('Rick Blaine')
-    expect(out).toContain('Casablanca')
-    expect(out).toContain('#farewell')
+    expect(buildShareText(casablanca(), ALL, 'markdown')).toBe(
+      [
+        '> Here is looking at you, kid.',
+        '— *Casablanca*, 1942',
+        'Rick Blaine · played by **Humphrey Bogart** · 01:02:03',
+        '#farewell',
+      ].join('\n\n'),
+    )
+  })
+
+  it('keeps the character plain and the actor credited', () => {
+    // The two are not interchangeable: the character is who said it, the actor
+    // is who played them, and only the actor takes the "played by" credit.
+    const out = buildShareText(casablanca(), only('character', 'actor'), 'markdown')
+    expect(out).toBe('Rick Blaine · played by **Humphrey Bogart**')
+    expect(buildShareText(casablanca(), only('character'), 'markdown')).toBe('Rick Blaine')
+    expect(buildShareText(casablanca(), only('actor'), 'markdown')).toBe('played by **Humphrey Bogart**')
+  })
+})
+
+describe('meta prefixes and emphasis', () => {
+  // buildShareText applies a meta part's prefix and emphasis in one expression,
+  // and the movie actor credit is the only payload that uses either. Deleting
+  // both used to pass, silently degrading "Rick Blaine · played by Humphrey
+  // Bogart" into an ambiguous "Rick Blaine · Humphrey Bogart".
+  it('carries the prefix in every format', () => {
+    for (const fmt of ['plaintext', 'markdown', 'reddit', 'whatsapp']) {
+      expect(buildShareText(casablanca(), only('actor'), fmt)).toContain('played by ')
+    }
+  })
+
+  it('emphasises the actor in each format that has emphasis', () => {
+    expect(buildShareText(casablanca(), only('actor'), 'markdown')).toBe('played by **Humphrey Bogart**')
+    expect(buildShareText(casablanca(), only('actor'), 'reddit')).toBe('played by **Humphrey Bogart**')
+    expect(buildShareText(casablanca(), only('actor'), 'whatsapp')).toBe('played by *Humphrey Bogart*')
+    expect(buildShareText(casablanca(), only('actor'), 'plaintext')).toBe('played by Humphrey Bogart')
   })
 })
 
@@ -162,6 +199,31 @@ describe('the payload shapers', () => {
   // what the selection map is keyed on.
   it('give a book its author/work/published attribution', () => {
     expect(earthsea().attribution.map((a) => a.id)).toEqual(['author', 'work', 'published'])
+    expect(earthsea().meta.map((m) => m.id)).toEqual(['chapter', 'location', 'noted'])
+  })
+
+  // The film side was never asserted, so every id could have been renamed to
+  // something the selection map does not key on and nothing would have failed —
+  // the ALL Proxy answers true for any key, so a renamed id still renders.
+  it('give a film its own attribution and meta ids', () => {
+    expect(casablanca().attribution.map((a) => a.id)).toEqual(['work', 'year', 'tmdb', 'tvdb'])
+    expect(casablanca().meta.map((m) => m.id)).toEqual(['character', 'actor', 'episode', 'timestamp'])
+  })
+
+  it('mark the actor as the credited one and the character as plain', () => {
+    const actor = casablanca().meta.find((m) => m.id === 'actor')
+    const character = casablanca().meta.find((m) => m.id === 'character')
+    expect(actor.value).toBe('Humphrey Bogart')
+    expect(actor.emphasis).toBe('bold')
+    expect(actor.prefix).toBe('played by ')
+    expect(character.value).toBe('Rick Blaine')
+    expect(character.emphasis).toBeUndefined()
+    expect(character.prefix).toBeUndefined()
+  })
+
+  it('point the image at the right face for each kind', () => {
+    expect(earthsea().facesFor).toBe('author')
+    expect(casablanca().facesFor).toBe('actor')
   })
 
   it('carry the colour through for the image, unused by text', () => {
