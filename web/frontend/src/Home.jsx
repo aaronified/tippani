@@ -56,9 +56,14 @@ export function tzOffsetMinutes() {
 
 // ---- shared quiz pieces (Daily Quiz + Practice) ----
 
-// workNoun — what to call a card's source in the question line.
+// workNoun — what to call a card's source in the question line. A standalone
+// quote has no work behind it, so its source is the occasion it was said on
+// (the backend falls back to the speaker when there is none); "book" is the
+// default only because books were the first kind, so every new kind has to be
+// named here or it inherits the wrong noun silently.
 function workNoun(card) {
   if (card.kind === 'screen') return card.media_type === 'show' ? 'show' : 'film'
+  if (card.kind === 'utterance') return 'occasion'
   return 'book'
 }
 
@@ -121,14 +126,20 @@ function PersonChip({ name, person, size = 20 }) {
 // face chips — a book's author(s), a screen quote's actor; `maps` are the
 // usePeople kind→(name→row) lookups for portraits.
 function SourceLines({ card, maps = {} }) {
-  const people =
-    card.kind === 'screen'
-      ? (card.actor ? [{ name: card.actor, kind: 'actor' }] : [])
-      : splitCredits(card.author, DEFAULT_CREDIT_SEPS).map((n) => ({ name: n, kind: 'author' }))
+  let people
+  if (card.kind === 'screen') people = card.actor ? [{ name: card.actor, kind: 'actor' }] : []
+  else if (card.kind === 'utterance')
+    // The title already IS the speaker when a quote has no occasion; showing the
+    // name again underneath it would just read as a stutter.
+    people = card.speaker && card.speaker !== card.title ? [{ name: card.speaker, kind: 'speaker' }] : []
+  else people = splitCredits(card.author, DEFAULT_CREDIT_SEPS).map((n) => ({ name: n, kind: 'author' }))
   let meta
   if (card.kind === 'screen') {
     const media = card.media_type === 'show' ? 'Show' : 'Film'
     meta = [media, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
+  } else if (card.kind === 'utterance') {
+    // A quote's date is partial by design — a year alone is a complete answer.
+    meta = card.occasion_date || ''
   } else {
     // The author lives in the chips row now; the meta line keeps the location.
     const ch = (card.chapter || '').trim()
