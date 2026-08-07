@@ -2,12 +2,20 @@ package httpapi
 
 // Spaced repetition — Daily Quiz & Practice (v0.5.0 rework, ROADMAP №2).
 //
-// One retrieval model, two modes, over every quote in the library AND the
-// catalogue (books via annotations, films/shows via dialogues). Each card is
-// presented in one of two directions:
+// One retrieval model, two modes, over every quote the app holds: the library
+// (books via annotations), the catalogue (films/shows via dialogues), and
+// standalone quotes with no work behind them at all (utterances, §24). Each
+// card is presented in one of two directions:
 //
-//   source — show the quote, recall which book/film/show it's from.
-//   quote  — show the book/film/show, recall a quote from it.
+//   source — show the quote, recall where it's from.
+//   quote  — show where it's from, recall the quote.
+//
+// "Where it's from" is a title for the first two kinds. A standalone quote has
+// no parent row to take a title from, so its source is the occasion it was said
+// on — a speech, a letter, a broadcast — falling back to the speaker when the
+// occasion went unrecorded. A quote with neither is a proverb: there is nothing
+// to recall but the words already on the card, so it never enters the deck. See
+// utteranceAttribution.
 //
 // The flow is self-graded: present → attempt recall → reveal → grade. There is
 // no multiple choice; the user is trusted to grade honestly (that is the point
@@ -92,15 +100,61 @@ var reviewFloorSQL = fmt.Sprintf("%g", reviewMinStability)
 // review directions (question types). Kept as constants so the deck builder and
 // tests speak the same vocabulary the client renders against.
 const (
-	dirSource = "source" // show quote, recall the book/film/show
-	dirQuote  = "quote"  // show the book/film/show, recall the quote
+	dirSource = "source" // show quote, recall the work / speech it came from
+	dirQuote  = "quote"  // show the work / speech, recall the quote
 )
 
 // item kinds in item_reviews.
 const (
-	kindBook   = "book"   // annotations
-	kindScreen = "screen" // dialogues (films + shows)
+	kindBook      = "book"      // annotations
+	kindScreen    = "screen"    // dialogues (films + shows)
+	kindUtterance = "utterance" // standalone quotes — speeches, letters, proverbs (§24)
 )
+
+// validReviewKind gates every review write. One list, so an endpoint cannot
+// learn a new kind while another silently keeps rejecting it.
+func validReviewKind(kind string) bool {
+	return kind == kindBook || kind == kindScreen || kind == kindUtterance
+}
+
+// kindSalt keeps ids from different kinds colliding in the shuffle key. It is
+// read by both shuffleKey (Go) and shuffleKeySQL, which must agree.
+func kindSalt(kind string) uint64 {
+	switch kind {
+	case kindScreen:
+		return 1013904223
+	case kindUtterance:
+		return 2654435769
+	default:
+		return 2166136261
+	}
+}
+
+// utteranceAttribution is the "work" a standalone quote belongs to: the occasion
+// it was said on, or its speaker when the occasion went unrecorded. A quote has
+// no parent row to inherit a title from, so this is what the deck asks you to
+// recall, what groups two lines from the same speech, and what a wrong answer
+// offers instead.
+//
+// A quote with neither — a proverb — has no attribution, and is not reviewable:
+// there is nothing to recall except the words already on the card.
+func utteranceAttribution(speaker, occasion string) string {
+	if occasion = strings.TrimSpace(occasion); occasion != "" {
+		return occasion
+	}
+	return strings.TrimSpace(speaker)
+}
+
+// utteranceWorkKey folds case and runs of spaces, so "Burma Radio broadcast" and
+// "burma radio  broadcast" are one speech rather than two works that can be
+// offered as each other's distractor. Empty when the quote has no attribution.
+func utteranceWorkKey(speaker, occasion string) string {
+	a := utteranceAttribution(speaker, occasion)
+	if a == "" {
+		return ""
+	}
+	return kindUtterance + ":" + strings.ToLower(strings.Join(strings.Fields(a), " "))
+}
 
 // tzOffset parses the client's UTC offset in minutes, east positive (JS:
 // -new Date().getTimezoneOffset()). It makes "today" the reviewer's local day;
@@ -125,16 +179,38 @@ func reviewDay(offset int) (day string, seed int64, mod string) {
 	return local.Format("2006-01-02"), local.Unix() / 86400, fmt.Sprintf("%+d minutes", offset)
 }
 
+// reviewScope is which media the deck draws from. It travels as one value
+// rather than a bool per medium because every query that has to agree on the
+// scope takes it: a third medium arriving as a third positional bool is how the
+// deck and the counts beside it drift apart.
+type reviewScope struct {
+	books     bool // annotations
+	screen    bool // dialogues
+	utterance bool // standalone quotes
+}
+
+func (sc reviewScope) any() bool { return sc.books || sc.screen || sc.utterance }
+
+// allMedia is every kind regardless of the review-scope preference — Stats
+// reports on the whole library, not on what the deck happens to be drawing from.
+func allMedia() reviewScope { return reviewScope{books: true, screen: true, utterance: true} }
+
 // scopeFlags turns the srReviewScope preference into which pools to draw from.
 // Legacy stored value "movies" is honoured as the screen (films+shows) scope.
-func scopeFlags(scope string) (books, screen bool) {
+//
+// "both" predates the third medium and now means everything — the alternative
+// was leaving standalone quotes out of every existing user's deck until they
+// found a setting, which reads as the feature being broken.
+func scopeFlags(scope string) reviewScope {
 	switch scope {
 	case "books":
-		return true, false
+		return reviewScope{books: true}
 	case "movies", "screen":
-		return false, true
+		return reviewScope{screen: true}
+	case "quotes":
+		return reviewScope{utterance: true}
 	default: // "both" and anything unexpected
-		return true, true
+		return reviewScope{books: true, screen: true, utterance: true}
 	}
 }
 
@@ -189,29 +265,31 @@ func dailyDirection(kind string, id, seed int64) string {
 // shuffleKey is a stable per-day pseudo-random ordering key for a card; the
 // kind salt keeps a book id and a dialogue id from colliding.
 func shuffleKey(kind string, id, seed int64) int64 {
-	salt := uint64(2166136261)
-	if kind == kindScreen {
-		salt = 1013904223
-	}
-	return int64((uint64(id)*2654435761 + salt + uint64(seed)) % 100003)
+	return int64((uint64(id)*2654435761 + kindSalt(kind) + uint64(seed)) % 100003)
 }
 
 // reviewCard is one card sent to the client. It carries both sides (prompt +
 // answer); the client shows one and reveals the other per `direction`.
 type reviewCard struct {
-	Kind        string  `json:"kind"`      // book | screen
-	ID          int64   `json:"id"`
-	Direction   string  `json:"direction"` // source | quote
-	Quote       string  `json:"quote"`
-	Note        string  `json:"note"`
-	Color       string  `json:"color"`      // highlight colour — both kinds carry one (0021)
-	Title       string  `json:"title"`      // book / film / show title
-	Author      string  `json:"author"`     // book author; "" for screen
-	Character   string  `json:"character"`  // screen speaker; "" for book
-	Actor       string  `json:"actor"`      // screen speaker's actor; "" for book
-	Chapter     string  `json:"chapter"`    // book only
-	Location    string  `json:"location"`   // book only
-	Timestamp   string  `json:"timestamp"`  // screen only
+	Kind      string `json:"kind"` // book | screen | utterance
+	ID        int64  `json:"id"`
+	Direction string `json:"direction"` // source | quote
+	Quote     string `json:"quote"`
+	Note      string `json:"note"`
+	Color     string `json:"color"` // highlight colour — every kind carries one (0021, 0026)
+	// Title is the source the quote is attributed to: a book / film / show
+	// title, or — for a standalone quote, which has no parent work — the
+	// occasion it was said on, falling back to the speaker. It is what a
+	// "source" card asks you to recall, so every kind must fill it.
+	Title        string  `json:"title"`
+	Author       string  `json:"author"`        // book author; "" otherwise
+	Character    string  `json:"character"`     // screen speaker; "" otherwise
+	Actor        string  `json:"actor"`         // screen speaker's actor; "" otherwise
+	Speaker      string  `json:"speaker"`       // utterance only — who said it
+	OccasionDate string  `json:"occasion_date"` // utterance only — when, possibly just a year
+	Chapter      string  `json:"chapter"`       // book only
+	Location     string  `json:"location"`      // book only
+	Timestamp    string  `json:"timestamp"`     // screen only
 	episodeRef              // screen only, shows only; null on a film's lines
 	MediaType   string  `json:"media_type"` // movie | show (screen); "" for book
 	Stability   float64 `json:"stability"`
@@ -283,52 +361,141 @@ const (
 // The `?` takes the seed, so the sample is stable within a day and moves the
 // next. Overflow bound: id * 2654435761 stays inside int64 up to id ≈ 3.47e9.
 func shuffleKeySQL(idCol, kind string) string {
-	salt := 2166136261
-	if kind == kindScreen {
-		salt = 1013904223
-	}
-	return fmt.Sprintf("((%s * 2654435761 + %d + ?) %% 100003)", idCol, salt)
+	return fmt.Sprintf("((%s * 2654435761 + %d + ?) %% 100003)", idCol, kindSalt(kind))
 }
 
-// bookCandidates / screenCandidates fetch reviewable cards for one bucket.
-// bucketAll (Practice) returns the whole in-scope pool; bucketDue / bucketUnseen
-// (Daily) each return their own slice, most-forgotten-first and hash-spread
-// respectively, capped at `limit`.
-func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
-	q := `SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,''), a.color,
-	             b.title, COALESCE(b.author,''), COALESCE(a.chapter,''), COALESCE(a.location,''),
-	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
-	             COALESCE(julianday('now') - julianday(a.created_at), 1e9)
-	      FROM annotations a
-	      JOIN books b ON b.id = a.book_id
-	      LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
-	      WHERE b.user_id = ? AND (COALESCE(a.quote,'') <> '' OR COALESCE(a.note,'') <> '')`
-	args := []any{reviewMinStability, uid}
-	shuffle := shuffleKeySQL("a.id", kindBook)
+// reviewSource says where one kind's cards live and what makes one reviewable.
+//
+// Five queries have to agree on that answer — the two deck buckets, the badge
+// count (dailyRemaining), the status tally (reviewStates) and the Stats recall
+// half-life — and until §24 they agreed by being copies of each other, which
+// held only because annotations and dialogues have the same shape. Standalone
+// quotes have neither: no parent table to take the user scope from, and an
+// eligibility rule of their own. Copies would have diverged the first time one
+// of them was updated and another forgotten, and the symptom is a badge
+// promising cards the deck won't serve.
+type reviewSource struct {
+	kind      string // item_reviews.kind
+	table     string // annotations | dialogues | utterances
+	parent    string // books | movies; "" when the row carries its own user_id
+	parentKey string // book_id | movie_id
+	idCol     string // for the shuffle key
+	// eligible is the kind's own reviewability rule beyond "has words". Only
+	// utterances have one: a quote with no attribution has no question.
+	eligible string
+}
+
+func bookSource() reviewSource {
+	return reviewSource{kind: kindBook, table: "annotations", parent: "books", parentKey: "book_id", idCol: "x.id"}
+}
+
+func screenSource() reviewSource {
+	return reviewSource{kind: kindScreen, table: "dialogues", parent: "movies", parentKey: "movie_id", idCol: "x.id"}
+}
+
+func utteranceSource() reviewSource {
+	return reviewSource{kind: kindUtterance, table: "utterances", idCol: "x.id",
+		eligible: `AND (COALESCE(x.occasion,'') <> '' OR COALESCE(x.speaker,'') <> '')`}
+}
+
+func sourcesFor(sc reviewScope) []reviewSource {
+	var out []reviewSource
+	if sc.books {
+		out = append(out, bookSource())
+	}
+	if sc.screen {
+		out = append(out, screenSource())
+	}
+	if sc.utterance {
+		out = append(out, utteranceSource())
+	}
+	return out
+}
+
+// from is the table and, where there is one, the parent that carries the user
+// scope. The row alias is always `x`, the parent always `p`.
+func (rs reviewSource) from() string {
+	if rs.parent == "" {
+		return rs.table + " x"
+	}
+	return rs.table + " x JOIN " + rs.parent + " p ON p.id = x." + rs.parentKey
+}
+
+// ownerCol is the column the caller's id is matched against — the parent's for
+// a child row, the row's own for a parentless one.
+func (rs reviewSource) ownerCol() string {
+	if rs.parent == "" {
+		return "x.user_id"
+	}
+	return "p.user_id"
+}
+
+// reviewJoin attaches the schedule row. Split out only so no caller can spell
+// the kind literal differently from the one in `where`.
+func (rs reviewSource) reviewJoin() string {
+	return "LEFT JOIN item_reviews r ON r.kind = '" + rs.kind + "' AND r.item_id = x.id"
+}
+
+// where is the eligibility rule: owned by the caller, has words, and whatever
+// else the kind requires. The `?` takes the user id.
+func (rs reviewSource) where() string {
+	return "WHERE " + rs.ownerCol() + " = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '') " + rs.eligible
+}
+
+// dueSQL is when a scheduled card comes back round. It floors the stored
+// stability the same way recallStatus does, so a card is due exactly when its
+// dot reads probably-forgotten — and a row with no last_reviewed_at is a
+// bumpSeen-only row, treated as maximally due.
+//
+// The deck and the badge both splice this in. Spelling it twice is how they
+// come to disagree about how many cards are left.
+var dueSQL = `(r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))`
+
+// bucketClause is the half of a candidate query that picks WHICH slice of the
+// pool comes back. Identical for every kind, so it lives here rather than once
+// per candidate function.
+func (rs reviewSource) bucketClause(bucket deckBucket, mod, day string, seed int64) (string, []any) {
+	shuffle := shuffleKeySQL(rs.idCol, rs.kind)
 	switch bucket {
 	case bucketDue:
-		// Due-ness floors the stored stability the same way recallStatus does, so
-		// a card is due exactly when its dot reads probably-forgotten. A row with
-		// no last_reviewed_at is a bumpSeen-only row — treated as maximally due
-		// (NULLs sort first under ASC).
-		q += ` AND r.item_id IS NOT NULL
-		       AND date(r.last_touched_at, ?) <> ?
-		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
-		       ORDER BY (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `), ` + shuffle
-		args = append(args, mod, day, seed)
+		return ` AND r.item_id IS NOT NULL
+		         AND date(r.last_touched_at, ?) <> ?
+		         AND ` + dueSQL + `
+		         ORDER BY (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `), ` + shuffle,
+			[]any{mod, day, seed}
 	case bucketUnseen:
 		// The grace week is measured from created_at, which for an import is the
 		// import's wall clock — so a whole import leaves grace on the same day and
 		// arrives as one undifferentiated block. The hash is what stops that block
 		// being sliced by rowid.
-		q += ` AND r.item_id IS NULL
-		       AND COALESCE(julianday('now') - julianday(a.created_at), 1e9) >= ?
-		       ORDER BY ` + shuffle
-		args = append(args, reviewNewItemDays, seed)
+		return ` AND r.item_id IS NULL
+		         AND COALESCE(julianday('now') - julianday(x.created_at), 1e9) >= ?
+		         ORDER BY ` + shuffle,
+			[]any{reviewNewItemDays, seed}
 	default: // bucketAll
-		q += ` ORDER BY ` + shuffle
-		args = append(args, seed)
+		return ` ORDER BY ` + shuffle, []any{seed}
 	}
+}
+
+// schedCols is the scheduling tail every candidate SELECT ends with, in the
+// order finishCard's scan expects.
+const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at,
+                   COALESCE(r.last_result,''), COALESCE(julianday('now') - julianday(x.created_at), 1e9)`
+
+// bookCandidates / screenCandidates / utteranceCandidates fetch reviewable cards
+// for one bucket. bucketAll (Practice) returns the whole in-scope pool;
+// bucketDue / bucketUnseen (Daily) each return their own slice,
+// most-forgotten-first and hash-spread respectively, capped at `limit`.
+func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+	rs := bookSource()
+	q := `SELECT x.id, x.book_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
+	             p.title, COALESCE(p.author,''), COALESCE(x.chapter,''), COALESCE(x.location,''),
+	             ` + schedCols + `
+	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
+	args := []any{reviewMinStability, uid}
+	clause, cargs := rs.bucketClause(bucket, mod, day, seed)
+	q += clause
+	args = append(args, cargs...)
 	if limit > 0 {
 		q += ` LIMIT ?`
 		args = append(args, limit)
@@ -358,32 +525,15 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, s
 }
 
 func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
-	q := `SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,''), d.color, m.title, COALESCE(d.character,''),
-	             COALESCE(d.actor,''), COALESCE(d.timestamp,''), d.season, d.episode, COALESCE(m.media_type,'movie'),
-	             r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at, COALESCE(r.last_result,''),
-	             COALESCE(julianday('now') - julianday(d.created_at), 1e9)
-	      FROM dialogues d
-	      JOIN movies m ON m.id = d.movie_id
-	      LEFT JOIN item_reviews r ON r.kind = 'screen' AND r.item_id = d.id
-	      WHERE m.user_id = ? AND (COALESCE(d.quote,'') <> '' OR COALESCE(d.note,'') <> '')`
+	rs := screenSource()
+	q := `SELECT x.id, x.movie_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color, p.title, COALESCE(x.character,''),
+	             COALESCE(x.actor,''), COALESCE(x.timestamp,''), x.season, x.episode, COALESCE(p.media_type,'movie'),
+	             ` + schedCols + `
+	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
-	shuffle := shuffleKeySQL("d.id", kindScreen)
-	switch bucket {
-	case bucketDue:
-		q += ` AND r.item_id IS NOT NULL
-		       AND date(r.last_touched_at, ?) <> ?
-		       AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
-		       ORDER BY (julianday(r.last_reviewed_at) - julianday('now')) / MAX(r.stability, ` + reviewFloorSQL + `), ` + shuffle
-		args = append(args, mod, day, seed)
-	case bucketUnseen:
-		q += ` AND r.item_id IS NULL
-		       AND COALESCE(julianday('now') - julianday(d.created_at), 1e9) >= ?
-		       ORDER BY ` + shuffle
-		args = append(args, reviewNewItemDays, seed)
-	default: // bucketAll
-		q += ` ORDER BY ` + shuffle
-		args = append(args, seed)
-	}
+	clause, cargs := rs.bucketClause(bucket, mod, day, seed)
+	q += clause
+	args = append(args, cargs...)
 	if limit > 0 {
 		q += ` LIMIT ?`
 		args = append(args, limit)
@@ -406,6 +556,54 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string,
 			continue
 		}
 		c.workKey = kindScreen + ":" + strconv.FormatInt(movieID, 10)
+		c.elapsed = elapsedDays(lr)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// utteranceCandidates is the third kind, and the one that does not fit the
+// pattern: a standalone quote has no parent row, so its user scope is its own
+// column, and its "work" is derived from two text fields rather than read from a
+// join. Everything downstream — the bucket ordering, the per-work spread, the
+// distractor ranking — then treats it like the other two.
+func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+	rs := utteranceSource()
+	q := `SELECT x.id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
+	             COALESCE(x.speaker,''), COALESCE(x.occasion,''), COALESCE(x.occasion_date,''),
+	             ` + schedCols + `
+	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
+	args := []any{reviewMinStability, uid}
+	clause, cargs := rs.bucketClause(bucket, mod, day, seed)
+	q += clause
+	args = append(args, cargs...)
+	if limit > 0 {
+		q += ` LIMIT ?`
+		args = append(args, limit)
+	}
+	rows, err := s.Store.DB.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []reviewCand
+	for rows.Next() {
+		var c reviewCand
+		var lr sql.NullString
+		var speaker, occasion string
+		c.card.Kind = kindUtterance
+		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Color,
+			&speaker, &occasion, &c.card.OccasionDate,
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
+			olog.Warnf(olog.CodeReviewRowScan, "[review] utterance candidate row scan failed: %v", err)
+			continue
+		}
+		c.card.Speaker = speaker
+		// Title is the attribution, because Title is what the "which source?"
+		// question offers as an answer. The eligibility rule guarantees it is
+		// non-empty here.
+		c.card.Title = utteranceAttribution(speaker, occasion)
+		c.workKey = utteranceWorkKey(speaker, occasion)
 		c.elapsed = elapsedDays(lr)
 		out = append(out, c)
 	}
@@ -489,21 +687,28 @@ func overdueRatio(c reviewCand) float64 {
 // deckCandidates fetches one bucket across the in-scope media and merges them
 // into a single ordering — the two queries each come back ordered, so a plain
 // append would put every book ahead of every film.
-func (s *Server) deckCandidates(uid int64, bucket deckBucket, incBooks, incScreen bool, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+func (s *Server) deckCandidates(uid int64, bucket deckBucket, sc reviewScope, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	var out []reviewCand
-	if incBooks {
+	if sc.books {
 		bc, err := s.bookCandidates(uid, bucket, mod, day, seed, limit)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, bc...)
 	}
-	if incScreen {
-		sc, err := s.screenCandidates(uid, bucket, mod, day, seed, limit)
+	if sc.screen {
+		dc, err := s.screenCandidates(uid, bucket, mod, day, seed, limit)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, sc...)
+		out = append(out, dc...)
+	}
+	if sc.utterance {
+		uc, err := s.utteranceCandidates(uid, bucket, mod, day, seed, limit)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, uc...)
 	}
 	if bucket == bucketDue {
 		sort.SliceStable(out, func(i, j int) bool { return overdueRatio(out[i]) > overdueRatio(out[j]) })
@@ -560,24 +765,37 @@ const (
 // a screen work) and its genres. Distractors are ranked by overlap with the
 // card's own work — see distractorScore.
 type workRef struct {
-	key      string // "book:12" / "screen:7"
-	kind     string
-	title    string
-	author   string          // books only
+	key   string // "book:12" / "screen:7" / "utterance:burma radio broadcast"
+	kind  string
+	title string
+	// author is the person credited with the work: a book's author, or — for a
+	// standalone quote, whose "work" is the occasion — its speaker. Both play the
+	// same two roles: the chip under the option, and the signal that makes
+	// another work a confusable distractor.
+	author   string
 	director string          // screen only
-	genres   map[string]bool // both
+	genres   map[string]bool // books + screen
 	actors   map[string]bool // screen only, lowercased (similarity matching)
 	// actorNames keeps the first-seen casing of each dialogue actor — the map
 	// above lowercases for matching, but option chips need a display name.
 	actorNames []string
 }
 
-// person is the credit an option chip shows for this work: a book's author,
-// a screen work's dialogue actor (falling back to its director).
+// person is the credit an option chip shows for this work: a book's author, a
+// quote's speaker, a screen work's dialogue actor (falling back to its
+// director).
 func (w workRef) person() optionMeta {
 	if w.kind == kindBook {
 		if w.author != "" {
 			return optionMeta{Person: w.author, Kind: "author"}
+		}
+		return optionMeta{}
+	}
+	if w.kind == kindUtterance {
+		// A quote with no occasion is titled by its speaker already; repeating the
+		// name as its own chip would just read as a stutter.
+		if w.author != "" && w.author != w.title {
+			return optionMeta{Person: w.author, Kind: "speaker"}
 		}
 		return optionMeta{}
 	}
@@ -607,7 +825,7 @@ type quizPools struct {
 	byKey  map[string]workRef
 }
 
-func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, error) {
+func (s *Server) quizPools(uid int64, sc reviewScope) (quizPools, error) {
 	p := quizPools{byKey: map[string]workRef{}}
 	scan := func(q string, fn func(*sql.Rows) error) error {
 		rows, err := s.Store.DB.Query(q, uid)
@@ -623,7 +841,7 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 		return rows.Err()
 	}
 	// works (title + person signal), genres, actors (screen), and a quote sample.
-	if incBooks {
+	if sc.books {
 		if err := scan(`SELECT id, title, COALESCE(author,'') FROM books WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
@@ -662,7 +880,7 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			return p, err
 		}
 	}
-	if incScreen {
+	if sc.screen {
 		if err := scan(`SELECT id, title, COALESCE(director,'') FROM movies WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
@@ -723,6 +941,42 @@ func (s *Server) quizPools(uid int64, incBooks, incScreen bool) (quizPools, erro
 			return p, err
 		}
 	}
+	if sc.utterance {
+		// One pass, not two: a standalone quote has no work table, so the speeches
+		// ARE the quotes grouped by attribution. That means the sample cap bounds
+		// the works pool too, unlike the other kinds — no matter, since a question
+		// needs four options and a card whose own work missed the sample already
+		// falls back to a title-only option. The eligibility rule matches
+		// utteranceCandidates' — a quote with no attribution belongs to no work and
+		// would otherwise become a distractor with a blank title.
+		if err := scan(`SELECT COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,'')
+		                FROM utterances
+		                WHERE user_id = ? AND (COALESCE(quote,'') <> '' OR COALESCE(note,'') <> '')
+		                  AND (COALESCE(occasion,'') <> '' OR COALESCE(speaker,'') <> '')
+		                ORDER BY RANDOM() LIMIT `+strconv.Itoa(quizQuoteCap),
+			func(rows *sql.Rows) error {
+				var quote, note, speaker, occasion string
+				if err := rows.Scan(&quote, &note, &speaker, &occasion); err != nil {
+					olog.Warnf(olog.CodeReviewRowScan, "[review] utterance pool row scan failed: %v", err)
+					return nil
+				}
+				key := utteranceWorkKey(speaker, occasion)
+				w, ok := p.byKey[key]
+				if !ok {
+					w = workRef{key: key, kind: kindUtterance, title: utteranceAttribution(speaker, occasion),
+						author: speaker, genres: map[string]bool{}, actors: map[string]bool{}}
+					p.byKey[key] = w
+				}
+				text := quote
+				if text == "" {
+					text = note
+				}
+				p.quotes = append(p.quotes, quoteRef{work: w, text: text})
+				return nil
+			}); err != nil {
+			return p, err
+		}
+	}
 	for _, w := range p.byKey {
 		p.works = append(p.works, w)
 	}
@@ -768,6 +1022,9 @@ func sharedCount(a, b map[string]bool) int {
 // first; then, for books, the SAME AUTHOR dominates and shared genres break
 // ties; for films/shows, shared GENRES dominate and a shared ACTOR breaks ties
 // (per the owner's rule: books→author then genre, screen→genre then actor).
+// A standalone quote follows the book rule with its speaker in the author's
+// place: two speeches by the same person are the hard pair to tell apart, and
+// there are no genres to break the tie with.
 func distractorScore(own, cand workRef) int {
 	if cand.key == own.key {
 		return -1 // never itself
@@ -775,7 +1032,7 @@ func distractorScore(own, cand workRef) int {
 	score := 0
 	if cand.kind == own.kind {
 		score += 1_000_000 // same medium strongly preferred
-		if own.kind == kindBook {
+		if own.kind == kindBook || own.kind == kindUtterance {
 			if own.author != "" && cand.author == own.author {
 				score += 100_000
 			}
@@ -801,11 +1058,7 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) (rev
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
 	if seed != 0 {
-		kindSalt := int64(1)
-		if c.card.Kind == kindScreen {
-			kindSalt = 2
-		}
-		cardSeed = seed*1000003 + c.card.ID*97 + kindSalt
+		cardSeed = seed*1000003 + c.card.ID*97 + int64(kindSalt(c.card.Kind)%1000)
 		if cardSeed == 0 {
 			cardSeed = 1
 		}
@@ -992,7 +1245,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "daily quiz prefs", err)
 		return
 	}
-	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
+	scope := scopeFlags(pf.SRReviewScope)
 	day, seed, mod := reviewDay(offset)
 	answered, got, forgot, err := s.dailyTally(uid, day)
 	if err != nil {
@@ -1001,7 +1254,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 	items := []reviewCard{}
 	if slots := pf.SRDaily - answered; slots > 0 {
-		pools, err := s.quizPools(uid, incBooks, incScreen)
+		pools, err := s.quizPools(uid, scope)
 		if err != nil {
 			internalError(w, r, "daily quiz pools", err)
 			return
@@ -1011,12 +1264,12 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		// fetch, so a never-answered card could not reach the deck at all until
 		// the backlog cleared.
 		fetch := slots * reviewFetchHeadroom
-		due, err := s.deckCandidates(uid, bucketDue, incBooks, incScreen, mod, day, seed, fetch)
+		due, err := s.deckCandidates(uid, bucketDue, scope, mod, day, seed, fetch)
 		if err != nil {
 			internalError(w, r, "daily quiz due", err)
 			return
 		}
-		unseen, err := s.deckCandidates(uid, bucketUnseen, incBooks, incScreen, mod, day, seed, fetch)
+		unseen, err := s.deckCandidates(uid, bucketUnseen, scope, mod, day, seed, fetch)
 		if err != nil {
 			internalError(w, r, "daily quiz unseen", err)
 			return
@@ -1030,7 +1283,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	states, err := s.reviewStates(uid, incBooks, incScreen)
+	states, err := s.reviewStates(uid, scope)
 	if err != nil {
 		internalError(w, r, "daily quiz states", err)
 		return
@@ -1063,8 +1316,8 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "practice prefs", err)
 		return
 	}
-	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
-	pools, err := s.quizPools(uid, incBooks, incScreen)
+	scope := scopeFlags(pf.SRReviewScope)
+	pools, err := s.quizPools(uid, scope)
 	if err != nil {
 		internalError(w, r, "practice pools", err)
 		return
@@ -1076,7 +1329,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	// unseen cards would make an already-reviewed card *more* likely to come up
 	// than an unreviewed one. bucketAll keeps every card equally likely. The seed
 	// is fresh per request, so each round is a different walk.
-	cands, err := s.deckCandidates(uid, bucketAll, incBooks, incScreen, "", "", rand.Int64N(reviewSeedRange), 0)
+	cands, err := s.deckCandidates(uid, bucketAll, scope, "", "", rand.Int64N(reviewSeedRange), 0)
 	if err != nil {
 		internalError(w, r, "practice pool", err)
 		return
@@ -1107,8 +1360,8 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	if req.Kind != kindBook && req.Kind != kindScreen {
-		writeErr(w, http.StatusBadRequest, "kind must be book or screen")
+	if !validReviewKind(req.Kind) {
+		writeErr(w, http.StatusBadRequest, "kind must be book, screen or utterance")
 		return
 	}
 	if req.Mode != "daily" && req.Mode != "practice" {
@@ -1268,16 +1521,28 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, respLastReviewed, respLastResult, pf, found || moveSchedule)
 }
 
-// itemAgeDays is how many days ago the annotation/dialogue behind a card was
-// added — the clock for the new-item grace week. A missing or garbled
-// timestamp reads as very old (no accidental grace).
+// itemAgeDays is how many days ago the item behind a card was added — the clock
+// for the new-item grace week. A missing or garbled timestamp reads as very old
+// (no accidental grace).
+//
+// Switched exhaustively rather than defaulted: an unrecognised kind used to read
+// annotations, so a mistyped kind would have silently aged someone's annotation
+// by that id instead of failing.
 func (s *Server) itemAgeDays(kind string, id int64) (float64, error) {
-	q := `SELECT COALESCE(julianday('now') - julianday(created_at), 1e9) FROM annotations WHERE id = ?`
-	if kind == kindScreen {
-		q = `SELECT COALESCE(julianday('now') - julianday(created_at), 1e9) FROM dialogues WHERE id = ?`
+	var table string
+	switch kind {
+	case kindBook:
+		table = "annotations"
+	case kindScreen:
+		table = "dialogues"
+	case kindUtterance:
+		table = "utterances"
+	default:
+		return 1e9, fmt.Errorf("unknown review kind %q", kind)
 	}
 	var age float64
-	err := s.Store.DB.QueryRow(q, id).Scan(&age)
+	err := s.Store.DB.QueryRow(
+		`SELECT COALESCE(julianday('now') - julianday(created_at), 1e9) FROM `+table+` WHERE id = ?`, id).Scan(&age)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 1e9, nil // ownership was already checked; a vanished row just gets no grace
 	}
@@ -1297,8 +1562,8 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		internalError(w, r, "review answer response tally", err)
 		return
 	}
-	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
-	states, err := s.reviewStates(uid, incBooks, incScreen)
+	scope := scopeFlags(pf.SRReviewScope)
+	states, err := s.reviewStates(uid, scope)
 	if err != nil {
 		internalError(w, r, "review answer states", err)
 		return
@@ -1326,12 +1591,21 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 	writeJSON(w, http.StatusOK, out)
 }
 
-// ownsItem verifies the caller owns the annotation/dialogue behind a card
-// (item_reviews has no user_id of its own).
+// ownsItem verifies the caller owns the item behind a card (item_reviews has no
+// user_id of its own). This is the only thing standing between a review write
+// and someone else's row, so an unknown kind answers "no" rather than falling
+// through to a table it was never asked about.
 func (s *Server) ownsItem(uid int64, kind string, id int64) (bool, error) {
-	q := `SELECT EXISTS(SELECT 1 FROM annotations a JOIN books b ON b.id = a.book_id WHERE a.id = ? AND b.user_id = ?)`
-	if kind == kindScreen {
+	var q string
+	switch kind {
+	case kindBook:
+		q = `SELECT EXISTS(SELECT 1 FROM annotations a JOIN books b ON b.id = a.book_id WHERE a.id = ? AND b.user_id = ?)`
+	case kindScreen:
 		q = `SELECT EXISTS(SELECT 1 FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE d.id = ? AND m.user_id = ?)`
+	case kindUtterance:
+		q = `SELECT EXISTS(SELECT 1 FROM utterances WHERE id = ? AND user_id = ?)`
+	default:
+		return false, nil
 	}
 	var ok bool
 	err := s.Store.DB.QueryRow(q, id, uid).Scan(&ok)
@@ -1361,33 +1635,18 @@ func (s *Server) dailyRemaining(uid int64, offset int, pf prefs, answered int) (
 	if slots <= 0 {
 		return 0, nil
 	}
-	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
 	day, _, mod := reviewDay(offset)
 	total := 0
-	countOne := func(table, parent, parentKey, userCol, kind string) error {
-		q := `SELECT COUNT(*) FROM ` + table + ` x
-		      JOIN ` + parent + ` p ON p.id = x.` + parentKey + `
-		      LEFT JOIN item_reviews r ON r.kind = '` + kind + `' AND r.item_id = x.id
-		      WHERE p.` + userCol + ` = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '')
+	for _, rs := range sourcesFor(scopeFlags(pf.SRReviewScope)) {
+		q := `SELECT COUNT(*) FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where() + `
 		        AND (r.item_id IS NULL OR date(r.last_touched_at, ?) <> ?)
-		        AND (r.last_reviewed_at IS NULL OR julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, ` + reviewFloorSQL + `))
+		        AND ` + dueSQL + `
 		        AND COALESCE(julianday('now') - julianday(x.created_at), 1e9) >= ?`
 		var n int
 		if err := s.Store.DB.QueryRow(q, uid, mod, day, reviewNewItemDays).Scan(&n); err != nil {
-			return err
+			return 0, err
 		}
 		total += n
-		return nil
-	}
-	if incBooks {
-		if err := countOne("annotations", "books", "book_id", "user_id", kindBook); err != nil {
-			return 0, err
-		}
-	}
-	if incScreen {
-		if err := countOne("dialogues", "movies", "movie_id", "user_id", kindScreen); err != nil {
-			return 0, err
-		}
 	}
 	return min(total, slots), nil
 }
@@ -1403,16 +1662,13 @@ type statusCounts struct {
 
 // reviewStates counts every in-scope quote by its derived status. Computed in
 // Go (recall probability needs pow) over the two small columns per item.
-func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts, error) {
+func (s *Server) reviewStates(uid int64, sc reviewScope) (statusCounts, error) {
 	var c statusCounts
-	tally := func(table, parent, parentKey, userCol, kind string) error {
+	tally := func(rs reviewSource) error {
 		rows, err := s.Store.DB.Query(`
 			SELECT r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result, ''),
 			       COALESCE(julianday('now') - julianday(x.created_at), 1e9)
-			FROM `+table+` x
-			JOIN `+parent+` p ON p.id = x.`+parentKey+`
-			LEFT JOIN item_reviews r ON r.kind = '`+kind+`' AND r.item_id = x.id
-			WHERE p.`+userCol+` = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '')`,
+			FROM `+rs.from()+` `+rs.reviewJoin()+` `+rs.where(),
 			reviewMinStability, uid)
 		if err != nil {
 			return err
@@ -1441,13 +1697,8 @@ func (s *Server) reviewStates(uid int64, incBooks, incScreen bool) (statusCounts
 		}
 		return rows.Err()
 	}
-	if incBooks {
-		if err := tally("annotations", "books", "book_id", "user_id", kindBook); err != nil {
-			return c, err
-		}
-	}
-	if incScreen {
-		if err := tally("dialogues", "movies", "movie_id", "user_id", kindScreen); err != nil {
+	for _, rs := range sourcesFor(sc) {
+		if err := tally(rs); err != nil {
 			return c, err
 		}
 	}
@@ -1506,7 +1757,7 @@ func (s *Server) handleReviewScores(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "scores prefs", err)
 		return
 	}
-	incBooks, incScreen := scopeFlags(pf.SRReviewScope)
+	scope := scopeFlags(pf.SRReviewScope)
 	day, _, _ := reviewDay(offset)
 
 	dAnswered, dGot, dForgot, err := s.dailyTally(uid, day)
@@ -1540,7 +1791,7 @@ func (s *Server) handleReviewScores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	states, err := s.reviewStates(uid, incBooks, incScreen)
+	states, err := s.reviewStates(uid, scope)
 	if err != nil {
 		internalError(w, r, "scores states", err)
 		return
@@ -1633,8 +1884,8 @@ func (s *Server) handleReviewSeen(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	if req.Kind != kindBook && req.Kind != kindScreen {
-		writeErr(w, http.StatusBadRequest, "kind must be book or screen")
+	if !validReviewKind(req.Kind) {
+		writeErr(w, http.StatusBadRequest, "kind must be book, screen or utterance")
 		return
 	}
 	uid := userID(r)

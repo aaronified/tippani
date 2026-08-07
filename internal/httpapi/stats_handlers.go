@@ -533,20 +533,27 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Recall overview (the forgetting curve across the whole library): status
 	// counts plus how many quotes have entered the schedule and their average
 	// floored half-life — the Stats page "Memory" card.
-	states, err := s.reviewStates(uid, true, true)
+	states, err := s.reviewStates(uid, allMedia())
 	if err != nil {
 		internalError(w, r, "recall states", err)
 		return
+	}
+	// One ownership arm per kind, generated from the same descriptors the deck
+	// uses. item_reviews is polymorphic and carries no user_id, so each kind has
+	// to be traced back to its owner separately — and a kind missing from this
+	// list would quietly shrink the average rather than fail.
+	var arms []string
+	var hlArgs []any
+	for _, rs := range sourcesFor(allMedia()) {
+		arms = append(arms, `(r.kind = '`+rs.kind+`' AND r.item_id IN
+			(SELECT x.id FROM `+rs.from()+` WHERE `+rs.ownerCol()+` = ?))`)
+		hlArgs = append(hlArgs, uid)
 	}
 	var reviewedN int
 	var avgHalfLife float64
 	if err := s.Store.DB.QueryRow(`
 		SELECT COUNT(*), COALESCE(AVG(MAX(r.stability, `+reviewFloorSQL+`)), 0) FROM item_reviews r
-		WHERE (r.kind = 'book' AND r.item_id IN
-		         (SELECT a.id FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?))
-		   OR (r.kind = 'screen' AND r.item_id IN
-		         (SELECT d.id FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?))`,
-		uid, uid).Scan(&reviewedN, &avgHalfLife); err != nil {
+		WHERE `+strings.Join(arms, " OR "), hlArgs...).Scan(&reviewedN, &avgHalfLife); err != nil {
 		internalError(w, r, "recall half-life", err)
 		return
 	}

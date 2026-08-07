@@ -246,7 +246,9 @@ var (
 	prefAesthetics = map[string]bool{"paper": true, "film": true}
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
-	srScopes       = map[string]bool{"books": true, "movies": true, "both": true}
+	// "both" predates standalone quotes and now means all three media — see
+	// scopeFlags. "quotes" is the third narrow scope beside "books" and "movies".
+	srScopes = map[string]bool{"books": true, "movies": true, "quotes": true, "both": true}
 	// tourStates — the guided feature tour's lifecycle ("" = never seen, so it
 	// auto-opens once on first login; the UI never writes "" back).
 	tourStates = map[string]bool{"": true, "done": true, "skipped": true, "postponed": true}
@@ -322,7 +324,7 @@ type prefs struct {
 	CreditSeparators string `json:"creditSeparators"`
 	// Spaced repetition (v0.5.0 Daily Quiz & Practice), per-user, defaults +
 	// clamps applied in loadPrefs. SRDaily (Daily Quiz deck size) is 2..10;
-	// SRReviewScope (books|movies|both) bounds BOTH modes. SRPracticeCounts
+	// SRReviewScope (books|movies|quotes|both) bounds BOTH modes. SRPracticeCounts
 	// opts Practice into moving the schedule (off by default, so Practice is
 	// study without distortion).
 	SRDaily          int     `json:"srDaily"`
@@ -468,7 +470,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
 		return
 	case !srScopes[cur.SRReviewScope]:
-		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies or both")
+		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies, quotes or both")
 		return
 	case cur.SRSeen < 1.0 || cur.SRSeen > 1.5:
 		writeErr(w, http.StatusBadRequest, "srSeen must be between 1.0 and 1.5")

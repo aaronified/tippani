@@ -337,6 +337,11 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	// Read inside the transaction, and only to spot the favourite transition
+	// below — the UPDATE still carries its own scope, so this is not a
+	// permission check and a missing row needs no handling here.
+	var wasFavorite bool
+	_ = tx.QueryRow(`SELECT favorite FROM utterances WHERE id = ? AND user_id = ?`, id, uid).Scan(&wasFavorite)
 	// The user scope is in the UPDATE itself, not a preflight SELECT: a check
 	// followed by an unscoped write is a race, and here it would be a race that
 	// edits someone else's quote.
@@ -369,6 +374,11 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	if err := tx.Commit(); err != nil {
 		internalError(w, r, "commit tx", err)
 		return
+	}
+	// Favouriting a quote counts as "seeing" it (marginal half-life bump); only
+	// on the false→true transition, so re-saving a favourite doesn't re-credit.
+	if req.Favorite && !wasFavorite {
+		s.applySeen(uid, kindUtterance, id)
 	}
 	u, err := s.fetchUtterance(uid, id)
 	if err != nil {

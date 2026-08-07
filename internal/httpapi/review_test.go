@@ -107,6 +107,7 @@ func ageSeededItems(t *testing.T, srv *Server) {
 	for _, q := range []string{
 		`UPDATE annotations SET created_at = datetime('now', '-10 days')`,
 		`UPDATE dialogues SET created_at = datetime('now', '-10 days')`,
+		`UPDATE utterances SET created_at = datetime('now', '-10 days')`,
 	} {
 		if _, err := srv.Store.DB.Exec(q); err != nil {
 			t.Fatal(err)
