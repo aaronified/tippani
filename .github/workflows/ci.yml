@@ -51,6 +51,8 @@ jobs:
           node-version: "22"
       - run: npm ci
         working-directory: web/frontend
+      - run: npm test
+        working-directory: web/frontend
       - run: npm run build
         working-directory: web/frontend
       # web/dist is a COMMITTED build artefact — the Go binary embeds it, so a

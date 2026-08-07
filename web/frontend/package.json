@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:demo": "vite build --base=./ --outDir ../../_site"
+    "build:demo": "vite build --base=./ --outDir ../../_site",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.8",
@@ -20,8 +22,12 @@
     "@fontsource/newsreader": "^5.2.10",
     "@fontsource/noto-serif-bengali": "^5.2.10",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@vitejs/plugin-react": "^4.3.0",
+    "jsdom": "^30.0.1",
     "tailwindcss": "^4.0.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^4.1.10"
   }
 }
