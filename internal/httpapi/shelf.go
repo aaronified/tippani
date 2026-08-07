@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"tippani/internal/importer"
 	"tippani/internal/olog"
@@ -107,6 +108,13 @@ func normalizePartialDate(field string, v *string) string {
 	if len(parts) > 2 {
 		if d, _ := strconv.Atoi(parts[2]); d < 1 || d > 31 {
 			return field + " day must be 01-31"
+		}
+		// A day between 1 and 31 is not the same as a day that exists: this
+		// accepted 30 February, and 31 April, while the comment above promised
+		// "a stored date is always a real one". time.Parse is the calendar —
+		// it rejects an out-of-range day and knows which Februaries have 29.
+		if _, err := time.Parse("2006-01-02", *v); err != nil {
+			return field + " is not a real date"
 		}
 	}
 	return ""
