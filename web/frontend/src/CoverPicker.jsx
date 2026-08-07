@@ -196,7 +196,7 @@ export function CoverControls({
             </label>
           </Tooltip>
           {onFetchMeta && (
-            <Tooltip label="Fetch metadata — pick the right edition to fill the fields below">
+            <Tooltip label="Fetch metadata by edition">
               <button
                 type="button"
                 className={'cover-icon-btn tactile' + (fetchMetaOpen ? ' is-active' : '')}
@@ -221,8 +221,8 @@ export function CoverControls({
           </Tooltip>
           <Tooltip
             label={kind === 'movies'
-              ? 'Search TMDB & TheTVDB for high-quality posters'
-              : 'Search Google Books, Open Library & Amazon for high-quality covers'}
+              ? 'Search TMDB & TheTVDB'
+              : 'Search Books, Library & Amazon'}
           >
             <button
               type="button"
@@ -394,7 +394,7 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
       ) : (
         <SourceIcon source={source} detail={sourceDetail} />
       )}
-      <Tooltip label={group ? 'Show the editions of this title' : 'Add this match to your library'} className="shrink-0">
+      <Tooltip label={group ? 'Show the editions' : 'Add this match'} className="shrink-0">
         <button
           type="button"
           className="cand-add tactile"

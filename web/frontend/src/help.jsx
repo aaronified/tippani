@@ -14,12 +14,12 @@ import {
   HelpList,
   HelpSheet,
   IconCalendar,
-  IconDelete,
   IconDetails,
   IconEdit,
   IconExport,
   IconFilter,
   IconGrid,
+  IconHelp,
   IconMenu,
   IconMetadata,
   IconMore,
@@ -32,13 +32,17 @@ import {
 } from './ui.jsx'
 
 // Controls the shell puts on every screen — prepended to each page's own list so
-// the phone bars are explained wherever you happen to ask.
+// the bars are explained wherever you happen to ask. The top bar is ＋ · Search ·
+// ? · your avatar, in that order, on a phone and on a desktop alike; the first
+// three read the screen you are on.
 const SHELL = [
-  { term: 'Menu (☰)', icon: <IconMenu />, what: 'The drawer: every screen, your profile, and the pending-import queue. Swipe it left or tap outside to close.' },
-  { term: 'Add (＋)', icon: <IconPlus />, what: 'The single way in — add a book, a film or show, capture a quote against any work, or bulk-import highlights. A badge on it counts imports waiting for review.' },
-  { term: 'Search', icon: <IconSearch />, what: 'Typo-tolerant search across titles, people, quotes, notes, tags and genres.' },
+  { term: 'Menu (☰)', icon: <IconMenu />, what: 'The drawer: every screen, your profile, and the pending-import queue. Its Add and Search are the deliberately context-free pair — they open with nothing pre-filled, whatever page you came from. Swipe it left or tap outside to close.' },
+  { term: 'Add (＋)', icon: <IconPlus />, what: 'The single way in, and it knows where you are: a book on Library, a film or show on the Catalogue, and a quote against the work whose page you have open. Look-up, capture and bulk import are all tabs of the one surface. A badge on it counts imports waiting for review.' },
+  { term: 'Search', icon: <IconSearch />, what: 'Typo-tolerant search across titles, people, quotes, notes, tags and genres. From Library or the Catalogue it lands scoped to that side; the drawer’s Search clears the scope.' },
+  { term: 'Help (?)', icon: <IconHelp />, what: 'This list — the controls on whichever screen you are looking at, with the shell’s own appended. It sits in the top bar rather than in each page’s header, so it is in the same place on every screen.' },
   { term: 'Bottom bar', what: 'Four thumb-reachable screens — Search, Home, Library, Catalogue. It slides away as you scroll down and comes back as you scroll up.' },
-  { term: 'Avatar chip', what: 'Your profile — photo, display name, password — and, for admins, user management.' },
+  { term: 'Avatar chip', what: 'Opens your profile directly: photo, display name, password, switching accounts, logging out — and, for an admin, the user list and the recovery tools.' },
+  { term: 'Long press', what: 'There is no hover on a phone, so holding any control for half a second shows its label beside it. The hold swallows the tap, so holding Delete to find out what it does never deletes anything.' },
 ]
 
 export const HELP = {
@@ -151,7 +155,7 @@ export const HELP = {
       { term: 'Review', what: 'The knobs on the daily quiz: how many cards, whether covers show, whether Practice moves the schedule, and how much a look lengthens a half-life.' },
       { term: 'Multi-author credits', what: 'Which separators split "Gaiman & Pratchett" into two people. The author line on each book is never rewritten.' },
       { term: 'Devices', what: 'Pair the Android app with this account, and unpair it again.' },
-      { term: 'Backup & restore', what: 'Admin only: a dated archive of everything, restored in place or from another Tippani server.' },
+      { term: 'Backup & restore', what: 'Admin only: one dated, encrypted archive of everything — restored in place, or from a file taken off another Tippani server. The key is your own account name and password unless you set a passphrase when you back up, and restoring asks for whichever it was.' },
       { term: 'Updates', what: 'Admin only, checked on demand — never in the background.' },
     ],
   },
@@ -160,17 +164,11 @@ export const HELP = {
     entries: [
       { term: 'Photo', icon: <IconUpload />, what: 'Your avatar chip. A square image reads best.' },
       { term: 'Display name', what: 'What the greeting and the user list call you.' },
-      { term: 'Password', what: 'Changing it signs out every other browser session — but deliberately leaves paired phones alone.' },
+      { term: 'Switch account', what: 'Sign in as another user on this server. It asks for that account’s password every time — being an admin does not let you in without one — and each account has a fully separate library.' },
+      { term: 'Log out', what: 'Ends this browser session only. Other browsers stay signed in; a paired phone keeps its own token until you unpair it.' },
+      { term: 'Password', what: '8–20 characters — letters, digits and punctuation, no accents. That narrow alphabet is deliberate: your password is also the key to your backup archives, so it has to be typeable on another machine months later. Changing it signs out every other browser session but deliberately leaves paired phones alone — and archives made under the old password still need the old one.' },
+      { term: 'Users on this server', icon: <IconPlus />, what: 'Admin only, and part of this screen rather than its own: add an account, grant or revoke admin (the last admin cannot be demoted), or delete an account and everything in its library. To hand over, grant another user admin first, then revoke your own.' },
       { term: 'Maintenance', what: 'Admin only: rebuild the search index if search starts failing, or reset the whole instance back to first run.' },
-    ],
-  },
-  users: {
-    title: 'User management',
-    entries: [
-      { term: 'Add user', icon: <IconPlus />, what: 'Every user gets a fully separate library.' },
-      { term: 'Make / revoke admin', what: 'Admins manage users, keys, backups and updates. The last admin cannot be demoted.' },
-      { term: 'Delete', icon: <IconDelete />, what: 'Removes the account and everything in its library.' },
-      { term: 'Handing over', what: 'Grant another user admin first, then revoke your own.' },
     ],
   },
   capture: {
@@ -178,7 +176,8 @@ export const HELP = {
     entries: [
       { term: 'Book', what: 'Look one up by title, author or ISBN — covers and details come with it. Manual entry always works, key or no key.' },
       { term: 'Film or show', what: 'Looked up on TMDB and TheTVDB by title and year; picking a match pulls the poster, cast and details.' },
-      { term: 'Capture quote', icon: <IconQuote />, what: 'A line against any work you already have, without leaving the screen you were on.' },
+      { term: 'Capture quote', icon: <IconQuote />, what: 'A line against any work you already have, without leaving the screen you were on. Opened from a book or film’s own page, that work is already filled in — it is the same surface either way, and the only add form there is.' },
+      { term: 'Save (✓)', what: 'In the title bar, not at the foot of the form, so it is reachable on a phone without scrolling past every field. It stays greyed until the must-fill fields are filled, and says which one is missing.' },
       { term: 'Import', icon: <IconUpload />, what: 'Markdown and Readest exports, Kindle Bookcision and your Kindle notebook, Goodreads and Hardcover pages, IMDb quote pages. Everything lands in Pending import first.' },
     ],
   },

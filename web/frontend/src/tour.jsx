@@ -58,7 +58,7 @@ const TOUR_STEPS = [
     more:
       'Next moves on step by step, “skip tour” ends it, and “finish later” saves your place — a Resume button waits in Settings → Onboarding. ' +
       'Nothing here needs your files: every example is built in. ' +
-      'Every screen also carries a “?” button of its own listing what each control on it does — this tour is the once-over, that is the reference.',
+      'The top bar also carries a “?” that lists what every control on whichever screen you are looking at does — this tour is the once-over, that is the reference.',
   },
   {
     key: 'add',
@@ -68,16 +68,17 @@ const TOUR_STEPS = [
     anchor: '[data-tour="add"]',
     body: (
       <>
-        The ＋ pill is the single way in: add a <b>book</b>, add a <b>film or show</b>,{' '}
-        <b>capture a quote</b> against anything you already have, or <b>bulk-import</b> highlights
-        from a file.
+        The ＋ pill is the single way in, and it knows where you are: a <b>book</b> on Library, a{' '}
+        <b>film or show</b> on the Catalogue, a <b>quote</b> against whichever work you have open.
+        Bulk <b>import</b> is a tab of the same surface.
       </>
     ),
     more:
       'Books are looked up by title, author or ISBN and films on TMDB/TheTVDB, with covers and details fetched for you. ' +
       'Import reads Markdown and Readest exports, Kindle Bookcision and your Kindle notebook, Goodreads and Hardcover pages, and IMDb quote pages. ' +
       'An import lands in Pending import first and stays there until you okay it — fix chapters and locations in bulk, move quotes to the right work, then approve or discard. ' +
-      'A count on the ＋ pill says how much is waiting, and re-importing the same file never duplicates anything.',
+      'A count on the ＋ pill says how much is waiting, and re-importing the same file never duplicates anything. ' +
+      'The drawer’s Add is the context-free twin — it opens with nothing pre-filled, wherever you started from.',
   },
   {
     key: 'library',
@@ -154,7 +155,8 @@ const TOUR_STEPS = [
     body: (
       <>
         Instant, <b>typo-tolerant</b> search over everything you have kept, with results sectioned
-        by what matched.
+        by what matched. Started from Library or the Catalogue it arrives scoped to that side;
+        the drawer’s Search clears the scope.
       </>
     ),
     more:
@@ -249,36 +251,39 @@ const TOUR_STEPS = [
   {
     key: 'backup',
     name: 'Backup, restore & updates',
-    blurb: 'one-click dated archive, in-place or cross-server restore, on-demand updates (admin)',
+    blurb: 'one encrypted dated archive, in-place or cross-server restore, on-demand updates (admin)',
     title: 'Sleep well',
     tab: 'settings',
     anchor: '[data-tour="backup"]',
     admin: true,
     body: (
       <>
-        One click builds a dated archive of everything and downloads it. Restore it in place, or
-        upload one from another Tippani server to move house.
+        One click builds a dated archive of everything and downloads it, <b>encrypted</b> with your
+        own password. Restore it here, or restore a file taken off another Tippani to move house.
       </>
     ),
     more:
-      'The archive holds the database, images, users and settings, and the newest copy stays on the server as well as coming down to you. ' +
+      'The archive holds the database, images, users and settings — including password hashes and API keys — which is why it is sealed before it leaves the server. ' +
+      'Your account name and password are the key, so the same archive opens on any Tippani; set a separate passphrase instead if you would rather it were not tied to a login. ' +
+      'Either way the key is never stored anywhere, so keep it: nobody can open the archive without it, including you. ' +
       'Updates are checked on demand only — never in the background — in the card above; with the Docker socket mounted, applying one is a single click.',
   },
   {
     key: 'account',
     name: 'Profile & users',
-    blurb: 'photo, display name, password; per-user libraries; admin user management',
+    blurb: 'photo, display name, password, account switching; per-user libraries; admin user management',
     title: 'Yours, and everyone else’s',
     anchor: '[data-tour="account"]',
     body: (
       <>
-        Behind the avatar chip: your <b>Profile</b> — photo, display name, password. Every user
-        gets a fully separate library.
+        The avatar chip opens your <b>Profile</b> — photo, display name, password, switching to
+        another account, logging out. Every user gets a fully separate library.
       </>
     ),
     more:
-      'Admins manage users from the same place: add, remove, grant or revoke admin. The last remaining admin cannot be demoted, so an instance can never be locked out of itself. ' +
-      'To hand over, grant another user admin first, then revoke your own.',
+      'Admins manage users from the same screen: add, remove, grant or revoke admin. The last remaining admin cannot be demoted, so an instance can never be locked out of itself. ' +
+      'To hand over, grant another user admin first, then revoke your own. ' +
+      'Switching accounts asks for that account’s password every time — being an admin does not let you in without one.',
   },
   {
     key: 'done',
@@ -393,17 +398,17 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
   function finish() {
     put({ tour: 'done', tourStep: 0 })
     onClose()
-    toast('tour complete — replay it anytime from Settings → Onboarding')
+    toast('tour complete · replay in Settings')
   }
   function skip() {
     put({ tour: 'skipped', tourStep: 0 })
     onClose()
-    toast('tour skipped — start it anytime from Settings → Onboarding')
+    toast('tour skipped · start in Settings')
   }
   function later() {
     put({ tour: 'postponed', tourStep: i })
     onClose()
-    toast('place saved — resume from Settings → Onboarding')
+    toast('saved · resume in Settings')
   }
   const next = () => (i >= steps.length - 1 ? finish() : setI(i + 1))
   const back = () => i > 0 && setI(i - 1)

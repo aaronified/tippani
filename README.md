@@ -176,10 +176,14 @@ of that are spelled out in [`AI.md`](AI.md).
   from Open Library cross-checked against the books they wrote, so a same-name namesake isn't picked
   by mistake. They power the group-by headings; a per-person bio lives one tap deeper, and you can
   always paste your own photo. A People console under Metadata manages everyone in your library.
-- 🔐 **Multi-user** — per-user isolated libraries and a **Profile** area (photo · display name ·
-  password) behind the avatar chip; first-run admin onboarding and in-app user management with
-  **admin role grant / revoke / transfer** (the last admin is protected); bcrypt + hashed-token
-  sessions, stdlib CSRF, login rate limiting.
+- 🔐 **Multi-user** — per-user isolated libraries and a **Profile** screen the avatar chip opens
+  directly: photo, display name, password, **switching to another account** (its own password every
+  time — being an admin does not let you in without one), logging out, and, for an admin, the user
+  list itself — add, remove, **grant / revoke / transfer admin** (the last admin is protected).
+  First-run admin onboarding; bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
+  Passwords are 8–20 characters of printable ASCII, which is narrower than it looks arbitrary: a
+  password doubles as the key to your backup archives, so it has to survive being re-typed on
+  another machine's keyboard months later.
 - 📲 **Paired devices** — **Settings → Devices** mints a one-shot pairing code that a native
   client exchanges for a long-lived bearer token, so a phone never holds your password. A device
   stays paired until you unpair it: changing your password signs out browsers but deliberately
@@ -193,14 +197,28 @@ of that are spelled out in [`AI.md`](AI.md).
   **docker-socket-proxy** (**opt-in**, a deliberate security trade-off — see the Configuration
   section), one click pulls the new image and restarts the
   container; otherwise it hands you the exact `docker compose pull && up -d` to run.
-- 💾 **Backup & restore** — one click in Settings builds a dated `tar.gz` of the whole data
-  directory (a consistent snapshot of the live database plus every stored image) and downloads it;
-  the newest backup is kept on the server, and restore — shown with that backup's date — swaps the
-  whole data directory back **in-process**, no Docker socket needed. You can also **upload a backup
-  file** to restore — one downloaded from this or **another Tippani server** — so moving to a new
-  box is just spinning up a fresh instance and uploading your archive (available on the first-run
-  screen too, no SSH required). The archive contains password hashes and API keys, so store it
-  somewhere safe.
+- 💾 **Backup & restore, encrypted** — one click in Settings builds a dated archive of the whole
+  data directory (a consistent snapshot of the live database plus every stored image) and downloads
+  it; the newest is kept on the server, and restoring swaps the whole data directory back
+  **in-process**, no Docker socket needed. One control, two sources: the archive kept here, or a
+  file taken off **another Tippani server** — so moving to a new box is spinning up a fresh instance
+  and handing it your archive (available on the first-run screen too, no SSH required).
+  <br><br>
+  The archive holds every user, every library, password hashes and your API keys, so it is
+  **AES-256-GCM sealed** before it leaves the server, keyed with Argon2id from **your own account
+  name and password** — nothing new to remember, and the same credentials open it on any Tippani.
+  Prefer a **separate passphrase**? Set one when you back up and restore will ask for that instead.
+  Either way the key is never written to disk, never logged, and cannot be recovered: keep it, or
+  the archive is scrap. Restoring reads the archive's header first and asks for exactly the
+  credential it names, so a passphrase-sealed archive never gets met with a password field. It is
+  authenticated as well as encrypted — a tampered or **truncated** archive is refused rather than
+  half-applied, because a backup silently missing its tail looks like a backup. Archives from
+  before 1.4.1 are plain `.tar.gz` and still restore.
+  <br><br>
+  What this is **not**: a fixed key baked into the binary. This repository is MIT-licensed, so that
+  constant would be public, and "encrypted with a published key" reads as protection while
+  providing none. It is also not a signature — anyone holding the credentials can produce a valid
+  archive.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 
@@ -331,7 +349,9 @@ entry still works. Everything else works with no key.
 Runtime tuning for a shared NAS (see [`deploy/tippani.service`](deploy/tippani.service)):
 `GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200`.
 
-Backup: nightly `sqlite3 data/tippani.db "VACUUM INTO 'backup.db'"` from cron, off-peak.
+Backup: nightly `sqlite3 data/tippani.db "VACUUM INTO 'backup.db'"` from cron, off-peak — that
+gives you a plain database file you can inspect. The in-app archive is the whole data directory and
+is encrypted (see *Backup & restore* above); the two are complementary, not alternatives.
 
 ### Serving HTTPS directly (optional)
 

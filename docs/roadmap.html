@@ -777,21 +777,40 @@
     detail screens: every standing paragraph that explained <em>why</em> a control
     exists moved into an info dot beside it, leaving labels and state — counts, "→ joins
     your existing <em>Dune</em>" — on the page, which was always the rule. And there is
-    now a <strong><code>?</code> on every screen</strong>, opening a panel that names
-    every control on it and says what it does. It sits in the page header on most
-    screens and in the ⋯ menu on the two detail screens, whose phone bar already carries
-    a back arrow, a filter, a ＋ and a ⋯ — a fifth 44px control there would have left a
-    book title about eighty pixels to live in.
+    now a <strong><code>?</code> in the top bar</strong>, opening a panel that names
+    every control on whichever screen you are looking at and says what it does.
   </p>
   <p>
-    Two things I had wrong going in, both of them mobile. An info dot that opens a
+    That <code>?</code> was drawn <em>per screen</em> until 1.4.1 — eleven call sites, in
+    each page's own header, plus the ⋯ menu on the detail screens — which made it a
+    property of eleven pages instead of one thing in one place, and on a phone it was
+    competing for the single row a page title also needs. It is a shell control now,
+    beside ＋ Add, Search and the avatar chip, in the same position on every screen. Only
+    the Profile page still carries its own, because it covers the shell bar.
+  </p>
+  <p>
+    Three things I had wrong going in, all of them mobile. An info dot that opens a
     full-screen sheet spends an entire viewport on one sentence, so it opens a small
     popover instead — anchored to the dot with a caret on a pointer device, a compact
-    centred card on a phone. And a hover bubble is simply unreachable with a thumb,
-    which quietly made "move it into an info dot" a non-answer on the device this app is
-    built for; a long press now puts any control's label in a toast at the <em>top</em>
-    of the screen, because the bottom is where the finger, the floating nav bar and the
-    OS gesture strip already are.
+    centred card on a phone. A hover bubble is simply unreachable with a thumb, which
+    quietly made "move it into an info dot" a non-answer on the device this app is built
+    for; a long press shows any control's label instead.
+  </p>
+  <p>
+    And <strong>where that label goes</strong> took two attempts. It was a pill pinned to
+    the top of the screen — chosen because the bottom is where the finger, the floating
+    nav bar and the OS gesture strip already are. Wrong twice over. A label detached from
+    its control answers "what is this?" without saying <em>which</em> "this", and several
+    44px glyphs sit within a thumb's width of each other in these bars. Worse, it was
+    centred with <code>left:50%</code> + <code>translateX(-50%)</code>, which cannot be
+    clamped: a label wider than the viewport hung off both edges and <em>widened the
+    page's scrollable area</em>, so Library and Settings could be dragged sideways into
+    blank space. The old CSS hover bubble had the same fault from the other end — an
+    <code>opacity:0</code> bubble still has a border box. Both are gone. One bubble now
+    serves hover, keyboard focus and long press alike, measured and placed in script,
+    anchored to its control, flipped to whichever side has room and clamped on both axes.
+    Every label in the app is five words or fewer, which is a house rule, not a
+    coincidence: a bubble that needs a paragraph is an info dot.
   </p>
   <p>
     The registry is <code>web/frontend/src/help.jsx</code>, keyed by screen. What remains
@@ -801,7 +820,7 @@
   <ul>
     <li><strong>The info dots should read from it.</strong> The panel does; the dots still carry their copy inline, which is precisely the drift this section exists to end.</li>
     <li><strong><a href="ui-glossary.html">The glossary</a> should be generated from it</strong> — rendered the way this page's own regions are, by a script with a <code>--check</code> mode in CI. Hand-maintained, it is still the document most likely to go quietly stale.</li>
-    <li><strong>The tour should read it too.</strong> Step copy and panel copy overlap today and neither knows about the other.</li>
+    <li><strong>The tour should read it too.</strong> Step copy and panel copy overlap today and neither knows about the other — 1.4.1 had to edit both by hand for the same change, which is the argument.</li>
     <li><strong>Deep links</strong> — <code>/library?help=filters</code>, which the URL routing already supports.</li>
     <li><strong>The completeness test</strong>, the same shape as the one keeping <code>docs/troubleshoot.md</code> in lockstep with <code>internal/olog/codes.go</code>: every screen has an entry, every entry has copy, every dot resolves to a key. That is the difference between "explains every option" as an intention and as a guarantee.</li>
   </ul>
@@ -993,7 +1012,8 @@
   <div class="sec-body">
   <ul>
     <li><strong>A <code>/metrics</code> endpoint</strong> (Prometheus), behind a token and off by default. This audience runs Grafana, and the numbers are already computed for Stats.</li>
-    <li><strong>Off-box backup without a scheduler.</strong> Uploading to rclone, WebDAV or S3 means a background job and a dependency, both of which are refused elsewhere in this document for good reasons. The version that fits is to ship the <em>primitive</em> — a documented one-line <code>curl</code> against the existing backup endpoint, plus a <code>tippani backup --out</code> subcommand — and let the box's own cron do the scheduling it is already running.</li>
+    <li><strong>Off-box backup without a scheduler.</strong> Uploading to rclone, WebDAV or S3 means a background job and a dependency, both of which are refused elsewhere in this document for good reasons. The version that fits is to ship the <em>primitive</em> — a documented one-line <code>curl</code> against the existing backup endpoint, plus a <code>tippani backup --out</code> subcommand — and let the box's own cron do the scheduling it is already running. Cheaper now than it was: since 1.4.1 the archive is encrypted before it leaves the process, so a copy sitting in someone else's bucket is not a copy of your library.</li>
+    <li><strong>A <code>tippani open-backup</code> subcommand.</strong> The archive is sealed (AES-256-GCM, Argon2id off your account name and password, or a passphrase you set), which is right for a file that holds every password hash on the instance and wrong for the moment you want to look inside one without restoring it. A subcommand that takes the credentials and writes the plain <code>.tar.gz</code> to stdout keeps that door open without keeping the archive open — and it belongs to the binary rather than the API, because it needs no server running. Until it exists the format is documented in <code>internal/httpapi/backup_crypto.go</code>, in enough detail to write the fifty lines yourself.</li>
     <li><strong>A read-only mode flag.</strong> The Pages demo already simulates one client-side; a server flag would let someone share a live instance without risk.</li>
     <li><strong>A per-user storage cap</strong>, for anyone hosting for family. Images are the only unbounded growth path in the data directory.</li>
   </ul>

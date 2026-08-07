@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
 import { Card, ErrorText, GhostButton, IconDelete, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
+import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 
-// Account.jsx — the chip-reached account surfaces: Profile (photo · display name
-// · password) and User management (admin roles). On desktop these render inside
-// a pop-up (see AccountOverlay in App.jsx); on mobile they fill a page. Both are
-// plain content components; the overlay owns the framing + close.
+// The display name's ceiling. Not a security bound — just the width the greeting
+// and the user list can lay out without wrapping into two lines.
+const NAME_MAX = 40
+
+// Account.jsx — the ONE chip-reached account surface: Profile. On desktop it
+// renders inside a pop-up (see AccountOverlay in App.jsx); on mobile it fills a
+// page. It is a plain content component; the overlay owns the framing + close.
+//
+// 1.4.1 collapsed a menu into this screen. The avatar chip used to open a
+// dropdown offering Profile, User management (admins) and Log out, and the
+// drawer repeated the same three rows — so "my account" was a menu of screens
+// rather than a screen. The chip now opens Profile directly and everything that
+// menu offered is a section here: switching accounts, logging out, and, for an
+// admin, the user list. One tap instead of two, and one place to look.
 
 function FieldLabel({ children }) {
   return <MonoLabel className="mb-1.5 block">{children}</MonoLabel>
@@ -94,9 +105,12 @@ function NameForm({ user, onUser }) {
           style={{ flex: 1, minWidth: 160 }}
           value={name}
           autoComplete="off"
+          maxLength={NAME_MAX}
           onChange={(e) => { setName(e.target.value); setDone(false) }}
         />
-        <StickerButton disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save name'}</StickerButton>
+        <StickerButton disabled={busy || !dirty || !name.trim()} title={!name.trim() ? 'A name is required' : undefined}>
+          {busy ? 'Saving…' : 'Save name'}
+        </StickerButton>
       </div>
       {done && <p style={{ fontSize: 13, color: 'var(--soft)' }}>Name updated.</p>}
       <ErrorText>{err}</ErrorText>
@@ -114,11 +128,17 @@ function PasswordForm() {
   const [done, setDone] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  // Every must-fill rule, in one expression the guard and the button share, so
+  // the button cannot be pressable in a state the handler would refuse.
+  const missing = !current
+    ? 'Enter your current password'
+    : passwordProblem(next) || (next !== repeat ? 'The new passwords do not match' : '')
+
   async function submit(e) {
     e.preventDefault()
     setError('')
     setDone(false)
-    if (next !== repeat) return setError('new passwords do not match')
+    if (missing) return setError(missing)
     setBusy(true)
     const r = await json('POST', '/auth/password', { current, new: next })
     setBusy(false)
@@ -136,15 +156,95 @@ function PasswordForm() {
     <form onSubmit={submit} className="space-y-3">
       <span className="flex items-center gap-1.5">
         <FieldLabel>Change password</FieldLabel>
-        <InfoDot title="Change password" text="Changing your password signs out every other browser session. Paired phones are deliberately left alone, so a routine password change can’t silently unpair a device you can’t easily get to." />
+        <InfoDot
+          title="Change password"
+          text={
+            `${PASSWORD_MIN}–${PASSWORD_MAX} characters — letters, digits and punctuation, no accents or non-Latin script. ` +
+            'That alphabet is narrow on purpose: your password doubles as the key to your backup archives, so it has to be typeable ' +
+            'on another machine months later, and an accented character that arrives as different bytes would leave an archive that will not open. ' +
+            'Changing it signs out every other browser session. Paired phones are deliberately left alone, so a routine password change can’t ' +
+            'silently unpair a device you can’t easily get to — but archives made under the OLD password still need the old one.'
+          }
+        />
       </span>
-      <input className="tp-input" placeholder="current password" type="password" value={current} autoComplete="current-password" onChange={(e) => setCurrent(e.target.value)} />
-      <input className="tp-input" placeholder="new password (min 8)" type="password" value={next} autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
-      <input className="tp-input" placeholder="repeat new password" type="password" value={repeat} autoComplete="new-password" onChange={(e) => setRepeat(e.target.value)} />
+      <input className="tp-input" placeholder="current password" type="password" value={current} autoComplete="current-password" maxLength={PASSWORD_MAX} onChange={(e) => setCurrent(e.target.value)} />
+      <input className="tp-input" placeholder={`new password (${PASSWORD_MIN}–${PASSWORD_MAX})`} type="password" value={next} autoComplete="new-password" maxLength={PASSWORD_MAX} onChange={(e) => setNext(e.target.value)} />
+      <input className="tp-input" placeholder="repeat new password" type="password" value={repeat} autoComplete="new-password" maxLength={PASSWORD_MAX} onChange={(e) => setRepeat(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       {done && <p style={{ fontSize: 13.5, color: 'var(--soft)' }}>Password updated.</p>}
-      <StickerButton className="w-full" disabled={busy}>Update password</StickerButton>
+      {/* Greyed with the reason on it, rather than pressable and answering with
+          an error a moment later. */}
+      <StickerButton className="w-full" disabled={busy || !!missing} title={missing || undefined}>
+        Update password
+      </StickerButton>
+      {missing && next.length > 0 && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
     </form>
+  )
+}
+
+// SwitchAccount — sign in as someone else without going out through the login
+// screen. It is a real re-authentication, not an impersonation: the password is
+// checked by POST /auth/login exactly as it is at the front door, and the server
+// retires the session you arrived with once the new one is issued. A wrong
+// password changes nothing, which is why this can live one tap inside Profile.
+function SwitchAccount({ me }) {
+  const [open, setOpen] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const sameUser = username.trim() === (me?.username || '')
+  const missing = !username.trim()
+    ? 'Enter the account name'
+    : sameUser
+      ? 'That is the account you are already in'
+      : !password
+        ? 'Enter that account’s password'
+        : ''
+
+  async function submit(e) {
+    e.preventDefault()
+    if (missing) return setErr(missing)
+    setBusy(true)
+    setErr('')
+    const r = await json('POST', '/auth/login', { username: username.trim(), password })
+    if (r.ok) {
+      // A whole new user's library, preferences and theme — a reload is the
+      // honest way to get all of it, rather than patching a dozen caches.
+      window.location.href = '/'
+      return
+    }
+    setBusy(false)
+    setErr(errText(r, 'could not switch account'))
+  }
+
+  return (
+    <div className="space-y-3">
+      <span className="flex items-center gap-1.5">
+        <FieldLabel>Switch account</FieldLabel>
+        <InfoDot
+          title="Switch account"
+          text="Signs you in as another user on this server — each account has a fully separate library, so nothing is shared or merged. It asks for that account’s password every time; there is no stored list of accounts to click through, and being an admin does not let you in without one."
+        />
+      </span>
+      {!open ? (
+        <GhostButton onClick={() => setOpen(true)}>Switch to another account…</GhostButton>
+      ) : (
+        <form onSubmit={submit} className="space-y-2">
+          <input className="tp-input" placeholder="account name" value={username} autoComplete="username" onChange={(e) => { setUsername(e.target.value); setErr('') }} />
+          <input className="tp-input" placeholder="password" type="password" value={password} autoComplete="current-password" maxLength={PASSWORD_MAX} onChange={(e) => { setPassword(e.target.value); setErr('') }} />
+          <ErrorText>{err}</ErrorText>
+          <div className="flex flex-wrap gap-2">
+            <StickerButton disabled={busy || !!missing} title={missing || undefined}>
+              {busy ? 'Switching…' : 'Sign in'}
+            </StickerButton>
+            <GhostButton type="button" onClick={() => { setOpen(false); setUsername(''); setPassword(''); setErr('') }}>
+              Cancel
+            </GhostButton>
+          </div>
+        </form>
+      )}
+    </div>
   )
 }
 
@@ -261,18 +361,50 @@ function MaintenanceCard() {
   )
 }
 
-export function Profile({ user, onUser }) {
+// Profile — everything about "you on this server", in the order you would ask
+// it: who you are, then which account you are in, then your password, then (for
+// an admin) everyone else's accounts and the recovery tools.
+export function Profile({ user, onUser, logout }) {
   return (
     <div className="space-y-5">
       <Card pad="p-5"><AvatarRow user={user} onUser={onUser} /></Card>
       <Card pad="p-5"><NameForm user={user} onUser={onUser} /></Card>
+      {/* Session: the two things the avatar chip's dropdown used to be for. */}
+      <Card pad="p-5">
+        <div className="space-y-4">
+          <SwitchAccount me={user} />
+          <hr style={{ border: 'none', borderTop: '1px dashed var(--line)' }} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <p className="text-sm font-semibold">Log out</p>
+              <InfoDot title="Log out" text="Ends this browser session only. Other browsers stay signed in, and a paired phone keeps its own token — unpair it from Settings › Devices if you want it out too." />
+            </div>
+            {logout && <GhostButton onClick={logout}>Log out</GhostButton>}
+          </div>
+        </div>
+      </Card>
       <Card pad="p-5"><PasswordForm /></Card>
+      {/* Admin sections. User management was its own chip-menu destination until
+          1.4.1; it is a section here because "the accounts on this server" is
+          part of the same answer as "my account", and a menu of two screens is
+          not worth a menu. */}
+      {user?.is_admin && (
+        <Card pad="p-5">
+          <span className="flex items-center gap-1.5">
+            <FieldLabel>Users on this server</FieldLabel>
+            <InfoDot title="User management" text="Every user gets a fully separate library — books, quotes, tags, stickers and preferences are never shared. To hand over the primary admin, grant another user admin first, then revoke your own; the last remaining admin cannot be demoted." />
+          </span>
+          <UserManagement me={user} />
+        </Card>
+      )}
       {user?.is_admin && <MaintenanceCard />}
     </div>
   )
 }
 
 // ---- User management (admin only): add / remove / grant-revoke admin ----
+// Rendered as a section INSIDE Profile (see above), so it supplies no card of
+// its own — the heading and the surrounding Card belong to its host.
 
 export function UserManagement({ me }) {
   const [users, setUsers] = useState([])
@@ -320,8 +452,12 @@ export function UserManagement({ me }) {
     else setError(errText(r, 'could not delete user'))
   }
 
+  // A new account needs both fields, and the password has to be one the server
+  // will take — greying the button is how that is said, rather than a 400.
+  const addMissing = !username.trim() ? 'Enter a username' : passwordProblem(password)
+
   return (
-    <Card pad="p-5">
+    <div>
       <ul className="space-y-1">
         {users.map((u) => {
           const isMe = u.id === me.id
@@ -366,11 +502,22 @@ export function UserManagement({ me }) {
 
       <form onSubmit={addUser} className="mt-4 flex flex-wrap items-center gap-2">
         <input className="tp-input" style={{ flex: 1, minWidth: 130 }} placeholder="username" value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} />
-        <input className="tp-input" style={{ flex: 1, minWidth: 130 }} placeholder="password (min 8)" type="password" value={password} autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
-        <StickerButton>Add user</StickerButton>
-        <InfoDot title="Adding users" text="Every user gets a fully separate library — books, quotes, tags, stickers and preferences are never shared. To hand over the primary admin, grant another user admin first, then revoke your own; the last remaining admin cannot be demoted." />
+        <input
+          className="tp-input"
+          style={{ flex: 1, minWidth: 130 }}
+          placeholder={`password (${PASSWORD_MIN}–${PASSWORD_MAX})`}
+          type="password"
+          value={password}
+          autoComplete="new-password"
+          maxLength={PASSWORD_MAX}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <StickerButton disabled={!!addMissing} title={addMissing || undefined}>Add user</StickerButton>
       </form>
+      {addMissing && password.length > 0 && (
+        <p className="microcopy mt-1" style={{ color: 'var(--faint)' }}>{addMissing}.</p>
+      )}
       <ErrorText>{error}</ErrorText>
-    </Card>
+    </div>
   )
 }

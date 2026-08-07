@@ -110,7 +110,7 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
   const kindChip = item.type === 'person' ? item.kind : item.type
   return (
     <HandCard className="px-4 py-3">
-      <Tooltip label="Show or hide the proposed changes" side="top" className="w-full">
+      <Tooltip label="Show the proposed changes" side="top" className="w-full">
         <button
           type="button"
           className="flex w-full items-center gap-2 text-left"

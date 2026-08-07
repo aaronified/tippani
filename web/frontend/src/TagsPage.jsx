@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
-import { PageHelp } from './help.jsx'
 import {
   ColorSwatches,
   EmptyState,
@@ -52,7 +51,6 @@ export default function TagsPage() {
         <PageHeader
           title="Tags"
           counts={tags ? `${tags.length} tag${tags.length === 1 ? '' : 's'} · shared by books & films` : undefined}
-          right={<PageHelp screen="tags" />}
         />
       </div>
       <ErrorText>{error}</ErrorText>

@@ -47,6 +47,15 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Switching accounts from Profile logs in over a session that is still valid,
+	// and startSession only overwrites the COOKIE — the old row would sit in the
+	// sessions table until it expired, reachable by anyone who had the token.
+	// Retire it here, after the password check, so a failed switch leaves the
+	// session you are still using alone.
+	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
+		_ = s.Sessions.Delete(c.Value)
+	}
+
 	s.startSession(w, r, id, req.Username)
 }
 
@@ -76,7 +85,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if n == 0 {
 		resp["backup"] = nil
 		if name, info := s.newestBackup(); name != "" {
-			resp["backup"] = backupMeta(name, info)
+			// Includes how the archive is keyed, so onboarding can ask for the
+			// right credential instead of guessing. For an account-keyed archive
+			// that means the account NAME appears on an unauthenticated endpoint —
+			// acceptable here and nowhere else: this branch only runs while the
+			// users table is empty, the operator is the person who put the archive
+			// there, and without the name they cannot be told whose password to
+			// type. It stops being reported the moment an account exists.
+			resp["backup"] = s.backupMetaAt(s.backupsDir(), name, info)
 		}
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -529,16 +545,42 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// bcrypt rejects inputs longer than 72 bytes; validate up front so we return a
-// clean 400 instead of a 500 out of HashPassword.
-const maxPasswordBytes = 72
+// Password shape (1.4.1). The upper bound used to be bcrypt's own 72-byte limit,
+// validated only so a long password returned a clean 400 instead of a 500 out of
+// HashPassword. It is 20 CHARACTERS now, and the alphabet is printable ASCII, for
+// a reason beyond taste: a password is also a backup-archive passphrase (see
+// backup_crypto.go), so it has to survive being typed on a phone keyboard, on
+// another machine's keyboard, and possibly months later on a fresh install where
+// getting it wrong means the archive does not open. Diacritics and non-Latin
+// input are exactly what does not survive that trip — the same glyph can arrive
+// as one code point or as two, and the bytes that get hashed differ.
+const (
+	minPasswordChars = 8
+	maxPasswordChars = 20
+)
+
+// asciiPrintable reports whether every byte is in the printable ASCII range
+// (0x20 space through 0x7E "~"). A multi-byte UTF-8 sequence necessarily has a
+// byte ≥ 0x80, so scanning bytes rejects every non-ASCII rune without decoding.
+func asciiPrintable(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
 
 func passwordProblem(pw string) string {
 	switch {
-	case len(pw) < 8:
+	case len(pw) < minPasswordChars:
 		return "password must be at least 8 characters"
-	case len(pw) > maxPasswordBytes:
-		return "password must be at most 72 bytes"
+	// Length in BYTES is the right check given asciiPrintable below: for ASCII
+	// the two are the same, and a non-ASCII password is refused outright.
+	case len(pw) > maxPasswordChars:
+		return "password must be at most 20 characters"
+	case !asciiPrintable(pw):
+		return "password may use letters, digits and punctuation only — no accents or non-Latin characters"
 	}
 	return ""
 }

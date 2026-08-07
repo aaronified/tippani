@@ -10,7 +10,7 @@ import StagingPage from './StagingPage.jsx'
 import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
-import { DEMO, apiURL, coverImgURL, json, upload, uploadWithProgress } from './api.js'
+import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
   EdgeRow,
   ErrorBoundary,
@@ -35,8 +35,9 @@ import {
   useIsMobileScreen,
   useResolvedDark,
 } from './ui.jsx'
-import { Profile, UserManagement } from './Account.jsx'
+import { Profile } from './Account.jsx'
 import { PageHelp } from './help.jsx'
+import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
 import { FeatureTour } from './tour.jsx'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
@@ -124,6 +125,9 @@ async function refreshMe() {
 // CredentialForm is the shared username/password form for login and
 // onboarding; `film` picks the film-dark primary button (§6).
 function CredentialForm({ header, action, cta, microcopy, film = false, onSuccess }) {
+  // Signing up sets a password; logging in only proves one. The rules apply to
+  // the former (see `missing` below).
+  const signup = action !== '/auth/login'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -153,6 +157,13 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
   }
 
   const Primary = film ? FilmButton : StickerButton
+  const missing = !username.trim()
+    ? 'Enter your username'
+    : !password
+      ? 'Enter your password'
+      : signup
+        ? passwordProblem(password)
+        : ''
   return (
     <form onSubmit={submit} className="hand-card w-full max-w-sm px-8 py-9">
       <div className="mb-7 text-center">{header}</div>
@@ -165,49 +176,112 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
       />
       <Field
         label="Password"
-        placeholder="password"
+        placeholder={signup ? `password (${PASSWORD_MIN}–${PASSWORD_MAX})` : 'password'}
         type="password"
         value={password}
-        autoComplete={action === '/auth/login' ? 'current-password' : 'new-password'}
+        autoComplete={signup ? 'new-password' : 'current-password'}
+        maxLength={PASSWORD_MAX}
         onChange={(e) => setPassword(e.target.value)}
       />
       <div className="mt-3">
         <ErrorText>{error}</ErrorText>
       </div>
-      <Primary className="mt-4 w-full" disabled={busy}>
+      {/* Greyed with the reason on it until both fields can be accepted. Logging
+          IN only needs something typed — an old password that predates the
+          1.4.1 rules still has to be usable — but CREATING an account is held to
+          them, because that is the password an archive will be encrypted with. */}
+      <Primary className="mt-4 w-full" disabled={busy || !!missing} title={missing || undefined}>
         {cta}
       </Primary>
+      {missing && password.length > 0 && <p className="microcopy mt-2 text-center">{missing}.</p>}
       {microcopy && <p className="microcopy mt-5 text-center">{microcopy}</p>}
     </form>
   )
 }
 
 // Onboarding — paper-light centered card; first account becomes admin (§8.1).
-// When the server holds a backup archive (backup ≠ null, from /auth/status),
-// a second card offers restoring it instead — the moving-to-a-new-box path.
+// When the server holds a backup archive (backup ≠ null, from /auth/status), or
+// the operator has one on disk, restoring it is offered instead — the
+// moving-to-a-new-box path.
+//
+// Since 1.4.1 an archive is sealed, so restoring here needs its key even though a
+// fresh box has nothing to lose: nothing-to-lose is about the overwrite, not about
+// the reading. /auth/status therefore reports how the kept archive is keyed, and a
+// chosen FILE is sniffed client-side (sniffArchiveKey, secret.js) for the same
+// reason — there is no session here to infer an account from, so the operator has
+// to be told whose password to type rather than guess.
+//
+// The two restore cards are one card with a source picker now, mirroring the
+// Settings twin. Two nearly identical cards, each with its own paragraph, was the
+// first thing a new operator saw.
 function Onboarding({ onDone, backup }) {
-  const [restoring, setRestoring] = useState(false)
-  const [restoreError, setRestoreError] = useState('')
-  // Upload-restore: a backup file from another (or this) server — no SSH needed.
+  const [source, setSource] = useState(backup ? 'server' : 'file')
   const [file, setFile] = useState(null)
+  const [fileKey, setFileKey] = useState(null)
   const [phase, setPhase] = useState('idle') // idle | uploading | restoring
   const [pct, setPct] = useState(0)
-  const [uploadError, setUploadError] = useState('')
+  const [error, setError] = useState('')
+  // Credentials, asked for according to what the chosen archive wants.
+  const [account, setAccount] = useState('')
+  const [password, setPassword] = useState('')
+  const [passphrase, setPassphrase] = useState('')
   const fileRef = useRef(null)
   useEffect(() => {
     applyTheme({ aesthetic: 'paper', theme: 'light' })
   }, [])
 
+  const target = source === 'file' ? (file ? { ...fileKey, name: file.name } : null) : backup
+  const key = target?.key || (target ? 'none' : '')
+  // The kept archive names its account; a chosen file names it too (from its
+  // header). Seed the field from whichever, but let it be corrected.
+  useEffect(() => {
+    if (key === 'account') setAccount((a) => a || target?.account || '')
+  }, [key, target?.account])
+
+  async function chooseFile(f) {
+    setFile(f)
+    setError('')
+    setFileKey(f ? await sniffArchiveKey(f) : null)
+  }
+
+  const missing = !target
+    ? source === 'file' ? 'Choose a backup file' : 'No backup on this server'
+    : key === 'passphrase'
+      ? passphrase ? '' : 'Enter the archive\u2019s passphrase'
+      : key === 'account'
+        ? !account.trim()
+          ? 'Name the account the archive was made under'
+          : !password
+            ? 'Enter that account\u2019s password'
+            : ''
+        : '' // pre-1.4.1 plain archive: no key, and nothing here to lose
+
+  const creds = () =>
+    key === 'passphrase' ? { passphrase } : key === 'account' ? { username: account.trim(), password } : {}
+
   async function restore() {
-    setRestoring(true)
-    setRestoreError('')
+    if (missing || phase !== 'idle') return
+    setError('')
+    setPhase(source === 'file' ? 'uploading' : 'restoring')
+    setPct(0)
     try {
-      const r = await json('POST', '/auth/restore')
-      if (!r.ok) {
-        setRestoring(false)
-        return setRestoreError((r.data && r.data.error) || 'restore failed')
+      let r
+      if (source === 'file') {
+        const form = new FormData()
+        for (const [k, v] of Object.entries(creds())) form.append(k, v)
+        form.append('file', file)
+        r = await uploadWithProgress('/auth/restore/upload', form, (f) => {
+          setPct(Math.round(f * 100))
+          if (f >= 1) setPhase('restoring')
+        })
+      } else {
+        r = await json('POST', '/auth/restore', creds())
       }
-      toast('restore complete — log in with your account from the backup')
+      if (!r.ok) {
+        setPhase('idle')
+        return setError((r.data && r.data.error) || 'restore failed')
+      }
+      toast('restored · log in again')
       // Reload → /auth/status now reports onboarding closed → the login screen.
       setTimeout(() => window.location.reload(), 1200)
     } catch {
@@ -217,30 +291,7 @@ function Onboarding({ onDone, backup }) {
     }
   }
 
-  async function restoreFromFile() {
-    if (!file || phase !== 'idle') return
-    setPhase('uploading')
-    setPct(0)
-    setUploadError('')
-    const form = new FormData()
-    form.append('file', file)
-    try {
-      const r = await uploadWithProgress('/auth/restore/upload', form, (f) => {
-        setPct(Math.round(f * 100))
-        if (f >= 1) setPhase('restoring') // upload done, server applying
-      })
-      if (!r.ok) {
-        setPhase('idle')
-        return setUploadError((r.data && r.data.error) || 'restore failed')
-      }
-      toast('restore complete — log in with your account from the backup')
-      setTimeout(() => window.location.reload(), 1200)
-    } catch {
-      // A large restore can outlive the connection even when it succeeds
-      // server-side; reload to re-check /auth/status rather than freeze here.
-      setTimeout(() => window.location.reload(), 1200)
-    }
-  }
+  const busyLabel = phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : ''
 
   return (
     <main
@@ -262,45 +313,83 @@ function Onboarding({ onDone, backup }) {
         microcopy="onboarding closes once a user exists"
         onSuccess={onDone}
       />
-      {backup && (
-        <div className="hand-card w-full max-w-sm px-8 py-6 text-center">
-          <p className="mono-label mb-2">or restore a backup</p>
-          <p className="text-sm" style={{ color: 'var(--soft)' }}>
-            This server has a backup from{' '}
-            <b>{new Date(backup.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b>.
-            Restoring loads everything in it — accounts, libraries and settings — then you log in
-            with the credentials from that backup.
-          </p>
-          <GhostButton className="mt-4 w-full" onClick={restore} disabled={restoring}>
-            {restoring ? 'Restoring…' : 'Restore this backup'}
-          </GhostButton>
-          <div className="mt-2">
-            <ErrorText>{restoreError}</ErrorText>
-          </div>
-        </div>
-      )}
-      <div className="hand-card w-full max-w-sm px-8 py-6 text-center">
-        <p className="mono-label mb-2">or restore from a backup file</p>
-        <p className="text-sm" style={{ color: 'var(--soft)' }}>
-          Moving from another server? Upload a backup downloaded from it to load everything —
-          accounts, libraries and settings — then log in with the credentials from that backup.
+      {/* One restore, two sources — the kept archive or a file off another box. */}
+      <div className="hand-card w-full max-w-sm px-8 py-6">
+        <p className="mono-label mb-2 text-center">or restore a backup</p>
+        <p className="mb-3 text-sm" style={{ color: 'var(--soft)' }}>
+          Loads everything in it — accounts, libraries and settings — then you log in with the credentials
+          from that backup.
         </p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".tar.gz,.tgz,application/gzip"
-          aria-label="Choose a backup file to restore"
-          className="hidden"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        <Toggle
+          ariaLabel="Restore from"
+          value={source}
+          onChange={(v) => { setSource(v); setError('') }}
+          options={[['server', 'This server'], ['file', 'A file']]}
         />
-        <GhostButton className="mt-3 w-full" onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
-          {file ? file.name : 'Choose backup file…'}
+        {source === 'server' && (
+          <p className="microcopy mt-2">
+            {backup
+              ? <>archive from <b>{new Date(backup.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b></>
+              : 'nothing in this server\u2019s backups folder'}
+          </p>
+        )}
+        {source === 'file' && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream"
+              aria-label="Choose a backup file to restore"
+              className="hidden"
+              onChange={(e) => chooseFile(e.target.files?.[0] || null)}
+            />
+            <GhostButton className="mt-3 w-full" onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
+              {file ? file.name : 'Choose backup file…'}
+            </GhostButton>
+          </>
+        )}
+        {/* Exactly the field the chosen archive's own header asks for. */}
+        {key === 'passphrase' && (
+          <div className="mt-3">
+            <Field
+              label="Passphrase"
+              placeholder="the archive’s passphrase"
+              type="password"
+              value={passphrase}
+              maxLength={PASSPHRASE_MAX}
+              onChange={(e) => { setPassphrase(e.target.value); setError('') }}
+            />
+          </div>
+        )}
+        {key === 'account' && (
+          <div className="mt-3">
+            <Field
+              label="Account"
+              placeholder="the account it was made under"
+              value={account}
+              autoComplete="username"
+              onChange={(e) => { setAccount(e.target.value); setError('') }}
+            />
+            <Field
+              label="Password"
+              placeholder="that account’s password"
+              type="password"
+              value={password}
+              autoComplete="current-password"
+              maxLength={PASSWORD_MAX}
+              onChange={(e) => { setPassword(e.target.value); setError('') }}
+            />
+          </div>
+        )}
+        {key === 'none' && target && (
+          <p className="microcopy mt-2">this archive predates 1.4.1 and carries no key</p>
+        )}
+        <GhostButton className="mt-3 w-full" onClick={restore} disabled={!!missing || phase !== 'idle'} title={missing || undefined}>
+          {busyLabel || 'Restore'}
         </GhostButton>
-        <GhostButton className="mt-2 w-full" onClick={restoreFromFile} disabled={!file || phase !== 'idle'}>
-          {phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : 'Restore from file'}
-        </GhostButton>
+        {missing && <p className="microcopy mt-2 text-center">{missing}.</p>}
         <div className="mt-2">
-          <ErrorText>{uploadError}</ErrorText>
+          <ErrorText>{error}</ErrorText>
         </div>
       </div>
     </main>
@@ -465,49 +554,9 @@ function TabIcon({ name }) {
   }
 }
 
-// AvatarControl uploads / clears the user's avatar image from the user-chip
-// menu. Upload is immediate (its own endpoint, ≤5 MB); on success the new path
-// is lifted to App so the chip re-renders. The image is served from /covers.
-function AvatarControl({ user, onUser }) {
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  async function onFile(e) {
-    const f = e.target.files && e.target.files[0]
-    e.target.value = '' // allow re-picking the same file
-    if (!f) return
-    setBusy(true)
-    setErr('')
-    const r = await upload('/auth/me/avatar', f)
-    setBusy(false)
-    if (r.ok) onUser({ avatar_path: r.data.avatar_path })
-    else setErr(r.data?.error || 'upload failed')
-  }
-  async function remove() {
-    const r = await json('DELETE', '/auth/me/avatar')
-    if (r.ok) onUser({ avatar_path: '' })
-  }
-  return (
-    <div className="mb-2 flex flex-col gap-0.5">
-      <label className="menu-item" style={{ cursor: 'pointer' }}>
-        <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
-        <span aria-hidden="true">☺</span>
-        {busy ? 'Uploading…' : user.avatar_path ? 'Change photo' : 'Upload photo'}
-      </label>
-      {user.avatar_path && (
-        <button className="menu-item" onClick={remove}>
-          <span aria-hidden="true">⌫</span>
-          Remove photo
-        </button>
-      )}
-      {err && <p className="tp-error px-1" style={{ fontSize: 12 }}>{err}</p>}
-    </div>
-  )
-}
-
-// NavToggle/UserMenu render in both the topbar (desktop) and bottom-nav
-// (mobile) — CSS shows only one at a time, but both stay mounted, so these are
-// real components (not inline closures in Shell) to avoid remounting the
-// Toggle's measured DOM state and the avatar upload state on every render.
+// DesktopNav renders in the topbar. It is a real component (not an inline
+// closure in Shell) so a Shell re-render does not remount the Toggle and lose the
+// DOM measurements its sliding thumb is positioned from.
 // tabOptions renders a [key,label] list as Toggle segments (icon + label).
 function tabOptions(pairs) {
   return pairs.map(([key, label]) => [key, <><TabIcon name={key} /> <span className="tab-label">{label}</span></>])
@@ -566,66 +615,43 @@ function useIconOnlyNav() {
   return [ref, iconOnly]
 }
 
-// AccountMenu — the avatar chip and its dropdown: Profile · User management
-// (admin) · Log out. Self-contained (own open state + outside-click). Profile /
-// User management open via onOpenView; AccountOverlay decides pop-up vs page.
-// Avatar upload + password now live inside Profile, not here.
-function AccountMenu({ user, onOpenView, logout }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-  const openView = (v) => { setOpen(false); onOpenView(v) }
+// AccountChip — the avatar in both top bars. It opens Profile, full stop.
+//
+// It used to open a dropdown: Profile · User management (admin) · Log out — and
+// the drawer carried the same rows again. Every one of those is a section of
+// Profile now (see Account.jsx), so the menu was a list of one screen's parts
+// standing between the chip and that screen. One tap, and nothing to learn.
+function AccountChip({ user, onOpen }) {
   return (
-    <div className="relative user-menu" ref={ref}>
-      <Tooltip label="Open your account menu" side="bottom" className="shrink-0">
-        <button className="user-chip" data-tour="account" aria-haspopup="true" aria-expanded={open} aria-label="Account" onClick={() => setOpen((m) => !m)}>
-          <UserAvatar user={user} />
-        </button>
-      </Tooltip>
-      {open && (
-        <div className="hand-card hc-r2 user-menu-panel z-50 min-w-48 px-3 py-3 text-left" style={{ right: 0 }}>
-          <p className="mono-label mb-2 px-1">{user.username}{user.is_admin ? ' · admin' : ''}</p>
-          <div className="mb-2 flex flex-col gap-0.5">
-            <button className="menu-item" onClick={() => openView('profile')}>
-              <span aria-hidden="true">☺</span> Profile
-            </button>
-            {user.is_admin && (
-              <button className="menu-item" onClick={() => openView('users')}>
-                <span aria-hidden="true">⚐</span> User management
-              </button>
-            )}
-          </div>
-          <GhostButton className="w-full" onClick={logout}>Log out</GhostButton>
-        </div>
-      )}
-    </div>
+    <Tooltip label="Your profile" side="bottom" className="shrink-0">
+      <button className="user-chip" data-tour="account" aria-label={`Profile — ${user.username}`} onClick={onOpen}>
+        <UserAvatar user={user} />
+      </button>
+    </Tooltip>
   )
 }
 
-// AccountOverlay frames Profile / User management: a centered pop-up on desktop
-// (few options), a full-screen page on phones. Escape / backdrop / back closes.
-function AccountOverlay({ view, user, onUser, onClose }) {
+// AccountOverlay frames Profile: a centered pop-up on desktop, a full-screen page
+// on phones. Escape / backdrop / back closes. It framed two views until 1.4.1
+// (Profile and User management); the second is a section of the first now, so
+// there is one title and one help entry.
+function AccountOverlay({ user, onUser, onClose, logout }) {
   const mobile = useIsMobileScreen()
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
-  const title = view === 'users' ? 'User management' : 'Profile'
-  const help = view === 'users' ? 'users' : 'profile'
-  const body = view === 'users' ? <UserManagement me={user} /> : <Profile user={user} onUser={onUser} />
+  const body = <Profile user={user} onUser={onUser} logout={logout} />
   if (mobile) {
     return (
-      <div className="account-page" role="dialog" aria-label={title}>
+      <div className="account-page" role="dialog" aria-label="Profile">
         <header className="account-page-bar">
           <Tooltip label="Close and go back" side="bottom"><button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label="Back"><IconBack /></button></Tooltip>
-          <span className="account-page-title">{title}</span>
-          <span className="ml-auto"><PageHelp screen={help} /></span>
+          <span className="account-page-title">Profile</span>
+          {/* This page covers the shell bar, so it carries its own "?" — the one
+              screen that still does. */}
+          <span className="ml-auto"><PageHelp screen="profile" /></span>
         </header>
         <div className="account-page-body">{body}</div>
       </div>
@@ -633,10 +659,10 @@ function AccountOverlay({ view, user, onUser, onClose }) {
   }
   return (
     <div className="account-scrim" onMouseDown={onClose}>
-      <div className="account-modal" role="dialog" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="account-modal" role="dialog" aria-label="Profile" onMouseDown={(e) => e.stopPropagation()}>
         <div className="account-modal-bar">
-          <h2 className="account-modal-title">{title}</h2>
-          <PageHelp screen={help} />
+          <h2 className="account-modal-title">Profile</h2>
+          <PageHelp screen="profile" />
           <Tooltip label="Close this panel" side="bottom"><button type="button" className="account-close" onClick={onClose} aria-label="Close">×</button></Tooltip>
         </div>
         <div className="account-modal-body">{body}</div>
@@ -654,6 +680,38 @@ function AccountOverlay({ view, user, onUser, onClose }) {
 // tab: Import stopped being a permanent destination in 0.4.3, so the queue is
 // reached from the ＋ Add surface, its badge, and the Home nudge.
 const ROUTE_TABS = ['search', 'tags', 'metadata', 'stats', 'settings', 'staging']
+
+// ---- what the shell's three context-aware controls read off the route ----
+// One Add, one Search and one Help live in the top bar, and each of them means
+// something slightly different depending on where you are. Deriving all three
+// from (tab, detail) in one place keeps the three from disagreeing — and keeps
+// the answer next to the routing table it is derived from.
+
+// helpScreen — which help.jsx entry the top bar's "?" opens.
+function helpScreen(tab, detail) {
+  if (detail?.type === 'book') return 'book-detail'
+  if (detail?.type === 'movie') return 'movie-detail'
+  return tab
+}
+
+// addSection — which section the ＋ opens on. A list page offers the kind of
+// thing that list holds; a work you have open offers a quote against it (the
+// Shell pairs this with `addFor`, the target), because on a book's own page "add"
+// means a highlight, not another book. Everywhere else it is the plain look-up card.
+function addSection(tab, detail) {
+  if (detail) return 'quote'
+  if (tab === 'movies') return 'film'
+  return 'book'
+}
+
+// searchScope — what the top bar's Search lands pre-filtered to. SearchPage
+// persists its own scope, so this writes the same key it reads.
+function searchScope(tab, detail) {
+  if (tab === 'library' || detail?.type === 'book') return 'books'
+  if (tab === 'movies' || detail?.type === 'movie') return 'movies'
+  return 'all'
+}
+
 function parsePath(pathname) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   // "/" is the Home screen (daily review); unknown paths land there too.
@@ -717,7 +775,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, pending, pendingImport, streak, update, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, update, logout, dark, onUser }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -844,7 +902,9 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
                 type="button"
                 className={'drawer-item' + (tab === t[0] ? ' active' : '')}
                 aria-current={tab === t[0] ? 'page' : undefined}
-                onClick={() => { selectTab(t[0]); onClose() }}
+                // Search is the one row with more to it than a destination: it
+                // drops any scope the top bar's context-aware Search left behind.
+                onClick={() => { if (t[0] === 'search' && onSearch) onSearch(); else selectTab(t[0]); onClose() }}
               >
                 <TabIcon name={t[0]} />
                 {t[1]}
@@ -852,28 +912,19 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
               </button>
             ),
           )}
-          {/* Account section: Profile (+ User management for admins) — the same
-              views the desktop avatar-chip menu opens, surfaced as their own
-              drawer group on mobile. */}
+          {/* One account row. User management was a second one until 1.4.1 —
+              it is a section of Profile now, so the drawer stops offering a
+              choice between a screen and part of that screen. */}
           <div className="drawer-divider" aria-hidden="true" />
           <button
             type="button"
             className="drawer-item"
-            onClick={() => { onAccount('profile'); onClose() }}
+            onClick={() => { onAccount(); onClose() }}
           >
             <TabIcon name="profile" />
             Profile
+            <span className="drawer-badge">{user.is_admin ? 'account · users' : 'account'}</span>
           </button>
-          {user.is_admin && (
-            <button
-              type="button"
-              className="drawer-item"
-              onClick={() => { onAccount('users'); onClose() }}
-            >
-              <TabIcon name="users" />
-              User management
-            </button>
-          )}
         </div>
         <div className="drawer-footer">
           <span className="user-chip" aria-hidden="true">
@@ -896,7 +947,7 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
           className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pb-3 pt-2"
           style={{ borderTop: '1px solid var(--line)' }}
         >
-          <Tooltip label="Open the release notes on GitHub" side="top">
+          <Tooltip label="Release notes on GitHub" side="top">
             <a
               href={user.releases_url || 'https://github.com/aaronified/tippani/releases'}
               target="_blank"
@@ -930,7 +981,7 @@ function Drawer({ open, onClose, tab, selectTab, onAdd, onAccount, user, stats, 
 // /catalogue). Icon-only: TabIcon's glyph is the affordance, the aria-label
 // carries the name.
 const BOTTOM_TABS = [
-  ['search', 'Search', 'Search titles, authors, quotes and notes'],
+  ['search', 'Search', 'Search everything'],
   ['home', 'Home', "Go home to today's review"],
   ['library', 'Library', 'Open your book library'],
   ['movies', 'Catalogue', 'Open your film catalogue'],
@@ -991,15 +1042,32 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const initialTab = initial.tab === 'import' ? 'home' : initial.tab
   const [tab, setTab] = useState(initialTab)
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
-  const [accountView, setAccountView] = useState(null) // null | 'profile' | 'users'
+  // Profile is one screen with everything in it now (see AccountOverlay), so
+  // this is open/closed rather than which-of-two-views.
+  const [profileOpen, setProfileOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   // The single "＋ Add" surface (§7 One "＋ Add"): book · film · quote · import.
+  // 1.4.1 made it the ONLY one — the Library and Catalogue page headers had their
+  // own ＋, and a book's own page had a separate "Add annotation" modal, so there
+  // were three surfaces for one job. Those call sites open this, with `sec` and
+  // `target` carrying the context they used to imply.
   const [addOpen, setAddOpen] = useState(false)
-  const [addSection, setAddSection] = useState('book')
-  const openAdd = (section = 'book') => {
-    setAddSection(section)
+  const [addSec, setAddSec] = useState('book')
+  const [addTarget, setAddTarget] = useState(null) // {type:'book'|'movie', id} | null
+  const openAdd = (sec = 'book', target = null) => {
+    setAddSec(sec)
+    setAddTarget(target)
     setAddOpen(true)
   }
+  // dataNonce ticks whenever the shell's Add surface writes anything — a work, a
+  // quote. Every add form used to live INSIDE the screen that owned the list it
+  // changed, so saving could just call that screen's load(); the one surface is a
+  // sibling of all of them, and this is how the list that was added to learns to
+  // refetch. Deliberately one counter rather than one per kind: a captured quote
+  // moves a book's quote count and can retract its Wishlist tag, so the book list
+  // wants to hear about it too.
+  const [dataNonce, setDataNonce] = useState(0)
+  const bumpData = () => setDataNonce((n) => n + 1)
   // pending = cards left in today's review deck; feeds the notification dot on
   // the brand mark and the drawer's Home row. Seeded once here, then kept
   // honest by the Home screen as answers land.
@@ -1032,7 +1100,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   const mobile = useIsMobileScreen()
   const navHidden = useHideOnScrollDown({
     enabled: mobile,
-    forceShow: drawerOpen || addOpen || !!accountView || !!tourState,
+    forceShow: drawerOpen || addOpen || profileOpen || !!tourState,
     resetKey: tab,
   })
   useEffect(() => {
@@ -1126,13 +1194,26 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // reads localStorage once) and jumps there — used by Metadata drill-downs and
   // every clickable Stats entity / activity dot. Scope resets so hits aren't
   // hidden by a stale books/movies pick.
-  function searchFor(q) {
+  function searchFor(q, scope = 'all') {
     try {
       localStorage.setItem('tippani:search:q', JSON.stringify(q))
-      localStorage.setItem('tippani:search:scope', JSON.stringify('all'))
+      localStorage.setItem('tippani:search:scope', JSON.stringify(scope))
     } catch { /* private mode — search just opens empty */ }
     selectTab('search')
   }
+  // searchScoped seeds the scope SearchPage will read on mount and goes there.
+  // The query is left alone: the box remembers your last one, and clearing it
+  // would make an ordinary navigation destructive.
+  function searchScoped(scope) {
+    try {
+      localStorage.setItem('tippani:search:scope', JSON.stringify(scope))
+    } catch { /* private mode — the box keeps whatever it had */ }
+    selectTab('search')
+  }
+  // The top bar's Search lands scoped to whatever you were looking at (Library →
+  // Books, Catalogue → Movies), because a search started from a list is nearly
+  // always a search of that list. The drawer's Search clears the scope instead.
+  const openSearch = () => searchScoped(searchScope(tab, detail))
 
   async function logout() {
     await fetch(apiURL('/auth/logout'), { method: 'POST' })
@@ -1143,6 +1224,15 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // The ＋ Add pill carries the staging count, because that is where imports
   // start and where the queue is reached from.
   const importBadge = pendingImport > 0 && <span className="add-badge">{pendingImport}</span>
+  // The three context-aware shell controls, resolved once per render off the
+  // route (see helpScreen / addSection / searchScope above the Shell).
+  const help = helpScreen(tab, detail)
+  const addKind = addSection(tab, detail)
+  // A work you have open is the capture target the ＋ pre-fills. openAdd takes
+  // the target rather than reading `detail` itself, so the drawer's Add — which
+  // must default to nothing — can call the same function with no target.
+  const addFor = detail ? { type: detail.type, id: detail.id } : null
+  const addLabel = addKind === 'quote' ? 'Capture a quote' : addKind === 'film' ? 'Add a film or show' : 'Add or import'
 
   return (
     <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
@@ -1159,20 +1249,24 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           <nav ref={navRef} aria-label="Primary" className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
             <DesktopNav tab={tab} onChange={selectTab} />
           </nav>
+          {/* Add · Search · Help · chip — the same four, in the same order, as the
+              phone bar below. Each of the first three reads the current route
+              (addSection / searchScope / helpScreen). */}
           <div className="ml-auto flex items-center gap-2.5">
-            {/* §7 One "＋ Add": the single way to add a book, a film, or import. */}
+            {/* §7 One "＋ Add", now context-aware: on Library it adds a book, on
+                the Catalogue a film or show, and on a work's own page it captures
+                a quote against that work. */}
             <Tooltip
               side="bottom"
               className="shrink-0"
-              label={pendingImport > 0
-                ? `Add a book, film or quote, or import highlights — ${pendingImport} imported quotes are waiting for review`
-                : 'Add a book, film or quote, or import highlights'}
+              label={pendingImport > 0 ? `${pendingImport} imports awaiting review` : addLabel}
             >
               <button
                 type="button"
                 className="topbar-add-btn tactile"
                 data-tour="add"
-                onClick={() => openAdd('book')}
+                aria-label={addLabel}
+                onClick={() => openAdd(addKind, addFor)}
               >
                 <IconPlus />
                 <span>Add</span>
@@ -1183,18 +1277,23 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 accent texture — the phone top bar already works this way.
                 (Quote capture lives inside the ＋ Add surface's Capture tab —
                 no separate top-bar pill.) */}
-            <Tooltip label="Search titles, authors, quotes and notes" side="bottom" className="shrink-0">
+            <Tooltip label="Search everything" side="bottom" className="shrink-0">
               <button
                 type="button"
                 className="topbar-add-btn tactile icon-only"
                 data-tour="search"
-                onClick={() => selectTab('search')}
+                onClick={openSearch}
                 aria-label="Search"
               >
                 <IconSearch />
               </button>
             </Tooltip>
-            <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
+            {/* Help moved out of the page headers and into the bar in 1.4.1: it
+                is a shell control like the other three, it was drawn in eleven
+                different places, and on a phone it was competing for the one row
+                a page title also needs. */}
+            <PageHelp screen={help} />
+            <AccountChip user={user} onOpen={() => setProfileOpen(true)} />
           </div>
         </div>
       </header>
@@ -1217,20 +1316,21 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               </button>
             </Tooltip>
             <span className="flex-1" />
-            {/* §7 One "＋ Add": same surface as the desktop pill — book · film ·
-                quote · import toggle; ❝ opens it straight on Capture quote. */}
-            <Tooltip label="Add a book, film or quote, or import highlights" side="bottom" className="shrink-0">
-              <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label="Add a book, film or quote, or import highlights" onClick={() => openAdd('book')}>
+            {/* ＋ · Search · ? · chip — the same four the desktop bar carries, in
+                the same order, all reading the current route. */}
+            <Tooltip label={pendingImport > 0 ? `${pendingImport} imports awaiting review` : addLabel} side="bottom" className="shrink-0">
+              <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label={addLabel} onClick={() => openAdd(addKind, addFor)}>
                 <IconPlus />
                 {importBadge}
               </button>
             </Tooltip>
-            <Tooltip label="Search titles, authors, quotes and notes" side="bottom" className="shrink-0">
-              <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={() => selectTab('search')}>
+            <Tooltip label="Search everything" side="bottom" className="shrink-0">
+              <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={openSearch}>
                 <IconSearch />
               </button>
             </Tooltip>
-            <AccountMenu user={user} onOpenView={setAccountView} logout={logout} />
+            <PageHelp screen={help} />
+            <AccountChip user={user} onOpen={() => setProfileOpen(true)} />
           </header>
         )}
         <ErrorBoundary key={tab} label={`The ${tab} screen`}>
@@ -1258,9 +1358,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onClose={() => go('library', null)}
               onOpenMovie={openMovie}
               creditSeparators={user.preferences?.creditSeparators}
-              pendingImport={pendingImport}
-              onReviewImport={() => selectTab('staging')}
-              onStaged={refreshPendingImport}
+              onAdd={openAdd}
+              dataNonce={dataNonce}
             />
           </div>
         )}
@@ -1271,9 +1370,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpen={openMovie}
               onClose={() => go('movies', null)}
               creditSeparators={user.preferences?.creditSeparators}
-              pendingImport={pendingImport}
-              onReviewImport={() => selectTab('staging')}
-              onStaged={refreshPendingImport}
+              onAdd={openAdd}
+              dataNonce={dataNonce}
             />
           </div>
         )}
@@ -1332,8 +1430,14 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         onClose={() => setDrawerOpen(false)}
         tab={tab}
         selectTab={selectTab}
+        // The drawer is the deliberately CONTEXT-FREE route to both: its Add
+        // opens the plain look-up card with nothing pre-filled, and its Search
+        // clears the scope rather than inheriting the last page's. The top bar's
+        // pair is the context-aware one; having both behave the same way would
+        // leave no way to escape a scope you did not choose.
+        onSearch={() => searchScoped('all')}
         onAdd={() => openAdd('book')}
-        onAccount={setAccountView}
+        onAccount={() => setProfileOpen(true)}
         user={user}
         stats={stats}
         pending={pending}
@@ -1346,7 +1450,8 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       />
       <AddSurface
         open={addOpen}
-        initialSection={addSection}
+        initialSection={addSec}
+        initialTarget={addTarget}
         pendingImport={pendingImport}
         onReviewImport={() => { setAddOpen(false); selectTab('staging') }}
         onStaged={refreshPendingImport}
@@ -1354,20 +1459,26 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         onAdded={(what) => {
           setAddOpen(false)
           refreshStats()
-          // Land on the list for what was just added so it's visible.
+          bumpData()
+          // Land on the list for what was just added so it's visible. When that is
+          // the list you were already on, go() changes no state and nothing
+          // remounts — which is exactly why bumpData() above is not optional.
           go(what === 'film' ? 'movies' : 'library', null)
         }}
         onCaptured={() => {
           // A captured quote closes the surface but stays put — capture is a
-          // jot-and-return gesture, not a navigation.
+          // jot-and-return gesture, not a navigation. On a work's own page that
+          // page has to refetch, though, or the quote you just wrote is missing
+          // from the list you are looking at (see dataNonce).
           setAddOpen(false)
           refreshStats()
+          bumpData()
         }}
         onWorkCreated={refreshStats}
         onOpenMovie={openMovie}
       />
-      {accountView && (
-        <AccountOverlay view={accountView} user={user} onUser={onUser} onClose={() => setAccountView(null)} />
+      {profileOpen && (
+        <AccountOverlay user={user} onUser={onUser} logout={logout} onClose={() => setProfileOpen(false)} />
       )}
       {tourState && (
         <FeatureTour

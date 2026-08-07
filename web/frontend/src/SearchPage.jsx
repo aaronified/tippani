@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { PageHelp } from './help.jsx'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { ShareDialog, bookShare, movieShare } from './share.jsx'
@@ -119,37 +118,32 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 
   return (
     <section className="space-y-5">
-      {/* Search has no PageHeader — the box IS the header — so the screen's "?"
-          rides beside it rather than in a title row that doesn't exist. */}
+      {/* Search has no PageHeader — the box IS the header. Nothing rides beside
+          it any more either: the screen's "?" moved to the shell bar in 1.4.1, so
+          the box gets the whole width it always wanted. */}
       {mobile && (
         <div className="mobile-sticky-bar">
-          <div className="flex items-center gap-2">
-            <input
-              className="tp-input"
-              style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }}
-              placeholder="Search titles, authors, genres, quotes, notes…"
-              value={q}
-              autoFocus
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <PageHelp screen="search" />
-          </div>
-        </div>
-      )}
-      {!mobile && (
-        <div className="flex items-center gap-3">
           <input
             className="tp-input"
-            // lineHeight:1 tightens the display serif's tall line box so the UA
-            // centres the glyphs in the field instead of seating them high.
-            style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px' }}
+            style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }}
             placeholder="Search titles, authors, genres, quotes, notes…"
             value={q}
             autoFocus
             onChange={(e) => setQ(e.target.value)}
           />
-          <PageHelp screen="search" />
         </div>
+      )}
+      {!mobile && (
+        <input
+          className="tp-input"
+          // lineHeight:1 tightens the display serif's tall line box so the UA
+          // centres the glyphs in the field instead of seating them high.
+          style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }}
+          placeholder="Search titles, authors, genres, quotes, notes…"
+          value={q}
+          autoFocus
+          onChange={(e) => setQ(e.target.value)}
+        />
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -692,6 +686,13 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
   const isTag = bulk.kind === 'tag'
   const isBook = bulk.kind === 'book-fields'
 
+  // Nothing typed is the must-fill case here — a bulk action over N rows that
+  // sets nothing is a no-op with a confirmation, which is worse than a greyed
+  // button. Same predicate as the guards inside apply().
+  const nothingSet = isTag
+    ? splitCommas(text).length === 0
+    : !nameField.trim() && !series.trim() && splitCommas(text).length === 0
+
   async function apply() {
     const body = { ids }
     if (isTag) {
@@ -729,7 +730,14 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply() } }}
       />
-      <button className="tp-btn tp-btn-primary" disabled={busy} onClick={apply}>Apply to {n}</button>
+      <button
+        className="tp-btn tp-btn-primary"
+        disabled={busy || nothingSet}
+        title={nothingSet ? (isTag ? 'Type at least one tag' : 'Set a field first') : undefined}
+        onClick={apply}
+      >
+        Apply to {n}
+      </button>
       {err && <span className="microcopy" style={{ color: 'var(--error)' }}>{err}</span>}
     </BulkBar>
   )

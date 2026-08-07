@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
-import { PageHelp } from './help.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
+import { createPortal } from 'react-dom'
+import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   Card,
   ErrorText,
@@ -14,6 +15,7 @@ import {
   IconEdit,
   InfoDot,
   Masonry,
+  MobileSheet,
   MonoLabel,
   PageHeader,
   StickerButton,
@@ -68,12 +70,12 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
     <DevicesCard key="devices" />,
     user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
-    user.is_admin && <BackupCard key="backup" />,
+    user.is_admin && <BackupCard key="backup" user={user} />,
   ].filter(Boolean)
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} right={<PageHelp screen="settings" />} />
+        <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       </div>
       <Appearance onPreferences={onPreferences} />
       <Masonry columns={ncols} gap={24}>{cards}</Masonry>
@@ -258,12 +260,12 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
       if (ping.ok) return window.location.reload()
     }
     setPhase('failed')
-    toast('the app didn’t come back automatically — reload the page in a moment')
+    toast('reload in a moment')
   }
 
   const copyCmd = async () => {
     const ok = await copyText(info?.guided_command || '')
-    toast(ok ? 'command copied' : 'couldn’t copy — select the command and copy manually')
+    toast(ok ? 'command copied' : 'copy failed — select it manually')
   }
 
   return (
@@ -273,7 +275,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
         <div className="flex items-baseline gap-2">
           <MonoLabel>version</MonoLabel>
           {user?.releases_url ? (
-            <Tooltip label="Read the release notes on GitHub" side="bottom">
+            <Tooltip label="Release notes on GitHub" side="bottom">
               <a
                 href={user.releases_url}
                 target="_blank"
@@ -388,13 +390,29 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
   )
 }
 
-// BackupCard (admin only) — server-side backup & restore (§ backup). Exactly
-// one dated tar.gz of the whole data dir is kept in <data>/backups: "Back up
-// now" builds a fresh one (older ones are dropped once it exists) and starts
-// the download; the restore block shows that backup's date and replaces
-// EVERYTHING on the server with its contents, in-process — no Docker socket.
-// A second restore path uploads a backup file (from this or ANOTHER Tippani
-// server), the move-to-a-new-box / point-in-time path.
+// BackupCard (admin only) — server-side backup & restore (§ backup). Exactly one
+// dated, ENCRYPTED archive of the whole data dir is kept in <data>/backups: "Back
+// up now" builds a fresh one (older ones are dropped once it exists) and starts
+// the download; restoring replaces EVERYTHING on the server with its contents,
+// in-process — no Docker socket.
+//
+// 1.4.1 rewrote this card around three complaints, all of them fair.
+//
+// It was TWO restores. One button restored the archive on the server, a second
+// restored an archive from disk, each with its own warning paragraph and its own
+// typed confirmation — two of everything for one operation whose only real
+// variable is where the file is. It is one control now with a source picker: the
+// kept archive, or a file. Everything downstream reads that one choice.
+//
+// It was a WALL OF TEXT. Three red paragraphs saying much the same thing, above
+// the buttons, on a screen already dense. The consequences have not changed and
+// are not softened — but they are one line each now, in the dialog you are
+// standing in when they apply, which is where a warning is actually read.
+//
+// And it needs a KEY. The archive is sealed (backup_crypto.go), so backing up
+// asks for your password (or a passphrase you set), and restoring asks for
+// whatever the chosen archive's own header says it wants — which is why the
+// source picker resolves `keyOf` before the prompt opens rather than guessing.
 // The Reference card — two link-out buttons to the hand-written UI glossary and
 // the roadmap — was removed here and from the demo. The glossary it pointed at
 // is the one thing on this screen the "?" button on every screen now does
@@ -608,15 +626,263 @@ function fmtStamp(s) {
   return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function BackupCard() {
-  const [backup, setBackup] = useState(null) // {name, created, size} | null
-  const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false)
+// RestorePrompt — the one dialog every restore goes through. Full-screen on a
+// phone (it is a form with a password in it, and a cramped centred card is how
+// people mistype passwords), a centred card on desktop, cancellable from either.
+//
+// It asks for exactly what the chosen archive needs and nothing else:
+//
+//   passphrase   one field.
+//   account, mine    one field — my password. The account is already known.
+//   account, theirs  two — whose account, and its password.
+//   none (pre-1.4.1) the typed RESTORE, because there is no key to stand for it.
+//
+// The consequence line lives here rather than on the card: this is the moment it
+// applies, and a warning you have to scroll past on the way to something else is
+// a warning nobody reads.
+function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
+  const mobile = useIsMobileScreen()
+  const key = meta?.key || 'none'
+  const theirs = key === 'account' && meta.account && meta.account !== me
+  const [account, setAccount] = useState(meta?.account || me || '')
+  const [password, setPassword] = useState('')
+  const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [restoring, setRestoring] = useState(false)
-  // Upload-restore: a backup file the admin chooses from disk.
+
+  const missing =
+    key === 'passphrase'
+      ? passphrase ? '' : 'Enter the passphrase this archive was sealed with'
+      : key === 'account'
+        ? !account.trim()
+          ? 'Name the account this archive was made under'
+          : !password
+            ? `Enter ${theirs ? '\u2018' + account.trim() + '\u2019' : 'your'} password`
+            : ''
+        : confirm !== 'RESTORE'
+          ? 'Type RESTORE to confirm'
+          : ''
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (missing || busyLabel) return
+    onConfirm(
+      key === 'passphrase'
+        ? { passphrase }
+        : key === 'account'
+          ? { username: account.trim(), password }
+          : { confirm: 'RESTORE' },
+    )
+  }
+
+  const body = (
+    <form onSubmit={submit} className="space-y-3">
+      <p className="microcopy" style={{ color: 'var(--error)' }}>
+        Replaces everything on this server{meta?.created ? ` with the backup from ${fmtWhen(meta.created)}` : ''} — every
+        user, library and setting. Everyone is logged out. The data being replaced is kept on the server as one
+        recovery copy.
+      </p>
+      {key === 'passphrase' && (
+        <label className="tp-field">
+          <MonoLabel>Passphrase</MonoLabel>
+          <input
+            className="tp-input"
+            type="password"
+            autoFocus
+            maxLength={PASSPHRASE_MAX}
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+          />
+        </label>
+      )}
+      {key === 'account' && (
+        <>
+          {theirs && (
+            <label className="tp-field">
+              <MonoLabel>Account</MonoLabel>
+              <input className="tp-input" value={account} autoComplete="username" onChange={(e) => setAccount(e.target.value)} />
+            </label>
+          )}
+          <label className="tp-field">
+            <MonoLabel>{theirs ? 'That account\u2019s password' : 'Your password'}</MonoLabel>
+            <input
+              className="tp-input"
+              type="password"
+              autoFocus
+              autoComplete="current-password"
+              maxLength={PASSWORD_MAX}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+        </>
+      )}
+      {key !== 'passphrase' && key !== 'account' && (
+        <label className="tp-field">
+          <MonoLabel>Type RESTORE</MonoLabel>
+          <input
+            className="tp-input"
+            style={{ fontFamily: 'var(--font-mono)' }}
+            autoFocus
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <p className="microcopy">This archive predates 1.4.1 and carries no key, so the typed word is the confirmation.</p>
+        </label>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <StickerButton disabled={!!missing || !!busyLabel} title={missing || undefined}>
+          {busyLabel || 'Restore'}
+        </StickerButton>
+        <GhostButton type="button" disabled={!!busyLabel} onClick={onCancel}>Cancel</GhostButton>
+      </div>
+      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
+    </form>
+  )
+
+  if (mobile) {
+    return createPortal(
+      <MobileSheet open onClose={busyLabel ? () => {} : onCancel} title="Restore" dismissOnScrim={false}>
+        {body}
+      </MobileSheet>,
+      document.body,
+    )
+  }
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      style={{ background: 'rgba(21,16,12,.55)' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Restore"
+      onMouseDown={(e) => { if (e.target === e.currentTarget && !busyLabel) onCancel() }}
+    >
+      <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Restore</h2>
+          <Tooltip label="Cancel" side="bottom">
+            <button type="button" className="account-close" onClick={onCancel} aria-label="Cancel" disabled={!!busyLabel}>×</button>
+          </Tooltip>
+        </div>
+        {body}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// BackupPrompt — the twin on the way in: seal this archive with my password, or
+// with a passphrase. Same framing as RestorePrompt, deliberately: the two are one
+// operation seen from either end, and they should not look like different
+// features.
+function BackupPrompt({ me, busy, onCancel, onConfirm }) {
+  const mobile = useIsMobileScreen()
+  const [usePhrase, setUsePhrase] = useState(false)
+  const [password, setPassword] = useState('')
+  const [passphrase, setPassphrase] = useState('')
+  const missing = usePhrase ? passphraseProblem(passphrase) : password ? '' : 'Enter your password'
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (missing || busy) return
+    onConfirm(usePhrase ? { passphrase } : { password })
+  }
+
+  const body = (
+    <form onSubmit={submit} className="space-y-3">
+      <p className="microcopy">
+        The archive holds every user, library, password hash and API key, so it is encrypted before it leaves the
+        server. Keep the key: without it the archive cannot be opened, here or anywhere.
+      </p>
+      {!usePhrase ? (
+        <label className="tp-field">
+          <MonoLabel>Your password</MonoLabel>
+          <input
+            className="tp-input"
+            type="password"
+            autoFocus
+            autoComplete="current-password"
+            maxLength={PASSWORD_MAX}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <p className="microcopy">
+            ‘{me}’ and this password will open the archive on any Tippani. Change your password later and older
+            archives still want the old one.
+          </p>
+        </label>
+      ) : (
+        <label className="tp-field">
+          <MonoLabel>Passphrase · {PASSPHRASE_MIN}–{PASSPHRASE_MAX} characters</MonoLabel>
+          <input
+            className="tp-input"
+            type="password"
+            autoFocus
+            maxLength={PASSPHRASE_MAX}
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+          />
+          <p className="microcopy">Not tied to any account — and not recoverable. Lose it and the archive is lost.</p>
+        </label>
+      )}
+      <button type="button" className="tp-link block" onClick={() => setUsePhrase((v) => !v)}>
+        {usePhrase ? 'Use my account password instead' : 'Set a separate passphrase instead'}
+      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <StickerButton disabled={!!missing || busy} title={missing || undefined}>
+          {busy ? 'Backing up…' : 'Back up & download'}
+        </StickerButton>
+        <GhostButton type="button" disabled={busy} onClick={onCancel}>Cancel</GhostButton>
+      </div>
+      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
+    </form>
+  )
+
+  if (mobile) {
+    return createPortal(
+      <MobileSheet open onClose={busy ? () => {} : onCancel} title="Back up" dismissOnScrim={false}>
+        {body}
+      </MobileSheet>,
+      document.body,
+    )
+  }
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      style={{ background: 'rgba(21,16,12,.55)' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Back up"
+      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}
+    >
+      <div className="hand-card hc-r2 w-full" style={{ maxWidth: 460, padding: '18px 20px 20px' }}>
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Back up</h2>
+          <Tooltip label="Cancel" side="bottom">
+            <button type="button" className="account-close" onClick={onCancel} aria-label="Cancel" disabled={busy}>×</button>
+          </Tooltip>
+        </div>
+        {body}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+const fmtWhen = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+
+function BackupCard({ user }) {
+  const [backup, setBackup] = useState(null) // {name, created, size, key, account} | null
+  const [loaded, setLoaded] = useState(false)
+  const [busy, setBusy] = useState(false) // creating
+  const [asking, setAsking] = useState(false) // backup prompt open
+  // ONE restore, with a source. 'server' = the archive kept here; 'file' = one
+  // chosen from disk (from this server or another). The two used to be separate
+  // blocks with separate warnings and separate confirmations.
+  const [source, setSource] = useState('server')
   const [file, setFile] = useState(null)
-  const [upConfirm, setUpConfirm] = useState('')
+  const [fileKey, setFileKey] = useState(null) // sniffArchiveKey result for `file`
+  const [prompt, setPrompt] = useState(false) // restore prompt open
   const [phase, setPhase] = useState('idle') // idle | uploading | restoring
   const [pct, setPct] = useState(0)
   const fileRef = useRef(null)
@@ -628,52 +894,50 @@ function BackupCard() {
     })
   }, [])
 
-  async function create() {
+  async function chooseFile(f) {
+    setFile(f)
+    setFileKey(f ? await sniffArchiveKey(f) : null)
+  }
+
+  async function create(creds) {
     setBusy(true)
-    const r = await json('POST', '/admin/backup')
+    const r = await json('POST', '/admin/backup', creds)
     setBusy(false)
     if (!r.ok) return toast(errText(r, 'backup failed'))
+    setAsking(false)
     setBackup(r.data.backup)
     toast('backup created — downloading')
     // Cookie-authed same-origin GET: the browser streams the file itself.
     window.location.href = apiURL('/admin/backup/download')
   }
 
-  async function restore() {
-    if (confirm !== 'RESTORE' || !backup || restoring) return
-    setRestoring(true)
-    try {
-      const r = await json('POST', '/admin/restore', { confirm: 'RESTORE' })
-      if (!r.ok) {
-        setRestoring(false)
-        return toast(errText(r, 'restore failed — the current data is intact'))
-      }
-      toast('restore complete — logging you out')
-      setTimeout(() => window.location.reload(), 1200)
-    } catch {
-      // A large restore can outlive the connection even when it succeeds
-      // server-side; reload rather than freeze on 'Restoring…'.
-      setTimeout(() => window.location.reload(), 1200)
-    }
-  }
+  // The archive the restore prompt is about, and therefore which credential it
+  // asks for: the kept one's metadata comes from the server, a chosen file's from
+  // its own first bytes.
+  const target = source === 'file' ? (file ? { ...fileKey, name: file.name } : null) : backup
 
-  async function restoreUpload() {
-    if (!file || upConfirm !== 'RESTORE' || phase !== 'idle') return
-    setPhase('uploading')
+  async function restore(creds) {
+    if (!target) return
+    setPhase(source === 'file' ? 'uploading' : 'restoring')
     setPct(0)
-    const form = new FormData()
-    form.append('confirm', 'RESTORE') // the admin "type RESTORE" guard, sent alongside the file
-    form.append('file', file)
     try {
-      const r = await uploadWithProgress('/admin/restore/upload', form, (f) => {
-        setPct(Math.round(f * 100))
-        if (f >= 1) setPhase('restoring') // upload done, server applying
-      })
+      let r
+      if (source === 'file') {
+        const form = new FormData()
+        for (const [k, v] of Object.entries(creds)) form.append(k, v)
+        form.append('file', file)
+        r = await uploadWithProgress('/admin/restore/upload', form, (f) => {
+          setPct(Math.round(f * 100))
+          if (f >= 1) setPhase('restoring') // upload done, server applying
+        })
+      } else {
+        r = await json('POST', '/admin/restore', creds)
+      }
       if (!r.ok) {
         setPhase('idle')
-        return toast(errText(r, 'restore failed — the current data is intact'))
+        return toast(errText(r, 'restore failed — data intact'))
       }
-      toast('restore complete — logging you out')
+      toast('restored · logging you out')
       setTimeout(() => window.location.reload(), 1200)
     } catch {
       // A large restore can outlive the connection even when it succeeds
@@ -682,15 +946,32 @@ function BackupCard() {
     }
   }
 
-  const fmtWhen = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-  const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`)
+  const busyLabel = phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : ''
+  // What the chosen source will ask for, said before you commit to it — so the
+  // prompt is never a surprise, and a file whose passphrase you do not have is
+  // obvious before the upload starts.
+  const asks =
+    !target
+      ? ''
+      : target.key === 'passphrase'
+        ? 'asks for its passphrase'
+        : target.key === 'account'
+          ? `asks for ${target.account === user.username ? 'your password' : `‘${target.account}’ and their password`}`
+          : target.key === 'unknown'
+            ? 'unreadable — the restore will say why'
+            : 'predates 1.4.1 · no key, asks you to type RESTORE'
 
   return (
     <Card data-tour="backup">
-      <SectionTitle>Backup &amp; restore</SectionTitle>
-      <div className="space-y-3">
+      <SectionTitle
+        info="One dated, encrypted archive of everything — your library, images, users and settings, including password hashes and API keys. Only the newest is kept on the server. It is sealed with your account password, or a passphrase you choose; without that key nobody can open it, including you."
+        infoTitle="Backup & restore"
+      >
+        Backup &amp; restore
+      </SectionTitle>
+      <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <GhostButton onClick={create} disabled={busy || restoring}>
+          <GhostButton onClick={() => setAsking(true)} disabled={busy || phase !== 'idle'}>
             {busy ? 'Backing up…' : 'Back up now'}
           </GhostButton>
           {backup && (
@@ -698,7 +979,6 @@ function BackupCard() {
               download
             </a>
           )}
-          <InfoDot text="A complete archive of your library, images, users and settings — including password hashes and API keys, so store the download somewhere safe. The server keeps only the most recent backup." />
         </div>
         {loaded && (
           <p className="microcopy">
@@ -711,62 +991,54 @@ function BackupCard() {
             )}
           </p>
         )}
-        {backup && (
-          <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
-            <p className="microcopy" style={{ color: 'var(--error)' }}>
-              Restoring replaces everything on this server with the backup from{' '}
-              <b>{fmtWhen(backup.created)}</b> — all current users, libraries and settings are
-              overwritten, and everyone is logged out.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                className="tp-input"
-                style={{ maxWidth: 140, fontFamily: 'var(--font-mono)' }}
-                placeholder="RESTORE"
-                aria-label="Type RESTORE to confirm"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-              <StickerButton onClick={restore} disabled={confirm !== 'RESTORE' || restoring || busy}>
-                {restoring ? 'Restoring…' : 'Restore this backup'}
-              </StickerButton>
-            </div>
-          </div>
-        )}
-        <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
-          <p className="microcopy" style={{ color: 'var(--error)' }}>
-            Or restore from a backup <b>file</b> — one downloaded from this or another Tippani
-            server. This replaces everything here with the file's contents; everyone is logged out.
-          </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".tar.gz,.tgz,application/gzip"
-            className="hidden"
-            aria-label="Choose a backup file to restore"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <GhostButton onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
-              {file ? 'Choose a different file…' : 'Choose backup file…'}
-            </GhostButton>
-            <span className="microcopy">{file ? `${file.name} · ${fmtSize(file.size)}` : 'no file chosen'}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              className="tp-input"
-              style={{ maxWidth: 140, fontFamily: 'var(--font-mono)' }}
-              placeholder="RESTORE"
-              aria-label="Type RESTORE to confirm the upload restore"
-              value={upConfirm}
-              onChange={(e) => setUpConfirm(e.target.value)}
-              disabled={phase !== 'idle'}
+
+        <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+          <div className="flex items-center gap-1.5">
+            <MonoLabel>restore from</MonoLabel>
+            <InfoDot
+              title="Restoring"
+              text="Replaces everything on this server with the archive's contents — every user, library and setting — and logs everyone out. The data being replaced is kept as one recovery copy in the data directory until the next restore. Restoring a file taken off another Tippani is how you move to a new box; the archive must not come from a newer version than this server."
             />
+          </div>
+          {/* One control, two sources. Choosing the source is the whole difference
+              between what used to be two separate restore blocks. */}
+          <Toggle
+            ariaLabel="Restore from"
+            value={source}
+            onChange={setSource}
+            options={[['server', 'This server'], ['file', 'A file']]}
+          />
+          {source === 'server' && (
+            <p className="microcopy">
+              {backup ? <>the archive kept here · {asks}</> : 'nothing kept here yet — back up first, or restore a file'}
+            </p>
+          )}
+          {source === 'file' && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream"
+                className="hidden"
+                aria-label="Choose a backup file to restore"
+                onChange={(e) => chooseFile(e.target.files?.[0] || null)}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <GhostButton onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
+                  {file ? 'Choose a different file…' : 'Choose file…'}
+                </GhostButton>
+                <span className="microcopy">{file ? `${file.name} · ${fmtSize(file.size)}` : 'no file chosen'}</span>
+              </div>
+              {file && <p className="microcopy">{asks}</p>}
+            </>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
             <StickerButton
-              onClick={restoreUpload}
-              disabled={!file || upConfirm !== 'RESTORE' || phase !== 'idle' || restoring || busy}
+              onClick={() => setPrompt(true)}
+              disabled={!target || busy || phase !== 'idle'}
+              title={!target ? (source === 'file' ? 'Choose a file first' : 'No backup on this server yet') : undefined}
             >
-              {phase === 'uploading' ? `Uploading… ${pct}%` : phase === 'restoring' ? 'Applying…' : 'Restore from file'}
+              Restore…
             </StickerButton>
           </div>
           {phase === 'uploading' && (
@@ -779,6 +1051,19 @@ function BackupCard() {
           )}
         </div>
       </div>
+
+      {asking && (
+        <BackupPrompt me={user.username} busy={busy} onCancel={() => setAsking(false)} onConfirm={create} />
+      )}
+      {prompt && target && (
+        <RestorePrompt
+          meta={target}
+          me={user.username}
+          busyLabel={busyLabel}
+          onCancel={() => { setPrompt(false); setPhase('idle') }}
+          onConfirm={restore}
+        />
+      )}
     </Card>
   )
 }

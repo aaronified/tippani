@@ -81,7 +81,7 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
         {stickers.map((s) => (
           <Tooltip
             key={s.id}
-            label={s.name ? `Use “${s.name}” as the seal` : 'Use this sticker as the seal'}
+            label={s.name ? `Use “${s.name}”` : 'Use as the seal'}
             side="top"
             className="shrink-0"
           >

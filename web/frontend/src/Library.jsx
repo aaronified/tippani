@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, json, errText, downloadPost } from './api.js'
-import AddSurface from './AddSurface.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { PageHelp, ScreenHelpSheet } from './help.jsx'
+import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare } from './share.jsx'
@@ -79,20 +78,24 @@ import {
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
 const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16.5, lineHeight: 1.55 }
 
-// Library is the books tab (§8.3): cover grid + add-book modal, or a single
-// book's detail view (§8.5). Import flows live on the Import page now.
-export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, pendingImport, onReviewImport, onStaged }) {
-  if (openId) return <BookDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
-  return (
-    <BookList
-      onOpen={onOpen}
-      onOpenMovie={onOpenMovie}
-      creditSeparators={creditSeparators}
-      pendingImport={pendingImport}
-      onReviewImport={onReviewImport}
-      onStaged={onStaged}
-    />
-  )
+// Library is the books tab (§8.3): the cover grid, or a single book's detail
+// view (§8.5). Adding anything — a book, a highlight, an import — belongs to the
+// shell's one ＋ Add surface (`onAdd`), which since 1.4.1 knows it is on this
+// page and opens on the right thing; `dataNonce` is how anything saved there
+// tells whichever list it changed — the book grid or a book's quotes — to refetch.
+export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, onAdd, dataNonce }) {
+  if (openId) {
+    return (
+      <BookDetail
+        id={openId}
+        onClose={onClose}
+        creditSeparators={creditSeparators}
+        onAdd={onAdd}
+        dataNonce={dataNonce}
+      />
+    )
+  }
+  return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} creditSeparators={creditSeparators} dataNonce={dataNonce} />
 }
 
 function plural(n, word) {
@@ -176,7 +179,7 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
 
 // ---- book list (§8.3, mockups 06–07) ----
 
-function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onReviewImport, onStaged }) {
+function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const [books, setBooks] = useState(null)
   const [genre, setGenre] = useState('') // '' = All
   const [series, setSeries] = useState('') // '' = all series
@@ -187,7 +190,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
   const [states, setStates] = useState([]) // shelf states kept; [] = every state
   const [sort, setSort] = useState('recent')
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
-  const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
@@ -203,7 +205,11 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
   }
   useEffect(() => {
     load()
-  }, [])
+    // A book added through the shell's Add surface lands server-side without this
+    // list knowing — and when the surface was opened FROM here, nothing remounts
+    // on the way back, so there is no other moment to refetch at.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataNonce])
 
   // Genres, most-used first (chips promote the common ones), tie-broken
   // alphabetically. bookGenres normalises so "fantasy"/"Fantasy" and a
@@ -265,15 +271,13 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
       mobile={mobile}
       title="Books"
       counts={books ? `${plural(books.length, 'book')} · ${plural(quoteTotal, 'quote')}` : ''}
-      helpScreen="library"
       error={error}
-      add={{ label: '＋ Add book', aria: 'Add book', onClick: () => setAdding(true) }}
       onExport={() => setExporting(true)}
       headerAside={<MonoLabel className="hidden sm:inline">lookup: ISBN or title</MonoLabel>}
       loaded={books != null}
       hasItems={!!(books && books.length > 0)}
       shownCount={shown.length}
-      emptyText="no books yet — add one, or bring highlights in from ＋ Add › Import"
+      emptyText="no books yet — the ＋ in the top bar adds one, or imports a file of highlights"
       noMatchText="no books match these filters"
       genres={genres}
       genre={genre}
@@ -320,18 +324,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, pendingImport, onRevi
         </div>
       }
       onReset={() => { setGenre(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
-      addSurface={
-        <AddSurface
-          open={adding}
-          initialSection="book"
-          onClose={() => setAdding(false)}
-          onAdded={() => { setAdding(false); load() }}
-          onOpenMovie={onOpenMovie}
-          pendingImport={pendingImport}
-          onReviewImport={onReviewImport ? () => { setAdding(false); onReviewImport() } : undefined}
-          onStaged={onStaged}
-        />
-      }
       exportDialog={
         <ConfirmDialog
           open={exporting}
@@ -428,23 +420,25 @@ export function ManualTab({ onAdded }) {
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
       </div>
       <ErrorText>{error}</ErrorText>
-      <button className={PRIMARY} disabled={busy}>
+      {/* Title is the one must-fill field, so the button stays greyed until it
+          has one rather than accepting the press and answering with an error. */}
+      <button className={PRIMARY} disabled={busy || !title.trim()}>
         Add book
       </button>
+      {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>A title is required to save.</p>}
     </form>
   )
 }
 
 // ---- book detail (§8.5, mockups 08–09) ----
 
-function BookDetail({ id, onClose, creditSeparators }) {
+function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
   const [error, setError] = useState('')
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
-  const [mobileAdd, setMobileAdd] = useState(false)
   // Live unfiltered quote count, reported up by <Annotations>. It drives the
   // Wishlist tag, so adding this book's first quote retracts the tag on the spot
   // rather than at the next visit. null until the quotes land.
@@ -588,7 +582,9 @@ function BookDetail({ id, onClose, creditSeparators }) {
           actions={
             <>
               <IconButton icon={<IconFilter />} ariaLabel="Filter annotations" onClick={() => setMobileFilter(true)} />
-              <IconButton icon={<IconPlus />} ariaLabel="Add annotation" onClick={() => setMobileAdd(true)} />
+              {/* The shell's one Add surface, opened on Capture with this book
+                  already the target — not a second add form of its own. */}
+              <IconButton icon={<IconPlus />} ariaLabel="Capture a quote" onClick={() => onAdd?.('quote', { type: 'book', id })} />
               <MoreMenu
                 items={[
                   {
@@ -679,17 +675,16 @@ function BookDetail({ id, onClose, creditSeparators }) {
                         icon={<IconExport />}
                         ariaLabel="Export as Markdown"
                         onClick={() => (window.location.href = `/api/books/${book.id}/export`)}
-                      tooltip="Export this book and its quotes as Markdown"
+                      tooltip="Export as Markdown"
                     />
                   )}
-                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details — every field, cover, and metadata lookup" />
-                  <PageHelp screen="book-detail" />
+                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
                   <IconButton
                       icon={<IconDelete />}
                       ariaLabel="Delete this book"
                       onClick={remove}
                       style={{ width: 44, height: 44, padding: 0, flexShrink: 0, color: 'var(--error)' }}
-                    tooltip="Delete this book and its quotes"
+                    tooltip="Delete this book"
                   />
                 </>
               )
@@ -729,7 +724,7 @@ function BookDetail({ id, onClose, creditSeparators }) {
         onCancel={() => setPending(null)}
         onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
       />
-      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onCount={setQuoteCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onCount={setQuoteCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help: the sticky bar has no room
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
@@ -894,7 +889,9 @@ export function EditBook({ book, onSaved, onCancel }) {
       </label>
       <ErrorText>{error}</ErrorText>
       <div className="flex gap-2">
-        <button className={PRIMARY} disabled={busy}>
+        {/* Greyed until the must-fill field has a value: an empty title would
+            be refused by the handler anyway, so the button says so first. */}
+        <button className={PRIMARY} disabled={busy || !title.trim()}>
           Save
         </button>
         <GhostButton type="button" onClick={onCancel}>
@@ -1149,7 +1146,7 @@ function pinToTop(arr, pinnedIds) {
   return [...top, ...arr.filter((x) => !pset.has(x.id))]
 }
 
-function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // annotation being shared
@@ -1157,7 +1154,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [addOpen, setAddOpen] = useState(false)
   const [total, setTotal] = useState(null) // unfiltered count for "N quotes · M shown"
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
@@ -1169,9 +1165,17 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
   const reqSeq = useRef(0)
   const mobile = useIsMobileScreen()
 
+  // A quote captured through the shell's Add surface lands server-side without
+  // this list knowing, so the shell ticks dataNonce and the list refetches.
+  // Skips the first render — the load() effect below already covers the mount.
+  const firstNonce = useRef(true)
   useEffect(() => {
-    if (mobileAddOpen) { setAddOpen(true); onMobileAddOpen?.(false); }
-  }, [mobileAddOpen])
+    if (firstNonce.current) { firstNonce.current = false; return }
+    setExpandedId(null) // collapse before the longer set re-packs the board
+    load()
+    loadTags() // a capture can invent a tag
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataNonce])
 
   // Report the unfiltered quote count up to the detail: it is what decides the
   // Wishlist tag, and `total` is already kept live through adds and deletes, so
@@ -1284,19 +1288,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
   useEffect(() => {
     loadTags()
   }, [bookId])
-
-  async function add(fields) {
-    const r = await json('POST', '/annotations', { book_id: bookId, ...fields })
-    if (!r.ok) return errText(r, 'could not add annotation')
-    const newId = r.data?.id
-    setTotal((t) => (t == null ? t : t + 1))
-    setExpandedId(null) // collapse before the pinned new quote reshapes the board
-    // Pin the new quote to the top of the pile until the user next sorts.
-    if (newId != null) setPinned((p) => [newId, ...p.filter((x) => x !== newId)])
-    load()
-    loadTags()
-    return null
-  }
 
   async function save(id, fields) {
     const r = await json('PUT', `/annotations/${id}`, fields)
@@ -1418,35 +1409,20 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
             <MonoLabel>{countsLabel}</MonoLabel>
             <ViewToggle value={view} onChange={setView} />
-            {/* Desktop add — the mobile detail bar's ＋ has no desktop twin
-                (the shell ＋ adds works, not annotations), so this row is it. */}
-            <GhostButton onClick={() => setAddOpen(true)}>＋ Add annotation</GhostButton>
+            {/* Both form factors now open the ONE Add surface, on Capture with
+                this book as the target — the shell's ＋ knows which page it is
+                on. This is the desktop route to it; the phone's is the ＋ in the
+                detail bar above. */}
+            <GhostButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>＋ Capture a quote</GhostButton>
           </span>
         </div>
       )}
 
       <ErrorText>{error}</ErrorText>
 
-      {/* Adding always opens in the standard pop-up form (a full-screen sheet
-          on phones) — no inline tile; the ＋ buttons up top are omnipresent. */}
-      <FormModal open={addOpen} onClose={() => setAddOpen(false)} title="Add annotation">
-        <AnnotationForm
-          onSubmit={async (fields) => {
-            const err = await add(fields)
-            if (!err) setAddOpen(false)
-            return err
-          }}
-          onCancel={() => setAddOpen(false)}
-          submitLabel="Add annotation"
-          tagSuggestions={Object.keys(tagMap)}
-          stickers={stickers}
-          reloadStickers={reloadStickers}
-        />
-      </FormModal>
-
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'no annotations match the filters' : 'no annotations yet — hit ＋ up top to add your first'}
+          {filtering ? 'no annotations match the filters' : 'no annotations yet — the ＋ in the bar above captures your first'}
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'table' && (
@@ -1540,9 +1516,14 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // The must-fill rule, stated once: the guard below and the greyed-out button
+  // read the same value, so the button is never pressable in a state the
+  // handler would refuse.
+  const missing = !quote.trim() && !note.trim() ? 'Write a quote or a note' : ''
+
   async function submit(e) {
     e.preventDefault()
-    if (!quote.trim() && !note.trim()) return setError('quote or note is required')
+    if (missing) return setError(missing.toLowerCase())
     setBusy(true)
     setError('')
     const err = await onSubmit({
@@ -1605,7 +1586,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
               Cancel
             </GhostButton>
           )}
-          <button className={PRIMARY} disabled={busy}>
+          <button className={PRIMARY} disabled={busy || !!missing} title={missing || undefined}>
             {submitLabel}
           </button>
         </div>

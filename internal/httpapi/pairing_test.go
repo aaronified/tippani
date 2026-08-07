@@ -297,14 +297,14 @@ func TestDeviceTokensSurviveBackupRestore(t *testing.T) {
 	phone := &testClient{t: t, h: h, bearer: token}
 	phone.mustDo("GET", "/books", nil, http.StatusOK)
 
-	admin.mustDo("POST", "/admin/backup", nil, http.StatusOK)
+	backupNow(admin)
 
 	// Revoke everything, so a restore that failed to carry devices back would
 	// be indistinguishable from one that worked.
 	admin.mustDo("POST", "/auth/devices/revoke-all", nil, http.StatusNoContent)
 	phone.mustDo("GET", "/books", nil, http.StatusUnauthorized)
 
-	rec := admin.mustDo("POST", "/admin/restore", map[string]any{"confirm": "RESTORE"}, http.StatusOK)
+	rec := admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("restore: %s", rec.Body)
 	}

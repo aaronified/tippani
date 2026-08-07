@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"tippani/internal/auth"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -25,6 +27,11 @@ import (
 // and only the newest one is kept (its date is its name). The file is served
 // for download, and restore replaces the whole data dir from that kept archive
 // in-process: no Docker socket, no container recreation.
+//
+// Since 1.4.1 that tar.gz is sealed inside an AES-256-GCM envelope keyed off the
+// operator's own credentials — see backup_crypto.go for the format and for why
+// the key is not a constant in the binary. Archives written before 1.4.1 are
+// plain gzip and still restore: openArchive sniffs which it is holding.
 
 const (
 	backupsDirName   = "backups"
@@ -32,10 +39,112 @@ const (
 	backupTimeLayout = "20060102-150405"
 	preRestorePrefix = ".pre-restore-"
 
+	// The extension changed with the envelope. Calling a sealed archive ".tar.gz"
+	// would be a lie that costs someone an afternoon: gunzip refuses it, and the
+	// error says nothing about why. ".tpbk" says what it is. Pre-1.4.1 archives
+	// keep their name and keep restoring — an operator who dropped one into
+	// <data>/backups for the first-run restore path must not be stranded by a
+	// server upgrade.
+	backupExt       = ".tpbk"
+	backupLegacyExt = ".tar.gz"
+
 	maxRestoreEntries = 200_000
 	maxRestoreBytes   = 8 << 30 // decompression-bomb guard
 	maxRestoreUpload  = 2 << 30 // 2 GiB cap on an uploaded restore archive (413 beyond)
 )
+
+// backupCreds is what a caller offers to unlock an archive. Exactly one of the
+// two paths applies, decided by the archive's own header rather than by the
+// caller: Password (with Username, defaulting to the name in that header) for an
+// account-keyed archive, Passphrase for a passphrase-keyed one. A pre-1.4.1 plain
+// archive needs neither, and Confirm — the typed "RESTORE" — carries the intent
+// in that one case, because there is no key there to stand for it.
+type backupCreds struct {
+	Username   string
+	Password   string
+	Passphrase string
+	Confirm    string
+}
+
+// secretFor resolves the passphrase that opens an archive with header `h`, or an
+// HTTP status + message saying what is missing.
+func (c backupCreds) secretFor(h *backupHeader) (string, int, string) {
+	switch h.Mode {
+	case backupModePassphrase:
+		if c.Passphrase == "" {
+			return "", http.StatusUnauthorized, "this backup was sealed with a passphrase — enter it to restore"
+		}
+		return c.Passphrase, 0, ""
+	case backupModeAccount:
+		// The header names the account the archive was made under. A caller may
+		// override it (restoring someone else's archive onto this box), but the
+		// common case — your own backup — needs only the password.
+		user := c.Username
+		if user == "" {
+			user = h.Account
+		}
+		if user == "" || c.Password == "" {
+			return "", http.StatusUnauthorized, "this backup was sealed with an account password — enter that account and its password"
+		}
+		return accountSecret(user, c.Password), 0, ""
+	}
+	return "", http.StatusBadRequest, "the backup header names an unknown key mode"
+}
+
+// openArchive opens the archive at `path` and returns a reader over the PLAINTEXT
+// tar.gz, decrypting when the archive is sealed. It reports (status, msg) on
+// failure. `encrypted` tells the caller whether a key was involved, which is what
+// decides whether a typed confirmation is still required.
+//
+// The wrong key fails HERE, before anything live has been touched: the decrypting
+// reader verifies frame zero as it is constructed.
+func openArchive(path string, creds backupCreds) (rc io.ReadCloser, encrypted bool, code int, msg string) {
+	f, err := os.Open(path)
+	if err != nil {
+		olog.Errorf(olog.CodeBackupExtract, "[backup] open archive: %v", err)
+		return nil, false, http.StatusInternalServerError, "internal error"
+	}
+	h, herr := readBackupHeader(f)
+	if errors.Is(herr, errNotEncrypted) {
+		// Pre-1.4.1 plain gzip. Rewind and hand back the raw file.
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			f.Close()
+			return nil, false, http.StatusInternalServerError, "internal error"
+		}
+		return f, false, 0, ""
+	}
+	if herr != nil {
+		f.Close()
+		return nil, true, http.StatusBadRequest, herr.Error()
+	}
+	secret, code, msg := creds.secretFor(h)
+	if code != 0 {
+		f.Close()
+		return nil, true, code, msg
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		f.Close()
+		return nil, true, http.StatusInternalServerError, "internal error"
+	}
+	dec, _, derr := newBackupDecReader(f, secret)
+	if derr != nil {
+		f.Close()
+		if errors.Is(derr, errBadKey) {
+			return nil, true, http.StatusUnauthorized, errBadKey.Error()
+		}
+		return nil, true, http.StatusBadRequest, derr.Error()
+	}
+	return readerCloser{Reader: dec, closer: f}, true, 0, ""
+}
+
+// readerCloser pairs a derived reader with the file underneath it, so closing the
+// pair closes the file.
+type readerCloser struct {
+	io.Reader
+	closer io.Closer
+}
+
+func (r readerCloser) Close() error { return r.closer.Close() }
 
 func (s *Server) backupsDir() string { return filepath.Join(s.DataDir, backupsDirName) }
 
@@ -62,7 +171,16 @@ func (s *Server) liveDBEntry(name string) bool {
 	return name == db || name == db+"-wal" || name == db+"-shm" || strings.HasPrefix(name, db+".recover")
 }
 
+// backupName reports whether a filename is one of our archives — sealed (.tpbk)
+// or pre-1.4.1 plain (.tar.gz).
+func backupName(n string) bool {
+	return strings.HasPrefix(n, backupPrefix) &&
+		(strings.HasSuffix(n, backupExt) || strings.HasSuffix(n, backupLegacyExt))
+}
+
 // newestBackup returns the kept archive's filename and info ("" when none).
+// Comparing names picks the newest because the timestamp sits at a fixed offset
+// and a fixed width, so it dominates the ordering across both extensions.
 func (s *Server) newestBackup() (string, os.FileInfo) {
 	entries, err := os.ReadDir(s.backupsDir())
 	if err != nil {
@@ -71,7 +189,7 @@ func (s *Server) newestBackup() (string, os.FileInfo) {
 	newest := ""
 	for _, e := range entries {
 		n := e.Name()
-		if e.Type().IsRegular() && strings.HasPrefix(n, backupPrefix) && strings.HasSuffix(n, ".tar.gz") && n > newest {
+		if e.Type().IsRegular() && backupName(n) && n > newest {
 			newest = n
 		}
 	}
@@ -87,33 +205,104 @@ func (s *Server) newestBackup() (string, os.FileInfo) {
 
 func backupMeta(name string, info os.FileInfo) map[string]any {
 	created := info.ModTime().UTC()
-	if ts, err := time.Parse(backupTimeLayout, strings.TrimSuffix(strings.TrimPrefix(name, backupPrefix), ".tar.gz")); err == nil {
+	stamp := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(name, backupPrefix), backupExt), backupLegacyExt)
+	if ts, err := time.Parse(backupTimeLayout, stamp); err == nil {
 		created = ts
 	}
 	return map[string]any{"name": name, "created": created.Format(time.RFC3339), "size": info.Size()}
 }
 
-// handleBackupStatus: GET /admin/backup — {backup: {name, created, size}} or
-// {backup: null}. Feeds the Settings card (the restore block shows the date).
+// backupMetaAt is backupMeta plus how the archive is keyed, read from its header.
+// The UI needs this BEFORE it asks for anything: a passphrase-keyed archive must
+// not be met with a password field, and an account-keyed one made under a
+// different login has to name that login. `key` is "none" for a pre-1.4.1 plain
+// archive, "account" (with `account`) or "passphrase".
+func (s *Server) backupMetaAt(dir, name string, info os.FileInfo) map[string]any {
+	m := backupMeta(name, info)
+	mode, account, err := peekArchive(filepath.Join(dir, name))
+	switch {
+	case err != nil:
+		// Unreadable header: say nothing rather than guess. The restore attempt
+		// will produce the real error.
+		m["key"] = "unknown"
+	case mode == backupModePassphrase:
+		m["key"] = "passphrase"
+	case mode == backupModeAccount:
+		m["key"] = "account"
+		m["account"] = account
+	default:
+		m["key"] = "none"
+	}
+	return m
+}
+
+// handleBackupStatus: GET /admin/backup — {backup: {name, created, size, key,
+// account?}} or {backup: null}. Feeds the Settings card: the date it shows, and
+// which credential its restore prompt asks for.
 func (s *Server) handleBackupStatus(w http.ResponseWriter, r *http.Request) {
 	name, info := s.newestBackup()
 	if name == "" {
 		writeJSON(w, http.StatusOK, map[string]any{"backup": nil})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backup": backupMeta(name, info)})
+	writeJSON(w, http.StatusOK, map[string]any{"backup": s.backupMetaAt(s.backupsDir(), name, info)})
 }
 
-// handleBackupCreate: POST /admin/backup — build a new dated archive in
+// handleBackupCreate: POST /admin/backup — build a new dated, sealed archive in
 // <DataDir>/backups, then drop every older one (the newest backup is always
 // the only one kept). Returns the new archive's metadata.
+//
+// Body: {"password": "…"} to key it on the caller's own account (the default), or
+// {"passphrase": "…"} to key it on a passphrase instead. The password is CHECKED
+// against the stored hash before anything is written — not for authorization (the
+// session already covers that) but because a typo would otherwise produce a
+// perfectly valid archive that nothing can ever open, and you would not find out
+// until the day you needed it.
 func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	var req struct {
+		Password   string `json:"password"`
+		Passphrase string `json:"passphrase"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	mode := backupModeAccount
+	account := username(r)
+	secret := ""
+	switch {
+	case req.Passphrase != "":
+		if msg := passphraseProblem(req.Passphrase); msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+		mode = backupModePassphrase
+		account = ""
+		secret = req.Passphrase
+	case req.Password != "":
+		var hash string
+		if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID(r)).Scan(&hash); err != nil {
+			internalError(w, r, "look up caller", err)
+			return
+		}
+		if !auth.CheckPassword(hash, req.Password) {
+			writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
+			return
+		}
+		secret = accountSecret(account, req.Password)
+	default:
+		writeErr(w, http.StatusBadRequest, "confirm your password, or set a passphrase, to seal the archive")
+		return
+	}
+
 	if !s.backupMu.TryLock() {
 		writeErr(w, http.StatusConflict, "a backup or restore is already running")
 		return
 	}
 	defer s.backupMu.Unlock()
-	olog.Printf("[backup] backup requested by user %d (%s)", userID(r), username(r))
+	// Deliberately logs the MODE and never the key: an operator debugging "why
+	// will this not open" needs to know which credential it wants, and nothing
+	// more. Same reason there is no key material in any error message.
+	olog.Printf("[backup] backup requested by user %d (%s), sealed with %s", userID(r), account, keyModeName(mode))
 
 	staging, err := os.MkdirTemp(s.DataDir, ".backup-")
 	if err != nil {
@@ -136,11 +325,11 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + ".tar.gz"
+	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + backupExt
 	final := filepath.Join(s.backupsDir(), name)
 	partial := final + ".partial"
 
-	if err := s.writeBackupArchive(partial, snap); err != nil {
+	if err := s.writeBackupArchive(partial, snap, mode, account, secret); err != nil {
 		_ = os.Remove(partial)
 		olog.Errorf(olog.CodeBackupArchive, "[backup] archive write failed: %v", err)
 		writeErr(w, http.StatusInternalServerError, "backup archive could not be written")
@@ -173,17 +362,37 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	olog.Printf("[backup] created %s (%d bytes)", name, info.Size())
-	writeJSON(w, http.StatusOK, map[string]any{"backup": backupMeta(name, info)})
+	// Same shape GET /admin/backup returns — including how it is keyed — so the
+	// card can render the new archive without a second round trip.
+	writeJSON(w, http.StatusOK, map[string]any{"backup": s.backupMetaAt(s.backupsDir(), name, info)})
+}
+
+// keyModeName names a key mode for logs and for the JSON the UI reads.
+func keyModeName(mode byte) string {
+	switch mode {
+	case backupModeAccount:
+		return "account"
+	case backupModePassphrase:
+		return "passphrase"
+	}
+	return "none"
 }
 
 // writeBackupArchive streams the snapshot + every non-control data-dir entry
-// into a tar.gz at dest.
-func (s *Server) writeBackupArchive(dest, snap string) error {
+// into a tar.gz at dest, sealed inside the AES-GCM envelope (backup_crypto.go).
+// The layering is tar → gzip → envelope, so the archive compresses before it is
+// encrypted; the other order would compress ciphertext, which does not compress.
+func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secret string) error {
 	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	gz := gzip.NewWriter(out)
+	enc, err := newBackupEncWriter(out, mode, account, secret)
+	if err != nil {
+		out.Close()
+		return err
+	}
+	gz := gzip.NewWriter(enc)
 	tw := tar.NewWriter(gz)
 
 	addFile := func(src, name string) error {
@@ -250,15 +459,25 @@ func (s *Server) writeBackupArchive(dest, snap string) error {
 	if werr != nil {
 		tw.Close()
 		gz.Close()
+		enc.Close()
 		out.Close()
 		return werr
 	}
+	// Every Close here is checked, in order, and enc.Close() is the one that
+	// matters most: it writes the frame marked final, without which the archive is
+	// indistinguishable from a truncated one and will be refused on restore.
 	if err := tw.Close(); err != nil {
 		gz.Close()
+		enc.Close()
 		out.Close()
 		return err
 	}
 	if err := gz.Close(); err != nil {
+		enc.Close()
+		out.Close()
+		return err
+	}
+	if err := enc.Close(); err != nil {
 		out.Close()
 		return err
 	}
@@ -278,28 +497,36 @@ func (s *Server) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(s.backupsDir(), name))
 }
 
-// handleRestore: POST /admin/restore {"confirm":"RESTORE"} — replace the whole
-// data dir from the kept archive: extract to staging with hostile-archive
-// guards, validate the database, close the live DB, atomically swap, reopen
-// (migrate + integrity + FTS heal). The previous data dir is kept in ONE
-// .pre-restore-<ts> safety generation until the next successful restore.
+// handleRestore: POST /admin/restore — replace the whole data dir from the kept
+// archive: extract to staging with hostile-archive guards, validate the database,
+// close the live DB, atomically swap, reopen (migrate + integrity + FTS heal).
+// The previous data dir is kept in ONE .pre-restore-<ts> safety generation until
+// the next successful restore.
+//
+// Body: {password, username?} or {passphrase} — whichever the archive's header
+// asks for. `confirm: "RESTORE"` is required ONLY for a pre-1.4.1 plain archive:
+// for a sealed one, producing the key IS the deliberate act, and asking for a
+// typed word on top of a password is ceremony rather than a guard.
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
 	var req struct {
-		Confirm string `json:"confirm"`
+		Confirm    string `json:"confirm"`
+		Username   string `json:"username"`
+		Password   string `json:"password"`
+		Passphrase string `json:"passphrase"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	if req.Confirm != "RESTORE" {
-		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"RESTORE"}`)
-		return
-	}
-	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
+	creds := backupCreds{Username: req.Username, Password: req.Password, Passphrase: req.Passphrase, Confirm: req.Confirm}
+	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil, creds, true)
 }
 
 // handleRestoreUpload: POST /admin/restore/upload — restore from an archive the
 // admin UPLOADS (typically a backup downloaded from another Tippani server),
-// instead of the one kept on this server. multipart/form-data with a confirm
-// field (= RESTORE) and a file part (= the .tar.gz). Same extract → validate →
-// swap pipeline; the schema-version gate is what makes a foreign server's DB safe.
+// instead of the one kept on this server. multipart/form-data with the file part
+// plus whichever credential its header wants (password/username or passphrase),
+// and a confirm field only for a pre-1.4.1 plain archive. Same extract → validate
+// → swap pipeline; the schema-version gate is what makes a foreign server's DB
+// safe, and the envelope is what makes carrying it between boxes safe.
 func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
 	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
 }
@@ -328,6 +555,17 @@ func (s *Server) handleOnboardRestore(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "onboarding is closed; log in and restore from Settings")
 		return
 	}
+	// The archive is sealed even here: a fresh box has nothing to lose, but the
+	// archive still has to be opened, so the operator supplies the credential its
+	// header names. `confirm` is not required — there is nothing yet to overwrite.
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	var req struct {
+		Username   string `json:"username"`
+		Password   string `json:"password"`
+		Passphrase string `json:"passphrase"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	creds := backupCreds{Username: req.Username, Password: req.Password, Passphrase: req.Passphrase}
 	s.restoreFromNewest(w, "first-run onboarding", func() error {
 		if exists, err := s.usersExist(); err != nil {
 			return err
@@ -335,7 +573,7 @@ func (s *Server) handleOnboardRestore(w http.ResponseWriter, r *http.Request) {
 			return errOnboardingClosed
 		}
 		return nil
-	})
+	}, creds, false)
 }
 
 // handleOnboardRestoreUpload: POST /auth/restore/upload — the upload twin of
@@ -380,7 +618,9 @@ var errOnboardingClosed = errors.New("someone finished onboarding while this res
 // restoreFromNewest restores from the archive kept on this server (the one "Back
 // up now" created). It authorizes nothing itself — callers have. guard is passed
 // straight through to the core's last-moment re-check (onboarding uses it).
-func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, guard func() error) {
+// needConfirm asks the core to require a typed RESTORE for an UNSEALED archive
+// (the admin path; onboarding has nothing to lose and skips it).
+func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, guard func() error, creds backupCreds, needConfirm bool) {
 	if !s.backupMu.TryLock() {
 		writeErr(w, http.StatusConflict, "a backup or restore is already running")
 		return
@@ -392,7 +632,7 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 		writeErr(w, http.StatusBadRequest, "no backup on the server — create one first")
 		return
 	}
-	s.restoreArchive(w, filepath.Join(s.backupsDir(), name), name, requestedBy, guard)
+	s.restoreArchive(w, filepath.Join(s.backupsDir(), name), name, requestedBy, guard, creds, needConfirm)
 }
 
 // restoreArchive is the shared restore core behind every path — the kept archive
@@ -406,7 +646,7 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 // path uses it to re-verify users-empty at the last moment (a non-nil error
 // there aborts the restore, nothing having been touched). The previous data dir
 // is kept in ONE .pre-restore-<ts> safety generation until the next restore.
-func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requestedBy string, guard func() error) {
+func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requestedBy string, guard func() error, creds backupCreds, needConfirm bool) {
 	// Extract + validate + swap + reopen can outlive the server's 60s
 	// WriteTimeout on a large library; clear the write deadline so the final
 	// JSON still reaches the client (mirrors handleBackupDownload).
@@ -423,8 +663,32 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	defer os.RemoveAll(staging)
 	stage := filepath.Join(staging, "stage")
 
-	if code, msg := s.extractBackup(archive, stage); code != 0 {
+	// Open (and, for a sealed archive, unlock) BEFORE anything live is touched: a
+	// wrong password fails here, with the current data untouched and the response
+	// a plain 401.
+	//
+	// Every refusal below logs. The Alert above says a restore was REQUESTED, and
+	// an alert with no follow-up reads as one that happened — so a failed attempt
+	// has to be as visible as a successful one, not least because repeated 401s
+	// here are what a brute-force attempt against an archive looks like.
+	src, encrypted, code, msg := openArchive(archive, creds)
+	if code != 0 {
+		olog.Warnf(olog.CodeBackupExtract, "[backup] restore from %s REFUSED (%d): %s", label, code, msg)
 		writeErr(w, code, msg)
+		return
+	}
+	// An UNSEALED archive is the one case with no key to stand for intent, so the
+	// typed confirmation still guards it. A sealed one does not need both.
+	if needConfirm && !encrypted && creds.Confirm != "RESTORE" {
+		src.Close()
+		olog.Warnf(olog.CodeBackupExtract, "[backup] restore from %s refused: unsealed archive, no typed confirmation", label)
+		writeErr(w, http.StatusBadRequest, `this backup predates 1.4.1 and carries no key — send {"confirm":"RESTORE"} to restore it`)
+		return
+	}
+	extractCode, extractMsg := s.extractBackup(src, stage)
+	src.Close()
+	if extractCode != 0 {
+		writeErr(w, extractCode, extractMsg)
 		return
 	}
 	if msg := validateRestoredDB(filepath.Join(stage, "tippani.db")); msg != "" {
@@ -526,7 +790,8 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 // restore core over it. It acquires backupMu up front (fail-fast 409) and holds
 // it across the whole upload+swap, and clears both the read and write deadlines —
 // a multi-GB upload outlives the server's 30s ReadTimeout / 60s WriteTimeout.
-// requireConfirm gates the swap on a leading confirm=RESTORE form field (the
+// requireConfirm asks the core to gate the swap on a typed RESTORE when — and
+// only when — the uploaded archive turns out to be an UNSEALED pre-1.4.1 one (the
 // admin path; onboarding has nothing to lose and skips it). guard is passed
 // through to the core's last-moment re-check.
 func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requireConfirm bool, requestedBy string, guard func() error) {
@@ -548,30 +813,39 @@ func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requi
 		return
 	}
 	defer os.RemoveAll(staging)
-	archive := filepath.Join(staging, "upload.tar.gz")
+	archive := filepath.Join(staging, "upload")
 
-	if code, msg := spoolUpload(r, archive, requireConfirm); code != 0 {
+	creds, code, msg := spoolUpload(r, archive)
+	if code != 0 {
 		writeErr(w, code, msg)
 		return
 	}
-	s.restoreArchive(w, archive, "uploaded archive", requestedBy, guard)
+	s.restoreArchive(w, archive, "uploaded archive", requestedBy, guard, creds, requireConfirm)
 }
 
-// spoolUpload streams a multipart restore upload's `file` part to dest. When
-// requireConfirm, success is gated on a `confirm` field equal to RESTORE (the
-// admin "type RESTORE" guard; onboarding has nothing to lose and skips it).
-// Field order does not matter — the confirmation is evaluated once every part has
-// been read, so any client's ordering works — and the irreversible swap (in
-// restoreArchive) runs only when this returns success. Returns (0, "") on success
-// or an HTTP status + message; it writes nothing outside dest, whose contents the
-// caller validates afterward.
-func spoolUpload(r *http.Request, dest string, requireConfirm bool) (int, string) {
+// spoolUpload streams a multipart restore upload's `file` part to dest and
+// collects the credential fields beside it (confirm · username · password ·
+// passphrase). Field order does not matter — every part is read before anything is
+// decided, so any client's ordering works — and the irreversible swap (in
+// restoreArchive) runs only after the caller has validated what came back.
+// Returns (creds, 0, "") on success, or an HTTP status + message; it writes
+// nothing outside dest.
+//
+// Whether those credentials are SUFFICIENT is not decided here: that depends on
+// the uploaded archive's own header, which only openArchive has read by then.
+func spoolUpload(r *http.Request, dest string) (backupCreds, int, string) {
+	var creds backupCreds
 	mr, err := r.MultipartReader()
 	if err != nil {
-		return http.StatusBadRequest, "expected a multipart/form-data upload with a backup file"
+		return creds, http.StatusBadRequest, "expected a multipart/form-data upload with a backup file"
 	}
-	confirmed := !requireConfirm
 	gotFile := false
+	// Credential fields are short by construction (see the 20-character ceiling in
+	// backup_crypto.go); the limit is a guard, not a policy.
+	field := func(part *multipart.Part) string {
+		val, _ := io.ReadAll(io.LimitReader(part, 256))
+		return strings.TrimSpace(string(val))
+	}
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
@@ -579,22 +853,26 @@ func spoolUpload(r *http.Request, dest string, requireConfirm bool) (int, string
 		}
 		if err != nil {
 			if isMaxBytes(err) {
-				return http.StatusRequestEntityTooLarge, "the backup file is too large"
+				return creds, http.StatusRequestEntityTooLarge, "the backup file is too large"
 			}
-			return http.StatusBadRequest, "the upload could not be read"
+			return creds, http.StatusBadRequest, "the upload could not be read"
 		}
 		switch part.FormName() {
 		case "confirm":
-			val, _ := io.ReadAll(io.LimitReader(part, 64))
-			if strings.TrimSpace(string(val)) == "RESTORE" {
-				confirmed = true
-			}
+			creds.Confirm = field(part)
+		case "username":
+			creds.Username = field(part)
+		case "password":
+			// Never logged, here or anywhere below.
+			creds.Password = field(part)
+		case "passphrase":
+			creds.Passphrase = field(part)
 		case "file":
 			out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 			if err != nil {
 				_ = part.Close()
 				olog.Errorf(olog.CodeBackupUpload, "[backup] spool upload: %v", err)
-				return http.StatusInternalServerError, "internal error"
+				return creds, http.StatusInternalServerError, "internal error"
 			}
 			_, cerr := io.Copy(out, part)
 			if cerr == nil {
@@ -605,22 +883,19 @@ func spoolUpload(r *http.Request, dest string, requireConfirm bool) (int, string
 			if cerr != nil {
 				_ = part.Close()
 				if isMaxBytes(cerr) {
-					return http.StatusRequestEntityTooLarge, "the backup file is too large"
+					return creds, http.StatusRequestEntityTooLarge, "the backup file is too large"
 				}
 				olog.Errorf(olog.CodeBackupUpload, "[backup] spool upload: %v", cerr)
-				return http.StatusInternalServerError, "the uploaded file could not be saved"
+				return creds, http.StatusInternalServerError, "the uploaded file could not be saved"
 			}
 			gotFile = true
 		}
 		_ = part.Close()
 	}
-	if requireConfirm && !confirmed {
-		return http.StatusBadRequest, `confirmation required: send a "confirm" field set to RESTORE`
-	}
 	if !gotFile {
-		return http.StatusBadRequest, `no backup file uploaded (send it as the "file" field)`
+		return creds, http.StatusBadRequest, `no backup file uploaded (send it as the "file" field)`
 	}
-	return 0, ""
+	return creds, 0, ""
 }
 
 // isMaxBytes reports whether err is the sentinel http.MaxBytesReader raises when
@@ -630,16 +905,16 @@ func isMaxBytes(err error) bool {
 	return errors.As(err, &mbe)
 }
 
-// extractBackup unpacks archive into stage with hard protections. Returns a
-// non-zero HTTP status + message on failure (400 hostile/malformed, 500 I/O).
-func (s *Server) extractBackup(archive, stage string) (int, string) {
-	f, err := os.Open(archive)
-	if err != nil {
-		olog.Errorf(olog.CodeBackupExtract, "[backup] open archive: %v", err)
-		return http.StatusInternalServerError, "internal error"
-	}
-	defer f.Close()
-	gz, err := gzip.NewReader(f)
+// extractBackup unpacks the tar.gz arriving on src into stage with hard
+// protections. Returns a non-zero HTTP status + message on failure (400
+// hostile/malformed, 500 I/O).
+//
+// src is a PLAINTEXT stream: openArchive has already stripped the encryption
+// envelope, so a sealed archive's frames are authenticated as they are read here —
+// a byte altered halfway through fails during extraction rather than landing in
+// stage and being swapped in.
+func (s *Server) extractBackup(src io.Reader, stage string) (int, string) {
+	gz, err := gzip.NewReader(src)
 	if err != nil {
 		return http.StatusBadRequest, "the backup archive is not a valid tar.gz"
 	}

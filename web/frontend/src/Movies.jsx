@@ -1,9 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
-import AddSurface from './AddSurface.jsx'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
-import { PageHelp, ScreenHelpSheet } from './help.jsx'
+import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, movieShare } from './share.jsx'
@@ -87,17 +86,23 @@ import {
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
 // filmstrip (§8.7 + §6 recipe, mockups 15–16). Dialogues mirror annotations
 // (PLAN §3b); tags are objects now — chips take color/style from GET /tags.
-export default function Movies({ openId, onOpen, onClose, creditSeparators, pendingImport, onReviewImport, onStaged }) {
-  if (openId) return <MovieDetail id={openId} onClose={onClose} creditSeparators={creditSeparators} />
-  return (
-    <MovieList
-      onOpen={onOpen}
-      creditSeparators={creditSeparators}
-      pendingImport={pendingImport}
-      onReviewImport={onReviewImport}
-      onStaged={onStaged}
-    />
-  )
+// Adding anything — a title, a line of dialogue, an import — belongs to the
+// shell's one ＋ Add surface (`onAdd`), which since 1.4.1 opens on the right
+// thing for the page it is on; `dataNonce` is how anything saved there tells
+// whichever list it changed — the poster grid or a title's lines — to refetch.
+export default function Movies({ openId, onOpen, onClose, creditSeparators, onAdd, dataNonce }) {
+  if (openId) {
+    return (
+      <MovieDetail
+        id={openId}
+        onClose={onClose}
+        creditSeparators={creditSeparators}
+        onAdd={onAdd}
+        dataNonce={dataNonce}
+      />
+    )
+  }
+  return <MovieList onOpen={onOpen} creditSeparators={creditSeparators} dataNonce={dataNonce} />
 }
 
 // Reveal — a div that mounts with its content, so useReveal's effect sees the
@@ -192,7 +197,7 @@ async function setMovieStatus(id, body) {
 
 // ---- movie list: poster grid mirroring Library (§8.6) ----
 
-function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, onStaged }) {
+function MovieList({ onOpen, creditSeparators, dataNonce }) {
   const [movies, setMovies] = useState(null)
   const { map: directorMap } = usePeople('director') // name→metadata, for director/creator face chips
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
@@ -207,7 +212,6 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
   const [wish, setWish] = useState('') // '' = all | 'wishlist' | 'annotated'
   const [states, setStates] = useState([]) // shelf states kept; [] = every state
   const [sort, setSort] = useState('recent')
-  const [adding, setAdding] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
@@ -220,6 +224,13 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
   }
   useEffect(() => {
     load()
+    // A title added through the shell's Add surface lands server-side without this
+    // list knowing — and when the surface was opened FROM here, nothing remounts
+    // on the way back, so there is no other moment to refetch at. The key status
+    // is fetched once, not per nonce: it does not change when a film is added.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataNonce])
+  useEffect(() => {
     json('GET', '/metadata/status').then((r) => {
       if (r.ok) setStatus(r.data)
     })
@@ -290,9 +301,7 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
       mobile={mobile}
       title="Movies & Shows"
       counts={counts}
-      helpScreen="movies"
       error={error}
-      add={{ label: '＋ Add title', aria: 'Add title', onClick: () => setAdding(true) }}
       onExport={() => setExporting(true)}
       headerAside={
         <MonoLabel className="hidden sm:inline">
@@ -366,18 +375,6 @@ function MovieList({ onOpen, creditSeparators, pendingImport, onReviewImport, on
         </div>
       }
       onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
-      addSurface={
-        <AddSurface
-          open={adding}
-          initialSection="film"
-          onClose={() => setAdding(false)}
-          onAdded={() => { setAdding(false); load() }}
-          onOpenMovie={onOpen}
-          pendingImport={pendingImport}
-          onReviewImport={onReviewImport ? () => { setAdding(false); onReviewImport() } : undefined}
-          onStaged={onStaged}
-        />
-      }
       exportDialog={
         <ConfirmDialog
           open={exporting}
@@ -561,9 +558,12 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
       </div>
       <textarea className="tp-input" rows="3" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
-      <button className="tp-btn tp-btn-primary" disabled={busy}>
+      {/* Title is the one must-fill field, so the button stays greyed until it
+          has one rather than accepting the press and answering with an error. */}
+      <button className="tp-btn tp-btn-primary" disabled={busy || !title.trim()}>
         Add {isShow ? 'show' : 'movie'}
       </button>
+      {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>A title is required to save.</p>}
     </form>
   )
 }
@@ -576,13 +576,12 @@ export function MediaTypeToggle({ value, onChange }) {
 
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
 
-function MovieDetail({ id, onClose, creditSeparators }) {
+function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
   const [error, setError] = useState('')
   const [mobileFilter, setMobileFilter] = useState(false)
-  const [mobileAdd, setMobileAdd] = useState(false)
   // { kind:'director', name } open in the metadata panel — captured at click time.
   const [person, setPerson] = useState(null)
   // Live unfiltered dialogue count, reported up by <Dialogues>: it decides the
@@ -747,7 +746,9 @@ function MovieDetail({ id, onClose, creditSeparators }) {
           actions={
             <>
               <IconButton icon={<IconFilter />} ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
-              <IconButton icon={<IconPlus />} ariaLabel="Add dialogue" onClick={() => setMobileAdd(true)} />
+              {/* The shell's one Add surface, opened on Capture with this title
+                  already the target — not a second add form of its own. */}
+              <IconButton icon={<IconPlus />} ariaLabel="Capture a line" onClick={() => onAdd?.('quote', { type: 'movie', id })} />
               <MoreMenu
                 items={[
                   {
@@ -833,17 +834,16 @@ function MovieDetail({ id, onClose, creditSeparators }) {
                         icon={<IconExport />}
                         ariaLabel="Export as Markdown"
                         onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}
-                      tooltip="Export this title and its dialogue as Markdown"
+                      tooltip="Export as Markdown"
                     />
                   )}
-                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details — every field, poster, and metadata lookup" />
-                  <PageHelp screen="movie-detail" />
+                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
                   <IconButton
                       icon={<IconDelete />}
                       ariaLabel="Delete this title"
                       onClick={remove}
                       style={{ width: 44, height: 44, padding: 0, flexShrink: 0, color: 'var(--error)' }}
-                    tooltip="Delete this title and its dialogue"
+                    tooltip="Delete this title"
                   />
                 </>
               )
@@ -883,7 +883,7 @@ function MovieDetail({ id, onClose, creditSeparators }) {
         onCancel={() => setPending(null)}
         onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
       />
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onCount={setLineCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} mobileAddOpen={mobileAdd} onMobileAddOpen={setMobileAdd} />}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onCount={setLineCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help — see the Library twin. */}
       <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
@@ -1008,7 +1008,9 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       <textarea className="tp-input" rows="4" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
       <div className="flex gap-2">
-        <button className="tp-btn tp-btn-primary" disabled={busy}>
+        {/* Greyed until the must-fill field has a value: an empty title would
+            be refused by the handler anyway, so the button says so first. */}
+        <button className="tp-btn tp-btn-primary" disabled={busy || !title.trim()}>
           Save
         </button>
         <GhostButton type="button" onClick={onCancel}>
@@ -1067,7 +1069,7 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen, onMobileFilterOpen, mobileAddOpen, onMobileAddOpen }) {
+function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
   // Only a series carries an episode locator: a film is one runtime, so its
   // timestamp already says where a line is. Drives the form fields, the Episode
   // column, and nothing else — the credit line reads the row's own numbers, so a
@@ -1081,11 +1083,18 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
   const [fav, setFav] = useState(false)
   const [color, setColor] = useState('') // '' = all colours
   const [editingId, setEditingId] = useState(null)
-  const [adding, setAdding] = useState(false)
 
+  // A line captured through the shell's Add surface lands server-side without
+  // this list knowing, so the shell ticks dataNonce and the list refetches.
+  // Skips the first render — the load() effect below already covers the mount.
+  const firstNonce = useRef(true)
   useEffect(() => {
-    if (mobileAddOpen) { setAdding(true); onMobileAddOpen?.(false); }
-  }, [mobileAddOpen])
+    if (firstNonce.current) { firstNonce.current = false; return }
+    setExpandedId(null) // collapse before the longer set re-packs the board
+    load()
+    loadTags() // a capture can invent a tag
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataNonce])
 
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:view:dialogues', 'tiles')
@@ -1157,15 +1166,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
   useEffect(() => {
     if (items && !tag && !fav && !color) onCount?.(items.length)
   }, [items, tag, fav, color])
-
-  async function add(fields) {
-    const r = await json('POST', '/dialogues', { movie_id: movieId, ...fields })
-    if (!r.ok) return errText(r, 'could not add dialogue')
-    setExpandedId(null) // collapse before the new dialogue reshapes the board
-    load()
-    loadTags()
-    return null
-  }
 
   async function save(id, fields) {
     const r = await json('PUT', `/dialogues/${id}`, fields)
@@ -1277,9 +1277,11 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
               />
             )}
             <ViewToggle value={view} onChange={setView} />
-            {/* Desktop add — the mobile detail bar's ＋ has no desktop twin
-                (the shell ＋ adds works, not dialogues), so this row is it. */}
-            <GhostButton onClick={() => setAdding(true)}>＋ Add dialogue</GhostButton>
+            {/* Both form factors now open the ONE Add surface, on Capture with
+                this title as the target — the shell's ＋ knows which page it is
+                on. This is the desktop route to it; the phone's is the ＋ in the
+                detail bar above. */}
+            <GhostButton onClick={() => onAdd?.('quote', { type: 'movie', id: movieId })}>＋ Capture a line</GhostButton>
           </div>
         </div>
       )}
@@ -1293,29 +1295,9 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
 
       <ErrorText>{error}</ErrorText>
 
-      {/* Adding always opens in the standard pop-up form (a full-screen sheet
-          on phones) — no inline tile; the ＋ buttons up top are omnipresent. */}
-      <FormModal open={adding} onClose={() => setAdding(false)} title="Add dialogue">
-        <DialogueForm
-          onSubmit={async (fields) => {
-            const err = await add(fields)
-            if (!err) setAdding(false)
-            return err
-          }}
-          onCancel={() => setAdding(false)}
-          submitLabel="Add dialogue"
-          show={show}
-          cast={cast}
-          actorMap={actorMap}
-          tagSuggestions={Object.keys(tagMap)}
-          stickers={stickers}
-          reloadStickers={reloadStickers}
-        />
-      </FormModal>
-
       {items && items.length === 0 && (
         <EmptyState>
-          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — hit ＋ up top to capture the first line.'}
+          {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — the ＋ in the bar above captures the first line.'}
         </EmptyState>
       )}
       {items && items.length > 0 && view === 'tiles' && (
@@ -1491,7 +1473,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                 onClick={() => onSort(c.key)}
                 aria-sort={sort.col === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
-                <Tooltip label="Sort dialogues by this column" side="bottom">
+                <Tooltip label="Sort by this column" side="bottom">
                   <span>
                     {c.label}
                     {arrow(c.key)}
@@ -1753,13 +1735,19 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   const seasonNum = countOrNull(season)
   const episodeVal = countOrNull(episode)
 
+  // The must-fill rules, stated once: the guard below and the greyed-out button
+  // read the same value, so the button is never pressable in a state the handler
+  // would refuse. The second rule is the server's too — an episode number means
+  // nothing without its season.
+  const missing = !quote.trim()
+    ? 'The line itself is required'
+    : episodeFields && episodeVal != null && seasonNum == null
+      ? 'An episode needs its season'
+      : ''
+
   async function submit(e) {
     e.preventDefault()
-    if (!quote.trim()) return setError('quote is required')
-    // Same rule as the server: an episode number means nothing without its season.
-    if (episodeFields && episodeVal != null && seasonNum == null) {
-      return setError('an episode needs the season it is in')
-    }
+    if (missing) return setError(missing.toLowerCase())
     setBusy(true)
     setError('')
     const err = await onSubmit({
@@ -1887,7 +1875,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
             Cancel
           </GhostButton>
         )}
-        <button className="tp-btn tp-btn-primary" disabled={busy}>
+        <button className="tp-btn tp-btn-primary" disabled={busy || !!missing} title={missing || undefined}>
           {submitLabel}
         </button>
       </div>

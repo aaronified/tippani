@@ -29,6 +29,10 @@ Tippani, so it comes first.
   named in the README (Google Books, Open Library, TMDB, TheTVDB, Wikidata) plus
   a GitHub release check that runs **only when an admin presses the button**.
   Cover and portrait fetches go through a host allowlist with an SSRF guard.
+- **Nothing is sent anywhere to be encrypted either.** 1.4.1 seals backup
+  archives (AES-256-GCM, Argon2id, both from Go's standard library and
+  `golang.org/x/crypto`) entirely in-process. No key service, no escrow, no
+  network call — and no recovery, which is the trade that buys the first three.
 
 There is one AI *feature* under consideration, and it is in
 [the roadmap](docs/roadmap.html) under **Later / maybe** — not built, not started:
@@ -52,9 +56,9 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 257 |
-| Commits with an AI co-author trailer | **253** |
-| Period | 2026-07-02 → 2026-08-05 |
+| Commits in the repository | 258 |
+| Commits with an AI co-author trailer | **254** |
+| Period | 2026-07-02 → 2026-08-07 |
 
 Models used, by commit count:
 
@@ -62,7 +66,7 @@ Models used, by commit count:
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
-| Claude Opus 5 | 37 |
+| Claude Opus 5 | 38 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
 | Claude Sonnet 4.6 | 1 |
@@ -98,7 +102,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **367 test functions across 70 test files**, over real HTTP handlers against a
+- **375 test functions across 71 test files**, over real HTTP handlers against a
   real SQLite database — not mocks.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
@@ -126,6 +130,14 @@ What that honestly does not cover:
 - **Confident documentation is not verified documentation.** Where this file
   makes a claim, it was checked against the tree; treat prose elsewhere in the
   repo as a strong hint and the code as the truth.
+- **The one thing here with no test at all is the demo.** `web/frontend/src/demo/
+  install.js` is a fetch shim that answers the API with dummy data so the Pages
+  demo can run with no server, and nothing checks it against the handlers it is
+  imitating. In 1.4.1 its backup response was found returning `created_at` where
+  the server returns `created` — so the demo's Settings screen had been rendering
+  "Invalid Date" for as long as that card existed. Nobody's data is at risk from a
+  shim, which is exactly why it drifts: a fake that is close but not identical
+  fails in the one place no test looks.
 - **`docs/ui-glossary.html` is half honest by machine now, and half still by
   hand.** Its oldest failure mode was mechanical: the page inlines the built
   stylesheet so its samples are styled by real app rules, and every frontend build
@@ -187,4 +199,4 @@ Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 
-*Last verified against the tree at v1.4.0.*
+*Last verified against the tree at v1.4.1.*

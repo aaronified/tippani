@@ -631,7 +631,7 @@ export function PartialDateField({
           onChange={(e) => onChange(e.target.value.replace(/[^\d-]/g, "").slice(0, 10))}
           style={bad ? { borderColor: "var(--error)" } : undefined}
         />
-        <Tooltip label="Pick a date from the calendar" className="shrink-0">
+        <Tooltip label="Pick a date" className="shrink-0">
           <button
             type="button"
             className="tp-btn tp-btn-ghost tactile"
@@ -2149,13 +2149,26 @@ const LONG_PRESS_MS = 500;
 const LONG_PRESS_SLOP = 10;
 
 // Tooltip — an on-brand label bubble that replaces native title= tooltips, on
-// every device.
+// every device. ONE bubble serves both input styles (HintBubble, placed by
+// showHint / hintToast below); only what opens and closes it differs:
 //
-//   pointer  the CSS bubble, on hover or keyboard focus (unchanged).
-//   touch    press and hold. There is no hover on a phone, so the label arrives
-//            as a toast pinned to the top of the screen — top, not bottom,
-//            because the bottom is where the finger and the nav bar are, and a
-//            label that appears under your own thumb is not a label.
+//   pointer  hover, or keyboard focus. Closes when the pointer leaves.
+//   touch    press and hold for 500ms. Closes on its own after HINT_MS — there
+//            is no "leave" on a finger that has already lifted.
+//
+// Until 1.4.1 the two were separate mechanisms: a CSS bubble absolutely
+// positioned inside this wrapper for hover, and a pill pinned to the top of the
+// screen for touch. Both were wrong in the same way — neither could be kept
+// inside the viewport. The CSS bubble hanging off a control near the right edge
+// widened the page's scrollable area (an opacity-0 bubble still has a border
+// box), and the touch pill was centred with left:50% + translateX(-50%), which
+// cannot be clamped at all; between them Library and Settings could be panned
+// sideways into blank space on a phone. The pill was also detached from its
+// control, so it answered "what is this?" without saying which "this" — and
+// several 44px glyphs sit within a thumb's width of each other in these bars.
+//
+// The replacement is measured and placed in script, anchored to the control, and
+// clamped on both axes, so it is always wholly on screen and always attributable.
 //
 // A fired long-press swallows the click that follows it: holding a Delete button
 // to find out what it does must never also delete the thing.
@@ -2163,11 +2176,42 @@ export function Tooltip({ label, side = "top", className = "", children }) {
   const timer = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
+  const wrap = useRef(null);
+  // The hint slot's token for the bubble THIS tooltip opened, so closing only
+  // closes our own — moving between two adjacent controls interleaves an enter
+  // and a leave, and a blind "hide" would race the new label away.
+  const held = useRef(0);
+  // Unmount is a close: clicking a control that opens a modal takes the wrapper
+  // (and its pointerleave) with it, which would otherwise pin the label forever.
+  useEffect(() => () => hideHint(held.current), []);
   if (!label) return children;
+
+  // An open InfoDot / Help sheet suppresses its own trigger's bubble: the tap
+  // that opened the panel also leaves the trigger hovered or focused, and the
+  // bubble would repeat the same words over the panel showing them.
+  const suppressed = /(?:^|\s)is-open(?:\s|$)/.test(className);
+  const box = () => {
+    const r = wrap.current?.getBoundingClientRect();
+    return r && r.width ? r : null;
+  };
+  const open = () => {
+    if (suppressed) return;
+    hideHint(held.current);
+    held.current = showHint(label, box(), side);
+  };
+  const close = () => {
+    hideHint(held.current);
+    held.current = 0;
+  };
 
   const clear = () => {
     clearTimeout(timer.current);
     timer.current = null;
+  };
+  const onPointerEnter = (e) => {
+    // Touch fires pointerenter too, on the tap — that path is the long press.
+    if (e.pointerType === "touch" || suppressed) return;
+    open();
   };
   const onPointerDown = (e) => {
     if (e.pointerType !== "touch") return;
@@ -2176,7 +2220,10 @@ export function Tooltip({ label, side = "top", className = "", children }) {
     clear();
     timer.current = setTimeout(() => {
       fired.current = true;
-      hintToast(label);
+      if (suppressed) return;
+      // Read the box at FIRE time, not at press time: the hold lasts half a
+      // second and a list can still be settling under the finger.
+      hintToast(label, box(), side);
     }, LONG_PRESS_MS);
   };
   const onPointerMove = (e) => {
@@ -2196,25 +2243,36 @@ export function Tooltip({ label, side = "top", className = "", children }) {
     e.preventDefault();
     e.stopPropagation();
   };
+  // Keyboard focus only. A tap also focuses, and matching :focus-visible is what
+  // separates the two without guessing at the input device.
+  const onFocus = (e) => {
+    let keyboard = false;
+    try {
+      keyboard = !!e.target.matches?.(":focus-visible");
+    } catch {
+      keyboard = false; // engine without :focus-visible — stay quiet
+    }
+    if (keyboard) open();
+  };
 
   return (
     <span
+      ref={wrap}
       className={`tp-tip-wrap ${className}`}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={() => { clear(); close() }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={clear}
-      onPointerCancel={clear}
+      onPointerCancel={() => { clear(); close() }}
       onClickCapture={onClickCapture}
+      onFocus={onFocus}
+      onBlur={close}
       // Long-pressing a control on Android otherwise raises the text-selection
       // handles or the context menu over the label we just showed.
       onContextMenu={(e) => e.preventDefault()}
     >
       {children}
-      <span className="tp-tip-holder" data-side={side}>
-        <span className="tp-tip" role="tooltip">
-          {label}
-        </span>
-      </span>
     </span>
   );
 }
@@ -2339,7 +2397,10 @@ export function InfoDot({ text, title, side = "top" }) {
       : heading;
   return (
     <>
-      <Tooltip label={text} side={side} className={open ? "is-open" : ""}>
+      {/* The dot's own hover label names the subject; the PARAGRAPH is what the
+          popover is for. It used to be the label too, which put a hundred-word
+          bubble on a hover and broke the five-word rule every label follows. */}
+      <Tooltip label={title ? `About ${title}` : "More information"} side={side} className={open ? "is-open" : ""}>
         <button
           ref={btn}
           type="button"
@@ -2691,8 +2752,11 @@ export function reviewStatus(item = {}) {
           ? "forgetting"
           : "probably-forgotten";
   const meta = STATUS_META[key];
-  const due = elapsed >= h ? "due now" : `review in ~${fmtHalfLife(h - elapsed)}`;
-  return { key, ...meta, tip: `${meta.label} · half-life ${fmtHalfLife(h)} · ${due}` };
+  // Five words is the house ceiling for a label, so the dot names the state
+  // and the ONE number that matters at that moment: how long it keeps if it is
+  // holding, or that it is already owed a look if it is not.
+  const due = elapsed >= h ? "due now" : `half-life ${fmtHalfLife(h)}`;
+  return { key, ...meta, tip: `${meta.label} · ${due}` };
 }
 
 // ReviewDot — the coloured repetition-status dot shown on every quote/dialogue
@@ -3443,16 +3507,23 @@ export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false 
   );
 }
 
-// MobileSheet — a full-screen overlay for mobile filter pages (§7).
+// MobileSheet — a full-screen overlay for mobile filter pages and forms (§7).
 // On narrow screens it covers the entire viewport with a sticky header
-// (back/close + title), a scrollable body, and an optional pinned footer
-// (see SheetFooter). Callers compose the filter controls inside the body;
+// (back/close + title + optional `actions`), a scrollable body, and an optional
+// pinned footer (see SheetFooter). Callers compose the controls inside the body;
 // on desktop the sheet is never rendered.
-export function MobileSheet({ open, onClose, title, children, footer }) {
+//
+// `actions` is where a form's own Save / Help glyphs go — the title bar, not a
+// row at the bottom of a long scroll. It replaces the spacer that balanced the
+// close button, so a sheet with no actions still centres its title.
+//
+// `dismissOnScrim` is off for forms: a filter sheet loses nothing to a stray tap
+// beside the card, and a half-written quote loses everything.
+export function MobileSheet({ open, onClose, title, actions, children, footer, dismissOnScrim = true }) {
   useBodyScrollLock(open);
   if (!open) return null;
   return (
-    <div className="mobile-sheet" onClick={onClose}>
+    <div className="mobile-sheet" onClick={dismissOnScrim ? onClose : undefined}>
       <div className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
         <div className="mobile-sheet-header">
           <Tooltip label="Close this sheet" side="bottom" className="shrink-0">
@@ -3461,7 +3532,7 @@ export function MobileSheet({ open, onClose, title, children, footer }) {
             </button>
           </Tooltip>
           <h2 className="mobile-sheet-title">{title}</h2>
-          <span className="mobile-sheet-spacer" />
+          {actions || <span className="mobile-sheet-spacer" />}
         </div>
         <div className="mobile-sheet-body">
           {children}
@@ -3517,42 +3588,129 @@ export function ProgressBar({ value, max, label }) {
 
 // ---- toast (§7 redesign: mutations answer with an ink-on-cream pill) ----
 // One slot app-wide: a new toast replaces the current one and restarts the
-// 2200ms timer; each message is re-keyed so repeats replay the entrance.
+// TOAST_MS timer; each message is re-keyed so repeats replay the entrance.
 // toast() is a module-level function so any handler can call it without
 // threading a prop chain — ToastHost (mounted once in App) does the rendering.
+//
+// Both timers are deliberately short. A toast is not a document: every message
+// in the app is five words or fewer (a house rule — see the strings at the
+// call sites), which is one glance, and a pill still sitting there several
+// seconds after the glance reads as something you are expected to act on.
+
+const TOAST_MS = 1500 // a mutation confirmation — news, so slightly longer
+const HINT_MS = 1200 // a control's own label, on touch — one glance
 
 let toastSink = null
 let hintSink = null
+let hintSeq = 0
 
 export function toast(msg) {
   if (toastSink) toastSink(msg)
 }
 
-// hintToast — the touch answer to a hover tooltip: a control's label, shown at
-// the TOP of the screen after a long press. Its own slot rather than a variant
-// of toast(), because the two can legitimately be on screen at once (hold a
-// button, read its label, tap it, get its confirmation) and they must not fight
-// over one message. Shorter-lived than a toast: it is a label, not news.
-export function hintToast(msg) {
-  if (hintSink) hintSink(msg)
+// ---- the hint slot: one label bubble, two lifetimes ----
+// Its own slot rather than a variant of toast(), because the two can legitimately
+// be on screen at once (hold a button, read its label, tap it, get its
+// confirmation) and they must not fight over one message.
+//
+// Every call returns a TOKEN and every close names one. Moving a mouse between
+// two adjacent controls interleaves the second control's enter with the first's
+// leave, and a blind close would race the new label off the screen; a token means
+// a stale close is simply ignored.
+
+// showHint pins a label until hideHint — the hover / keyboard-focus path.
+export function showHint(msg, rect, side) {
+  if (!hintSink) return 0
+  const token = ++hintSeq
+  hintSink({ msg, rect: rect || null, side, sticky: true, token })
+  return token
+}
+
+// hideHint closes the bubble iff `token` is the one still showing.
+export function hideHint(token) {
+  if (token && hintSink) hintSink({ hide: token })
+}
+
+// hintToast shows a label for HINT_MS — the long-press path, where the finger has
+// already lifted and no "leave" is ever coming.
+export function hintToast(msg, rect, side) {
+  if (!hintSink) return 0
+  const token = ++hintSeq
+  hintSink({ msg, rect: rect || null, side, sticky: false, token })
+  return token
+}
+
+// HintBubble — the anchored label. Placement needs the bubble's real size, which
+// needs one paint, so the first frame renders hidden (pos === null) and
+// useLayoutEffect measures and places it before the browser shows anything.
+// Every edge is clamped to the viewport: this is the control that used to widen
+// the page sideways.
+function HintBubble({ msg, rect, side }) {
+  const ref = useRef(null)
+  const [pos, setPos] = useState(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const GAP = 9 // the offset the CSS bubble used, kept so nothing moved
+    const EDGE = 8 // smallest gap the bubble keeps from a screen edge
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const w = el.offsetWidth
+    const h = el.offsetHeight
+    if (!rect) {
+      // No source — a caller that fired the hint itself rather than a control.
+      // Top-centre, still clamped rather than translated.
+      setPos({ top: EDGE + 6, left: Math.max(EDGE, (vw - w) / 2) })
+      return
+    }
+    // `side` is a preference, not an instruction: take it when the bubble fits
+    // there and flip when it does not. Both branches are clamped, because a
+    // control near either edge can leave no room on its preferred side either.
+    const roomAbove = rect.top - GAP - h >= EDGE
+    const roomBelow = rect.bottom + GAP + h <= vh - EDGE
+    const above = side === "bottom" ? !roomBelow && roomAbove : roomAbove || !roomBelow
+    const top = above
+      ? Math.max(EDGE, rect.top - GAP - h)
+      : Math.min(rect.bottom + GAP, Math.max(EDGE, vh - h - EDGE))
+    const left = Math.max(EDGE, Math.min(rect.left + rect.width / 2 - w / 2, vw - w - EDGE))
+    setPos({ top, left })
+  }, [msg, rect, side])
+  return (
+    <div
+      ref={ref}
+      className="hint-bubble"
+      role="tooltip"
+      style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: "hidden" }}
+    >
+      {msg}
+    </div>
+  )
 }
 
 export function ToastHost() {
   const [t, setT] = useState({ msg: "", n: 0 })
-  const [h, setH] = useState({ msg: "", n: 0 })
+  const [h, setH] = useState({ msg: "", n: 0, rect: null, side: "top", sticky: false, token: 0 })
   useEffect(() => {
     toastSink = (msg) => setT((s) => ({ msg, n: s.n + 1 }))
-    hintSink = (msg) => setH((s) => ({ msg, n: s.n + 1 }))
+    hintSink = (m) =>
+      setH((s) => {
+        // Returning `s` itself, not a copy, when the close is stale or the bubble
+        // is already gone: React bails out of a re-render on an identical value,
+        // and closes arrive in pairs (pointerleave, then blur).
+        if (m.hide != null) return m.hide === s.token && s.msg ? { ...s, msg: "" } : s
+        return { msg: m.msg, rect: m.rect, side: m.side || "top", sticky: m.sticky, token: m.token, n: s.n + 1 }
+      })
     return () => { toastSink = null; hintSink = null }
   }, [])
   useEffect(() => {
     if (!t.msg) return
-    const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), 2200)
+    const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), TOAST_MS)
     return () => clearTimeout(id)
   }, [t])
   useEffect(() => {
-    if (!h.msg) return
-    const id = setTimeout(() => setH((s) => ({ ...s, msg: "" })), 1700)
+    // A hovered label has no timer — the pointer leaving is what closes it.
+    if (!h.msg || h.sticky) return
+    const id = setTimeout(() => setH((s) => ({ ...s, msg: "" })), HINT_MS)
     return () => clearTimeout(id)
   }, [h])
   return (
@@ -3562,11 +3720,9 @@ export function ToastHost() {
           {t.msg}
         </div>
       )}
-      {h.msg && (
-        <div className="hint-toast" key={h.n} role="status">
-          {h.msg}
-        </div>
-      )}
+      {/* Re-keyed per message so a repeat replays the entrance — and so the
+          bubble remounts, which re-runs its measure-and-place pass. */}
+      {h.msg && <HintBubble key={h.n} msg={h.msg} rect={h.rect} side={h.side} />}
     </>
   )
 }

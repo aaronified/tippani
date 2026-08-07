@@ -5,7 +5,6 @@
 // import cycle — this layer is free to import from both).
 import { useState } from 'react'
 import { DEMO, coverImgURL } from './api.js'
-import { PageHelp } from './help.jsx'
 import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
 import {
   ConfirmDialog,
@@ -20,7 +19,6 @@ import {
   IconButton,
   IconExport,
   IconFilter,
-  IconPlus,
   MobileSheet,
   MonoLabel,
   MoreMenu,
@@ -817,22 +815,27 @@ export function WorkHero({
 }
 
 // WorkListScaffold — the shared catalogue list-page shell (Library + Movies):
-// header (title · counts · add / export / lookup aside), the desktop filter row
+// header (title · counts · export / lookup aside), the desktop filter row
 // and mobile filter sheet (genre · [leading] · wishlist · favourites ·
 // reading/watching · tagged · has notes · series · [trailing] · sort), the empty
 // states, the grid (children), and the trailing surfaces
-// (add surface, export dialog, extra modals). The page owns its data + the
+// (export dialog, extra modals). The page owns its data + the
 // page-specific filter — a film's media-type via the `leading` slots, a book's
 // group-by via the `trailing` slots — and the derived `shown` list; the
 // scaffold owns the mobile-sheet open state and renders the shared favourites /
 // series / sort controls so those live in one place.
+//
+// Neither an Add control nor a "?" lives here any more (1.4.1). Both were shell
+// controls drawn a second time per page: the header's ＋ sat immediately beside
+// the top bar's own ＋ , and the top bar's Add now knows which page it is on, so
+// it adds a book on Library and a film on the Catalogue by itself. Help moved
+// into that same bar. What the header keeps is what is genuinely local to the
+// list — its filters and its export.
 export function WorkListScaffold({
   mobile,
   title,
   counts,
-  helpScreen, // which help.jsx entry the header's "?" opens
   error,
-  add, // { label, aria, onClick }
   onExport,
   headerAside,
   loaded, // items != null (data has arrived)
@@ -875,7 +878,6 @@ export function WorkListScaffold({
   trailingMobile, // mobile-sheet section for `trailing`
   onReset,
   children, // the grid (flat or grouped)
-  addSurface,
   exportDialog,
   extraModals,
 }) {
@@ -891,12 +893,12 @@ export function WorkListScaffold({
           ♥ favourites
         </button>
       </Tooltip>
-      <Tooltip label={`Show only ${noun}s with a tagged quote`}>
+      <Tooltip label={`Only tagged ${noun}s`}>
         <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
           tagged
         </button>
       </Tooltip>
-      <Tooltip label={`Show only ${noun}s with a quote carrying a note`}>
+      <Tooltip label={`Only ${noun}s with notes`}>
         <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
           has notes
         </button>
@@ -909,8 +911,8 @@ export function WorkListScaffold({
   // (annotated). Same chip-triplet shape as the Catalogue's movie/show control.
   const wishChips = [
     ['', 'all', `Every ${noun}`],
-    ['wishlist', 'wishlist', `Only ${noun}s with nothing quoted yet`],
-    ['annotated', 'annotated', `Hide ${noun}s with nothing quoted yet`],
+    ['wishlist', 'wishlist', `Only unquoted ${noun}s`],
+    ['annotated', 'annotated', `Hide unquoted ${noun}s`],
   ].map(([k, label, hint]) => (
     <Tooltip key={k || 'all'} label={hint}>
       <button className={filterChipClass(wish === k)} onClick={() => setWish(k)}>
@@ -956,9 +958,7 @@ export function WorkListScaffold({
             <>
               {mobile && (
                 <div className="flex items-center gap-2">
-                  <IconButton icon={<IconPlus />} ariaLabel={add.aria} onClick={add.onClick} />
                   <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  <PageHelp screen={helpScreen} />
                   {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: onExport }]} />}
                 </div>
               )}
@@ -968,12 +968,6 @@ export function WorkListScaffold({
                   the ⬇ already carries. */}
               {!mobile && !DEMO && (
                 <IconButton icon={<IconExport />} ariaLabel="Export all" onClick={onExport} tooltip="Export everything as Markdown" />
-              )}
-              {!mobile && <PageHelp screen={helpScreen} />}
-              {!mobile && (
-                <button className="tp-btn tp-btn-primary" onClick={add.onClick}>
-                  {add.label}
-                </button>
               )}
             </>
           }
@@ -1061,7 +1055,6 @@ export function WorkListScaffold({
       {hasItems && shownCount === 0 && <EmptyState>{noMatchText}</EmptyState>}
       {shownCount > 0 && children}
 
-      {addSurface}
       {extraModals}
       {exportDialog}
     </section>

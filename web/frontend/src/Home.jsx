@@ -7,7 +7,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
 import { dateLine, greetingFor } from './greetings.js'
-import { PageHelp } from './help.jsx'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState, episodeLabel } from './Movies.jsx'
 import { PendingImportCard } from './StagingPage.jsx'
@@ -479,7 +478,7 @@ function PracticeCard({ onStates, userId }) {
     const r = await json('GET', '/review/practice')
     setBusy(false)
     const items = r.ok ? r.data.items || [] : []
-    if (!items.length) return toast('add a few more quotes first — practice needs some to work with')
+    if (!items.length) return toast('add a few quotes first')
     setSession({ cards: items, i: 0, got: 0, forgot: 0 })
     setPhase('active')
   }
@@ -540,7 +539,7 @@ function PracticeCard({ onStates, userId }) {
                 <MonoLabel style={{ fontSize: 10.5 }}>
                   {score.answered} answered · {Math.round(score.accuracy * 100)}% recalled
                 </MonoLabel>
-                <Tooltip label="Reset the practice score — learning history is untouched">
+                <Tooltip label="Reset the practice score">
                   <button
                     type="button"
                     className="field-icon-btn tactile"
@@ -751,8 +750,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 pt-4" data-screen-label="home-body">
-      <div className="flex items-start gap-2 px-0.5">
-        <div className="min-w-0 flex-1">
+      {/* No "?" beside the greeting since 1.4.1 — it is a shell control now — so
+          the date and greeting own the row outright. */}
+      <div className="px-0.5">
+        <div className="min-w-0">
           <MonoLabel>{today}</MonoLabel>
           <h1
             className="mt-0.5"
@@ -767,7 +768,6 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
             {hello}
           </h1>
         </div>
-        <PageHelp screen="home" />
       </div>
 
       {/* A staged import sits above the deck until it is dealt with: nothing has

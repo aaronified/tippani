@@ -3,7 +3,6 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { PageHelp } from './help.jsx'
 import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconMetadata, IconMore, IconSearch, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, normName, splitCommas, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
@@ -133,14 +132,13 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
                   <IconButton
                     icon={<IconMetadata />}
                     ariaLabel="Fetch missing covers and metadata"
-                    tooltip="Fetch missing covers & metadata — fills gaps across every library on this instance, and never replaces what is already there"
+                    tooltip="Fill missing covers and metadata"
                     tipSide="bottom"
                     onClick={() => fetchMissingCovers(false)}
                     disabled={busy}
                   />
                 )
               )}
-              <PageHelp screen="metadata" />
             </>
           }
       />
@@ -282,7 +280,7 @@ function Stat({ n, label, warn, onClick }) {
   const bad = warn && n > 0
   const clickable = !!onClick && (n > 0 || !warn)
   return (
-    <Tooltip label={clickable ? `Filter the catalogue below to ${label}` : null} side="bottom">
+    <Tooltip label={clickable ? `Show only ${label}` : null} side="bottom">
       <button
         type="button"
         onClick={clickable ? onClick : undefined}
@@ -546,7 +544,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           <select className="tp-input w-auto" title="Type" value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
             {CATALOGUE_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
-          <Tooltip label="Show only titles with this gap" side="top">
+          <Tooltip label="Show only these gaps" side="top">
             <select className="tp-input w-auto" value={filterVal} onChange={(e) => setFilter(e.target.value)}>
               {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
@@ -686,7 +684,7 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
   return (
     <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
-        <Tooltip label="Select this book for bulk actions" side="top">
+        <Tooltip label="Select this book" side="top">
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
         <div className="min-w-0 flex-1">
@@ -731,7 +729,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
   return (
     <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
-        <Tooltip label="Select this title for bulk actions" side="top">
+        <Tooltip label="Select this title" side="top">
           <input type="checkbox" checked={checked} onChange={onCheck} />
         </Tooltip>
         <div className="min-w-0 flex-1">
@@ -939,6 +937,11 @@ function SpeakerRemap({ movies, onDone }) {
     loadMovie(movieId)
   }, [movieId])
 
+  // A remap with nothing mapped is the must-fill case here, so "Apply remap"
+  // greys out until at least one row is chosen (see the button below). Refilling
+  // actors from the cast needs no mapping at all, hence the `refill` exemption.
+  const mapped = Object.values(maps).filter(Boolean).length
+
   async function apply(refill = false) {
     setBusy(true)
     setErr('')
@@ -992,7 +995,12 @@ function SpeakerRemap({ movies, onDone }) {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button className="tp-btn tp-btn-primary" disabled={busy} onClick={() => apply(false)}>
+            <button
+              className="tp-btn tp-btn-primary"
+              disabled={busy || mapped === 0}
+              title={mapped === 0 ? 'Choose at least one mapping' : undefined}
+              onClick={() => apply(false)}
+            >
               Apply remap
             </button>
             <GhostButton disabled={busy} onClick={() => apply(true)}>

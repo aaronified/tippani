@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json } from './api.js'
-import { PageHelp } from './help.jsx'
 import { PersonPortrait, usePeople } from './people.jsx'
 import { Card, MonoLabel, PageHeader, STATUS_META, Toggle, Tooltip, fmtHalfLife, toast, useIsMobileScreen } from './ui.jsx'
 
@@ -340,7 +339,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <Tooltip label="Search the library for this name" side="bottom" className="min-w-0">
+          <Tooltip label="Search for this name" side="bottom" className="min-w-0">
             <button
               type="button"
               className="truncate text-left"
@@ -479,7 +478,7 @@ function LeaderList({ rows, onSearch }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <Tooltip label="Search the library for this tag" side="bottom" className="min-w-0">
+              <Tooltip label="Search for this tag" side="bottom" className="min-w-0">
                 <button
                   type="button"
                   className="truncate text-left"
@@ -528,7 +527,7 @@ function SuperTile({ label, title, count, amber, cover, onOpen }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
             {title && onOpen ? (
-              <Tooltip label="Search the library for this title" side="top" className="min-w-0">
+              <Tooltip label="Search for this title" side="top" className="min-w-0">
                 <button
                   type="button"
                   className="truncate text-left"
@@ -594,7 +593,7 @@ export default function StatsPage({ onSearch }) {
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0)} saved` : ''} right={<PageHelp screen="stats" />} />
+        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0)} saved` : ''} />
       </div>
       {!s ? (
         <Card><p className="tp-empty" style={{ padding: '32px 0' }}>loading…</p></Card>

@@ -1027,69 +1027,16 @@
   /* ---- annotation views (v3): tiles (packed masonry) · list · table ---- */
   .vt-opt { display: inline-flex; align-items: center; gap: 6px; }
 
-  /* ---- Tooltip (§ design): on-brand hover/focus bubble, replaces title= ---- */
-  /* The holder is a zero-width flex strut at the trigger's center: the bubble
-     centers by overflowing it equally, so its glyphs are layout-positioned
-     (pixel-snapped at paint) instead of riding a blurry translateX(-50%). */
+  /* ---- Tooltip (§ design): the wrapper only ---- */
+  /* The bubble itself is .hint-bubble below, positioned by script. There is no
+     CSS bubble any more: an absolutely-positioned one could not be kept inside
+     the viewport (an opacity-0 bubble still has a border box, so one hanging off
+     an info-dot near the screen's right edge widened the page's scrollable area,
+     which on a phone read as Settings/Metadata panning sideways into blank
+     space — and iOS drags position:fixed overlays along with that pan). All this
+     rule owns now is the inline box around the control and the touch-callout
+     suppression a long press needs. */
   .tp-tip-wrap { position: relative; display: inline-flex; align-items: center; }
-  /* Closed tooltips must leave layout entirely (display:none), not just fade:
-     an opacity-0 bubble still has a border box, and one hanging off an info-dot
-     near the screen's right edge widens the page's scrollable area — on phones
-     that read as Settings/Metadata panning sideways into blank space (and iOS
-     drags position:fixed overlays along with the pan). display transitions
-     discretely (allow-discrete holds the box through the fade-out); browsers
-     without it just skip the fade. */
-  .tp-tip-holder {
-    position: absolute;
-    z-index: 70;
-    left: 50%;
-    bottom: calc(100% + 9px);
-    width: 0;
-    display: none;
-    justify-content: center;
-    pointer-events: none;
-    transition: display .16s allow-discrete;
-  }
-  .tp-tip-wrap:hover .tp-tip-holder,
-  .tp-tip-wrap:focus-within .tp-tip-holder { display: flex; }
-  .tp-tip-holder[data-side="bottom"] { bottom: auto; top: calc(100% + 9px); align-items: flex-start; }
-  .tp-tip {
-    transform: translateY(4px);
-    flex: none;                /* don't shrink into the zero-width holder */
-    width: max-content;
-    max-width: 260px;
-    padding: 8px 11px;
-    background: var(--ink);
-    color: var(--bg);
-    border-radius: 9px;
-    font-family: var(--font-ui);
-    font-size: 12.5px;
-    font-weight: 500;
-    line-height: 1.45;
-    letter-spacing: normal;
-    text-transform: none;
-    text-align: left;
-    box-shadow: 0 10px 24px -8px rgba(0,0,0,.55);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .16s ease, transform .16s ease;
-  }
-  .tp-tip-holder[data-side="bottom"] .tp-tip { transform: translateY(-4px); }
-  .tp-tip-wrap:hover .tp-tip,
-  .tp-tip-wrap:focus-within .tp-tip { opacity: 1; transform: translateY(0); }
-  /* The bubble now mounts from display:none, so the fade-in needs an explicit
-     starting frame (there is no prior opacity-0 frame to transition from). */
-  @starting-style {
-    .tp-tip-wrap:hover .tp-tip,
-    .tp-tip-wrap:focus-within .tp-tip { opacity: 0; transform: translateY(4px); }
-    .tp-tip-wrap:hover .tp-tip-holder[data-side="bottom"] .tp-tip,
-    .tp-tip-wrap:focus-within .tp-tip-holder[data-side="bottom"] .tp-tip { transform: translateY(-4px); }
-  }
-  @media (prefers-reduced-motion: reduce) { .tp-tip { transition: opacity .16s ease; transform: none; } }
-  /* An open InfoDot/Help popover suppresses its own hover bubble: the tap that
-     opened it also lands focus, and :focus-within would otherwise show the same
-     words a second time behind the sheet. */
-  .tp-tip-wrap.is-open .tp-tip-holder { display: none !important; }
   /* .info-dot is a real <button> now (a tap has to open the popover on a phone,
      where there is no hover). The 16px disc is the visual size; a transparent
      ::after grows the hit target to the 30px a thumb needs without moving any
@@ -1220,34 +1167,40 @@
     to { opacity: 1; transform: none; }
   }
 
-  /* ---- hint toast: a control's label after a long press, on touch ---- */
-  /* Pinned to the TOP. The bottom of a phone is where the finger, the floating
-     nav bar and the OS gesture strip are — a label that appears under the thumb
-     that asked for it is not a label. */
-  .hint-toast {
+  /* ---- hint bubble: a control's label after a long press, on touch ---- */
+  /* Anchored to the control that was held, and placed by script (HintBubble in
+     ui.jsx) rather than by CSS. There is no left:50%/translateX(-50%) here on
+     purpose: that centring cannot be clamped, so a label wider than the screen
+     used to hang off both edges and widen the page's scrollable area — which is
+     what made Library and Settings pan sideways into blank space on a phone.
+     top/left arrive as inline styles already clamped to the viewport; this rule
+     owns only the material and the width ceiling that bounds the measurement. */
+  .hint-bubble {
     position: fixed;
-    left: 50%;
-    top: 14px;
-    top: max(14px, calc(env(safe-area-inset-top, 0px) + 10px));
     z-index: 95;                 /* above the lightbox (90): it explains that too */
-    transform: translateX(-50%);
-    max-width: min(88%, 420px);
-    padding: 9px 15px;
+    max-width: min(260px, calc(100vw - 16px));
+    width: max-content;
+    padding: 8px 13px;
     background: var(--ink);
     color: var(--bg);
-    border-radius: 11px;
+    border-radius: 10px;
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
-    line-height: 1.4;
-    text-align: center;
+    line-height: 1.45;
+    letter-spacing: normal;
+    text-transform: none;
+    text-align: left;
+    /* A label is short by house rule, but a stray long token (a filename, a
+       tag) must break rather than push the box past its ceiling. */
+    overflow-wrap: anywhere;
     box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .55);
-    animation: hint-down .2s cubic-bezier(.2, .68, .28, 1);
+    animation: hint-in .18s cubic-bezier(.2, .68, .28, 1);
     pointer-events: none;
   }
-  @keyframes hint-down {
-    from { opacity: 0; transform: translate(-50%, -10px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
+  @keyframes hint-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: none; }
   }
   /* A long press must not also raise Android's text-selection handles or the
      iOS callout over the label it just produced. */
@@ -1441,13 +1394,10 @@
     transition: transform .12s ease;
   }
   .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
-  /* Each .hand-card is an isolated stacking context, so a tooltip (z-index 70
-     inside its own card) is still painted UNDER an adjacent card that sits later
-     in the flow — the bubble gets clipped by the neighbour. While a tooltip is
-     open, lift its whole card above the siblings so the bubble wins. */
-  .hand-card:has(.tp-tip-wrap:hover),
-  .hand-card:has(.tp-tip-wrap:focus-within) { z-index: 30; }
-  /* Same lift for a card whose ⋯ overflow (mobile QuoteActions, §7) is open, so
+  /* No card lift for tooltips any more: the bubble is a viewport-fixed sibling of
+     the page (ToastHost, at the app root), so no card's stacking context can clip
+     it and none has to be raised to let it out.
+     The lift stays for a card whose ⋯ overflow (mobile QuoteActions, §7) is open, so
      its dropdown isn't clipped by a later sibling card in a masonry column. */
   .hand-card:has(.more-menu),
   .film-frame:has(.more-menu) { position: relative; z-index: 30; }
@@ -1841,17 +1791,6 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
   .user-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  /* Flex, not block: an inline-flex chip in a block wrapper sits on the text
-     baseline, so the line box adds ~6px of descender space below it — the
-     wrapper outgrows the chip and the chip rides high (or spills out of the
-     52px mobile bar). A flex wrapper hugs the chip exactly. */
-  .user-menu { flex: none; display: flex; align-items: center; }
-  .user-menu-panel {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 8px);
-    margin: 0;
-  }
   .more-menu {
     position: absolute;
     right: 0;
@@ -2487,7 +2426,10 @@ html[data-aesthetic="film"] .mobile-bottom-nav::before { background-image: url("
   bottom: max(18px, env(safe-area-inset-bottom));
   z-index: 70;
   transform: translateX(-50%);
-  max-width: 82%;
+  /* min() rather than a bare percentage: a translateX(-50%) box cannot be
+     clamped, so its width is what has to be bounded, and a long token has to
+     break instead of pushing the pill past the ceiling (see .hint-bubble). */
+  max-width: min(82%, 420px);
   padding: 10px 16px;
   background: var(--ink);
   color: var(--bg);
@@ -2497,6 +2439,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav::before { background-image: url("
   font-weight: 500;
   line-height: 1.4;
   text-align: center;
+  overflow-wrap: anywhere;
   box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .55);
   animation: toast-up .24s cubic-bezier(.2, .68, .28, 1);
   pointer-events: none;

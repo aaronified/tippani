@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
-import { PageHelp } from './help.jsx'
 import { episodeLabel } from './Movies.jsx'
 import {
   BulkBar,
@@ -227,7 +226,7 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
               ? `${queue.pending} quote${queue.pending === 1 ? '' : 's'} waiting`
               : `${works.length} work${works.length === 1 ? '' : 's'} waiting, no quotes`
           }
-          right={mobile ? <PageHelp screen="staging" /> : <>{pageActions}<PageHelp screen="staging" /></>}
+          right={mobile ? null : pageActions}
         />
       </div>
       {mobile && <div className="flex flex-wrap items-center gap-2">{pageActions}</div>}
@@ -351,7 +350,7 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Tooltip label="Select every quote in this group" side="bottom">
+        <Tooltip label="Select this whole group" side="bottom">
           <input
             type="checkbox"
             checked={allOn}

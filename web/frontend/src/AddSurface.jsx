@@ -12,7 +12,22 @@ import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
 import ImportPage from './ImportPage.jsx'
-import { ColorSwatches, EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, Toggle, toast, useIsMobileScreen } from './ui.jsx'
+import { PageHelp } from './help.jsx'
+import {
+  ColorSwatches,
+  EmptyState,
+  ErrorText,
+  GhostButton,
+  HandCard,
+  IconButton,
+  IconCheck,
+  IconClose,
+  MobileSheet,
+  MonoLabel,
+  Toggle,
+  toast,
+  useIsMobileScreen,
+} from './ui.jsx'
 
 // One card, three kinds. "Film" and "Show" both map to the movies flow (they
 // differ only by media_type); "Book" uses the books flow. Manual entry is no
@@ -309,9 +324,9 @@ function ManualPopup({ kind, onClose, onAdded }) {
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <HandCard variant={1} className="w-full max-w-lg px-6 py-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="display-title text-lg">{heading}</h3>
-          <GhostButton onClick={onClose}>Close</GhostButton>
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="display-title flex-1 text-lg">{heading}</h3>
+          <IconButton icon={<IconClose />} ariaLabel="Close" tooltip="Close without saving" onClick={onClose} />
         </div>
         {kind === 'book' ? (
           <ManualTab onAdded={(rec) => { onAdded('book', rec); onClose() }} />
@@ -478,13 +493,16 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
 // are comma-separated names — unknown ones are auto-created server-side.
 // `onCaptured` fires after a successful save; `onWorkCreated` after an inline
 // work add (the shell refreshes its counts).
-export function CaptureQuote({ onCaptured, onWorkCreated }) {
+export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, onSaveState }) {
   const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
   const [creating, setCreating] = useState(null) // null | {title} — inline new-work lookup
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  // No default target — a search-first picker with a silently pre-filled
-  // work invites mis-filed quotes; picking is one keystroke away.
+  // No default target when the surface was opened cold — a search-first picker
+  // with a silently pre-filled work invites mis-filed quotes, and picking is one
+  // keystroke away. `initialTarget` is the deliberate exception: you pressed ＋
+  // on a particular book's own page, so that book IS the answer to "which work",
+  // and asking again would be asking a question you already answered.
   const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: '', color: 'yellow' })
 
   useEffect(() => {
@@ -501,8 +519,18 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
         }
       }
       setWorks(list)
+      // The target arrives as {type, id} from the route; the picker speaks the
+      // richer {kind, title, sub, tag} shape, and the list that just landed is
+      // where that shape comes from. A target that is not in the list (deleted
+      // in another tab) simply leaves the picker empty rather than half-filled.
+      if (initialTarget) {
+        const wantKind = initialTarget.type === 'movie' ? 'screen' : 'book'
+        const hit = list.find((w) => w.kind === wantKind && w.id === initialTarget.id)
+        if (hit) setDraft((d) => ({ ...d, target: hit }))
+      }
     })
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTarget?.type, initialTarget?.id])
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
   const isScreen = draft.target?.kind === 'screen'
@@ -519,14 +547,23 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
     onWorkCreated?.()
   }
 
+  // ---- what "must-fill" means here, in one place -----------------------------
+  // The same predicate greys out Save and refuses the submit, so the button can
+  // never be pressable in a state the handler would reject — and `why` is what
+  // its tooltip says instead of leaving a dead control unexplained.
+  const missing = !draft.target
+    ? 'Pick a book, film or show'
+    : isScreen && !draft.quote.trim()
+      ? 'A line needs the words themselves'
+      : !isScreen && !draft.quote.trim() && !draft.note.trim()
+        ? 'Write a quote or a note'
+        : isShow && countOrNull(draft.episode) != null && countOrNull(draft.season) == null
+          ? 'An episode needs its season'
+          : ''
+
   async function save() {
     const t = draft.target
-    if (!t) return setErr('pick a book, film or show — or add one')
-    if (isScreen && !draft.quote.trim()) return setErr('a dialogue needs the quote itself')
-    if (isShow && countOrNull(draft.episode) != null && countOrNull(draft.season) == null) {
-      return setErr('an episode needs the season it is in')
-    }
-    if (!isScreen && !draft.quote.trim() && !draft.note.trim()) return setErr('quote or note is required')
+    if (missing) return setErr(missing.toLowerCase())
     setBusy(true)
     setErr('')
     const tags = draft.tags.split(',').map((s) => s.trim()).filter(Boolean)
@@ -562,6 +599,15 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
     toast(isScreen ? 'dialogue captured' : 'annotation captured')
     onCaptured?.()
   }
+
+  // Publish Save upward so the host can put it in its title bar. `draft` is in
+  // the deps because `save` closes over it — without it the bar would keep
+  // calling a stale save with the first keystroke's draft. No loop: the host's
+  // setState re-renders this, but the deps are unchanged, so this does not re-fire.
+  useEffect(() => {
+    onSaveState?.({ canSave: !missing && !busy, busy, why: missing, save })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missing, busy, draft])
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -667,11 +713,10 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
         <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
       </div>
       <ErrorText>{err}</ErrorText>
-      <div className="flex">
-        <button type="button" className="tp-btn tp-btn-primary tactile ml-auto" style={{ minWidth: 120 }} disabled={busy} onClick={save}>
-          Save
-        </button>
-      </div>
+      {/* No Save row down here: it is a ✓ in the surface's title bar, which on a
+          phone is pinned and reachable without scrolling past six fields to find
+          it. What stays is the reason it is greyed, where the fields are. */}
+      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing} to save.</p>}
     </div>
   )
 }
@@ -680,15 +725,40 @@ export function CaptureQuote({ onCaptured, onWorkCreated }) {
 // on ("book" / "film" → the look-up card on that kind, "quote" → the capture
 // form, "import" → the file import tab); the user can rotate freely once it's
 // open — Capture quote swaps the bottom of THIS surface, exactly like Import
-// files, never a separate popup. `onAdded(what)` fires after a book/film/show
-// is added (what = 'book' | 'film'); `onCaptured` after a quote/note is saved
-// from the capture tab; the import flow reports inline and leaves the surface
-// open. `onOpenMovie`, when supplied, lets an IMDb import jump straight to the
-// new title (closing the surface first). `onWorkCreated` reports an inline
-// work add from the capture tab (the shell refreshes its counts).
-export default function AddSurface({ open, initialSection = 'book', onClose, onAdded, onOpenMovie, onCaptured, onWorkCreated, pendingImport = 0, onReviewImport, onStaged }) {
+// files, never a separate popup. `initialTarget` ({type:'book'|'movie', id})
+// pre-fills the capture target, which is how a work's own ＋ lands here: since
+// 1.4.1 the book and film pages no longer carry an add form of their own, so
+// "add a highlight to THIS book" is this surface with the book filled in.
+// `onAdded(what)` fires after a book/film/show is added (what = 'book' |
+// 'film'); `onCaptured` after a quote/note is saved from the capture tab; the
+// import flow reports inline and leaves the surface open. `onOpenMovie`, when
+// supplied, lets an IMDb import jump straight to the new title (closing the
+// surface first). `onWorkCreated` reports an inline work add from the capture
+// tab (the shell refreshes its counts).
+//
+// On a phone it is a full-screen sheet, not a card floating on a scrim: it is
+// the app's densest form (a work picker, a quote, a note, six fields, tags and
+// a colour), and a 90%-width card inside a scrolling scrim wasted both edges
+// and put the Save button somewhere the thumb had to hunt for.
+export default function AddSurface({
+  open,
+  initialSection = 'book',
+  initialTarget = null,
+  onClose,
+  onAdded,
+  onOpenMovie,
+  onCaptured,
+  onWorkCreated,
+  pendingImport = 0,
+  onReviewImport,
+  onStaged,
+}) {
   const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' ? 'quote' : 'add')
   const [tab, setTab] = useState(tabFor(initialSection))
+  // The capture form's Save, lifted here so it can live in the title bar beside
+  // Close (§ icons-in-title-bars). {canSave, busy, save} — null while the active
+  // tab has nothing to save (look-up adds per row; import reports inline).
+  const [saveState, setSaveState] = useState(null)
   const mobile = useIsMobileScreen()
   // Short labels on a phone (the three-segment slider can't fit the full words).
   const tabOptions = mobile
@@ -696,9 +766,16 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
     : [['add', 'Look up / add'], ['quote', 'Capture quote'], ['import', 'Import files']]
 
   useEffect(() => {
-    if (open) setTab(tabFor(initialSection))
+    if (!open) return
+    setTab(tabFor(initialSection))
+    // Drop the previous session's Save with it. The closure it holds captured
+    // that session's draft, and a ✓ tapped in the frame before the fresh form
+    // republishes would have saved the wrong thing.
+    setSaveState(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialSection])
+  // A tab with no save action must not leave the previous tab's Save in the bar.
+  useEffect(() => { if (tab !== 'quote') setSaveState(null) }, [tab])
 
   useEffect(() => {
     if (!open) return
@@ -708,6 +785,89 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
   }, [open, onClose])
 
   if (!open) return null
+
+  const title = tab === 'quote' ? 'Capture' : tab === 'import' ? 'Import' : 'Add'
+  // Save is a ✓ in the title bar and is disabled — visibly, not silently — until
+  // every must-fill field is filled. The reason is in its tooltip, because a
+  // greyed control that will not say why is worse than one that is not there.
+  const saveBtn = saveState && (
+    <IconButton
+      icon={<IconCheck />}
+      ariaLabel="Save"
+      tooltip={saveState.busy ? 'Saving…' : saveState.canSave ? 'Save' : saveState.why || 'Fill the required fields'}
+      className="field-icon-btn-ok"
+      disabled={!saveState.canSave || saveState.busy}
+      onClick={() => saveState.save()}
+    />
+  )
+  const closeBtn = (
+    <IconButton icon={<IconClose />} ariaLabel="Close" tooltip="Close without saving" onClick={onClose} />
+  )
+
+  const body = (
+    <>
+      <div className="mb-5">
+        <Toggle
+          ariaLabel="Add, capture or import"
+          value={tab}
+          onChange={setTab}
+          options={tabOptions}
+        />
+      </div>
+      {tab === 'add' && (
+        <AddLookup
+          initialKind={initialSection === 'film' ? 'film' : 'book'}
+          onAdded={(what) => onAdded?.(what)}
+        />
+      )}
+      {tab === 'quote' && (
+        <CaptureQuote
+          initialTarget={initialTarget}
+          onCaptured={onCaptured}
+          onWorkCreated={onWorkCreated}
+          onSaveState={setSaveState}
+        />
+      )}
+      {tab === 'import' && (
+        <>
+          {/* An import still waiting in the queue must be visible from the one
+              place you would start another one. */}
+          {pendingImport > 0 && onReviewImport && (
+            <button
+              type="button"
+              className="tp-btn tp-btn-primary w-full"
+              style={{ marginBottom: 12 }}
+              onClick={onReviewImport}
+            >
+              {pendingImport} staged quote{pendingImport === 1 ? '' : 's'} waiting — review the queue
+            </button>
+          )}
+          <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
+        </>
+      )}
+    </>
+  )
+
+  if (mobile) {
+    return createPortal(
+      <MobileSheet
+        open
+        onClose={onClose}
+        title={title}
+        // A half-written quote must not be lost to a tap beside the card.
+        dismissOnScrim={false}
+        actions={
+          <span className="flex shrink-0 items-center">
+            <PageHelp screen="capture" />
+            {saveBtn}
+          </span>
+        }
+      >
+        {body}
+      </MobileSheet>,
+      document.body,
+    )
+  }
 
   return (
     <div
@@ -721,44 +881,13 @@ export default function AddSurface({ open, initialSection = 'book', onClose, onA
       }}
     >
       <HandCard variant={2} className="w-full max-w-2xl px-6 py-6">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="display-title text-xl">Add</h2>
-          <GhostButton onClick={onClose}>Close</GhostButton>
+        <div className="mb-4 flex items-center gap-2">
+          <h2 className="display-title flex-1 text-xl">{title}</h2>
+          <PageHelp screen="capture" />
+          {saveBtn}
+          {closeBtn}
         </div>
-        <div className="mb-5">
-          <Toggle
-            ariaLabel="Add, capture or import"
-            value={tab}
-            onChange={setTab}
-            options={tabOptions}
-          />
-        </div>
-        {tab === 'add' && (
-          <AddLookup
-            initialKind={initialSection === 'film' ? 'film' : 'book'}
-            onAdded={(what) => onAdded?.(what)}
-          />
-        )}
-        {tab === 'quote' && (
-          <CaptureQuote onCaptured={onCaptured} onWorkCreated={onWorkCreated} />
-        )}
-        {tab === 'import' && (
-          <>
-            {/* An import still waiting in the queue must be visible from the one
-                place you would start another one. */}
-            {pendingImport > 0 && onReviewImport && (
-              <button
-                type="button"
-                className="tp-btn tp-btn-primary w-full"
-                style={{ marginBottom: 12 }}
-                onClick={onReviewImport}
-              >
-                {pendingImport} staged quote{pendingImport === 1 ? '' : 's'} waiting — review the queue
-              </button>
-            )}
-            <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
-          </>
-        )}
+        {body}
       </HandCard>
     </div>
   )

@@ -308,7 +308,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
     setBusy('')
     if (!r.ok) return setError(errText(r, 'could not sync from the source'))
     onChanged?.(r.data)
-    toast('re-synced from the source')
+    toast('re-synced from source')
     setMerge(null)
     setView('fields')
   }
@@ -572,7 +572,7 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
 
       <div className="merge-list">
         {state.map((r) => (
-          <Tooltip key={r.key} label="Take this field from the match">
+          <Tooltip key={r.key} label="Take this field">
             <button
               type="button"
               className={'merge-row' + (r.take ? ' is-taken' : '')}

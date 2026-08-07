@@ -639,8 +639,13 @@ function route(method, path, params, body) {
     // with it. Anything Settings reads has to be answered explicitly here.
     case path === '/auth/devices':
       return [200, { devices: [{ id: 1, name: 'Pixel 8', created_at: '2026-07-28', last_seen_at: '2026-08-03' }] }]
+    // Shape-matched to the real handler, field for field. It said `created_at`
+    // where the server says `created`, so the card rendered "Invalid Date" —
+    // a shim that is close but not identical is a bug that only shows up here.
+    // `key`/`account` are how the card knows the archive is sealed with the demo
+    // user's own password (see backup_crypto.go).
     case path === '/admin/backup':
-      return [200, { backup: { name: 'tippani-2026-08-03.tar.gz', size: 4823910, created_at: '2026-08-03' } }]
+      return [200, { backup: { name: 'tippani-backup-20260803-114500.tpbk', size: 4823910, created: '2026-08-03T11:45:00Z', key: 'account', account: 'reader' } }]
     case path === '/search': return [200, search(params.get('q'), params.get('scope'))]
     case path === '/people/names': {
       const kind = params.get('kind')
