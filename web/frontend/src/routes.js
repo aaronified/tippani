@@ -11,15 +11,32 @@
 // detail id, or a legacy alias is spelled out in parsePath/statePath below.
 export const ROUTE_TABS = ['search', 'tags', 'metadata', 'stats', 'settings', 'staging']
 
+// workID reads the id segment of a detail path, or null when it is not one.
+// Guarding on Number.isInteger rather than truthiness is the difference between
+// /books/abc landing on Home and it opening a detail view for work NaN — which
+// fetches /books/NaN and renders an error screen, the exact "blank screen"
+// outcome the unknown-path fallback below exists to prevent.
+function workID(seg) {
+  if (!seg) return null
+  const n = Number(seg)
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
 export function parsePath(pathname) {
   const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   // "/" is the Home screen (daily review); unknown paths land there too.
   if (!a) return { tab: 'home', detail: null }
-  if (a === 'books' && b) return { tab: 'library', detail: { type: 'book', id: Number(b) } }
+  if (a === 'books' && workID(b)) return { tab: 'library', detail: { type: 'book', id: workID(b) } }
   // The catalogue tab's canonical URL is /catalogue (matching its label); /movies
   // is still accepted so old links/bookmarks keep working.
-  if ((a === 'catalogue' || a === 'movies') && b) return { tab: 'movies', detail: { type: 'movie', id: Number(b) } }
+  if ((a === 'catalogue' || a === 'movies') && workID(b)) return { tab: 'movies', detail: { type: 'movie', id: workID(b) } }
   if (a === 'library') return { tab: 'library', detail: null }
+  // A work prefix carrying an unusable id falls back to THAT side's list rather
+  // than Home: you asked for something in the library, so the library is a
+  // better answer than the front page. /catalogue and /movies reach their list
+  // on the line below anyway; /books needs saying, because the book list lives
+  // at /library and would otherwise fall through to Home.
+  if (a === 'books') return { tab: 'library', detail: null }
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
   // /import is no longer a tab (§7 One "＋ Add"); an old link opens the Add
   // surface on its Import section over Home — handled by the Shell.

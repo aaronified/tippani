@@ -60,7 +60,33 @@ describe('parsePath', () => {
 
   it('lands an unknown path on Home rather than a blank screen', () => {
     expect(parsePath('/nonsense')).toEqual({ tab: 'home', detail: null })
-    expect(parsePath('/books')).toEqual({ tab: 'home', detail: null }) // no id
+    expect(parsePath('/deep/unknown/path')).toEqual({ tab: 'home', detail: null })
+  })
+
+  // /books is the detail prefix, not a list path — the book list is /library.
+  // It used to fall through to Home; sending it to the list it obviously meant
+  // is the same fix as the mistyped-id case below.
+  it('sends the bare detail prefix to that side of the library', () => {
+    expect(parsePath('/books')).toEqual({ tab: 'library', detail: null })
+  })
+
+  // A non-numeric id used to satisfy the truthiness guard and produce
+  // { id: NaN }, which fetches /books/NaN and renders an error screen — the
+  // very outcome the unknown-path fallback exists to prevent. It now falls back
+  // to the list for that side of the library, which is a better answer than
+  // Home: the path still says which half you meant.
+  it('lands a mistyped work id on that side of the library', () => {
+    for (const bad of ['abc', '0', '-1', '1.5', '%20']) {
+      expect(parsePath(`/books/${bad}`), bad).toEqual({ tab: 'library', detail: null })
+      expect(parsePath(`/catalogue/${bad}`), bad).toEqual({ tab: 'movies', detail: null })
+      expect(parsePath(`/movies/${bad}`), bad).toEqual({ tab: 'movies', detail: null })
+    }
+  })
+
+  it('never produces a NaN id', () => {
+    for (const p of ['/books/abc', '/catalogue/abc', '/movies/x', '/books/1.5']) {
+      expect(Number.isNaN(parsePath(p).detail?.id)).toBe(false)
+    }
   })
 
   it('ignores trailing slashes', () => {
