@@ -14,7 +14,13 @@ jobs:
         with:
           go-version: "1.26"
       - run: go vet ./...
-      - run: go test ./...
+      # -race, because two tests exist for the sole purpose of catching a
+      # locking regression (TestConcurrentDuplicatePostsAllConflict,
+      # TestReadersOverlapAWriter) and neither has ever run under it. The DSN
+      # takes the write lock at BEGIN (_txlock=immediate) and the suite drives
+      # real goroutines against a real SQLite file, so a data race here is a
+      # data race in production, not a test artefact.
+      - run: go test -race ./...
 
       # Smoke-test the `healthcheck` subcommand against a real running server
       # (the container HEALTHCHECK depends on it). Runs on the CI runner.
@@ -47,6 +53,20 @@ jobs:
         working-directory: web/frontend
       - run: npm run build
         working-directory: web/frontend
+      # web/dist is a COMMITTED build artefact — the Go binary embeds it, so a
+      # frontend change that ships without its rebuilt dist leaves the binary
+      # serving the old UI with nothing to say so. DEVELOPMENT.md has warned
+      # about this in prose since the beginning and nothing enforced it. The
+      # runner has just produced a fresh dist; if it differs from what was
+      # committed, the commit is incomplete.
+      - name: web/dist matches the source it was built from
+        run: |
+          if ! git diff --exit-code -- web/dist; then
+            echo
+            echo "web/dist is stale. Run 'make frontend' and commit the result"
+            echo "alongside your source change — the binary embeds this directory."
+            exit 1
+          fi
       # docs/ui-glossary.html inlines the built stylesheet so its samples are
       # styled by the rules the app actually ships. Every build renames
       # index-<hash>.css, so that snapshot rots silently — which is exactly how

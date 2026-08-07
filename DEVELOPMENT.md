@@ -102,6 +102,7 @@ The last three matter for forks — see [Forking it as your own](#forking-it-as-
 
 ```bash
 go test ./...               # everything
+go test -race ./...         # what CI runs; needs a C toolchain
 go test ./internal/store/ -run TestConcurrent -count=5    # one thing, repeatedly
 go vet ./...
 ```
@@ -110,6 +111,12 @@ go vet ./...
 SQLite database** — there are no mocks, and a test that needs one is usually a design
 smell. `-count=5` is worth reaching for on anything concurrent; a race that shows up one
 run in four is still a race.
+
+CI runs the suite under `-race`. That needs `CGO_ENABLED=1` and a C compiler, which the
+rest of the build deliberately does without (`CGO_ENABLED=0`, pure-Go SQLite) — so on a
+machine with no gcc, `-race` is a thing you read in a CI log rather than run. Plain
+`go test ./...` is the local bar; if you are changing anything that writes concurrently,
+push and read the race job before you call it done.
 
 The bar for a change: `go vet` clean, `go test ./...` green, and a test that would have
 failed before your fix. That last one is the one that matters. There is a worked example
