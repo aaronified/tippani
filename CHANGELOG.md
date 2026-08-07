@@ -5,6 +5,163 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-08-07
+
+A phone-first pass, and one thing that should have been true from the start:
+**backup archives are encrypted now**.
+
+1.4.0 put a `?` on every screen and a `＋` on every list. Both were right about
+what was needed and wrong about where it goes. A `?` drawn in eleven page headers
+is a property of eleven pages instead of one thing in one place, and on a phone it
+was competing for the single row a page title also needs. A `＋` in the Library
+header sat inches from the top bar's own `＋`, and the book pages had a third add
+form of their own. So there is one of each now, in the top bar, and they read the
+screen you are on: **＋ Add · Search · ? · your avatar**, same four in the same
+order on a phone and on a desktop.
+
+The long-press label from 1.4.0 was worse than it looked. It was a pill pinned to
+the top of the screen, centred with `left:50%` + `translateX(-50%)` — which cannot
+be clamped, so a label wider than the viewport hung off both edges and **widened
+the page's scrollable area**. That is why Library and Settings could be dragged
+sideways into blank space on a phone. The old CSS hover bubble had the same fault
+from the other end. Both are gone; one measured, clamped, anchored bubble now
+serves hover, keyboard focus and long press alike.
+
+And the archive. It holds every user, every library, every password hash and your
+API keys, and it left the server as a plain `tar.gz` — fine in `<data>/backups`,
+not fine the moment it is on a laptop or in a cloud drive, which is what a backup
+is for.
+
+### Added
+
+- **Encrypted backups.** AES-256-GCM in framed chunks, keyed with Argon2id from
+  **your own account name and password** — nothing new to remember, and the same
+  credentials open the archive on any Tippani, which is what makes it portable.
+  Prefer a key not tied to a login? Set a **passphrase** (10–20 characters) when
+  you back up, and restoring asks for that instead. The key is never written to
+  disk, never logged, and cannot be recovered.
+
+  It is **authenticated**, not just encrypted: the header is bound into every
+  frame, so re-ordering frames, splicing two archives, or swapping the recorded
+  account name for one whose password you know all fail. **Truncation fails
+  loudly** — a stream that ends without its final frame is refused rather than
+  half-applied, because a backup silently missing its tail looks like a backup.
+
+  Your password is checked before the archive is written. Not for authorization —
+  the session already covers that — but because a typo would otherwise produce a
+  perfectly valid archive that nothing can ever open, and you would find out on
+  the day you needed it.
+
+  What this deliberately is **not**: a fixed key compiled into the binary. This
+  repository is MIT-licensed, so that constant would be public, and "encrypted
+  with a published key" reads as protection while providing none. It is also not a
+  signature — anyone holding the credentials can produce a valid archive. The
+  format is documented in `internal/httpapi/backup_crypto.go` in enough detail to
+  open one yourself.
+
+- **Switch accounts from Profile.** Sign in as another user without going out
+  through the login screen. It asks for that account's password every time; being
+  an admin does not let you in without one, and the session you arrived with is
+  retired server-side once the new one is issued.
+
+- **The `＋ Add` surface knows where you are.** A book on Library, a film or show
+  on the Catalogue, a quote against whichever work you have open — with that work
+  already filled in, because you pressed `＋` on its page and asking again is
+  asking a question you already answered. The drawer's Add is the deliberately
+  context-free twin, and opens with nothing pre-filled.
+
+- **Search lands scoped.** From Library or the Catalogue, the top bar's Search
+  arrives filtered to that side; the drawer's Search clears the scope, so there is
+  always a way out of one you did not choose.
+
+### Changed
+
+- **Help moved into the top bar** and became context-aware, resolved from the
+  route. The eleven per-page `?` buttons are gone. Two exceptions remain, both
+  because the shell bar is not on screen there: the work-detail screens keep it in
+  their `⋯` menu, and the full-screen Profile page carries its own.
+
+- **The long-press label is anchored to the control you held** — below it, flipped
+  above when the bottom of the viewport is nearer, clamped inside the window on
+  both axes, and wrapping rather than overflowing. A label detached from its
+  control answers "what is this?" without saying *which* "this", and several 44px
+  glyphs sit within a thumb's width of each other in these bars.
+
+- **Hover uses the same bubble.** The pure-CSS hover tooltip is retired: an
+  `opacity:0` bubble still has a border box, and one hanging off an info dot near
+  the right edge widened the page the same way the pill did. One implementation,
+  one set of clamping rules, on every input style.
+
+- **Every label and confirmation is five words or fewer**, and they clear faster
+  (1.2s for a label, 1.5s for a confirmation). A bubble that needs a paragraph is
+  an info dot — which is what an info dot's own hover label says now, instead of
+  putting its whole paragraph in a bubble.
+
+- **Profile is one screen.** The avatar chip opened a dropdown — Profile, User
+  management, Log out — and the drawer repeated the same three rows, so "my
+  account" was a menu of screens rather than a screen. The chip opens Profile
+  directly, and everything that menu offered is a section of it, including the
+  admin user list.
+
+- **One restore, not two.** Restoring the archive kept on the server and restoring
+  a file off another server were two blocks with two warning paragraphs and two
+  typed confirmations, for one operation whose only real variable is where the
+  file is. It is one control with a source picker now, and it resolves what the
+  chosen archive is keyed with *before* prompting — so a passphrase-sealed archive
+  is never met with a password field.
+
+- **The backup warnings are one line each**, in the dialog you are standing in
+  when they apply, rather than three red paragraphs above the buttons on a screen
+  that was already dense. The consequences have not been softened, only moved to
+  where a warning is actually read.
+
+- **The `＋ Add` surface is full-screen on a phone**, and its Close and Save are
+  glyphs in the title bar. It is the app's densest form; a 90%-width card inside a
+  scrolling scrim wasted both edges and put Save somewhere the thumb had to hunt
+  for. Save is now pinned and reachable without scrolling past six fields.
+
+- **Save stays greyed until it would work**, everywhere — the capture form, both
+  manual-entry forms, both quote forms, the bulk-edit bar, the speaker remap, add
+  user, change password, and the login screen. Each says which field is missing,
+  because a greyed control that will not say why is worse than one that is not
+  there.
+
+- **Passwords are 8–20 characters of printable ASCII** (letters, digits,
+  punctuation — no accents, no non-Latin script). That is narrower than it looks
+  arbitrary: a password is also a backup key, so it has to survive being re-typed
+  on another machine's keyboard months later, and a glyph that arrives as
+  different bytes is an archive that will not open. Existing passwords keep
+  working; the rule applies where one is set. The upper bound used to be bcrypt's
+  own 72 bytes.
+
+- **Archives are named `.tpbk`.** A sealed archive called `.tar.gz` would be a lie
+  that costs someone an afternoon: `gunzip` refuses it and says nothing about why.
+
+### Fixed
+
+- **The page could be dragged sideways into blank space on a phone.** Both
+  tooltip mechanisms could push a box past the viewport, and a fixed overlay on
+  iOS gets dragged along with that pan. Nothing in the app is allowed to widen the
+  page; both are now clamped in script.
+
+- **A long-press label could exceed the screen and force a horizontal scroll.**
+  Same cause. It also wraps now, and breaks a long unbroken token rather than
+  growing past its ceiling.
+
+- **Toasts overstayed.** 2.2s and 1.7s down to 1.5s and 1.2s, with every message
+  trimmed to five words so the shorter window is enough to read.
+
+- **The demo's Settings screen showed "Invalid Date"** for the last backup. The
+  fetch shim answered `created_at` where the server answers `created` — a fake
+  that was close but not identical, in the one file nothing tests.
+
+- **Logging in over a live session left the old session in the database**, valid
+  until it expired. It is retired now, after the password check, so a failed
+  switch leaves the session you are still using alone.
+
+- **Dead code from the 1.4.0 refactor**: the avatar-upload control the retired
+  chip menu used, and the `.user-menu-panel` rules that positioned it.
+
 ## [1.4.0] - 2026-08-05
 
 This one is about the phone, and about the app talking less.
