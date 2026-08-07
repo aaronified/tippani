@@ -43,13 +43,16 @@ export function passphraseProblem(v) {
 }
 
 // The archive header layout, mirroring readBackupHeader in
-// internal/httpapi/backup_crypto.go. Exported so scripts/archive-header-check.mjs
-// can build a header from these numbers and assert the parser below reads it —
-// there is no test runner for this app's frontend, and a parser that reads a
-// binary format by fixed offsets is the last place to rely on nobody making a
-// mistake. (It already went wrong once: the v2 format was drafted with the wraps
-// INSERTED before the ident, which would have made this function decode
-// ciphertext as an account name and hand the mojibake to a password prompt.)
+// internal/httpapi/backup_crypto.go. Exported so test/pure/archive-header.test.js
+// can build a header from these numbers and assert the parser below reads it
+// back. That test reads the matching constants straight out of the Go source
+// rather than restating them, so the two languages are checked to agree and not
+// merely intended to — a parser that reads a binary format by fixed offsets, in
+// a language that cannot see the definition, is the last place to rely on nobody
+// making a mistake. (It already went wrong once: the v2 format was drafted with
+// the wraps INSERTED before the ident, which would have made this function
+// decode ciphertext as an account name and hand the mojibake to a password
+// prompt.)
 export const ARCHIVE_MAGIC = 'TPBK'
 export const ARCHIVE_V2 = 2
 // magic 4 · version 1 · mode 1 · salt 16 · nonce 12 · identLen 2 = 36, then ident.
@@ -63,7 +66,7 @@ export const ARCHIVE_WRAP_LEN = 60
 // Sized from the constants rather than guessed — the first draft read 300 bytes,
 // which covered a long name but stopped short of the recovery wrap that follows
 // it, so `recoverable` came back undefined for exactly the accounts with long
-// names. scripts/archive-header-check.mjs caught that, which is what it is for.
+// names. The header test caught that on its first run, which is what it is for.
 export const ARCHIVE_HEADER_MAX = ARCHIVE_PREFIX_FIXED + ARCHIVE_IDENT_MAX + 2 * (2 + ARCHIVE_WRAP_LEN)
 
 // sniffArchiveKey reads the first bytes of a chosen FILE to learn how it is keyed,
