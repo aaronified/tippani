@@ -61,6 +61,7 @@ the subsystem and the underlying error.
 | --- | --- |
 | `TIP-ANNO-001` | Annotations list |
 | `TIP-DLG-001` | Dialogues list |
+| `TIP-UTT-001` | Quotes list (the ones with no book or film) |
 | `TIP-BOOK-001` | Books list / count / tags |
 | `TIP-MOVIE-001` | Movies list / count |
 | `TIP-PEOPLE-001` | People list / names / orphan images |

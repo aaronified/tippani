@@ -39,6 +39,7 @@ const (
 	// bug exposed). One per subsystem that has list/collection loops.
 	CodeAnnoRowScan    Code = "TIP-ANNO-001"
 	CodeDlgRowScan     Code = "TIP-DLG-001"
+	CodeUttRowScan     Code = "TIP-UTT-001"
 	CodeBookRowScan    Code = "TIP-BOOK-001"
 	CodeMovieRowScan   Code = "TIP-MOVIE-001"
 	CodePeopleRowScan  Code = "TIP-PEOPLE-001"
@@ -118,6 +119,7 @@ var Registry = map[Code]string{
 
 	CodeAnnoRowScan:    "An annotation list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodeDlgRowScan:     "A dialogue list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeUttRowScan:     "A quote list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodeBookRowScan:    "A book list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodeMovieRowScan:   "A movie list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodePeopleRowScan:  "A people list row failed to scan (SELECT/struct drift); dropped from the list.",

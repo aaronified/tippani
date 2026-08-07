@@ -231,6 +231,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /dialogues", s.requireAuth(s.handleListDialogues))
 	mux.Handle("PUT /dialogues/{id}", s.requireAuth(s.handleUpdateDialogue))
 	mux.Handle("DELETE /dialogues/{id}", s.requireAuth(s.handleDeleteDialogue))
+	// Quotes with no book and no film (ROADMAP §24) — a line from a speech, a
+	// letter, an interview, a song. /quotes is the public spelling because that
+	// is what they are called everywhere the user can see; `utterances` is the
+	// table, since quoteRow already means "the shared shape of all three kinds".
+	// The only kind whose ownership is a column rather than a parent join.
+	mux.Handle("POST /quotes", s.requireAuth(s.handleCreateUtterance))
+	mux.Handle("GET /quotes", s.requireAuth(s.handleListUtterances))
+	mux.Handle("PUT /quotes/{id}", s.requireAuth(s.handleUpdateUtterance))
+	mux.Handle("DELETE /quotes/{id}", s.requireAuth(s.handleDeleteUtterance))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
 	// Tags are a managed vocabulary with colour + style (§10).
