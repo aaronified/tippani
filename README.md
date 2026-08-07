@@ -205,20 +205,33 @@ of that are spelled out in [`AI.md`](AI.md).
   and handing it your archive (available on the first-run screen too, no SSH required).
   <br><br>
   The archive holds every user, every library, password hashes and your API keys, so it is
-  **AES-256-GCM sealed** before it leaves the server, keyed with Argon2id from **your own account
-  name and password** — nothing new to remember, and the same credentials open it on any Tippani.
-  Prefer a **separate passphrase**? Set one when you back up and restore will ask for that instead.
-  Either way the key is never written to disk, never logged, and cannot be recovered: keep it, or
-  the archive is scrap. Restoring reads the archive's header first and asks for exactly the
-  credential it names, so a passphrase-sealed archive never gets met with a password field. It is
-  authenticated as well as encrypted — a tampered or **truncated** archive is refused rather than
-  half-applied, because a backup silently missing its tail looks like a backup. Archives from
-  before 1.4.1 are plain `.tar.gz` and still restore.
+  **AES-256-GCM sealed** before it leaves the server. Each archive gets its own random key, and
+  that key is written into the header **twice**:
+  <br><br>
+  — under **your password** (Argon2id), which travels with the file. This is what opens it on
+  another machine, on a fresh install, with nothing but the file and what you know.
+  <br>
+  — under this **instance's recovery key**: 32 random bytes in the data directory, deliberately
+  never inside the archive and never moved by a restore. This is why **changing your password no
+  longer orphans your backups** — on the server that made an archive, your *current* password
+  opens it, whichever password sealed it.
+  <br><br>
+  Prefer a key tied to no login at all? Set a **passphrase** when you back up. That archive gets no
+  recovery wrap, on purpose, which also makes it the only kind you can lose outright.
+  <br><br>
+  Restoring reads the header first and asks for exactly the credential it names, so a
+  passphrase-sealed archive is never met with a password field, and it says whether *this* box can
+  recover the archive rather than making you find out by typing. It is authenticated as well as
+  encrypted: re-ordered, spliced, header-edited and **truncated** archives are all refused rather
+  than half-applied — because a backup silently missing its tail looks like a backup — and a
+  damaged body is reported as damage, never as a wrong password.
   <br><br>
   What this is **not**: a fixed key baked into the binary. This repository is MIT-licensed, so that
   constant would be public, and "encrypted with a published key" reads as protection while
   providing none. It is also not a signature — anyone holding the credentials can produce a valid
-  archive.
+  archive. And it does not defend the box: whoever can read the data directory holds both the
+  recovery key and the database it protects. Archives from before 1.4.1 are plain `.tar.gz` and
+  still restore; 1.4.1's own one-hour format does not, and says so by name.
 - 🪶 **Frugal** — one static binary, WAL SQLite, no pollers or cron; designed to sit quietly on a
   shared NAS.
 

@@ -643,8 +643,13 @@ function fmtStamp(s) {
 function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   const mobile = useIsMobileScreen()
   const key = meta?.key || 'none'
-  const theirs = key === 'account' && meta.account && meta.account !== me
-  const [account, setAccount] = useState(meta?.account || me || '')
+  // `recoverable` (from the server for the kept archive, sniffed from the header
+  // for a chosen file) means this box can open it with YOUR current password,
+  // whatever password sealed it. That is the difference between asking for a
+  // password and asking someone to remember one from six months ago, so it is
+  // worth saying out loud rather than letting them find out by trying.
+  const recoverable = !!meta?.recoverable
+  const era = key === 'password' && meta.account && meta.account !== me
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -652,12 +657,8 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   const missing =
     key === 'passphrase'
       ? passphrase ? '' : 'Enter the passphrase this archive was sealed with'
-      : key === 'account'
-        ? !account.trim()
-          ? 'Name the account this archive was made under'
-          : !password
-            ? `Enter ${theirs ? '\u2018' + account.trim() + '\u2019' : 'your'} password`
-            : ''
+      : key === 'password'
+        ? password ? '' : 'Enter your password'
         : confirm !== 'RESTORE'
           ? 'Type RESTORE to confirm'
           : ''
@@ -666,11 +667,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
     e.preventDefault()
     if (missing || busyLabel) return
     onConfirm(
-      key === 'passphrase'
-        ? { passphrase }
-        : key === 'account'
-          ? { username: account.trim(), password }
-          : { confirm: 'RESTORE' },
+      key === 'passphrase' ? { passphrase } : key === 'password' ? { password } : { confirm: 'RESTORE' },
     )
   }
 
@@ -694,29 +691,28 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           />
         </label>
       )}
-      {key === 'account' && (
-        <>
-          {theirs && (
-            <label className="tp-field">
-              <MonoLabel>Account</MonoLabel>
-              <input className="tp-input" value={account} autoComplete="username" onChange={(e) => setAccount(e.target.value)} />
-            </label>
-          )}
-          <label className="tp-field">
-            <MonoLabel>{theirs ? 'That account\u2019s password' : 'Your password'}</MonoLabel>
-            <input
-              className="tp-input"
-              type="password"
-              autoFocus
-              autoComplete="current-password"
-              maxLength={PASSWORD_MAX}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-        </>
+      {key === 'password' && (
+        <label className="tp-field">
+          <MonoLabel>Your password</MonoLabel>
+          <input
+            className="tp-input"
+            type="password"
+            autoFocus
+            autoComplete="current-password"
+            maxLength={PASSWORD_MAX}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <p className="microcopy">
+            {recoverable
+              ? 'This server made this archive, so your current password opens it — even if it is not the one it was sealed with.'
+              : era
+                ? `Sealed by \u2018${meta.account}\u2019 on another server, so it needs that account\u2019s password as it was then.`
+                : 'Not made on this server, so it needs the password that was current when it was made.'}
+          </p>
+        </label>
       )}
-      {key !== 'passphrase' && key !== 'account' && (
+      {key !== 'passphrase' && key !== 'password' && (
         <label className="tp-field">
           <MonoLabel>Type RESTORE</MonoLabel>
           <input
@@ -791,7 +787,7 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
     <form onSubmit={submit} className="space-y-3">
       <p className="microcopy">
         The archive holds every user, library, password hash and API key, so it is encrypted before it leaves the
-        server. Keep the key: without it the archive cannot be opened, here or anywhere.
+        server. Keep the key: it is what opens the archive on any other machine.
       </p>
       {!usePhrase ? (
         <label className="tp-field">
@@ -806,8 +802,8 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
             onChange={(e) => setPassword(e.target.value)}
           />
           <p className="microcopy">
-            ‘{me}’ and this password will open the archive on any Tippani. Change your password later and older
-            archives still want the old one.
+            This password opens the archive on any Tippani. On THIS server your current password always will, even
+            after you change it.
           </p>
         </label>
       ) : (
@@ -955,16 +951,18 @@ function BackupCard({ user }) {
       ? ''
       : target.key === 'passphrase'
         ? 'asks for its passphrase'
-        : target.key === 'account'
-          ? `asks for ${target.account === user.username ? 'your password' : `‘${target.account}’ and their password`}`
+        : target.key === 'password'
+          ? target.recoverable
+            ? 'asks for your password'
+            : `asks for the password ‘${target.account || 'it'}’ had when it was made`
           : target.key === 'unknown'
-            ? 'unreadable — the restore will say why'
+            ? 'unreadable, or written by a newer Tippani'
             : 'predates 1.4.1 · no key, asks you to type RESTORE'
 
   return (
     <Card data-tour="backup">
       <SectionTitle
-        info="One dated, encrypted archive of everything — your library, images, users and settings, including password hashes and API keys. Only the newest is kept on the server. It is sealed with your account password, or a passphrase you choose; without that key nobody can open it, including you."
+        info="One dated, encrypted archive of everything — your library, images, users and settings, including password hashes and API keys. Only the newest is kept on the server. It is sealed with your account password, or a passphrase you choose. On the server that made it your CURRENT password opens it, whichever password sealed it — that is a key kept in the data directory, never inside the archive. Carried to another machine it needs the password it was sealed with, so keep that. A passphrase archive is tied to nothing and recoverable by nothing: lose the passphrase and it is lost."
         infoTitle="Backup & restore"
       >
         Backup &amp; restore

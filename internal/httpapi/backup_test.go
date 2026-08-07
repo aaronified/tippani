@@ -56,18 +56,38 @@ func backupNow(c *testClient) *httptest.ResponseRecorder {
 }
 
 // plaintextOf strips the encryption envelope from an archive, so a test can look
-// inside the tar the way a person with the credentials would.
+// inside the tar the way a person with the password would.
 func plaintextOf(t *testing.T, archive []byte, secret string) []byte {
 	t.Helper()
-	dec, _, err := newBackupDecReader(bytes.NewReader(archive), secret)
+	out, err := openSealed(t, archive, secret)
 	if err != nil {
 		t.Fatalf("decrypt archive: %v", err)
 	}
-	out, err := io.ReadAll(dec)
-	if err != nil {
-		t.Fatalf("read decrypted archive: %v", err)
-	}
 	return out
+}
+
+// tarNames lists the entry names in a plaintext tar.gz — for asserting on what an
+// archive does and does not contain.
+func tarNames(t *testing.T, plain []byte) []string {
+	t.Helper()
+	gz, err := gzip.NewReader(bytes.NewReader(plain))
+	if err != nil {
+		t.Fatalf("gunzip: %v", err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	var names []string
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("tar: %v", err)
+		}
+		names = append(names, hdr.Name)
+	}
+	return names
 }
 
 // plainArchive writes an UNENCRYPTED tar.gz — a pre-1.4.1 archive, or a hostile
@@ -101,11 +121,12 @@ func plainArchive(t *testing.T, dest string, entries [][2]string) {
 
 type backupMetaResp struct {
 	Backup *struct {
-		Name    string `json:"name"`
-		Created string `json:"created"`
-		Size    int64  `json:"size"`
-		Key     string `json:"key"`
-		Account string `json:"account"`
+		Name        string `json:"name"`
+		Created     string `json:"created"`
+		Size        int64  `json:"size"`
+		Key         string `json:"key"`
+		Account     string `json:"account"`
+		Recoverable bool   `json:"recoverable"`
 	} `json:"backup"`
 }
 
@@ -176,8 +197,8 @@ func TestBackupCreateDownloadRetention(t *testing.T) {
 		t.Fatalf("a sealed archive must not be named .tar.gz: %s", created.Backup.Name)
 	}
 	// The status endpoint reports which credential a restore will want, and whose.
-	if created.Backup.Key != "account" || created.Backup.Account != "alice" {
-		t.Fatalf("key metadata = %q / %q, want account/alice", created.Backup.Key, created.Backup.Account)
+	if created.Backup.Key != "password" || created.Backup.Account != "alice" {
+		t.Fatalf("key metadata = %q / %q, want password/alice", created.Backup.Key, created.Backup.Account)
 	}
 	if names := listBackups(t, srv); len(names) != 1 {
 		t.Fatalf("backups dir after create: %v", names)
@@ -199,10 +220,10 @@ func TestBackupCreateDownloadRetention(t *testing.T) {
 	if bytes.Contains(rec.Body.Bytes(), []byte("Backup Author")) {
 		t.Fatal("library text is readable in the sealed archive")
 	}
-	if _, _, err := newBackupDecReader(bytes.NewReader(rec.Body.Bytes()), accountSecret("alice", "wrong")); !errors.Is(err, errBadKey) {
+	if _, err := openSealed(t, rec.Body.Bytes(), "wrong"); !errors.Is(err, errBadKey) {
 		t.Fatalf("wrong key opened the archive: %v", err)
 	}
-	plain := plaintextOf(t, rec.Body.Bytes(), accountSecret("alice", testPw))
+	plain := plaintextOf(t, rec.Body.Bytes(), testPw)
 	gz, err := gzip.NewReader(bytes.NewReader(plain))
 	if err != nil {
 		t.Fatalf("gunzip: %v", err)
@@ -290,7 +311,7 @@ func TestRestoreRoundTrip(t *testing.T) {
 		t.Fatalf("restore with the wrong password: %d %s", rec.Code, rec.Body)
 	}
 	if rec := admin.do("POST", "/admin/restore", map[string]any{"passphrase": "notthekeyhere"}); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("restore with a passphrase against an account-keyed archive: %d %s", rec.Code, rec.Body)
+		t.Fatalf("restore with a passphrase against a password-keyed archive: %d %s", rec.Code, rec.Body)
 	}
 	// A refused restore swapped nothing.
 	if rec := admin.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("Extra")) {
@@ -391,7 +412,7 @@ func TestOnboardRestore(t *testing.T) {
 	if !bytes.Contains(statusBody, []byte(name)) {
 		t.Fatalf("status with archive: %s", statusBody)
 	}
-	if !bytes.Contains(statusBody, []byte(`"key":"account"`)) || !bytes.Contains(statusBody, []byte(`"account":"alice"`)) {
+	if !bytes.Contains(statusBody, []byte(`"key":"password"`)) || !bytes.Contains(statusBody, []byte(`"account":"alice"`)) {
 		t.Fatalf("status does not say how the archive is keyed: %s", statusBody)
 	}
 	// The key is still required here: nothing to lose does not mean nothing to open.
@@ -401,7 +422,7 @@ func TestOnboardRestore(t *testing.T) {
 	if rec := anon.do("POST", "/auth/restore", map[string]any{"password": "wrongpassword"}); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("onboarding restore with the wrong password: %d %s", rec.Code, rec.Body)
 	}
-	if rec := anon.do("POST", "/auth/restore", map[string]any{"username": "alice", "password": testPw}); rec.Code != 200 {
+	if rec := anon.do("POST", "/auth/restore", map[string]any{"password": testPw}); rec.Code != 200 {
 		t.Fatalf("onboarding restore: %d %s", rec.Code, rec.Body)
 	}
 
@@ -527,10 +548,11 @@ func TestRestoreUpload(t *testing.T) {
 	admin.mustDo("POST", "/books", map[string]any{"title": "TargetOnly", "author": "Target"}, 201)
 
 	// Guards: no credential and a wrong one are both 401, and they swap nothing —
-	// the target's own book must still be there afterward. Note the donor's admin
-	// happens to share this target's username and password, which is the realistic
-	// case (one person, two boxes) and does not weaken the check: "wrongpassword"
-	// is neither account's.
+	// the target's own book must still be there afterward. The donor's admin happens
+	// to share this target's password, which is the realistic case (one person, two
+	// boxes) and does not weaken the check: "wrongpassword" is neither account's.
+	// The target has no recovery key of its own yet, so the durable path is not in
+	// play here either — see TestRecoveryKeyNotSharedAcrossInstances for that.
 	if rec := admin.restoreUpload("/admin/restore/upload", nil, archive); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("upload with no credential: %d %s", rec.Code, rec.Body)
 	}
@@ -548,7 +570,6 @@ func TestRestoreUpload(t *testing.T) {
 	mw := multipart.NewWriter(&body)
 	fw, _ := mw.CreateFormFile("file", "backup"+backupExt)
 	_, _ = fw.Write(archive)
-	_ = mw.WriteField("username", "alice")
 	_ = mw.WriteField("password", testPw)
 	_ = mw.Close()
 	rec := admin.doRaw("POST", "/admin/restore/upload", &body, mw.FormDataContentType())

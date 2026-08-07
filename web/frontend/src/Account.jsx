@@ -163,7 +163,9 @@ function PasswordForm() {
             'That alphabet is narrow on purpose: your password doubles as the key to your backup archives, so it has to be typeable ' +
             'on another machine months later, and an accented character that arrives as different bytes would leave an archive that will not open. ' +
             'Changing it signs out every other browser session. Paired phones are deliberately left alone, so a routine password change can’t ' +
-            'silently unpair a device you can’t easily get to — but archives made under the OLD password still need the old one.'
+            'silently unpair a device you can’t easily get to — and since 1.4.2 it no longer orphans your backups either: on this server your ' +
+            'current password opens every archive this server made, whichever password sealed it. Carried to another machine, an archive still ' +
+            'wants the password it was sealed with.'
           }
         />
       </span>

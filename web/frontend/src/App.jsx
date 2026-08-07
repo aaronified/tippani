@@ -221,8 +221,9 @@ function Onboarding({ onDone, backup }) {
   const [phase, setPhase] = useState('idle') // idle | uploading | restoring
   const [pct, setPct] = useState(0)
   const [error, setError] = useState('')
-  // Credentials, asked for according to what the chosen archive wants.
-  const [account, setAccount] = useState('')
+  // Credentials, asked for according to what the chosen archive wants. No account
+  // field: since 1.4.2 the key is the password alone, and the name in the header
+  // is a label saying whose password to reach for.
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
   const fileRef = useRef(null)
@@ -232,11 +233,6 @@ function Onboarding({ onDone, backup }) {
 
   const target = source === 'file' ? (file ? { ...fileKey, name: file.name } : null) : backup
   const key = target?.key || (target ? 'none' : '')
-  // The kept archive names its account; a chosen file names it too (from its
-  // header). Seed the field from whichever, but let it be corrected.
-  useEffect(() => {
-    if (key === 'account') setAccount((a) => a || target?.account || '')
-  }, [key, target?.account])
 
   async function chooseFile(f) {
     setFile(f)
@@ -248,16 +244,11 @@ function Onboarding({ onDone, backup }) {
     ? source === 'file' ? 'Choose a backup file' : 'No backup on this server'
     : key === 'passphrase'
       ? passphrase ? '' : 'Enter the archive\u2019s passphrase'
-      : key === 'account'
-        ? !account.trim()
-          ? 'Name the account the archive was made under'
-          : !password
-            ? 'Enter that account\u2019s password'
-            : ''
+      : key === 'password'
+        ? password ? '' : 'Enter the password it was sealed with'
         : '' // pre-1.4.1 plain archive: no key, and nothing here to lose
 
-  const creds = () =>
-    key === 'passphrase' ? { passphrase } : key === 'account' ? { username: account.trim(), password } : {}
+  const creds = () => (key === 'passphrase' ? { passphrase } : key === 'password' ? { password } : {})
 
   async function restore() {
     if (missing || phase !== 'idle') return
@@ -361,24 +352,26 @@ function Onboarding({ onDone, backup }) {
             />
           </div>
         )}
-        {key === 'account' && (
+        {key === 'password' && (
           <div className="mt-3">
             <Field
-              label="Account"
-              placeholder="the account it was made under"
-              value={account}
-              autoComplete="username"
-              onChange={(e) => { setAccount(e.target.value); setError('') }}
-            />
-            <Field
-              label="Password"
-              placeholder="that account’s password"
+              label={target?.account ? `Password for ‘${target.account}’` : 'Password'}
+              placeholder="the password it was sealed with"
               type="password"
               value={password}
               autoComplete="current-password"
               maxLength={PASSWORD_MAX}
               onChange={(e) => { setPassword(e.target.value); setError('') }}
             />
+            {/* On a box that still holds the recovery key — a factory reset leaves
+                it — any password of the era or since will do, because the key does
+                not care which one sealed the archive. There is no session here to
+                say whose password this is, so the field asks plainly. */}
+            <p className="microcopy">
+              {target?.recoverable
+                ? 'If this server made the archive, its recovery key opens it and any password of that account will do.'
+                : 'The password that account had when the archive was made.'}
+            </p>
           </div>
         )}
         {key === 'none' && target && (

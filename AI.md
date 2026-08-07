@@ -29,10 +29,11 @@ Tippani, so it comes first.
   named in the README (Google Books, Open Library, TMDB, TheTVDB, Wikidata) plus
   a GitHub release check that runs **only when an admin presses the button**.
   Cover and portrait fetches go through a host allowlist with an SSRF guard.
-- **Nothing is sent anywhere to be encrypted either.** 1.4.1 seals backup
-  archives (AES-256-GCM, Argon2id, both from Go's standard library and
+- **Nothing is sent anywhere to be encrypted either.** Backup archives are sealed
+  (AES-256-GCM, Argon2id, both from Go's standard library and
   `golang.org/x/crypto`) entirely in-process. No key service, no escrow, no
-  network call — and no recovery, which is the trade that buys the first three.
+  network call. Since 1.4.2 there is a recovery key, and it is 32 bytes in your own
+  data directory — nothing holds a copy but you.
 
 There is one AI *feature* under consideration, and it is in
 [the roadmap](docs/roadmap.html) under **Later / maybe** — not built, not started:
@@ -56,8 +57,8 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 258 |
-| Commits with an AI co-author trailer | **254** |
+| Commits in the repository | 262 |
+| Commits with an AI co-author trailer | **258** |
 | Period | 2026-07-02 → 2026-08-07 |
 
 Models used, by commit count:
@@ -66,7 +67,7 @@ Models used, by commit count:
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
-| Claude Opus 5 | 38 |
+| Claude Opus 5 | 42 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
 | Claude Sonnet 4.6 | 1 |
@@ -102,7 +103,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **375 test functions across 71 test files**, over real HTTP handlers against a
+- **380 test functions across 71 test files**, over real HTTP handlers against a
   real SQLite database — not mocks.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
@@ -138,6 +139,16 @@ What that honestly does not cover:
   "Invalid Date" for as long as that card existed. Nobody's data is at risk from a
   shim, which is exactly why it drifts: a fake that is close but not identical
   fails in the one place no test looks.
+- **The frontend has no test runner, so anything it parses is parsed on trust.**
+  1.4.2 found the sharpest example: `web/frontend/src/secret.js` reads the backup
+  archive's binary header in the browser, by fixed byte offsets into a format
+  defined in Go. Nothing checked the two agreed. `scripts/archive-header-check.mjs`
+  now does, in CI — and it earned itself immediately by failing on the first run,
+  for a bug I had written into the parser minutes earlier: the read window covered
+  a maximal account name but stopped a few bytes short of the field after it, so
+  an archive's recoverability read as absent for exactly the accounts with long
+  names. That is the shape of every bug in this class. It does not throw, it does
+  not look wrong, and it is only ever wrong for inputs nobody happened to try.
 - **`docs/ui-glossary.html` is half honest by machine now, and half still by
   hand.** Its oldest failure mode was mechanical: the page inlines the built
   stylesheet so its samples are styled by real app rules, and every frontend build
@@ -154,6 +165,21 @@ What that honestly does not cover:
   it only by the issue actually being closed. Accepting is a human step on purpose —
   publishing a stranger's text to a public page automatically is a different risk from
   the ones on this page, and no amount of escaping makes a wrong report right.
+- **AI review is worth more than AI code, and it is the same model.** 1.4.2's
+  design went to three adversarial reviewers before a line was written — one asked
+  to attack the cryptography, one disaster recovery, one the Go implementation —
+  and between them they killed the design. The recovery key was to live in a
+  column of the `users` table; a restore replaces that table wholesale, so
+  restoring any archive, resetting the instance, or deleting the account would have
+  destroyed the key silently, and the only surviving copy sat in a directory the
+  next restore deletes. Two of the most ordinary operations there are, in order,
+  no error at any point. The same reviews disproved a claim I had already put in
+  the 1.4.1 release notes — that renaming an account orphaned its archives — by
+  pointing at the two lines that make it false. The fix for both was to make the
+  design smaller. Worth being precise about what happened, though: the reviewers
+  are the same model that wrote the design, given a different instruction. What
+  changed was not intelligence but *stance* — "find what is wrong with this" is a
+  different question from "build this", and it is the one that was not being asked.
 - **A confident diagnosis is worth no more than confident code.** The concurrency
   defect that sat in that list for two releases came with a written-up cause — the
   connection pool allows four writers where the plan specified one — and a written-up
@@ -199,4 +225,4 @@ Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 
-*Last verified against the tree at v1.4.1.*
+*Last verified against the tree at v1.4.2.*

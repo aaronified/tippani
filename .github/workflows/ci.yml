@@ -65,6 +65,12 @@ jobs:
         with:
           node-version: "22"
       - run: node scripts/roadmap-data.mjs --check
+      # secret.js parses the backup archive's binary header in the BROWSER, by fixed
+      # byte offsets into a format defined in Go. There is no frontend test runner,
+      # so nothing else here would notice the day the two disagree — and the failure
+      # is silent: a mis-parsed header yields a plausible account name made of
+      # ciphertext, which the restore dialog then prints and posts.
+      - run: node scripts/archive-header-check.mjs
       # greetings.js is a large table of fixed-date national days and IANA zones
       # whose failure modes are all silent — a literal "{name}", a "Happy" on a
       # commemoration, a country resolving to its neighbour's time zone. None of

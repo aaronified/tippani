@@ -28,10 +28,13 @@ import (
 // for download, and restore replaces the whole data dir from that kept archive
 // in-process: no Docker socket, no container recreation.
 //
-// Since 1.4.1 that tar.gz is sealed inside an AES-256-GCM envelope keyed off the
-// operator's own credentials — see backup_crypto.go for the format and for why
-// the key is not a constant in the binary. Archives written before 1.4.1 are
-// plain gzip and still restore: openArchive sniffs which it is holding.
+// Since 1.4.1 that tar.gz is sealed inside an AES-256-GCM envelope, and since
+// 1.4.2 it has two ways in: the password (or passphrase) you typed, which travels
+// with the file, and this instance's recovery key, which does not travel and does
+// not care which password was current when the archive was written. See
+// backup_crypto.go for the format and backup_recovery.go for the key. Archives
+// written before 1.4.1 are plain gzip and still restore — openArchive decides
+// which of the three it is holding, once, before it tries any key.
 
 const (
 	backupsDirName   = "backups"
@@ -53,42 +56,34 @@ const (
 	maxRestoreUpload  = 2 << 30 // 2 GiB cap on an uploaded restore archive (413 beyond)
 )
 
-// backupCreds is what a caller offers to unlock an archive. Exactly one of the
-// two paths applies, decided by the archive's own header rather than by the
-// caller: Password (with Username, defaulting to the name in that header) for an
-// account-keyed archive, Passphrase for a passphrase-keyed one. A pre-1.4.1 plain
-// archive needs neither, and Confirm — the typed "RESTORE" — carries the intent
-// in that one case, because there is no key there to stand for it.
+// backupCreds is what a caller offers to unlock an archive: the typed secret, and
+// the typed "RESTORE" for the one case that has no key to stand for intent (a
+// pre-1.4.1 plain archive). Which of Password / Passphrase applies is decided by
+// the archive's own header, never by the caller.
+//
+// RecoveryOK is the entitlement to use this instance's recovery key, and it is
+// deliberately NOT inferred inside openArchive. The recovery key opens any archive
+// this box made without the era password, which is the point — and it means the
+// key alone must never be sufficient, or a stolen session cookie could overwrite
+// the whole instance with no credential at all. (It could, briefly: the first
+// draft of this handed the recovery path to anyone who asked, and the round-trip
+// test caught a restore succeeding with an empty body.) The handler sets it, and
+// each of the two kinds of caller earns it differently — see handleRestore and
+// handleOnboardRestore.
 type backupCreds struct {
-	Username   string
 	Password   string
 	Passphrase string
 	Confirm    string
+	RecoveryOK bool
 }
 
-// secretFor resolves the passphrase that opens an archive with header `h`, or an
-// HTTP status + message saying what is missing.
-func (c backupCreds) secretFor(h *backupHeader) (string, int, string) {
-	switch h.Mode {
-	case backupModePassphrase:
-		if c.Passphrase == "" {
-			return "", http.StatusUnauthorized, "this backup was sealed with a passphrase — enter it to restore"
-		}
-		return c.Passphrase, 0, ""
-	case backupModeAccount:
-		// The header names the account the archive was made under. A caller may
-		// override it (restoring someone else's archive onto this box), but the
-		// common case — your own backup — needs only the password.
-		user := c.Username
-		if user == "" {
-			user = h.Account
-		}
-		if user == "" || c.Password == "" {
-			return "", http.StatusUnauthorized, "this backup was sealed with an account password — enter that account and its password"
-		}
-		return accountSecret(user, c.Password), 0, ""
+// secret returns the string that opens `h`'s portable wrap, or "" when the caller
+// did not supply the kind this archive wants.
+func (c backupCreds) secret(h *backupHeader) string {
+	if h.Mode == backupModePassphrase {
+		return c.Passphrase
 	}
-	return "", http.StatusBadRequest, "the backup header names an unknown key mode"
+	return c.Password
 }
 
 // openArchive opens the archive at `path` and returns a reader over the PLAINTEXT
@@ -96,9 +91,23 @@ func (c backupCreds) secretFor(h *backupHeader) (string, int, string) {
 // failure. `encrypted` tells the caller whether a key was involved, which is what
 // decides whether a typed confirmation is still required.
 //
-// The wrong key fails HERE, before anything live has been touched: the decrypting
-// reader verifies frame zero as it is constructed.
-func openArchive(path string, creds backupCreds) (rc io.ReadCloser, encrypted bool, code int, msg string) {
+// TWO WAYS IN, tried in this order:
+//
+//	portable  the typed password or passphrase, against the header's keyWrap.
+//	          First because it is the one that works everywhere — on this box, on a
+//	          fresh box, on any machine with the file and the credential.
+//	recovery  this instance's recovery key, against the header's recWrap. Only
+//	          reachable on the box that made the archive, and the reason a password
+//	          CHANGE no longer orphans anything (backup_recovery.go).
+//
+// Both attempts read from the same header, parsed once, and neither touches the
+// stream — so a failed first attempt cannot leave the reader mid-header. (An
+// earlier draft re-ran the whole parse per attempt, which reported a perfectly
+// good archive as "not a valid tar.gz" whenever the first key was wrong.)
+//
+// Everything here happens BEFORE anything live is touched, so a wrong credential
+// is a 401 with the current data untouched.
+func (s *Server) openArchive(path string, creds backupCreds) (rc io.ReadCloser, encrypted bool, code int, msg string) {
 	f, err := os.Open(path)
 	if err != nil {
 		olog.Errorf(olog.CodeBackupExtract, "[backup] open archive: %v", err)
@@ -106,7 +115,8 @@ func openArchive(path string, creds backupCreds) (rc io.ReadCloser, encrypted bo
 	}
 	h, herr := readBackupHeader(f)
 	if errors.Is(herr, errNotEncrypted) {
-		// Pre-1.4.1 plain gzip. Rewind and hand back the raw file.
+		// Pre-1.4.1 plain gzip. Decided once, here, and never inferred from a
+		// failed key attempt. Rewind and hand back the raw file.
 		if _, err := f.Seek(0, io.SeekStart); err != nil {
 			f.Close()
 			return nil, false, http.StatusInternalServerError, "internal error"
@@ -117,24 +127,61 @@ func openArchive(path string, creds backupCreds) (rc io.ReadCloser, encrypted bo
 		f.Close()
 		return nil, true, http.StatusBadRequest, herr.Error()
 	}
-	secret, code, msg := creds.secretFor(h)
-	if code != 0 {
-		f.Close()
-		return nil, true, code, msg
+
+	var archiveKey []byte
+	if secret := creds.secret(h); secret != "" {
+		if k, err := h.UnwrapSecret(secret); err == nil {
+			archiveKey = k
+		}
 	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		f.Close()
-		return nil, true, http.StatusInternalServerError, "internal error"
+	if archiveKey == nil && h.Recoverable() && creds.RecoveryOK {
+		// The recovery path costs a credential like any other — the caller's password,
+		// verified by the handler (creds.RecoveryOK). What the recovery key removes is
+		// the requirement that it be the password from the archive's OWN ERA.
+		if instKey, err := s.loadRecoveryKey(); err != nil {
+			olog.Warnf(olog.CodeBackupExtract, "[backup] instance recovery key unreadable: %v", err)
+		} else if instKey != nil {
+			if k, err := h.UnwrapRecovery(instKey); err == nil {
+				archiveKey = k
+			}
+		}
 	}
-	dec, _, derr := newBackupDecReader(f, secret)
+	if archiveKey == nil {
+		f.Close()
+		return nil, true, http.StatusUnauthorized, s.badKeyMessage(h)
+	}
+
+	dec, derr := newBackupDecReader(f, h, archiveKey)
 	if derr != nil {
 		f.Close()
-		if errors.Is(derr, errBadKey) {
-			return nil, true, http.StatusUnauthorized, errBadKey.Error()
-		}
-		return nil, true, http.StatusBadRequest, derr.Error()
+		olog.Errorf(olog.CodeBackupExtract, "[backup] frame reader: %v", derr)
+		return nil, true, http.StatusInternalServerError, "internal error"
 	}
 	return readerCloser{Reader: dec, closer: f}, true, 0, ""
+}
+
+// badKeyMessage says what would open this archive without saying whether the
+// credential just tried was close. It never distinguishes "no such account" from
+// "wrong password" — that stays undifferentiated, so nothing here is an oracle —
+// but it does distinguish WHICH KIND of secret is wanted, and whether this box can
+// recover the archive on its own, because an operator being asked for the wrong
+// kind of thing has no way to work that out from "does not open this backup".
+func (s *Server) badKeyMessage(h *backupHeader) string {
+	if h.Mode == backupModePassphrase {
+		return "this backup was sealed with a passphrase — it is the only way in, and it is not stored anywhere"
+	}
+	instKey, _ := s.loadRecoveryKey()
+	if h.Recoverable() && instKey != nil {
+		// The recovery key was tried (or would have been) and did not fit, so the
+		// archive came from somewhere else.
+		// The recovery key exists and did not fit: the archive was made on a
+		// different instance. Say so, or the operator retypes forever.
+		return "this backup was not made on this server, so its own password is the only way in — the account it names is “" + h.Account + "”"
+	}
+	if h.Recoverable() {
+		return "this server has no recovery key yet, so this backup needs the password that was current when it was made — the account it names is “" + h.Account + "”"
+	}
+	return "the password does not open this backup — it needs the one that was current when it was made"
 }
 
 // readerCloser pairs a derived reader with the file underneath it, so closing the
@@ -150,11 +197,17 @@ func (s *Server) backupsDir() string { return filepath.Join(s.DataDir, backupsDi
 
 // controlEntry reports whether a top-level data-dir entry belongs to the
 // backup/restore machinery (never archived, never swapped out on restore).
+//
+// The instance recovery key is listed here, and both halves matter. Never
+// ARCHIVED, because an archive that carries the key to itself is not an encrypted
+// archive. Never SWAPPED, so a restore rearranges the whole data directory around
+// it and the key survives — which is the entire reason it is a file and not a
+// column (see backup_recovery.go).
 func (s *Server) controlEntry(name string) bool {
-	if name == backupsDirName {
+	if name == backupsDirName || name == recoveryKeyFile {
 		return true
 	}
-	for _, p := range []string{".backup-", ".restore-", preRestorePrefix} {
+	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-"} {
 		if strings.HasPrefix(name, p) {
 			return true
 		}
@@ -219,7 +272,7 @@ func backupMeta(name string, info os.FileInfo) map[string]any {
 // archive, "account" (with `account`) or "passphrase".
 func (s *Server) backupMetaAt(dir, name string, info os.FileInfo) map[string]any {
 	m := backupMeta(name, info)
-	mode, account, err := peekArchive(filepath.Join(dir, name))
+	mode, account, recoverable, err := peekArchive(filepath.Join(dir, name))
 	switch {
 	case err != nil:
 		// Unreadable header: say nothing rather than guess. The restore attempt
@@ -227,11 +280,19 @@ func (s *Server) backupMetaAt(dir, name string, info os.FileInfo) map[string]any
 		m["key"] = "unknown"
 	case mode == backupModePassphrase:
 		m["key"] = "passphrase"
-	case mode == backupModeAccount:
-		m["key"] = "account"
+	case mode == backupModePassword:
+		m["key"] = "password"
 		m["account"] = account
 	default:
 		m["key"] = "none"
+	}
+	// Whether THIS box can open it without the era password — a boolean, never the
+	// key. It is what lets the restore prompt say "your password will open this"
+	// instead of naming an account and hoping.
+	if recoverable {
+		if instKey, kerr := s.loadRecoveryKey(); kerr == nil && instKey != nil {
+			m["recoverable"] = true
+		}
 	}
 	return m
 }
@@ -266,7 +327,7 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	mode := backupModeAccount
+	mode := backupModePassword
 	account := username(r)
 	secret := ""
 	switch {
@@ -279,16 +340,7 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		account = ""
 		secret = req.Passphrase
 	case req.Password != "":
-		var hash string
-		if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID(r)).Scan(&hash); err != nil {
-			internalError(w, r, "look up caller", err)
-			return
-		}
-		if !auth.CheckPassword(hash, req.Password) {
-			writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
-			return
-		}
-		secret = accountSecret(account, req.Password)
+		secret = req.Password
 	default:
 		writeErr(w, http.StatusBadRequest, "confirm your password, or set a passphrase, to seal the archive")
 		return
@@ -299,6 +351,39 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.backupMu.Unlock()
+
+	// The password is verified INSIDE the lock, and after it, because a concurrent
+	// password change between the check and the seal would otherwise leave an
+	// archive sealed under a password that no longer exists. Verified at all — the
+	// session already authorises this — because a typo would produce a perfectly
+	// valid archive that nothing can ever open, and you would find out on the day
+	// you needed it.
+	if mode == backupModePassword {
+		var hash string
+		if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID(r)).Scan(&hash); err != nil {
+			internalError(w, r, "look up caller", err)
+			return
+		}
+		if !auth.CheckPassword(hash, req.Password) {
+			writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
+			return
+		}
+	}
+
+	// The instance recovery key, created on first use. Taken BEFORE the snapshot
+	// on purpose: it must exist and be settled on disk before anything is written,
+	// and it is deliberately NOT inside the snapshot (controlEntry excludes it), so
+	// no archive ever carries the key that opens it. A passphrase archive gets none
+	// — that is what choosing a passphrase means.
+	var instKey []byte
+	if mode == backupModePassword {
+		var err error
+		if instKey, err = s.ensureRecoveryKey(); err != nil {
+			olog.Errorf(olog.CodeBackupArchive, "[backup] recovery key: %v", err)
+			writeErr(w, http.StatusInternalServerError, "the instance recovery key could not be read or created")
+			return
+		}
+	}
 	// Deliberately logs the MODE and never the key: an operator debugging "why
 	// will this not open" needs to know which credential it wants, and nothing
 	// more. Same reason there is no key material in any error message.
@@ -329,7 +414,7 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	final := filepath.Join(s.backupsDir(), name)
 	partial := final + ".partial"
 
-	if err := s.writeBackupArchive(partial, snap, mode, account, secret); err != nil {
+	if err := s.writeBackupArchive(partial, snap, mode, account, secret, instKey); err != nil {
 		_ = os.Remove(partial)
 		olog.Errorf(olog.CodeBackupArchive, "[backup] archive write failed: %v", err)
 		writeErr(w, http.StatusInternalServerError, "backup archive could not be written")
@@ -370,8 +455,8 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 // keyModeName names a key mode for logs and for the JSON the UI reads.
 func keyModeName(mode byte) string {
 	switch mode {
-	case backupModeAccount:
-		return "account"
+	case backupModePassword:
+		return "password"
 	case backupModePassphrase:
 		return "passphrase"
 	}
@@ -382,12 +467,12 @@ func keyModeName(mode byte) string {
 // into a tar.gz at dest, sealed inside the AES-GCM envelope (backup_crypto.go).
 // The layering is tar → gzip → envelope, so the archive compresses before it is
 // encrypted; the other order would compress ciphertext, which does not compress.
-func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secret string) error {
+func (s *Server) writeBackupArchive(dest, snap string, mode byte, account, secret string, instKey []byte) error {
 	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	enc, err := newBackupEncWriter(out, mode, account, secret)
+	enc, err := newBackupEncWriter(out, mode, account, secret, instKey)
 	if err != nil {
 		out.Close()
 		return err
@@ -511,12 +596,12 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
 	var req struct {
 		Confirm    string `json:"confirm"`
-		Username   string `json:"username"`
 		Password   string `json:"password"`
 		Passphrase string `json:"passphrase"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	creds := backupCreds{Username: req.Username, Password: req.Password, Passphrase: req.Passphrase, Confirm: req.Confirm}
+	creds := backupCreds{Password: req.Password, Passphrase: req.Passphrase, Confirm: req.Confirm}
+	creds.RecoveryOK = s.passwordIsCallers(r, req.Password)
 	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil, creds, true)
 }
 
@@ -529,6 +614,23 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 // safe, and the envelope is what makes carrying it between boxes safe.
 func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
 	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
+}
+
+// passwordIsCallers reports whether `pw` is the caller's own current password.
+//
+// This is what earns the recovery path on the admin routes. The session already
+// says who you are; this says you are present and meant it — the same role the
+// typed "RESTORE" played in 1.4.1, discharged by something that cannot be guessed
+// from the shape of the dialog. An empty password never qualifies.
+func (s *Server) passwordIsCallers(r *http.Request, pw string) bool {
+	if pw == "" {
+		return false
+	}
+	var hash string
+	if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID(r)).Scan(&hash); err != nil {
+		return false
+	}
+	return auth.CheckPassword(hash, pw)
 }
 
 // handleOnboardRestore: POST /auth/restore — the onboarding twin of
@@ -560,12 +662,16 @@ func (s *Server) handleOnboardRestore(w http.ResponseWriter, r *http.Request) {
 	// header names. `confirm` is not required — there is nothing yet to overwrite.
 	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
 	var req struct {
-		Username   string `json:"username"`
 		Password   string `json:"password"`
 		Passphrase string `json:"passphrase"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	creds := backupCreds{Username: req.Username, Password: req.Password, Passphrase: req.Passphrase}
+	// The recovery path is free here, and it has to be: there are no users, so there
+	// is no password to verify against and nothing a hijacked session could take.
+	// It is also the one thing that makes "factory-reset a corrupt database, then
+	// restore last night's archive" work — the reset deletes the database and leaves
+	// the recovery key, so the archive is still openable without the era password.
+	creds := backupCreds{Password: req.Password, Passphrase: req.Passphrase, RecoveryOK: true}
 	s.restoreFromNewest(w, "first-run onboarding", func() error {
 		if exists, err := s.usersExist(); err != nil {
 			return err
@@ -671,7 +777,7 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	// an alert with no follow-up reads as one that happened — so a failed attempt
 	// has to be as visible as a successful one, not least because repeated 401s
 	// here are what a brute-force attempt against an archive looks like.
-	src, encrypted, code, msg := openArchive(archive, creds)
+	src, encrypted, code, msg := s.openArchive(archive, creds)
 	if code != 0 {
 		olog.Warnf(olog.CodeBackupExtract, "[backup] restore from %s REFUSED (%d): %s", label, code, msg)
 		writeErr(w, code, msg)
@@ -820,6 +926,9 @@ func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requi
 		writeErr(w, code, msg)
 		return
 	}
+	// requireConfirm marks the admin routes; onboarding is the other case and earns
+	// the recovery path unconditionally (see handleOnboardRestore).
+	creds.RecoveryOK = !requireConfirm || s.passwordIsCallers(r, creds.Password)
 	s.restoreArchive(w, archive, "uploaded archive", requestedBy, guard, creds, requireConfirm)
 }
 
@@ -860,8 +969,6 @@ func spoolUpload(r *http.Request, dest string) (backupCreds, int, string) {
 		switch part.FormName() {
 		case "confirm":
 			creds.Confirm = field(part)
-		case "username":
-			creds.Username = field(part)
 		case "password":
 			// Never logged, here or anywhere below.
 			creds.Password = field(part)
