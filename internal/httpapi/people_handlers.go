@@ -91,6 +91,43 @@ func orphanRefQuery(kind string) string {
 	return ""
 }
 
+// personCreditSQL returns the pair of statements a rename needs for one kind:
+// the scan that finds every credit string mentioning the person, and the update
+// that writes a rewritten credit back. ok is false for a kind with no credit
+// column, and the caller must not rename.
+//
+// They are returned TOGETHER, from one switch, on purpose. They were previously
+// two separate switches — each a default-plus-overrides over books — sitting
+// forty lines apart in handleRenamePerson, which is two ways to get the same
+// thing wrong. Independently, either could inherit the books arm for a kind it
+// does not know. Jointly, they could also disagree: scan one table and write to
+// another, which reads every book's author and stamps the rewritten strings
+// onto dialogue rows by matching id.
+//
+// The blast radius here is larger than the orphan sweep's. metadata.ReplaceCredit
+// matches a name as a COMPONENT inside a joined credit, so a speaker renamed
+// from "Bose" would rewrite the author line of every book credited to anyone
+// called Bose, in place, across the whole library — and rename is one of the few
+// operations with no undo.
+func personCreditSQL(kind string) (scan, update string, ok bool) {
+	switch kind {
+	case "author":
+		return `SELECT id, TRIM(author) FROM books
+		        WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`,
+			`UPDATE books SET author = ?, updated_at = datetime('now') WHERE id = ?`, true
+	case "actor":
+		return `SELECT d.id, TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		        WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`,
+			`UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`, true
+	case "director":
+		return `SELECT id, TRIM(director) FROM movies
+		        WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`,
+			// The movies_fts triggers re-index the director column automatically.
+			`UPDATE movies SET director = ?, updated_at = datetime('now') WHERE id = ?`, true
+	}
+	return "", "", false
+}
+
 // gcOrphanPeople deletes saved person rows (of one kind) whose name is no
 // longer referenced by any of the user's books (authors) or dialogues
 // (actors) — e.g. after a book's author is renamed, the old author's metadata
@@ -533,15 +570,13 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 		credit string
 	}
 	var rewrites []rewrite
-	scanQ := `SELECT id, TRIM(author) FROM books
-	          WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) <> ''`
-	switch req.Kind {
-	case "actor":
-		scanQ = `SELECT d.id, TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		         WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
-	case "director":
-		scanQ = `SELECT id, TRIM(director) FROM movies
-		         WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
+	scanQ, updateQ, ok := personCreditSQL(req.Kind)
+	if !ok {
+		// validPersonKind accepted this kind but no credit column is mapped for
+		// it. Refusing beats guessing: a rename that picks the wrong table
+		// rewrites credits across the library with no undo.
+		writeErr(w, http.StatusBadRequest, "that kind cannot be renamed")
+		return
 	}
 	crows, err := tx.Query(scanQ, uid)
 	if err != nil {
@@ -564,14 +599,8 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	crows.Close()
 
-	updateQ := `UPDATE books SET author = ?, updated_at = datetime('now') WHERE id = ?`
-	switch req.Kind {
-	case "actor":
-		updateQ = `UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`
-	case "director":
-		// The movies_fts triggers re-index the director column automatically.
-		updateQ = `UPDATE movies SET director = ?, updated_at = datetime('now') WHERE id = ?`
-	}
+	// updateQ came from personCreditSQL alongside scanQ, so it cannot target a
+	// different table than the one just scanned.
 	for _, rw := range rewrites {
 		if _, e := tx.Exec(updateQ, rw.credit, rw.id); e != nil {
 			internalError(w, r, "rename rewrite", e)

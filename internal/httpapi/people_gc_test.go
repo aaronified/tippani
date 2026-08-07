@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -55,6 +56,56 @@ func TestEveryValidKindHasAReferenceQuery(t *testing.T) {
 			t.Errorf("validPersonKind accepts %q but orphanRefQuery has no case for it.\n"+
 				"gcOrphanPeople would skip it (safe), but the kind's orphans would never be collected —\n"+
 				"and if the case is ever added carelessly as a fallthrough it deletes the wrong rows.", k)
+		}
+	}
+}
+
+// personCreditSQL is the rename's half of the same hazard, with a bigger blast
+// radius: metadata.ReplaceCredit matches a name as a COMPONENT inside a joined
+// credit, so a speaker renamed from "Bose" under an inherited books arm would
+// rewrite the author line of every book credited to anyone called Bose — in
+// place, library-wide, with no undo.
+func TestPersonCreditSQLHasNoDefault(t *testing.T) {
+	for _, kind := range []string{"speaker", "", "narrator", "AUTHOR"} {
+		scan, update, ok := personCreditSQL(kind)
+		if ok || scan != "" || update != "" {
+			t.Errorf("personCreditSQL(%q) returned statements; an unmapped kind must not be renameable.\n"+
+				"scan=%s\nupdate=%s", kind, scan, update)
+		}
+	}
+}
+
+// The scan and the update have to name the SAME table. They used to be two
+// separate switches forty lines apart, so they could not only each inherit the
+// books arm — they could disagree with each other, scanning every book's author
+// and stamping the rewritten strings onto dialogue rows by matching id.
+func TestPersonCreditSQLScanAndUpdateAgreeOnTheTable(t *testing.T) {
+	table := map[string]string{"author": "books", "actor": "dialogues", "director": "movies"}
+	for kind, want := range table {
+		scan, update, ok := personCreditSQL(kind)
+		if !ok {
+			t.Fatalf("personCreditSQL(%q) not mapped", kind)
+		}
+		if !strings.Contains(scan, want) {
+			t.Errorf("%s: scan does not read %s: %s", kind, want, scan)
+		}
+		if !strings.HasPrefix(strings.TrimSpace(update), "UPDATE "+want+" ") {
+			t.Errorf("%s: update does not write %s: %s", kind, want, update)
+		}
+	}
+}
+
+// Every renameable kind must be mapped, so adding a kind without a credit
+// column fails here rather than rewriting the wrong table.
+func TestEveryValidKindIsRenameableOrExplicitlyNot(t *testing.T) {
+	for _, k := range []string{"author", "actor", "director", "speaker"} {
+		if !validPersonKind(k) {
+			continue
+		}
+		if _, _, ok := personCreditSQL(k); !ok {
+			t.Errorf("validPersonKind accepts %q but personCreditSQL has no case for it —\n"+
+				"handleRenamePerson now refuses rather than guessing, which is safe, but the kind\n"+
+				"cannot be renamed at all. Add its credit column or confirm it has none.", k)
 		}
 	}
 }
