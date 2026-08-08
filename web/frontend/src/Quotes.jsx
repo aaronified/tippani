@@ -477,7 +477,7 @@ export default function QuotesPage({ creditSeparators }) {
   // The colour swatch doubles as its own off switch: there is no "no colour" to
   // pick, so tapping the chosen one clears it.
   const colourFilter = (
-    <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by colour" />
+    <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by category" />
   )
   const selects = [
     tags.length > 0 && ['tag', 'Filter by tag', tag, setTag, [['', 'all tags'], ...tags.map((t) => [t.name, t.name])]],

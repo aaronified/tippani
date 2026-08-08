@@ -935,7 +935,7 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, ac
       {/* shrink-0: the four blobs are one atomic control — the row wraps the ⋯
           cluster to a second line before it splits or squeezes them. */}
       <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
-        <ColorSwatches value={color} onChange={onColor} ariaLabel="Highlight colour" />
+        <ColorSwatches value={color} onChange={onColor} ariaLabel="Colour category" />
       </span>
       <span className="ml-auto flex items-center">
         <QuoteActions

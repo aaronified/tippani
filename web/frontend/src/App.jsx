@@ -10,7 +10,7 @@ import SearchPage from './SearchPage.jsx'
 import StagingPage from './StagingPage.jsx'
 import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
-import { applyTheme } from './theme.js'
+import { applyColors, applyTheme } from './theme.js'
 import {
   BOTTOM_TABS,
   CONTENT_TABS,
@@ -86,8 +86,16 @@ export default function App() {
   }, [])
 
   // Per-user appearance preferences apply on login and reset on logout (§4).
+  //
+  // applyColors is a SEPARATE call, not a field of applyTheme, and stays that
+  // way: Settings' Appearance card re-sends every theme field on any change, so
+  // a category riding in that object would be wiped by an unrelated accent
+  // click. Same reasoning as the label-density preference.
   useEffect(() => {
-    if (user) applyTheme(user.preferences || {})
+    if (user) {
+      applyTheme(user.preferences || {})
+      applyColors(user.preferences || {})
+    }
   }, [user])
 
   // Keep the session user's preferences current when Settings saves them, so a

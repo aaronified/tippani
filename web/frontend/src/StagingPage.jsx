@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { episodeLabel } from './Movies.jsx'
@@ -254,7 +255,10 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
       </div>
 
       <BulkBar n={n} onClear={clearSel}>
-        <ColorSwatches value="" ariaLabel="Set colour" onChange={(c) => apply({ color: c }, `colour → ${c}`)} />
+        {/* The toast names the CATEGORY, not the token. It said "colour → blue"
+            while every card on the screen said "Fact", which reads as a
+            different operation than the one you asked for. */}
+        <ColorSwatches value="" ariaLabel="Set category" onChange={(c) => apply({ color: c }, `→ ${categoryName(c)}`)} />
         <GhostButton disabled={busy} onClick={() => apply({ favorite: true }, 'favourited')}>
           ♥ favourite
         </GhostButton>
@@ -453,7 +457,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         background: selected ? 'color-mix(in srgb, var(--accent) 7%, var(--raised))' : 'var(--raised)',
         border: `1px solid ${selected ? 'color-mix(in srgb, var(--accent) 35%, var(--line))' : 'var(--line)'}`,
         borderRadius: 8,
-        borderLeft: `4px solid ${ANNOTATION_HEX[quote.color] || 'var(--line)'}`,
+        borderLeft: `4px solid ${categoryVar(quote.color) || 'var(--line)'}`,
       }}
     >
       <Tooltip label="Select this quote">

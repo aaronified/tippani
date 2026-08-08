@@ -175,3 +175,151 @@ function apply() {
   root.style.setProperty('--accent-ui', dark ? `color-mix(in oklab, ${accent}, white 20%)` : accent)
   window.dispatchEvent(new CustomEvent('tippani:theme', { detail: { aesthetic, dark } }))
 }
+
+
+// ---- colour categories (the four highlight slots) --------------------------
+//
+// A quote's colour is the one thing above tags in the hierarchy: tags say what
+// it is ABOUT, the colour says what KIND of note it is. Until now the four were
+// called yellow, blue, pink and orange, which describes a highlighter rather
+// than a thought.
+//
+// THE TOKEN NEVER MOVES. `yellow|blue|pink|orange` stays the stored value in
+// every table, every Markdown export and the import rule that reads a missing
+// colour as yellow. Everything here is presentation: what a slot is CALLED, what
+// it LOOKS like, and whether it is offered.
+//
+// SLOT 1 IS THE DEFAULT, NOT A CATEGORY. The column default is 'yellow' and an
+// import with no colour writes 'yellow' too, so a yellow quote may be yellow
+// because somebody chose it or because nobody chose anything. It cannot be named
+// or hidden — the server refuses both — and its label says which of those it is.
+export const CATEGORY_SLOTS = ['yellow', 'blue', 'pink', 'orange']
+export const CATEGORY_DEFAULT_HEX = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B']
+export const UNSET_LABEL = 'Uncategorised'
+
+// CATEGORY_PALETTE — the swatches the picker offers.
+//
+// Curated rather than a free hex field, because free hex produces libraries
+// nobody can read at a glance: the point of a category colour is that four of
+// them are instantly distinguishable, and that survives about as long as the
+// first two near-identical blues.
+//
+// DISJOINT FROM THE THEME ACCENTS by construction, so a category can never be
+// mistaken for the app's own accent — and not merely by avoiding the four exact
+// values: the whole ochre / terracotta / olive / slate neighbourhood is left
+// alone. palette.test.jsx holds it there, since "these look different enough" is
+// the kind of judgement that quietly stops being true when someone adds a
+// sixteenth swatch.
+export const CATEGORY_PALETTE = [
+  ['#E5C355', 'Sun'],
+  ['#DF9A5B', 'Amber'],
+  ['#D98CA6', 'Rose'],
+  ['#E8A0C0', 'Blush'],
+  ['#C2555F', 'Crimson'],
+  ['#A8739E', 'Mauve'],
+  ['#8A7BC8', 'Violet'],
+  ['#6E8FD0', 'Periwinkle'],
+  ['#7FA6C9', 'Sky'],
+  ['#5AA8B5', 'Teal'],
+  ['#6FBF9F', 'Mint'],
+  ['#4FA98A', 'Jade'],
+  ['#7CB342', 'Leaf'],
+  ['#B5C05A', 'Moss'],
+  ['#B0806B', 'Clay'],
+  ['#8C7F6E', 'Stone'],
+]
+
+// The live state, read by anything that has to draw a colour rather than name a
+// CSS variable — the share image most of all, because a canvas cannot resolve
+// var() or color-mix() and the picture is the artefact that leaves the app.
+let catNames = ['', '', '', '']
+let catHex = [...CATEGORY_DEFAULT_HEX]
+let catHidden = [false, false, false, false]
+
+// applyColors writes the four --hl-N custom properties and keeps the JS mirror
+// in step.
+//
+// DELIBERATELY NOT PART OF applyTheme. Settings' Appearance card re-sends every
+// theme field on any change, so a category riding in that object would be wiped
+// by an unrelated accent click — the same reason the label-density preference
+// stands apart. Two writers of one attribute is how they drift; one writer per
+// concern is the rule.
+export function applyColors(prefs = {}) {
+  for (let i = 0; i < CATEGORY_SLOTS.length; i++) {
+    const n = i + 1
+    const name = String(prefs['catName' + n] || '')
+    const hex = String(prefs['catColor' + n] || '')
+    // Slot 1 is enforced here as well as on the server. A restored archive or a
+    // hand-edited row can carry a name it should not have, and the client is
+    // where it would be SEEN.
+    catNames[i] = n === 1 ? '' : name
+    catHidden[i] = n === 1 ? false : !!prefs['catHidden' + n]
+    catHex[i] = /^#[0-9a-f]{6}$/i.test(hex) ? hex : CATEGORY_DEFAULT_HEX[i]
+    document.documentElement.style.setProperty('--hl-' + n, catHex[i])
+  }
+}
+
+// categoryName returns what to CALL a slot: the reader's name if they gave one,
+// else the colour word the token already is. Slot 1 says it is the absence of a
+// choice rather than a colour, because that is the honest answer and because
+// "Yellow" invites you to read it as one category among four.
+export function categoryName(token) {
+  const i = CATEGORY_SLOTS.indexOf(token)
+  if (i < 0) return token
+  if (catNames[i]) return catNames[i]
+  if (i === 0) return UNSET_LABEL
+  return token[0].toUpperCase() + token.slice(1)
+}
+
+// categoryVar is the CSS reference for a token — what everything that is NOT a
+// canvas should use, because a custom property updates itself when a category is
+// recoloured and a copied hex does not. The inline colour bars, the swatch dots
+// and the tag chips all resolve through here or through --hl-N directly.
+export function categoryVar(token) {
+  const i = CATEGORY_SLOTS.indexOf(token)
+  return i < 0 ? null : 'var(--hl-' + (i + 1) + ')'
+}
+
+// categoryHex is the live hex for a token — what a canvas needs, and the ONE
+// place a real value is still required: ctx.fillStyle parses neither var() nor
+// color-mix(), so the share image cannot read the custom property that every
+// other surface reads.
+export function categoryHex(token) {
+  const i = CATEGORY_SLOTS.indexOf(token)
+  return i < 0 ? null : catHex[i]
+}
+
+// categoryHidden says whether a slot should be offered as a CHOICE. It never
+// hides a quote: a quote already wearing a hidden colour still shows it, because
+// the alternative is a card that silently changes appearance when you tidy up a
+// picker you were not thinking about it.
+export function categoryHidden(token) {
+  const i = CATEGORY_SLOTS.indexOf(token)
+  // The bounds check only. Slot 1 is kept visible by applyColors, which is the
+  // single place that decides it — a second `i > 0` here would enforce the same
+  // rule twice, and a rule enforced twice is a rule where neither guard can be
+  // shown to work: break either one and the other covers for it. (Found by
+  // mutation: the applyColors guard survived removal until this line went.)
+  return i > -1 && !!catHidden[i]
+}
+
+// visibleCategories is the token list a picker should draw.
+export function visibleCategories() {
+  return CATEGORY_SLOTS.filter((t) => !categoryHidden(t))
+}
+
+// categoryState is what Settings renders from — the raw per-slot values rather
+// than the resolved ones, so an unnamed slot shows an empty box with the
+// built-in as its placeholder instead of the built-in as its content.
+export function categoryState() {
+  return CATEGORY_SLOTS.map((token, i) => ({
+    token,
+    slot: i + 1,
+    name: catNames[i],
+    label: categoryName(token),
+    hex: catHex[i],
+    custom: catHex[i].toLowerCase() !== CATEGORY_DEFAULT_HEX[i].toLowerCase(),
+    hidden: catHidden[i],
+    fixed: i === 0,
+  }))
+}

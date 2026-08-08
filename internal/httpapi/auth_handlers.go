@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -348,6 +349,115 @@ type prefs struct {
 	// from — the Settings card shows a Resume button for it.
 	Tour     string `json:"tour"`
 	TourStep int    `json:"tourStep"`
+	// Colour categories. A quote's colour is the one thing above tags in the
+	// hierarchy — it is what KIND of note this is — and until now the four were
+	// called yellow, blue, pink and orange, which describes a highlighter rather
+	// than a thought.
+	//
+	// The stored TOKEN never changes. `color` stays yellow|blue|pink|orange in
+	// every table, in every Markdown export, and in the import rule that reads a
+	// missing colour as yellow. What is per-user is presentation: what slot N is
+	// CALLED, what it LOOKS like, and whether it is offered at all.
+	//
+	// FLAT FIELDS, not a map or a slice, and not for style: ui_test.go declares a
+	// mirror of this struct and compares it with !=, and a struct containing a
+	// map is not comparable in Go. Four slots is also not a number that grows —
+	// widening the palette means rebuilding four tables whose CHECK constraints
+	// SQLite cannot alter, each an FK parent with cascading children and two of
+	// them backing FTS5 indexes with live triggers. That is its own release.
+	//
+	// EVERY DEFAULT IS THE ZERO VALUE, deliberately. "" means "use the built-in",
+	// which keeps the mirror comparisons in ui_test.go honest, and means an
+	// account that has never opened the card stores nothing at all.
+	//
+	// SLOT 1 IS NOT A CATEGORY and cannot be named or hidden. It is the DEFAULT:
+	// the column default is 'yellow' and an import with no colour writes 'yellow'
+	// too, so a yellow quote may be yellow because someone chose it or because
+	// nobody chose anything. Naming it "Inspirational" would silently relabel
+	// every unmarked quote ever imported. Its colour is presentation and stays
+	// editable.
+	CatName1   string `json:"catName1"`
+	CatName2   string `json:"catName2"`
+	CatName3   string `json:"catName3"`
+	CatName4   string `json:"catName4"`
+	CatColor1  string `json:"catColor1"`
+	CatColor2  string `json:"catColor2"`
+	CatColor3  string `json:"catColor3"`
+	CatColor4  string `json:"catColor4"`
+	CatHidden1 bool   `json:"catHidden1"`
+	CatHidden2 bool   `json:"catHidden2"`
+	CatHidden3 bool   `json:"catHidden3"`
+	CatHidden4 bool   `json:"catHidden4"`
+}
+
+// catNameMax bounds a category name. Five words is the house rule for a label,
+// and these ARE labels — they ride a swatch tooltip, a filter chip and a group
+// heading, none of which has room for a sentence.
+const catNameMax = 24
+
+// accentHexes is what a category colour may not be. The rule is that a category
+// colour can never be mistaken for the app's own accent, and an exact match is
+// the case worth refusing outright — the curated swatch list the picker offers
+// stays clear of the neighbourhood as well, and a frontend test holds it there.
+var accentHexes = map[string]bool{
+	"#b4482d": true, // terracotta
+	"#c8992b": true, // ochre
+	"#3f7d5a": true, // olive
+	"#2f6d8f": true, // slate
+}
+
+// normalizeCats drops anything a category slot may not hold, on READ as well as
+// on write. The write path already refuses these, so this is about the row that
+// did not come through it: a restored archive, a hand-edited database, or a
+// preference written by a version that allowed something this one does not.
+//
+// Slot 1 is forced back to unnamed and visible every time. It is the DEFAULT
+// colour — the column default and what an import with no colour writes — so a
+// name on it is a claim about quotes nobody categorised, and hiding it would
+// hide the bucket most quotes are in.
+func normalizeCats(p *prefs) {
+	p.CatName1 = ""
+	p.CatHidden1 = false
+	names := []*string{&p.CatName1, &p.CatName2, &p.CatName3, &p.CatName4}
+	colors := []*string{&p.CatColor1, &p.CatColor2, &p.CatColor3, &p.CatColor4}
+	for i := range names {
+		// A stored value that no longer passes is cleared to "" — the built-in —
+		// rather than truncated or kept. Every other field in loadPrefs falls back
+		// to its default the same way, and a name silently cut in half is worse
+		// than the name the app came with.
+		if n, ok := trimCap(*names[i], catNameMax); ok {
+			*names[i] = n
+		} else {
+			*names[i] = ""
+		}
+		if !catColorValid(*colors[i]) {
+			*colors[i] = ""
+		}
+	}
+}
+
+// catColorValid accepts "" (use the built-in) or a six-digit hex that is not one
+// of the theme accents.
+//
+// The SERVER does not hold the curated palette. The picker is a curated set of
+// swatches because free hex entry produces libraries nobody can read, but that
+// is an affordance rather than a data rule — and putting the list here would
+// mean two copies of sixteen constants, which is the shape everything else in
+// this release has been pulling apart. What the server owes is that the value is
+// a colour and is not an accent.
+func catColorValid(v string) bool {
+	if v == "" {
+		return true
+	}
+	if len(v) != 7 || v[0] != '#' {
+		return false
+	}
+	for _, r := range v[1:] {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F') {
+			return false
+		}
+	}
+	return !accentHexes[strings.ToLower(v)]
 }
 
 // loadPrefs reads users.preferences and applies defaults for anything unset:
@@ -387,6 +497,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if !tourStates[p.Tour] {
 		p.Tour = ""
 	}
+	normalizeCats(&p)
 	if p.TourStep < 0 || p.TourStep > 99 {
 		p.TourStep = 0
 	}
@@ -416,6 +527,22 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRPracticeCounts *bool    `json:"srPracticeCounts"`
 		Tour             *string  `json:"tour"`
 		TourStep         *int     `json:"tourStep"`
+		// Pointer-typed like the rest, and for the same reason: a client sending
+		// one field must not clear the others. Unlike the rest, an EMPTY name or
+		// colour is a real value here — it means "back to the built-in" — so
+		// these cannot use the `!= ""` shorthand the older string fields use.
+		CatName1   *string `json:"catName1"`
+		CatName2   *string `json:"catName2"`
+		CatName3   *string `json:"catName3"`
+		CatName4   *string `json:"catName4"`
+		CatColor1  *string `json:"catColor1"`
+		CatColor2  *string `json:"catColor2"`
+		CatColor3  *string `json:"catColor3"`
+		CatColor4  *string `json:"catColor4"`
+		CatHidden1 *bool   `json:"catHidden1"`
+		CatHidden2 *bool   `json:"catHidden2"`
+		CatHidden3 *bool   `json:"catHidden3"`
+		CatHidden4 *bool   `json:"catHidden4"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -443,6 +570,51 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.CreditSeparators = norm
+	}
+	// Category slots. Set before the validation switch so a bad value is caught
+	// there rather than normalised into something the caller did not ask for.
+	catNameTooLong := false
+	for _, f := range []struct {
+		in  *string
+		out *string
+	}{
+		{in.CatName1, &cur.CatName1}, {in.CatName2, &cur.CatName2},
+		{in.CatName3, &cur.CatName3}, {in.CatName4, &cur.CatName4},
+	} {
+		if f.in == nil {
+			continue
+		}
+		// Refused, not truncated. Every other short free-text field on this
+		// server rejects an over-long value rather than storing a cut-off one,
+		// and a name that comes back shorter than you typed it is a worse answer
+		// than being told it does not fit.
+		n, ok := trimCap(*f.in, catNameMax)
+		if !ok {
+			catNameTooLong = true
+		}
+		*f.out = n
+	}
+	for _, f := range []struct {
+		in  *string
+		out *string
+	}{
+		{in.CatColor1, &cur.CatColor1}, {in.CatColor2, &cur.CatColor2},
+		{in.CatColor3, &cur.CatColor3}, {in.CatColor4, &cur.CatColor4},
+	} {
+		if f.in != nil {
+			*f.out = strings.TrimSpace(*f.in)
+		}
+	}
+	for _, f := range []struct {
+		in  *bool
+		out *bool
+	}{
+		{in.CatHidden1, &cur.CatHidden1}, {in.CatHidden2, &cur.CatHidden2},
+		{in.CatHidden3, &cur.CatHidden3}, {in.CatHidden4, &cur.CatHidden4},
+	} {
+		if f.in != nil {
+			*f.out = *f.in
+		}
 	}
 	if in.SRDaily != nil && *in.SRDaily != 0 {
 		cur.SRDaily = *in.SRDaily
@@ -477,6 +649,23 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case cur.SRDaily < 2 || cur.SRDaily > 10:
 		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
+		return
+	case catNameTooLong:
+		writeErr(w, http.StatusBadRequest,
+			fmt.Sprintf("a category name must be %d characters or fewer", catNameMax))
+		return
+	case cur.CatName1 != "":
+		writeErr(w, http.StatusBadRequest,
+			"the first colour is the default one quotes get when nobody chooses, so it cannot be named")
+		return
+	case cur.CatHidden1:
+		writeErr(w, http.StatusBadRequest,
+			"the first colour is the default one quotes get when nobody chooses, so it cannot be hidden")
+		return
+	case !catColorValid(cur.CatColor1) || !catColorValid(cur.CatColor2) ||
+		!catColorValid(cur.CatColor3) || !catColorValid(cur.CatColor4):
+		writeErr(w, http.StatusBadRequest,
+			"a category colour must be a #rrggbb hex, and not one of the theme accents")
 		return
 	case !srScopeValid(cur.SRReviewScope):
 		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies, quotes or both, or a comma-separated combination")

@@ -19,11 +19,16 @@ import '@fontsource/caveat/600.css'
 import '@fontsource/noto-serif-bengali/400.css'
 import './index.css'
 import App from './App.jsx'
-import { applyLabels, applyTheme } from './theme.js'
+import { applyColors, applyLabels, applyTheme } from './theme.js'
 import { initTactile } from './ui.jsx'
 
 function boot() {
   applyTheme({}) // defaults until /auth/me preferences load (§4)
+  // The four --hl-N properties, seeded with the built-ins. index.css declares
+  // them too, so this is not what makes the first paint correct — it is what
+  // makes the JS mirror correct before anyone has logged in, so a share image
+  // rendered from the demo shim has real hexes rather than empty strings.
+  applyColors({})
   // Before the first render, not after: the label preference is device-local,
   // so it is readable synchronously here. Applying it later would show a phone
   // a frame of fully labelled buttons and then snap them to glyphs.

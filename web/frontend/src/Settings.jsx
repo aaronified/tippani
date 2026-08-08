@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
-import { ACCENTS, LABELS_KEY, applyLabels, applyTheme, getResolvedTheme, labelsPref } from './theme.js'
+import { ACCENTS, applyColors, applyLabels, applyTheme, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -19,6 +19,7 @@ import {
   IconEdit,
   IconRefresh,
   IconRestore,
+  IconRevert,
   IconUserPlus,
   InfoDot,
   MobileSheet,
@@ -63,7 +64,7 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'sr', 'credits', 'devices', 'upd', 'backup']
+export const SETTINGS_CARDS = ['onboard', 'meta', 'sr', 'colors', 'credits', 'devices', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -93,11 +94,11 @@ export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
     ['meta', 'onboard', 'credits'],
-    ['sr', 'devices', 'upd', 'backup'],
+    ['sr', 'colors', 'devices', 'upd', 'backup'],
   ],
   3: [
     ['meta'], // the tall one gets a column to itself
-    ['sr', 'credits', 'onboard'],
+    ['sr', 'colors', 'credits', 'onboard'],
     ['devices', 'upd', 'backup'],
   ],
 }
@@ -118,6 +119,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
     meta: <Metadata user={user} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
+    colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
     credits: <CreditSepsCard user={user} onPreferences={onPreferences} />,
     devices: <DevicesCard />,
     ...(user.is_admin
@@ -236,6 +238,191 @@ function Slider({ label, hideLabel = false, min, max, step, value, unit = '', de
         style={{ width: '100%', accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
       />
     </div>
+  )
+}
+
+// ---- colour categories --------------------------------------------------
+
+// Mirrors catNameMax in auth_handlers.go. The server REFUSES a longer name
+// rather than truncating it, so this cap is the courtesy that stops anyone
+// running into that: the input will not take a 25th character, and the rejection
+// path stays there for a client that is not this one.
+const CAT_NAME_MAX = 24
+
+// ColourCategoriesCard — what the four highlight colours are CALLED.
+//
+// A quote's colour is the top of the hierarchy: tags say what it is about, the
+// colour says what kind of note it is. Naming them is the difference between
+// filtering by "blue" and filtering by "Fact".
+//
+// THE STORED TOKEN NEVER CHANGES. Everything here is presentation, which is why
+// a rename cannot break a Markdown export or an import — and why the Go side has
+// a test whose whole job is to prove that.
+//
+// THE FIRST SLOT IS NOT A CATEGORY. It is the default: the column default is
+// yellow and an import with no colour writes yellow too, so a yellow quote may
+// be yellow because you chose it or because nobody chose anything. Naming it
+// would relabel every unmarked quote you have ever imported, so the field is not
+// offered and the server refuses it. Its colour is presentation and stays yours.
+function ColourCategoriesCard({ prefs, onSaved }) {
+  const [rows, setRows] = useState(categoryState)
+  const [picking, setPicking] = useState(null) // slot whose palette is open
+  const [err, setErr] = useState('')
+
+  // Re-seed when the session prefs change under us — another tab, or the
+  // account switching. categoryState reads the applied values, so this stays in
+  // step with what is on screen rather than with a stale prop.
+  useEffect(() => { setRows(categoryState()) }, [prefs])
+
+  async function save(patch) {
+    const next = { ...collect(rows), ...patch }
+    applyColors({ ...prefs, ...next })
+    setRows(categoryState())
+    const r = await json('PUT', '/auth/me/preferences', next)
+    if (!r.ok) {
+      setErr(errText(r, 'could not save'))
+      // Put the screen back to what the server still believes, so the card can
+      // never show a name that was refused.
+      applyColors(prefs || {})
+      setRows(categoryState())
+      return
+    }
+    setErr('')
+    onSaved?.(next)
+  }
+
+  const visible = rows.filter((r) => !r.hidden).length
+
+  return (
+    <Card data-tour="categories">
+      <div className="flex items-center gap-1.5">
+        <SectionTitle>Colour categories</SectionTitle>
+        <InfoDot
+          title="Colour categories"
+          text="The four highlight colours, named. Tags say what a quote is about; its colour says what kind of note it is — a fact, a line you disagreed with, something to come back to. Renaming one changes nothing but the words on your screen: the stored value stays yellow, blue, pink or orange, so exports and imports round-trip exactly as before. Hiding a category takes it out of the pickers without touching a single quote already wearing it."
+        />
+      </div>
+      <p className="microcopy mb-4">Names and colours are yours; what is stored never changes.</p>
+      <div className="space-y-3">
+        {rows.map((row) => (
+          <div key={row.token} className="inline-field">
+            <div className="inline-field-head" style={{ gap: 10 }}>
+              <Tooltip label={row.fixed ? 'The default colour' : `Recolour ${row.label}`}>
+                <button
+                  type="button"
+                  className="color-dot-btn"
+                  aria-label={`Recolour ${row.label}`}
+                  aria-expanded={picking === row.slot}
+                  onClick={() => setPicking(picking === row.slot ? null : row.slot)}
+                >
+                  <span className="color-dot active" style={{ background: `var(--hl-${row.slot})` }} />
+                </button>
+              </Tooltip>
+              {row.fixed ? (
+                <div className="min-w-0 flex-1">
+                  <span style={{ fontWeight: 600 }}>{UNSET_LABEL}</span>
+                  <InfoDot
+                    title="Why this one has no name"
+                    text="This is the colour a quote gets when nobody picks one — it is the column default, and an import with no colour written in it lands here too. So a quote is this colour either because you chose it or because nothing was ever chosen, and those cannot be told apart. Naming it would put a label on every unmarked quote you have imported. Its colour is still yours to change."
+                  />
+                </div>
+              ) : (
+                <input
+                  className="tp-input"
+                  style={{ flex: 1, minWidth: 0 }}
+                  value={row.name}
+                  maxLength={CAT_NAME_MAX}
+                  placeholder={row.token[0].toUpperCase() + row.token.slice(1)}
+                  aria-label={`Name for the ${row.token} category`}
+                  onChange={(e) => setRows(rows.map((r) => (r.slot === row.slot ? { ...r, name: e.target.value } : r)))}
+                  onBlur={() => save({})}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                />
+              )}
+              {!row.fixed && (
+                <Tooltip label={row.hidden ? 'Offer this again' : visible <= 2 ? 'Keep two categories' : 'Stop offering this'}>
+                  <button
+                    type="button"
+                    className={'field-icon-btn tactile' + (row.hidden ? ' is-active' : '')}
+                    aria-label={row.hidden ? 'Offer this category' : 'Hide this category'}
+                    aria-pressed={row.hidden}
+                    disabled={!row.hidden && visible <= 2}
+                    onClick={() => save({ [`catHidden${row.slot}`]: !row.hidden })}
+                  >
+                    {row.hidden ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </Tooltip>
+              )}
+              {row.custom && (
+                <Tooltip label="Back to the original">
+                  <button
+                    type="button"
+                    className="field-icon-btn tactile"
+                    aria-label="Reset this colour"
+                    onClick={() => save({ [`catColor${row.slot}`]: '' })}
+                  >
+                    <IconRevert />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+            {picking === row.slot && (
+              <div className="cat-palette" role="listbox" aria-label={`Colour for ${row.label}`}>
+                {CATEGORY_PALETTE.map(([hex, name]) => (
+                  <Tooltip key={hex} label={name}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={row.hex.toLowerCase() === hex.toLowerCase()}
+                      aria-label={name}
+                      className={'cat-swatch' + (row.hex.toLowerCase() === hex.toLowerCase() ? ' is-on' : '')}
+                      style={{ background: hex }}
+                      onClick={() => { setPicking(null); save({ [`catColor${row.slot}`]: hex }) }}
+                    />
+                  </Tooltip>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <ErrorText>{err}</ErrorText>
+    </Card>
+  )
+}
+
+// collect turns the card's rows back into the flat preference fields. Flat
+// because the Go struct is flat, and the Go struct is flat because ui_test.go
+// compares it with != and a struct holding a map is not comparable.
+function collect(rows) {
+  const out = {}
+  for (const r of rows) {
+    if (!r.fixed) {
+      out[`catName${r.slot}`] = r.name.trim()
+      out[`catHidden${r.slot}`] = r.hidden
+    }
+    out[`catColor${r.slot}`] = r.custom ? r.hex : ''
+  }
+  return out
+}
+
+// The eye pair: whether a category is offered in the pickers. Not a delete —
+// nothing about a quote changes — so an eye rather than a bin.
+function IconEye() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3.2" />
+    </svg>
+  )
+}
+function IconEyeOff() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9.9 5.9A9.3 9.3 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.8" />
+      <path d="M6.3 7.7A17.6 17.6 0 0 0 2.5 12S6 18.5 12 18.5a9.4 9.4 0 0 0 3.6-.7" />
+      <path d="M4 4l16 16" />
+    </svg>
   )
 }
 

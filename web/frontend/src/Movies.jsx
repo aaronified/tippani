@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { categoryVar } from './theme.js'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
@@ -1558,7 +1559,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // colorBar — a dialogue is a quote like any other, so it wears its colour the
   // same way. Inline rather than a class because the frame's own borders are
   // part of the film-strip recipe (§6) and must not be overridden wholesale.
-  const frameStyle = { borderLeft: `4px solid ${ANNOTATION_HEX[d.color] || ANNOTATION_HEX.yellow}` }
+  const frameStyle = { borderLeft: `4px solid ${categoryVar(d.color) || 'var(--hl-1)'}` }
   // Accordion mode (tiles board): the parent owns which dialogue is open, so one
   // expands at a time. Elsewhere (list, search modal) each frame keeps its own.
   // The quote clamps to `quoteLines` and a chevron reveals only when it overflows
@@ -1679,7 +1680,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           <ColorSwatches
             value={d.color || 'yellow'}
             onChange={(c) => onPatch({ color: c })}
-            ariaLabel="Dialogue colour"
+            ariaLabel="Colour category"
           />
         </span>
         <span className="ml-auto flex items-center">
@@ -1886,7 +1887,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
       <div className="flex items-center gap-3">
         <MonoLabel>colour</MonoLabel>
-        <ColorSwatches value={color} onChange={setColor} ariaLabel="Dialogue colour" />
+        <ColorSwatches value={color} onChange={setColor} ariaLabel="Colour category" />
       </div>
       <div>
         <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>

@@ -177,11 +177,12 @@ describe('labelsPref', () => {
 // preference that will not stick.
 describe('the Settings control and boot agree', () => {
   it('writes a value applyLabels() can read back', async () => {
-    const { applyLabels, LABELS_KEY, labelsPref } = await loadTheme({ narrow: false })
-    vi.doMock('../../src/theme.js', () => ({
-      ACCENTS: {}, LABELS_KEY, applyLabels, labelsPref,
-      applyTheme: () => {}, getResolvedTheme: () => ({ aesthetic: 'paper', theme: 'light', accent: 'ochre' }),
-    }))
+    const { applyLabels } = await loadTheme({ narrow: false })
+    // Imported AFTER loadTheme, and deliberately not mocked. loadTheme resets
+    // the module registry and imports theme.js; Settings.jsx imported into that
+    // same registry resolves to the SAME theme instance, so the two share state
+    // without anyone hand-listing what theme.js exports. A mock that listed them
+    // is what this used to do, and it broke the moment the module grew a new one.
     const { LabelDensity } = await import('../../src/Settings.jsx')
     const { render, fireEvent, screen } = await import('@testing-library/react')
 
@@ -197,11 +198,7 @@ describe('the Settings control and boot agree', () => {
   })
 
   it('offers auto in both directions, not just off', async () => {
-    const { applyLabels, LABELS_KEY, labelsPref } = await loadTheme({ narrow: true })
-    vi.doMock('../../src/theme.js', () => ({
-      ACCENTS: {}, LABELS_KEY, applyLabels, labelsPref,
-      applyTheme: () => {}, getResolvedTheme: () => ({ aesthetic: 'paper', theme: 'light', accent: 'ochre' }),
-    }))
+    const { applyLabels } = await loadTheme({ narrow: true })
     const { LabelDensity } = await import('../../src/Settings.jsx')
     const { render, fireEvent, screen } = await import('@testing-library/react')
 

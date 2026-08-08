@@ -5,6 +5,7 @@
 // on a phone and a desktop. Quote capture is NOT here any more — it's the
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { categoryVar } from './theme.js'
 import { errText, json } from './api.js'
 import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
@@ -82,7 +83,7 @@ function QuoteBlock({ card }) {
   return (
     <blockquote
       style={{
-        borderLeft: `4px solid ${ANNOTATION_HEX[card.color] || 'var(--accent-ui)'}`,
+        borderLeft: `4px solid ${categoryVar(card.color) || 'var(--accent-ui)'}`,
         padding: '2px 0 2px 12px',
       }}
     >

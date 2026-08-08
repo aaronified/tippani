@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
-import { paletteTheme } from "./theme.js";
+import { categoryHex, paletteTheme } from "./theme.js";
 import { DEMO, apiURL, copyText, coverImgURL, json } from "./api.js";
 
 // resolveFaces turns a credit string + a name→metadata map into the portrait
@@ -532,7 +532,10 @@ function QuoteImagePanel({ share, selected, onShared }) {
       const canvas = canvasRef.current;
       if (!canvas || cancelled) return;
       try {
-        const colorHex = useColor && share.color ? ANNOTATION_HEX[share.color] : null;
+        // categoryHex, not the default map: a canvas cannot resolve var(), so
+        // this is the one consumer that needs a real value — and the one whose
+        // output leaves the app, which makes it the worst place to be stale.
+        const colorHex = useColor && share.color ? categoryHex(share.color) : null;
         drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait }, selected, colorHex), drawTheme(imageTheme));
         setErr("");
       } catch {

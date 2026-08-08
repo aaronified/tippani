@@ -1541,6 +1541,37 @@
     border-color: var(--line);
   }
   .field-icon-btn-boxed:hover:not(:disabled) { background: var(--card); }
+  /* ---- the colour-category palette (Settings) ----
+     A grid rather than a row: sixteen swatches wrapped to a line each of four
+     read as a palette you scan, where one long row reads as a scrollbar you
+     have to work. Sized off the same 34px dense control the rest of the card
+     uses, so the picker lines up with the field it belongs to. */
+  .cat-palette {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  @media (max-width: 480px) { .cat-palette { grid-template-columns: repeat(4, 1fr); } }
+  .cat-swatch {
+    aspect-ratio: 1;
+    width: 100%;
+    border-radius: 8px;
+    border: 1.4px solid var(--ink-border);
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .cat-swatch:hover { transform: translateY(-1px); box-shadow: var(--lift); }
+  /* The chosen one wears a ring in the SURFACE colour then the accent, the same
+     two-step cut-out the credit portraits use, so it reads as lifted off the
+     grid rather than merely outlined. */
+  .cat-swatch.is-on { box-shadow: 0 0 0 2px var(--raised), 0 0 0 4px var(--accent-ui); }
+  @media (max-width: 768px) { .cat-swatch { min-height: 34px; } }
+
   /* Phones get the 44px minimum; desktop keeps the tighter 34px disc. */
   @media (max-width: 768px) {
     .field-icon-btn { width: 42px; height: 42px; }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { categoryName, categoryVar } from './theme.js'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
 import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen } from './ui.jsx'
@@ -15,9 +16,12 @@ import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHe
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-// The four fixed annotation highlight colours, derived from the one map rather
-// than restated, so the breakdown cannot drift from the quotes it counts.
-const HL = ANNOTATION_COLORS.map((c) => [c, c[0].toUpperCase() + c.slice(1), ANNOTATION_HEX[c]])
+// The four colour categories, named and coloured the way the reader named and
+// coloured them — a breakdown headed "Blue" when every card in the app says
+// "Fact" is a breakdown of something else. Both come from theme.js rather than
+// from a copy here, and the swatch is the custom property rather than a hex, so
+// a recolour repaints this without a reload.
+const hlRows = () => ANNOTATION_COLORS.map((c) => [c, categoryName(c), categoryVar(c)])
 
 // formatMonth turns "YYYY-MM" into "Month YYYY".
 function formatMonth(ym) {
@@ -432,24 +436,29 @@ function HBar({ swatch, label, labelWidth, n, max, fill }) {
 }
 
 function Colors({ colors }) {
-  const total = HL.reduce((a, [k]) => a + (colors?.[k] || 0), 0)
-  const max = Math.max(1, ...HL.map(([k]) => colors?.[k] || 0))
+  const rows = hlRows()
+  const total = rows.reduce((a, [k]) => a + (colors?.[k] || 0), 0)
+  const max = Math.max(1, ...rows.map(([k]) => colors?.[k] || 0))
+  // The label column was a fixed 52px, which fitted "Yellow" and nothing a
+  // reader would choose. It sizes to the longest name now — a breakdown that
+  // truncates the categories it is breaking down is not a breakdown.
+  const labelWidth = Math.min(120, Math.max(52, ...rows.map(([, label]) => label.length * 7 + 8)))
   return (
     <Card>
-      <SectionHead label="Highlight colours" right={<span className="mono-label">{total} quotes</span>} />
+      <SectionHead label="Colour categories" right={<span className="mono-label">{total} quotes</span>} />
       {total === 0 ? (
         <p className="tp-empty" style={{ padding: '16px 0' }}>no highlights yet</p>
       ) : (
         <div className="space-y-2">
-          {HL.map(([k, label, hex]) => (
+          {rows.map(([k, label, fill]) => (
             <HBar
               key={k}
               label={label}
-              labelWidth={52}
+              labelWidth={labelWidth}
               n={colors?.[k] || 0}
               max={max}
-              fill={hex}
-              swatch={<span style={{ width: 12, height: 12, borderRadius: 999, background: hex, border: '1px solid rgba(41,38,29,.35)', flex: '0 0 auto' }} />}
+              fill={fill}
+              swatch={<span style={{ width: 12, height: 12, borderRadius: 999, background: fill, border: '1px solid rgba(41,38,29,.35)', flex: '0 0 auto' }} />}
             />
           ))}
         </div>

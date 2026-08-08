@@ -1,5 +1,6 @@
 // Shared visual primitives for the tippani UI (instructions §5–§6), plus thin
 // compatibility exports the pre-redesign pages still import — the page pass
+import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
 // replaces those call sites, then the compat block can shrink.
 import { Children, Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -58,26 +59,24 @@ export class ErrorBoundary extends Component {
   }
 }
 
-// The four fixed annotation colours (§4, Kindle default yellow).
+// The four colour categories (§4, Kindle default yellow).
 //
-// The tokens are immutable storage and export keys; ANNOTATION_HEX is what they
-// LOOK like, and it is the ONE map. There were three — this, StagingPage's
-// COLOR_HEX and StatsPage's HL — each restating the same four hexes, which is
-// three places to edit when the colours become user-driven and three chances to
-// edit two of them.
+// The tokens are immutable storage and export keys. What they are CALLED and
+// what they LOOK LIKE is per-user and lives in theme.js, which is why both of
+// these are derived from it rather than written out again: this file held its
+// own copy of the four hexes until 1.6.0, alongside two more in StagingPage and
+// StatsPage, and a fourth in index.css. Two remain, and they are the two that
+// genuinely cannot be one — the stylesheet's --hl-N and the JS value a canvas
+// needs — with a test asserting they agree.
 //
-// It stays in JS as well as in index.css (--hl-1..4) because two consumers
-// genuinely cannot read a custom property: quoteImage.js draws the share card on
-// a canvas, and ctx.fillStyle cannot parse color-mix() or a var(); and an inline
-// borderLeft needs a real value. The CSS tokens and this map must therefore
-// agree, which is asserted rather than hoped for — see test/dom/palette.test.jsx.
-export const ANNOTATION_COLORS = ["yellow", "blue", "pink", "orange"];
-export const ANNOTATION_HEX = {
-  yellow: "#E5C355",
-  blue: "#7FA6C9",
-  pink: "#D98CA6",
-  orange: "#DF9A5B",
-};
+// ANNOTATION_HEX is the BUILT-IN map, not the live one. Anything drawing a
+// colour now goes through categoryVar (CSS) or categoryHex (canvas) so a
+// recoloured category is live; this is what those fall back to, and what the
+// palette test pins the stylesheet against.
+export const ANNOTATION_COLORS = CATEGORY_SLOTS;
+export const ANNOTATION_HEX = Object.fromEntries(
+  CATEGORY_SLOTS.map((t, i) => [t, CATEGORY_DEFAULT_HEX[i]]),
+);
 export const TAG_STYLES = ["sticker", "banner", "flyout", "tape", "reel"];
 
 // useReveal — reveal-on-scroll (§5). Attach the ref to an element with
@@ -310,7 +309,10 @@ export function HandCard({
   ...rest
 }) {
   const bar = colorBar
-    ? { borderLeft: `4px solid ${ANNOTATION_HEX[colorBar] || colorBar}` }
+    // categoryVar, not a copied hex: --hl-N is what a recoloured category
+    // updates, so a card repaints itself the moment the setting changes rather
+    // than on the next full reload.
+    ? { borderLeft: `4px solid ${categoryVar(colorBar) || colorBar}` }
     : undefined;
   return (
     <div
@@ -3333,11 +3335,30 @@ export function FavoriteStar({ value, onChange }) {
 // following focus would fire a PUT per keystroke from the card quick-pick.
 // Each dot is a transparent hit box around the 20px circle, so the mobile touch
 // pass can grow the BOX to 44px high without changing how the dot looks.
-export function ColorSwatches({ value, onChange, ariaLabel = "Colour" }) {
+// ColorSwatches — the four colour categories as a radio group, and the one
+// control every capture form, filter row and card shares.
+//
+// It draws the reader's NAMES, not the colour words: "Pick blue" is a
+// description of a highlighter, and the whole point of naming a category is that
+// the picker then asks the question you actually have. `categoryName` falls back
+// to the colour word for a slot nobody has named, so a fresh account reads
+// exactly as it did before.
+//
+// A HIDDEN slot is dropped from the CHOICES but never from a quote that already
+// wears it, which is why `value` is added back in below. Hiding is about
+// tidying a picker you have stopped using, and a quote silently changing colour
+// because of that would be the app editing your library to match a preference.
+//
+// `showAll` renders every slot regardless — Settings needs to show the one you
+// are in the middle of hiding.
+export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false }) {
   const ref = useRef(null);
+  const offered = showAll
+    ? ANNOTATION_COLORS
+    : ANNOTATION_COLORS.filter((c) => !categoryHidden(c) || c === value);
   // The tab stop is the picked dot, or the first when nothing is picked (a
   // filter sitting at "all") — the group must never fall out of tab order.
-  const focusIndex = Math.max(0, ANNOTATION_COLORS.indexOf(value));
+  const focusIndex = Math.max(0, offered.indexOf(value));
   const onKey = (e) => {
     const step =
       e.key === "ArrowRight" || e.key === "ArrowDown"
@@ -3361,13 +3382,13 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour" }) {
       onKeyDown={onKey}
       className="flex items-center gap-1.5"
     >
-      {ANNOTATION_COLORS.map((c, i) => (
-        <Tooltip key={c} label={`Pick ${c}`}>
+      {offered.map((c, i) => (
+        <Tooltip key={c} label={`Pick ${categoryName(c)}`}>
           <button
             type="button"
             role="radio"
             aria-checked={value === c}
-            aria-label={c}
+            aria-label={categoryName(c)}
             tabIndex={i === focusIndex ? 0 : -1}
             onClick={() => onChange(c)}
             className="color-dot-btn"
