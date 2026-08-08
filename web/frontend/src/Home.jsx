@@ -103,6 +103,80 @@ function QuoteBlock({ card }) {
   )
 }
 
+// QUIZ_OPTION_LINES — how many lines of a quote option show before it clamps.
+// The server used to cut the text itself at 140 runes and send an ellipsis, so
+// the rest was simply gone; it sends the whole quote now and the limit is a
+// display choice again, which is the only kind of choice it should ever have
+// been.
+const QUIZ_OPTION_LINES = 4
+
+// QuizOption — one multiple-choice answer, clamped, with its own expander.
+//
+// The expander is a SEPARATE button beside the option rather than a tap
+// anywhere on it, and that is the whole point of the control. Choosing an
+// option answers the question, there is one shot per card (`pick` returns early
+// if `picked != null`), and the grade posts immediately. An expand gesture
+// sharing a hit area with that would eventually grade a card because someone
+// wanted to finish reading it — and the reader would have no way to undo it.
+//
+// Whether the text actually overflows is MEASURED rather than guessed from a
+// character count: four lines is a different number of characters on a phone
+// and on a wide desktop card. The measurement is skipped while open (the clamp
+// is off then, so it would always report "fits" and the control would vanish
+// mid-read), which leaves the flag latched at its last closed value.
+function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style }) {
+  const [open, setOpen] = useState(false)
+  const [clipped, setClipped] = useState(false)
+  const textRef = useRef(null)
+  useEffect(() => {
+    const el = textRef.current
+    if (!el || open) return
+    const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [opt, open])
+  const clamp = open
+    ? {}
+    : { display: '-webkit-box', WebkitLineClamp: QUIZ_OPTION_LINES, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+  return (
+    <div className="flex items-start gap-2">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onPick}
+        className="min-w-0 flex-1 text-left"
+        style={style}
+      >
+        <span ref={textRef} style={{ display: 'block', ...clamp }}>
+          {opt}
+        </span>
+        {om?.person && (
+          <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
+            <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
+          </span>
+        )}
+      </button>
+      {/* Only when there is something hidden. A control that is always there but
+          does nothing three times out of four teaches you to ignore it. */}
+      {(clipped || open) && (
+        <Tooltip label={open ? 'Show less' : 'Show the whole quote'}>
+          <button
+            type="button"
+            className="field-icon-btn"
+            aria-label={open ? 'Collapse this option' : 'Expand this option'}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <ClampMore open={open} />
+          </button>
+        </Tooltip>
+      )}
+    </div>
+  )
+}
+
 // PersonChip — a display-only person credit (portrait + name pill) for quiz
 // prompts and options: the answer buttons own the tap, so unlike PersonCredit
 // nothing here is clickable. Renders the pill even without a saved portrait.
@@ -269,12 +343,14 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
             bg = 'color-mix(in srgb, var(--error) 12%, transparent)'
           }
           return (
-            <button
+            <QuizOption
               key={idx}
-              type="button"
+              opt={opt}
+              om={om}
+              personMaps={personMaps}
+              isSource={isSource}
               disabled={answered || saving}
-              onClick={() => pick(idx)}
-              className="text-left"
+              onPick={() => pick(idx)}
               style={{
                 minHeight: 44,
                 padding: '9px 13px',
@@ -287,14 +363,7 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
                 lineHeight: 1.4,
                 overflowWrap: 'anywhere',
               }}
-            >
-              {opt}
-              {om?.person && (
-                <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
-                  <PersonChip name={om.person} person={personMaps[om.kind]?.[om.person]} size={18} />
-                </span>
-              )}
-            </button>
+            />
           )
         })}
       </div>

@@ -755,9 +755,8 @@ func finishCard(c reviewCand, direction string) reviewCard {
 }
 
 const (
-	quizOptions   = 4   // choices per question (fewer only if the pool is tiny)
-	quizQuoteClip = 140 // display length for a quote option
-	quizQuoteCap  = 200 // quotes sampled per medium into the distractor pool
+	quizOptions  = 4   // choices per question (fewer only if the pool is tiny)
+	quizQuoteCap = 200 // quotes sampled per medium into the distractor pool
 )
 
 // workRef is one book / film / show with the metadata that makes a distractor
@@ -1118,14 +1117,24 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 	if correct == "" {
 		return false
 	}
+	// Quote options are sent WHOLE. They used to be clipped to 140 runes with an
+	// ellipsis, which is roughly three lines on a phone — so on a long quote the
+	// reader was asked to pick between four passages whose ends they could not
+	// read, and no amount of tapping would show them. Clipping was the server
+	// deciding a layout question, and it decided it destructively.
+	//
+	// The client clamps and offers its own expander. That also means two quotes
+	// sharing a 140-rune opening are no longer folded together as duplicates by
+	// choicesFrom, which could quietly leave a card with fewer choices than it
+	// should have had.
 	var distractors []string
 	for _, q := range rankQuotes(own, p.quotes, rng) {
 		if q.work.key == ownKey || q.work.title == card.Title {
 			continue // never a quote from the same work
 		}
-		distractors = append(distractors, clip(q.text, quizQuoteClip))
+		distractors = append(distractors, q.text)
 	}
-	opts, ans := choicesFrom(clip(correct, quizQuoteClip), distractors, quizOptions, rng)
+	opts, ans := choicesFrom(correct, distractors, quizOptions, rng)
 	if len(opts) < 2 {
 		return false
 	}
@@ -1218,14 +1227,6 @@ func choicesFromWorks(answer workRef, distractors []workRef, n int, rng *rand.Ra
 		}
 	}
 	return opts, 0
-}
-
-func clip(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return strings.TrimSpace(string(r[:n])) + "…"
 }
 
 // handleDailyQuiz serves GET /review/daily?offset=N — the rest of today's due
