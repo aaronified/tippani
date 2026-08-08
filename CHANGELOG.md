@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-08-08
+
+**The portrait backdrop, corrected.** Three changes to the share-image option
+1.6.0 added, all of them things that only became obvious once there was a card
+to look at.
+
+### Changed
+
+- **The small credit disc steps aside under a backdrop.** 1.6.0 drew both, on the
+  reasoning that the backdrop is atmosphere and the disc beside the name is the
+  identification. That does not survive contact with an actual card: a 34px crop
+  of the same photograph beside a full-height version of the same photograph
+  reads as a mistake rather than as a second piece of information. The layout
+  reclaims the space as well — the attribution line stops indenting past a
+  cluster that is no longer there.
+
+- **The portrait wears the quote's colour.** A duotone rather than a wash: the
+  blend keeps the photograph's luma and takes the highlight colour's hue, so the
+  face stays a face.
+
+- **The quote's colour is an option, on both kinds of image.** One switch, because
+  it is one decision: on a plain card the colour is the stripe beside the words,
+  on a backdrop card it is the hue of the portrait, and *do I want this quote's
+  colour in the picture* is the same question either way. It is never both at
+  once — a stripe next to a portrait already wearing the colour is the same thing
+  said twice, the second time louder. Persisted per device, beside the skin
+  picker and the backdrop switch. Turning it off changes nothing about the quote.
+
+### Internal
+
+- The tint is applied while the buffer is still opaque and the fade mask after
+  it, so the colour fades out *with* the face instead of surviving as a coloured
+  rectangle where the face used to be. Both facts are asserted rather than
+  assumed, and a mutation that swaps the order fails the suite.
+
+- The `color` blend is a CSS blend mode, not a Porter-Duff operator, and a canvas
+  that does not implement it ignores the assignment **in silence** — leaving
+  whatever was set before, which is `source-over`. Painting a quote colour
+  source-over is a flat slab across somebody's face. The property is read back
+  rather than trusted, and a `source-atop` wash stands in when it did not take.
+  The test drops `color` from what its canvas accepts and asserts the fall-back
+  happens, because "it works in my browser" is the exact shape of claim that
+  guard exists to stop anyone making.
+
+- 658 frontend tests.
+
 ## [1.6.0] - 2026-08-08
 
 **One vocabulary, and surfaces made of something.** This release is about the
