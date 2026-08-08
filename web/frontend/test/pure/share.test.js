@@ -8,7 +8,7 @@
 // rather than through the component.
 
 import { describe, expect, it } from 'vitest'
-import { bookShare, buildShareText, movieShare, SHARE_FORMATS } from '../../src/share.jsx'
+import { bookShare, buildShareText, movieShare, quoteShare, SHARE_FORMATS } from '../../src/share.jsx'
 
 const ALL = new Proxy({}, { get: () => true })
 const only = (...ids) => Object.fromEntries(ids.map((id) => [id, true]))
@@ -35,6 +35,20 @@ const casablanca = () =>
     year: 1942,
     timestamp: '01:02:03',
     tags: ['farewell'],
+  })
+
+// A standalone quote (§24): no work, so the SPEAKER is the attribution.
+const bose = () =>
+  quoteShare({
+    quote: 'Give me blood, and I will give you freedom',
+    note: 'the Azad Hind broadcast',
+    speaker: 'Subhas Chandra Bose',
+    occasion: 'Burma Radio broadcast',
+    when: '1944',
+    place: 'Burma',
+    medium: 'radio',
+    date: '2026-08-01',
+    tags: ['freedom'],
   })
 
 describe('the format list', () => {
@@ -221,9 +235,45 @@ describe('the payload shapers', () => {
     expect(character.prefix).toBeUndefined()
   })
 
+  // Exact ids again, for the same reason the film case spells them out: the ALL
+  // Proxy answers true for any key, so a renamed id renders exactly as before
+  // and only a spelled-out list catches it.
+  it('give a standalone quote its speaker/occasion/when attribution', () => {
+    expect(bose().attribution.map((a) => a.id)).toEqual(['speaker', 'occasion', 'when'])
+    expect(bose().meta.map((m) => m.id)).toEqual(['place', 'medium', 'noted'])
+  })
+
+  it('make the speaker the credited one, the way an author is', () => {
+    const speaker = bose().attribution.find((a) => a.id === 'speaker')
+    const occasion = bose().attribution.find((a) => a.id === 'occasion')
+    expect(speaker.value).toBe('Subhas Chandra Bose')
+    expect(speaker.emphasis).toBe('bold')
+    expect(occasion.emphasis).toBe('italic')
+  })
+
   it('point the image at the right face for each kind', () => {
     expect(earthsea().facesFor).toBe('author')
     expect(casablanca().facesFor).toBe('actor')
+    expect(bose().facesFor).toBe('speaker')
+  })
+
+  // A proverb has no speaker and no occasion. It must still share as a quote
+  // rather than as an empty attribution line with stray punctuation.
+  it('share a proverb as bare words', () => {
+    const proverb = quoteShare({ quote: 'Least said, soonest mended' })
+    expect(buildShareText(proverb, ALL, 'plaintext')).toBe('“Least said, soonest mended”')
+  })
+
+  it('render a whole quote card in the epigraph order', () => {
+    expect(buildShareText(bose(), ALL, 'markdown')).toBe(
+      [
+        '> Give me blood, and I will give you freedom',
+        '— **Subhas Chandra Bose**, *Burma Radio broadcast*, 1944',
+        'Burma · radio · 2026-08-01',
+        'the Azad Hind broadcast',
+        '#freedom',
+      ].join('\n\n'),
+    )
   })
 
   it('carry the colour through for the image, unused by text', () => {

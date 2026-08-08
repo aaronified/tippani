@@ -12,8 +12,8 @@
 // selection of every field, rather than spot-checked.
 
 import { describe, expect, it } from 'vitest'
-import { buildModel, flowRuns, hexToRgba } from '../../src/quoteImage.js'
-import { bookShare, buildShareText, movieShare } from '../../src/share.jsx'
+import { buildModel, facesOnAttribution, flowRuns, hexToRgba } from '../../src/quoteImage.js'
+import { bookShare, buildShareText, movieShare, quoteShare } from '../../src/share.jsx'
 
 // ---- fixtures ----------------------------------------------------------
 
@@ -81,6 +81,20 @@ const modelToPlaintext = (model) => {
   return blocks.join('\n\n')
 }
 
+const bose = () =>
+  quoteShare({
+    quote: 'Give me blood, and I will give you freedom',
+    note: 'the Azad Hind broadcast',
+    speaker: 'Subhas Chandra Bose',
+    occasion: 'Burma Radio broadcast',
+    when: '1944',
+    place: 'Burma',
+    medium: 'radio',
+    date: '2026-08-01',
+    tags: ['freedom'],
+    color: 'blue',
+  })
+
 // ---- buildModel: the mirror --------------------------------------------
 
 describe('buildModel mirrors buildShareText field for field', () => {
@@ -102,6 +116,14 @@ describe('buildModel mirrors buildShareText field for field', () => {
   it('agrees on all 256 selections of a film line', () => {
     const ids = ['quote', 'work', 'year', 'character', 'actor', 'timestamp', 'tags', 'note']
     expect(agreesOn(casablanca(), ids)).toEqual([])
+  })
+
+  // The third kind (§24). Its field set is new on both sides at once, so this
+  // is the run that catches a name typed one way into the payload and another
+  // way into the picture.
+  it('agrees on all 256 selections of a standalone quote', () => {
+    const ids = ['quote', 'speaker', 'occasion', 'when', 'place', 'medium', 'noted', 'tags']
+    expect(agreesOn(bose(), ids)).toEqual([])
   })
 
   // The emphasis flags are the other half of the mirror: plaintext throws them
@@ -494,5 +516,33 @@ describe('hexToRgba', () => {
   it('passes the alpha through untouched', () => {
     expect(hexToRgba('#000', 0)).toBe('rgba(0, 0, 0, 0)')
     expect(hexToRgba('#000', 0.08)).toBe('rgba(0, 0, 0, 0.08)')
+  })
+})
+
+
+// ---- where the portraits hang ------------------------------------------
+
+// This decides which LINE a credit's faces sit beside, and it used to be a
+// negative test (`facesFor !== 'actor'`) buried in the draw call — so a new
+// credit kind landed on the attribution line by falling through it. That was
+// right for a speaker by luck. Nothing tested it, and a mutation flipping the
+// rule passed the whole suite.
+describe('facesOnAttribution', () => {
+  it('puts the credits that ARE the attribution on the attribution line', () => {
+    expect(facesOnAttribution('author')).toBe(true)
+    expect(facesOnAttribution('speaker')).toBe(true)
+  })
+
+  it('leaves an actor on the meta line, where "played by" is', () => {
+    expect(facesOnAttribution('actor')).toBe(false)
+  })
+
+  // An unknown kind must not inherit a placement by falling through. Defaulting
+  // to the author line is the historical behaviour for a payload with no
+  // facesFor at all, and that is the only case it covers.
+  it('treats a missing credit as an author and an unknown one as neither', () => {
+    expect(facesOnAttribution(null)).toBe(true)
+    expect(facesOnAttribution(undefined)).toBe(true)
+    expect(facesOnAttribution('narrator')).toBe(false)
   })
 })

@@ -186,6 +186,51 @@ export function movieShare({
   };
 }
 
+// quoteShare is the standalone-quote payload (ROADMAP §24). Unlike the other
+// two it has no work to name, so the SPEAKER is the attribution — the position a
+// book's author holds and a film's title holds. That is also why its faces hang
+// on the attribution line rather than the meta line (see ATTRIBUTION_FACES).
+//
+// `when` is the occasion's date, already run through formatPartialDate by the
+// caller: a year alone is a complete answer here, and Date parsing would invent
+// a January morning nobody recorded. `noted` is the day you saved it, and stays
+// off by default like every other save-date.
+export function quoteShare({
+  quote,
+  note,
+  speaker,
+  occasion,
+  when,
+  place,
+  medium,
+  date,
+  tags,
+  color,
+  people,
+  seps,
+}) {
+  return {
+    quote: quote || "",
+    color: color || "",
+    faces: resolveFaces(speaker, people, seps),
+    facesFor: "speaker",
+    // "— **Bose**, *Burma Radio broadcast*, 1944" — speaker-first, occasion
+    // italic, then when: the same epigraph order a book keeps.
+    attribution: [
+      { id: "speaker", label: "Speaker", value: speaker || "", emphasis: "bold" },
+      { id: "occasion", label: "Occasion", value: occasion || "", emphasis: "italic" },
+      { id: "when", label: "When", value: when || "" },
+    ],
+    meta: [
+      { id: "place", label: "Place", value: place || "" },
+      { id: "medium", label: "Medium", value: medium || "" },
+      { id: "noted", label: "Noted", value: date || "" },
+    ],
+    tags: tags || [],
+    note: note || "",
+  };
+}
+
 // Parts that start unchecked in the share dialog (present only on book quotes):
 // the page "Location" and the "Noted" save-date. See ShareDialog's initial
 // `selected` state.

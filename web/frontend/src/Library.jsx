@@ -951,7 +951,23 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, ac
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
 // quote clamps to `quoteLines` with an inline show-more.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand }) {
+// AnnotationCard renders one saved quote. It is shared by three kinds, not one:
+// a book annotation, and — since §24 — a standalone quote, which has no chapter,
+// no page and no parent work but is otherwise the same object.
+//
+// The two things that differ are passed in rather than branched on:
+//
+//   meta   the small line under the quote. Defaults to CH./P./date.
+//   form   the edit form. Defaults to AnnotationForm.
+//
+// EXTENDING THIS RATHER THAN WRITING A THIRD CARD IS DELIBERATE. `.card-actions`
+// and `.card-colors` are revealed only under `.hand-card:hover/:focus-within`
+// and `.film-frame:hover/:focus-within`, `.hand-card::before` is what carries
+// the paper/metal material, and the mobile rules that narrow the heart and the
+// colour dots are keyed to the same two selectors. A bespoke wrapper would look
+// right on a desktop screenshot and silently lose the aesthetic toggle, the
+// hover affordances and the 320px layout all at once.
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
@@ -969,8 +985,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     setPendingColor(c)
     if ((await patch(a, { color: c })) === false) setPendingColor(null)
   }
+  // `meta` undefined falls back to the book locator; '' means "no line at all",
+  // which is why the test is against undefined rather than falsiness.
+  const metaLine =
+    meta === undefined
+      ? [a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')
+      : meta
   const editForm = (
-    <AnnotationForm initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
+    <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
   )
   // editInline renders the form in place of the card body — used inside the
   // search QuoteModal, which is itself a pop-up (avoids stacking two overlays).
@@ -1015,11 +1037,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             ))}
           <div className="flex items-center gap-2">
             <ReviewDot item={a} />
-            {(a.chapter || a.location || d) && (
-              <MonoLabel className="block">
-                {[a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')}
-              </MonoLabel>
-            )}
+            {metaLine && <MonoLabel className="block">{metaLine}</MonoLabel>}
           </div>
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (

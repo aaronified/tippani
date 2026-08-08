@@ -234,6 +234,23 @@ const TAG_H = 24, TAG_PADX = 10, TAG_GAP = 7
 const FOOTER_H = 34 // hairline + wordmark block
 const FACE_SIZE = 34, FACE_MAX = 5 // credit portraits: disc size + how many fit
 
+// facesOnAttribution says WHICH LINE a credit's portraits hang beside: the
+// attribution ("— (o) Bose, Burma Radio broadcast") or the meta line
+// ("Rick Blaine · played by (o) Humphrey Bogart").
+//
+// It is a named function rather than a condition inside the draw call because
+// the draw call used to ask `facesFor !== 'actor'`, so any new credit kind
+// landed on the attribution line by falling through a negative test. That was
+// right for a standalone quote's speaker by luck, and would have been silently
+// wrong for the next one. A credit is on the attribution line when it IS the
+// attribution: a book's author, a quote's speaker. A film's is its title, so
+// the actor hangs off the meta line instead.
+const ATTRIBUTION_CREDITS = new Set(['author', 'speaker'])
+
+export function facesOnAttribution(facesFor) {
+  return ATTRIBUTION_CREDITS.has(facesFor || 'author')
+}
+
 // drawTextBlock paints wrapped `lines` inside a box whose top is `top`, seating
 // each baseline within its line-height so text stays inside the block's height.
 function drawTextBlock(ctx, lines, x, top, lh, color, letterSpacing) {
@@ -284,8 +301,9 @@ export function drawQuoteCard(canvas, model, theme) {
   // at least the disc height, so the faces sit on the same line as the name.
   const faces = model.faces && model.faces.length ? model.faces.slice(0, FACE_MAX) : []
   const facesW = faces.length ? FACE_SIZE + (faces.length - 1) * (FACE_SIZE - Math.round(FACE_SIZE * 0.34)) : 0
-  const authorFaces = faces.length && model.facesFor !== 'actor' ? faces : null
-  const actorFaces = faces.length && model.facesFor === 'actor' ? faces : null
+  const onAttribution = facesOnAttribution(model.facesFor)
+  const authorFaces = faces.length && onAttribution ? faces : null
+  const actorFaces = faces.length && !onAttribution ? faces : null
   const FACE_GAP = 10
   if (model.attribution.length) {
     const runs = []
