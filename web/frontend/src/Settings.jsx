@@ -14,7 +14,6 @@ import {
   IconDelete,
   IconEdit,
   InfoDot,
-  Masonry,
   MobileSheet,
   MonoLabel,
   PageHeader,
@@ -55,30 +54,98 @@ function useColumnCount() {
   return n
 }
 
+// SETTINGS_CARDS — every card, in the order a single column shows them. This is
+// the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
+// says so.
+export const SETTINGS_CARDS = ['onboard', 'meta', 'sr', 'credits', 'devices', 'upd', 'backup']
+
+// SETTINGS_LAYOUT — which column each card sits in, at each column count,
+// decided here rather than measured.
+//
+// Settings used the height-packing Masonry that every board uses, and this is
+// the one screen where that is the wrong tool. Masonry places cards
+// TALLEST-FIRST onto the currently-shortest column, off their real rendered
+// heights. Two cards on this page change height after they load: Updates grows
+// when a check finds a release, and Backup grows when an archive exists.
+//
+// So the page rearranges itself under you. The worst case is the one that
+// sounds like it should be safe — a phone, where there is only one column and
+// the columns therefore cannot change. The tallest-first ORDER still can: you
+// tap "check for updates", the answer arrives, the card grows, and it is
+// re-sorted somewhere else on the page while you are reading it. You then have
+// to go and find the thing you just asked for.
+//
+// A board of quotes has no natural order, so packing by height costs nothing
+// and buys a tidy board. A settings page has a natural order and seven cards.
+// The order is worth more than the packing.
+//
+// ADDING A CARD: put its key in SETTINGS_CARDS and in one column of every
+// layout below. It will not render until you do — the render walks the layout,
+// not the card list — which is a loud failure rather than a card appearing
+// somewhere unpredictable. settings-layout.test.js checks the three agree.
+export const SETTINGS_LAYOUT = {
+  1: [SETTINGS_CARDS],
+  2: [
+    ['meta', 'onboard', 'credits'],
+    ['sr', 'devices', 'upd', 'backup'],
+  ],
+  3: [
+    ['meta'], // the tall one gets a column to itself
+    ['sr', 'credits', 'onboard'],
+    ['devices', 'upd', 'backup'],
+  ],
+}
+
+// settingsColumns resolves the fixed layout against the cards actually present:
+// a non-admin has no Updates and no Backup, and their columns simply come up
+// shorter rather than everything below sliding up into the gap.
+export function settingsColumns(ncols, presentKeys) {
+  const layout = SETTINGS_LAYOUT[ncols] || SETTINGS_LAYOUT[1]
+  const present = new Set(presentKeys)
+  return layout.map((col) => col.filter((k) => present.has(k)))
+}
+
 export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour }) {
   const mobile = useIsMobileScreen()
-  // Height-minimising masonry: on wide screens the cards are packed into 3/2/1
-  // columns by their real rendered heights (Masonry measures and drops each card
-  // onto the currently-shortest column), so the tall Metadata card sits beside
-  // the short ones with no dead gap instead of dominating a column. Non-admins
-  // lose Metadata's bulk plus the Updates/Backup cards.
   const ncols = useColumnCount()
-  const cards = [
-    <OnboardingCard key="onboard" user={user} onStartTour={onStartTour} />,
-    <Metadata key="meta" user={user} />,
-    <SRSettings key="sr" user={user} onPreferences={onPreferences} />,
-    <CreditSepsCard key="credits" user={user} onPreferences={onPreferences} />,
-    <DevicesCard key="devices" />,
-    user.is_admin && <UpdatesCard key="upd" user={user} update={update} onUpdateInfo={onUpdateInfo} />,
-    user.is_admin && <BackupCard key="backup" user={user} />,
-  ].filter(Boolean)
+  const cards = {
+    onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
+    meta: <Metadata user={user} />,
+    sr: <SRSettings user={user} onPreferences={onPreferences} />,
+    credits: <CreditSepsCard user={user} onPreferences={onPreferences} />,
+    devices: <DevicesCard />,
+    ...(user.is_admin
+      ? {
+          upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} />,
+          backup: <BackupCard user={user} />,
+        }
+      : {}),
+  }
+  const columns = settingsColumns(ncols, Object.keys(cards))
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       </div>
       <Appearance onPreferences={onPreferences} />
-      <Masonry columns={ncols} gap={24}>{cards}</Masonry>
+      {/* align-items:start so a short column stays short instead of stretching
+          its last card to match the tallest column. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
+          gap: 24,
+          alignItems: 'start',
+        }}
+      >
+        {columns.map((col, i) => (
+          <div key={i} className="space-y-6">
+            {col.map((k) => (
+              <div key={k}>{cards[k]}</div>
+            ))}
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
