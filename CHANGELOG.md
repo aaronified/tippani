@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-08-08
+
+**Three things 1.5.0 built and then half-connected.** Standalone quotes shipped
+as a whole feature, and each of these is a place where the last wire was left
+off — a screen you could not reach, a person you could not click, a file no
+search could see. None of them threw, which is why they shipped.
+
+### Fixed
+
+- **Quotes was missing from the phone's ☰ menu.** Four hand-maintained lists
+  decide where a tab appears — the desktop strip's content and utility halves,
+  the phone's bottom bar, and the drawer — and 1.5.0 updated three. So on a
+  phone the tab existed, routed, held data and sat in the bottom bar, while the
+  drawer, whose whole job is to list everything, did not mention it. Invisible
+  on a desktop, which is where the screen was built.
+
+  The four lists moved to `routes.js`, next to the routing table they are the
+  other half of, and are now asserted against each other: every content tab
+  reachable from the drawer and the bottom bar, no tab named twice, content and
+  utility disjoint, every nav tab surviving `statePath → parsePath` so nothing
+  is reachable but un-bookmarkable, and every collapsing row carrying a hover
+  label of five words or fewer.
+
+- **A quote's speaker was the one credit you could not click.** Every other
+  credited person in the app is a link to their record — a book's author, a
+  film's director, a dialogue's actor. A speaker was flat text, and the panel
+  holding their portrait and bio was unreachable from the only screen that
+  lists them.
+
+  The share **image** had been drawing speaker portraits since 1.5.0, because
+  `speaker` became a people kind in the same release. So a speaker you had
+  enriched showed their photograph on the picture you exported and stayed inert
+  text on the card you exported it from.
+
+  Fixed on all three surfaces: portraits and links on the Quotes page, the
+  speaker's face on a search hit (a face and not a link — the row is already a
+  click target), and the search popup, which credited the speaker in its header
+  *and* repeated the name below, now naming them once.
+
+- **A source file that every search was skipping.** `CoverPicker.jsx` joined a
+  composite map key with a literal NUL byte instead of the `\u0000` escape.
+  ripgrep classified the file as binary and omitted it from every repo-wide
+  search; git classified it as binary too, storing it with CRLF while every
+  other text file in the repo is LF, and giving it "Binary files differ" instead
+  of a line diff — so no blame, and no merge, only a choice between two whole
+  copies. The built bundle is unchanged byte for byte.
+
+### Notes
+
+- **No schema change and no migration.** 1.5.1 is a patch: three fixes, no new
+  surfaces. A 1.5.0 database is a 1.5.1 database.
+
 ## [1.5.0] - 2026-08-08
 
 **Quotes that came from nowhere**, and the frontend gets a test suite.
