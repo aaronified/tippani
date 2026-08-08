@@ -22,7 +22,13 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ANNOTATION_COLORS, ANNOTATION_HEX } from '../../src/ui.jsx'
 
-const css = readFileSync(join(process.cwd(), 'src', 'index.css'), 'utf8')
+// TIPPANI_SRC is set by vitest.config.js, which is the only place that knows the
+// answer for certain: under jsdom `import.meta.url` is an http URL, and
+// process.cwd() differs between `npm test` (web/frontend) and
+// `npx vitest --root web/frontend` (the repo root). Both are real invocations.
+const SRC = process.env.TIPPANI_SRC
+
+const css = readFileSync(join(SRC, 'index.css'), 'utf8')
 // Counting occurrences means counting DECLARATIONS. A comment is allowed to say
 // "#FFF9EC appeared verbatim in eleven places" — that sentence is the reason the
 // token exists, and a test that forbade it would forbid explaining itself.

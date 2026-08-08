@@ -18,10 +18,13 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { GhostButton, IconEdit, StickerButton } from '../../src/ui.jsx'
 
-// process.cwd(), not import.meta.url: under jsdom `import.meta.url` is an http
-// URL (the page's origin), so readFileSync rejects it. Vitest runs from
-// web/frontend, which is also where `npm test` runs from.
-const css = readFileSync(join(process.cwd(), 'src', 'index.css'), 'utf8')
+// TIPPANI_SRC is set by vitest.config.js, which is the only place that knows the
+// answer for certain: under jsdom `import.meta.url` is an http URL, and
+// process.cwd() differs between `npm test` (web/frontend) and
+// `npx vitest --root web/frontend` (the repo root). Both are real invocations.
+const SRC = process.env.TIPPANI_SRC
+
+const css = readFileSync(join(SRC, 'index.css'), 'utf8')
 
 const btn = (ui) => {
   const { container } = render(ui)
