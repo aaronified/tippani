@@ -8,6 +8,7 @@ import {
   Card,
   CloseButton,
   ErrorText,
+  filterChipClass,
   frameCode,
   GhostButton,
   IconCheck,
@@ -238,6 +239,84 @@ function Slider({ label, hideLabel = false, min, max, step, value, unit = '', de
   )
 }
 
+// ReviewScope — which media the deck draws from, as three independent choices.
+//
+// It was a three-way Toggle: Books, Films & shows, and a third option labelled
+// "Both". Two things were wrong with that. "Both" named THREE media — standalone
+// quotes have been in the deck since they existed, and the server has accepted a
+// "quotes" scope all along — so the label undercounted what it did and there was
+// no way to ask for quotes at all. And because the choices were exclusive, "books
+// and quotes but not films" was unsayable: narrowing away one medium cost you
+// another one you had not mentioned.
+//
+// Chips rather than a dropdown, because three toggles are three toggles and a
+// popover to hold them is a click in the way. The stored value is a
+// comma-separated list, which the server has understood since this release and
+// which keeps every legacy single-word value working.
+//
+// You cannot turn the last one off. An empty scope is a deck with nothing in it,
+// which looks exactly like a deck you have finished — so the last remaining chip
+// says why it will not budge instead of leaving you to discover it.
+const REVIEW_MEDIA = [
+  ['books', 'Books', 'Your book highlights'],
+  ['movies', 'Films & shows', 'Dialogue from the catalogue'],
+  ['quotes', 'Quotes', 'Speeches, letters, anything else'],
+]
+
+export function parseScope(value) {
+  const raw = String(value || '').toLowerCase()
+  // 'both' predates the third medium and means everything; so does anything
+  // unrecognised, matching the server, because a scope that fails to parse must
+  // never silently empty the deck.
+  const toks = raw.split(',').map((t) => t.trim()).filter(Boolean)
+  const keys = new Set()
+  for (const t of toks) {
+    if (t === 'both' || t === 'all') return REVIEW_MEDIA.map((m) => m[0])
+    if (t === 'screen') keys.add('movies')
+    else if (REVIEW_MEDIA.some((m) => m[0] === t)) keys.add(t)
+  }
+  if (keys.size === 0) return REVIEW_MEDIA.map((m) => m[0])
+  return REVIEW_MEDIA.map((m) => m[0]).filter((k) => keys.has(k))
+}
+
+export function ReviewScope({ value, onChange }) {
+  const on = parseScope(value)
+  const last = on.length === 1
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5">
+        <MonoLabel>Review covers</MonoLabel>
+        <InfoDot
+          title="Review covers"
+          text="Which of the three kinds of quote the Daily Quiz and Practice draw from. They are independent: you can review books and standalone quotes without film dialogue, which the old three-way switch could not say. A quote with no speaker and no occasion never joins the deck whatever this says — there is nothing to recall but the words already in front of you — and nothing you have saved in the last week does either."
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {REVIEW_MEDIA.map(([key, label, hint]) => {
+          const picked = on.includes(key)
+          const stuck = picked && last
+          return (
+            <Tooltip key={key} label={stuck ? 'The deck needs one' : hint}>
+              <button
+                type="button"
+                className={filterChipClass(picked)}
+                aria-pressed={picked}
+                onClick={() => {
+                  if (stuck) return
+                  const next = picked ? on.filter((k) => k !== key) : [...on, key]
+                  onChange(REVIEW_MEDIA.map((m) => m[0]).filter((k) => next.includes(k)).join(','))
+                }}
+              >
+                {label}
+              </button>
+            </Tooltip>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the
 // daily deck size, what the review covers (books / films & shows / both), and
 // whether Practice is allowed to move the schedule. The review intervals
@@ -260,15 +339,7 @@ function SRSettings({ user, onPreferences }) {
       </SectionTitle>
       <div className="space-y-5">
         <Slider label="Daily quiz cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
-        <div>
-          <MonoLabel className="mb-2 block">Review covers</MonoLabel>
-          <Toggle
-            ariaLabel="Review scope"
-            value={p.srReviewScope || 'both'}
-            onChange={(v) => set({ srReviewScope: v })}
-            options={[['books', 'Books'], ['movies', 'Films & shows'], ['both', 'Both']]}
-          />
-        </div>
+        <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
         <div>
           <div className="mb-2 flex items-center gap-1.5">
             <MonoLabel>Practice moves the schedule</MonoLabel>

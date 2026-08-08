@@ -246,9 +246,16 @@ var (
 	prefAesthetics = map[string]bool{"paper": true, "film": true}
 	prefThemes     = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents    = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
-	// "both" predates standalone quotes and now means all three media — see
-	// scopeFlags. "quotes" is the third narrow scope beside "books" and "movies".
-	srScopes = map[string]bool{"books": true, "movies": true, "quotes": true, "both": true}
+	// The single-medium scopes, and the legacy aliases. "both" predates
+	// standalone quotes and now means all three media — see scopeFlags.
+	//
+	// Any COMBINATION is also accepted, as a comma-separated list: the three
+	// media are independent choices and this preference could only ever express
+	// one of them or all of them. Someone who wanted books and quotes but not
+	// films had no way to say so, and the Settings screen could not even send
+	// "quotes" — it offered Books, Films & shows, and a third option labelled
+	// "Both" that silently meant all three. See srScopeValid.
+	srScopes = map[string]bool{"books": true, "movies": true, "screen": true, "quotes": true, "both": true}
 	// tourStates — the guided feature tour's lifecycle ("" = never seen, so it
 	// auto-opens once on first login; the UI never writes "" back).
 	tourStates = map[string]bool{"": true, "done": true, "skipped": true, "postponed": true}
@@ -324,7 +331,9 @@ type prefs struct {
 	CreditSeparators string `json:"creditSeparators"`
 	// Spaced repetition (v0.5.0 Daily Quiz & Practice), per-user, defaults +
 	// clamps applied in loadPrefs. SRDaily (Daily Quiz deck size) is 2..10;
-	// SRReviewScope (books|movies|quotes|both) bounds BOTH modes. SRPracticeCounts
+	// SRReviewScope bounds BOTH modes: one medium (books|movies|quotes), the
+	// legacy "both" meaning all three, or any comma-separated combination of the
+	// three — see scopeFlags. SRPracticeCounts
 	// opts Practice into moving the schedule (off by default, so Practice is
 	// study without distortion).
 	SRDaily          int     `json:"srDaily"`
@@ -371,7 +380,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 		p.CreditSeparators = defaultCreditSeps
 	}
 	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
-	if !srScopes[p.SRReviewScope] {
+	if !srScopeValid(p.SRReviewScope) {
 		p.SRReviewScope = "both"
 	}
 	p.SRSeen = clampFloat(p.SRSeen, 1.0, 1.5, reviewSeen)
@@ -469,8 +478,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	case cur.SRDaily < 2 || cur.SRDaily > 10:
 		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
 		return
-	case !srScopes[cur.SRReviewScope]:
-		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies, quotes or both")
+	case !srScopeValid(cur.SRReviewScope):
+		writeErr(w, http.StatusBadRequest, "srReviewScope must be books, movies, quotes or both, or a comma-separated combination")
 		return
 	case cur.SRSeen < 1.0 || cur.SRSeen > 1.5:
 		writeErr(w, http.StatusBadRequest, "srSeen must be between 1.0 and 1.5")

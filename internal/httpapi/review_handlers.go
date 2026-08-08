@@ -196,22 +196,57 @@ func (sc reviewScope) any() bool { return sc.books || sc.screen || sc.utterance 
 func allMedia() reviewScope { return reviewScope{books: true, screen: true, utterance: true} }
 
 // scopeFlags turns the srReviewScope preference into which pools to draw from.
-// Legacy stored value "movies" is honoured as the screen (films+shows) scope.
 //
-// "both" predates the third medium and now means everything — the alternative
-// was leaving standalone quotes out of every existing user's deck until they
-// found a setting, which reads as the feature being broken.
+// THREE INDEPENDENT CHOICES, stored as one string. The preference began as a
+// two-way switch, gained a third medium, and until now could still only say one
+// medium or all of them — so "books and quotes but not films" was unsayable, and
+// the Settings screen could not send "quotes" at all. A comma-separated list
+// says any of the eight combinations, and the single-word values keep working
+// because they are what every existing account has stored.
+//
+// Legacy "movies" is honoured as the screen (films+shows) scope. "both"
+// predates the third medium and means everything — the alternative was leaving
+// standalone quotes out of every existing user's deck until they found a
+// setting, which reads as the feature being broken.
+//
+// An empty or unrecognised value means everything, NOT nothing. A deck that
+// serves no cards because a preference failed to parse is indistinguishable
+// from a deck you have finished, and it would be silent.
 func scopeFlags(scope string) reviewScope {
-	switch scope {
-	case "books":
-		return reviewScope{books: true}
-	case "movies", "screen":
-		return reviewScope{screen: true}
-	case "quotes":
-		return reviewScope{utterance: true}
-	default: // "both" and anything unexpected
+	var sc reviewScope
+	for _, tok := range strings.Split(scope, ",") {
+		switch strings.TrimSpace(strings.ToLower(tok)) {
+		case "books":
+			sc.books = true
+		case "movies", "screen":
+			sc.screen = true
+		case "quotes":
+			sc.utterance = true
+		case "both", "all":
+			return reviewScope{books: true, screen: true, utterance: true}
+		}
+	}
+	if !sc.any() {
 		return reviewScope{books: true, screen: true, utterance: true}
 	}
+	return sc
+}
+
+// srScopeValid accepts a single medium, a legacy alias, or any comma-separated
+// combination of the three. It rejects a list containing anything it does not
+// recognise rather than quietly dropping the bad token: a scope that silently
+// becomes a different scope is how someone ends up wondering why their films
+// stopped appearing.
+func srScopeValid(scope string) bool {
+	if scope == "" {
+		return false
+	}
+	for _, tok := range strings.Split(scope, ",") {
+		if !srScopes[strings.TrimSpace(strings.ToLower(tok))] {
+			return false
+		}
+	}
+	return true
 }
 
 // recallStatus derives a card's status dot from its half-life, how long it's
