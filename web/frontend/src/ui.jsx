@@ -360,13 +360,19 @@ export function BulkBar({ n, onClear, children }) {
 // `keepLabel` opts out of the collapse. Primary submits and destructive
 // confirms keep their words at every width: a glyph is a thing you learn, and
 // neither "save this" nor "delete this permanently" is something a person
-// should have to have learned already.
+// should have to have learned already. A keepLabel button may still take an
+// icon — the glyph helps you find it, the words say what it does.
+//
+// Note which condition sets `has-btn-icon`: it marks a button whose words CAN
+// disappear, not one that merely has a glyph. That class is what squares the
+// button to 44px under data-labels="off", so a keepLabel button carrying it
+// would be crushed to icon width with its words still inside.
 function PlayfulButton({ base, className = "", icon, keepLabel, onClick, children, ...rest }) {
   const { play, animClass, onAnimationEnd } = usePlayful("anim-btn", 3);
   return (
     <button
       {...rest}
-      className={`tp-btn tactile ${base} ${animClass}${icon ? " has-btn-icon" : ""} ${className}`}
+      className={`tp-btn tactile ${base} ${animClass}${icon && !keepLabel ? " has-btn-icon" : ""} ${className}`}
       onClick={(e) => {
         play();
         onClick?.(e);
@@ -3056,10 +3062,12 @@ export function Lightbox({ path, title, onClose }) {
       aria-label={title ? `Cover of ${title}` : "Cover"}
       onClick={onClose}
     >
+      {/* The shared cross, not a hand-rolled one. This drew its own at
+          strokeWidth 2 against the set's 1.85 — the same divergence the nav had,
+          in the one control that sits over a full-bleed image where a heavier
+          stroke is least noticeable and least excusable. */}
       <button type="button" className="lightbox-close" aria-label="Close" onClick={onClose}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <path d="M6 6l12 12M18 6 6 18" />
-        </svg>
+        <IconClose />
       </button>
       <img
         src={coverImgURL(path)}
@@ -3653,6 +3661,80 @@ export function MoreMenu({ items }) {
   )
 }
 
+// TableActions — the actions cell at the end of a table row.
+//
+// It was `share` `edit` `del` as tp-links, and `del` is the tell: the same
+// action is `delete` on a card and `del` in a table, four files apart, because
+// the table cell was narrow and somebody abbreviated. Two names for one action
+// is exactly the drift a glyph cannot have. The three are the same three
+// QuoteActions draws on a card, so they are now the same three drawings, and the
+// cell is narrower than it was with the words in it.
+//
+// Kept separate from QuoteActions rather than shared, because the two differ in
+// the thing that matters: a card's actions are hidden until the card is hovered
+// (progressive disclosure — the resting card sheds its button row), and a table
+// row's are a column that must always be there or the column is empty. Merging
+// them would mean a prop that turns the entire behaviour off.
+export function TableActions({ onShare, onEdit, onDelete, noun = "row" }) {
+  return (
+    <span className="flex items-center justify-end gap-1">
+      {onShare && (
+        <Tooltip label={`Share this ${noun}`}>
+          <button type="button" className="field-icon-btn tactile" aria-label="Share" onClick={onShare}>
+            <IconShare />
+          </button>
+        </Tooltip>
+      )}
+      {onEdit && (
+        <Tooltip label={`Edit this ${noun}`}>
+          <button type="button" className="field-icon-btn tactile" aria-label="Edit" onClick={onEdit}>
+            <IconEdit />
+          </button>
+        </Tooltip>
+      )}
+      {onDelete && (
+        <Tooltip label={`Delete this ${noun}`}>
+          <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Delete" onClick={onDelete}>
+            <IconDelete />
+          </button>
+        </Tooltip>
+      )}
+    </span>
+  )
+}
+
+// CloseButton — the one way to dismiss a window that sits OVER the screen.
+//
+// There were five. A literal "×" glyph at font-size 24 (.account-close, three
+// call sites), a hand-rolled close cross at strokeWidth 2 (.lightbox-close), a
+// "Close" GhostButton in four dialog headers, a "Done" GhostButton in the share
+// dialog's footer doing the identical job as the "Close" in its own header, and
+// IconBack in the mobile sheet. Nothing was wrong with any one of them; what was
+// wrong was that dismissing a window meant looking for whichever one this window
+// happened to use.
+//
+// The exception is deliberate and stays: MobileSheet keeps its back arrow. A
+// full-screen sheet does not sit over the screen, it IS the screen, and leaving
+// it returns you to where you were — which is what every phone means by ←. So
+// the rule is two-line rather than one: a window over content closes with a ×,
+// a full-screen sheet goes back with an arrow. Two affordances for two things,
+// instead of five for one.
+export function CloseButton({ onClick, label = "Close", tooltip, disabled = false, className = "" }) {
+  return (
+    <Tooltip label={tooltip || `${label} this window`}>
+      <button
+        type="button"
+        className={`field-icon-btn tactile ${className}`}
+        aria-label={label}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        <IconClose />
+      </button>
+    </Tooltip>
+  )
+}
+
 // QuoteActions — the share · edit · delete cluster on a quote card (§7
 // declutter: progressive disclosure). At rest a card shows only its primary
 // mark (the favourite ♥, rendered by the caller); these secondary actions stay
@@ -3662,6 +3744,19 @@ export function MoreMenu({ items }) {
 // overflow so the resting card sheds its standing button row either way.
 // `alwaysVisible` pins them on regardless — used where a card stands alone (the
 // search quote modal) rather than in a masonry a pointer sweeps across.
+//
+// The desktop branch draws the same three glyphs the phone's ⋯ menu has always
+// drawn, rather than the words `share` `edit` `delete`. That was the one place
+// in the app where the SAME component named its actions two different ways
+// depending on the width of the window, and the mobile branch had already
+// settled which glyph each action wears. Each is a 34px .field-icon-btn — these
+// sit inside a card row, which is what the dense size is for — with a Tooltip
+// and an aria-label, so nothing is lost to a pointer, a keyboard or a reader.
+//
+// Not words on desktop and glyphs on a phone: the three appear once per card in
+// a grid of cards, which is the definition of a repeated action, and a repeated
+// action is a glyph you learn once. The ones that keep their words are the
+// one-off and the irreversible.
 export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false }) {
   const mobile = useIsMobileScreen();
   if (mobile) {
@@ -3674,19 +3769,25 @@ export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false 
   return (
     <span className={"card-actions" + (alwaysVisible ? " is-visible" : "")}>
       {onShare && (
-        <button type="button" className="tp-link" onClick={onShare}>
-          share
-        </button>
+        <Tooltip label="Share this quote">
+          <button type="button" className="field-icon-btn tactile" aria-label="Share" onClick={onShare}>
+            <IconShare />
+          </button>
+        </Tooltip>
       )}
       {onEdit && (
-        <button type="button" className="tp-link" onClick={onEdit}>
-          edit
-        </button>
+        <Tooltip label="Edit this quote">
+          <button type="button" className="field-icon-btn tactile" aria-label="Edit" onClick={onEdit}>
+            <IconEdit />
+          </button>
+        </Tooltip>
       )}
       {onDelete && (
-        <button type="button" className="tp-link tp-link-danger" onClick={onDelete}>
-          delete
-        </button>
+        <Tooltip label="Delete this quote">
+          <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Delete" onClick={onDelete}>
+            <IconDelete />
+          </button>
+        </Tooltip>
       )}
     </span>
   );

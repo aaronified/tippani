@@ -26,53 +26,54 @@ import {
   wishFilter,
 } from './works.jsx'
 import {
+  bySeries,
+  clampSequence,
   ColorSwatches,
   ConfirmDialog,
   Cover,
   EmptyState,
   ErrorText,
+  ExpandableText,
   Field,
+  filterChipClass,
   FormModal,
   GenreFilter,
   GhostButton,
-  ExpandableText,
   HandCard,
   HandNote,
   Hearts,
   IconButton,
   IconDelete,
   IconDetails,
-  IconHelp,
   IconExport,
   IconFilter,
+  IconHelp,
   IconPlus,
   IconReading,
   Masonry,
   MobileSheet,
-  MoreMenu,
   MonoLabel,
+  MoreMenu,
   mulberry32,
-  clampSequence,
   PageHeader,
   QuoteActions,
   ReviewDot,
   Select,
+  seriesLabel,
   SheetFooter,
+  splitCommas,
+  TableActions,
   TagChip,
-  todayPartial,
   titleCaseGenre,
+  todayPartial,
   TokenInput,
   Tooltip,
-  ViewToggle,
-  bySeries,
-  filterChipClass,
-  seriesLabel,
-  splitCommas,
   useColumnsAt,
   useCoverSize,
   useIsMobileScreen,
   usePersistedState,
   useReveal,
+  ViewToggle,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -1108,9 +1109,12 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
               <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
               <td className="col-center">{a.favorite ? '♥' : '—'}</td>
               <td className="col-actions">
-                {onShare && <button className="tp-link" onClick={() => onShare(a)}>share</button>}
-                <button className="tp-link" onClick={() => setEditingId(a.id)}>edit</button>
-                <button className="tp-link tp-link-danger" onClick={() => remove(a)}>del</button>
+                <TableActions
+                  noun="quote"
+                  onShare={onShare && (() => onShare(a))}
+                  onEdit={() => setEditingId(a.id)}
+                  onDelete={() => remove(a)}
+                />
               </td>
             </tr>
           ))}

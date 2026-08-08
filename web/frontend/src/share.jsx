@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ANNOTATION_HEX, GhostButton, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { ANNOTATION_HEX, CloseButton, GhostButton, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { paletteTheme } from "./theme.js";
@@ -734,7 +734,7 @@ export function ShareDialog({ share, seen, onClose }) {
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="display-title text-xl">Share</h2>
-          <GhostButton onClick={onClose}>Close</GhostButton>
+          <CloseButton onClick={onClose} />
         </div>
 
         {/* format toggle + the per-format logic shown up top */}
@@ -834,7 +834,7 @@ export function ShareDialog({ share, seen, onClose }) {
         )}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <GhostButton onClick={onClose}>Done</GhostButton>
+          <GhostButton onClick={onClose}>Close</GhostButton>
           {!isImage && (
             <button className={PRIMARY} onClick={copy}>
               {copied ? "Copied ✓" : "Copy"}

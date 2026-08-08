@@ -6,22 +6,27 @@ import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   Card,
+  CloseButton,
   ErrorText,
+  frameCode,
   GhostButton,
   IconCheck,
   IconClose,
   IconCopy,
   IconDelete,
+  IconDevice,
   IconEdit,
+  IconRefresh,
+  IconRestore,
+  IconUserPlus,
   InfoDot,
   MobileSheet,
   MonoLabel,
   PageHeader,
   StickerButton,
+  toast,
   Toggle,
   Tooltip,
-  toast,
-  frameCode,
   useCoverSize,
   useFrameBase,
   useIsMobileScreen,
@@ -516,7 +521,7 @@ function OnboardingCard({ user, onStartTour }) {
             <StickerButton onClick={() => onStartTour?.(step)}>
               Resume tour · step {Math.min(step + 1, total)} of {total}
             </StickerButton>
-            <GhostButton onClick={() => onStartTour?.(0)}>Start over</GhostButton>
+            <GhostButton icon={<IconRefresh />} onClick={() => onStartTour?.(0)}>Start over</GhostButton>
           </>
         ) : (
           <StickerButton onClick={() => onStartTour?.(0)}>
@@ -636,7 +641,7 @@ function DevicesCard() {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <StickerButton onClick={startPairing} disabled={busy}>
+          <StickerButton icon={<IconDevice />} keepLabel onClick={startPairing} disabled={busy}>
             Pair a device
           </StickerButton>
           {devices?.length > 0 && (
@@ -823,7 +828,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
         <div className="mb-3 flex items-center gap-2">
           <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Restore</h2>
           <Tooltip label="Cancel" side="bottom">
-            <button type="button" className="account-close" onClick={onCancel} aria-label="Cancel" disabled={!!busyLabel}>×</button>
+            <CloseButton onClick={onCancel} label="Cancel" tooltip="Cancel and close" disabled={!!busyLabel} />
           </Tooltip>
         </div>
         {body}
@@ -921,7 +926,7 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
         <div className="mb-3 flex items-center gap-2">
           <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Back up</h2>
           <Tooltip label="Cancel" side="bottom">
-            <button type="button" className="account-close" onClick={onCancel} aria-label="Cancel" disabled={busy}>×</button>
+            <CloseButton onClick={onCancel} label="Cancel" tooltip="Cancel and close" disabled={busy} />
           </Tooltip>
         </div>
         {body}
@@ -1099,6 +1104,8 @@ function BackupCard({ user }) {
           )}
           <div className="flex flex-wrap items-center gap-2">
             <StickerButton
+              icon={<IconRestore />}
+              keepLabel
               onClick={() => setPrompt(true)}
               disabled={!target || busy || phase !== 'idle'}
               title={!target ? (source === 'file' ? 'Choose a file first' : 'No backup on this server yet') : undefined}
@@ -1762,7 +1769,7 @@ function AdminUsers({ me }) {
           autoComplete="new-password"
           onChange={(e) => setPassword(e.target.value)}
         />
-        <StickerButton>Add user</StickerButton>
+        <StickerButton icon={<IconUserPlus />} keepLabel>Add user</StickerButton>
       </form>
       <ErrorText>{error}</ErrorText>
     </Card>

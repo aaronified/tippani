@@ -9,15 +9,19 @@ import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   BulkBar,
+  CloseButton,
   EmptyState,
   ErrorText,
   filterChipClass,
+  formatPartialDate,
   GhostButton,
   HandCard,
   HandNote,
   HighlightSpan,
+  IconClose,
+  IconOpen,
+  IconSearch,
   Masonry,
-  formatPartialDate,
   MonoLabel,
   Placeholder,
   Select,
@@ -195,8 +199,8 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
             no results for “{q.trim()}”{scope !== 'all' ? ` in ${scope}` : ''}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <GhostButton onClick={() => setQ('')}>Clear search</GhostButton>
-            {scope !== 'all' && <GhostButton onClick={() => setScope('all')}>Search everything</GhostButton>}
+            <GhostButton icon={<IconClose />} onClick={() => setQ('')}>Clear search</GhostButton>
+            {scope !== 'all' && <GhostButton icon={<IconSearch />} onClick={() => setScope('all')}>Search everything</GhostButton>}
           </div>
         </div>
       )}
@@ -538,11 +542,11 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
           <div className="flex gap-2">
             {/* Nothing to open: a standalone quote is the whole record. */}
             {!isQuote && (
-              <GhostButton onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
+              <GhostButton icon={<IconOpen />} keepLabel onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
                 Open {isBook ? 'book' : 'film'}
               </GhostButton>
             )}
-            <GhostButton onClick={onClose}>Close</GhostButton>
+            <CloseButton onClick={onClose} />
           </div>
         </div>
         <ErrorText>{error}</ErrorText>

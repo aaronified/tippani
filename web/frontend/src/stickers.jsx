@@ -5,7 +5,7 @@
 // sticker_id column on annotations/dialogues (migrations 0011).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, Tooltip, useSort } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, MonoLabel, SortableTh, TableActions, Tooltip, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -295,7 +295,7 @@ function StickerRow({ sticker, onChanged, setError }) {
       </td>
       <td className="col-mono">{sticker.annotations + sticker.dialogues}</td>
       <td className="col-actions">
-        <button className="tp-link tp-link-danger" onClick={() => deleteSticker(sticker, onChanged, setError)}>del</button>
+        <TableActions noun="sticker" onDelete={() => deleteSticker(sticker, onChanged, setError)} />
       </td>
     </tr>
   )

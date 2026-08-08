@@ -27,60 +27,62 @@ import {
   wishFilter,
 } from './works.jsx'
 import {
+  ANNOTATION_HEX,
+  bySeries,
+  clampSequence,
+  ColorSwatches,
   ConfirmDialog,
   EdgeRow,
   EmptyState,
   ErrorText,
+  ExpandableText,
+  filterChipClass,
   FormModal,
+  frameCode,
   FrameCode,
   GenreFilter,
   GhostButton,
   HandCard,
-  ANNOTATION_HEX,
-  ColorSwatches,
   HandNote,
   Hearts,
   IconButton,
   IconDelete,
   IconDetails,
-  IconHelp,
   IconExport,
   IconFilter,
+  IconHelp,
+  IconMetadata,
   IconPlus,
+  IconWatching,
   Lightbox,
   Masonry,
   MobileSheet,
-  MoreMenu,
   MonoLabel,
+  MoreMenu,
+  mulberry32,
   PageHeader,
   Placeholder,
   QuoteActions,
-  Select,
-  SheetFooter,
-  Sprockets,
   ReviewDot,
+  Select,
+  seriesLabel,
+  SheetFooter,
+  splitCommas,
+  Sprockets,
+  TableActions,
   TagChip,
+  titleCaseGenre,
+  todayPartial,
   Toggle,
   TokenInput,
   Tooltip,
-  ViewToggle,
-  bySeries,
-  clampSequence,
-  filterChipClass,
-  frameCode,
-  mulberry32,
-  seriesLabel,
-  splitCommas,
-  titleCaseGenre,
   useColumnsAt,
   useCoverSize,
   useFrameBase,
   useIsMobileScreen,
   usePersistedState,
   useReveal,
-  ExpandableText,
-  IconWatching,
-  todayPartial,
+  ViewToggle,
 } from './ui.jsx'
 
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
@@ -483,7 +485,7 @@ export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCan
                 ].join(' · ')}
               </p>
             </div>
-            <GhostButton type="button" className="shrink-0" disabled={busy} onClick={() => onEnrich(e.id)}>
+            <GhostButton icon={<IconMetadata />} type="button" className="shrink-0" disabled={busy} onClick={() => onEnrich(e.id)}>
               Enrich this
             </GhostButton>
           </li>
@@ -1508,9 +1510,12 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
               <td className="col-mono">{d.timestamp || '—'}</td>
               <td className="col-center">{d.favorite ? '♥' : '—'}</td>
               <td className="col-actions">
-                {onShare && <button className="tp-link" onClick={() => onShare(d)}>share</button>}
-                <button className="tp-link" onClick={() => setEditingId(d.id)}>edit</button>
-                <button className="tp-link tp-link-danger" onClick={() => remove(d)}>del</button>
+                <TableActions
+                  noun="line"
+                  onShare={onShare && (() => onShare(d))}
+                  onEdit={() => setEditingId(d.id)}
+                  onDelete={() => remove(d)}
+                />
               </td>
             </tr>
           ))}

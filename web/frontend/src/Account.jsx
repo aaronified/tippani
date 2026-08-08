@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, GhostButton, IconDelete, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
+import { Card, ErrorText, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
@@ -176,7 +176,7 @@ function PasswordForm() {
       {done && <p style={{ fontSize: 13.5, color: 'var(--soft)' }}>Password updated.</p>}
       {/* Greyed with the reason on it, rather than pressable and answering with
           an error a moment later. */}
-      <StickerButton className="w-full" disabled={busy || !!missing} title={missing || undefined}>
+      <StickerButton icon={<IconKey />} keepLabel className="w-full" disabled={busy || !!missing} title={missing || undefined}>
         Update password
       </StickerButton>
       {missing && next.length > 0 && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
@@ -230,7 +230,7 @@ function SwitchAccount({ me }) {
         />
       </span>
       {!open ? (
-        <GhostButton onClick={() => setOpen(true)}>Switch to another account…</GhostButton>
+        <GhostButton icon={<IconSwitchUser />} keepLabel onClick={() => setOpen(true)}>Switch to another account…</GhostButton>
       ) : (
         <form onSubmit={submit} className="space-y-2">
           <input className="tp-input" placeholder="account name" value={username} autoComplete="username" onChange={(e) => { setUsername(e.target.value); setErr('') }} />
@@ -325,7 +325,7 @@ function MaintenanceCard() {
             />
           </div>
           {!showReset ? (
-            <GhostButton className="mt-2" onClick={() => setShowReset(true)}>
+            <GhostButton icon={<IconDelete />} keepLabel className="mt-2" onClick={() => setShowReset(true)}>
               Reset all data…
             </GhostButton>
           ) : (
@@ -381,7 +381,7 @@ export function Profile({ user, onUser, logout }) {
               <p className="text-sm font-semibold">Log out</p>
               <InfoDot title="Log out" text="Ends this browser session only. Other browsers stay signed in, and a paired phone keeps its own token — unpair it from Settings › Devices if you want it out too." />
             </div>
-            {logout && <GhostButton onClick={logout}>Log out</GhostButton>}
+            {logout && <GhostButton icon={<IconLogout />} keepLabel onClick={logout}>Log out</GhostButton>}
           </div>
         </div>
       </Card>
@@ -514,7 +514,7 @@ export function UserManagement({ me }) {
           maxLength={PASSWORD_MAX}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <StickerButton disabled={!!addMissing} title={addMissing || undefined}>Add user</StickerButton>
+        <StickerButton icon={<IconUserPlus />} keepLabel disabled={!!addMissing} title={addMissing || undefined}>Add user</StickerButton>
       </form>
       {addMissing && password.length > 0 && (
         <p className="microcopy mt-1" style={{ color: 'var(--faint)' }}>{addMissing}.</p>

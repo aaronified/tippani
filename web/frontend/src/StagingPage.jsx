@@ -13,15 +13,18 @@ import {
   GhostButton,
   HandCard,
   Hearts,
+  IconEdit,
+  IconMoveTo,
+  IconRuler,
   InfoDot,
   MonoLabel,
   PageHeader,
   Select,
+  splitCommas,
   TagChip,
   TokenInput,
   Tooltip,
   useIsMobileScreen,
-  splitCommas,
 } from './ui.jsx'
 
 // Pending import — the staging queue (ROADMAP 1.2.0). A bulk import no longer
@@ -259,9 +262,9 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
             un-♥
           </GhostButton>
         </Tooltip>
-        <GhostButton onClick={() => setPanel(panel === 'fields' ? '' : 'fields')}>Edit fields…</GhostButton>
-        <GhostButton onClick={() => setPanel(panel === 'move' ? '' : 'move')}>Move to…</GhostButton>
-        <GhostButton onClick={() => setPanel(panel === 'formula' ? '' : 'formula')}>Locations…</GhostButton>
+        <GhostButton icon={<IconEdit />} onClick={() => setPanel(panel === 'fields' ? '' : 'fields')}>Edit fields…</GhostButton>
+        <GhostButton icon={<IconMoveTo />} onClick={() => setPanel(panel === 'move' ? '' : 'move')}>Move to…</GhostButton>
+        <GhostButton icon={<IconRuler />} onClick={() => setPanel(panel === 'formula' ? '' : 'formula')}>Locations…</GhostButton>
         <button className="tp-btn tp-btn-primary" disabled={busy} onClick={() => approve(selectedIds)}>
           Approve {n}
         </button>
@@ -482,7 +485,11 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
           </div>
         )}
       </div>
-      <GhostButton onClick={onEdit}>Edit</GhostButton>
+      <Tooltip label="Edit this quote">
+        <button type="button" className="field-icon-btn tactile shrink-0" aria-label="Edit" onClick={onEdit}>
+          <IconEdit />
+        </button>
+      </Tooltip>
     </div>
   )
 }

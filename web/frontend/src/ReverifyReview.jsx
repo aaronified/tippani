@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import {
+  CloseButton,
   EmptyState,
   ErrorText,
   GhostButton,
@@ -370,7 +371,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
       <HandCard variant={1} className="mx-auto w-full max-w-3xl px-6 py-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="display-title text-xl">Re-verify metadata</h2>
-          <GhostButton onClick={onClose}>Close</GhostButton>
+          <CloseButton onClick={onClose} />
         </div>
         {body}
         <div className="mt-4" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>

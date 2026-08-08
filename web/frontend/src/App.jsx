@@ -24,11 +24,13 @@ import {
 } from './routes.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
+  CloseButton,
   EdgeRow,
   ErrorBoundary,
   ErrorText,
   Field,
   FilmButton,
+  frameCode,
   GhostButton,
   IconBack,
   IconMenu,
@@ -37,11 +39,10 @@ import {
   NavIcon,
   Sprockets,
   StickerButton,
+  toast,
   ToastHost,
   Toggle,
   Tooltip,
-  frameCode,
-  toast,
   useBodyScrollLock,
   useFrameBase,
   useHideOnScrollDown,
@@ -565,7 +566,7 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
         <div className="account-modal-bar">
           <h2 className="account-modal-title">Profile</h2>
           <PageHelp screen="profile" />
-          <Tooltip label="Close this panel" side="bottom"><button type="button" className="account-close" onClick={onClose} aria-label="Close">×</button></Tooltip>
+          <CloseButton onClick={onClose} tooltip="Close this panel" />
         </div>
         <div className="account-modal-body">{body}</div>
       </div>

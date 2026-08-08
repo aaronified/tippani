@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, Lightbox, MonoLabel, PartialDateField, Placeholder, Tooltip, isPartialDate } from './ui.jsx'
+import { CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, isPartialDate, Lightbox, MonoLabel, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -668,7 +668,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
               <h2 className="display-title truncate text-xl">{name}</h2>
             </div>
           </div>
-          <GhostButton onClick={onClose}>Close</GhostButton>
+          <CloseButton onClick={onClose} />
         </div>
         <ErrorText>{error}</ErrorText>
         {loading ? (

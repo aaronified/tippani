@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconMetadata, IconMore, IconSearch, InfoDot, MonoLabel, PageHeader, ProgressBar, Tooltip, normName, splitCommas, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
@@ -563,7 +563,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           </div>
           <BulkBar n={selectedKeys.length} onClear={clearSel}>
             {selBookIds.length > 0 && (
-              <GhostButton disabled={busy} onClick={() => setEditing((v) => !v)}>
+              <GhostButton icon={<IconEdit />} disabled={busy} onClick={() => setEditing((v) => !v)}>
                 {editing ? 'Close bulk edit' : 'Bulk edit books…'}
               </GhostButton>
             )}
@@ -572,14 +572,15 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
                 disabled={busy || selMoviesWithCast === 0}
                 title={selMoviesWithCast === 0 ? 'none of the selected titles have a cast to fill from' : undefined}
                 onClick={fillActors}
+                icon={<IconUsers />}
               >
                 Fill actors from cast
               </GhostButton>
             )}
-            <GhostButton disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
+            <GhostButton icon={<IconRefresh />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
               Re-verify…
             </GhostButton>
-            <GhostButton disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
+            <GhostButton icon={<IconDelete />} keepLabel disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
               Delete
             </GhostButton>
           </BulkBar>
@@ -635,6 +636,52 @@ function InlineEdit({ kind, id, onDone, onCancel }) {
         ? <EditBook book={row} onSaved={onDone} onCancel={onCancel} />
         : <EditMovie movie={row} onSaved={onDone} onCancel={onCancel} />}
     </div>
+  )
+}
+
+// RowActions — edit · look up · open, once per row, on both console lists.
+//
+// Three words per row across a list that routinely runs to hundreds of rows,
+// and two of them were `Close` half the time: the edit and look-up buttons are
+// toggles, so a row with both panels open read "Close · Close · Open", which
+// says nothing about what either one closes. A latched glyph says it in the one
+// place a toggle should — its own state — via .field-icon-btn.is-active, the
+// same latch the cover controls use. The tooltip still carries the words, and
+// they still change with the state, so the answer is one hover away instead of
+// occupying the row forever.
+function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun }) {
+  return (
+    <span className="flex items-center gap-1">
+      <Tooltip label={editing ? 'Close the editor' : `Edit this ${noun}`}>
+        <button
+          type="button"
+          className={'field-icon-btn tactile' + (editing ? ' is-active' : '')}
+          aria-label={editing ? 'Close the editor' : 'Edit'}
+          aria-pressed={editing}
+          onClick={onEdit}
+        >
+          <IconEdit />
+        </button>
+      </Tooltip>
+      <Tooltip label={lookingUp ? 'Close the look-up' : 'Look up the sources'}>
+        <button
+          type="button"
+          className={'field-icon-btn tactile' + (lookingUp ? ' is-active' : '')}
+          aria-label={lookingUp ? 'Close the look-up' : 'Look up'}
+          aria-pressed={lookingUp}
+          onClick={onLookup}
+        >
+          <IconSearch />
+        </button>
+      </Tooltip>
+      {onOpen && (
+        <Tooltip label={`Open this ${noun}`}>
+          <button type="button" className="field-icon-btn tactile" aria-label="Open" onClick={onOpen}>
+            <IconOpen />
+          </button>
+        </Tooltip>
+      )}
+    </span>
   )
 }
 
@@ -695,9 +742,14 @@ function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone 
           </p>
           <GapChips gaps={gaps} />
         </div>
-        <GhostButton onClick={() => setEditing((v) => !v)}>{editing ? 'Close' : 'Edit'}</GhostButton>
-        <GhostButton onClick={onToggleLookup}>{open ? 'Close' : 'Look up'}</GhostButton>
-        {onOpen && <GhostButton onClick={() => onOpen(book.id)}>Open</GhostButton>}
+        <ConsoleRowActions
+          editing={editing}
+          onEdit={() => setEditing((v) => !v)}
+          lookingUp={open}
+          onLookup={onToggleLookup}
+          onOpen={onOpen && (() => onOpen(book.id))}
+          noun="book"
+        />
       </div>
       {editing && <InlineEdit kind="books" id={book.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
@@ -740,9 +792,14 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
           </p>
           <GapChips gaps={gaps} />
         </div>
-        <GhostButton onClick={() => setEditing((v) => !v)}>{editing ? 'Close' : 'Edit'}</GhostButton>
-        <GhostButton onClick={onToggleLookup}>{open ? 'Close' : 'Look up'}</GhostButton>
-        {onOpen && <GhostButton onClick={() => onOpen(movie.id)}>Open</GhostButton>}
+        <ConsoleRowActions
+          editing={editing}
+          onEdit={() => setEditing((v) => !v)}
+          lookingUp={open}
+          onLookup={onToggleLookup}
+          onOpen={onOpen && (() => onOpen(movie.id))}
+          noun="title"
+        />
       </div>
       {editing && <InlineEdit kind="movies" id={movie.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
@@ -888,6 +945,8 @@ function DuplicateGroup({ group, busy, onMerge }) {
       </div>
       <div className="mt-2">
         <GhostButton
+          icon={<IconMerge />}
+          keepLabel
           disabled={busy}
           onClick={() => onMerge(keep, group.filter((b) => b.id !== keep).map((b) => b.id))}
         >
@@ -1003,7 +1062,7 @@ function SpeakerRemap({ movies, onDone }) {
             >
               Apply remap
             </button>
-            <GhostButton disabled={busy} onClick={() => apply(true)}>
+            <GhostButton icon={<IconUsers />} disabled={busy} onClick={() => apply(true)}>
               Fill actors from cast
             </GhostButton>
             {msg && (

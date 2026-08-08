@@ -10,6 +10,7 @@ import {
   MonoLabel,
   PageHeader,
   SortableTh,
+  TableActions,
   TAG_STYLES,
   TagChip,
   useIsMobileScreen,
@@ -168,8 +169,11 @@ function TagTable({ tags, onChanged }) {
                 <td className="col-mono">{t.style}</td>
                 <td className="col-mono">{t.annotations + t.dialogues}</td>
                 <td className="col-actions">
-                  <button className="tp-link" onClick={() => setEditingId(t.id)}>edit</button>
-                  <button className="tp-link tp-link-danger" onClick={() => deleteTag(t, onChanged, setError)}>del</button>
+                  <TableActions
+                    noun="tag"
+                    onEdit={() => setEditingId(t.id)}
+                    onDelete={() => deleteTag(t, onChanged, setError)}
+                  />
                 </td>
               </tr>
             ))}
