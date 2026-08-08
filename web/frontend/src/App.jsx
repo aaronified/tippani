@@ -11,7 +11,17 @@ import StagingPage from './StagingPage.jsx'
 import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
 import { applyTheme } from './theme.js'
-import { addSection, helpScreen, parsePath, searchScope, statePath } from './routes.js'
+import {
+  BOTTOM_TABS,
+  CONTENT_TABS,
+  DRAWER_TABS,
+  UTILITY_TABS,
+  addSection,
+  helpScreen,
+  parsePath,
+  searchScope,
+  statePath,
+} from './routes.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
   EdgeRow,
@@ -434,22 +444,10 @@ function Login({ onLogin }) {
 // the "＋ Add" surface (§7 One "＋ Add"). Mobile uses the drawer.
 // Search is not a labelled tab: it lives as an icon-only button beside the
 // ＋ Add pill (both bars), mirroring the phone top bar. Still a ROUTE_TAB.
-// The desktop tab strip. The third element is the tab's hover label — the strip
-// collapses to icon-only when the window is too narrow for the words (see
-// useIconOnlyNav), and at that width the glyph is all there is, so each tab has
-// to be able to name itself. Five words or fewer, like every other label.
-const CONTENT_TABS = [
-  ['home', 'Home', "Today's review"],
-  ['library', 'Library', 'Your books'],
-  ['movies', 'Catalogue', 'Your films and shows'],
-  ['quotes', 'Quotes', 'Lines from anywhere else'],
-]
-const UTILITY_TABS = [
-  ['tags', 'Tags', 'Tags and stickers'],
-  ['metadata', 'Metadata', 'Covers, people and duplicates'],
-  ['stats', 'Stats', 'Calendar, memory, breakdowns'],
-  ['settings', 'Settings', 'Appearance, keys, backups'],
-]
+//
+// The four nav lists themselves live in routes.js, beside the routing table
+// they are the other half of, where a test can check they agree about which
+// tabs exist without rendering the shell.
 
 // TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
 // active-tab accent tint flows through it. Keyed by the tab key in TABS; the
@@ -706,22 +704,6 @@ function rememberScroll(key) {
   while (scrollMem.size > 2) scrollMem.delete(scrollMem.keys().next().value)
 }
 
-// The drawer's nav rows, in order; null marks the divider between the primary
-// screens and the utility group. Search sits directly below the ＋ Add lead row
-// (top of the list); the utility group (Tags · Metadata · Stats · Settings)
-// follows the divider, matching the desktop navbar's utility cluster.
-const DRAWER_TABS = [
-  ['search', 'Search'],
-  ['home', 'Home'],
-  ['library', 'Library'],
-  ['movies', 'Catalogue'],
-  null,
-  ['tags', 'Tags'],
-  ['metadata', 'Metadata'],
-  ['stats', 'Stats'],
-  ['settings', 'Settings'],
-]
-
 // UserAvatar — the squircle chip content, shared by the top bars and drawer.
 function UserAvatar({ user }) {
   return user.avatar_path
@@ -795,6 +777,9 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
     }
     if (key === 'library' && stats) return <span className="drawer-badge">{stats.books}</span>
     if (key === 'movies' && stats) return <span className="drawer-badge">{stats.movies}</span>
+    // stats.quotes counts the utterances table — the standalone quotes, which is
+    // exactly what this row leads to. The other two count works, not quotes.
+    if (key === 'quotes' && stats) return <span className="drawer-badge">{stats.quotes}</span>
     if (key === 'tags' && stats) return <span className="drawer-badge">{stats.tags}</span>
     if (key === 'metadata' && metaIssues !== null) {
       return <span className="drawer-badge">{metaIssues > 0 ? `${metaIssues} ${metaIssues === 1 ? 'issue' : 'issues'}` : 'all clear'}</span>
@@ -942,13 +927,6 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
 // so a Search entry down here was the same control twice on one screen while
 // the third content tab had nowhere to live. The bar now holds the four
 // content screens and nothing else.
-const BOTTOM_TABS = [
-  ['home', 'Home', "Go home to today's review"],
-  ['library', 'Library', 'Open your book library'],
-  ['movies', 'Catalogue', 'Open your film catalogue'],
-  ['quotes', 'Quotes', 'Open your standalone quotes'],
-]
-
 // MobileBottomNav — the floating phone nav: four thumb-reachable icons, hovering
 // clear of the bottom edge so the Android gesture pill keeps its own strip. It's
 // an ADDITION, not a replacement — the ☰ drawer still owns the utility tabs,

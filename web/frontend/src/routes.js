@@ -11,6 +11,66 @@
 // detail id, or a legacy alias is spelled out in parsePath/statePath below.
 export const ROUTE_TABS = ['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging']
 
+// ---- the nav contract ----
+//
+// Four lists put a tab in front of you, and four is the right number because
+// the surfaces genuinely differ: the desktop strip splits content from tools,
+// the phone's bottom bar holds only what a thumb should reach, and the drawer
+// is the one place that has to hold everything.
+//
+// They live here, next to the routing table, because they are the same
+// contract seen from the other end — ROUTE_TABS says a tab has a URL, these say
+// you can get to it — and because four hand-maintained lists of the same keys
+// is a shape that only stays correct if something checks it.
+//
+// Nothing did. 1.5.0 added Quotes to CONTENT_TABS and BOTTOM_TABS and missed
+// DRAWER_TABS, so on a phone the tab existed, routed, held data and appeared in
+// the bottom bar, while the ☰ menu — the one surface that is supposed to list
+// everything — did not mention it. routes.test.js now asserts the invariant.
+//
+// The third element of a strip/bar row is the hover label: those two collapse
+// to icon-only, so each tab has to be able to name itself. Five words or fewer,
+// like every other label. Drawer rows always show their words and need none.
+
+// CONTENT_TABS / UTILITY_TABS — the desktop strip, content then tools.
+export const CONTENT_TABS = [
+  ['home', 'Home', "Today's review"],
+  ['library', 'Library', 'Your books'],
+  ['movies', 'Catalogue', 'Your films and shows'],
+  ['quotes', 'Quotes', 'Lines from anywhere else'],
+]
+export const UTILITY_TABS = [
+  ['tags', 'Tags', 'Tags and stickers'],
+  ['metadata', 'Metadata', 'Covers, people and duplicates'],
+  ['stats', 'Stats', 'Calendar, memory, breakdowns'],
+  ['settings', 'Settings', 'Appearance, keys, backups'],
+]
+
+// DRAWER_TABS — the ☰ menu. null is the divider between the primary screens and
+// the utility group. Search leads, directly below the ＋ Add row.
+export const DRAWER_TABS = [
+  ['search', 'Search'],
+  ['home', 'Home'],
+  ['library', 'Library'],
+  ['movies', 'Catalogue'],
+  ['quotes', 'Quotes'],
+  null,
+  ['tags', 'Tags'],
+  ['metadata', 'Metadata'],
+  ['stats', 'Stats'],
+  ['settings', 'Settings'],
+]
+
+// BOTTOM_TABS — the floating phone nav. Content screens only: the drawer owns
+// the utility tabs, ＋ Add and the account rows. Search is not here because the
+// phone's top bar has carried it since 1.4.1.
+export const BOTTOM_TABS = [
+  ['home', 'Home', "Go home to today's review"],
+  ['library', 'Library', 'Open your book library'],
+  ['movies', 'Catalogue', 'Open your film catalogue'],
+  ['quotes', 'Quotes', 'Open your standalone quotes'],
+]
+
 // workID reads the id segment of a detail path, or null when it is not one.
 // Guarding on Number.isInteger rather than truthiness is the difference between
 // /books/abc landing on Home and it opening a detail view for work NaN — which

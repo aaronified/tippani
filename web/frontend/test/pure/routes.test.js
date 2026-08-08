@@ -7,7 +7,18 @@
 // tidy-up removes as "dead code", so it is asserted in both directions.
 
 import { describe, expect, it } from 'vitest'
-import { addSection, helpScreen, parsePath, ROUTE_TABS, searchScope, statePath } from '../../src/routes.js'
+import {
+  addSection,
+  BOTTOM_TABS,
+  CONTENT_TABS,
+  DRAWER_TABS,
+  helpScreen,
+  parsePath,
+  ROUTE_TABS,
+  searchScope,
+  statePath,
+  UTILITY_TABS,
+} from '../../src/routes.js'
 
 describe('parsePath', () => {
   it('reads the root as Home', () => {
@@ -209,5 +220,71 @@ describe('the shell controls', () => {
     expect(helpScreen('movies', detail)).toBe('movie-detail')
     expect(addSection('movies', detail)).toBe('quote')
     expect(searchScope('movies', detail)).toBe('movies')
+  })
+})
+
+// ---- the nav contract ----
+//
+// Four hand-maintained lists name the same tabs, and until 1.6.0 nothing
+// checked that they agreed. 1.5.0 added Quotes to the desktop strip and the
+// phone's bottom bar and missed the drawer, so on a phone the tab existed,
+// routed, held data and sat in the bottom bar while the ☰ menu — the one
+// surface whose job is to list everything — did not mention it.
+//
+// Nothing about that fails loudly. It is not a crash, it is not a warning, and
+// it is invisible on a desktop, which is where the screen was built. These
+// assertions are the only thing standing between a fifth list and the same bug.
+
+const keys = (list) => list.filter(Boolean).map(([key]) => key)
+
+describe('the nav contract', () => {
+  it('offers every content tab in the drawer', () => {
+    for (const key of keys(CONTENT_TABS)) {
+      expect(keys(DRAWER_TABS)).toContain(key)
+    }
+  })
+
+  it('offers every content tab in the phone bottom bar', () => {
+    expect(keys(BOTTOM_TABS)).toEqual(keys(CONTENT_TABS))
+  })
+
+  it('offers every utility tab in the drawer', () => {
+    for (const key of keys(UTILITY_TABS)) {
+      expect(keys(DRAWER_TABS)).toContain(key)
+    }
+  })
+
+  it('names no tab twice within a list', () => {
+    for (const list of [CONTENT_TABS, UTILITY_TABS, DRAWER_TABS, BOTTOM_TABS]) {
+      const k = keys(list)
+      expect(new Set(k).size).toBe(k.length)
+    }
+  })
+
+  it('keeps content and utility disjoint', () => {
+    // The desktop strip renders them as two Toggles either side of a divider,
+    // and a key in both would light up as active in both.
+    const util = new Set(keys(UTILITY_TABS))
+    for (const key of keys(CONTENT_TABS)) expect(util.has(key)).toBe(false)
+  })
+
+  it('gives every nav tab a URL that survives a hard refresh', () => {
+    // A tab you can reach but cannot bookmark is half a screen. Search is in
+    // the drawer and is a real route; home/library/movies have bespoke slugs.
+    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS), ...keys(BOTTOM_TABS)])
+    for (const tab of all) {
+      expect(parsePath(statePath(tab, null)).tab).toBe(tab)
+    }
+  })
+
+  it('gives every strip and bar row a hover label, and no drawer row one', () => {
+    // The strip and the bar collapse to icon-only, so a row without a third
+    // element becomes an unnamed glyph. Drawer rows always show their words.
+    for (const row of [...CONTENT_TABS, ...UTILITY_TABS, ...BOTTOM_TABS]) {
+      expect(typeof row[2]).toBe('string')
+      expect(row[2].trim()).not.toBe('')
+      expect(row[2].split(/\s+/).length).toBeLessThanOrEqual(5) // the five-word rule
+    }
+    for (const row of DRAWER_TABS.filter(Boolean)) expect(row).toHaveLength(2)
   })
 })
