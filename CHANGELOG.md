@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-08-08
+
+**Four things that were quietly not working.** None of them threw, none showed
+up in a test, and two had been wrong for several releases while the gate that
+should have caught one of them reported success.
+
+### Fixed
+
+- **The UI glossary had been rendering every sample unstyled.** That page exists
+  to show real components styled by the same rules the app runs on. Its opening
+  comment named the `<style>` tag in its own prose and never closed, so the first
+  comment-close in the file was the one ending the *next* comment — and HTML
+  comments do not nest. The entire inlined stylesheet was commented out.
+
+  Two things hid it. `scripts/glossary-css.mjs` finds its block by searching for
+  the tag, and the first match in the file was the mention inside the comment, so
+  since 1.4.0 — the release added to stop this file rotting — the generator had
+  been refreshing the stylesheet *inside a comment* on every run. And `--check`
+  passed the whole time, because the bytes it compares are exactly the bytes it
+  wrote. A gate that only ever reads its own output cannot fail.
+
+  The generator now refuses to write into a comment rather than doing it
+  silently. The comment's opening claim was also false: it said there was no
+  build script, and there has been one since 1.4.0.
+
+- **A quiz option you could not finish reading.** In the quote direction the
+  Daily Quiz shows four passages and asks which is from the work on screen. The
+  options were cut to 140 runes server-side with an ellipsis — about three lines
+  on a phone — so on any quote longer than a sentence you were asked to choose
+  between four passages whose endings you could not read, and no amount of
+  tapping would show them.
+
+  The whole quote is sent now; the client clamps it and offers its own expander,
+  as a **separate button** beside each option. Choosing an option answers the
+  question, there is one shot per card and the grade posts immediately, so an
+  expand gesture sharing that hit area would eventually grade a card because
+  someone wanted to finish reading it.
+
+- **Settings cards moved while you were reading them.** The page used the
+  height-packing masonry every board uses, which places cards tallest-first onto
+  the shortest column. Two cards there change height after they load: Updates
+  when a check finds a release, Backup when an archive exists.
+
+  The worst case is the one that sounds safest — a phone, where there is one
+  column and the columns therefore cannot change. The tallest-first *order*
+  still can: you tap "check for updates", the answer arrives, the card grows, and
+  it is re-sorted somewhere else on the page. The layout is written down now
+  rather than measured, so a card that grows stays where it is.
+
+- **The drawer's avatar did nothing, and Profile had two entries.** The comment
+  beside the phone drawer's avatar said profile lived behind the chip. That is
+  true of both top bars; in the drawer the same-looking chip was a decorative
+  `aria-hidden` span, with a separate Profile row further up. So the phone had
+  two account entries and the one that looked most like the account was inert.
+  The footer renders the same `AccountChip` the bars use, and the duplicate row
+  is gone.
+
+### Notes
+
+- **No schema change and no migration.** A 1.5.0 database is a 1.5.2 database.
+
 ## [1.5.1] - 2026-08-08
 
 **Three things 1.5.0 built and then half-connected.** Standalone quotes shipped
