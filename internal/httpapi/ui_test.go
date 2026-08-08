@@ -350,8 +350,10 @@ func TestStats(t *testing.T) {
 	if got.Recall.States.Total != 6 || got.Recall.States.Remembered != 6 || got.Recall.Reviewed != 0 {
 		t.Fatalf("recall: %+v", got.Recall)
 	}
-	// Highlight colours: q1 blue, q2–q4 default yellow.
-	if got.Colors["yellow"] != 3 || got.Colors["blue"] != 1 || got.Colors["pink"] != 0 || got.Colors["orange"] != 0 {
+	// Highlight colours across every kind that wears one: q1 blue; q2–q4 and both
+	// dialogues default yellow. This used to read 3 yellow, counting annotations
+	// alone — a card headed "Highlight colours" that ignored two thirds of them.
+	if got.Colors["yellow"] != 5 || got.Colors["blue"] != 1 || got.Colors["pink"] != 0 || got.Colors["orange"] != 0 {
 		t.Fatalf("colors: %+v", got.Colors)
 	}
 	// Top tags: alpha on q1 + d1 = 2, beta on q1 = 1.

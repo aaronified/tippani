@@ -534,11 +534,19 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Highlight-colour breakdown of book annotations (the four fixed colours).
+	// Highlight-colour breakdown across every kind that wears one — annotations
+	// since the beginning, dialogues since 0021, standalone quotes since 0026.
+	// The card is headed "Highlight colours" and counts itself in "quotes", and
+	// in this app a quote is any of the three.
 	colors := map[string]int{"yellow": 0, "blue": 0, "pink": 0, "orange": 0}
 	if crows, err := s.Store.DB.Query(`
-		SELECT a.color, count(*) FROM annotations a JOIN books b ON b.id = a.book_id
-		WHERE b.user_id = ? GROUP BY a.color`, uid); err != nil {
+		SELECT color, count(*) FROM (
+		  SELECT a.color FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
+		  UNION ALL
+		  SELECT d.color FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?
+		  UNION ALL
+		  SELECT u.color FROM utterances u WHERE u.user_id = ?)
+		GROUP BY color`, uid, uid, uid); err != nil {
 		internalError(w, r, "query colours", err)
 		return
 	} else {
@@ -549,8 +557,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 				olog.Warnf(olog.CodeStatsRowScan, "[stats] colour row scan failed: %v", err)
 				continue
 			}
+			// += rather than =, so the tally survives a query shape that returns a
+			// colour more than once. The allowlist keeps a value from outside the
+			// four (a CHECK is per-table; this map is the one place they meet).
 			if _, ok := colors[c]; ok {
-				colors[c] = n
+				colors[c] += n
 			}
 		}
 		crows.Close()

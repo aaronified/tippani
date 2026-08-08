@@ -112,6 +112,52 @@ func TestStatsTagLeaderboardCountsQuotes(t *testing.T) {
 	}
 }
 
+// The colour card is headed "Highlight colours" and counts itself in "quotes",
+// but it only ever counted book annotations. Dialogues have worn a colour since
+// 0021 and standalone quotes since 0026, so on a library of films the card read
+// "no highlights yet" over a shelf full of coloured lines.
+func TestStatsColoursCountEveryKind(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Dune"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "a passage", "color": "blue"}, http.StatusCreated)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Casablanca"}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "here's looking at you", "color": "blue"}, http.StatusCreated)
+
+	q := bose()
+	q["color"] = "pink"
+	newUtterance(t, c, q)
+
+	st := getStats(t, c)
+	if st.Colors["blue"] != 2 {
+		t.Fatalf("blue counted %d — the dialogue or the annotation is missing", st.Colors["blue"])
+	}
+	if st.Colors["pink"] != 1 {
+		t.Fatalf("pink counted %d — the standalone quote is missing", st.Colors["pink"])
+	}
+	if st.Colors["yellow"] != 0 || st.Colors["orange"] != 0 {
+		t.Fatalf("unused colours should stay at zero: %+v", st.Colors)
+	}
+}
+
+func TestStatsColoursAreScopedToTheOwner(t *testing.T) {
+	h := newTestServer(t).Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+
+	q := bose()
+	q["color"] = "pink"
+	newUtterance(t, alice, q)
+
+	if got := getStats(t, bob).Colors["pink"]; got != 0 {
+		t.Fatalf("another account's colours reached the chart: %d", got)
+	}
+}
+
 // A speaker is to a quote what an author is to a book, and an occasion is the
 // work. Both are their own breakdown kinds.
 func TestStatsBreakdownHasSpeakersAndOccasions(t *testing.T) {
