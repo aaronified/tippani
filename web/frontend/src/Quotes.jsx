@@ -19,24 +19,23 @@ import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, quoteShare } from './share.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
+import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
-  EmptyState,
+  ConfirmDialog,
   ErrorText,
   Field,
-  filterChipClass,
   GhostButton,
   Masonry,
   MonoLabel,
-  PageHeader,
   PartialDateField,
   Placeholder,
   Select,
   TokenInput,
-  Tooltip,
   formatPartialDate,
   isPartialDate,
   useColumnsAt,
+  useIsMobileScreen,
   usePersistedState,
 } from './ui.jsx'
 
@@ -245,39 +244,107 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
 
 // ---- the screen ---------------------------------------------------------
 
-// QuotesPage is a FLAT list, and that is the whole design. Library and
-// Catalogue group quotes under the work they came from; there is no work here,
-// so there is nothing to group by — and inventing one (by speaker, say) would
-// bury every proverb, which has no speaker at all. Filters do the narrowing
-// instead: the server already answers ?color= ?favorite= ?tag= ?speaker=.
+// utteranceYear reads the year out of a partial occasion date for the decade
+// grouping. occasion_date is a STRING and may be 'YYYY', 'YYYY-MM' or
+// 'YYYY-MM-DD' (§3f), so the year is its first four characters — never
+// new Date(), which turns '1944' into a January morning nobody recorded.
+export function utteranceYear(u) {
+  const y = Number((u.occasion_date || '').slice(0, 4))
+  return Number.isInteger(y) && y > 0 ? y : null
+}
+
+// GROUP_OPTIONS — what a shelf of quotes with no works can still be sorted into
+// piles by. The residual bucket matters more here than on the other two screens:
+// a proverb has no speaker, no medium and no date, so it lands in the catch-all
+// of every one of these, which is why the label says what is missing.
+const GROUP_OPTIONS = [
+  ['none', 'Quotes'],
+  ['speaker', 'Speaker'],
+  ['medium', 'Medium'],
+  ['place', 'Place'],
+  ['decade', 'Decade'],
+]
+const GROUP_RESIDUAL = { medium: 'No medium', place: 'No place' }
+
+// groupUtterances buckets quotes for the group-by view. Extracted from the
+// component so the four dimensions can be checked without rendering a screen —
+// and because the speaker dimension is the one place this page has to agree
+// with the card and the share image about who is credited, which is a claim
+// worth a test rather than a reading.
+export function groupUtterances(list, dim, seps) {
+  // 'speaker' is this page's name for the dimension groupWorks calls 'author':
+  // the credit, split into the people it names. Without the translation it fell
+  // through to the generic facet branch, which reads the raw column — so a line
+  // credited to two speakers filed under the joined string as though that were
+  // a person, and the residual bucket read "None" instead of "No speaker".
+  const workDim = dim === 'speaker' ? 'author' : dim
+  return groupWorks(list, workDim, {
+    credit: (u) => u.speaker,
+    splitCredit: true,
+    creditResidual: 'No speaker',
+    year: utteranceYear,
+    // medium and place are literal column names, so the accessor is the dim.
+    facet: (u, d) => u[d],
+    facetResidual: (d) => GROUP_RESIDUAL[d] || 'None',
+    seps,
+  })
+}
+
+const SORT_OPTIONS = [
+  ['recent', 'Recent'],
+  ['speaker', 'Speaker'],
+  ['occasion', 'Occasion'],
+  ['said', 'When said'],
+]
+
+// QuotesPage renders on the same scaffold as the Library and the Catalogue,
+// because it is the same kind of screen and the three had drifted into looking
+// like three different apps.
+//
+// It was built as a flat list on the reasoning that a standalone quote has no
+// parent, so there is nothing to group by. That was wrong in the same way §24's
+// review-deck prediction was wrong: what a book gives you is a TITLE, and this
+// kind has four things of that sort — who said it, through what medium, where,
+// and when. None is a parent row, and all four are piles worth making.
+//
+// Filtering is client-side, like both neighbours. It used to be server-side
+// (?color= ?favorite= ?tag= ?speaker=), and that had a bug the other two cannot
+// have: the speaker dropdown was built from the rows on screen, which the server
+// had already filtered by speaker — so choosing one collapsed the list of
+// speakers to that one, and there was no way to switch to another without
+// clearing first. The endpoint still accepts those parameters; this screen just
+// asks for everything and narrows it here, so the filter options describe the
+// whole collection rather than the current view of it.
 export default function QuotesPage({ creditSeparators }) {
   const [rows, setRows] = useState(null)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [shareFor, setShareFor] = useState(null)
   const [expanded, setExpanded] = useState(null)
+  const [exporting, setExporting] = useState(false)
   const [tags, setTags] = useState([])
   const [color, setColor] = usePersistedState('tippani:quotes:color', '')
   const [favOnly, setFavOnly] = usePersistedState('tippani:quotes:fav', false)
+  const [tagged, setTagged] = usePersistedState('tippani:quotes:tagged', false)
+  const [noted, setNoted] = usePersistedState('tippani:quotes:noted', false)
   const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
   const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
+  const [medium, setMedium] = usePersistedState('tippani:quotes:medium', '')
+  const [sort, setSort] = usePersistedState('tippani:quotes:sort', 'recent')
+  const [groupBy, setGroupBy] = usePersistedState('tippani:quotes:group', 'none')
   const { stickers, reload: reloadStickers } = useStickers()
-  // Speaker portraits for the card's credit line AND the share image — the same
-  // enrichment authors and actors get, now that `speaker` is a people kind.
-  // reload matters: saving a portrait in the panel has to repaint the chip
-  // behind it, the way Library reloads its authors.
+  // Speaker portraits for the card's credit line, the group headings AND the
+  // share image — the same enrichment authors and actors get, now that
+  // `speaker` is a people kind. reload matters: saving a portrait in the panel
+  // has to repaint the chip behind it, the way Library reloads its authors.
   const { map: speakerMap, reload: reloadSpeakers } = usePeople('speaker')
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   const seps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
+  const mobile = useIsMobileScreen()
   const columns = useColumnsAt([[1280, 3], [860, 2]])
 
   const load = useCallback(async () => {
-    const qs = new URLSearchParams()
-    if (color) qs.set('color', color)
-    if (favOnly) qs.set('favorite', '1')
-    if (tag) qs.set('tag', tag)
-    if (speaker) qs.set('speaker', speaker)
-    const r = await json('GET', '/quotes' + (qs.toString() ? `?${qs}` : ''))
+    const r = await json('GET', '/quotes')
     // The response key is `utterances` — the table, not the route. 0026 records
     // why the two differ.
     if (r.ok) {
@@ -286,7 +353,7 @@ export default function QuotesPage({ creditSeparators }) {
     } else {
       setError(errText(r))
     }
-  }, [color, favOnly, tag, speaker])
+  }, [])
 
   useEffect(() => {
     load()
@@ -299,14 +366,48 @@ export default function QuotesPage({ creditSeparators }) {
 
   const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
-  // Speakers offered as a filter come from what is actually saved rather than
-  // from the People console: an unenriched speaker is still a speaker, and
-  // filtering by one you can see is the point.
+
+  // Filter options come from what is actually saved rather than from the People
+  // console or a fixed vocabulary: an unenriched speaker is still a speaker, and
+  // `medium` is a free-text field, so the only honest list is the one in use.
+  // Built from every row, never from the filtered view — see the note above.
   const speakers = useMemo(() => {
     const seen = new Set()
-    for (const u of rows || []) if (u.speaker) seen.add(u.speaker)
+    for (const u of rows || []) for (const n of splitCredits(u.speaker || '', seps)) seen.add(n)
+    return [...seen].sort((a, b) => a.localeCompare(b))
+  }, [rows, seps])
+  const mediums = useMemo(() => {
+    const seen = new Set()
+    for (const u of rows || []) if (u.medium) seen.add(u.medium)
     return [...seen].sort((a, b) => a.localeCompare(b))
   }, [rows])
+
+  const shown = useMemo(() => {
+    let list = rows || []
+    if (color) list = list.filter((u) => u.color === color)
+    if (favOnly) list = list.filter((u) => u.favorite)
+    if (tagged) list = list.filter((u) => (u.tags || []).length > 0)
+    if (noted) list = list.filter((u) => !!(u.note || '').trim())
+    if (tag) list = list.filter((u) => (u.tags || []).includes(tag))
+    // Matched against the SPLIT credit, so picking one of two co-speakers finds
+    // the lines they said together — the same rule the card and the share image
+    // use to decide who is credited.
+    if (speaker) list = list.filter((u) => splitCredits(u.speaker || '', seps).includes(speaker))
+    if (medium) list = list.filter((u) => u.medium === medium)
+    if (sort === 'recent') return list
+    list = [...list]
+    if (sort === 'speaker') list.sort((a, b) => (a.speaker || '').localeCompare(b.speaker || ''))
+    else if (sort === 'occasion') list.sort((a, b) => (a.occasion || '').localeCompare(b.occasion || ''))
+    // Partial dates sort correctly as strings BECAUSE they are zero-padded and
+    // big-endian: '1944' < '1944-08' < '1945'. Undated sinks rather than leading.
+    else if (sort === 'said') list.sort((a, b) => (a.occasion_date || '\uffff').localeCompare(b.occasion_date || '\uffff'))
+    return list
+  }, [rows, color, favOnly, tagged, noted, tag, speaker, medium, sort, seps])
+
+  const grouped = useMemo(
+    () => (groupBy === 'none' ? null : groupUtterances(shown, groupBy, seps)),
+    [shown, groupBy, seps],
+  )
 
   async function save(id, fields) {
     const r = await json('PUT', `/quotes/${id}`, fields)
@@ -347,120 +448,170 @@ export default function QuotesPage({ creditSeparators }) {
       tags: u.tags,
       color: u.color,
       people: speakerMap,
+      seps,
     })
 
-  const filtered = !!(color || favOnly || tag || speaker)
+  const card = (u, i) => (
+    <AnnotationCard
+      key={u.id}
+      a={u}
+      variant={i}
+      meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: setPerson })}
+      form={UtteranceForm}
+      tagMap={tagMap}
+      stickerMap={stickerMap}
+      stickers={stickers}
+      reloadStickers={reloadStickers}
+      editing={editingId === u.id}
+      setEditingId={setEditingId}
+      save={save}
+      patch={patch}
+      remove={remove}
+      onShare={() => setShareFor(u)}
+      tagSuggestions={Object.keys(tagMap)}
+      expanded={expanded === u.id}
+      onToggleExpand={() => setExpanded(expanded === u.id ? null : u.id)}
+    />
+  )
+
+  // The colour swatch doubles as its own off switch: there is no "no colour" to
+  // pick, so tapping the chosen one clears it.
+  const colourFilter = (
+    <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by colour" />
+  )
+  const selects = [
+    tags.length > 0 && ['tag', 'Filter by tag', tag, setTag, [['', 'all tags'], ...tags.map((t) => [t.name, t.name])]],
+    speakers.length > 0 && ['speaker', 'Filter by speaker', speaker, setSpeaker, [['', 'all speakers'], ...speakers.map((n) => [n, n])]],
+    mediums.length > 0 && ['medium', 'Filter by medium', medium, setMedium, [['', 'all media'], ...mediums.map((m) => [m, m])]],
+  ].filter(Boolean)
+
+  const groupSelect = (
+    <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
+  )
+
   return (
-    <section className="space-y-5">
-      <PageHeader
-        title="Quotes"
-        counts={rows ? `${rows.length} quote${rows.length === 1 ? '' : 's'} · from no book and no film` : undefined}
-        right={
-          rows && rows.length > 0 ? (
-            <Tooltip label="Export these quotes" side="bottom">
-              <GhostButton
-                onClick={() => downloadPost('/export/quotes', { ids: rows.map((u) => u.id) }, 'tippani-quotes.md')}
-              >
-                Export
-              </GhostButton>
-            </Tooltip>
-          ) : undefined
-        }
-      />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className={filterChipClass(favOnly)}
-          aria-pressed={favOnly}
-          onClick={() => setFavOnly(!favOnly)}
-        >
-          ♥ favourites
-        </button>
-        {/* Tapping the picked colour clears it — there is no "no colour" to
-            pick, so the swatch has to double as its own off switch. */}
-        <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by colour" />
-        {tags.length > 0 && (
-          <Select
-            ariaLabel="Filter by tag"
-            value={tag}
-            onChange={setTag}
-            options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
-          />
-        )}
-        {speakers.length > 0 && (
-          <Select
-            ariaLabel="Filter by speaker"
-            value={speaker}
-            onChange={setSpeaker}
-            options={[['', 'All speakers'], ...speakers.map((n) => [n, n])]}
-          />
-        )}
-        {filtered && (
-          <GhostButton
-            onClick={() => {
-              setColor('')
-              setFavOnly(false)
-              setTag('')
-              setSpeaker('')
-            }}
-          >
-            Clear
-          </GhostButton>
-        )}
-      </div>
-
-      <ErrorText>{error}</ErrorText>
-
+    <WorkListScaffold
+      mobile={mobile}
+      title="Quotes"
+      counts={rows ? `${rows.length} quote${rows.length === 1 ? '' : 's'} · from no book and no film` : ''}
+      error={error}
+      onExport={() => setExporting(true)}
+      loaded={rows != null}
+      hasItems={!!(rows && rows.length > 0)}
+      shownCount={shown.length}
+      emptyText="nothing here yet — the ＋ in the top bar saves a line from anywhere"
+      noMatchText="no quotes match these filters"
+      noun="quote"
+      fav={favOnly}
+      setFav={setFavOnly}
+      tagged={tagged}
+      setTagged={setTagged}
+      noted={noted}
+      setNoted={setNoted}
+      sort={sort}
+      setSort={setSort}
+      sortOptions={SORT_OPTIONS}
+      leading={colourFilter}
+      leadingMobile={
+        <div>
+          <MonoLabel className="mb-2 block">colour</MonoLabel>
+          {colourFilter}
+        </div>
+      }
+      trailing={
+        <>
+          {selects.map(([key, label, value, onChange, options]) => (
+            <Select key={key} ariaLabel={label} value={value} onChange={onChange} options={options} />
+          ))}
+          <label className="flex items-center gap-2">
+            <MonoLabel>group</MonoLabel>
+            {groupSelect}
+          </label>
+        </>
+      }
+      trailingMobile={
+        <>
+          {selects.map(([key, label, value, onChange, options]) => (
+            <div key={key}>
+              <MonoLabel className="mb-2 block">{key}</MonoLabel>
+              <Select ariaLabel={label} value={value} onChange={onChange} options={options} />
+            </div>
+          ))}
+          <div>
+            <MonoLabel className="mb-2 block">group</MonoLabel>
+            {groupSelect}
+          </div>
+        </>
+      }
+      onReset={() => {
+        setColor('')
+        setFavOnly(false)
+        setTagged(false)
+        setNoted(false)
+        setTag('')
+        setSpeaker('')
+        setMedium('')
+        setSort('recent')
+        setGroupBy('none')
+      }}
+      exportDialog={
+        <ConfirmDialog
+          open={exporting}
+          title="Export quotes"
+          body={<>{shown.length} quote{shown.length === 1 ? '' : 's'} in view will be exported as a single Markdown file (re-importable into Tippani).</>}
+          confirmLabel="Export"
+          onCancel={() => setExporting(false)}
+          onConfirm={async () => {
+            setExporting(false)
+            await downloadPost('/export/quotes', { ids: shown.map((u) => u.id) }, 'tippani-quotes.md')
+          }}
+        />
+      }
+      extraModals={
+        <>
+          {shareFor && (
+            <ShareDialog
+              share={sharePayload(shareFor)}
+              seen={{ kind: 'utterance', id: shareFor.id }}
+              onClose={() => setShareFor(null)}
+            />
+          )}
+          {person && (
+            <PersonModal
+              kind={person.kind}
+              name={person.name}
+              onClose={() => setPerson(null)}
+              onSaved={reloadSpeakers}
+            />
+          )}
+        </>
+      }
+    >
       {!rows ? (
         <Placeholder />
-      ) : rows.length === 0 ? (
-        <EmptyState>
-          {filtered ? 'no quotes match those filters' : 'nothing here yet — ＋ Add saves a line from anywhere'}
-        </EmptyState>
+      ) : grouped ? (
+        <div className="space-y-10">
+          {grouped.map((g) => {
+            // A speaker heading gets their portrait and opens their panel — the
+            // same chip an author heading gets in the Library.
+            const isSpeaker = groupBy === 'speaker' && !g.residual
+            return (
+              <section key={g.key}>
+                <GroupHeading
+                  label={g.label}
+                  count={g.items.length}
+                  noun="quote"
+                  person={isSpeaker ? speakerMap[g.label] : null}
+                  onOpenPerson={isSpeaker ? () => setPerson({ kind: 'speaker', name: g.label }) : undefined}
+                />
+                <Masonry columns={columns}>{g.items.map(card)}</Masonry>
+              </section>
+            )
+          })}
+        </div>
       ) : (
-        <Masonry columns={columns}>
-          {rows.map((u, i) => (
-            <AnnotationCard
-              key={u.id}
-              a={u}
-              variant={i}
-              meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: setPerson })}
-              form={UtteranceForm}
-              tagMap={tagMap}
-              stickerMap={stickerMap}
-              stickers={stickers}
-              reloadStickers={reloadStickers}
-              editing={editingId === u.id}
-              setEditingId={setEditingId}
-              save={save}
-              patch={patch}
-              remove={remove}
-              onShare={() => setShareFor(u)}
-              tagSuggestions={Object.keys(tagMap)}
-              expanded={expanded === u.id}
-              onToggleExpand={() => setExpanded(expanded === u.id ? null : u.id)}
-            />
-          ))}
-        </Masonry>
+        <Masonry columns={columns}>{shown.map(card)}</Masonry>
       )}
-
-      {shareFor && (
-        <ShareDialog
-          share={sharePayload(shareFor)}
-          seen={{ kind: 'utterance', id: shareFor.id }}
-          onClose={() => setShareFor(null)}
-        />
-      )}
-
-      {person && (
-        <PersonModal
-          kind={person.kind}
-          name={person.name}
-          onClose={() => setPerson(null)}
-          onSaved={reloadSpeakers}
-        />
-      )}
-    </section>
+    </WorkListScaffold>
   )
 }

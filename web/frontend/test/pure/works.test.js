@@ -352,3 +352,46 @@ describe('decadeOf / capKeyFor / posUnitFor', () => {
     expect(posUnitFor('movie', {})).toBe('')
   })
 })
+
+// The generic facet dimension: any dim that is not one of the four known ones is
+// a caller-defined single-value bucket. Added for the Quotes screen, which
+// groups by medium and by place — both exactly the shape 'series' has, and
+// neither a series.
+describe('groupWorks — a caller-defined facet', () => {
+  const list = [
+    { title: 'A', medium: 'radio' },
+    { title: 'B', medium: 'speech' },
+    { title: 'C', medium: 'radio' },
+    { title: 'D', medium: '' },
+  ]
+  const opts = { facet: (it, dim) => it[dim], facetResidual: (dim) => `No ${dim}` }
+
+  it('buckets by the accessor, alphabetically, residual last', () => {
+    expect(labels(groupWorks(list, 'medium', opts))).toEqual(['radio', 'speech', 'No medium'])
+  })
+
+  it('passes the dimension to the accessor', () => {
+    // Without the dim the accessor cannot serve two facets, and the Quotes
+    // screen offers three. It would silently group everything as residual.
+    const seen = []
+    groupWorks(list, 'medium', { facet: (it, dim) => { seen.push(dim); return it[dim] } })
+    expect(new Set(seen)).toEqual(new Set(['medium']))
+  })
+
+  it('names the residual bucket per dimension', () => {
+    expect(groupWorks(list, 'medium', opts).at(-1).label).toBe('No medium')
+    expect(groupWorks([{ place: '' }], 'place', opts).at(-1).label).toBe('No place')
+  })
+
+  it('defaults the residual label rather than throwing', () => {
+    expect(groupWorks([{ medium: '' }], 'medium').at(-1).label).toBe('None')
+  })
+
+  it('leaves the four known dimensions alone', () => {
+    // The facet branch is an `else`, so a bug there would capture 'series' and
+    // 'genre' and quietly change two shipped screens.
+    const works = [{ title: 'A', series: 'S', published_year: 1999 }]
+    expect(labels(groupWorks(works, 'series'))).toEqual(['S'])
+    expect(labels(groupWorks(works, 'decade', { year: (w) => w.published_year }))).toEqual(['1990s'])
+  })
+})

@@ -99,24 +99,37 @@ export function decadeOf(year) {
 // in each. Members keep the incoming order unless `sortMembers` reorders them.
 //
 // `dim` is 'series' | 'author' | 'decade' | 'genre' ('author' means the primary
-// credit — authors for books, directors/creators for films). Accessors keep the
-// util blind to the two data shapes:
-//   credit(item)  → the credit string           (default '')
-//   year(item)    → a 4-digit year              (default null)
-//   genres(item)  → string[]                    (default [])
-//   series(item)  → the series name             (default item.series)
+// credit — authors for books, directors/creators for films), or ANY other
+// string, which is treated as a caller-defined single-value facet. Accessors
+// keep the util blind to the data shapes it serves:
+//   credit(item)      → the credit string       (default '')
+//   year(item)        → a 4-digit year          (default null)
+//   genres(item)      → string[]                (default [])
+//   series(item)      → the series name         (default item.series)
+//   facet(item, dim)  → the value for any other dim   (default '')
+//
+// The facet branch exists because the Quotes page groups by medium and by
+// place, and both have exactly the shape 'series' has — one value, alphabetical,
+// with a residual bucket. Routing them through `series` would have worked and
+// would have meant a screen with no series calling an accessor named series,
+// which is the kind of thing that reads as a bug forever after. Since medium and
+// place are literal column names, that call site passes `(u, d) => u[d]`.
+//
 // Options: splitCredit (split the credit into co-credits, books), seps (the
 // separator set for that split), creditResidual (label for the no-credit
-// bucket), sortMembers(members, dim) → members.
+// bucket), facetResidual(dim) → label for the no-value bucket,
+// sortMembers(members, dim) → members.
 export function groupWorks(list, dim, opts = {}) {
   const {
     credit = () => '',
     year = () => null,
     genres = () => [],
     series = (it) => it.series,
+    facet = () => '',
     splitCredit = false,
     seps,
     creditResidual = 'Unknown',
+    facetResidual = () => 'None',
     sortMembers,
   } = opts
   const map = new Map()
@@ -146,6 +159,12 @@ export function groupWorks(list, dim, opts = {}) {
       const gs = genres(it)
       if (gs.length) gs.forEach((g) => add(g, g, it))
       else add('~none', 'No genre', it, { residual: true })
+    } else {
+      // Caller-defined facet — one value per item, sorted alphabetically by the
+      // fall-through at the bottom, with its own residual label.
+      const v = facet(it, dim)
+      if (v) add(v, v, it)
+      else add('~none', facetResidual(dim), it, { residual: true })
     }
   }
   const out = [...map.values()]
@@ -843,7 +862,7 @@ export function WorkListScaffold({
   shownCount,
   emptyText,
   noMatchText,
-  genres,
+  genres = [],
   genre,
   setGenre,
   fav,
@@ -854,7 +873,7 @@ export function WorkListScaffold({
   setNoted,
   wish, // '' = all | 'wishlist' | 'annotated'
   setWish,
-  states, // shelf states to keep; [] = every state
+  states = [], // shelf states to keep; [] = every state
   setStates,
   kind = 'book', // 'book' | 'movie' — which side's words the state control uses
   noun = 'book', // what a row is, for the "show only" chip tooltips
@@ -865,12 +884,12 @@ export function WorkListScaffold({
   // the books filter "all seriess". Defaults to the regular English form, so
   // "collection" still needs no call-site change.
   seriesNounPlural = seriesNoun === 'series' ? 'series' : `${seriesNoun}s`,
-  seriesNames,
+  seriesNames = [],
   series,
   setSeries,
   sort,
   setSort,
-  sortOptions,
+  sortOptions = [],
   leading, // desktop extra control before favourites (film media-type)
   trailing, // desktop extra control before sort (book group-by)
   leadingMobile, // mobile-sheet section for `leading`
@@ -881,27 +900,46 @@ export function WorkListScaffold({
   extraModals,
 }) {
   const [mobileFilter, setMobileFilter] = useState(false)
+  // A section renders when its setter was supplied. One rule, applied the same
+  // way everywhere, so adding a screen to this scaffold is a question of which
+  // setters you pass rather than which booleans you remember to set.
+  //
+  // Quotes is why this exists: a standalone quote has no genre, no shelf state,
+  // no series and no wishlist (there is nothing to acquire), but it has colours,
+  // tags, notes, a speaker and a medium. Everything here is shared or absent —
+  // a second scaffold would have drifted from this one inside a release.
+  const hasGenre = !!setGenre
+  const hasWish = !!setWish
+  const hasStates = !!setStates
+  const hasSeries = !!setSeries && (seriesNames || []).length > 0
+  const hasSort = !!setSort && (sortOptions || []).length > 0
   // "show only" — independent toggles, ANDed by the page's `shown` memo. Shared
   // with the desktop row rather than mobile-only: the predicates live in that
   // memo, so a phone-set filter would otherwise survive a resize past the
   // breakpoint with no control left to see or clear it.
   const onlyChips = (
     <>
-      <Tooltip label="Show only favourites">
-        <button onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
-          ♥ favourites
-        </button>
-      </Tooltip>
-      <Tooltip label={`Only tagged ${noun}s`}>
-        <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
-          tagged
-        </button>
-      </Tooltip>
-      <Tooltip label={`Only ${noun}s with notes`}>
-        <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
-          has notes
-        </button>
-      </Tooltip>
+      {setFav && (
+        <Tooltip label="Show only favourites">
+          <button onClick={() => setFav(!fav)} className={filterChipClass(fav)}>
+            ♥ favourites
+          </button>
+        </Tooltip>
+      )}
+      {setTagged && (
+        <Tooltip label={`Only tagged ${noun}s`}>
+          <button onClick={() => setTagged(!tagged)} className={filterChipClass(tagged)}>
+            tagged
+          </button>
+        </Tooltip>
+      )}
+      {setNoted && (
+        <Tooltip label={`Only ${noun}s with notes`}>
+          <button onClick={() => setNoted(!noted)} className={filterChipClass(noted)}>
+            has notes
+          </button>
+        </Tooltip>
+      )}
     </>
   )
   // The wishlist control is a 3-way scope, not a toggle: a work with nothing
@@ -938,7 +976,7 @@ export function WorkListScaffold({
       ]}
     />
   )
-  const seriesSelect = seriesNames.length > 0 && (
+  const seriesSelect = hasSeries && (
     <Select
       ariaLabel={`Filter by ${seriesNoun}`}
       value={series}
@@ -946,7 +984,7 @@ export function WorkListScaffold({
       options={[['', `all ${seriesNounPlural}`], ...seriesNames.map((s) => [s, s])]}
     />
   )
-  const sortSelect = <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
+  const sortSelect = hasSort && <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
   return (
     <section>
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
@@ -976,18 +1014,20 @@ export function WorkListScaffold({
 
       {hasItems && !mobile && (
         <div className="filter-row mb-5">
-          <GenreFilter genres={genres} value={genre} onChange={setGenre} />
+          {hasGenre ? <GenreFilter genres={genres} value={genre} onChange={setGenre} /> : <span />}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {leading}
-            {wishChips}
+            {hasWish && wishChips}
             {onlyChips}
-            {stateSelect}
+            {hasStates && stateSelect}
             {seriesSelect}
             {trailing}
-            <label className="flex items-center gap-2">
-              <MonoLabel>sort</MonoLabel>
-              {sortSelect}
-            </label>
+            {hasSort && (
+              <label className="flex items-center gap-2">
+                <MonoLabel>sort</MonoLabel>
+                {sortSelect}
+              </label>
+            )}
           </div>
         </div>
       )}
@@ -1006,38 +1046,46 @@ export function WorkListScaffold({
           }
         >
           <div className="space-y-5">
-            <div>
-              <MonoLabel className="mb-2 block">genre</MonoLabel>
-              {/* The same GenreFilter the desktop row uses — one select over every
-                  genre. The sheet reached that shape first (1.4.0), because a
-                  measured chip strip inside a full-width section always collapsed
-                  to zero visible chips; the desktop row joined it in 1.4.2. */}
-              <GenreFilter genres={genres} value={genre} onChange={setGenre} />
-            </div>
+            {hasGenre && (
+              <div>
+                <MonoLabel className="mb-2 block">genre</MonoLabel>
+                {/* The same GenreFilter the desktop row uses — one select over every
+                    genre. The sheet reached that shape first (1.4.0), because a
+                    measured chip strip inside a full-width section always collapsed
+                    to zero visible chips; the desktop row joined it in 1.4.2. */}
+                <GenreFilter genres={genres} value={genre} onChange={setGenre} />
+              </div>
+            )}
             {leadingMobile}
-            <div>
-              <MonoLabel className="mb-2 block">wishlist</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">{wishChips}</div>
-            </div>
+            {hasWish && (
+              <div>
+                <MonoLabel className="mb-2 block">wishlist</MonoLabel>
+                <div className="flex flex-wrap items-center gap-2">{wishChips}</div>
+              </div>
+            )}
             <div>
               <MonoLabel className="mb-2 block">show only</MonoLabel>
               <div className="flex flex-wrap items-center gap-2">{onlyChips}</div>
             </div>
-            <div>
-              <MonoLabel className="mb-2 block">shelf</MonoLabel>
-              {stateSelect}
-            </div>
-            {seriesNames.length > 0 && (
+            {hasStates && (
+              <div>
+                <MonoLabel className="mb-2 block">shelf</MonoLabel>
+                {stateSelect}
+              </div>
+            )}
+            {hasSeries && (
               <div>
                 <MonoLabel className="mb-2 block">{seriesNoun}</MonoLabel>
                 {seriesSelect}
               </div>
             )}
             {trailingMobile}
-            <div>
-              <MonoLabel className="mb-2 block">sort</MonoLabel>
-              {sortSelect}
-            </div>
+            {hasSort && (
+              <div>
+                <MonoLabel className="mb-2 block">sort</MonoLabel>
+                {sortSelect}
+              </div>
+            )}
           </div>
         </MobileSheet>
       )}
