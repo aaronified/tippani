@@ -57,6 +57,31 @@ const built = readFileSync(cssPath, 'utf8')
 const page = readFileSync(PAGE, 'utf8')
 const start = page.indexOf(OPEN)
 if (start < 0) fail(`docs/ui-glossary.html has no ${OPEN} block`)
+
+// The block this script writes into must be REAL MARKUP, not a mention of it
+// inside a comment.
+//
+// This is not hypothetical. The page opened with a comment that named the style
+// tag in its prose and never closed, so the first comment-close in the file was
+// the one ending the NEXT comment — and this script, which finds its block by
+// searching for the tag, faithfully refreshed 140KB of stylesheet INSIDE that
+// comment on every run. The page rendered every sample unstyled, which is the
+// one thing it exists not to do, and the --check gate passed the whole time
+// because the bytes it compares were exactly the bytes it had written.
+//
+// Comments do not nest, so an unbalanced count of openers before the marker
+// means the marker is inside one.
+const before = page.slice(0, start)
+const opens = (before.match(/<!--/g) || []).length
+const closes = (before.match(/-->/g) || []).length
+if (opens !== closes) {
+  fail(
+    `${OPEN} sits inside an HTML comment, so nothing this script writes would render.\n` +
+      `  ${opens} comment opener(s) and ${closes} closer(s) precede it.\n` +
+      `  fix: close the comment before the block, and keep the tag name out of comment prose`,
+  )
+}
+
 const bodyStart = start + OPEN.length
 const end = page.indexOf(CLOSE, bodyStart)
 if (end < 0) fail('the <style id="appcss"> block is never closed')
