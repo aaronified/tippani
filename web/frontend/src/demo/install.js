@@ -94,6 +94,19 @@ const ANNOTATIONS = [
   { id: 6, book_id: 3, quote: 'The lamp does not argue with the dark; it simply keeps its corner.', note: '', color: 'blue', chapter: '', location: '', favorite: false, tags: [], noted_at: '2026-07-01' },
 ]
 
+// ---- standalone quotes (ROADMAP §24) ----
+// Deliberately covers the three shapes the screen has to tell apart: a fully
+// attributed line, a second line from the SAME occasion (so the grouping and
+// the speaker filter have something to do), and a PROVERB with no speaker and
+// no occasion — the one that must stay out of the review deck and still render
+// without a stray separator on its meta line.
+const UTTERANCES = [
+  { id: 1, quote: 'Give me blood, and I will give you freedom.', note: 'the Azad Hind broadcast my grandfather remembered', color: 'blue', favorite: true, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio', tags: ['freedom'], noted_at: '2026-04-02' },
+  { id: 2, quote: 'Freedom is not given, it is taken.', note: '', color: 'yellow', favorite: false, speaker: 'Subhas Chandra Bose', occasion: 'Burma Radio broadcast', occasion_date: '1944', place: 'Burma', medium: 'radio', tags: [], noted_at: '2026-04-02' },
+  { id: 3, quote: 'The only thing we have to fear is fear itself.', note: '', color: 'pink', favorite: false, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', medium: 'speech', tags: ['courage'], noted_at: '2026-05-30' },
+  { id: 4, quote: 'Least said, soonest mended.', note: 'my grandmother, about most things', color: 'yellow', favorite: false, speaker: '', occasion: '', occasion_date: '', place: '', medium: '', tags: [], noted_at: '2026-06-14' },
+]
+
 // ---- movies + dialogues ----
 const MOVIES = [
   { id: 1, title: 'Northline', director: 'R. Whitfield', release_year: 1978, genres: ['drama', 'night'], series: 'Northline Diptych', series_index: 1, favorite: true, media_type: 'movie', status: 'completed', progress: 100, poster_path: coverArt('#1D1710', '#D6A25C', 'NORTHLINE', '1978') },
@@ -229,6 +242,18 @@ function annRow(a) {
     ...a,
     ...demoReview('book', a.id),
     created_at: a.noted_at + ' 09:00:00', updated_at: a.noted_at + ' 09:00:00',
+  }
+}
+
+// uttRow mirrors utteranceRow on the server: the shared quote half plus the
+// occasion. sticker fields are null rather than absent — utteranceState reads
+// them with `??`, and undefined would be indistinguishable from unset.
+function uttRow(u) {
+  return {
+    sticker_id: null, sticker_x: null, sticker_y: null,
+    ...u,
+    ...demoReview('utterance', u.id),
+    created_at: u.noted_at + ' 09:00:00', updated_at: u.noted_at + ' 09:00:00',
   }
 }
 
@@ -424,10 +449,14 @@ function stats() {
   const genreSet = new Set()
   BOOKS.forEach((b) => b.genres.forEach((g) => genreSet.add(g)))
   MOVIES.forEach((m) => m.genres.forEach((g) => genreSet.add(g)))
+  // Every kind that wears a colour, matching the server: annotations,
+  // dialogues (0021) and standalone quotes (0026).
   const colors = { yellow: 0, blue: 0, pink: 0, orange: 0 }
-  ANNOTATIONS.forEach((a) => { if (colors[a.color] != null) colors[a.color]++ })
+  for (const x of [...ANNOTATIONS, ...DIALOGUES, ...UTTERANCES]) {
+    if (colors[x.color] != null) colors[x.color]++
+  }
   const tagCounts = {}
-  for (const x of [...ANNOTATIONS, ...DIALOGUES]) {
+  for (const x of [...ANNOTATIONS, ...DIALOGUES, ...UTTERANCES]) {
     for (const t of x.tags || []) tagCounts[t] = (tagCounts[t] || 0) + 1
   }
   const topTags = Object.entries(tagCounts)
@@ -439,8 +468,12 @@ function stats() {
     annotations: ANNOTATIONS.length,
     movies: MOVIES.length,
     dialogues: DIALOGUES.length,
+    quotes: UTTERANCES.length,
     tags: TAGS.length,
-    favorites: ANNOTATIONS.filter((a) => a.favorite).length + DIALOGUES.filter((d) => d.favorite).length,
+    favorites:
+      ANNOTATIONS.filter((a) => a.favorite).length +
+      DIALOGUES.filter((d) => d.favorite).length +
+      UTTERANCES.filter((u) => u.favorite).length,
     genres: genreSet.size,
     most_annotated: { id: 1, title: 'The Wide Margin', cover_path: BOOKS[0].cover_path, count: 3 },
     most_quoted: { id: 1, title: 'Northline', cover_path: MOVIES[0].poster_path, count: 3 },
@@ -488,15 +521,18 @@ function search(q, scope) {
   const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note } }
   const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null } }
 
+  const uttHit = (u) => ({ id: u.id, quote: u.quote, note: u.note || '', color: u.color, speaker: u.speaker, occasion: u.occasion, occasion_date: u.occasion_date, place: u.place, medium: u.medium })
+
   const wantBooks = !scope || scope === 'all' || scope === 'books'
   const wantAnnotations = !scope || scope === 'all' || scope === 'annotations'
   const wantMovies = !scope || scope === 'all' || scope === 'movies'
   const wantDialogues = !scope || scope === 'all' || scope === 'dialogues'
+  const wantQuotes = !scope || scope === 'all' || scope === 'quotes'
 
   const out = {
-    books: [], annotations: [], movies: [], dialogues: [],
-    authors: [], directors: [], actors: [],
-    notes: { annotations: [], dialogues: [] },
+    books: [], annotations: [], movies: [], dialogues: [], quotes: [],
+    authors: [], directors: [], actors: [], speakers: [],
+    notes: { annotations: [], dialogues: [], quotes: [] },
     tags: [], genres: [], decade: null, date_added: null,
   }
   if (!s) return out
@@ -513,6 +549,13 @@ function search(q, scope) {
   if (wantAnnotations) {
     out.annotations = ANNOTATIONS.filter((a) => hit(a.quote)).map(annHit)
     out.notes.annotations = ANNOTATIONS.filter((a) => hit(a.note)).map(annHit)
+  }
+  if (wantQuotes) {
+    // Quote AND occasion, matching the server's one facet over both — the
+    // occasion is the title here, and searching for it is the natural thing.
+    out.quotes = UTTERANCES.filter((u) => hit(u.quote) || hit(u.occasion)).map(uttHit)
+    out.notes.quotes = UTTERANCES.filter((u) => hit(u.note)).map(uttHit)
+    for (const u of UTTERANCES.filter((u) => hit(u.speaker))) credit(out.speakers, u.speaker, 'quotes', uttHit, u)
   }
   if (wantMovies) {
     out.movies = MOVIES.filter((m) => hit(m.title) || hit(m.series)).map(movieHit)
@@ -564,7 +607,11 @@ function search(q, scope) {
 
 const RO = { error: 'This is a read-only demo — changes are not saved. Self-host Tippani to edit your own library.' }
 
-function route(method, path, params, body) {
+// Exported for tests. It is a pure (method, path, params, body) function with
+// no fetch and no DOM, so the shim's shapes can be asserted directly — and the
+// shapes are the whole risk here: a demo answer that is close but not identical
+// to the server's is a bug that only ever shows up in the demo.
+export function route(method, path, params, body) {
   if (method !== 'GET') {
     // Harmless niceties keep working: appearance prefs, login/logout, avatar,
     // add-form lookups (graceful empty), and person link lookups (read-only in
@@ -623,6 +670,20 @@ function route(method, path, params, body) {
       if (tag) list = list.filter((d) => d.tags.some((t) => t.toLowerCase() === tag) || (d.character || '').toLowerCase().includes(tag))
       if (params.get('favorite')) list = list.filter((d) => d.favorite)
       return [200, { dialogues: list.map(dlgRow) }]
+    }
+    // The response key is `utterances`, the table — not `quotes`, the route.
+    // A shim that answered the friendlier name would break the screen while
+    // looking correct in this file.
+    case path === '/quotes': {
+      let list = UTTERANCES
+      const color = params.get('color')
+      const tag = (params.get('tag') || '').toLowerCase()
+      const speaker = params.get('speaker')
+      if (color) list = list.filter((u) => u.color === color)
+      if (tag) list = list.filter((u) => (u.tags || []).some((t) => t.toLowerCase() === tag))
+      if (speaker) list = list.filter((u) => u.speaker === speaker)
+      if (params.get('favorite')) list = list.filter((u) => u.favorite)
+      return [200, { utterances: list.map(uttRow) }]
     }
     case path === '/tags': return [200, { tags: tagRows() }]
     case path === '/stickers': return [200, { stickers: STICKERS }]
