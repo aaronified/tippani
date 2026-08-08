@@ -5,6 +5,92 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-08-08
+
+**The four colours have names.** And the daily quiz can finally be told which
+kinds of quote to draw from — which it turns out it was already drawing from.
+
+### Added
+
+- **Colour categories.** A quote's colour is the top of the hierarchy: tags say
+  what it is *about*, its colour says what *kind* of note it is. Name the four in
+  Settings — *fact*, *disagreed*, *inspirational*, whatever you actually mean by
+  them — give them colours from a curated palette, and put away the ones you do
+  not use. Every picker, filter, group heading, toast and stats breakdown then
+  speaks your words instead of "blue".
+
+  **What is stored never changes.** The value in the database and in every
+  Markdown export stays `yellow` / `blue` / `pink` / `orange`, so a rename cannot
+  break a round trip — there is a test whose entire job is to prove an export is
+  byte-identical before and after one, because a year of highlights that stopped
+  importing would be discovered by the person re-importing them.
+
+  **The first colour is deliberately not nameable.** It is the column default,
+  and what an import writes when the source named no colour, so a yellow quote
+  may be yellow because you chose it or because nobody chose anything — nothing
+  can tell those apart, and naming it would silently label every unmarked quote
+  you have ever imported. Its colour is presentation and stays yours.
+
+  **Hiding a category never changes a quote.** It comes out of the pickers; a
+  quote already wearing it keeps it, keeps its name and keeps its colour. The
+  alternative is the app editing your library to match a preference you were not
+  thinking about it with.
+
+  The palette shares no colour with the app's own accents — not merely avoiding
+  the four exact values but leaving that whole neighbourhood alone, so a category
+  can never be mistaken for an accent.
+
+### Fixed
+
+- **The daily quiz could not be told to include standalone quotes.** It was
+  already including them — the deck has drawn all three media since standalone
+  quotes existed, and the server has accepted a `quotes` scope all along. What
+  could not say so was the Settings control, which offered *Books*, *Films &
+  shows*, and a third option labelled **"Both"** that silently meant all three.
+
+  The word undercounted what it did, and because the three were exclusive,
+  "books and quotes but not films" was unsayable: narrowing away one medium cost
+  you another you had not mentioned, and anyone who once picked *Books* had no
+  route back to including quotes except by also taking film dialogue. The three
+  are independent now. The last one will not turn off — an empty scope is a deck
+  with nothing in it, which looks exactly like a deck you have finished.
+
+- **The Stats colour breakdown truncated its own labels.** The label column was a
+  fixed 52px, which fits "Yellow" and nothing a reader would choose. It sizes to
+  the longest name.
+
+- **The staging screen's bulk-colour toast named the token**, not the category —
+  "colour → blue" while every card on the screen said "Fact".
+
+### Internal
+
+- **Two deck tests that should have existed for three releases.** Every previous
+  deck test seeded a single medium, so "the deck serves standalone quotes" had
+  only ever been asserted for a library containing nothing else — which is not a
+  library anyone has. A mixed one (thirty book highlights, eight film lines, six
+  standalone quotes) now has to serve all three across twelve draws, and every
+  scope value the server accepts has to draw exactly what it names.
+
+- **`parseScope` on the client mirrors `scopeFlags` on the server**, including
+  the rule that matters most: an unparseable scope means *everything*, never
+  nothing.
+
+- A third copy of the four default hexes had accumulated while building this
+  (theme.js, ui.jsx, index.css). `ui.jsx` derives from `theme.js` now; the two
+  that remain are the two that genuinely cannot be one — the stylesheet's
+  custom properties, and the real value a canvas needs.
+
+- **Eleven mutations against the category rules, all killed** — two of them only
+  after a change. The "the first slot cannot be hidden" rule was enforced in two
+  places, so breaking either left the other covering for it: a rule guarded twice
+  is a rule where neither guard can be shown to work.
+
+- `labels.test.jsx` stopped mocking `theme.js` by hand-listing its exports, which
+  broke the moment the module grew new ones. It shares the module registry
+  instead.
+
+- 694 frontend tests.
+
 ## [1.6.1] - 2026-08-08
 
 **The portrait backdrop, corrected.** Three changes to the share-image option
