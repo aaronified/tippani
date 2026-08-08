@@ -840,8 +840,49 @@
           <button class="color-dot dot-orange" title="orange"></button>
         </div>
         <div class="g-name">ColorSwatches</div>
-        <div class="g-src">ColorSwatches — ui.jsx · .color-dot / .dot-yellow / .dot-blue / .dot-pink / .dot-orange — index.css</div>
-        <div class="g-desc">The four annotation-colour filter dots (colorDotClass maps colour → class); the <b>active</b> dot gains full opacity + an accent outline ring.</div>
+        <div class="g-src">ColorSwatches — ui.jsx · .color-dot / .dot-* — index.css · categoryName / categoryHidden — theme.js</div>
+        <div class="g-desc">The four <b>colour categories</b> as a radio group — the one control every capture form, filter row and card shares. The <b>active</b> dot gains full opacity and an accent outline ring.<br><br><b>It draws the reader’s names, not the colour words.</b> "Pick blue" describes a highlighter; the whole point of naming a category is that the picker then asks the question you actually have. An unnamed slot falls back to its colour word, so a fresh account reads exactly as it always did.<br><br><b>A hidden category is dropped from the CHOICES but never from a quote that already wears it</b> — the current value is added back into the list for exactly that reason. Hiding is about tidying a picker you have stopped using; a quote silently changing colour because of it would be the app editing your library to match a preference you were not thinking about it with.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:420px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="color-dot dot-yellow active"></span>
+              <span style="font-weight:600">Uncategorised</span>
+              <span class="info-dot" style="cursor:help">i</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="color-dot dot-blue active"></span>
+              <input class="tp-input" style="flex:1;min-width:0" value="Fact" readonly>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="color-dot dot-pink active"></span>
+              <input class="tp-input" style="flex:1;min-width:0" value="Disagreed" readonly>
+            </div>
+          </div>
+          <div class="cat-palette" style="max-width:420px">
+            <span class="cat-swatch" style="background:#E5C355"></span>
+            <span class="cat-swatch" style="background:#DF9A5B"></span>
+            <span class="cat-swatch" style="background:#D98CA6"></span>
+            <span class="cat-swatch" style="background:#E8A0C0"></span>
+            <span class="cat-swatch" style="background:#C2555F"></span>
+            <span class="cat-swatch" style="background:#A8739E"></span>
+            <span class="cat-swatch" style="background:#8A7BC8"></span>
+            <span class="cat-swatch" style="background:#6E8FD0"></span>
+            <span class="cat-swatch is-on" style="background:#7FA6C9"></span>
+            <span class="cat-swatch" style="background:#5AA8B5"></span>
+            <span class="cat-swatch" style="background:#6FBF9F"></span>
+            <span class="cat-swatch" style="background:#4FA98A"></span>
+            <span class="cat-swatch" style="background:#7CB342"></span>
+            <span class="cat-swatch" style="background:#B5C05A"></span>
+            <span class="cat-swatch" style="background:#B0806B"></span>
+            <span class="cat-swatch" style="background:#8C7F6E"></span>
+          </div>
+        </div>
+        <div class="g-name">Colour categories <span class="g-tlabel">1.7.0</span></div>
+        <div class="g-src">ColourCategoriesCard — Settings.jsx · applyColors / categoryName / categoryHex / CATEGORY_PALETTE — theme.js · <code>--hl-1..4</code> · catName/catColor/catHidden prefs</div>
+        <div class="g-desc">A quote’s colour is the top of the hierarchy — tags say what it is <em>about</em>, the colour says what <em>kind</em> of note it is — and until 1.7.0 the four were called yellow, blue, pink and orange, which describes a highlighter rather than a thought.<br><br><b>The stored token never moves.</b> <code>yellow|blue|pink|orange</code> remains the value in every table, in every Markdown export and in the import rule that reads a missing colour as yellow. Everything here is presentation, which is why a rename cannot break a round trip — and why the Go suite has a test whose entire job is to prove a Markdown export is byte-identical before and after one.<br><br><b>The first slot is not a category.</b> The column default is yellow and an import with no colour writes yellow too, so a yellow quote may be yellow because somebody chose it or because nobody chose anything, and nothing can tell those apart. Naming it would silently relabel every unmarked quote ever imported, so the field is not offered, the server refuses it, and the read path scrubs it back out — because a restored archive or a hand-edited row is where such a value would come from, and the client is where it would be seen. Its <em>colour</em> is presentation and stays editable.<br><br><b>The palette is disjoint from the theme accents</b>, and not merely by avoiding the four exact hexes: the whole ochre / terracotta / olive / slate neighbourhood is left alone, so a category can never be mistaken for the app’s own accent. A test measures the RGB distance rather than trusting the eye, because "these look different enough" quietly stops being true when somebody adds a sixteenth swatch.<br><br><b>Four, and four is expensive to change.</b> The <code>CHECK (color IN (…))</code> appears seven times across four live tables; SQLite cannot alter a CHECK, and every one of those tables is a foreign-key parent with cascading children, two of them backing FTS5 indexes with live sync triggers. Widening the set is its own migration and its own release.</div>
       </div>
 
       <div class="g-item">

@@ -79,12 +79,22 @@ of that are spelled out in [`AI.md`](AI.md).
 
 ## Features
 
-- 📚 **Books & annotations** — quotes and notes with 4 highlight colours, tags, chapter/location,
+- 📚 **Books & annotations** — quotes and notes with 4 **colour categories you name yourself**, tags, chapter/location,
   a favourite ★ and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
+- 🎨 **Colour categories** — the four highlight colours are the top of the hierarchy: tags say what a
+  quote is *about*, its colour says what *kind* of note it is. Name them — *fact*, *disagreed*,
+  *inspirational* — pick their colours from a curated palette, and put away the ones you do not
+  use. Every picker, filter, group heading and breakdown then speaks your words instead of
+  "blue". **What is stored never changes**: the value in the database and in every Markdown export
+  stays `yellow` / `blue` / `pink` / `orange`, so a rename cannot break a round trip. The first
+  colour is deliberately not nameable — it is what a quote gets when nobody picks one, and what an
+  import writes when the source named no colour, so naming it would label every unmarked quote you
+  own.
 - 🧠 **Daily Quiz & Practice** — spaced repetition grounded in the memory research, over your
-  **books, films/shows *and* standalone quotes** alike. Every highlight carries a **memory half-life** and resurfaces
+  **books, films/shows *and* standalone quotes** alike — each of the three independently
+  switchable, so books-and-quotes-but-not-films is a thing you can ask for. Every highlight carries a **memory half-life** and resurfaces
   along the **Ebbinghaus forgetting curve**: recall probability decays as $p = 2^{-t/h}$ — where $t$
   is the days since you last saw it and $h$ is its half-life — so a card comes due right as you're
   about to forget it. Each card is a **multiple-choice** question in one of two directions — *which

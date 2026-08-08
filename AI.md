@@ -57,8 +57,8 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 324 |
-| Commits with an AI co-author trailer | **320** |
+| Commits in the repository | 328 |
+| Commits with an AI co-author trailer | **324** |
 | Period | 2026-07-02 → 2026-08-08 |
 
 Models used, by commit count:
@@ -66,7 +66,7 @@ Models used, by commit count:
 | Model | Commits |
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
-| Claude Opus 5 | 104 |
+| Claude Opus 5 | 108 |
 | Claude Fable 5 | 55 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
@@ -143,6 +143,20 @@ What that honestly does not cover:
   two of the same class before they shipped. The cover is partial — it asserts
   the answers the newest screen reads, not every route — so the drift risk is
   reduced rather than closed.
+- **A bug report is a report of a symptom, and the symptom is often not the
+  bug.** 1.7.0 opened with "quotes should be included in the daily quiz". They
+  already were — the deck has drawn them since the medium existed, and two tests
+  written to check that passed against the code as it stood. What was broken was
+  the Settings control, which offered *Books*, *Films & shows* and a third option
+  labelled *Both* that silently meant all three: the word undercounted what it
+  did, and there was no way to ask for quotes at all. Building what the report
+  literally asked for would have meant changing a deck that was correct. The
+  first move on any report like this is a test that tries to reproduce it, and
+  the useful outcome is as often "this passes, so look upstream" as a red bar.
+  Neither of those two tests existed before, either: every deck test seeded a
+  single medium, so "the deck serves standalone quotes" had only ever been
+  asserted for a library containing nothing else, which is not a library anyone
+  has.
 - **Consistency is not something you can review for.** 1.6.0's whole subject was
   the app agreeing with itself, and almost nothing in it was found by looking at
   a screen. Four icons were another icon — Share and Upload were both a tray with

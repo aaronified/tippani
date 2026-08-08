@@ -507,13 +507,22 @@
   </p>
   <ul>
     <li>
-      <strong>Name the four highlight colours.</strong> Four strings in
-      <code>users.preferences</code> — yellow = "beautiful", blue = "argument",
-      pink = "disagree", orange = "look up", or whatever you actually mean by them —
-      shown in the filter chips, the swatch group and the stats breakdown. Zero
-      schema. People already do this on paper; the colours exist, and this is what
-      makes filtering by one of them mean something instead of being a guess about
-      your own past intent.
+      <strong>Name the four highlight colours.</strong> <em>Shipped in 1.7.0</em>,
+      and it grew a little on the way: a name, a colour from a curated palette, and
+      a hidden flag per slot, shown in every picker, filter chip, group heading and
+      stats breakdown. Zero schema, as predicted — the stored token stays
+      <code>yellow|blue|pink|orange</code> in every table and every Markdown export,
+      so a rename cannot break a round trip.
+      <br><br>
+      Two things the original note did not see. The <em>first</em> colour cannot be
+      named: it is the column default and what an import writes when the source gave
+      no colour, so a yellow quote may be yellow because you chose it or because
+      nobody chose anything — naming it would label every unmarked quote in the
+      library. And going past four is not "zero schema" at all: the
+      <code>CHECK (color IN (…))</code> appears seven times across four live tables,
+      SQLite cannot alter a CHECK, and each is a foreign-key parent with cascading
+      children, two of them backing FTS5 indexes with live sync triggers. That is
+      its own migration and its own release.
     </li>
     <li>
       <strong>Shuffle</strong> — one random quote, full width, nothing else on
