@@ -1274,7 +1274,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
         <InfoDot text="Photos + reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library), matched to the right person — an author by the books they wrote, an actor from the film's cast, a director from the film's crew. Actor and director photos and links need a TMDB key (Settings); author photos are keyless." />
         {!compact && <MonoLabel>{shown.length} shown</MonoLabel>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {[['author', 'Authors'], ['actor', 'Actors'], ['director', 'Directors']].map(([k, label]) => (
+          {[['author', 'Authors'], ['actor', 'Actors'], ['director', 'Directors'], ['speaker', 'Speakers']].map(([k, label]) => (
             <button key={k} className={'tp-filter-chip' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>
               {label}
             </button>
@@ -1301,7 +1301,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
         <p className="microcopy" style={{ color: 'var(--soft)' }}>
           {!rows
             ? 'loading…'
-            : `${missing.length} ${{ author: 'author', actor: 'actor', director: 'director' }[kind]}${missing.length === 1 ? '' : 's'} still need${missing.length === 1 ? 's' : ''} photos or links`}
+            : `${missing.length} ${{ author: 'author', actor: 'actor', director: 'director', speaker: 'speaker' }[kind]}${missing.length === 1 ? '' : 's'} still need${missing.length === 1 ? 's' : ''} photos or links`}
         </p>
       ) : (
         <>
@@ -1316,14 +1316,14 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
           {!rows ? (
             <EmptyState>loading…</EmptyState>
           ) : shown.length === 0 ? (
-            <EmptyState>{{ author: 'no authors in the library yet', actor: 'no actors on any dialogue yet', director: 'no directors on any film yet' }[kind]}</EmptyState>
+            <EmptyState>{{ author: 'no authors in the library yet', actor: 'no actors on any dialogue yet', director: 'no directors on any film yet', speaker: 'nobody has said anything yet' }[kind]}</EmptyState>
           ) : (
             <div className="ann-table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
               <table className="ann-table">
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>{kind === 'author' ? 'Books' : 'Titles'}</th>
+                    <th>{kind === 'author' ? 'Books' : kind === 'speaker' ? 'Quotes' : 'Titles'}</th>
                     <th>Links</th>
                     <th></th>
                   </tr>

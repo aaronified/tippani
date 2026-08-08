@@ -712,6 +712,8 @@ export function route(method, path, params, body) {
       const kind = params.get('kind')
       const referenced = kind === 'actor'
         ? [...new Set(DIALOGUES.map((d) => d.actor).filter(Boolean))]
+        : kind === 'speaker'
+        ? [...new Set(UTTERANCES.map((u) => u.speaker).filter(Boolean))]
         : [...new Set(BOOKS.map((b) => b.author).filter((a) => a && a !== '(unknown)'))]
       const rows = new Map()
       for (const n of referenced) rows.set(n.toLowerCase(), { name: n, saved: false, links: '' })

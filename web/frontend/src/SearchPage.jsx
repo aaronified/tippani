@@ -63,6 +63,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   const authors = usePeople('author') // name→metadata for author portraits/chips
   const directors = usePeople('director') // name→metadata for director/creator chips
   const actors = usePeople('actor') // name→metadata for actor chips on dialogue hits
+  const speakers = usePeople('speaker') // name→metadata for speaker chips on quote hits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
@@ -386,6 +387,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
           kind={quote.kind}
           hit={quote.hit}
           authorMap={authors.map}
+          speakerMap={speakers.map}
           actorMap={actors.map}
           seps={creditSeps}
           onOpenBook={onOpenBook}
@@ -416,7 +418,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 // attribution) + tags, then renders the SAME AnnotationCard / Frame used on the
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
-function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
+function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
   const isBook = kind === 'book'
   // A standalone quote (§24) has NO PARENT, which is the whole difference here:
   // no parent fetch, no "Open book" button, and the list it is found in is not
@@ -503,14 +505,12 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
   // The credited people for the header chip row: a book's author(s) (split), a
   // dialogue's actor, a quote's speaker. Portraits come from the people maps —
   // the "image chips" the detail pages show but the search popup was missing.
-  // `speaker` is not a people kind yet, so its chip renders without a portrait,
-  // which PersonCredit already supports.
   const creditKind = isQuote ? 'speaker' : isBook ? 'author' : 'actor'
-  const creditMap = isBook ? authorMap : isQuote ? {} : actorMap
+  const creditMap = isBook ? authorMap : isQuote ? speakerMap : actorMap
   const creditNames = splitCredits(isQuote ? row?.speaker || hit.speaker : isBook ? parent?.author : row?.actor, seps)
   const sharePayload = () =>
     isQuote
-      ? quoteShare({ quote: row.quote, note: row.note, speaker: row.speaker, occasion: row.occasion, when: formatPartialDate(row.occasion_date), place: row.place, medium: row.medium, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: {}, seps })
+      ? quoteShare({ quote: row.quote, note: row.note, speaker: row.speaker, occasion: row.occasion, when: formatPartialDate(row.occasion_date), place: row.place, medium: row.medium, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: speakerMap, seps })
       : isBook
         ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
         : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })

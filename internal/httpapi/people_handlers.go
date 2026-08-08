@@ -9,6 +9,7 @@ import (
 
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/store"
 )
 
 // people: per-name metadata (bio/photo/links) for the people referenced as free
@@ -130,13 +131,16 @@ func (s *Server) personKindsOf(personID int64) []string {
 	return out
 }
 
-func validPersonKind(k string) bool { return k == "author" || k == "actor" || k == "director" }
+func validPersonKind(k string) bool {
+	return k == "author" || k == "actor" || k == "director" || k == "speaker"
+}
 
 // personKindsList names the accepted kinds in the order the 400 messages list
 // them — keep it in step with validPersonKind above. Directors (and TV
 // "creators") are sourced from movies.director, the way authors come from
-// books.author and actors from dialogues.actor.
-const personKindsList = "author, actor or director"
+// books.author, actors from dialogues.actor and speakers from
+// utterances.speaker.
+const personKindsList = "author, actor, director or speaker"
 
 // creditSeps loads the caller's separator configuration for multi-author
 // splitting (the creditSeparators preference). Best-effort: a prefs load
@@ -180,6 +184,10 @@ func orphanRefQuery(kind string) string {
 	case "director":
 		return `SELECT TRIM(director) FROM movies
 		        WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
+	case "speaker":
+		// No parent join: an utterance carries its own user_id (0026).
+		return `SELECT TRIM(speaker) FROM utterances
+		        WHERE user_id = ? AND TRIM(speaker) <> ''`
 	}
 	return ""
 }
@@ -217,8 +225,76 @@ func personCreditSQL(kind string) (scan, update string, ok bool) {
 		        WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`,
 			// The movies_fts triggers re-index the director column automatically.
 			`UPDATE movies SET director = ?, updated_at = datetime('now') WHERE id = ?`, true
+	case "speaker":
+		// The utterances_fts triggers re-index the speaker column automatically.
+		// The DEDUPE HASH does not follow, and cannot: it is a SHA over
+		// normalised fields, which SQL cannot compute. rehashRenamedQuotes runs
+		// after the rewrite — see handleRenamePerson.
+		return `SELECT id, TRIM(speaker) FROM utterances
+		        WHERE user_id = ? AND TRIM(speaker) <> ''`,
+			`UPDATE utterances SET speaker = ?, updated_at = datetime('now') WHERE id = ?`, true
 	}
 	return "", "", false
+}
+
+// rehashRenamedQuotes recomputes dedupe_hash for one account's standalone
+// quotes after a speaker rename.
+//
+// WHY IT IS NEEDED. UtteranceDedupeHash folds the speaker in, because §24
+// inverts the usual rule: the occasion is a locator and it DISCRIMINATES. So
+// renaming a speaker changes what those quotes ARE, and a hash still computed
+// from the old spelling would fail to recognise a re-import of the same line
+// under the new one — quietly producing a duplicate months later.
+//
+// WHY A COLLISION IS SKIPPED RATHER THAN MERGED OR FAILED. Two quotes that
+// differed only by the spelling of a name become the same quote under the new
+// one, and UNIQUE (user_id, dedupe_hash) then refuses the second. Failing the
+// whole rename over it would strand the library half-renamed; deleting the
+// loser would destroy a row the user never asked to lose. Leaving that ONE row
+// on its old hash costs nothing today and is visible as an ordinary duplicate
+// pair, which the user can resolve. This is the same hazard the dialogue
+// backfill defers, handled per row instead of per migration.
+func rehashRenamedQuotes(tx *sql.Tx, uid int64) error {
+	rows, err := tx.Query(
+		`SELECT id, quote, COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,''),
+		        COALESCE(occasion_date,'')
+		 FROM utterances WHERE user_id = ?`, uid)
+	if err != nil {
+		return err
+	}
+	type row struct {
+		id   int64
+		hash string
+	}
+	var want []row
+	for rows.Next() {
+		var id int64
+		var quote, note, speaker, occasion, occDate string
+		if err := rows.Scan(&id, &quote, &note, &speaker, &occasion, &occDate); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] rehash row scan failed: %v", err)
+			continue
+		}
+		text := quote
+		if text == "" {
+			text = note
+		}
+		want = append(want, row{id, store.UtteranceDedupeHash(text, speaker, occasion, occDate)})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, r := range want {
+		if _, err := tx.Exec(
+			`UPDATE utterances SET dedupe_hash = ? WHERE id = ?`, r.hash, r.id); err != nil {
+			// Almost certainly the UNIQUE. Leave this row on its old hash and
+			// carry on — see the note above on why that beats failing.
+			olog.Warnf(olog.CodePeopleOrphanGC,
+				"[people] quote %d kept its previous dedupe hash after a rename: %v", r.id, err)
+		}
+	}
+	return nil
 }
 
 // gcOrphanPeople un-files a role from saved people whose name is no longer
@@ -521,6 +597,13 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		q = `SELECT TRIM(director), COUNT(*) FROM movies
 			WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) != ''
 			GROUP BY TRIM(director)`
+	case "speaker":
+		// The count is QUOTES, not works: a speaker has no works, and two lines
+		// from one speech are two quotes rather than one source. utterances
+		// carries its own user_id, so there is no parent to join (0026).
+		q = `SELECT TRIM(speaker), COUNT(*) FROM utterances
+			WHERE user_id = ? AND TRIM(speaker) != ''
+			GROUP BY TRIM(speaker)`
 	}
 	rows, err := s.Store.DB.Query(q, uid)
 	if err != nil {
@@ -830,6 +913,16 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 		}
 		toID = froms[0].id
 		froms = froms[1:] // the rest are now redundant duplicates
+	}
+	// A speaker rename changes the quotes' identity, so their hashes follow.
+	// Once for the account rather than per rewritten row: the hash depends on
+	// fields the loop above does not carry, and a second pass over a personal
+	// library is nothing.
+	if roles["speaker"] {
+		if err := rehashRenamedQuotes(tx, uid); err != nil {
+			internalError(w, r, "rename rehash quotes", err)
+			return
+		}
 	}
 	var freed []string
 	for _, p := range froms {

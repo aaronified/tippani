@@ -392,10 +392,11 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   const [error, setError] = useState('')
   const [renameTo, setRenameTo] = useState(name)
   const [renaming, setRenaming] = useState(false)
-  const noun = kind === 'author' ? 'books' : 'films'
+  const noun = kind === 'author' ? 'books' : kind === 'speaker' ? 'quotes' : 'films'
   // The row that carries the credit, per kind: a book's author, a dialogue's
-  // actor, a film's director/creator.
-  const entity = kind === 'author' ? 'book' : kind === 'actor' ? 'dialogue' : 'film'
+  // actor, a film's director/creator, a standalone quote's speaker.
+  const entity =
+    kind === 'author' ? 'book' : kind === 'actor' ? 'dialogue' : kind === 'speaker' ? 'quote' : 'film'
 
   // rename rewrites this name across every book/film that uses it (and folds the
   // saved metadata onto the new spelling) — the fix for two transliterations of

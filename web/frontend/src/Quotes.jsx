@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { json, errText, downloadPost } from './api.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
+import { usePeople } from './people.jsx'
 import { ShareDialog, quoteShare } from './share.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import {
@@ -206,6 +207,9 @@ export default function QuotesPage() {
   const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
   const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
   const { stickers, reload: reloadStickers } = useStickers()
+  // Speaker portraits for the share image — the same enrichment authors and
+  // actors get, now that `speaker` is a people kind.
+  const { map: speakerMap } = usePeople('speaker')
   const columns = useColumnsAt([[1280, 3], [860, 2]])
 
   const load = useCallback(async () => {
@@ -283,7 +287,7 @@ export default function QuotesPage() {
       date: fmtDate(u.noted_at || u.created_at),
       tags: u.tags,
       color: u.color,
-      people: {},
+      people: speakerMap,
     })
 
   const filtered = !!(color || favOnly || tag || speaker)
