@@ -164,3 +164,53 @@ describe('labelsPref', () => {
     expect(labelsPref()).toBe('off')
   })
 })
+
+// ---- the Settings control ------------------------------------------------
+//
+// Everything above tests theme.js in isolation. This tests the half that
+// actually has to agree with it: the control writes a value, boot reads it back.
+//
+// The specific trap is JSON. applyLabels() does JSON.parse on the stored string
+// and swallows the throw, so a control that wrote a bare `off` instead of `"off"`
+// would look correct in Settings, apply correctly for that session, and silently
+// revert to auto on the next reload. Nothing errors, and the only symptom is a
+// preference that will not stick.
+describe('the Settings control and boot agree', () => {
+  it('writes a value applyLabels() can read back', async () => {
+    const { applyLabels, LABELS_KEY, labelsPref } = await loadTheme({ narrow: false })
+    vi.doMock('../../src/theme.js', () => ({
+      ACCENTS: {}, LABELS_KEY, applyLabels, labelsPref,
+      applyTheme: () => {}, getResolvedTheme: () => ({ aesthetic: 'paper', theme: 'light', accent: 'ochre' }),
+    }))
+    const { LabelDensity } = await import('../../src/Settings.jsx')
+    const { render, fireEvent, screen } = await import('@testing-library/react')
+
+    render(<LabelDensity />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Hide' }))
+    expect(labels()).toBe('off')
+
+    // The round trip: forget the in-memory preference, then boot.
+    applyLabels('auto')
+    expect(labels()).toBe('on')
+    applyLabels()
+    expect(labels()).toBe('off')
+  })
+
+  it('offers auto in both directions, not just off', async () => {
+    const { applyLabels, LABELS_KEY, labelsPref } = await loadTheme({ narrow: true })
+    vi.doMock('../../src/theme.js', () => ({
+      ACCENTS: {}, LABELS_KEY, applyLabels, labelsPref,
+      applyTheme: () => {}, getResolvedTheme: () => ({ aesthetic: 'paper', theme: 'light', accent: 'ochre' }),
+    }))
+    const { LabelDensity } = await import('../../src/Settings.jsx')
+    const { render, fireEvent, screen } = await import('@testing-library/react')
+
+    render(<LabelDensity />)
+    // A phone resolves auto to off, so "Show" is the override that has to work.
+    fireEvent.click(screen.getByRole('tab', { name: 'Show' }))
+    expect(labels()).toBe('on')
+    applyLabels('auto')
+    applyLabels()
+    expect(labels()).toBe('on')
+  })
+})

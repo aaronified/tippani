@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
-import { ACCENTS, applyTheme, getResolvedTheme } from './theme.js'
+import { ACCENTS, LABELS_KEY, applyLabels, applyTheme, getResolvedTheme, labelsPref } from './theme.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -1425,8 +1425,59 @@ function Appearance({ onPreferences }) {
         </div>
         <SizeSlider label="Library cover size" storageKey="tippani:size:books" def={165} />
         <SizeSlider label="Catalogue poster size" storageKey="tippani:size:movies" def={150} />
+        <LabelDensity />
       </div>
     </Card>
+  )
+}
+
+// LabelDensity — whether a button that has a glyph also shows its words.
+//
+// Device-local, like the two cover-size sliders it sits beside and unlike
+// everything else on this card: how much room a row of buttons has is a
+// property of the screen you are looking at, not of the account. Signing in on
+// a phone should not inherit the density you chose for a 27-inch monitor, and
+// riding it on the account would mean exactly that.
+//
+// It also has to stay out of `persist` above, which re-sends every theme field
+// on any change — a label preference in that object would be wiped by an
+// unrelated accent click. This writes its own key and calls applyLabels
+// directly; theme.js owns the attribute either way.
+//
+// Auto is the default and resolves against the same 768px breakpoint the CSS
+// uses: words on a desktop, glyphs on a phone. The override exists in both
+// directions because both are real — a dense desktop user wants the row back,
+// and someone who has not learned the glyphs yet wants the words on a phone
+// more than they want the space.
+export function LabelDensity() {
+  const [pref, setPref] = useState(labelsPref)
+  function pick(v) {
+    setPref(v)
+    applyLabels(v)
+    try {
+      localStorage.setItem(LABELS_KEY, JSON.stringify(v))
+    } catch {
+      // Private mode: the choice still applies to this session, it just will
+      // not survive a reload. Nothing to report — losing a density preference
+      // is not worth an error message.
+    }
+  }
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5">
+        <MonoLabel>Button labels</MonoLabel>
+        <InfoDot
+          title="Button labels"
+          text="Buttons that carry a glyph can show their words beside it or drop them for the glyph alone. Auto shows them on a desktop and hides them on a phone, where the row genuinely stops fitting. Hiding the words never hides them from a screen reader, and every glyph still names itself on hover or long-press — so this trades a little learning for a lot of room, and nothing else."
+        />
+      </div>
+      <Toggle
+        ariaLabel="Button labels"
+        value={pref}
+        onChange={pick}
+        options={[['auto', 'Auto'], ['on', 'Show'], ['off', 'Hide']]}
+      />
+    </div>
   )
 }
 

@@ -185,6 +185,7 @@ export const HELP = {
     title: 'Settings',
     entries: [
       { term: 'Appearance', what: 'Paper or film, light or dark or match-the-OS, four accents, and your own cover sizes. Every user keeps their own.' },
+      { term: 'Button labels', what: 'Whether a button that has a glyph also shows its words. Auto shows them on a desktop and hides them on a phone, where the row stops fitting. Hiding them never hides them from a screen reader, and every glyph still names itself on hover or long-press. Like the two size sliders it sits beside, it belongs to this screen rather than to your account — how much room a row has is a property of the monitor, not the reader.' },
       { term: 'Onboarding', what: 'The guided tour of every feature. Start, replay or resume it here.' },
       { term: 'Metadata sources', what: 'The API keys lookups run on. Each field edits and saves on its own; secrets are write-only and show masked once stored.' },
       { term: 'Review', what: 'The knobs on the daily quiz: how many cards, whether covers show, whether Practice moves the schedule, and how much a look lengthens a half-life.' },
