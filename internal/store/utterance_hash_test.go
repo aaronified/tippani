@@ -120,3 +120,61 @@ func TestUtteranceHashDiffersFromTheOtherKinds(t *testing.T) {
 		t.Fatal("an utterance collides with an episoded dialogue")
 	}
 }
+
+// DialogueDedupeHash had the same trailing-whitespace fault UtteranceDedupeHash
+// was caught with in review: strings.Fields ran over the JOINED string, so a
+// space beside the \x1f separator became a token boundary and the same line
+// stored with a trailing space hashed differently from the one without.
+//
+// The consequence is not an error. It is a recurring catchphrase that stages
+// twice, months apart, because one copy was pasted with a stray space — the
+// exact failure the qualified hash was introduced to stop.
+func TestDialogueHashIgnoresSurroundingWhitespace(t *testing.T) {
+	s2, e6 := 2, 6
+	base := DialogueDedupeHash("Not today", &s2, &e6)
+	for _, padded := range []string{"Not today ", " Not today", "  Not today  ", "Not  today"} {
+		if got := DialogueDedupeHash(padded, &s2, &e6); got != base {
+			t.Errorf("DialogueDedupeHash(%q) differs from the unpadded line — "+
+				"a stray space makes a second copy of the same quote", padded)
+		}
+	}
+}
+
+// The guarantee the whole design rests on: with no episode the result is
+// byte-identical to DedupeHash, so every film and un-episoded line keeps the
+// hash already on disk and nothing needs rewriting for them.
+func TestDialogueHashIsUnchangedWithoutAnEpisode(t *testing.T) {
+	for _, text := range []string{"Here is looking at you", "  padded  ", "Smart “quotes” too"} {
+		if DialogueDedupeHash(text, nil, nil) != DedupeHash(text) {
+			t.Errorf("DialogueDedupeHash(%q, nil, nil) diverged from DedupeHash", text)
+		}
+	}
+}
+
+// A well-formed line's hash must NOT move, or the fix would silently rewrite
+// every episoded row in every existing database and invite a collision on each.
+// These are the values the old code produced for text with no stray whitespace.
+func TestDialogueHashIsStableForWellFormedText(t *testing.T) {
+	s1, e1 := 1, 1
+	// Reconstructed the way the old code built it: fold, join, then normalise.
+	// For text with single internal spaces and no padding the two orders agree,
+	// which is what makes the fix safe to ship without a rewrite.
+	want := DedupeHashOfJoined("not today\x1fs1e1")
+	if got := DialogueDedupeHash("Not today", &s1, &e1); got != want {
+		t.Fatalf("the hash of a well-formed episoded line moved: %s vs %s", got, want)
+	}
+}
+
+// The episode still qualifies: two occurrences of one catchphrase are two
+// quotes, which is why this hash exists at all.
+func TestDialogueHashStillSeparatesEpisodes(t *testing.T) {
+	s1, e1, e2 := 1, 1, 2
+	a := DialogueDedupeHash("Not today", &s1, &e1)
+	b := DialogueDedupeHash("Not today", &s1, &e2)
+	if a == b {
+		t.Fatal("the same line in two episodes must be two quotes")
+	}
+	if a == DedupeHash("Not today") {
+		t.Fatal("an episoded line must not collide with the un-episoded one")
+	}
+}

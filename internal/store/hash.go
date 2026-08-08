@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"tippani/internal/olog"
 )
 
 // typographicFold maps smart punctuation to its ASCII form so the same passage
@@ -25,10 +27,21 @@ var typographicFold = strings.NewReplacer(
 // twice with different page numbers collapses to one row and a re-import of a
 // growing `My Clippings.txt` stays a no-op.
 func DedupeHash(text string) string {
-	norm := typographicFold.Replace(text)
-	norm = strings.ToLower(strings.Join(strings.Fields(norm), " "))
-	sum := sha256.Sum256([]byte(norm))
+	sum := sha256.Sum256([]byte(normalizeQuoteText(text)))
 	return hex.EncodeToString(sum[:])
+}
+
+// normalizeQuoteText is what "the same words" means across every hash here:
+// typographic punctuation folded, case dropped, and runs of whitespace
+// collapsed to single spaces with none at either end.
+//
+// It exists as a function because the alternative — normalising after joining a
+// field onto the text — puts the separator inside the run being collapsed, and
+// then a trailing space in one field changes the hash of the whole. That was a
+// live bug in DialogueDedupeHash and a caught-in-review one in
+// UtteranceDedupeHash. Normalise each field, THEN join.
+func normalizeQuoteText(text string) string {
+	return strings.ToLower(strings.Join(strings.Fields(typographicFold.Replace(text)), " "))
 }
 
 // DialogueDedupeHash is DedupeHash for a show's line: the text, qualified by the
@@ -55,10 +68,18 @@ func DialogueDedupeHash(text string, season, episode *int) string {
 	if season == nil && episode == nil {
 		return DedupeHash(text)
 	}
+	// THE TEXT IS NORMALISED BEFORE THE SUFFIX IS APPENDED, not after. Running
+	// strings.Fields over the JOINED string made a space beside the separator a
+	// token boundary, so a line stored as "hello " hashed differently from the
+	// same line stored as "hello" — the one thing normalisation exists to
+	// prevent, and invisible because both hashes are equally valid-looking.
+	// UtteranceDedupeHash was written this way from the start after the same bug
+	// was caught there by its own test.
+	//
 	// \x1f (unit separator) cannot occur in normalized quote text, so no line can
 	// collide with another by spelling its own episode suffix.
 	var b strings.Builder
-	b.WriteString(typographicFold.Replace(text))
+	b.WriteString(normalizeQuoteText(text))
 	b.WriteString("\x1f")
 	if season != nil {
 		b.WriteString("s")
@@ -68,8 +89,7 @@ func DialogueDedupeHash(text string, season, episode *int) string {
 		b.WriteString("e")
 		b.WriteString(strconv.Itoa(*episode))
 	}
-	norm := strings.ToLower(strings.Join(strings.Fields(b.String()), " "))
-	sum := sha256.Sum256([]byte(norm))
+	sum := sha256.Sum256([]byte(b.String()))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -113,25 +133,35 @@ func UtteranceDedupeHash(text, speaker, occasion, occasionDate string) string {
 	if strings.TrimSpace(speaker) == "" && strings.TrimSpace(occasion) == "" && strings.TrimSpace(occasionDate) == "" {
 		return DedupeHash(text)
 	}
-	// Each field is normalised BEFORE the fields are joined, not after.
+	// Each field is normalised BEFORE the fields are joined, not after — see
+	// normalizeQuoteText, which both hashes now share.
 	//
-	// Normalising the joined string is what DialogueDedupeHash does, and it is
-	// safe there because the episode suffix it appends is generated rather than
-	// typed. Here the fields are typed, so they arrive padded — and
-	// strings.Fields run over the joined string treats a space either side of the
-	// \x1f as a token boundary, making "freedom\x1fsubhas" and
-	// "freedom \x1f subhas" different strings. A trailing space in a form field
-	// would then produce a second copy of a quote on the next import.
+	// Normalising the JOINED string is the bug: strings.Fields run over it treats
+	// a space either side of the \x1f as a token boundary, making
+	// "freedom\x1fsubhas" and "freedom \x1f subhas" different strings, so a
+	// trailing space in a form field would produce a second copy of the quote on
+	// the next import. DialogueDedupeHash was written that way and carried the
+	// same latent fault until it was corrected.
 	//
 	// \x1f (unit separator) survives normalisation because it is not whitespace,
 	// cannot occur in typed text, and so keeps the fields from bleeding into each
 	// other: ("ab","c") and ("a","bc") stay distinct, and a quote whose text
 	// happens to name a speaker cannot forge one that genuinely has that speaker.
-	norm := func(s string) string {
-		return strings.ToLower(strings.Join(strings.Fields(typographicFold.Replace(s)), " "))
-	}
-	joined := strings.Join([]string{norm(text), norm(speaker), norm(occasion), norm(occasionDate)}, "\x1f")
+	joined := strings.Join([]string{
+		normalizeQuoteText(text),
+		normalizeQuoteText(speaker),
+		normalizeQuoteText(occasion),
+		normalizeQuoteText(occasionDate),
+	}, "\x1f")
 	sum := sha256.Sum256([]byte(joined))
+	return hex.EncodeToString(sum[:])
+}
+
+// DedupeHashOfJoined hashes an ALREADY-NORMALISED string. Exported for the
+// tests that pin an exact expected value, so they can state what the hash is
+// over rather than restating the hashing itself and passing whatever it does.
+func DedupeHashOfJoined(normalized string) string {
+	sum := sha256.Sum256([]byte(normalized))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -151,9 +181,19 @@ func UtteranceDedupeHash(text, speaker, occasion, occasionDate string) string {
 // only episoded rows and costs orders of magnitude less than the CheckIntegrity
 // quick_check that already runs at every boot.
 //
-// No UNIQUE violation is possible: the qualified hash is strictly more
-// discriminating than the one it replaces, and its \x1f marker means it can never
-// equal an un-episoded row's hash.
+// A UNIQUE VIOLATION IS NOW POSSIBLE, and it is handled per row rather than
+// allowed to fail the boot. The original backfill could not collide: it replaced
+// a text-only hash with a strictly MORE discriminating one. Fixing the
+// whitespace bug above moves in the other direction — two rows stored as
+// "hello " and "hello" in one work hashed differently before and hash the same
+// now, which is the correction, and which UNIQUE (movie_id, dedupe_hash) then
+// refuses.
+//
+// This runs from Migrate, so a returned error means the application DOES NOT
+// START. Refusing to boot over a pair of near-identical quotes would be a far
+// worse outcome than leaving one of them on its old hash, so a failed row is
+// logged and skipped. The consequence of skipping is bounded and visible: that
+// row can still be duplicated by a future import, exactly as it could before.
 func (s *Store) BackfillDialogueHashes() error {
 	for _, t := range []struct{ sel, upd string }{
 		{
@@ -203,7 +243,10 @@ func (s *Store) BackfillDialogueHashes() error {
 
 		for _, p := range todo {
 			if _, err := s.DB.Exec(t.upd, p.hash, p.id); err != nil {
-				return fmt.Errorf("backfill dialogue hashes: %w", err)
+				// Almost certainly the UNIQUE — see the note above on why this is
+				// not fatal. Anything else is equally not worth refusing to boot
+				// over, and the row keeps a hash that was already working.
+				olog.Alertf("[store] quote %d kept its previous dedupe hash: %v", p.id, err)
 			}
 		}
 	}
