@@ -818,7 +818,9 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             COALESCE(q.location_orig, ''), COALESCE(q.character, ''), COALESCE(q.actor, ''),
 	             COALESCE(q.timestamp, ''), COALESCE(q.timestamp_orig, ''), q.season, q.episode,
 	             COALESCE(q.tags, ''),
-	             COALESCE(q.noted_at, ''), q.created_at` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
+	             COALESCE(q.noted_at, ''), q.created_at,
+	             COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
+	             COALESCE(q.place, ''), COALESCE(q.medium, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
 	if !applyPaging(w, r, &q, &args) {
 		return nil, 0, nil
 	}
@@ -833,7 +835,8 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 		var tags string
 		if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.BatchID, &sq.Quote, &sq.Note, &sq.Color,
 			&sq.Favorite, &sq.Chapter, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
-			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt); err != nil {
+			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt,
+			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
 			continue
 		}

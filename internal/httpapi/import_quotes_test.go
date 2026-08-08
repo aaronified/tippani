@@ -241,3 +241,48 @@ func TestImportQuotesFileIsNotReadAsABook(t *testing.T) {
 		t.Fatalf("a quotes file created %d books: %+v", len(books.Books), books.Books)
 	}
 }
+
+// The pending queue has to SHOW a staged standalone quote, or a user cannot
+// see what they are approving. The list endpoint is a separate query from the
+// one approval reads, so it needs the occasion columns of its own.
+func TestStagedQuotesListCarriesTheOccasion(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	md := "---\ntype: quotes\n---\n\n## Burma Radio broadcast\n\n" +
+		"> Give me blood\n- speaker: Subhas Chandra Bose\n- occasion_date: 1944\n- place: Burma\n- medium: radio\n"
+	stageQuotesMD(t, c, "q.md", md)
+
+	var listed struct {
+		Quotes []stagedQuoteRow `json:"quotes"`
+		Works  []struct {
+			ID    int64  `json:"id"`
+			Kind  string `json:"kind"`
+			Title string `json:"title"`
+		} `json:"works"`
+	}
+	listed = decode[struct {
+		Quotes []stagedQuoteRow `json:"quotes"`
+		Works  []struct {
+			ID    int64  `json:"id"`
+			Kind  string `json:"kind"`
+			Title string `json:"title"`
+		} `json:"works"`
+	}](t, c.mustDo("GET", "/import/staged", nil, http.StatusOK))
+
+	if len(listed.Quotes) != 1 {
+		t.Fatalf("expected one staged quote, got %d", len(listed.Quotes))
+	}
+	q := listed.Quotes[0]
+	if q.Speaker != "Subhas Chandra Bose" || q.Occasion != "Burma Radio broadcast" {
+		t.Fatalf("the queue cannot show the attribution: %+v", q)
+	}
+	if q.OccasionDate != "1944" || q.Place != "Burma" || q.Medium != "radio" {
+		t.Fatalf("the queue lost part of the occasion: %+v", q)
+	}
+	// The group is the synthetic one, so the screen can tell it apart from a
+	// book or film group and skip the "which work does this join" question.
+	if len(listed.Works) != 1 || listed.Works[0].Kind != "quotes" {
+		t.Fatalf("staged group: %+v", listed.Works)
+	}
+}

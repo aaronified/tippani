@@ -42,7 +42,10 @@ const OPS = [
   ['reset', 'reset'],
 ]
 
-const KIND_TAG = { book: 'BOOK', movie: 'FILM', show: 'SHOW' }
+// The tag beside a group's heading. `quotes` is the synthetic group a batch of
+// standalone quotes hangs from (§24, migration 0028) — it is not a work, so it
+// has no target to join and nothing to retarget onto.
+const KIND_TAG = { book: 'BOOK', movie: 'FILM', show: 'SHOW', quotes: 'QUOTES' }
 
 export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onApproved }) {
   const [queue, setQueue] = useState(null) // {pending, batches, works, quotes}
@@ -343,6 +346,10 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
 function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpenBook, onOpenMovie }) {
   const allOn = items.length > 0 && items.every((q) => sel.has(q.id))
   const isBook = work.kind === 'book'
+  // A standalone-quote group has no destination work — it is the queue's way of
+  // holding quotes that belong to nothing. Everything below that talks about
+  // "which book this joins" is therefore skipped rather than answered vaguely.
+  const isStandalone = work.kind === 'quotes'
   const openTarget = () => {
     if (!work.target_id) return
     isBook ? onOpenBook?.(work.target_id) : onOpenMovie?.(work.target_id)
@@ -361,7 +368,7 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
         <h3 className="display-title truncate" style={{ fontSize: 19 }}>
           {work.title}
         </h3>
-        <MonoLabel style={{ color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
+        <MonoLabel style={{ color: isBook || isStandalone ? 'var(--accent-ui)' : 'var(--amber)' }}>
           {KIND_TAG[work.kind] || 'BOOK'}
         </MonoLabel>
         <MonoLabel style={{ color: 'var(--accent-ui)' }}>
@@ -370,7 +377,9 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
       </div>
       <p className="microcopy mb-3">
-        {work.target_id ? (
+        {isStandalone ? (
+          <>→ will be saved as quotes of their own, from no book and no film</>
+        ) : work.target_id ? (
           <>
             → joins your existing{' '}
             <button type="button" className="tp-link" onClick={openTarget}>
@@ -391,7 +400,11 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
       </p>
       {items.length === 0 ? (
         <p className="microcopy" style={{ color: 'var(--faint)' }}>
-          no quotes — approving adds the {isBook ? 'book' : work.kind === 'show' ? 'show' : 'film'} itself
+          {/* An empty work still creates the book or film; an empty quotes
+              group creates nothing, because there is nothing but the quotes. */}
+          {isStandalone
+            ? 'no quotes left in this group'
+            : `no quotes — approving adds the ${isBook ? 'book' : work.kind === 'show' ? 'show' : 'film'} itself`}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -409,6 +422,9 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
 // StagedRow — one staged quote: the text, its locators, and the edit affordance.
 // Styled as the "row inside a work card" the search results already use.
 function StagedRow({ quote, selected, onToggle, onEdit }) {
+  // Every kind's locator on one line — a staged row shows whichever it has.
+  // The three sets are disjoint by construction (a book quote has no speaker, a
+  // standalone quote has no chapter), so no branch is needed to keep them apart.
   const bits = [
     quote.chapter,
     quote.location,
@@ -416,6 +432,11 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
     quote.actor,
     episodeLabel(quote),
     quote.timestamp,
+    quote.speaker,
+    quote.occasion,
+    quote.occasion_date,
+    quote.place,
+    quote.medium,
     quote.noted_at ? quote.noted_at.slice(0, 10) : '',
   ].filter(Boolean)
   const moved =
@@ -546,7 +567,11 @@ function MovePanel({ n, busy, works, onApply }) {
   }, [])
   const groupOptions = [
     ['', 'pick a group…'],
-    ...works.map((w) => [String(w.id), `${w.title} · ${KIND_TAG[w.kind] || 'BOOK'} (${w.quotes})`]),
+    // A standalone-quote group is left out: retargeting means "send these to a
+    // different work", and these are quotes with no work by definition.
+    ...works
+      .filter((w) => w.kind !== 'quotes')
+      .map((w) => [String(w.id), `${w.title} · ${KIND_TAG[w.kind] || 'BOOK'} (${w.quotes})`]),
   ]
   return (
     <Panel title={`Move ${n} selected`}>
