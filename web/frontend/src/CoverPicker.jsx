@@ -356,7 +356,13 @@ export function groupEditions(cands) {
   for (const c of cands || []) {
     const nt = normName(c.title)
     const na = normName(c.author)
-    const key = nt && na ? `${nt} ${na}` : null
+    // U+0000 joins the two halves because it is the one character normName
+    // can never emit, so no title/author pair can forge another pair's key.
+    // Written as an escape rather than the raw byte: a literal NUL made
+    // ripgrep classify this file as binary and skip it, so every repo-wide
+    // search silently missed CoverPicker -- which is how its dead CSS
+    // survived a cleanup pass.
+    const key = nt && na ? `${nt}\u0000${na}` : null
     const hit = key && byKey.get(key)
     if (hit) {
       hit.editions.push(c)
