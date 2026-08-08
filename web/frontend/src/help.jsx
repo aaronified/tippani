@@ -205,6 +205,7 @@ export const HELP = {
   capture: {
     title: 'Add & capture',
     entries: [
+      { term: 'no book or film', what: 'Saves the line on its own, with who said it and on what occasion instead of a chapter and a page. It lands on the Quotes screen.' },
       { term: 'Book', what: 'Look one up by title, author or ISBN — covers and details come with it. Manual entry always works, key or no key.' },
       { term: 'Film or show', what: 'Looked up on TMDB and TheTVDB by title and year; picking a match pulls the poster, cast and details.' },
       { term: 'Capture quote', icon: <IconQuote />, what: 'A line against any work you already have, without leaving the screen you were on. Opened from a book or film’s own page, that work is already filled in — it is the same surface either way, and the only add form there is.' },

@@ -17,6 +17,7 @@ import {
   ColorSwatches,
   EmptyState,
   ErrorText,
+  filterChipClass,
   GhostButton,
   HandCard,
   IconButton,
@@ -24,6 +25,8 @@ import {
   IconClose,
   MobileSheet,
   MonoLabel,
+  PartialDateField,
+  isPartialDate,
   Toggle,
   toast,
   useIsMobileScreen,
@@ -493,7 +496,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
 // are comma-separated names — unknown ones are auto-created server-side.
 // `onCaptured` fires after a successful save; `onWorkCreated` after an inline
 // work add (the shell refreshes its counts).
-export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, onSaveState }) {
+export function CaptureQuote({ initialTarget = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
   const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
   const [creating, setCreating] = useState(null) // null | {title} — inline new-work lookup
   const [err, setErr] = useState('')
@@ -503,7 +506,14 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
   // keystroke away. `initialTarget` is the deliberate exception: you pressed ＋
   // on a particular book's own page, so that book IS the answer to "which work",
   // and asking again would be asking a question you already answered.
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: '', color: 'yellow' })
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: '', color: 'yellow', speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
+  // "This came from nothing" is a MODE rather than an entry in the work picker.
+  // The picker is search-first, so a synthetic "no book or film" row would only
+  // surface for someone who typed words matching it — which is nobody, since it
+  // is the one option you cannot name. A chip beside the picker asks the
+  // question outright instead. (§24)
+  const [standalone, setStandalone] = useState(initialStandalone)
+  useEffect(() => { setStandalone(initialStandalone) }, [initialStandalone])
 
   useEffect(() => {
     Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
@@ -533,7 +543,7 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
   }, [initialTarget?.type, initialTarget?.id])
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
-  const isScreen = draft.target?.kind === 'screen'
+  const isScreen = !standalone && draft.target?.kind === 'screen'
   // Only a series has episodes to locate a line in; a film has just its runtime.
   const isShow = isScreen && draft.target?.media_type === 'show'
 
@@ -551,7 +561,14 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
   // The same predicate greys out Save and refuses the submit, so the button can
   // never be pressable in a state the handler would reject — and `why` is what
   // its tooltip says instead of leaving a dead control unexplained.
-  const missing = !draft.target
+  const missing = standalone
+    ? !draft.quote.trim()
+      // Unlike a book highlight, there is no page for a bare note to be about.
+      ? 'A quote needs the words themselves'
+      : draft.occasionDate && !isPartialDate(draft.occasionDate)
+        ? 'Check the date'
+        : ''
+    : !draft.target
     ? 'Pick a book, film or show'
     : isScreen && !draft.quote.trim()
       ? 'A line needs the words themselves'
@@ -571,7 +588,19 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
     // carries character/timestamp, an annotation chapter/location. Everything
     // else — quote, note, colour, tags — is shared (the server models this with
     // the quoteReq embedded struct). The server auto-fills actor from the cast.
-    const r = isScreen
+    const r = standalone
+      ? await json('POST', '/quotes', {
+          quote: draft.quote.trim(),
+          note: draft.note.trim(),
+          speaker: draft.speaker.trim(),
+          occasion: draft.occasion.trim(),
+          occasion_date: draft.occasionDate.trim(),
+          place: draft.place.trim(),
+          medium: draft.medium.trim(),
+          color: draft.color,
+          tags,
+        })
+      : isScreen
       ? await json('POST', '/dialogues', {
           movie_id: t.id,
           quote: draft.quote.trim(),
@@ -596,7 +625,7 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
         })
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
-    toast(isScreen ? 'dialogue captured' : 'annotation captured')
+    toast(standalone ? 'quote captured' : isScreen ? 'dialogue captured' : 'annotation captured')
     onCaptured?.()
   }
 
@@ -611,24 +640,44 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
 
   return (
     <div className="flex flex-col gap-3.5">
-      <label className="tp-field">
-        <MonoLabel>Book · Film · Show</MonoLabel>
-        <WorkPicker
-          works={works}
-          value={draft.target}
-          onChange={(w) => {
-            set({ target: w })
-            // Picking a work supersedes a half-typed inline create — clearing
-            // it here keeps the stale form from resurfacing on "change".
-            if (w) setCreating(null)
-          }}
-          onCreate={(title) => {
-            setErr('')
-            setCreating({ title })
-          }}
-        />
-      </label>
-      {creating && !draft.target && (
+      <div className="tp-field">
+        <div className="flex items-center justify-between gap-2">
+          <MonoLabel>{standalone ? 'From somewhere else' : 'Book · Film · Show'}</MonoLabel>
+          <button
+            type="button"
+            className={filterChipClass(standalone)}
+            aria-pressed={standalone}
+            onClick={() => {
+              // Switching modes drops the other mode's answer rather than
+              // keeping it hidden: a target still set behind a standalone save
+              // is a quote filed against a book you thought you had cleared.
+              setStandalone(!standalone)
+              setCreating(null)
+              setErr('')
+              if (!standalone) set({ target: null })
+            }}
+          >
+            no book or film
+          </button>
+        </div>
+        {!standalone && (
+          <WorkPicker
+            works={works}
+            value={draft.target}
+            onChange={(w) => {
+              set({ target: w })
+              // Picking a work supersedes a half-typed inline create — clearing
+              // it here keeps the stale form from resurfacing on "change".
+              if (w) setCreating(null)
+            }}
+            onCreate={(title) => {
+              setErr('')
+              setCreating({ title })
+            }}
+          />
+        )}
+      </div>
+      {creating && !draft.target && !standalone && (
         <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
           <div className="flex items-center justify-between gap-2">
             <MonoLabel>Add a new book, film or show</MonoLabel>
@@ -661,7 +710,32 @@ export function CaptureQuote({ initialTarget = null, onCaptured, onWorkCreated, 
           onChange={(e) => set({ note: e.target.value })}
         />
       </label>
-      {isScreen ? (
+      {standalone ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="tp-field">
+              <MonoLabel>Speaker</MonoLabel>
+              <input className="tp-input" placeholder="who said it" value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
+            </label>
+            <label className="tp-field">
+              <MonoLabel>Occasion</MonoLabel>
+              <input className="tp-input" placeholder="a speech, a letter…" value={draft.occasion} onChange={(e) => set({ occasion: e.target.value })} />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* A year on its own is a complete answer here. */}
+            <PartialDateField label="When" value={draft.occasionDate} onChange={(v) => set({ occasionDate: v })} />
+            <label className="tp-field">
+              <MonoLabel>Place</MonoLabel>
+              <input className="tp-input" placeholder="where" value={draft.place} onChange={(e) => set({ place: e.target.value })} />
+            </label>
+          </div>
+          <label className="tp-field">
+            <MonoLabel>Medium</MonoLabel>
+            <input className="tp-input" placeholder="radio, speech, letter…" value={draft.medium} onChange={(e) => set({ medium: e.target.value })} />
+          </label>
+        </>
+      ) : isScreen ? (
         <>
         <div className="grid grid-cols-2 gap-3">
           <label className="tp-field">
@@ -753,7 +827,8 @@ export default function AddSurface({
   onReviewImport,
   onStaged,
 }) {
-  const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' ? 'quote' : 'add')
+  // 'standalone' is a capture too — it opens the same tab, in its own mode.
+  const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' || s === 'standalone' ? 'quote' : 'add')
   const [tab, setTab] = useState(tabFor(initialSection))
   // The capture form's Save, lifted here so it can live in the title bar beside
   // Close (§ icons-in-title-bars). {canSave, busy, save} — null while the active
@@ -823,6 +898,7 @@ export default function AddSurface({
       {tab === 'quote' && (
         <CaptureQuote
           initialTarget={initialTarget}
+          initialStandalone={initialSection === 'standalone'}
           onCaptured={onCaptured}
           onWorkCreated={onWorkCreated}
           onSaveState={setSaveState}
