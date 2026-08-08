@@ -854,31 +854,24 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               </button>
             ),
           )}
-          {/* One account row. User management was a second one until 1.4.1 —
-              it is a section of Profile now, so the drawer stops offering a
-              choice between a screen and part of that screen. */}
-          <div className="drawer-divider" aria-hidden="true" />
-          <button
-            type="button"
-            className="drawer-item"
-            onClick={() => { onAccount(); onClose() }}
-          >
-            <TabIcon name="profile" />
-            Profile
-            <span className="drawer-badge">{user.is_admin ? 'account · users' : 'account'}</span>
-          </button>
         </div>
+        {/* The footer chip IS the way to Profile, exactly as in both top bars —
+            the same AccountChip component, so the tooltip, the label and the
+            one-tap behaviour cannot drift from the bar's.
+
+            It was a decorative aria-hidden span with a "Profile" row further up
+            the drawer, while the comment beside it already claimed profile lived
+            behind the avatar. That was true of the bar and false here, so the
+            phone had two account entries and the one that looked like the
+            account was the one that did nothing. */}
         <div className="drawer-footer">
-          <span className="user-chip" aria-hidden="true">
-            <UserAvatar user={user} />
-          </span>
+          <AccountChip user={user} onOpen={() => { onAccount(); onClose() }} />
           <div className="min-w-0 flex-1">
             <p style={{ fontSize: 13.5, fontWeight: 600 }}>{user.username}</p>
             <p className="mono-label" style={{ fontSize: 9 }}>
               {user.is_admin ? 'admin · self-hosted' : 'self-hosted'}
             </p>
           </div>
-          {/* Profile / photo / password live behind the avatar chip now. */}
           <button type="button" className="tp-link" onClick={logout}>
             log out
           </button>
