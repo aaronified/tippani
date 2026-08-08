@@ -3,7 +3,7 @@
 <p align="center"><em>ṭippaṇī · टिप्पणी · টিপ্পনী — a marginal annotation</em></p>
 
 <p align="center">
-  A self-hosted, multi-user home for your <strong>book highlights</strong> and <strong>movie dialogues</strong> —<br>
+  A self-hosted, multi-user home for your <strong>book highlights</strong>, <strong>movie dialogues</strong> and <strong>quotes from anywhere else</strong> —<br>
   paste or bulk-import quotes, tag · colour · favourite · rate them, auto-fetch covers &amp; metadata,<br>
   search everything instantly, and export it all back out as Obsidian-friendly Markdown.
 </p>
@@ -84,7 +84,7 @@ of that are spelled out in [`AI.md`](AI.md).
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
 - 🧠 **Daily Quiz & Practice** — spaced repetition grounded in the memory research, over your
-  **books *and* films/shows** alike. Every highlight carries a **memory half-life** and resurfaces
+  **books, films/shows *and* standalone quotes** alike. Every highlight carries a **memory half-life** and resurfaces
   along the **Ebbinghaus forgetting curve**: recall probability decays as $p = 2^{-t/h}$ — where $t$
   is the days since you last saw it and $h$ is its half-life — so a card comes due right as you're
   about to forget it. Each card is a **multiple-choice** question in one of two directions — *which
@@ -111,6 +111,15 @@ of that are spelled out in [`AI.md`](AI.md).
   point back at their source. **A show's lines also carry the episode** — a timestamp is the whole
   answer for a film and no answer at all for a series — so they read as *S2E6* and sort through the
   run rather than by the clock alone. Season 0 is a real season, so your specials keep their place.
+- 💬 **Quotes from anywhere else** — a line from a speech, a letter, an interview, a song, a
+  proverb, something a friend said. The third kind of quote, and the first with no work behind it:
+  instead of a chapter and a page it carries the **occasion** — who said it, on what occasion, when,
+  where, and through what medium. The occasion is also the locator, and unlike a page number it
+  **tells two quotes apart**: the same words said on two occasions are two quotes, not one. A quote
+  with no attribution at all is perfectly fine to keep and simply stays out of the review deck —
+  there is nothing to recall but the words already in front of you. Same colours, tags, favourite,
+  stickers, sharing and export as the other two, and the **speaker** takes a portrait and a bio like
+  any author or actor.
 - 🔖 **Shelves — what you're reading, what you gave up on, what you've never opened.** Every work
   carries a **status** — *reading* / *watching* · *paused* · *abandoned* · *completed* — drawn as a
   Radarr-style **colour bar under the cover** (the artwork itself stays unobscured): blue in flight
@@ -134,7 +143,8 @@ of that are spelled out in [`AI.md`](AI.md).
   serves desktop and phone; nothing to install.
 - 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
   pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
-- 📥 **Bulk import** — Markdown (Tippani frontmatter **and** Readest exports, auto-detected), Kindle
+- 📥 **Bulk import** — Markdown (Tippani frontmatter for all three kinds **and** Readest exports,
+  auto-detected), Kindle
   **Bookcision** JSON, saved **Hardcover** and **Goodreads** pages, your **Kindle notebook**
   (read.amazon.com), the Kindle device's own **`My Clippings.txt`** (every book in one file —
   *experimental*: Amazon never documented that format and localises it, so a device in another
@@ -151,16 +161,18 @@ of that are spelled out in [`AI.md`](AI.md).
   and *reset* restores every row's as-imported value. Then approve, discard, or leave it for later.
   Staged quotes are invisible to search and to the review deck until approved.
 - 📤 **Export** — any book or movie to Obsidian-friendly Markdown, a filtered set as one multi-item
-  file, or the whole library as a zip. Book exports round-trip cleanly back through the importer —
-  re-importing and approving one is a no-op, not a pile of duplicates.
-- 💬 **Share a quote** — one click on any highlight or dialogue opens a share sheet that formats it
+  file, your standalone quotes as their own file, or the whole library as a zip. Exports round-trip
+  cleanly back through the importer — re-importing and approving one is a no-op, not a pile of
+  duplicates. A quotes file groups by the occasion the way a book export groups by chapter, and the
+  unattributed ones come first.
+- 📨 **Share a quote** — one click on any highlight, dialogue or standalone quote opens a share sheet that formats it
   for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit** — or renders it
   as a **shareable image** in your current paper/film skin, generated locally. Choose which fields to
   include, tweak the text, and copy or download it — with a live preview.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, directors, genres,
   **series**, quotes, notes, tags, and dialogue (find a line by its text, its character, or its
   actor). Results come back **sectioned by what matched** — books · movies · authors · directors ·
-  actors · annotations · dialogues · notes · tags · genres — plus a **decade** query ("1990s") and
+  actors · speakers · annotations · dialogues · quotes · notes · tags · genres — plus a **decade** query ("1990s") and
   a **date-added** query ("2026-07-14", where the Stats calendar dots link). View as tiles, a
   list, or sortable tables; **group by** the same axes as the Library; **open any quote in place**
   to share/edit/delete; **select results** for a bulk tag or field edit — and your last search is

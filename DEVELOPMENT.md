@@ -101,16 +101,34 @@ The last three matter for forks — see [Forking it as your own](#forking-it-as-
 ## Tests
 
 ```bash
-go test ./...               # everything
+go test ./...               # everything, Go side
 go test -race ./...         # what CI runs; needs a C toolchain
 go test ./internal/store/ -run TestConcurrent -count=5    # one thing, repeatedly
 go vet ./...
+
+cd web/frontend && npm test  # the frontend suite (Vitest)
 ```
 
-367 test functions across 70 files. They run against **real HTTP handlers and a real
-SQLite database** — there are no mocks, and a test that needs one is usually a design
-smell. `-count=5` is worth reaching for on anything concurrent; a race that shows up one
-run in four is still a race.
+Over 500 Go test functions across 87 files. They run against **real HTTP handlers and a
+real SQLite database** — there are no mocks, and a test that needs one is usually a
+design smell. `-count=5` is worth reaching for on anything concurrent; a race that shows
+up one run in four is still a race.
+
+The frontend suite arrived in 1.5.0 and runs on **Vitest**, in two projects: a `node`
+one for pure logic (no jsdom, near-zero cost) and a `jsdom` one for anything that
+renders. `TZ` is pinned to UTC, because five places call `toLocaleDateString` and would
+otherwise snapshot differently on CI. Its dependencies are **devDependencies only** —
+the three runtime npm packages are a claim AI.md makes and it has to stay true.
+
+Two things about it are worth knowing before you add to it. The `node` setup file shims
+`window.matchMedia` because `theme.js` calls it at MODULE scope and throws on import;
+the `jsdom` one additionally stubs `ResizeObserver`, `getBoundingClientRect` (jsdom
+returns all zeros, so Masonry packs everything into column 0 and Tooltip never opens —
+silently wrong, which is worse than a crash), `URL.createObjectURL` and `Image` (whose
+`onload` never fires, so `loadFaceImages` hangs forever). And **a passing new test is
+not evidence yet**: several written for this suite were found to assert nothing when the
+code was deliberately broken under them. Break your fix on purpose and watch the test go
+red before you trust it.
 
 CI runs the suite under `-race`. That needs `CGO_ENABLED=1` and a C compiler, which the
 rest of the build deliberately does without (`CGO_ENABLED=0`, pure-Go SQLite) — so on a
@@ -124,9 +142,14 @@ in the repo — the concurrent-write `500` had a written-up cause and a written-
 both were wrong. What settled it was making the test fail on purpose and reading the
 error code.
 
-CI runs `go vet`, `go test`, a smoke test that boots the server and health-checks it, the
-frontend build, and a check that the roadmap's generated regions still match their data
-files.
+CI runs `go vet`, `go test` under `-race`, `npm test`, a smoke test that boots the server
+and health-checks it, the frontend build, and a check that the roadmap's generated
+regions still match their data files.
+
+It also runs `git diff --exit-code -- web/dist` after building the frontend. `web/dist`
+is a committed build artifact embedded with `go:embed`, and before 1.5.0 nothing checked
+that the committed copy matched the source — so a forgotten `make frontend` meant the
+binary kept serving the old UI with nothing to say so.
 
 ## Database changes
 

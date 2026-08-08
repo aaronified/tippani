@@ -131,20 +131,30 @@ What that honestly does not cover:
 - **Confident documentation is not verified documentation.** Where this file
   makes a claim, it was checked against the tree; treat prose elsewhere in the
   repo as a strong hint and the code as the truth.
-- **The one thing here with no test at all is the demo.** `web/frontend/src/demo/
-  install.js` is a fetch shim that answers the API with dummy data so the Pages
-  demo can run with no server, and nothing checks it against the handlers it is
-  imitating. In 1.4.1 its backup response was found returning `created_at` where
-  the server returns `created` — so the demo's Settings screen had been rendering
-  "Invalid Date" for as long as that card existed. Nobody's data is at risk from a
-  shim, which is exactly why it drifts: a fake that is close but not identical
-  fails in the one place no test looks.
-- **The frontend has no test runner, so anything it parses is parsed on trust.**
-  1.4.2 found the sharpest example: `web/frontend/src/secret.js` reads the backup
-  archive's binary header in the browser, by fixed byte offsets into a format
-  defined in Go. Nothing checked the two agreed. `scripts/archive-header-check.mjs`
-  now does, in CI — and it earned itself immediately by failing on the first run,
-  for a bug I had written into the parser minutes earlier: the read window covered
+- **The demo was the one thing here with no test at all, and now has one.**
+  `web/frontend/src/demo/install.js` is a fetch shim that answers the API with
+  dummy data so the Pages demo can run with no server, and nothing checked it
+  against the handlers it is imitating. In 1.4.1 its backup response was found
+  returning `created_at` where the server returns `created` — so the demo's
+  Settings screen had been rendering "Invalid Date" for as long as that card
+  existed. Nobody's data is at risk from a shim, which is exactly why it drifts:
+  a fake that is close but not identical fails in the one place no test looks.
+  1.5.0 exported its `route` function and started asserting shapes, which caught
+  two of the same class before they shipped. The cover is partial — it asserts
+  the answers the newest screen reads, not every route — so the drift risk is
+  reduced rather than closed.
+- **The frontend had no test runner, so anything it parsed was parsed on trust.**
+  1.5.0 added one (Vitest, dev-only — the three runtime packages below are
+  unchanged) and moved the two bespoke check scripts into it. What it covers is
+  the pure logic: routing, credit splitting, recall status, grouping, the share
+  formats, the quote-card wrap engine, the partial-date rules, the demo shapes.
+  Rendering is still largely unchecked, so this list has shrunk rather than
+  emptied. What prompted it was this, from 1.4.2: `web/frontend/src/secret.js`
+  reads the backup archive's binary header in the browser, by fixed byte offsets
+  into a format defined in Go. Nothing checked the two agreed. A check script
+  did, in CI — it is a Vitest case since 1.5.0 — and it earned itself
+  immediately by failing on the first run, for a bug I had written into the
+  parser minutes earlier: the read window covered
   a maximal account name but stopped a few bytes short of the field after it, so
   an archive's recoverability read as absent for exactly the accounts with long
   names. That is the shape of every bug in this class. It does not throw, it does
