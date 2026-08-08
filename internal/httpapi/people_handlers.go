@@ -11,15 +11,21 @@ import (
 	"tippani/internal/olog"
 )
 
-// people: per-name metadata (bio/photo/links) for the authors and actors
-// referenced as free text on books/dialogues (migration 0012). Keyed by
-// (user_id, kind, name); matched to a book/film by exact name. No link tables —
-// this is pure enrichment layered over the existing strings.
+// people: per-name metadata (bio/photo/links) for the people referenced as free
+// text across the library — books.author, dialogues.actor, movies.director
+// (migration 0012). Keyed by (user_id, NAME) since 0027, with the roles a
+// person plays held in person_kinds beside the row rather than folded into its
+// key. Matched to a work by exact name; no link tables — this is pure
+// enrichment layered over the existing strings.
 
 type personRow struct {
-	ID        int64  `json:"id"`
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
+	ID int64 `json:"id"`
+	// Kind echoes the role that was ASKED for, not one stored on the row — since
+	// 0027 a person has a set of them. Kinds carries the whole set, so a chip can
+	// read "author · speaker" rather than appearing twice on one page.
+	Kind  string   `json:"kind"`
+	Kinds []string `json:"kinds,omitempty"`
+	Name  string   `json:"name"`
 	Bio       string `json:"bio"`
 	ImagePath string `json:"image_path"`
 	Born      string `json:"born"`
@@ -29,12 +35,99 @@ type personRow struct {
 	SourceID  string `json:"source_id"`
 }
 
-const personCols = `id, kind, name, bio, image_path, born, died, links, source, source_id`
+// personCols is p.-prefixed because every read joins person_kinds now — see
+// personKindJoin. `kind` is NOT among them: it left the row in 0027.
+const personCols = `p.id, p.name, p.bio, p.image_path, p.born, p.died, p.links, p.source, p.source_id`
 
 func scanPerson(sc interface{ Scan(...any) error }) (personRow, error) {
 	var p personRow
-	err := sc.Scan(&p.ID, &p.Kind, &p.Name, &p.Bio, &p.ImagePath, &p.Born, &p.Died, &p.Links, &p.Source, &p.SourceID)
+	err := sc.Scan(&p.ID, &p.Name, &p.Bio, &p.ImagePath, &p.Born, &p.Died, &p.Links, &p.Source, &p.SourceID)
 	return p, err
+}
+
+// ---- roles (0027) ---------------------------------------------------------
+//
+// Until 0027 a role was part of a person's identity: the row was keyed
+// (user_id, kind, name), so one human who both writes and acts was two rows
+// with two bios and two portraits, and enriching one left the other blank. Now
+// the row IS the person and the roles are a set beside it.
+//
+// Two consequences run through everything below. A read FILTERS BY A JOIN
+// rather than by a column. And a write has to file the role separately, which
+// is two statements where there was one — so they live in helpers rather than
+// being spelled out at each of the three call sites that upsert a person
+// (here, portrait_handlers, reverify_handlers), because three hand-written
+// copies of a two-statement write is how one of them ends up doing only the
+// first half.
+
+// personKindJoin scopes a people query to one role. Its `?` binds AFTER the
+// user id at every call site, so the argument order reads (uid, kind).
+const personKindJoin = ` JOIN person_kinds pk ON pk.person_id = p.id AND pk.kind = ?`
+
+// recordPersonKind files an existing person under a role. Idempotent: the
+// primary key makes a repeat a no-op, so callers never have to check first.
+func (s *Server) recordPersonKind(personID int64, kind string) error {
+	_, err := s.Store.DB.Exec(
+		`INSERT OR IGNORE INTO person_kinds (person_id, kind) VALUES (?, ?)`, personID, kind)
+	return err
+}
+
+// personIDByName resolves a person row for this account. Returns 0 when there
+// is none, which callers read as "the upsert inserted nothing to file a role
+// against" — an impossible state that is still worth not crashing on.
+func (s *Server) personIDByName(uid int64, name string) (int64, error) {
+	var id int64
+	err := s.Store.DB.QueryRow(
+		`SELECT id FROM people WHERE user_id = ? AND name = ?`, uid, name).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return id, err
+}
+
+// personKindsTx is personKindsOf inside a caller's transaction. The rename holds
+// one, and reading roles on a SECOND connection while it holds the write lock is
+// the self-deadlock this four-connection pool makes survivable rather than
+// impossible — so the read goes through the transaction that is already open.
+func personKindsTx(tx *sql.Tx, personID int64) []string {
+	rows, err := tx.Query(`SELECT kind FROM person_kinds WHERE person_id = ? ORDER BY kind`, personID)
+	if err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] roles select (tx) failed: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] role row scan (tx) failed: %v", err)
+			continue
+		}
+		out = append(out, k)
+	}
+	return out
+}
+
+// personKindsOf lists every role a person plays, so the client can say "author
+// · speaker" on one chip instead of showing the same face twice.
+func (s *Server) personKindsOf(personID int64) []string {
+	rows, err := s.Store.DB.Query(
+		`SELECT kind FROM person_kinds WHERE person_id = ? ORDER BY kind`, personID)
+	if err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] roles select failed: %v", err)
+		return nil
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] role row scan failed: %v", err)
+			continue
+		}
+		out = append(out, k)
+	}
+	return out
 }
 
 func validPersonKind(k string) bool { return k == "author" || k == "actor" || k == "director" }
@@ -128,11 +221,17 @@ func personCreditSQL(kind string) (scan, update string, ok bool) {
 	return "", "", false
 }
 
-// gcOrphanPeople deletes saved person rows (of one kind) whose name is no
-// longer referenced by any of the user's books (authors) or dialogues
-// (actors) — e.g. after a book's author is renamed, the old author's metadata
-// would otherwise linger in the DB and clutter the Metadata console. Called
-// from the write paths that can change a reference (never from a read).
+// gcOrphanPeople un-files a role from saved people whose name is no longer
+// referenced by the library — e.g. after a book's author is renamed, the old
+// author's metadata would otherwise linger and clutter the Metadata console.
+// Called from the write paths that can change a reference (never from a read).
+//
+// SINCE 0027 THIS UN-FILES A ROLE RATHER THAN DELETING A PERSON, and only
+// deletes the row once no role is left. That is not a refinement, it is the
+// difference between right and wrong under the new schema: a person who is both
+// an author and a speaker is ONE row, so deleting them because their last book
+// went would take a portrait and a bio that the speaker side is still using.
+//
 // Multi-author aware: the keep-set holds every verbatim credit AND its split
 // components under BOTH the user's current separator config and the default
 // one — splitting only ever adds names, and the superset means flipping the
@@ -178,17 +277,17 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 	rows.Close()
 
 	prows, err := s.Store.DB.Query(
-		`SELECT id, name, image_path FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
+		`SELECT p.id, p.name FROM people p`+personKindJoin+`
+		 WHERE p.user_id = ?`, kind, uid)
 	if err != nil {
 		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC saved select failed: %v", err)
 		return
 	}
 	var ids []any
-	var images []string
 	for prows.Next() {
 		var id int64
-		var name, img string
-		if err := prows.Scan(&id, &name, &img); err != nil {
+		var name string
+		if err := prows.Scan(&id, &name); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC saved row scan failed: %v", err)
 			continue
 		}
@@ -196,9 +295,6 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 			continue
 		}
 		ids = append(ids, id)
-		if img != "" {
-			images = append(images, img)
-		}
 	}
 	if err := prows.Err(); err != nil {
 		olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC saved row iteration failed: %v", err)
@@ -207,8 +303,41 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 	if len(ids) == 0 {
 		return
 	}
+	placeholders := `(?` + strings.Repeat(",?", len(ids)-1) + `)`
+
+	// Drop the role first. Everything after this is about the rows that role was
+	// the last reason to keep.
 	if _, err := s.Store.DB.Exec(
-		`DELETE FROM people WHERE id IN (?`+strings.Repeat(",?", len(ids)-1)+`)`, ids...); err != nil {
+		`DELETE FROM person_kinds WHERE kind = ? AND person_id IN `+placeholders,
+		append([]any{kind}, ids...)...); err != nil {
+		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC role delete failed: %v", err)
+		return
+	}
+
+	// Portraits are read BEFORE the delete and unlinked after, and only for rows
+	// that really went — a person still playing another role keeps their file.
+	var images []string
+	irows, err := s.Store.DB.Query(
+		`SELECT image_path FROM people WHERE id IN `+placeholders+`
+		 AND image_path <> ''
+		 AND NOT EXISTS (SELECT 1 FROM person_kinds pk WHERE pk.person_id = people.id)`, ids...)
+	if err != nil {
+		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC portrait select failed: %v", err)
+		return
+	}
+	for irows.Next() {
+		var img string
+		if err := irows.Scan(&img); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] orphan GC portrait row scan failed: %v", err)
+			continue
+		}
+		images = append(images, img)
+	}
+	irows.Close()
+
+	if _, err := s.Store.DB.Exec(
+		`DELETE FROM people WHERE id IN `+placeholders+`
+		 AND NOT EXISTS (SELECT 1 FROM person_kinds pk WHERE pk.person_id = people.id)`, ids...); err != nil {
 		olog.Errorf(olog.CodePeopleOrphanGC, "[people] orphan GC delete failed: %v", err)
 		return
 	}
@@ -230,7 +359,8 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[people] handlePeople uid=%d kind=%s name=%q", uid, kind, r.URL.Query().Get("name"))
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
 		p, err := scanPerson(s.Store.DB.QueryRow(
-			`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? AND name = ?`, uid, kind, name))
+			`SELECT `+personCols+` FROM people p`+personKindJoin+`
+			 WHERE p.user_id = ? AND p.name = ?`, kind, uid, name))
 		if errors.Is(err, sql.ErrNoRows) {
 			// Not saved yet: a shell so the UI can offer fetch / manual entry.
 			writeJSON(w, http.StatusOK, map[string]any{"exists": false, "kind": kind, "name": name})
@@ -240,11 +370,13 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "load person", err)
 			return
 		}
+		p.Kind, p.Kinds = kind, s.personKindsOf(p.ID)
 		writeJSON(w, http.StatusOK, map[string]any{"exists": true, "person": p})
 		return
 	}
 	rows, err := s.Store.DB.Query(
-		`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? ORDER BY name`, uid, kind)
+		`SELECT `+personCols+` FROM people p`+personKindJoin+`
+		 WHERE p.user_id = ? ORDER BY p.name`, kind, uid)
 	if err != nil {
 		internalError(w, r, "list people", err)
 		return
@@ -257,6 +389,7 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 			olog.Warnf(olog.CodePeopleRowScan, "[people] people list row scan failed: %v", err)
 			continue
 		}
+		p.Kind = kind
 		people = append(people, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -299,8 +432,8 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	// The current image, so a replace/clear can GC the old file after commit.
 	var oldImage string
 	_ = s.Store.DB.QueryRow(
-		`SELECT image_path FROM people WHERE user_id = ? AND kind = ? AND name = ?`,
-		uid, req.Kind, req.Name).Scan(&oldImage)
+		`SELECT image_path FROM people WHERE user_id = ? AND name = ?`,
+		uid, req.Name).Scan(&oldImage)
 
 	newImage := oldImage
 	if req.ClearImage {
@@ -318,12 +451,12 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, kind, name, bio, image_path, born, died, links, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, kind, name) DO UPDATE SET
+		INSERT INTO people (user_id, name, bio, image_path, born, died, links, source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, name) DO UPDATE SET
 			bio = excluded.bio, image_path = excluded.image_path, born = excluded.born,
 			died = excluded.died, links = excluded.links, source = excluded.source, source_id = excluded.source_id`,
-		uid, req.Kind, req.Name, strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
+		uid, req.Name, strings.TrimSpace(req.Bio), newImage, strings.TrimSpace(req.Born),
 		strings.TrimSpace(req.Died), strings.TrimSpace(req.Links), strings.TrimSpace(req.Source), strings.TrimSpace(req.SourceID)); err != nil {
 		s.removeCoverFile(newImage) // roll back a just-fetched file on write failure
 		internalError(w, r, "upsert person", err)
@@ -332,12 +465,26 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	if oldImage != "" && oldImage != newImage {
 		s.removeCoverFile(oldImage) // best-effort; new row is committed
 	}
-	p, err := scanPerson(s.Store.DB.QueryRow(
-		`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? AND name = ?`, uid, req.Kind, req.Name))
+	// File the role. Saving someone as a speaker who is already an author adds a
+	// role to the person you have; it does not make a second one.
+	id, err := s.personIDByName(uid, req.Name)
 	if err != nil {
 		internalError(w, r, "reload person", err)
 		return
 	}
+	if id != 0 {
+		if err := s.recordPersonKind(id, req.Kind); err != nil {
+			internalError(w, r, "record person role", err)
+			return
+		}
+	}
+	p, err := scanPerson(s.Store.DB.QueryRow(
+		`SELECT `+personCols+` FROM people p WHERE p.user_id = ? AND p.name = ?`, uid, req.Name))
+	if err != nil {
+		internalError(w, r, "reload person", err)
+		return
+	}
+	p.Kind, p.Kinds = req.Kind, s.personKindsOf(p.ID)
 	writeJSON(w, http.StatusOK, p)
 }
 
@@ -426,7 +573,8 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	// Saved rows fold in (and appear even when no longer referenced, so stale
 	// metadata stays visible and deletable from the console).
 	prows, err := s.Store.DB.Query(
-		`SELECT id, name, links, image_path FROM people WHERE user_id = ? AND kind = ?`, uid, kind)
+		`SELECT p.id, p.name, p.links, p.image_path FROM people p`+personKindJoin+`
+		 WHERE p.user_id = ?`, kind, uid)
 	if err != nil {
 		internalError(w, r, "list saved people", err)
 		return
@@ -569,58 +717,18 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 		id     int64
 		credit string
 	}
-	var rewrites []rewrite
-	scanQ, updateQ, ok := personCreditSQL(req.Kind)
-	if !ok {
-		// validPersonKind accepted this kind but no credit column is mapped for
-		// it. Refusing beats guessing: a rename that picks the wrong table
-		// rewrites credits across the library with no undo.
-		writeErr(w, http.StatusBadRequest, "that kind cannot be renamed")
-		return
-	}
-	crows, err := tx.Query(scanQ, uid)
-	if err != nil {
-		internalError(w, r, "rename scan", err)
-		return
-	}
-	for crows.Next() {
-		var id int64
-		var credit string
-		if err := crows.Scan(&id, &credit); err != nil {
-			olog.Warnf(olog.CodePeopleRowScan, "[people] rename credit row scan failed: %v", err)
-			continue
-		}
-		if next, ok := metadata.ReplaceCredit(credit, req.From, req.To, seps); ok {
-			rewrites = append(rewrites, rewrite{id, next})
-		}
-	}
-	if err := crows.Err(); err != nil {
-		olog.Warnf(olog.CodePeopleRowScan, "[people] rename credit row iteration failed: %v", err)
-	}
-	crows.Close()
 
-	// updateQ came from personCreditSQL alongside scanQ, so it cannot target a
-	// different table than the one just scanned.
-	for _, rw := range rewrites {
-		if _, e := tx.Exec(updateQ, rw.credit, rw.id); e != nil {
-			internalError(w, r, "rename rewrite", e)
-			return
-		}
-	}
-	updated := int64(len(rewrites))
-
-	// Fold the saved metadata onto `to`. `from` rows (case-insensitive, excluding
-	// an exact `to`) either get renamed to `to` (when `to` has no row yet) or
-	// deleted — their photo files cleaned after commit.
-	var toExists bool
-	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM people WHERE user_id = ? AND kind = ? AND name = ?)`,
-		uid, req.Kind, req.To).Scan(&toExists); err != nil {
-		internalError(w, r, "rename to-check", err)
-		return
-	}
+	// THE ROWS BEING RENAMED ARE FOUND FIRST, because since 0027 they decide
+	// which credit columns get rewritten. A person is one row playing a set of
+	// roles, so renaming Bose from the Authors console has to rewrite their
+	// SPEAKER credits too — otherwise the row says one name, the library says
+	// another, and the next orphan sweep un-files the role left behind.
+	//
+	// The lookup is by name alone. `kind` on this request now says only which
+	// console the caller came from.
 	rows, err := tx.Query(`SELECT id, image_path FROM people
-	                       WHERE user_id = ? AND kind = ? AND LOWER(name) = LOWER(?) AND name <> ?`,
-		uid, req.Kind, req.From, req.To)
+	                       WHERE user_id = ? AND LOWER(name) = LOWER(?) AND name <> ?`,
+		uid, req.From, req.To)
 	if err != nil {
 		internalError(w, r, "rename from-rows", err)
 		return
@@ -643,16 +751,99 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close()
 
-	if !toExists && len(froms) > 0 {
-		// Rename the first from-row to `to` — keeps its bio/photo/links/id.
+	// Which credit columns to rewrite. An UNSAVED name has no roles to read, and
+	// the console lists referenced names whether or not they carry metadata — so
+	// fall back to the role the caller came from rather than rewriting nothing.
+	roles := map[string]bool{}
+	for _, p := range froms {
+		for _, k := range personKindsTx(tx, p.id) {
+			roles[k] = true
+		}
+	}
+	if len(roles) == 0 {
+		roles[req.Kind] = true
+	}
+	ordered := make([]string, 0, len(roles))
+	for k := range roles {
+		ordered = append(ordered, k)
+	}
+	sort.Strings(ordered) // deterministic, so a failure reproduces
+
+	var rewrites []rewrite
+	for _, role := range ordered {
+		scanQ, updateQ, ok := personCreditSQL(role)
+		if !ok {
+			// A role with no credit column — a value the API would not write
+			// today. Skipping beats guessing: a rename that picks the wrong table
+			// rewrites credits across the library with no undo.
+			olog.Warnf(olog.CodePeopleOrphanGC, "[people] rename: no credit column for role %q; skipping", role)
+			continue
+		}
+		crows, qerr := tx.Query(scanQ, uid)
+		if qerr != nil {
+			internalError(w, r, "rename scan", qerr)
+			return
+		}
+		var found []rewrite
+		for crows.Next() {
+			var id int64
+			var credit string
+			if err := crows.Scan(&id, &credit); err != nil {
+				olog.Warnf(olog.CodePeopleRowScan, "[people] rename credit row scan failed: %v", err)
+				continue
+			}
+			if next, ok := metadata.ReplaceCredit(credit, req.From, req.To, seps); ok {
+				found = append(found, rewrite{id, next})
+			}
+		}
+		if err := crows.Err(); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] rename credit row iteration failed: %v", err)
+		}
+		crows.Close()
+
+		// updateQ came from personCreditSQL alongside scanQ, so it cannot target a
+		// different table than the one just scanned.
+		for _, rw := range found {
+			if _, e := tx.Exec(updateQ, rw.credit, rw.id); e != nil {
+				internalError(w, r, "rename rewrite", e)
+				return
+			}
+		}
+		rewrites = append(rewrites, found...)
+	}
+	updated := int64(len(rewrites))
+
+	// Fold the saved metadata onto `to`: the `from` rows either get renamed
+	// (when `to` has no row yet) or are merged into it and deleted.
+	var toID int64
+	if err := tx.QueryRow(`SELECT COALESCE((SELECT id FROM people WHERE user_id = ? AND name = ?), 0)`,
+		uid, req.To).Scan(&toID); err != nil {
+		internalError(w, r, "rename to-check", err)
+		return
+	}
+	if toID == 0 && len(froms) > 0 {
+		// Rename the first from-row to `to` — keeps its bio/photo/links/id, and
+		// its roles travel with the row.
 		if _, e := tx.Exec(`UPDATE people SET name = ? WHERE id = ?`, req.To, froms[0].id); e != nil {
 			internalError(w, r, "rename people", e)
 			return
 		}
+		toID = froms[0].id
 		froms = froms[1:] // the rest are now redundant duplicates
 	}
 	var freed []string
 	for _, p := range froms {
+		// THE ROLES MOVE BEFORE THE ROW GOES. Deleting the row cascades its
+		// person_kinds away, so a speaker folded into an existing author row would
+		// otherwise quietly stop being a speaker.
+		if toID != 0 {
+			if _, e := tx.Exec(
+				`INSERT OR IGNORE INTO person_kinds (person_id, kind)
+				 SELECT ?, kind FROM person_kinds WHERE person_id = ?`, toID, p.id); e != nil {
+				internalError(w, r, "rename role merge", e)
+				return
+			}
+		}
 		if _, e := tx.Exec(`DELETE FROM people WHERE id = ?`, p.id); e != nil {
 			internalError(w, r, "rename dedupe", e)
 			return

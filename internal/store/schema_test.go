@@ -591,6 +591,54 @@ func wantShapes() []tableShape {
 			},
 		},
 		{
+			// Rebuilt by 0027, which is the other reason this file exists: that
+			// migration MERGES rows, so it is the one migration in the repo whose
+			// mistakes delete data rather than failing. What came out is keyed on
+			// the person, not on the person-and-role.
+			Name: "people",
+			Columns: []columnShape{
+				{Name: "id", Type: "INTEGER", PK: 1},
+				{Name: "user_id", Type: "INTEGER", NotNull: true},
+				{Name: "name", Type: "TEXT", NotNull: true},
+				// Every enrichment field defaults to empty rather than NULL, so a
+				// hand-made row and a fetched one read the same to the scanner.
+				{Name: "bio", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "image_path", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "born", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "died", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "links", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "source", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "source_id", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "created_at", Type: "TEXT", NotNull: true, Default: "datetime('now')", HasDflt: true},
+			},
+			Indexes: []indexShape{
+				// (user_id, name), NOT (user_id, kind, name): the role stopped being
+				// part of identity in 0027.
+				{Name: autoIndexName, Unique: true, Origin: "u", Columns: []string{"user_id", "name"}},
+			},
+			FKs: []fkShape{
+				{From: "user_id", Table: "users", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
+			},
+		},
+		{
+			// The set a person's roles live in since 0027. Deliberately CHECK-free:
+			// a CHECK is evaluated against existing data, so one unexpected value in
+			// one database would turn the migration into a startup failure.
+			Name: "person_kinds",
+			Columns: []columnShape{
+				{Name: "person_id", Type: "INTEGER", NotNull: true, PK: 1},
+				{Name: "kind", Type: "TEXT", NotNull: true, PK: 2},
+			},
+			Indexes: []indexShape{
+				{Name: autoIndexName, Unique: true, Origin: "pk", Columns: []string{"person_id", "kind"}},
+				// "everyone of kind X" is what the People console asks on every load.
+				{Name: "idx_person_kinds_kind", Origin: "c", Columns: []string{"kind"}},
+			},
+			FKs: []fkShape{
+				{From: "person_id", Table: "people", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
+			},
+		},
+		{
 			// The join 0018 warned about. Two-column primary key, no surrogate id:
 			// a quote either carries a tag or it does not.
 			Name: "annotation_tags",

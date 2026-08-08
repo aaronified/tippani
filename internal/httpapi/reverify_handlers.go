@@ -405,8 +405,8 @@ func (s *Server) getPersonFold(uid int64, kind, name string) (personRow, bool) {
 		return p, true
 	}
 	p, err := scanPerson(s.Store.DB.QueryRow(
-		`SELECT `+personCols+` FROM people
-		 WHERE user_id = ? AND kind = ? AND LOWER(name) = LOWER(?) LIMIT 1`, uid, kind, name))
+		`SELECT `+personCols+` FROM people p`+personKindJoin+`
+		 WHERE p.user_id = ? AND LOWER(p.name) = LOWER(?) LIMIT 1`, kind, uid, name))
 	if err != nil {
 		return personRow{}, false
 	}
@@ -1025,16 +1025,21 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	// Full upsert. bio/born/died now flow through too (only diffed when the stored
 	// field was empty, so a user's own text still can't be overwritten here).
 	if _, xerr := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, kind, name, bio, image_path, born, died, links, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, kind, name) DO UPDATE SET
+		INSERT INTO people (user_id, name, bio, image_path, born, died, links, source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, name) DO UPDATE SET
 			image_path = excluded.image_path, links = excluded.links,
 			bio = excluded.bio, born = excluded.born, died = excluded.died,
 			source = excluded.source, source_id = excluded.source_id`,
-		uid, kind, name, newBio, image, newBorn, newDied, newLinks, source, sourceID); xerr != nil {
+		uid, name, newBio, image, newBorn, newDied, newLinks, source, sourceID); xerr != nil {
 		s.removeCoverFile(newImage)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, xerr)
 		return "", errors.New("write failed")
+	}
+	if id, ierr := s.personIDByName(uid, name); ierr == nil && id != 0 {
+		if rerr := s.recordPersonKind(id, kind); rerr != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[meta] re-verify person role record failed: %v", rerr)
+		}
 	}
 	if newImage != "" && p.ImagePath != "" && p.ImagePath != newImage {
 		s.removeCoverFile(p.ImagePath)

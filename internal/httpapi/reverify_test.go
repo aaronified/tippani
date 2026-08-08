@@ -362,9 +362,15 @@ func TestReverifyApplyPerson(t *testing.T) {
 		t.Fatalf("person apply: %+v", res)
 	}
 	var bio, born, links, source, sourceID, image string
-	srv.Store.DB.QueryRow(`SELECT bio, born, links, source, source_id, image_path
-	                       FROM people WHERE user_id = 1 AND kind = 'author' AND name = 'Frank Herbert'`).
-		Scan(&bio, &born, &links, &source, &sourceID, &image)
+	// The error is checked. It used to be dropped, so when 0027 removed the
+	// `kind` column this read failed and the test reported "bio/born clobbered"
+	// — a real-looking data-loss failure caused by the query, not the code.
+	if err := srv.Store.DB.QueryRow(`SELECT p.bio, p.born, p.links, p.source, p.source_id, p.image_path
+	                       FROM people p JOIN person_kinds pk ON pk.person_id = p.id AND pk.kind = 'author'
+	                       WHERE p.user_id = 1 AND p.name = 'Frank Herbert'`).
+		Scan(&bio, &born, &links, &source, &sourceID, &image); err != nil {
+		t.Fatal(err)
+	}
 	if bio != "keep me" || born != "1920" {
 		t.Fatalf("bio/born clobbered: %q %q", bio, born)
 	}

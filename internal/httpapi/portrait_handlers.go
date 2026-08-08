@@ -95,28 +95,35 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 
 	var oldImage string
 	_ = s.Store.DB.QueryRow(
-		`SELECT image_path FROM people WHERE user_id = ? AND kind = ? AND name = ?`,
-		uid, req.Kind, req.Name).Scan(&oldImage)
+		`SELECT image_path FROM people WHERE user_id = ? AND name = ?`,
+		uid, req.Name).Scan(&oldImage)
 
 	// Upsert identity + image + bio/born/died. A blank newImage keeps any existing
 	// photo (identity still refreshed) so re-running never wipes a good portrait;
 	// bio/born/died fill only when empty, so a user's manual edits are never clobbered.
 	if _, err := s.Store.DB.Exec(`
-		INSERT INTO people (user_id, kind, name, image_path, bio, born, died, source, source_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(user_id, kind, name) DO UPDATE SET
+		INSERT INTO people (user_id, name, image_path, bio, born, died, source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, name) DO UPDATE SET
 			image_path = CASE WHEN excluded.image_path <> '' THEN excluded.image_path ELSE people.image_path END,
 			bio = CASE WHEN people.bio = '' AND excluded.bio <> '' THEN excluded.bio ELSE people.bio END,
 			born = CASE WHEN people.born = '' AND excluded.born <> '' THEN excluded.born ELSE people.born END,
 			died = CASE WHEN people.died = '' AND excluded.died <> '' THEN excluded.died ELSE people.died END,
 			source = excluded.source, source_id = excluded.source_id`,
-		uid, req.Kind, req.Name, newImage, bio, born, died, source, sourceID); err != nil {
+		uid, req.Name, newImage, bio, born, died, source, sourceID); err != nil {
 		s.removeCoverFile(newImage) // roll back the just-fetched file on write failure
 		internalError(w, r, "portrait upsert", err)
 		return
 	}
 	if newImage != "" && oldImage != "" && oldImage != newImage {
 		s.removeCoverFile(oldImage) // best-effort; the new row is committed
+	}
+	// Fetching an actor's portrait for someone already saved as an author adds
+	// the actor role to that person rather than making a second row.
+	if id, err := s.personIDByName(uid, req.Name); err == nil && id != 0 {
+		if err := s.recordPersonKind(id, req.Kind); err != nil {
+			olog.Warnf(olog.CodePeopleRowScan, "[people] portrait role record failed: %v", err)
+		}
 	}
 
 	p, _ := s.getPerson(uid, req.Kind, req.Name)
@@ -380,12 +387,15 @@ func (s *Server) authorBookTitles(uid int64, name string) ([]string, error) {
 	return out, rows.Err()
 }
 
-// getPerson reads one saved person row; ok=false when there is none.
+// getPerson reads one saved person row IN A ROLE; ok=false when there is none,
+// which since 0027 also covers "saved, but not under this role".
 func (s *Server) getPerson(uid int64, kind, name string) (personRow, bool) {
 	p, err := scanPerson(s.Store.DB.QueryRow(
-		`SELECT `+personCols+` FROM people WHERE user_id = ? AND kind = ? AND name = ?`, uid, kind, name))
+		`SELECT `+personCols+` FROM people p`+personKindJoin+`
+		 WHERE p.user_id = ? AND p.name = ?`, kind, uid, name))
 	if err != nil {
 		return personRow{}, false
 	}
+	p.Kind, p.Kinds = kind, s.personKindsOf(p.ID)
 	return p, true
 }

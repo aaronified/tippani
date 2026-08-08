@@ -119,24 +119,115 @@ func TestOrphanGCIgnoresAnUnknownKind(t *testing.T) {
 	// A person of some kind the sweep does not know about, whose name is
 	// deliberately NOT any book's author — the population an inherited
 	// books.author reference query would classify as orphaned.
-	if _, err := srv.Store.DB.Exec(
-		`INSERT INTO people (user_id, kind, name, bio) VALUES (?, 'speaker', 'Subhas Chandra Bose', 'a bio worth keeping')`,
-		uid); err != nil {
-		t.Fatal(err)
-	}
+	seedPerson(t, srv, uid, "speaker", "Subhas Chandra Bose")
 	// A book by someone else, so the keep-set is non-empty and the sweep has
 	// something to compare against rather than bailing early on no rows.
 	c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated)
 
 	srv.gcOrphanPeople(uid, "speaker")
 
-	var n int
-	if err := srv.Store.DB.QueryRow(
-		`SELECT count(*) FROM people WHERE user_id = ? AND kind = 'speaker'`, uid).Scan(&n); err != nil {
+	if n := countPeopleOfKind(t, srv, uid, "speaker"); n != 1 {
+		t.Fatalf("orphan GC swept a kind it has no reference query for: %d speakers left, want 1", n)
+	}
+}
+
+// seedPerson saves a person under one role. Since 0027 that is two rows, not
+// one — which is exactly why it lives in a helper: a test that wrote only the
+// people row would be testing a person the console cannot see.
+func seedPerson(t *testing.T, srv *Server, uid int64, kind, name string) int64 {
+	t.Helper()
+	res, err := srv.Store.DB.Exec(
+		`INSERT INTO people (user_id, name) VALUES (?, ?)
+		 ON CONFLICT(user_id, name) DO UPDATE SET name = excluded.name`, uid, name)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 {
-		t.Fatalf("orphan GC swept a kind it has no reference query for: %d speakers left, want 1", n)
+	id, _ := res.LastInsertId()
+	if id == 0 {
+		if err := srv.Store.DB.QueryRow(
+			`SELECT id FROM people WHERE user_id = ? AND name = ?`, uid, name).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := srv.Store.DB.Exec(
+		`INSERT OR IGNORE INTO person_kinds (person_id, kind) VALUES (?, ?)`, id, kind); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func countPeopleOfKind(t *testing.T, srv *Server, uid int64, kind string) int {
+	t.Helper()
+	var n int
+	if err := srv.Store.DB.QueryRow(
+		`SELECT count(*) FROM people p JOIN person_kinds pk ON pk.person_id = p.id
+		 WHERE p.user_id = ? AND pk.kind = ?`, uid, kind).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// THE POINT OF 0027, as a sweep case. A person who is both an author and a
+// speaker is ONE row, so losing their last book must un-file the author role
+// and leave the row — bio, portrait and speaker role intact. Before 0027 these
+// were two rows and deleting one was harmless; now it would take the other's
+// metadata with it.
+func TestOrphanGCUnfilesARoleWithoutLosingThePerson(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	uid := userIDOf(t, srv, "alice")
+
+	id := seedPerson(t, srv, uid, "author", "Subhas Chandra Bose")
+	if _, err := srv.Store.DB.Exec(
+		`INSERT OR IGNORE INTO person_kinds (person_id, kind) VALUES (?, 'speaker')`, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE people SET bio = 'a bio worth keeping', image_path = 'bose.jpg' WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	// Someone else's book, so the keep-set is non-empty and Bose is not in it.
+	c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated)
+
+	srv.gcOrphanPeople(uid, "author")
+
+	var bio, image string
+	if err := srv.Store.DB.QueryRow(
+		`SELECT bio, image_path FROM people WHERE id = ?`, id).Scan(&bio, &image); err != nil {
+		t.Fatalf("the person was deleted along with their author role: %v", err)
+	}
+	if bio != "a bio worth keeping" || image != "bose.jpg" {
+		t.Fatalf("the surviving row lost its metadata: %q %q", bio, image)
+	}
+	if n := countPeopleOfKind(t, srv, uid, "author"); n != 0 {
+		t.Fatalf("the author role should have been un-filed, %d left", n)
+	}
+	if n := countPeopleOfKind(t, srv, uid, "speaker"); n != 1 {
+		t.Fatalf("the speaker role was collateral damage: %d left", n)
+	}
+}
+
+// ...and a person whose LAST role goes still goes with it, or the sweep would
+// only ever accumulate rows.
+func TestOrphanGCStillDeletesAPersonWithNoRolesLeft(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	uid := userIDOf(t, srv, "alice")
+
+	seedPerson(t, srv, uid, "author", "Nobody At All")
+	c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated)
+
+	srv.gcOrphanPeople(uid, "author")
+
+	var n int
+	if err := srv.Store.DB.QueryRow(
+		`SELECT count(*) FROM people WHERE user_id = ? AND name = 'Nobody At All'`, uid).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatal("a person with no roles left survived the sweep")
 	}
 }
 
@@ -149,22 +240,8 @@ func TestOrphanGCStillSweepsTheKindsItKnows(t *testing.T) {
 	c := signupAdmin(t, h)
 	uid := userIDOf(t, srv, "alice")
 
-	seed := func(kind, name string) {
-		t.Helper()
-		if _, err := srv.Store.DB.Exec(
-			`INSERT INTO people (user_id, kind, name) VALUES (?, ?, ?)`, uid, kind, name); err != nil {
-			t.Fatal(err)
-		}
-	}
-	count := func(kind string) int {
-		t.Helper()
-		var n int
-		if err := srv.Store.DB.QueryRow(
-			`SELECT count(*) FROM people WHERE user_id = ? AND kind = ?`, uid, kind).Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
+	seed := func(kind, name string) { seedPerson(t, srv, uid, kind, name) }
+	count := func(kind string) int { return countPeopleOfKind(t, srv, uid, kind) }
 
 	// One referenced and one unreferenced person per kind.
 	c.mustDo("POST", "/books", map[string]any{"title": "Emma", "author": "Jane Austen"}, http.StatusCreated)
@@ -189,7 +266,8 @@ func TestOrphanGCStillSweepsTheKindsItKnows(t *testing.T) {
 	// The referenced one is the survivor, not just "one of them".
 	var name string
 	if err := srv.Store.DB.QueryRow(
-		`SELECT name FROM people WHERE user_id = ? AND kind = 'author'`, uid).Scan(&name); err != nil {
+		`SELECT p.name FROM people p JOIN person_kinds pk ON pk.person_id = p.id
+		 WHERE p.user_id = ? AND pk.kind = 'author'`, uid).Scan(&name); err != nil {
 		t.Fatal(err)
 	}
 	if name != "Jane Austen" {
