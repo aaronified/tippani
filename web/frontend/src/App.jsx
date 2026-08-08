@@ -562,7 +562,14 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
   }
   return (
     <div className="account-scrim" onMouseDown={onClose}>
-      <div className="account-modal" role="dialog" aria-label="Profile" onMouseDown={(e) => e.stopPropagation()}>
+      {/* hand-card as well as account-modal: this was the ONE dialog in the app
+          that was not a card — a flat --card fill with a 14px radius and a plain
+          line border, while every other window in the app is a hand-card with a
+          material and an aesthetic. It sits directly under the avatar chip, so
+          it is also the dialog most likely to be opened by accident and noticed.
+          .account-modal keeps only what is genuinely its own: the width cap and
+          the overflow clip. */}
+      <div className="hand-card account-modal" role="dialog" aria-label="Profile" onMouseDown={(e) => e.stopPropagation()}>
         <div className="account-modal-bar">
           <h2 className="account-modal-title">Profile</h2>
           <PageHelp screen="profile" />

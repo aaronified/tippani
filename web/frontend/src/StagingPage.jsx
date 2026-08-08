@@ -3,6 +3,7 @@ import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { episodeLabel } from './Movies.jsx'
 import {
+  ANNOTATION_HEX,
   BulkBar,
   ColorSwatches,
   ConfirmDialog,
@@ -452,7 +453,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         background: selected ? 'color-mix(in srgb, var(--accent) 7%, var(--raised))' : 'var(--raised)',
         border: `1px solid ${selected ? 'color-mix(in srgb, var(--accent) 35%, var(--line))' : 'var(--line)'}`,
         borderRadius: 8,
-        borderLeft: `4px solid ${COLOR_HEX[quote.color] || 'var(--line)'}`,
+        borderLeft: `4px solid ${ANNOTATION_HEX[quote.color] || 'var(--line)'}`,
       }}
     >
       <Tooltip label="Select this quote">
@@ -494,7 +495,6 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
   )
 }
 
-const COLOR_HEX = { yellow: '#E5C355', blue: '#7FA6C9', pink: '#D98CA6', orange: '#DF9A5B' }
 
 // FieldsPanel — the opt-in-checkbox bulk editor, following the Metadata console:
 // a blank box is ambiguous between "leave it" and "clear it", so the tick is what

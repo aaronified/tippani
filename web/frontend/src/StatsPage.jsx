@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { Card, MonoLabel, PageHeader, STATUS_META, Toggle, Tooltip, fmtHalfLife, toast, useIsMobileScreen } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -15,14 +15,9 @@ import { Card, MonoLabel, PageHeader, STATUS_META, Toggle, Tooltip, fmtHalfLife,
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-// The four fixed annotation highlight colours (index.css .dot-*), reused here so
-// the breakdown reads as the same palette the quotes themselves wear.
-const HL = [
-  ['yellow', 'Yellow', '#E5C355'],
-  ['blue', 'Blue', '#7FA6C9'],
-  ['pink', 'Pink', '#D98CA6'],
-  ['orange', 'Orange', '#DF9A5B'],
-]
+// The four fixed annotation highlight colours, derived from the one map rather
+// than restated, so the breakdown cannot drift from the quotes it counts.
+const HL = ANNOTATION_COLORS.map((c) => [c, c[0].toUpperCase() + c.slice(1), ANNOTATION_HEX[c]])
 
 // formatMonth turns "YYYY-MM" into "Month YYYY".
 function formatMonth(ym) {

@@ -359,8 +359,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
   }
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)' }}
+      className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
       aria-label="Re-verify metadata"

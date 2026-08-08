@@ -817,8 +817,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   }
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)' }}
+      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
       aria-label="Restore"
@@ -915,8 +914,7 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
   }
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)' }}
+      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
       aria-label="Back up"

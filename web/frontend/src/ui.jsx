@@ -59,6 +59,18 @@ export class ErrorBoundary extends Component {
 }
 
 // The four fixed annotation colours (§4, Kindle default yellow).
+//
+// The tokens are immutable storage and export keys; ANNOTATION_HEX is what they
+// LOOK like, and it is the ONE map. There were three — this, StagingPage's
+// COLOR_HEX and StatsPage's HL — each restating the same four hexes, which is
+// three places to edit when the colours become user-driven and three chances to
+// edit two of them.
+//
+// It stays in JS as well as in index.css (--hl-1..4) because two consumers
+// genuinely cannot read a custom property: quoteImage.js draws the share card on
+// a canvas, and ctx.fillStyle cannot parse color-mix() or a var(); and an inline
+// borderLeft needs a real value. The CSS tokens and this map must therefore
+// agree, which is asserted rather than hoped for — see test/dom/palette.test.jsx.
 export const ANNOTATION_COLORS = ["yellow", "blue", "pink", "orange"];
 export const ANNOTATION_HEX = {
   yellow: "#E5C355",
@@ -2093,8 +2105,7 @@ export function ConfirmDialog({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
-      style={{ background: "rgba(21,16,12,.55)" }}
+      className="tp-scrim fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && onCancel) onCancel();
       }}
@@ -2155,8 +2166,7 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
   // later tiles paint over it).
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      style={{ background: "rgba(21,16,12,.55)" }}
+      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && onClose) onClose();
       }}
@@ -2577,8 +2587,7 @@ export function HelpSheet({ open, title = "Help", onClose, children }) {
   }
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      style={{ background: "rgba(21,16,12,.55)" }}
+      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && onClose) onClose();
       }}

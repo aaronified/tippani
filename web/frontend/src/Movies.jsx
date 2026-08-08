@@ -1532,6 +1532,23 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 
 // Frame — one dialogue as a film frame: Newsreader quote, amber mono credit
 // line, tag chips, ♥ (immediate PUT patches), note, edit/delete.
+//
+// WHY A DIALOGUE IS SOMETIMES THIS AND SOMETIMES A HAND-CARD, written down
+// because the difference has read as drift for three releases. The frame is a
+// property of the STRIP, not of the dialogue: on a film's own page the lines are
+// laid out as a strip with sprockets and edge codes, and a frame is what sits in
+// a strip. In a mixed list — Home's favourites, which interleaves book
+// highlights and film lines in one column — there is no strip, and a dialogue is
+// a quote like any other, so it wears the same card its neighbours do. The
+// search modal shows a single line in isolation and mimics the strip, which is
+// why it uses this.
+//
+// What made that look like a bug rather than a choice is that until 1.6.0
+// .film-frame had no material at all — no texture tile, no dither, no answer to
+// the aesthetic toggle — so the difference between a dialogue on Home and the
+// same dialogue on its film's page was "a textured card" versus "an untextured
+// rectangle". It is now "a torn-edged card" versus "a square lit panel", which
+// is a difference you can mean.
 export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it

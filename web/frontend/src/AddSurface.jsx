@@ -319,8 +319,8 @@ function ManualPopup({ kind, onClose, onAdded }) {
   const heading = kind === 'book' ? 'Add a book manually' : kind === 'show' ? 'Add a show manually' : 'Add a film manually'
   return createPortal(
     <div
-      className="fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)', zIndex: 60 }}
+      className="tp-scrim fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10"
+      style={{ zIndex: 60 }}
       role="dialog"
       aria-modal="true"
       aria-label={heading}
@@ -947,8 +947,7 @@ export default function AddSurface({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)' }}
+      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
       role="dialog"
       aria-modal="true"
       aria-label="Add to your library"

@@ -653,8 +653,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto px-4 py-10"
-      style={{ background: 'rgba(21,16,12,.55)' }}
+      className="tp-scrim fixed inset-0 z-50 overflow-y-auto px-4 py-10"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

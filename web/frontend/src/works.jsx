@@ -630,48 +630,38 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
   ) : (
     <Placeholder kind={isBook ? 'COVER' : 'POSTER'} className={isBook ? 'w-full rounded-none border-0' : 'w-full'} />
   )
-  // A film's poster and its status bar are one clipped unit: the frame owns the
-  // border and the 8px radius, so the bar sits flush under the artwork instead of
-  // reading as a loose stripe below a separately-rounded image. (A book's cover
-  // needs none of this — HandCard already clips both to its hand-drawn shape.)
-  const framed = isBook ? (
-    image
-  ) : (
-    <span style={{ display: 'block', border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
-      {image}
-      {state && <StatusBar state={state} progress={item.progress} />}
-    </span>
-  )
+  // ONE TILE FOR BOTH, and it is a HandCard.
+  //
+  // A book cover has always sat in a hand-card; a film poster sat in a bare
+  // <span> with a 1px line and an 8px radius. So the Library's board wore the
+  // app's material — the tile, the dither, the aesthetic toggle — and the
+  // Catalogue's wore a rectangle, on two screens built from the same component
+  // and reachable from each other in one tap. A film is not a lesser kind of
+  // work and its board should not look like a different app's.
+  //
+  // The status bar rides INSIDE the card, directly under the artwork: the card
+  // clips it to its own shape, so it reads as part of the card rather than a
+  // stripe floating below it — and the artwork stays completely unobscured,
+  // which is the whole point of a bar over a badge. That was already the book
+  // branch's reasoning; it was never poster-specific.
   return (
     <button type="button" onClick={() => onOpen(item.id)} className="cover-tile block w-full text-left" title={item.title}>
-      {isBook ? (
-        // The status bar rides INSIDE the hand-card, directly under the cover:
-        // the card clips it to its own hand-drawn shape, so it reads as part of
-        // the card rather than a stripe floating below it — and the artwork stays
-        // completely unobscured, which is the whole point of a bar over a badge.
-        <HandCard variant={index % 4} className="relative overflow-hidden cover-lift">
-          {image}
-          {state && <StatusBar state={state} progress={item.progress} />}
-          {isActive(kind, item) && <ReadingBadge kind={kind} />}
-          {item.favorite && <FavBadge />}
-        </HandCard>
-      ) : (
-        <div className="relative cover-lift">
-          {framed}
-          {isShow && (
-            <span
-              className="tp-chip absolute left-1.5 top-1.5"
-              style={{ fontSize: 9.5, background: 'rgba(21,16,12,.72)', color: '#fff', borderColor: 'transparent' }}
-            >
-              SHOW
-            </span>
-          )}
-          {/* A show's poster already spends its top-left on the SHOW chip, so the
-              reading mark stacks under it rather than overprinting. */}
-          {isActive(kind, item) && <ReadingBadge kind={kind} stacked={isShow} />}
-          {item.favorite && <FavBadge />}
-        </div>
-      )}
+      <HandCard variant={index % 4} className="relative overflow-hidden cover-lift">
+        {image}
+        {state && <StatusBar state={state} progress={item.progress} />}
+        {isShow && (
+          <span
+            className="tp-chip tp-scrim-deep absolute left-1.5 top-1.5"
+            style={{ fontSize: 9.5, color: 'var(--on-scrim)', borderColor: 'transparent' }}
+          >
+            SHOW
+          </span>
+        )}
+        {/* A show's poster already spends its top-left on the SHOW chip, so the
+            reading mark stacks under it rather than overprinting. */}
+        {isActive(kind, item) && <ReadingBadge kind={kind} stacked={isShow} />}
+        {item.favorite && <FavBadge />}
+      </HandCard>
       <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>
         {item.title}
       </p>
