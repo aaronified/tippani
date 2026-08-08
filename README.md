@@ -146,7 +146,20 @@ of that are spelled out in [`AI.md`](AI.md).
   in every top bar and the drawer, sticky page bars, full-screen filter sheets with a
   Reset · count · Done footer, 44 px touch targets, and no horizontal scroll. The same binary
   serves desktop and phone; nothing to install.
-- 🎨 **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
+- 🎨 **Two skins, and they are made of something.** Paper is a note lifted off a desk — torn-edged
+  cards on paper fibre, leather buttons that tilt half a degree, a wooden shell. Film is a frame on a
+  light table — square corners, an amber hairline, brushed metal, rubber keys. Every card, button,
+  thumb, bar and backdrop carries a real grayscale texture tile blended into it, so the toggle
+  changes what the app is *made of* rather than its corner radius. **Light, dark, or whatever your
+  system says**, four accents, your own cover sizes, and — since 1.6.0 — whether a button that has a
+  glyph also shows its words.
+  <br><br>
+  **And a way out of all of it.** If your system asks for more contrast or less transparency, every
+  texture drops to zero: the page grain, the backdrop, the card and shell tiles, the dither. Borders,
+  colours and layout do not move, so what is left is the same app with the noise taken off. The
+  textures are the whole point of the design and they are not free — the page grain is a fixed layer
+  above *everything*, including every glyph and every input on the screen.
+- 🏷️ **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
   pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
 - 📥 **Bulk import** — Markdown (Tippani frontmatter for all three kinds **and** Readest exports,
   auto-detected), Kindle

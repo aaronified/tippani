@@ -1005,14 +1005,14 @@
       <div class="g-item">
         <div class="g-demo center"><div class="hand-card" style="width:150px;height:64px"></div></div>
         <div class="g-name">card grain — paper / metal</div>
-        <div class="g-src">.hand-card::before — paper.webp (paper) · metal.webp (film)</div>
-        <div class="g-desc">Every card carries paper fibre (paper) or brushed metal (film).</div>
+        <div class="g-src">.hand-card::before, .film-frame::before — paper.webp (paper) · metal.webp (film) · <code>--grain-card</code></div>
+        <div class="g-desc">Every card carries paper fibre (paper) or brushed metal (film), plus a fine <code>::after</code> dither that breaks up 8-bit banding in the low-contrast gradient.<br><br><b>.film-frame joined in 1.6.0</b>, and the absence was conspicuous: it was the only card primitive in the app with no tile, no dither and no answer to the aesthetic toggle, which is why the Catalogue was the one board whose cards wore nothing. Its own CSS comment had promised the material for three releases. Film posters were not cards at all — a bare bordered span with the card's shadow bolted on — and are hand-cards now, like the book covers they sit one tap away from.</div>
       </div>
       <div class="g-item">
         <div class="g-demo center"><button class="tp-btn tp-btn-primary">＋ Add</button></div>
         <div class="g-name">accent grain — leather / rubber</div>
-        <div class="g-src">::before — fabric.webp (paper) · rubber.webp (film)</div>
-        <div class="g-desc">Accent buttons, toggle/select thumbs and active filter chips share this leather (paper) / rubber (film) grain. The nav thumb overrides it with <b>wood</b> / <b>metal</b> to keep the shell distinct.</div>
+        <div class="g-src">::before — fabric.webp (paper) · rubber.webp (film) · <code>--grain-accent</code></div>
+        <div class="g-desc">Accent buttons, toggle/select thumbs and active filter chips share this leather (paper) / rubber (film) grain. The nav thumb overrides it with <b>wood</b> / <b>metal</b> to keep the shell distinct.<br><br><b>One scale, since 1.6.0.</b> The same fabric was tiled at 150px on a primary button, 130px on a toggle thumb and 120px on an active filter chip — three grains of one material on three controls that share a filter row and are meant to read as one family. <code>.btn-sticker</code> also stopped being the one accent control that ignored the aesthetic: it wore leather, an ink border and a −0.5° tilt under BOTH skins, so Settings, Profile, the work-detail pages and the tour showed tilted leather while every other screen showed level rubber — from one component.</div>
       </div>
       <div class="g-item wide">
         <div class="g-name" style="margin-top:0">material tokens</div>
@@ -1021,18 +1021,31 @@
           <code>--sel-scrim</code> — dark scrim over textured accent surfaces (.12 light / .2 dark) so the light active label reads.
           <code>--thumb-ease</code> / <code>--thumb-dur</code> — the slide: firm settle on paper, springy overshoot on film, rigid + quick for the nav.
           <code>--press-a</code> / <code>--press-a-dark</code> / <code>--press-r</code> — the press-bloom on <code>.tactile</code> / <code>.tp-btn</code> (radius + alpha of the depress ring); the nav sets these to 0 for no give.
+          <br><br><b>1.6.0 — tile scales, by role rather than by number.</b>
+          <code>--grain-accent</code> (130px) fabric/rubber on any accent-filled control · <code>--grain-card</code> (300px) paper/metal on a card face · <code>--grain-shell</code> (320px) wood/metal on a shell panel · <code>--grain-shell-sm</code> (185px) the same tile on a bar · <code>--grain-scene</code> (420px) the backdrop. The three shell values stay different on purpose — the tile is a picture of a real surface, so a full-viewport backdrop and a 999px pill want genuinely different scales or the pill shows one blurry plank — but they have names, so the next surface picks a role instead of a number.
+          <br><br><b>And the inks.</b> <code>--on-accent</code> / <code>--on-accent-dark</code> — what rides ON an accent fill; the two hexes were restated verbatim in fifteen rules, fifteen answers to one question that agreed by coincidence. <code>--hl-1..4</code> — the four highlight colours, which existed in <em>four</em> places (this stylesheet, <code>ui.jsx</code>, StagingPage and StatsPage). Two remain and a test asserts they agree: a canvas cannot read a custom property, so the share image needs a real hex, and drift there means the blue you see and the blue you <em>share</em> are different blues. <code>.tp-scrim</code> / <code>--on-scrim</code> — the modal dim, previously written inline at ten call sites across nine files.
         </div>
       </div>
 
       <div class="g-item wide">
         <div class="g-demo">
-          <div class="sheen-card" style="width:110px;height:48px;border:1px solid var(--line);border-radius:9px"></div>
           <div class="sheen-raised" style="width:110px;height:48px;border:1px solid var(--line);border-radius:9px"></div>
-          <div class="sheen-accent" style="width:110px;height:48px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">accent</div>
         </div>
-        <div class="g-name">sheen utilities</div>
-        <div class="g-src">.sheen-card / .sheen-raised / .sheen-accent — index.css</div>
-        <div class="g-desc">The "nothing flat" rule as utilities: every filled surface gets a vertical gradient — card-top→card-bottom, a lightened raised wash, or the accent sheen (light face; flips to a dark face in dark theme).</div>
+        <div class="g-name">sheen <span class="g-tlabel">was three utilities, 1.6.0</span></div>
+        <div class="g-src">.sheen-raised — index.css, shared with .tp-select-panel and .token-menu</div>
+        <div class="g-desc">The "nothing flat" rule: a raised surface gets a vertical gradient rather than a single fill.<br><br>It shipped as three utilities under the heading "every filled surface gets a vertical gradient", of which <b>one had a single call site and two had none at all</b>. A promise with no implementation is worse than no promise — it reads as a rule the next surface should follow, while every raised surface in the app was flat. The one that was used now also dresses the select panel and the token menu, which were flat <code>--raised</code> fills sitting on top of textured cards; the card and accent variants are deleted, because the card face is <code>.hand-card</code>'s own gradient and the accent face is the <code>::before</code> tile over the accent fill, and neither ever wanted a utility class.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-name" style="margin-top:0">shell material <span class="g-tlabel">1.6.0</span></div>
+        <div class="g-src">.topbar / .mobile-topbar / .mobile-sticky-bar / .mobile-sheet-header / .mobile-sheet-footer / .drawer / .mobile-bottom-nav — <code>::before</code>, wood.webp (paper) · metal.webp (film)</div>
+        <div class="g-desc">The shell is a different substance from the things sitting on it — wood under paper, brushed metal under film, the same tile <code>.nav-toggle</code>'s thumb wears.<br><br>This rule used to name two surfaces, and its comment claimed they "were the only bare surfaces left in the app". They were not. The bar the drawer slides out <em>from</em> had nothing, and neither did the phone's top bar, the sticky page bar, or a mobile sheet's header and footer — so on a phone the drawer was wood and the surface it emerged from was plastic. Six surfaces, one substance. The prerequisite is a stacking context, since the tile is a <code>z-index:-1</code> pseudo-element: the two sheet surfaces were the only shell chrome that was <code>position: static</code>, and are relative now.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-name" style="margin-top:0">the escape hatch <span class="g-tlabel">1.6.0</span></div>
+        <div class="g-src">@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) — index.css</div>
+        <div class="g-desc">There was none. Every texture here is a blended overlay, and <code>.grain-overlay</code> is a fixed layer at <code>z-index: 60</code> — <em>above</em> everything, multiplying over every glyph, every quote and every input on the screen. It is 5.5% opacity and it is the whole point of the design; for a reader who has asked their operating system for more contrast it is 5.5% of noise standing between them and the text, and neither of the two ways a person says so was honoured anywhere in the file.<br><br>Both now drop every decorative layer to zero: the page grain, the scenic backdrop, the card tiles, the dither, the shell tiles and the accent grain. Nothing structural moves — borders, lifts, colours and layout are untouched — so what is left is the same app with the noise taken off, not a different one. This is <a href="roadmap.html">§18</a>'s high-contrast item arriving early, and it arrives with this release rather than that one because the alternative was shipping six more textured surfaces with no way to turn any of them off.</div>
       </div>
 
       <div class="g-item">
@@ -1042,7 +1055,7 @@
         </div>
         <div class="g-name">preset-callout</div>
         <div class="g-src">.preset-callout / .tex-paper / .tex-film / .dark-combo — index.css · Settings presets</div>
-        <div class="g-desc">The Settings preset cards preview their combo with <b>real texture grain</b>: paper fibre (<code>tex-paper</code>) or brushed metal (<code>tex-film</code>) tiled behind the callout; <code>dark-combo</code> flips the blend to screen for dark pairings.</div>
+        <div class="g-desc">The Settings preset cards preview their combo with <b>real texture grain</b>: paper fibre (<code>tex-paper</code>) or brushed metal (<code>tex-film</code>) tiled behind the callout; <code>dark-combo</code> flips the blend to screen for dark pairings. Its tile size derives from <code>--grain-card</code> and its dark opacity now matches <code>.hand-card</code>'s — a preview of a card was previewing it at a different grain strength, which is exactly enough to be invisible alone and wrong side by side.</div>
       </div>
 
       <div class="g-item">
@@ -1070,9 +1083,9 @@
           <span style="font-family:var(--font-display),serif;font-weight:600;font-size:15px">Casablanca</span>
           <span style="font-size:12.5px;color:var(--soft)">Michael Curtiz · 1942</span>
         </div>
-        <div class="g-name">poster-card</div>
-        <div class="g-src">PosterCard — Movies.jsx</div>
-        <div class="g-desc">A catalogue grid cell: poster + title + credit + dialogue count.</div>
+        <div class="g-name">WorkCard <span class="g-tlabel">was poster-card</span></div>
+        <div class="g-src">WorkCard — works.jsx · one component for both boards</div>
+        <div class="g-desc">A grid cell on either board: artwork in a <b>hand-card</b>, then title, credit and quote count. The status bar rides <em>inside</em> the card, directly under the artwork, so it reads as part of the card rather than a stripe floating below it — and the artwork stays completely unobscured, which is the whole point of a bar over a badge.<br><br>Until 1.6.0 only a book cover got the card. A film poster sat in a bare bordered span with the card’s shadow bolted on, so the Library’s board wore the app’s material and the Catalogue’s wore a rectangle — on two screens built from this same component and reachable from each other in one tap. This tile was also named <code>poster-card</code> after a class that does not exist anywhere in the source, which is its own small lesson about hand-written documentation.</div>
       </div>
       <div class="g-item">
         <div class="g-demo center">
@@ -1125,7 +1138,7 @@
         </div>
         <div class="g-name">film-frame</div>
         <div class="g-src">.film-frame — index.css · Movies.jsx dialogue cards</div>
-        <div class="g-desc">One dialogue/quote card <em>inside</em> the strip — distinct from the <b>film-strip</b> container above. Sheened and lifted so the strip reads as stacked frames, not flat rectangles; long tokens wrap (<code>overflow-wrap:anywhere</code>) instead of widening the page. Unlike the strip it renders in both aesthetics.</div>
+        <div class="g-desc">One dialogue/quote card <em>inside</em> the strip — distinct from the <b>film-strip</b> container above. Sheened and lifted so the strip reads as stacked frames, not flat rectangles; long tokens wrap (<code>overflow-wrap:anywhere</code>) instead of widening the page. Unlike the strip it renders in both aesthetics — and since 1.6.0 it renders <em>differently</em> in each, with the card material, the dither and an aesthetic of its own: contact-sheet card stock under paper, a lit panel with the amber hairline under film. See <b>card grain</b> above.<br><br><b>Why a dialogue is sometimes this and sometimes a hand-card.</b> The frame belongs to the STRIP, not to the dialogue: on a film’s own page the lines are laid out as a strip with sprockets and edge codes, and a frame is what sits in a strip. In a mixed list — Home’s favourites, which interleaves book highlights and film lines in one column — there is no strip, and a dialogue is a quote like any other, so it wears the card its neighbours wear. That read as drift for three releases for a simple reason: until this one the difference was “a textured card” versus “an untextured rectangle”. It is now “a torn-edged card” versus “a square lit panel”, which is a difference you can mean.</div>
       </div>
     </div>
   </section>

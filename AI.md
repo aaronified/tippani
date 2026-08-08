@@ -143,6 +143,21 @@ What that honestly does not cover:
   two of the same class before they shipped. The cover is partial — it asserts
   the answers the newest screen reads, not every route — so the drift risk is
   reduced rather than closed.
+- **Consistency is not something you can review for.** 1.6.0's whole subject was
+  the app agreeing with itself, and almost nothing in it was found by looking at
+  a screen. Four icons were another icon — Share and Upload were both a tray with
+  an arrow in it a pixel and a half apart, Export and Metadata were the same three
+  strokes at coordinates half a unit apart — and the nav kept its own copy of the
+  set at a different stroke weight, so the Library tab was the identical open book
+  the "currently reading" badge wears. The same action was `delete` on a card and
+  `del` in a table. A window could be dismissed five different ways. Every one of
+  those is invisible in a screenshot of any one screen, because each screen is
+  internally fine. The tests that now hold the line compare every exported glyph
+  with every other one — both exactly and with all coordinates stripped, so a
+  near-miss cannot hide behind a rounding nudge — and read the *source* for
+  control labels rather than the help file, because a doc test that only reads the
+  docs agrees with itself forever. Three of them earned it immediately by failing
+  on the tree as found.
 - **The frontend had no test runner, so anything it parsed was parsed on trust.**
   1.5.0 added one (Vitest, dev-only — the three runtime packages below are
   unchanged) and moved the two bespoke check scripts into it. What it covers is
