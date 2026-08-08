@@ -439,10 +439,11 @@
 <p>For a cheap start, §1 collects the items that are an afternoon each.</p>
 <p>
   The numbers are labels and they move, so read them as grouping rather than as
-  queue position. Two worth pointing at directly: §2 is where this app can be
-  straightforwardly better than anything else in its category, and §24 — recording a
-  quote that belongs to no book and no film — is the biggest idea here that is not yet
-  started.
+  queue position. §24 — recording a quote that belongs to no book and no film — was
+  the biggest idea here that had not been started, and it shipped in 1.5.0; its
+  section is kept below for the reasoning, including the one claim it made that
+  building it disproved. What is left that I would point at directly is §2, where
+  this app can be straightforwardly better than anything else in its category.
 </p>
 
 <h2 id="bugs">Known bugs, not yet fixed</h2>
@@ -1129,18 +1130,36 @@
   <summary><h3><span class="n">§24</span>Quotes without a work — speeches, letters, anything said</h3><a class="sec-issue" data-for="s24" href="https://github.com/aaronified/tippani/issues/38" title="Track s24 on the issue tracker">#38</a></summary>
   <div class="sec-body">
   <p>
-    Every quote in Tippani currently hangs off a book or a film. That covers what I
-    built it for and leaves out a whole category: the line from a speech, a letter, an
-    interview, a song, a proverb, something a friend said. There is nowhere to put
+    <strong>This shipped in 1.5.0.</strong> The section stays because the reasoning
+    below is what the feature was built from — and because one claim in it turned out
+    to be wrong, which is worth leaving visible rather than quietly editing out.
+  </p>
+  <p>
+    Every quote in Tippani used to hang off a book or a film. That covered what I
+    built it for and left out a whole category: the line from a speech, a letter, an
+    interview, a song, a proverb, something a friend said. There was nowhere to put
     <em>"Give me blood, and I will give you freedom"</em> — Subhas Chandra Bose, 1944,
     Burma, most likely over Burma Radio — and it is exactly the kind of line people
     keep.
   </p>
   <p>
     <strong>The same annotation framework, with nothing new to learn.</strong> The four
-    colours, tags, notes, favourite ♥, stickers, the share sheet, Markdown export and
-    the review deck all apply unchanged. A standalone quote is a quote; only what it
-    points <em>at</em> is different.
+    colours, tags, notes, favourite ♥, stickers, the share sheet and Markdown export
+    all applied unchanged. A standalone quote is a quote; only what it points
+    <em>at</em> is different.
+  </p>
+  <p>
+    <strong>The review deck did not apply unchanged, and that was the interesting
+    part.</strong> Every card asks "where is this from?", and for the other two kinds
+    the answer is a title read off a parent row. A standalone quote has no parent, so
+    its source is the <em>occasion</em> — the speech, the broadcast, the letter —
+    falling back to the speaker when the occasion went unrecorded. A quote with
+    neither is a proverb: there is nothing to recall but the words already on the
+    card, so it never enters the deck at all. That makes it the first kind whose
+    reviewable pool is smaller than its table, and five separate queries had to be
+    made to agree on which rows those are — the two deck buckets, the badge count,
+    the status tally and the Stats half-life — where before they had agreed only by
+    being copies of one another.
   </p>
   <p>
     Where a book quote points at a chapter and a page, and a dialogue points at a
@@ -1214,7 +1233,7 @@
       empty, so this is the first thing a new install hits.
     </li>
     <li>
-      <strong>It matters more once §24 lands.</strong> Looking up Subhas Chandra Bose
+      <strong>It matters more now §24 has landed.</strong> Looking up Subhas Chandra Bose
       should query Wikidata and not waste a call on TMDB; looking up an actor should do
       the opposite. Fanning out to everything is both slower and worse, because a
       confident wrong match from the wrong source is harder to spot than no match.
