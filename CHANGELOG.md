@@ -5,6 +5,184 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-08-08
+
+**One vocabulary, and surfaces made of something.** This release is about the
+app agreeing with itself. Almost nothing in it was found by looking at a screen,
+because every screen was internally fine — the problems were all *between*
+screens, which is the one place a person never looks and a test can look every
+time.
+
+### Added
+
+- **Quotes is the same screen as the Library and the Catalogue.** It renders on
+  the shared scaffold now, so it has the same filter row, the same counts, the
+  same empty and no-match states, the same export confirmation and the same
+  full-screen filter sheet on a phone. It was built as a flat list on the
+  reasoning that a standalone quote has no parent, so there is nothing to group
+  by. That was wrong in the same way the review-deck prediction was wrong: what a
+  book gives you is a *title*, and this kind has four things of that sort — who
+  said it, through what medium, where, and when. **Group by** offers all four,
+  and names what is missing in each residual bucket, because a proverb has none
+  of them.
+
+- **The speaker on a quote card is a doorway.** Their portrait sits beside the
+  name and tapping it opens who they were, the way an author does on a book. A
+  line credited to two people shows both faces and two doorways. The share
+  *image* has drawn speaker faces since 1.5.0 — `speaker` became a people kind in
+  that release — so until now a speaker you had enriched showed their portrait in
+  the picture you exported and stayed inert text on the card you exported it
+  from.
+
+- **The person, behind their own words.** A share-image option that bleeds the
+  credited person's photo in from the card's edge and fades it out before the
+  words start. One name enters from the left; two or more, and the first two take
+  a side each with the quote between them, which is the shape a conversation has.
+  It rides the same Author / Actor / Speaker tick as the small portrait discs, so
+  turning the credit off takes the backdrop with it, and the control hides itself
+  when nobody credited has a saved photo. Device-local, beside the skin picker.
+
+- **Button labels, as a setting.** A button that carries a glyph can show its
+  words beside it or drop them for the glyph alone. Auto shows them on a desktop
+  and hides them on a phone, where the row genuinely stops fitting; the override
+  works in both directions. Like the two cover-size sliders it sits beside, it
+  belongs to the screen rather than to the account — how much room a row has is a
+  property of the monitor, not the reader. Hiding the words never hides them from
+  a screen reader: they are clipped, not removed, so an icon-only row still reads
+  as *Share, Edit, Delete*.
+
+- **A way out of the textures.** If your system asks for **more contrast** or
+  **less transparency**, every decorative layer drops to zero — the page grain,
+  the scenic backdrop, the card tiles, the dither, the shell tiles and the accent
+  grain. Borders, colours and layout do not move, so what is left is the same app
+  with the noise taken off. There was no escape hatch at all before this, and
+  `.grain-overlay` is a fixed layer at `z-index: 60`: it multiplies over every
+  glyph, every quote and every input on the screen. The textures are the whole
+  point of the design and they are not free. This is the roadmap's high-contrast
+  item arriving early, because the alternative was shipping six more textured
+  surfaces with no way to turn any of them off.
+
+### Changed
+
+- **One glyph per meaning, at one weight.** Four icons in the set were another
+  icon. `IconShare` and `IconUpload` were both a tray with an arrow in it,
+  differing by about a pixel and a half — and they appear in the same rows, since
+  a quote card offers share and the tag manager offers upload. `IconExport` and
+  `IconMetadata` were the same three strokes at coordinates half a unit apart,
+  sitting two buttons apart on the Metadata console, one pulling data in from the
+  sources and one pushing the library out to a file. Share is the node graph now
+  and Metadata is an arrow landing *inside* a record card, which is what fetching
+  metadata does.
+
+  The nav had its own copy of the set, with its own stroke weight, so the app
+  drew a magnifier, an open book and a tray-download twice each — once at 2.0 and
+  once at 1.85 — and the **Library tab was the identical open book the "currently
+  reading" cover badge wears**, on screens that show both at once. There is one
+  set now, one weight, and Library is spines on a shelf.
+
+- **A repeated action is a glyph; a one-off keeps its words.** An action that
+  appears once per row or once per card is something you learn on the first hover
+  and never read again. An action that appears once on a screen keeps its words,
+  and primary submits and destructive confirms keep them at every width.
+
+  `QuoteActions` drew icons on a phone and the words *share edit delete* on a
+  desktop — the only place in the app where one control named its actions
+  differently depending on the width of the window. The tables drew the same
+  three actions again as *share edit **del***, and `del` is the tell: one action,
+  two names, four files apart, because somebody once needed the column narrower.
+  The Metadata console's rows read *Close · Close · Open* whenever both their
+  panels were open, which names neither thing being closed; they are latched
+  glyphs now, saying it where a toggle should.
+
+- **One way to close a window** — two, precisely, and deliberately. There were
+  five: a literal multiplication sign at font-size 24 in three modals, a
+  hand-rolled cross at a different stroke weight in the lightbox, a *Close* ghost
+  button in four dialog headers, a *Done* ghost button in the share dialog's
+  footer doing the identical job as the *Close* in its own header, and a back
+  arrow in the mobile sheet. Nothing was wrong with any one of them; what was
+  wrong was that dismissing a window meant finding whichever one *this* window
+  used. A window over the screen closes with a ×; a full-screen sheet, which *is*
+  the screen, goes back with an arrow.
+
+- **`Export all` did not export all.** All three list screens post the filtered
+  view, and the confirmation dialog has always said "N in view". The button above
+  it said *Export all* and the help said "the whole library" — the last survivors
+  of the whole-collection export they replaced.
+
+### Fixed
+
+- **The Catalogue's cards were wearing nothing.** `.film-frame` was the only card
+  primitive in the app with no material at all: no texture tile, no dither, and
+  no answer to the aesthetic toggle. Its own CSS comment had promised the
+  material for three releases. Film **posters** were not cards either — a bare
+  bordered span with the card's shadow bolted on, while a book cover sat in a
+  hand-card, on two boards built from the same component and one tap apart.
+
+- **The bar the drawer slides out of.** The shell-texture rule named the drawer
+  and the floating bottom bar and claimed in its comment that they "were the only
+  bare surfaces left in the app". They were not: the top bar, the phone's top
+  bar, the sticky page bar and a mobile sheet's header and footer had nothing. So
+  on a phone the drawer was wood and the surface it emerged from was plastic. Six
+  surfaces, one substance.
+
+- **The sticker button ignored the aesthetic.** It wore leather grain, an ink
+  border, uneven radii and a half-degree tilt under *both* skins, while the
+  primary button it is meant to match has been aesthetic-aware for releases — so
+  under film, Settings, Profile, the work-detail pages and the tour showed tilted
+  leather stickers and every other screen showed level rubber, from one
+  component.
+
+- **One grain, one scale.** The same fabric was tiled at three different sizes on
+  three controls that share a filter row and are meant to read as one family: 150
+  px on a primary button, 130 px on a toggle thumb, 120 px on an active filter
+  chip. Tile scales are named by role now.
+
+- **Colours that were written down fifteen times.** The ink that rides on an
+  accent fill appeared verbatim in fifteen rules — fifteen answers to one
+  question, agreeing by coincidence. The four highlight colours existed in *four*
+  places: the stylesheet, `ui.jsx`, the staging screen and the stats screen. Two
+  remain, because a canvas cannot read a CSS custom property and the share image
+  is drawn on one, and a test asserts they agree — drift there means the blue you
+  see and the blue you *share* are different blues, and the shared one is the
+  artefact that leaves the app. The modal scrim was written inline at ten call
+  sites across nine files.
+
+- **A promise with no implementation.** The stylesheet declared that "every
+  filled surface gets a vertical gradient" and shipped three utilities for it, of
+  which one had a single call site and two had none at all — while every raised
+  surface in the app was flat. The `.account-modal` was the one dialog that was
+  not a card.
+
+- **Smaller texture lies.** The card dither was keyed to *prefers-reduced-motion*
+  — for a layer that does not move. An active tab's radius was overridden later
+  in the same layer and had never once been drawn. The paper primary's tilt was
+  declared twice. The Settings preset previewed a card at a different grain
+  strength than the card. Placeholders and progress bars had no aesthetic
+  variant, making an unfetched cover the only rounded rectangle on a film board.
+  And the scenic-background comment still described the CSS data-URI book-spines
+  that the texture tiles replaced, pointing at a `textures/README` that is not
+  there.
+
+- **The Catalogue never documented its group-by**, which the Library has
+  documented since the control existed.
+
+### Internal
+
+- **Three new invariant tests, and each found something on its first run.**
+  `icons.test.jsx` compares every exported glyph with every other one — both
+  exactly and with all coordinates stripped, so a near-miss cannot hide behind a
+  rounding nudge — and asserts every tab in all four nav lists resolves to a
+  glyph. `help.test.jsx` reads the *source* for control labels rather than the
+  help file, because a doc test that only reads the docs agrees with itself
+  forever. `palette.test.jsx` pins the two surviving copies of the highlight
+  colours together. Plus `button-labels.test.jsx`, which caught a bug while being
+  written: the class that squares a collapsed button to 44 px was set on any
+  button with a glyph rather than on one whose words can disappear, so the first
+  keep-your-words button to carry an icon would have been crushed to icon width
+  with its text still inside. Eleven of them arrived in the same release.
+
+- 651 frontend tests, up from 413.
+
 ## [1.5.2] - 2026-08-08
 
 **Four things that were quietly not working.** None of them threw, none showed
