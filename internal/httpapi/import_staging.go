@@ -534,6 +534,13 @@ type stagedQuoteRow struct {
 	TimestampOrig string   `json:"timestamp_orig"`
 	Season        *int     `json:"season"`  // shows only; null = the file didn't say
 	Episode       *int     `json:"episode"` // (season 0 is a real season — see 0025)
+	// The occasion (§24), the third kind's locator. Empty on every book and
+	// film row, as chapter/character are on this one.
+	Speaker      string `json:"speaker"`
+	Occasion     string `json:"occasion"`
+	OccasionDate string `json:"occasion_date"`
+	Place        string `json:"place"`
+	Medium       string `json:"medium"`
 	Tags          []string `json:"tags"`
 	NotedAt       string   `json:"noted_at"`
 	CreatedAt     string   `json:"created_at"`
@@ -874,6 +881,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 	bookIDs, movieIDs := []int64{}, []int64{}
 	dupes := []dupHint{}
 	var tAdd, tSkip, tEn int
+	var quotesAdded int // standalone quotes have no work to summarise, so they get a running count
 
 	for _, work := range works {
 		// A work with no quotes is not skipped: the pre-1.2.0 importer created the
@@ -882,6 +890,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		// export would lose them all on the way back in.
 		quotes := byWork[work.ID]
 		destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work)
+		_ = destID // unused on the quotes arm, which has no destination work
 		if err != nil {
 			var ce importClientError
 			if errors.As(err, &ce) {
@@ -892,7 +901,20 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if destKind == "book" {
+		if destKind == stagedKindQuotes {
+			added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes))
+			if err != nil {
+				var ce importClientError
+				if errors.As(err, &ce) {
+					writeErr(w, http.StatusBadRequest, ce.msg)
+				} else {
+					codedError(w, r, olog.CodeImportApprove, "approve staged: write quotes", err)
+				}
+				return
+			}
+			quotesAdded += added
+			tAdd, tSkip = tAdd+added, tSkip+len(quotes)-added
+		} else if destKind == "book" {
 			if created {
 				// A brand-new book: flag look-alikes already in the library so
 				// the reply can offer to merge, as the importers always have.
@@ -970,6 +992,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 
 	reply := map[string]any{
 		"approved":            len(picked.QuoteIDs),
+		"quotes_added":        quotesAdded,
 		"added":               tAdd,
 		"skipped":             tSkip,
 		"enriched":            tEn,
@@ -1105,7 +1128,9 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			SELECT q.id, q.staged_work_id, COALESCE(q.quote, ''), COALESCE(q.note, ''), q.color, q.favorite,
 			       COALESCE(q.chapter, ''), COALESCE(q.location, ''), COALESCE(q.character, ''),
 			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode, COALESCE(q.tags, ''),
-			       COALESCE(q.noted_at, '')
+			       COALESCE(q.noted_at, ''),
+			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
+			       COALESCE(q.place, ''), COALESCE(q.medium, '')
 			  FROM staged_quotes q
 			 WHERE q.id IN (`+inClause(len(batch))+`)
 			 ORDER BY q.id`, int64sAsAny(batch)...)
@@ -1118,7 +1143,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var tags string
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
 				&sq.Chapter, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
-				&sq.Season, &sq.Episode, &tags, &sq.NotedAt); err != nil {
+				&sq.Season, &sq.Episode, &tags, &sq.NotedAt,
+				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium); err != nil {
 				return err
 			}
 			sq.Tags = splitStoredList(tags)
@@ -1162,6 +1188,12 @@ func resolveApprovalTarget(tx *sql.Tx, uid int64, work stagedWorkForApproval) (k
 		}
 		// Stale pin: fall through and resolve by parsed identity.
 	}
+	if work.Kind == stagedKindQuotes {
+		// There is nothing to resolve. A standalone quote has no destination work
+		// — the synthetic staged_work exists only so the queue can group, dedupe
+		// and part-approve it like anything else. destID stays 0 and is not read.
+		return stagedKindQuotes, 0, false, importMovieResult{}, nil
+	}
 	if work.Kind == "book" {
 		id, created, err := upsertImportBook(tx, uid, work.book())
 		return "book", id, created, importMovieResult{Anchored: !created}, err
@@ -1177,6 +1209,20 @@ func stagedAsAnnotations(quotes []stagedQuoteRow) []importer.Annotation {
 	for _, q := range quotes {
 		out = append(out, importer.Annotation{
 			Quote: q.Quote, Note: q.Note, Chapter: q.Chapter, Location: q.Location,
+			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
+		})
+	}
+	return out
+}
+
+// stagedAsUtterances turns staged rows back into the parser's own shape, so
+// approval runs the same path a direct import would have.
+func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
+	out := make([]importer.Utterance, 0, len(quotes))
+	for _, q := range quotes {
+		out = append(out, importer.Utterance{
+			Quote: q.Quote, Note: q.Note, Speaker: q.Speaker, Occasion: q.Occasion,
+			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium,
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 		})
 	}

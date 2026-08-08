@@ -32,11 +32,16 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if importer.MarkdownKind(data) == importer.KindQuotes {
-		// Recognised, and refused for now rather than routed. Falling through
-		// would hand a work-less file to the book parser, which would reject it
-		// with "missing title in frontmatter" — a confusing error for a file this
-		// app wrote. Staging for this kind lands next.
-		writeErr(w, http.StatusBadRequest, "importing standalone quotes isn't supported yet")
+		us, err := importer.QuoteMarkdownAll(bytes.NewReader(data))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if len(us) == 0 {
+			writeErr(w, http.StatusBadRequest, "no quotes found in file")
+			return
+		}
+		s.stageQuotesFile(w, r, "md", filename, us)
 		return
 	}
 	if importer.LooksLikeMovieMarkdown(data) {
