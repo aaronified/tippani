@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ANNOTATION_HEX, CloseButton, GhostButton, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { paletteTheme } from "./theme.js";
@@ -511,6 +511,13 @@ function QuoteImagePanel({ share, selected, onShared }) {
   // The image skin is chosen independently of the app theme and persisted per
   // device (an export preference, not an identity one — like the view toggles).
   const [imageTheme, setImageTheme] = usePersistedState("tippani:shareImageTheme", defaultImageTheme());
+  // The portrait backdrop, persisted per device beside the skin — both are
+  // export preferences rather than identity ones. It offers nothing when nobody
+  // credited has a saved photo, so the control is hidden rather than shown
+  // greyed: a toggle that cannot change the picture is a question with one
+  // answer.
+  const [portrait, setPortrait] = usePersistedState("tippani:sharePortrait", false);
+  const canPortrait = (share.faces || []).length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -519,7 +526,7 @@ function QuoteImagePanel({ share, selected, onShared }) {
       if (!canvas || cancelled) return;
       try {
         const colorHex = share.color ? ANNOTATION_HEX[share.color] : null;
-        drawQuoteCard(canvas, buildModel(share, selected, colorHex), drawTheme(imageTheme));
+        drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait }, selected, colorHex), drawTheme(imageTheme));
         setErr("");
       } catch {
         setErr("couldn't render the image on this device");
@@ -538,7 +545,7 @@ function QuoteImagePanel({ share, selected, onShared }) {
       cancelled = true;
       window.removeEventListener("tippani:theme", redraw);
     };
-  }, [share, selected, imageTheme]);
+  }, [share, selected, imageTheme, portrait, canPortrait]);
 
   async function download() {
     const canvas = canvasRef.current;
@@ -638,6 +645,21 @@ function QuoteImagePanel({ share, selected, onShared }) {
           image only — doesn’t change the app
         </span>
       </div>
+      {canPortrait && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <MonoLabel>portrait</MonoLabel>
+          <Toggle
+            ariaLabel="Portrait backdrop"
+            value={portrait ? "on" : "off"}
+            onChange={(v) => setPortrait(v === "on")}
+            options={[["off", "Off"], ["on", "Backdrop"]]}
+          />
+          <InfoDot
+            title="Portrait backdrop"
+            text="Bleeds the credited person's photo in from the card's edge and fades it out before the words start. One name enters from the left; two or more, and the first two take a side each with the quote between them — which is the shape a conversation has. It only offers itself when someone credited has a saved photo, and it rides the same Author / Actor / Speaker tick as the small portrait discs, so turning that credit off takes the backdrop with it."
+          />
+        </div>
+      )}
       <MonoLabel className="mb-1.5 block">preview</MonoLabel>
       <div className="share-image-preview">
         <canvas ref={canvasRef} className="share-image-canvas" aria-label="Quote card image preview" />

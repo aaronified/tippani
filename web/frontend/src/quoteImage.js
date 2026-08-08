@@ -205,6 +205,55 @@ function drawImageCover(ctx, img, dx, dy, dw, dh) {
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh)
 }
 
+// ---- the portrait backdrop --------------------------------------------------
+//
+// The person whose words these are, bled in from the card's edge and faded out
+// before the text starts. One credited name enters from the LEFT; two or more,
+// and the first two take a side each and the words sit between them — which is
+// the shape a conversation has, and the reason the second face goes right rather
+// than beside the first.
+//
+// PORTRAIT_ALPHA is where legibility is decided, so it is a constant with a name
+// rather than a number inside the gradient. At the outer edge the image is at
+// this alpha; by PORTRAIT_FADE of its own width it is gone. The fade is applied
+// as a real alpha mask (destination-out on an offscreen canvas) rather than by
+// painting the card colour over the top — the card's face is a vertical
+// gradient, so a flat overlay would leave a seam exactly where the fade ends,
+// which is the one place a viewer is already looking.
+const PORTRAIT_W = 0.46 // share of the card width one portrait may occupy
+const PORTRAIT_ALPHA = 0.62 // strength at the outer edge
+const PORTRAIT_FADE = 0.86 // fraction of the portrait's width the fade spans
+
+// fadedPortrait renders one image into an offscreen canvas of (w × h), cropped
+// to fill, and erases it towards `dir` ('right' fades out rightwards). Returns
+// null when the image has not loaded — a missing portrait must draw NOTHING
+// rather than a grey block, because the caller redraws when it arrives and a
+// placeholder would flash on every share.
+function fadedPortrait(img, w, h, dir) {
+  if (!img || !w || !h) return null
+  const off = document.createElement('canvas')
+  off.width = Math.ceil(w)
+  off.height = Math.ceil(h)
+  const octx = off.getContext('2d')
+  if (!octx) return null
+  drawImageCover(octx, img, 0, 0, off.width, off.height)
+  // destination-out with a gradient of alphas: an opaque stop erases what is
+  // under it, a transparent one keeps it. The gradient runs from the card's
+  // OUTER edge inwards, so the stops read in the direction the fade travels
+  // whichever side the portrait is on.
+  const g = dir === 'right'
+    ? octx.createLinearGradient(0, 0, off.width, 0)
+    : octx.createLinearGradient(off.width, 0, 0, 0)
+  g.addColorStop(0, 'rgba(0,0,0,0)')
+  g.addColorStop(1 - PORTRAIT_FADE, 'rgba(0,0,0,0)')
+  g.addColorStop(0.62, 'rgba(0,0,0,0.72)')
+  g.addColorStop(1, 'rgba(0,0,0,1)')
+  octx.globalCompositeOperation = 'destination-out'
+  octx.fillStyle = g
+  octx.fillRect(0, 0, off.width, off.height)
+  return off
+}
+
 // buildModel turns the share payload + the chosen fields into the drawable
 // blocks — mirroring buildShareText's selection so the image shows exactly what
 // the text formats would. colorHex (books) draws the annotation-colour edge.
@@ -225,7 +274,17 @@ export function buildModel(share, selected, colorHex) {
   const faces = showFaces ? share.faces || [] : []
   // facesFor names the credit the faces hang inline beside: 'author' → the
   // attribution line (— Author, Title), 'actor' → the meta line (played by …).
-  return { quote, attribution, meta, tags, note, faces, facesFor: share.facesFor || null, colorHex: colorHex || null }
+  //
+  // `portrait` asks for the same people again as a backdrop — see drawPortraits.
+  // It rides the same `faces` array rather than a second source, so unchecking
+  // the credit drops the backdrop with the discs. There is no portrait without
+  // an attribution.
+  return {
+    quote, attribution, meta, tags, note, faces,
+    facesFor: share.facesFor || null,
+    colorHex: colorHex || null,
+    portrait: !!share.portrait && faces.length > 0,
+  }
 }
 
 // Line heights + tag metrics, shared by the measure and draw phases.
@@ -392,6 +451,38 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.lineWidth = 1.5
   ctx.strokeStyle = film ? hexToRgba(theme.amber, 0.5) : theme.inkBorder
   ctx.stroke()
+
+  // Portrait backdrop — after the card face and its border, before everything
+  // else, so it sits behind the sprockets, the colour edge and every word.
+  // Clipped to the card's own rounded path: the image bleeds to the card's edge,
+  // not to the mat's.
+  if (model.portrait && model.faces?.length) {
+    const pw = Math.round(cardW * PORTRAIT_W)
+    const ph = cardH
+    // SIDES is the cap. A card has two edges, so it holds two entries, and the
+    // zip below stops when it runs out — rather than a slice(0, 2) sitting above
+    // code that only ever indexed [0] and [1] anyway, which is a cap that cannot
+    // be got wrong because it is not doing anything.
+    //
+    // Left first, and it stays left whether there is one face or two: the first
+    // credited name is the one the app's own chips put on top, so the card and
+    // the image have to agree about which person is which.
+    const SIDES = [
+      { fade: 'right', x: cardX },
+      { fade: 'left', x: cardX + cardW - pw },
+    ]
+    ctx.save()
+    roundRectPath(ctx, cardX, M, cardW, cardH, radius)
+    ctx.clip()
+    ctx.globalAlpha = PORTRAIT_ALPHA
+    SIDES.forEach((side, i) => {
+      const face = model.faces[i]
+      if (!face) return
+      const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade)
+      if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
+    })
+    ctx.restore()
+  }
 
   // film sprocket rows (echo the strip)
   if (film) {

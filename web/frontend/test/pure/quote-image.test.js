@@ -197,6 +197,10 @@ describe('buildModel selection', () => {
   })
 
   it('survives a payload with no arrays at all', () => {
+    // Exhaustive on purpose: toEqual over the WHOLE model, so a field added to
+    // buildModel and forgotten everywhere else fails here rather than being
+    // silently absent from the drawing. It has already earned that once — the
+    // portrait flag below arrived and this is the test that noticed.
     expect(buildModel({}, ALL, null)).toEqual({
       quote: '',
       attribution: [],
@@ -206,7 +210,46 @@ describe('buildModel selection', () => {
       faces: [],
       facesFor: null,
       colorHex: null,
+      portrait: false,
     })
+  })
+})
+
+// The portrait backdrop bleeds a credited person's photo in from the card edge.
+// Every rule about WHETHER it draws lives in buildModel, so it is checkable
+// without a canvas — which matters, because the failure mode is not an error. A
+// portrait that should not be there is a face over somebody's words.
+describe('the portrait backdrop', () => {
+  const withFaces = (extra = {}) => ({
+    ...earthsea(),
+    faces: [{ name: 'Ursula K. Le Guin', url: '/api/covers/a.jpg' }],
+    facesFor: 'author',
+    ...extra,
+  })
+
+  it('is off unless asked for', () => {
+    expect(buildModel(withFaces(), ALL, null).portrait).toBe(false)
+  })
+
+  it('draws when asked for and somebody has a photo', () => {
+    expect(buildModel(withFaces({ portrait: true }), ALL, null).portrait).toBe(true)
+  })
+
+  it('refuses when nobody credited has a photo', () => {
+    // Not a styling decision: fadedPortrait returns null for a missing image, so
+    // an empty faces list would reserve the effect and draw nothing. Saying no
+    // here keeps "portrait: true" meaning "there is a portrait".
+    const model = buildModel({ ...earthsea(), portrait: true, faces: [] }, ALL, null)
+    expect(model.portrait).toBe(false)
+  })
+
+  it('goes when its credit goes', () => {
+    // The backdrop rides the same faces array as the small discs, which ride the
+    // Author / Actor / Speaker tick. Unticking the credit must take both, or you
+    // get a card crediting nobody with that nobody's face across it.
+    const model = buildModel(withFaces({ portrait: true }), { ...ALL, author: false }, null)
+    expect(model.faces).toEqual([])
+    expect(model.portrait).toBe(false)
   })
 })
 

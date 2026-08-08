@@ -532,6 +532,20 @@
 
       <div class="g-item wide">
         <div class="g-demo" style="display:block">
+          <div class="hand-card" style="position:relative;overflow:hidden;padding:18px 20px;max-width:520px">
+            <span aria-hidden="true" style="position:absolute;inset:0 auto 0 0;width:46%;background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 46%, var(--card)), transparent 86%)"></span>
+            <span aria-hidden="true" style="position:absolute;inset:0 0 0 auto;width:46%;background:linear-gradient(270deg, color-mix(in srgb, var(--amber) 42%, var(--card)), transparent 86%)"></span>
+            <p style="position:relative;font-family:var(--font-display),serif;font-style:italic;font-size:16px;line-height:1.5;margin:0 0 8px;text-align:center">Give me blood, and I will give you freedom.</p>
+            <span class="mono-label" style="position:relative;display:block;text-align:center">Subhas Chandra Bose · Burma Radio broadcast · 1944</span>
+          </div>
+        </div>
+        <div class="g-name">Portrait backdrop <span class="g-tlabel">1.6.0</span></div>
+        <div class="g-src">drawQuoteCard / fadedPortrait — quoteImage.js · <code>--portrait</code> toggle in ShareDialog · <code>tippani:sharePortrait</code></div>
+        <div class="g-desc">The credited person, bled in from the card’s edge and faded out before the words start. <b>One name enters from the left; two or more, and the first two take a side each with the quote between them</b> — which is the shape a conversation has, and the reason the second face goes right rather than beside the first. (Demo shows the gradients only; the real card carries the photos.)<br><br>The fade is a real <b>alpha mask</b> — <code>destination-out</code> on an offscreen canvas — rather than the card colour painted over the photo. The card’s face is a vertical gradient, so a flat overlay would leave a seam exactly where the fade ends, which is the one place a viewer is already looking.<br><br>It rides the same <code>faces</code> array as the small credit discs, and therefore the same Author / Actor / Speaker tick: unticking the credit takes the backdrop with it, so a card can never credit nobody while wearing that nobody’s face. The toggle hides itself when no one credited has a saved photo — a control that cannot change the picture is a question with one answer. Like the skin picker beside it, the choice is device-local: an export preference, not an identity one.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
           <div style="max-width:560px">
             <code class="share-hint">*bold*  _italic_  ~strike~  &gt; quote  ```code```</code>
             <div class="share-preview" style="min-height:0;margin-top:10px">
