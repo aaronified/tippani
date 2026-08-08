@@ -5,6 +5,174 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-08-08
+
+**Quotes that came from nowhere**, and the frontend gets a test suite.
+
+Every quote in Tippani used to hang off a book or a film. This adds the third
+kind: a line from a speech, a letter, an interview, a song, a proverb, something
+a friend said. It has its own screen, its own capture mode, its own place in the
+review deck, in search, in Stats, and in the Markdown round trip — and the person
+who said it is a person like any other, with a portrait and a bio.
+
+The other half of the release is that the frontend, which had no test runner at
+all, now has one. That is not a footnote: writing it found six tests already in
+the tree that asserted nothing, and it found a live bug in the quote-card image
+that a passing suite had been ignoring.
+
+### Added
+
+- **Quotes with no book and no film.** A new `Quotes` screen, its own tab, and a
+  `no book or film` mode on the capture surface. Instead of a chapter and a page a
+  quote carries the **occasion** — who said it, on what occasion, when, where, and
+  through what medium.
+
+  The occasion is also the locator, and unlike every other locator in this app it
+  **discriminates**: the same words said on two occasions are two quotes, not one.
+  That is the same correction `DialogueDedupeHash` made for episodes, run the
+  other way.
+
+  A quote with no speaker and no occasion is a proverb. It is perfectly fine to
+  keep, and it stays out of the review deck — there is nothing to recall but the
+  words already in front of you.
+
+- **The review deck learns a third kind.** The roadmap said the deck would "apply
+  unchanged". It did not, and the reason is the most interesting thing in the
+  feature: every card asks *where is this from?*, and the answer for the other two
+  kinds is a title read off a parent row. A standalone quote has no parent, so its
+  source is the occasion, falling back to the speaker. Two speeches by one person
+  are each other's hardest wrong answer, the way two books by one author are.
+
+- **A `Quotes` section in search, and a `Speakers` section beside Authors and
+  Actors.** Searching a person's name is asking about the person. The occasion is
+  indexed too, because it is the title this kind has and a title you cannot search
+  for is the gap the whole feature would be judged on.
+
+- **Standalone quotes in Stats**: the totals, the favourites, the busiest month,
+  the activity calendar, the tag leaderboard, "collecting since", and two new
+  breakdown kinds — **Speakers** and **Occasions**.
+
+- **`POST /export/quotes`, and a third `type:` the importer understands.** A
+  quotes file groups by occasion the way a book export groups by chapter, and the
+  unattributed ones come first — the parser attributes a quote to the heading
+  above it, so a proverb written after one would come back belonging to a speech
+  it was never part of. Import stages and approves like everything else.
+
+- **`speaker` is the fourth people kind.** Portrait, bio, links, rename, orphan
+  sweep, the People console, and the face chip on a shared quote card.
+
+- **A frontend test suite.** Vitest, dev-only — the three runtime npm packages are
+  unchanged. Two projects: `node` for pure logic, `jsdom` for anything that
+  renders. It covers routing, credit splitting, recall status, grouping, the four
+  share formats, the quote-card wrap engine, the partial-date rules and the demo
+  shim's response shapes. The two bespoke check scripts folded into it.
+
+- **CI checks two things nothing was checking.** `git diff --exit-code -- web/dist`
+  after the frontend build, because `web/dist` is a committed artifact embedded
+  with `go:embed` and a forgotten `make frontend` left the binary serving the old
+  UI with nothing to say so. And `go test -race`, which the repo had two tests
+  written specifically to exercise and had never run.
+
+### Changed
+
+- **A person is one row, whatever they did** (migration `0027`). `people` was keyed
+  `(user_id, kind, name)`, so a novelist who also acts was two rows with two bios
+  and two portraits. Adding `speaker` to that key would have manufactured a
+  duplicate for exactly the people most likely to be enriched, since the appeal of
+  saving a line from a speech is usually that you have read the person too. Roles
+  are a set beside the row now.
+
+  It is the only migration here that deletes rows on purpose, so the survivor rule
+  is written down rather than left to whatever SQLite returns first: prefer a
+  portrait, then a bio, then the oldest row, ties broken by id.
+
+- **The orphan sweep un-files a role rather than deleting a person**, and only
+  deletes the row once no role is left. Under the new schema the old behaviour
+  would have taken a portrait the speaker side was still using.
+
+- **Renaming a person rewrites every role they play**, not just the console you
+  started from — otherwise the row says one name, the library says another, and
+  the next sweep eats the difference.
+
+- **The phone's bottom bar drops Search and gains Quotes.** The mobile top bar has
+  carried `＋ · Search · ? · chip` since 1.4.1, so the bar held three content
+  screens and a duplicate while the fourth had nowhere to live.
+
+- **The URL contract moved out of `App.jsx`** into `routes.js`, where it can be
+  tested without rendering React.
+
+### Fixed
+
+- **A stray space made a second copy of the same line.** `DialogueDedupeHash` ran
+  its whitespace collapse over the text with the episode suffix already appended,
+  so a space beside the separator became a token boundary and `"Not today "` hashed
+  differently from `"Not today"`. It never surfaced as an error — it surfaced as a
+  recurring catchphrase staged twice, months apart, because one copy was pasted
+  with a trailing space.
+
+  The fix was deferred until now for a real reason: it moves the hash in the *less*
+  discriminating direction for the first time, and the repair that runs on every
+  `Migrate` answered a `UNIQUE` violation by returning an error — which means the
+  application does not start. A failed row is logged and skipped now. Well-formed
+  text hashes exactly as before, so no existing database is rewritten.
+
+- **Search counted quotes it never showed you.** A tag worn only by standalone
+  quotes rendered a chip reading `grief · 3` above an empty box, and a day when
+  you saved only quotes rendered `Added on … · 0`.
+
+- **Two thirds of the highlight colours were never counted.** The Stats card is
+  headed "Highlight colours" and counts itself in quotes, and it only ever counted
+  book annotations. Dialogues have worn a colour since `0021`.
+
+- **The read log accepted the thirtieth of February.** `normalizePartialDate`
+  promised "a stored date is always a real one" and checked only that the day was
+  between 1 and 31, so 30 February, 31 April and 2023-02-29 all stored fine. A
+  partial date is allowed to be vague; that is the point of the format. It is not
+  allowed to be wrong.
+
+- **The orphan sweep had a default that deletes people.** Its reference query
+  started as the `books.author` one and a switch replaced it for two other kinds —
+  correct for exactly three kinds, and only for that reason. A fourth would have
+  silently inherited the books query, and every person of that kind whose name was
+  not also one of your book authors would have been deleted and their portrait
+  unlinked, by a best-effort sweep that logs at Warn and still answers 200.
+
+- **Rename picked its table by defaulting, twice.** The scan and the update were
+  two separate switches forty lines apart, so they could each inherit the books arm
+  *and* disagree with each other — reading every book's author and stamping the
+  rewritten strings onto dialogue rows by matching id. They come from one switch
+  now.
+
+- **A mistyped work URL opened an error screen.** `/books/abc` parsed to a detail
+  view for work `NaN`, fetched `/books/NaN`, and rendered the error state the
+  unknown-path fallback exists to prevent.
+
+- **The quote-card image drew the wrong faces for a new credit kind.** It decided
+  which line a credit's portraits hang beside by asking `facesFor !== 'actor'`, so
+  anything new landed on the attribution line by falling through a negative test.
+  Right for a speaker by luck, silently wrong for whatever came next.
+
+- **A path-traversal advisory in the build toolchain** (`postcss`), which is a
+  dev-time dependency and never in the binary.
+
+### Notes
+
+- **There is no breaking change and no data loss.** Migrations `0026`, `0027` and
+  `0028` add the quotes table, rebuild `people`, and let the import queue hold a
+  work-less quote. A 1.5.0 database is not readable by 1.4.2, as always.
+
+- **Six tests in this repo were asserting nothing, and an audit found them.** The
+  worst was a share-format test where swapping the character and the actor inside
+  the payload left all twenty-one tests green — for a file whose entire subject is
+  that a wrong attribution is a misquote. They were four `toContain` calls. Every
+  claim in this release was checked the same way: break the code on purpose, watch
+  the test go red, put it back. A passing test you have not seen fail is a
+  decoration.
+
+- **The roadmap now records a prediction it got wrong.** §24 said the review deck
+  would apply unchanged. Correcting that quietly would have been the easy option; a
+  roadmap that only keeps the predictions that came true is not worth reading.
+
 ## [1.4.2] - 2026-08-07
 
 **Changing your password no longer orphans your backups**, and a batch of 1.4.1's
