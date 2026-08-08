@@ -163,11 +163,27 @@ What that honestly does not cover:
   hand.** Its oldest failure mode was mechanical: the page inlines the built
   stylesheet so its samples are styled by real app rules, and every frontend build
   renames `index-<hash>.css`, so the snapshot rotted silently. `scripts/glossary-css.mjs`
-  regenerates it and CI fails when it is stale, which ends that half. The *entries*
-  are still written by hand and can still lag — 1.4.0 moved the app's explanatory
-  copy into one registry (`web/frontend/src/help.jsx`) that the in-app help panel
-  reads, and feeding the glossary from the same registry is the remaining half of
-  [the roadmap's §9](docs/roadmap.html).
+  regenerates it and CI fails when it is stale, which ends that half — though only
+  after 1.5.2 found that it had been regenerating 140KB of stylesheet *inside an
+  HTML comment* for two releases, because the page's opening comment named the
+  `<style>` tag in its own prose and never closed, and the generator finds its
+  block by searching for that tag. Every sample rendered unstyled, which is the one
+  thing the page exists not to do, and `--check` passed throughout: the bytes it
+  compared were exactly the bytes it had written. A gate that only reads its own
+  output cannot fail. It refuses now rather than writing into a comment.
+
+  The *entries* are still written by hand and can still lag — 1.4.0 moved the app's
+  explanatory copy into one registry (`web/frontend/src/help.jsx`) that the in-app
+  help panel reads, and feeding the glossary from the same registry is the remaining
+  half of [the roadmap's §9](docs/roadmap.html). What 1.6.0 added is the cheaper
+  half of that: `web/frontend/test/pure/help.test.jsx` asserts that every screen a
+  nav list can reach has an entry, and that a control the app labels is a control
+  the help names. It found three gaps on the first run — the whole Quotes filter
+  row, the Catalogue's group-by, and an "Export all" button that had stopped
+  meaning "all" when the list screens started exporting the filtered view. All
+  three had been read past repeatedly. The test reads the *source* for those
+  labels, not the help file, for the reason above: a doc test that only reads the
+  docs agrees with itself forever.
 - **Known bugs are recorded, not hidden** — see *Known bugs, not yet fixed* on
   [the roadmap](https://aaronified.github.io/tippani/roadmap.html#bugs). That list is
   **generated from the issues I have accepted**, so it cannot quietly go stale in either

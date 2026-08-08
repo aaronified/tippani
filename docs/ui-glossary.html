@@ -436,7 +436,7 @@
         <div class="g-demo" style="display:block">
           <div class="hand-card" style="border-left:4px solid #7FA8C9;padding:16px 18px;max-width:560px">
             <p style="font-family:var(--font-display),serif;font-style:italic;font-size:16.5px;line-height:1.55;margin:0 0 8px">Give me blood, and I will give you freedom.</p>
-            <span class="mono-label" style="display:block;margin-bottom:8px">Subhas Chandra Bose · Burma Radio broadcast · 1944 · Burma · radio</span>
+            <span class="mono-label" style="display:block;margin-bottom:8px"><span style="width:20px;height:20px;border-radius:50%;border:1px solid var(--ink-border);display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--accent) 18%, var(--card));font-family:var(--font-mono),monospace;font-size:7px;color:var(--soft);margin-right:6px;vertical-align:middle" aria-hidden="true">IMG</span><button style="font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Subhas Chandra Bose</button> · Burma Radio broadcast · 1944 · Burma · radio</span>
             <div style="display:flex;gap:8px;margin-top:10px">
               <span class="tag-chip tc-blue ts-sticker">freedom</span>
             </div>
@@ -445,6 +445,21 @@
         <div class="g-name">quote block (standalone quote) <span class="g-tlabel">1.5.0</span></div>
         <div class="g-src">Quotes.jsx · AnnotationCard with <code>meta</code> + <code>form</code> · utteranceMeta + UtteranceForm</div>
         <div class="g-desc">The same card as an annotation, and deliberately so: <code>.card-actions</code> and <code>.card-colors</code> only reveal under <code>.hand-card:hover</code>, and <code>.hand-card::before</code> is what carries the material — a bespoke wrapper would look right and lose the aesthetic toggle. What differs is the <b>meta line</b>: where a book shows <code>CH. 3 · P.142</code> this shows the <b>occasion</b> — speaker · occasion · when · place · medium, each dropped when empty. A quote with none of them (a proverb) shows no meta line at all.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
+          <span class="mono-label" style="display:block">
+            <span style="display:inline-flex;vertical-align:middle;margin-right:6px">
+              <span style="width:20px;height:20px;border-radius:50%;border:1px solid var(--ink-border);display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--accent) 18%, var(--card));font-family:var(--font-mono),monospace;font-size:7px;color:var(--soft);box-shadow:0 0 0 2px var(--card)" aria-hidden="true">A</span>
+              <span style="width:20px;height:20px;border-radius:50%;border:1px solid var(--ink-border);display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--accent) 30%, var(--card));font-family:var(--font-mono),monospace;font-size:7px;color:var(--soft);margin-left:-7px;box-shadow:0 0 0 2px var(--card)" aria-hidden="true">B</span>
+            </span>
+            <button style="font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Gilbert</button>, <button style="font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Sullivan</button> · a letter · 1885
+          </span>
+        </div>
+        <div class="g-name">Speaker credit <span class="g-tlabel">1.6.0</span></div>
+        <div class="g-src">utteranceMeta — Quotes.jsx · CreditFaces + PersonName — people.jsx · SPEAKER_LINK</div>
+        <div class="g-desc">The speaker half of the meta line, and a <b>credit</b> rather than a string: <code>splitCredits</code> divides it on your own separators, <b>CreditFaces</b> draws the overlapping portraits of everyone named, and each name is a <b>PersonName</b> opening that person's <b>PersonModal</b>. Styled through <code>SPEAKER_LINK</code> — <code>font:inherit;color:inherit</code> plus an underline — so it keeps the mono voice of the line it sits in instead of arriving as a blue link mid-sentence, the same trick the film pages use for <code>PLAYED BY</code>. <b>Why it is worth a tile:</b> <code>speaker</code> became a people kind in 1.5.0 and the share <em>image</em> drew these faces from that release on, so a speaker you had enriched showed their portrait in the picture you exported and stayed inert text on the card you exported it from. The card, the group heading and the image now split the credit by the same rule, which is the whole point of splitting it in one function.</div>
       </div>
 
       <div class="g-item">
@@ -572,7 +587,7 @@
     <div class="g-grid">
       <div class="g-item"><div class="g-demo center"><button class="tp-btn btn-sticker">Add book</button></div><div class="g-name">btn-sticker</div><div class="g-src">StickerButton — ui.jsx</div></div>
       <div class="g-item"><div class="g-demo center"><button class="tp-btn btn-film">Sign in</button></div><div class="g-name">btn-film</div><div class="g-src">FilmButton — ui.jsx</div></div>
-      <div class="g-item"><div class="g-demo center"><button class="tp-btn tp-btn-ghost">Export all</button></div><div class="g-name">tp-btn-ghost</div><div class="g-src">GhostButton — ui.jsx</div></div>
+      <div class="g-item"><div class="g-demo center"><button class="tp-btn tp-btn-ghost">Export</button></div><div class="g-name">tp-btn-ghost</div><div class="g-src">GhostButton — ui.jsx</div></div>
       <div class="g-item"><div class="g-demo center"><button class="tp-btn tp-btn-primary">＋ Add title</button></div><div class="g-name">tp-btn-primary</div><div class="g-src">aesthetic-aware primary</div></div>
       <div class="g-item">
         <div class="g-demo center"><label class="tp-field" style="width:100%"><span class="mono-label">Title</span><input class="tp-input" placeholder="The Book Title"></label></div>
@@ -845,6 +860,41 @@
         <div class="g-name">filter-chip-mobile</div>
         <div class="g-src">.filter-chip-mobile — index.css (≤768px rules)</div>
         <div class="g-desc">The touch-sized filter-chip variant used inside mobile sheets — same look, but the touch-target pass guarantees it 44px hit height on phones. (Renders as a normal chip at desktop width.)</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+            <span style="display:inline-flex;gap:6px">
+              <button class="color-dot dot-yellow" title="yellow"></button>
+              <button class="color-dot dot-blue active" title="blue"></button>
+              <button class="color-dot dot-pink" title="pink"></button>
+              <button class="color-dot dot-orange" title="orange"></button>
+            </span>
+            <button class="tp-filter-chip">♥ favourites</button>
+            <button class="tp-filter-chip active">tagged</button>
+            <button class="tp-filter-chip">has notes</button>
+            <div class="tp-select" style="width:132px"><button class="tp-select-trigger tactile" aria-haspopup="listbox" aria-expanded="false"><span>all speakers</span><svg class="tp-select-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></div>
+            <label style="display:flex;align-items:center;gap:8px"><span class="mono-label">group</span><div class="tp-select" style="width:110px"><button class="tp-select-trigger tactile" aria-haspopup="listbox" aria-expanded="false"><span>Speaker</span><svg class="tp-select-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button></div></label>
+          </div>
+        </div>
+        <div class="g-name">Filter row <span class="g-tlabel">WorkListScaffold</span></div>
+        <div class="g-src">WorkListScaffold — works.jsx · leading / trailing / leadingMobile / trailingMobile · MobileSheet on ≤768px</div>
+        <div class="g-desc">One row, three screens. Library, Catalogue and Quotes render through the same scaffold, which owns the header, the counts, the ⬇ export, the empty and no-match states, the reset, and this row — so the three <em>are</em> the same screen with different data rather than three screens that resemble each other. A section appears when its setter is supplied and not otherwise: pass <code>setStates</code> and the shelf chips render, omit it and the row closes up, which is how Quotes (no shelf, no genre, no series) sits on the same scaffold without a wall of <code>null</code>s. Screen-specific controls arrive through <b>leading</b> and <b>trailing</b>, each with a mobile twin, because the desktop row is inline and the phone's is a labelled stack inside a <b>MobileSheet</b> with a live result count. <b>Filtering is client-side on all three</b> — Quotes moved off its server-side <code>?speaker=</code> to get here, and gained the fix that comes with it: the speaker list is built from every row, so choosing a speaker no longer collapses the list of speakers to the one you chose.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:34px;height:34px;border-radius:50%;border:1px solid var(--ink-border);display:inline-flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--accent) 18%, var(--card));font-family:var(--font-mono),monospace;font-size:9px;color:var(--soft);flex:none" aria-hidden="true">IMG</span>
+            <button class="display-title" style="font-size:19px;background:none;border:none;padding:0;cursor:pointer;text-align:left">Subhas Chandra Bose</button>
+            <span class="mono-label" style="color:var(--accent-ui)">7 quotes</span>
+            <span style="height:1px;flex:1;background:var(--line)"></span>
+          </div>
+        </div>
+        <div class="g-name">GroupHeading</div>
+        <div class="g-src">GroupHeading — works.jsx · groupWorks / groupUtterances · PersonPortrait — people.jsx</div>
+        <div class="g-desc">The divider above each section of a grouped list: an optional <b>PersonPortrait</b>, the label, a count in accent mono, and a rule filling the rest. Given <code>onOpenPerson</code> the label becomes a button opening that person's panel — so an author heading in the Library and a speaker heading on Quotes are the same doorway the name on the card is. The buckets come from <code>groupWorks</code>, which splits a credit dimension into the people it names (a book by two authors appears under both) and files everything else under a residual bucket. Quotes names its own residuals — <b>No speaker</b>, <b>No medium</b>, <b>No place</b> — because a proverb has none of the four and a bucket called "None" would not say which.</div>
       </div>
     </div>
   </section>

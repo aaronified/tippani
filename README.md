@@ -118,8 +118,13 @@ of that are spelled out in [`AI.md`](AI.md).
   **tells two quotes apart**: the same words said on two occasions are two quotes, not one. A quote
   with no attribution at all is perfectly fine to keep and simply stays out of the review deck —
   there is nothing to recall but the words already in front of you. Same colours, tags, favourite,
-  stickers, sharing and export as the other two, and the **speaker** takes a portrait and a bio like
-  any author or actor.
+  stickers, sharing and export as the other two — the same *screen*, in fact: one scaffold draws the
+  Library, the Catalogue and this, so the filter row, the counts and the empty states are not three
+  implementations that resemble each other. The **speaker** takes a portrait and a bio like any
+  author or actor, is clickable on the card the way an author is on a book, and counts as a credit,
+  so a line two people said together is filed under both. And because a quote here has no parent to
+  group by, it groups by the four things it has instead: **who said it, through what medium, where,
+  and when**.
 - 🔖 **Shelves — what you're reading, what you gave up on, what you've never opened.** Every work
   carries a **status** — *reading* / *watching* · *paused* · *abandoned* · *completed* — drawn as a
   Radarr-style **colour bar under the cover** (the artwork itself stays unobscured): blue in flight

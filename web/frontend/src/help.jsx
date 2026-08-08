@@ -85,7 +85,7 @@ export const HELP = {
       { term: 'Shelf state', icon: <IconReading />, what: 'Reading, paused, abandoned, completed — the coloured bar under each cover. Set it from the state chip on a book’s page.' },
       { term: 'Group by', what: 'Break the grid into sections by series, author, decade or genre.' },
       { term: 'View', icon: <IconGrid />, what: 'Packed masonry, a plain list, or a sortable table.' },
-      { term: 'Export all', icon: <IconExport />, what: 'The whole library as Obsidian-friendly Markdown, which imports back cleanly.' },
+      { term: 'Export', icon: <IconExport />, what: 'What is in view, as Obsidian-friendly Markdown that imports back cleanly. Filter first and you export that shelf; filter nothing and you export the library. It asks before it writes, and the count it quotes is the count you will get.' },
     ],
   },
   movies: {
@@ -95,7 +95,8 @@ export const HELP = {
       { term: 'Filters', icon: <IconFilter />, what: 'Genre, wishlist scope, favourites, tagged, has-notes, shelf state, collection and sort — as a full-screen sheet on a phone.' },
       { term: 'Shelf state', what: 'Watching, paused, abandoned, watched — the coloured bar under each poster.' },
       { term: 'Collection', what: 'A franchise or series grouping, the film side of the Library’s "series".' },
-      { term: 'Export all', icon: <IconExport />, what: 'Every title and its dialogue as Markdown.' },
+      { term: 'Group by', what: 'Break the grid into sections by collection, director, decade or genre.' },
+      { term: 'Export', icon: <IconExport />, what: 'The titles in view and their dialogue as Markdown. It asks first and names the count.' },
     ],
   },
   'book-detail': {
@@ -135,10 +136,13 @@ export const HELP = {
     entries: [
       { term: 'What lives here', what: 'Lines that belong to no book and no film: a speech, a letter, an interview, a song, a proverb, something a friend said.' },
       { term: 'Occasion', what: 'Where the words were said. It is the locator, and unlike a page number it tells two quotes apart — the same line on two occasions is two quotes, not one.' },
-      { term: 'Speaker', what: 'Who said it. It stands where a book’s author stands, it is what the review deck asks you to recall, and it takes a portrait and a bio like any other person.' },
+      { term: 'Speaker', what: 'Who said it. It stands where a book’s author stands, it is what the review deck asks you to recall, and it takes a portrait and a bio like any other person. Two names separated by one of your credit separators are two speakers, here as everywhere else.' },
       { term: 'When', what: 'A partial date: a year on its own is a complete answer, so nothing is padded to a day nobody recorded.' },
       { term: 'A quote with no attribution', what: 'Perfectly fine to save, and it stays out of the review deck — there is nothing to recall but the words already in front of you.' },
-      { term: 'Export', icon: <IconExport />, what: 'These quotes as Markdown, which imports back cleanly.' },
+      { term: 'Speaker credit', what: 'The name under a line is a doorway, the way an author is on a book: their portrait sits beside it, and tapping it opens who they were. A line credited to two people shows both faces and two doorways.' },
+      { term: 'Filters', icon: <IconFilter />, what: 'Colour, favourites, tagged, has-notes, and then a tag, a speaker or a medium — the last two built from what you have actually saved, not from a fixed vocabulary. On a phone they open as a full-screen sheet with a live result count.' },
+      { term: 'Group by', what: 'Break the grid into sections by speaker, medium, place or decade. A line missing that field lands in a bucket that says which field it is missing, because a quote with no speaker, no medium and no date is a perfectly ordinary proverb.' },
+      { term: 'Export', icon: <IconExport />, what: 'The quotes in view as Markdown, which imports back cleanly. It asks first and names the count.' },
     ],
   },
   tags: {

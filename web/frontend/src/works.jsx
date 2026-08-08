@@ -996,15 +996,21 @@ export function WorkListScaffold({
               {mobile && (
                 <div className="flex items-center gap-2">
                   <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export all', onClick: onExport }]} />}
+                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export', onClick: onExport }]} />}
                 </div>
               )}
               {!mobile && headerAside}
               {/* Export is a glyph, not a word: the header row is the tightest
                   real estate on the page and "Export all" spent it on a label
-                  the ⬇ already carries. */}
+                  the ⬇ already carries.
+
+                  It says "Export", not "Export all", because it is not all: all
+                  three screens post `shown` — the filtered view — and the confirm
+                  dialog has always said "N in view". The label was the last
+                  survivor of the whole-collection export it replaced, and it
+                  contradicted the dialog directly above the button you press. */}
               {!mobile && !DEMO && (
-                <IconButton icon={<IconExport />} ariaLabel="Export all" onClick={onExport} tooltip="Export everything as Markdown" />
+                <IconButton icon={<IconExport />} ariaLabel="Export" onClick={onExport} tooltip="Export what is shown" />
               )}
             </>
           }
