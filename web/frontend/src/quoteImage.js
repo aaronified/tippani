@@ -223,13 +223,19 @@ function drawImageCover(ctx, img, dx, dy, dw, dh) {
 const PORTRAIT_W = 0.46 // share of the card width one portrait may occupy
 const PORTRAIT_ALPHA = 0.62 // strength at the outer edge
 const PORTRAIT_FADE = 0.86 // fraction of the portrait's width the fade spans
+const PORTRAIT_TINT = 0.55 // how far the quote's colour pulls the portrait's hue
 
 // fadedPortrait renders one image into an offscreen canvas of (w × h), cropped
-// to fill, and erases it towards `dir` ('right' fades out rightwards). Returns
-// null when the image has not loaded — a missing portrait must draw NOTHING
-// rather than a grey block, because the caller redraws when it arrives and a
-// placeholder would flash on every share.
-function fadedPortrait(img, w, h, dir) {
+// to fill, optionally tinted, and erases it towards `dir` ('right' fades out
+// rightwards). Returns null when the image has not loaded — a missing portrait
+// must draw NOTHING rather than a grey block, because the caller redraws when it
+// arrives and a placeholder would flash on every share.
+//
+// ORDER MATTERS, twice. The tint goes on while the buffer is still fully
+// opaque, so it colours the photo rather than the shape the fade will leave
+// behind; and the mask goes on last, so the tint fades out with the face
+// instead of surviving as a coloured rectangle after it.
+function fadedPortrait(img, w, h, dir, tint) {
   if (!img || !w || !h) return null
   const off = document.createElement('canvas')
   off.width = Math.ceil(w)
@@ -237,6 +243,24 @@ function fadedPortrait(img, w, h, dir) {
   const octx = off.getContext('2d')
   if (!octx) return null
   drawImageCover(octx, img, 0, 0, off.width, off.height)
+
+  // The quote's own colour, carried into the portrait. `color` is the blend
+  // that keeps the destination's LUMA and takes the source's hue — a duotone,
+  // so the face stays a face — and it is a CSS blend mode rather than a
+  // Porter-Duff operator, which not every canvas implements. Setting an
+  // unsupported value is silently ignored, so this reads the property back
+  // instead of hoping: without the check the fall-through is `source-over`,
+  // which paints a flat slab of colour over the person.
+  if (tint) {
+    octx.globalCompositeOperation = 'color'
+    const duotone = octx.globalCompositeOperation === 'color'
+    if (!duotone) octx.globalCompositeOperation = 'source-atop'
+    octx.globalAlpha = duotone ? PORTRAIT_TINT : PORTRAIT_TINT * 0.6
+    octx.fillStyle = tint
+    octx.fillRect(0, 0, off.width, off.height)
+    octx.globalAlpha = 1
+  }
+
   // destination-out with a gradient of alphas: an opaque stop erases what is
   // under it, a transparent one keeps it. The gradient runs from the card's
   // OUTER edge inwards, so the stops read in the direction the fade travels
@@ -256,7 +280,13 @@ function fadedPortrait(img, w, h, dir) {
 
 // buildModel turns the share payload + the chosen fields into the drawable
 // blocks — mirroring buildShareText's selection so the image shows exactly what
-// the text formats would. colorHex (books) draws the annotation-colour edge.
+// the text formats would.
+//
+// `colorHex` is the quote's highlight colour, and passing null is how the image
+// says "no colour" — the caller decides, because the colour is an option on the
+// image rather than a property of the quote. It reaches the card two ways and
+// only ever one at a time: as the edge stripe beside the words on a plain card,
+// or as the hue of the portrait on a backdrop card. See hasBar.
 export function buildModel(share, selected, colorHex) {
   const quote = selected.quote && share.quote ? share.quote : ''
   const attribution = (share.attribution || [])
@@ -339,7 +369,11 @@ export function drawQuoteCard(canvas, model, theme) {
   const CP = 34 // padding inside the card
   const cardX = M
   const cardW = W - M * 2
-  const hasBar = !!model.colorHex && !film
+  // The colour edge and the portrait tint are the SAME statement made two ways,
+  // so a card never makes it twice: with a backdrop the quote's colour is the
+  // hue of the portrait, and a stripe beside it would be a second, louder copy
+  // of a thing already said across half the card.
+  const hasBar = !!model.colorHex && !film && !model.portrait
   const innerX = cardX + CP + (hasBar ? 8 : 0)
   const innerW = cardW - CP * 2 - (hasBar ? 8 : 0)
   const sprocket = film ? 16 : 0 // room for a sprocket row top + bottom
@@ -358,7 +392,13 @@ export function drawQuoteCard(canvas, model, theme) {
   // attribution line for an author, the meta line for an actor): the block that
   // carries them indents its text past the overlapping disc cluster and grows to
   // at least the disc height, so the faces sit on the same line as the name.
-  const faces = model.faces && model.faces.length ? model.faces.slice(0, FACE_MAX) : []
+  // No discs under a backdrop. The disc exists to put a face beside a name when
+  // there is no other face on the card; with the portrait behind the words there
+  // is one already, and a 34px crop of the same photograph next to a full-height
+  // version of it reads as a mistake rather than as identification. The layout
+  // reclaims the space too — the attribution line stops indenting past a cluster
+  // that is not there.
+  const faces = !model.portrait && model.faces?.length ? model.faces.slice(0, FACE_MAX) : []
   const facesW = faces.length ? FACE_SIZE + (faces.length - 1) * (FACE_SIZE - Math.round(FACE_SIZE * 0.34)) : 0
   const onAttribution = facesOnAttribution(model.facesFor)
   const authorFaces = faces.length && onAttribution ? faces : null
@@ -478,7 +518,7 @@ export function drawQuoteCard(canvas, model, theme) {
     SIDES.forEach((side, i) => {
       const face = model.faces[i]
       if (!face) return
-      const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade)
+      const painted = fadedPortrait(faceCache.get(face.url), pw, ph, side.fade, model.colorHex)
       if (painted) ctx.drawImage(painted, side.x, M, pw, ph)
     })
     ctx.restore()

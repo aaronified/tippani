@@ -518,6 +518,13 @@ function QuoteImagePanel({ share, selected, onShared }) {
   // answer.
   const [portrait, setPortrait] = usePersistedState("tippani:sharePortrait", false);
   const canPortrait = (share.faces || []).length > 0;
+  // Whether the quote's highlight colour appears at all. One switch for both
+  // card kinds, because it is one decision: on a plain card the colour is the
+  // edge stripe beside the words, on a backdrop card it is the hue of the
+  // portrait, and "do I want this quote's colour in the picture" is the same
+  // question either way. Persisted per device beside the skin and the backdrop.
+  const [useColor, setUseColor] = usePersistedState("tippani:shareImageColor", true);
+  const canColor = !!share.color;
 
   useEffect(() => {
     let cancelled = false;
@@ -525,7 +532,7 @@ function QuoteImagePanel({ share, selected, onShared }) {
       const canvas = canvasRef.current;
       if (!canvas || cancelled) return;
       try {
-        const colorHex = share.color ? ANNOTATION_HEX[share.color] : null;
+        const colorHex = useColor && share.color ? ANNOTATION_HEX[share.color] : null;
         drawQuoteCard(canvas, buildModel({ ...share, portrait: portrait && canPortrait }, selected, colorHex), drawTheme(imageTheme));
         setErr("");
       } catch {
@@ -545,7 +552,7 @@ function QuoteImagePanel({ share, selected, onShared }) {
       cancelled = true;
       window.removeEventListener("tippani:theme", redraw);
     };
-  }, [share, selected, imageTheme, portrait, canPortrait]);
+  }, [share, selected, imageTheme, portrait, canPortrait, useColor]);
 
   async function download() {
     const canvas = canvasRef.current;
@@ -656,7 +663,22 @@ function QuoteImagePanel({ share, selected, onShared }) {
           />
           <InfoDot
             title="Portrait backdrop"
-            text="Bleeds the credited person's photo in from the card's edge and fades it out before the words start. One name enters from the left; two or more, and the first two take a side each with the quote between them — which is the shape a conversation has. It only offers itself when someone credited has a saved photo, and it rides the same Author / Actor / Speaker tick as the small portrait discs, so turning that credit off takes the backdrop with it."
+            text="Bleeds the credited person's photo in from the card's edge and fades it out before the words start. One name enters from the left; two or more, and the first two take a side each with the quote between them — which is the shape a conversation has. It only offers itself when someone credited has a saved photo, and it rides the same Author / Actor / Speaker tick as the small portrait discs, so turning that credit off takes the backdrop with it. With a backdrop the small discs step aside: the portrait is already the face, and a thumbnail crop of the same photograph beside it reads as a mistake."
+          />
+        </div>
+      )}
+      {canColor && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <MonoLabel>colour</MonoLabel>
+          <Toggle
+            ariaLabel="Quote colour"
+            value={useColor ? "on" : "off"}
+            onChange={(v) => setUseColor(v === "on")}
+            options={[["off", "Off"], ["on", "On"]]}
+          />
+          <InfoDot
+            title="Quote colour"
+            text="Whether this quote's highlight colour appears in the picture. One switch for both kinds of card, because it is one decision: on a plain card the colour is the stripe beside the words, and on a backdrop card it is the hue of the portrait. It is never both at once — a stripe next to a portrait already wearing the colour is the same thing said twice, the second time louder. Turning it off changes nothing about the quote itself."
           />
         </div>
       )}

@@ -29,8 +29,15 @@ import { paletteTheme } from '../../src/theme.js'
 const CARD = 0 // the first canvas asked for a context is the one being drawn
 
 let log // [{ canvas, op, args }] in call order
+let supportedOps // which composite ops this test's canvases accept
 
-function recorder(id) {
+// `supported` models what a given canvas implementation accepts. A real setter
+// ignores a value it does not know, which is the behaviour fadedPortrait reads
+// back — so a test can drop 'color' from this set and get the same silence a
+// browser without CSS blend modes on canvas would give.
+const FULL_SUPPORT = ['source-over', 'source-atop', 'destination-out', 'color', 'multiply']
+
+function recorder(id, supported = FULL_SUPPORT) {
   const note = (op, args) => log.push({ canvas: id, op, args })
   const ctx = {
     canvas: null,
@@ -44,7 +51,15 @@ function recorder(id) {
     drawImage: (...a) => note('drawImage', a),
     fillRect: (...a) => note('fillRect', a),
     fillText: (...a) => note('fillText', a),
-    save() {}, restore() {}, scale() {}, clip() {}, fill() {}, stroke() {},
+    save() {}, restore() {}, scale() {}, clip() {}, stroke() {},
+    // fill() takes no arguments, so the only way to know WHAT was filled is to
+    // record the style in force. The colour edge is a rounded rect filled with
+    // the quote's hex, and its absence under a backdrop is a claim worth making.
+    fill: () => note('fill', [ctx.fillStyle]),
+    // A tiny stand-in for the real setter's "ignore what you do not recognise"
+    // behaviour, which fadedPortrait reads back to decide whether it may use the
+    // `color` blend. Kept honest here: an unknown value must NOT stick.
+    __supported: new Set(supported),
     beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, arc() {}, arcTo() {},
   }
   // The blend mode is the effect, not a detail: the fade is an alpha mask
@@ -56,8 +71,8 @@ function recorder(id) {
   Object.defineProperty(ctx, 'globalCompositeOperation', {
     get: () => gco,
     set: (v) => {
-      gco = v
       note('composite', [v])
+      if (ctx.__supported.has(v)) gco = v
     },
   })
   return ctx
@@ -65,6 +80,7 @@ function recorder(id) {
 
 beforeEach(() => {
   log = []
+  supportedOps = FULL_SUPPORT
   let next = 0
   const seen = new WeakMap()
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function () {
@@ -74,7 +90,7 @@ beforeEach(() => {
       // the photo that went into it. Without this the two sides are
       // indistinguishable and "the right one uses the second face" is unasserted.
       this.__recorderId = next
-      seen.set(this, recorder(next++))
+      seen.set(this, recorder(next++, supportedOps))
     }
     return seen.get(this)
   })
@@ -185,6 +201,72 @@ describe('the portrait backdrop', () => {
     expect(ops.findIndex((e, i) => i > gco && e.op === 'fillRect')).toBeGreaterThan(gco)
   })
 
+  it('takes the quote colour as a tint', async () => {
+    await render(model({ portrait: true, faces: [FACE(1)], colorHex: '#7FA6C9' }))
+    const buf = backdrops()[0].args[0].__recorderId
+    const ops = log.filter((e) => e.canvas === buf)
+    const tint = ops.findIndex((e) => e.op === 'composite' && e.args[0] === 'color')
+    const mask = ops.findIndex((e) => e.op === 'composite' && e.args[0] === 'destination-out')
+    expect(tint, 'the tint never blended').toBeGreaterThan(-1)
+    // Order is the whole correctness argument. The tint goes on while the buffer
+    // is still opaque, so it colours the PHOTO; the mask goes on after, so the
+    // colour fades out with the face instead of surviving as a coloured slab.
+    expect(ops.findIndex((e) => e.op === 'drawImage')).toBeLessThan(tint)
+    expect(tint).toBeLessThan(mask)
+  })
+
+  it('is left alone when the colour is switched off', async () => {
+    await render(model({ portrait: true, faces: [FACE(1)], colorHex: null }))
+    const buf = backdrops()[0].args[0].__recorderId
+    const ops = log.filter((e) => e.canvas === buf)
+    expect(ops.some((e) => e.op === 'composite' && e.args[0] === 'color')).toBe(false)
+    // The fade still happens — the colour switch governs colour, not the effect.
+    expect(ops.some((e) => e.op === 'composite' && e.args[0] === 'destination-out')).toBe(true)
+  })
+
+  it('falls back when the canvas cannot do a colour blend', async () => {
+    // `color` is a CSS blend mode, not a Porter-Duff operator, and a canvas that
+    // does not implement it IGNORES the assignment silently — leaving whatever
+    // was there, which is source-over. Painting the quote's colour source-over
+    // is a flat slab across the person's face. This drops 'color' from what the
+    // canvas accepts and asserts the code notices.
+    supportedOps = FULL_SUPPORT.filter((o) => o !== 'color')
+    await render(model({ portrait: true, faces: [FACE(1)], colorHex: '#7FA6C9' }))
+    const buf = backdrops()[0].args[0].__recorderId
+    const ops = log.filter((e) => e.canvas === buf).filter((e) => e.op === 'composite')
+    const tried = ops.findIndex((e) => e.args[0] === 'color')
+    expect(tried, 'it should still TRY the good blend first').toBeGreaterThan(-1)
+    // It asked, was refused, and chose the Porter-Duff wash instead.
+    expect(ops[tried + 1]?.args[0]).toBe('source-atop')
+  })
+
+  it('never leaves a plain colour edge beside a tinted portrait', async () => {
+    // Two statements of one thing, the second one louder. With a backdrop the
+    // quote's colour IS the portrait's hue, so the stripe must not also appear.
+    await render(model({ portrait: true, faces: [FACE(1)], colorHex: '#7FA6C9' }))
+    const fills = log.filter((e) => e.canvas === CARD && e.op === 'fill').map((e) => e.args[0])
+    expect(fills).not.toContain('#7FA6C9')
+  })
+
+  it('a plain card keeps its colour edge', async () => {
+    await render(model({ colorHex: '#7FA6C9' }))
+    const fills = log.filter((e) => e.canvas === CARD && e.op === 'fill').map((e) => e.args[0])
+    expect(fills).toContain('#7FA6C9')
+  })
+
+  it('drops the credit discs, because it IS the face', async () => {
+    // A 34px crop of the same photograph beside a full-height version of it
+    // reads as a mistake, not as identification.
+    await render(model({ portrait: true, faces: [FACE(1), FACE(2)] }))
+    expect(discs()).toHaveLength(0)
+  })
+
+  it('keeps the credit discs when there is no backdrop', async () => {
+    await render(model({ portrait: false, faces: [FACE(1), FACE(2)] }))
+    expect(backdrops()).toHaveLength(0)
+    expect(discs()).toHaveLength(2)
+  })
+
   it('sits behind every word', async () => {
     // Not "it was drawn" but "it was drawn FIRST". Canvas has no z-index; order
     // IS depth, so a backdrop painted one block too late covers the quote it is
@@ -196,13 +278,14 @@ describe('the portrait backdrop', () => {
     expect(ops.lastIndexOf('backdrop')).toBeLessThan(ops.indexOf('text'))
   })
 
-  it('keeps the credit disc on top of it', async () => {
-    // The backdrop is atmosphere; the disc beside the name is the
-    // identification. Losing the disc under the backdrop would leave a
-    // two-speaker card with no way to tell which face belongs to which name.
-    await render(model({ portrait: true, faces: [FACE(1), FACE(2)] }))
-    expect(discs()).toHaveLength(2)
+  it('a plain card still draws its discs on top of nothing', async () => {
+    // The complement of the rule above: without a backdrop the disc is the only
+    // face on the card and must still be there. 1.6.0 shipped the discs AND the
+    // backdrop together; 1.6.1 made them exclusive, and this is the half that
+    // must not have been broken by that.
+    await render(model({ faces: [FACE(1)] }))
     const ops = cardOps()
-    expect(ops.lastIndexOf('backdrop')).toBeLessThan(ops.indexOf('disc'))
+    expect(ops).toContain('disc')
+    expect(ops).not.toContain('backdrop')
   })
 })
