@@ -8,6 +8,7 @@ import {
   ErrorText,
   GhostButton,
   IconCheck,
+  IconChevron,
   IconClose,
   IconDelete,
   IconLink,
@@ -413,16 +414,6 @@ export function CandidateRow({ cover, title, sub, source, sourceDetail, count = 
         </button>
       </Tooltip>
     </li>
-  )
-}
-
-// IconChevron — the group row's affordance: a "+" would promise an immediate
-// add, but a group opens its editions instead.
-function IconChevron({ open }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={open ? 'M6 14.5 12 8.5l6 6' : 'M6 9.5 12 15.5l6-6'} />
-    </svg>
   )
 }
 

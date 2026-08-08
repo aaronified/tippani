@@ -34,6 +34,7 @@ import {
   IconMenu,
   IconPlus,
   IconSearch,
+  NavIcon,
   Sprockets,
   StickerButton,
   ToastHost,
@@ -449,115 +450,6 @@ function Login({ onLogin }) {
 // they are the other half of, where a test can check they agree about which
 // tabs exist without rendering the shell.
 
-// TabIcon — a small line glyph per nav tab (§7). Stroke is currentColor so the
-// active-tab accent tint flows through it. Keyed by the tab key in TABS; the
-// Catalogue reel reuses the drawing salvaged from the retired cover-size slider.
-function TabIcon({ name }) {
-  const p = {
-    width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-    strokeWidth: 2.0, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
-  }
-  switch (name) {
-    case 'home': // house
-      return (
-        <svg {...p}>
-          <path d="M4 11.2 12 4.5l8 6.7" />
-          <path d="M6 9.8V19a1 1 0 0 0 1 1h3.4v-4.6a1.6 1.6 0 0 1 3.2 0V20H17a1 1 0 0 0 1-1V9.8" />
-        </svg>
-      )
-    case 'quotes': // a pair of quotation marks — the kind with no work behind it
-      return (
-        <svg {...p}>
-          <path d="M9.5 7.5C7 8.6 5.5 10.7 5.5 13.2v3.3h4.6v-4.6H7.9c0-1.6.7-2.8 2.3-3.6z" />
-          <path d="M18 7.5c-2.5 1.1-4 3.2-4 5.7v3.3h4.6v-4.6h-2.2c0-1.6.7-2.8 2.3-3.6z" />
-        </svg>
-      )
-    case 'library': // open book
-      return (
-        <svg {...p}>
-          <path d="M12 6c-1.5-1-4-1.6-6.5-1.6V17c2.5 0 5 .6 6.5 1.6 1.5-1 4-1.6 6.5-1.6V4.4C16 4.4 13.5 5 12 6Z" />
-          <path d="M12 6v12.6" />
-        </svg>
-      )
-    case 'movies': // film reel
-      return (
-        <svg {...p}>
-          <circle cx="12" cy="12" r="8.5" />
-          <circle cx="12" cy="12" r="1.5" />
-          <circle cx="12" cy="6.4" r="1" />
-          <circle cx="17.6" cy="12" r="1" />
-          <circle cx="12" cy="17.6" r="1" />
-          <circle cx="6.4" cy="12" r="1" />
-        </svg>
-      )
-    case 'metadata': // stacked records
-      return (
-        <svg {...p}>
-          <rect x="4.5" y="8.5" width="11.5" height="10" rx="2" />
-          <path d="M7.5 6.2h8A2.5 2.5 0 0 1 18 8.7v7.8" />
-        </svg>
-      )
-    case 'import': // tray + down arrow
-      return (
-        <svg {...p}>
-          <path d="M5 13.5V17a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 17v-3.5" />
-          <path d="M12 4v9" />
-          <path d="m8.5 9.5 3.5 3.5 3.5-3.5" />
-        </svg>
-      )
-    case 'search': // magnifier
-      return (
-        <svg {...p}>
-          <circle cx="11" cy="11" r="6" />
-          <path d="m20 20-4.7-4.7" />
-        </svg>
-      )
-    case 'tags': // tag
-      return (
-        <svg {...p}>
-          <path d="M4 12.7V5.5A1.5 1.5 0 0 1 5.5 4h7.2a2 2 0 0 1 1.4.6l6 6a1.8 1.8 0 0 1 0 2.5l-6.4 6.4a1.8 1.8 0 0 1-2.5 0l-6-6a2 2 0 0 1-.6-1.4Z" />
-          <circle cx="8.8" cy="8.8" r="1.2" />
-        </svg>
-      )
-    case 'stats': // bar chart — outlined rectangular bars so the glyph carries the same mass as its neighbours
-      return (
-        <svg {...p}>
-          <rect x="4.5" y="11" width="4" height="7.5" rx="1" />
-          <rect x="10" y="5.5" width="4" height="13" rx="1" />
-          <rect x="15.5" y="8" width="4" height="10.5" rx="1" />
-        </svg>
-      )
-    case 'settings': // sliders
-      return (
-        <svg {...p}>
-          <path d="M4 8h9" />
-          <path d="M17 8h3" />
-          <circle cx="15" cy="8" r="2" />
-          <path d="M4 16h3" />
-          <path d="M11 16h9" />
-          <circle cx="9" cy="16" r="2" />
-        </svg>
-      )
-    case 'profile': // single person
-      return (
-        <svg {...p}>
-          <circle cx="12" cy="8" r="3.6" />
-          <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
-        </svg>
-      )
-    case 'users': // two people
-      return (
-        <svg {...p}>
-          <circle cx="9" cy="8" r="3.2" />
-          <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
-          <path d="M16 5.2a3.2 3.2 0 0 1 0 6" />
-          <path d="M17 14.2a5.5 5.5 0 0 1 3.5 4.8" />
-        </svg>
-      )
-    default:
-      return null
-  }
-}
 
 // DesktopNav renders in the topbar. It is a real component (not an inline
 // closure in Shell) so a Shell re-render does not remount the Toggle and lose the
@@ -567,7 +459,7 @@ function TabIcon({ name }) {
 function tabOptions(rows) {
   return rows.map(([key, label, tip]) => [
     key,
-    <><TabIcon name={key} /> <span className="tab-label">{label}</span></>,
+    <><NavIcon name={key} /> <span className="tab-label">{label}</span></>,
     tip,
   ])
 }
@@ -830,7 +722,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               className="drawer-item"
               onClick={() => { selectTab('staging'); onClose() }}
             >
-              <TabIcon name="import" />
+              <NavIcon name="import" />
               Pending import
               <span className="drawer-badge" style={{ color: 'var(--accent-ui)' }}>{pendingImport}</span>
             </button>
@@ -848,7 +740,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
                 // drops any scope the top bar's context-aware Search left behind.
                 onClick={() => { if (t[0] === 'search' && onSearch) onSearch(); else selectTab(t[0]); onClose() }}
               >
-                <TabIcon name={t[0]} />
+                <NavIcon name={t[0]} />
                 {t[1]}
                 {badge(t[0])}
               </button>
@@ -913,7 +805,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
 
 // The four screens the phone's floating bar carries. Ids are the real tab keys
 // — note 'movies' is the legacy id for the Catalogue tab (statePath maps it to
-// /catalogue). Icon-only: TabIcon's glyph is the affordance, the aria-label
+// /catalogue). Icon-only: NavIcon's glyph is the affordance, the aria-label
 // carries the name.
 // SEARCH IS NOT HERE, AND THAT IS THE POINT. The mobile top bar has carried
 // ＋ · Search · ? · chip since 1.4.1 — the same four the desktop bar carries —
@@ -954,7 +846,7 @@ function MobileBottomNav({ tab, selectTab, hidden }) {
               aria-current={active ? 'page' : undefined}
               onClick={() => selectTab(key)}
             >
-              <TabIcon name={key} />
+              <NavIcon name={key} />
               <span className="mobile-bottom-nav-mark" aria-hidden="true" />
             </button>
           </Tooltip>

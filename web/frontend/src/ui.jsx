@@ -3423,10 +3423,26 @@ export function IconGrid() { return <ViewIcon kind="tiles" /> }
 export function IconList() { return <ViewIcon kind="list" /> }
 export function IconTable() { return <ViewIcon kind="table" /> }
 export function IconMore() { return <svg {...iconStroke}><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg> }
-export function IconShare() { return <svg {...iconStroke}><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 3.5v12"/><path d="m8 7.5 4-4 4 4"/></svg> }
+// IconShare — the node graph, and NOT a tray with an arrow in it.
+//
+// It was that tray, and IconUpload is also a tray with an arrow in it, differing
+// by about a pixel and a half of arrow. The two appear in the same rows — a
+// quote card offers share, the tag manager offers upload — so the one thing a
+// glyph has to do, be told apart at 24px without reading a label, neither did.
+// The graph is the universally-learned share mark and shares no geometry with a
+// tray, which is the actual requirement.
+export function IconShare() { return <svg {...iconStroke}><circle cx="17.5" cy="5.5" r="2.4"/><circle cx="17.5" cy="18.5" r="2.4"/><circle cx="6.5" cy="12" r="2.4"/><path d="m8.7 10.9 6.6-3.9"/><path d="m8.7 13.1 6.6 3.9"/></svg> }
 export function IconUpload() { return <svg {...iconStroke}><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><path d="M12 3.5v11"/><path d="m7.5 8 4.5-4.5 4.5 4.5"/></svg> }
 export function IconLink() { return <svg {...iconStroke}><path d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 1 0-5-5l-1.5 1.5"/><path d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 1 0 5 5l1.5-1.5"/></svg> }
-export function IconMetadata() { return <svg {...iconStroke}><path d="M12 3.5v11"/><path d="m7.5 10 4.5 4.5 4.5-4.5"/><path d="M4.5 20h15"/></svg> }
+// IconMetadata — an arrow landing INSIDE a record card, because that is what
+// "fetch covers and metadata" does: it fills fields in rows you already have.
+//
+// The old drawing was an arrow landing on a baseline, which is IconExport — the
+// same three strokes at coordinates half a unit apart. They sit two buttons
+// apart on the Metadata console, one pulling data in and one pushing it out, and
+// were the same picture. The card is what makes this one legible: the arrow has
+// somewhere to arrive.
+export function IconMetadata() { return <svg {...iconStroke}><rect x="3.5" y="11" width="17" height="9.5" rx="2.5"/><path d="M12 3v5.6"/><path d="m9 5.8 3 3 3-3"/><path d="M7.5 15h9"/><path d="M7.5 18h5"/></svg> }
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18 6 6 18"/></svg> }
@@ -3452,6 +3468,108 @@ export function IconCopy({ size = ICON_SIZE }) { return <svg {...iconStroke} wid
 // IconRevert — put a field back to the value it had before a lookup match
 // overwrote it (the merge screen's per-row undo).
 export function IconRevert({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 10h9.5a5 5 0 0 1 0 10H8"/><path d="m7.5 6-3.5 4 3.5 4"/></svg> }
+// IconChevron — a disclosure caret that points where it will go. Promoted out of
+// CoverPicker.jsx, where it had been the only glyph in the app defined outside
+// this file: the edition-group row needed something that was not a "+", because
+// a "+" promises an immediate add and a group opens its editions instead.
+// Everything with a fold now draws the same caret.
+export function IconChevron({ open = false, size = 22 }) { return <svg {...iconStroke} width={size} height={size}><path d={open ? 'M6 14.5 12 8.5l6 6' : 'M6 9.5 12 15.5l6-6'}/></svg> }
+
+// ---- the rest of the vocabulary ------------------------------------------
+// Drawn from the button inventory rather than from a wishlist: every glyph below
+// has at least one call site in the sweep that follows. The plan for this
+// release guessed at twenty-six; the tree held nineteen distinct GhostButton
+// labels in total, most of them one-off. Counting first is why this list is
+// short.
+
+// IconOpen — leave this screen for the thing itself (the Metadata console's
+// per-row "Open", which jumps to the work in the Library or Catalogue).
+export function IconOpen({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M14 3.5h6.5V10"/><path d="M20.5 3.5 12 12"/><path d="M18 14v4.5a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2H10"/></svg> }
+// IconMerge — two lines becoming one, for the duplicate finder's "merge into
+// keeper". The quotes of the losing rows move onto the survivor, which is
+// exactly what the picture says.
+export function IconMerge({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 3.5v3c0 3 2.5 5.5 5.5 5.5H19"/><path d="M5 20.5v-3c0-3 2.5-5.5 5.5-5.5"/><path d="m15.5 8.5 3.5 3.5-3.5 3.5"/></svg> }
+// IconUsers — two people. The cast, and the admin user list, and "fill actors
+// from cast" — all three are the same idea and now the same drawing.
+export function IconUsers({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6"/><path d="M17 14.2a5.5 5.5 0 0 1 3.5 4.8"/></svg> }
+export function IconPerson({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="8" r="3.6"/><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0"/></svg> }
+// IconUserPlus — add an account (admin only, on Profile and in Settings).
+export function IconUserPlus({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="10" cy="8" r="3.4"/><path d="M3.5 19.5a6.5 6.5 0 0 1 10.7-4.4"/><path d="M18 14.5v6"/><path d="M15 17.5h6"/></svg> }
+// IconSwitchUser — a person, and the swap that replaces them. Sign in as someone
+// else on this server; it is not logging out, and it should not look like it.
+export function IconSwitchUser({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="8.5" cy="7.5" r="3.2"/><path d="M3 18.5a5.5 5.5 0 0 1 9-4.2"/><path d="M14 16.5h6.5"/><path d="m18 14 2.5 2.5L18 19"/></svg> }
+// IconLogout — through the door and out. Ends this browser session only, which
+// is why the door stays and only the figure's arrow leaves.
+export function IconLogout({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10"/><path d="M9.5 12h10"/><path d="m16 8.5 3.5 3.5-3.5 3.5"/></svg> }
+// IconKey — the password field, and only ever a password. It is the same key on
+// the profile form and in the backup copy, deliberately: an archive is opened by
+// the password that sealed it, and the repeated glyph is part of saying so.
+export function IconKey({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="8" cy="12" r="4"/><path d="M12 12h8.5"/><path d="M17 12v3.5"/><path d="M20.5 12v2.5"/></svg> }
+// IconDevice — a paired phone (Settings' Devices card).
+export function IconDevice({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg> }
+// IconArchive — a lidded box: one dated, encrypted backup.
+export function IconArchive({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3" y="4.5" width="18" height="4" rx="1.2"/><path d="M4.8 8.5v10a2 2 0 0 0 2 2h10.4a2 2 0 0 0 2-2v-10"/><path d="M10 12.5h4"/></svg> }
+// IconRestore — the same box, opened upward. Restoring reads OUT of an archive,
+// so the arrow leaves the box rather than entering it.
+export function IconRestore({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3" y="4.5" width="18" height="4" rx="1.2"/><path d="M4.8 8.5v10a2 2 0 0 0 2 2h10.4a2 2 0 0 0 2-2v-10"/><path d="M12 18v-6"/><path d="m9.3 14.7 2.7-2.7 2.7 2.7"/></svg> }
+// IconRefresh — do it again against the live sources: re-verify, look up, refetch
+// links, check for updates, start the tour over.
+export function IconRefresh({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M20.5 12a8.5 8.5 0 1 1-2.9-6.4"/><path d="M20.5 3.5V9.2h-5.7"/></svg> }
+// IconMoveTo — send the selection somewhere else (staging's "move to…", which
+// re-parents quotes onto the right book or film).
+export function IconMoveTo({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M3.5 12h11"/><path d="m10.5 8 4 4-4 4"/><path d="M19 4.5v15"/></svg> }
+// IconRuler — a locator, measured. Staging's "locations…" rewrites Kindle
+// location numbers across a batch by formula, so the glyph is a scale, not a pin.
+export function IconRuler({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="2.5" y="9" width="19" height="6" rx="1.5"/><path d="M6.8 9v2.6"/><path d="M10.6 9v3.8"/><path d="M14.4 9v2.6"/><path d="M18.2 9v3.8"/></svg> }
+// IconTag — one label on a string. Shared by the Tags tab and every tag control.
+export function IconTag({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 12.7V5.5A1.5 1.5 0 0 1 5.5 4h7.2a2 2 0 0 1 1.4.6l6 6a1.8 1.8 0 0 1 0 2.5l-6.4 6.4a1.8 1.8 0 0 1-2.5 0l-6-6a2 2 0 0 1-.6-1.4Z"/><circle cx="8.8" cy="8.8" r="1.2"/></svg> }
+// IconBooks — spines on a shelf, and NOT the open book IconReading draws. The
+// Library tab and the "you are reading this" cover badge were the same picture
+// meaning two different things, on screens that show both at once.
+export function IconBooks({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 4.5h3.5v15H4z"/><path d="M8.8 4.5h3.5v15H8.8z"/><path d="m14.2 5.4 3.4-.9 3.9 14.5-3.4.9z"/></svg> }
+// IconReel — the Catalogue's film reel, salvaged from the retired cover-size
+// slider.
+export function IconReel({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="6.4" r="1"/><circle cx="17.6" cy="12" r="1"/><circle cx="12" cy="17.6" r="1"/><circle cx="6.4" cy="12" r="1"/></svg> }
+export function IconHome({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19a1 1 0 0 0 1 1h3.4v-4.6a1.6 1.6 0 0 1 3.2 0V20H17a1 1 0 0 0 1-1V9.8"/></svg> }
+// IconRecords — stacked cards: the Metadata console, which is every row you have
+// seen from behind.
+export function IconRecords({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4.5" y="8.5" width="11.5" height="10" rx="2"/><path d="M7.5 6.2h8A2.5 2.5 0 0 1 18 8.7v7.8"/></svg> }
+export function IconStats({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4.5" y="11" width="4" height="7.5" rx="1"/><rect x="10" y="5.5" width="4" height="13" rx="1"/><rect x="15.5" y="8" width="4" height="10.5" rx="1"/></svg> }
+export function IconSliders({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 8h9"/><path d="M17 8h3"/><circle cx="15" cy="8" r="2"/><path d="M4 16h3"/><path d="M11 16h9"/><circle cx="9" cy="16" r="2"/></svg> }
+// IconImport — into the tray, where IconExport goes down onto a floor. Both are
+// down arrows because that is the convention everywhere; what differs is whether
+// the arrow arrives somewhere or leaves.
+export function IconImport({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 13.5V17a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 17v-3.5"/><path d="M12 4v9"/><path d="m8.5 9.5 3.5 3.5 3.5-3.5"/></svg> }
+
+// NavIcon — the glyph for a nav tab, keyed by the tab key the four lists in
+// routes.js use.
+//
+// It lived in App.jsx as `TabIcon` with its own stroke settings, which is how
+// the app came to draw a magnifier, an open book and a tray-download twice each
+// — once here at strokeWidth 2.0 and once in the shared set at 1.85 — and to
+// draw the Library tab and the "currently reading" badge identically. The nav is
+// not a special case; it is the most-looked-at instance of the same vocabulary.
+// So there is one set now, one weight, and every drawing has one meaning.
+//
+// Returning null for an unknown key is deliberate: a tab added to a nav list and
+// not to this switch should render a bare label, not crash the shell.
+export function NavIcon({ name }) {
+  switch (name) {
+    case 'home': return <IconHome />
+    case 'quotes': return <IconQuote />
+    case 'library': return <IconBooks />
+    case 'movies': return <IconReel />
+    case 'metadata': return <IconRecords />
+    case 'import': return <IconImport />
+    case 'search': return <IconSearch />
+    case 'tags': return <IconTag />
+    case 'stats': return <IconStats />
+    case 'settings': return <IconSliders />
+    case 'profile': return <IconPerson />
+    case 'users': return <IconUsers />
+    default: return null
+  }
+}
 
 // ---- metadata-source marks ----
 // A look-up row shows WHERE a match came from. It used to be a "GOOGLE BOOKS"
