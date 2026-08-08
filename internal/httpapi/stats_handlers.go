@@ -140,11 +140,15 @@ func (tm *tallyMap) finish() statsKind {
 }
 
 // statsBreakdown builds the per-kind recall breakdown: every quote is walked
-// once per medium with its derived status and credited to its book/film/show,
-// its series, and its people — joined credits split into individual names
-// (ROADMAP §11) with the caller's separator config, exactly like the People
-// console. A second cheap pass over the bare catalogue registers quote-less
-// works so an author's works count means "books shelved", not "books quoted".
+// once per medium with its derived status and credited to its work, its series,
+// and its people — joined credits split into individual names (ROADMAP §11)
+// with the caller's separator config, exactly like the People console. A second
+// cheap pass over the bare catalogue registers quote-less works so an author's
+// works count means "books shelved", not "books quoted".
+//
+// Standalone quotes (§24) are the exception to that two-pass shape, and to the
+// idea of a work: there is no table of speeches to walk, so their "works" are
+// the occasions the quotes name.
 func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	seps := s.creditSeps(uid)
 	authors, books, series := newTallyMap(), newTallyMap(), newTallyMap()
@@ -296,6 +300,49 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	}
 	rows.Close()
 
+	// Standalone quotes: ONE pass, not two, because there is no work table to
+	// register first — the "works" are the occasions themselves, and an occasion
+	// exists only because something was said on it. A speaker is to a quote what
+	// an author is to a book, so both tallies count distinct occasions as their
+	// works.
+	//
+	// A proverb contributes to neither: tallyMap.work drops an empty name, so a
+	// quote with no speaker and no occasion falls out of the breakdown the same
+	// way it falls out of the review deck.
+	speakers, occasions := newTallyMap(), newTallyMap()
+	rows, err = s.Store.DB.Query(`
+		SELECT COALESCE(u.speaker,''), COALESCE(u.occasion,''),
+		       r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
+		       COALESCE(julianday('now') - julianday(u.created_at), 1e9)
+		FROM utterances u
+		LEFT JOIN item_reviews r ON r.kind = 'utterance' AND r.item_id = u.id
+		WHERE u.user_id = ?`, reviewMinStability, uid)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var speaker, occasion string
+		var seen bool
+		var stability, age float64
+		var lr sql.NullString
+		var lastResult string
+		if err := rows.Scan(&speaker, &occasion, &seen, &stability, &lr, &lastResult, &age); err != nil {
+			olog.Warnf(olog.CodeStatsRowScan, "[stats] breakdown quote row scan failed: %v", err)
+			continue
+		}
+		status := recallStatus(seen, stability, elapsedDays(lr), age, lastResult)
+		key := utteranceWorkKey(speaker, occasion)
+		occasions.quote(occasion, key, status)
+		for _, sp := range metadata.SplitCredits(speaker, seps) {
+			speakers.quote(sp, key, status)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
 	return map[string]statsKind{
 		"authors":   authors.finish(),
 		"books":     books.finish(),
@@ -304,7 +351,25 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		"shows":     shows.finish(),
 		"directors": directors.finish(),
 		"actors":    actors.finish(),
+		"speakers":  speakers.finish(),
+		"occasions": occasions.finish(),
 	}, nil
+}
+
+// everyQuoteCreatedAt is one row per saved quote of any kind, carrying just the
+// timestamp. Three aggregates bucket by it — the busiest month, the activity
+// calendar, and "collecting since" — and each used to spell the union out
+// again, so counting a new kind meant remembering it in three places. It
+// returns its own arguments because each arm binds the user id separately, and
+// a union whose arm count and argument count disagree fails at run time rather
+// than compile time.
+func everyQuoteCreatedAt(uid int64) (string, []any) {
+	return `SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
+	        UNION ALL
+	        SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?
+	        UNION ALL
+	        SELECT u.created_at FROM utterances u WHERE u.user_id = ?`,
+		[]any{uid, uid, uid}
 }
 
 // handleStats implements GET /stats (§10): user-scoped library counts plus
@@ -314,20 +379,22 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[stats] handleStats uid=%v", uid)
 
-	var books, annotations, movies, dialogues, tags, favorites int
+	var books, annotations, movies, dialogues, quotes, tags, favorites int
 	err := s.Store.DB.QueryRow(`
 		SELECT
 		  (SELECT count(*) FROM books WHERE user_id = ?),
 		  (SELECT count(*) FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?),
 		  (SELECT count(*) FROM movies WHERE user_id = ?),
 		  (SELECT count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?),
+		  (SELECT count(*) FROM utterances WHERE user_id = ?),
 		  (SELECT count(*) FROM tags WHERE user_id = ?),
 		  (SELECT count(*) FROM annotations a JOIN books b ON b.id = a.book_id
 		     WHERE b.user_id = ? AND a.favorite = 1)
 		+ (SELECT count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		     WHERE m.user_id = ? AND d.favorite = 1)`,
-		uid, uid, uid, uid, uid, uid, uid).
-		Scan(&books, &annotations, &movies, &dialogues, &tags, &favorites)
+		     WHERE m.user_id = ? AND d.favorite = 1)
+		+ (SELECT count(*) FROM utterances WHERE user_id = ? AND favorite = 1)`,
+		uid, uid, uid, uid, uid, uid, uid, uid, uid).
+		Scan(&books, &annotations, &movies, &dialogues, &quotes, &tags, &favorites)
 	if err != nil {
 		internalError(w, r, "scan stats", err)
 		return
@@ -369,14 +436,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var busiest *monthTop
 	{
 		var m monthTop
+		everyQuote, everyQuoteArgs := everyQuoteCreatedAt(uid)
 		err := s.Store.DB.QueryRow(`
 			SELECT substr(created_at, 1, 7) AS month, count(*)
-			FROM (SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id
-			        WHERE b.user_id = ?
-			      UNION ALL
-			      SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id
-			        WHERE m.user_id = ?)
-			GROUP BY month ORDER BY count(*) DESC, month DESC LIMIT 1`, uid, uid).
+			FROM (`+everyQuote+`)
+			GROUP BY month ORDER BY count(*) DESC, month DESC LIMIT 1`, everyQuoteArgs...).
 			Scan(&m.Month, &m.Count)
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -399,13 +463,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		Count int    `json:"count"`
 	}
 	daily := []dayCount{}
+	activityQuery, activityArgs := everyQuoteCreatedAt(uid)
 	arows, err := s.Store.DB.Query(`
 		SELECT substr(created_at, 1, 10) AS day, count(*)
-		FROM (SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
-		      UNION ALL
-		      SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)
+		FROM (`+activityQuery+`)
 		WHERE created_at >= datetime('now', '-930 days')
-		GROUP BY day ORDER BY day`, uid, uid)
+		GROUP BY day ORDER BY day`, activityArgs...)
 	if err != nil {
 		internalError(w, r, "query daily activity", err)
 		return
@@ -523,8 +586,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		  UNION ALL
 		  SELECT dt.tag_id FROM dialogue_tags dt
 		    JOIN dialogues d ON d.id = dt.dialogue_id JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?
+		  UNION ALL
+		  SELECT ut.tag_id FROM utterance_tags ut
+		    JOIN utterances u2 ON u2.id = ut.utterance_id WHERE u2.user_id = ?
 		) u ON u.tag_id = t.id
-		GROUP BY t.id ORDER BY c DESC, t.name LIMIT 50`, uid, uid)
+		GROUP BY t.id ORDER BY c DESC, t.name LIMIT 50`, uid, uid, uid)
 	if err != nil {
 		internalError(w, r, "top tags", err)
 		return
@@ -559,7 +625,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Per-kind recall breakdown (authors · books · series · films · shows ·
-	// directors · actors), multi-author credits split.
+	// directors · actors · speakers · occasions), multi-author credits split.
 	breakdown, err := s.statsBreakdown(uid)
 	if err != nil {
 		internalError(w, r, "recall breakdown", err)
@@ -570,12 +636,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var firstSaved *string
 	{
 		var fs sql.NullString
-		err := s.Store.DB.QueryRow(`
-			SELECT min(created_at) FROM (
-			  SELECT a.created_at FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?
-			  UNION ALL
-			  SELECT d.created_at FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)`,
-			uid, uid).Scan(&fs)
+		firstQuery, firstArgs := everyQuoteCreatedAt(uid)
+		err := s.Store.DB.QueryRow(`SELECT min(created_at) FROM (`+firstQuery+`)`, firstArgs...).Scan(&fs)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			internalError(w, r, "first saved", err)
 			return
@@ -591,6 +653,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"annotations":    annotations,
 		"movies":         movies,
 		"dialogues":      dialogues,
+		"quotes":         quotes,
 		"tags":           tags,
 		"favorites":      favorites,
 		"genres":         genres,

@@ -252,6 +252,7 @@ type statsResp struct {
 	Annotations   int       `json:"annotations"`
 	Movies        int       `json:"movies"`
 	Dialogues     int       `json:"dialogues"`
+	Quotes        int       `json:"quotes"`
 	Tags          int       `json:"tags"`
 	Favorites     int       `json:"favorites"`
 	Genres        int       `json:"genres"`
