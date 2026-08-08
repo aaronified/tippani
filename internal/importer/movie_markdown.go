@@ -10,27 +10,46 @@ import (
 	"strings"
 )
 
-// LooksLikeMovieMarkdown decides whether a markdown export is a catalogue
-// (movie/show) export rather than a book one, so the import endpoint can route
-// it. The first decisive signal wins; a file carrying none defaults to book,
-// which is the historical behaviour and the safer guess for a hand-written file.
+// LooksLikeMovieMarkdown is the two-way question the import endpoint used to
+// ask. Kept because it reads better at the call sites that only care whether a
+// file is a catalogue export; MarkdownKind is the full answer.
 //
 // The decisive signal is the "type:" frontmatter line, which renderMovieExport
-// now always writes (movie or show) and the book export never writes. That closed
-// a real hole: detection used to rest entirely on OPTIONAL content — director /
+// always writes (movie or show) and the book export never writes. That closed a
+// real hole: detection used to rest entirely on OPTIONAL content — director /
 // creator / collection in the frontmatter, or character / actor / timestamp on a
 // line — so a film with none of them (no director recorded, no collection, its
 // lines unattributed) carried nothing that said "film", and re-importing its own
-// export silently produced a BOOK with annotations. The heuristics below still
-// run, for hand-written files and for exports written before the type line became
+// export silently produced a BOOK with annotations. The heuristics still run,
+// for hand-written files and for exports written before the type line became
 // unconditional.
+func LooksLikeMovieMarkdown(data []byte) bool { return MarkdownKind(data) == KindMovie }
+
+// The three markdown shapes an upload can be.
+const (
+	KindBook   = "book"
+	KindMovie  = "movie"
+	KindQuotes = "quotes" // standalone quotes: no work, no parent (§24)
+)
+
+// MarkdownKind decides which of the three exports a file is, so the import
+// endpoint can route it. The first decisive signal wins; a file carrying none
+// defaults to a book, which is the historical behaviour and the safer guess for
+// a hand-written file.
 //
-// Note what deliberately is NOT a signal: "- color:", which both kinds have
-// carried since migration 0021, and note/tags/date/favorite, which were always
+// A THIRD KIND MAKES THE DEFAULT DANGEROUS IN A NEW WAY. A standalone quote
+// file has no author, no isbn and no locator, so under the old two-way split
+// every one of them would have fallen through to "book" and re-imported as a
+// book with no title. That is why `type: quotes` is written unconditionally by
+// the exporter, exactly as `type:` became unconditional for the catalogue once
+// the same hole was found there.
+//
+// Note what deliberately is NOT a signal: "- color:", which every kind has
+// carried since 0021/0026, and note/tags/date/favorite, which were always
 // shared. Only a binding unique to one kind can decide, and under the shared
 // quote shape that set is exactly the source locator — chapter/location for a
-// book, character/actor/timestamp for a film.
-func LooksLikeMovieMarkdown(data []byte) bool {
+// book, character/actor/timestamp for a film, speaker/occasion for a quote.
+func MarkdownKind(data []byte) string {
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	sc.Buffer(make([]byte, 64*1024), 1<<20)
 	for sc.Scan() {
@@ -41,9 +60,11 @@ func LooksLikeMovieMarkdown(data []byte) bool {
 		if rest, ok := cutPrefixFold(line, "type:"); ok {
 			switch strings.ToLower(strings.TrimSpace(rest)) {
 			case "movie", "film", "show":
-				return true
+				return KindMovie
 			case "book":
-				return false
+				return KindBook
+			case "quotes", "quote":
+				return KindQuotes
 			}
 			continue // an unrecognised type says nothing; keep scanning
 		}
@@ -54,13 +75,17 @@ func LooksLikeMovieMarkdown(data []byte) bool {
 			strings.HasPrefix(line, "collection:"),
 			strings.HasPrefix(line, "- character:"), strings.HasPrefix(line, "- actor:"),
 			strings.HasPrefix(line, "- timestamp:"), strings.HasPrefix(line, "- episode:"):
-			return true
+			return KindMovie
+		// A quote's locator is who said it and where. "- speaker:" is unique to
+		// this kind; "- occasion:" likewise. Neither appears on a book or a film.
+		case strings.HasPrefix(line, "- speaker:"), strings.HasPrefix(line, "- occasion:"):
+			return KindQuotes
 		case strings.HasPrefix(line, "author:"), strings.HasPrefix(line, "isbn:"),
 			strings.HasPrefix(line, "- loc:"), strings.HasPrefix(line, "- location:"):
-			return false
+			return KindBook
 		}
 	}
-	return false
+	return KindBook
 }
 
 // cutPrefixFold is strings.CutPrefix with an ASCII case-insensitive match, so a

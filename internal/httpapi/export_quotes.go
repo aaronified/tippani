@@ -1,0 +1,178 @@
+package httpapi
+
+// Markdown export for standalone quotes (ROADMAP §24) — the third `type:`.
+//
+// The shape deliberately mirrors renderBookExport rather than inventing one,
+// because the two are the same problem: a set of quotes, each carrying a
+// locator, grouped by the coarsest part of that locator.
+//
+//	chapter -> occasion         the "## " heading
+//	page    -> speaker/date/... the bindings under each quote
+//
+// A quote with no occasion is a proverb, and it lands where a chapterless
+// annotation lands: first, before any "## " line. That ordering is not
+// cosmetic — the parser attributes a quote to the heading above it, so a
+// proverb written after a heading would come back belonging to a speech.
+//
+// There is one frontmatter block for the whole file rather than one per work,
+// because there is no work. It carries `type: quotes` and nothing else, and it
+// is what routes the re-import: a standalone-quote file has no author, no isbn
+// and no locator, so without it MarkdownKind's fallthrough would read every one
+// of them as a book with no title.
+
+import (
+	"net/http"
+	"strings"
+
+	"tippani/internal/olog"
+)
+
+// handleExportQuotes renders a chosen set of standalone quotes — the
+// in-view/filtered set the UI passes, or all when ids is empty — as ONE
+// markdown file. Unowned ids are skipped rather than refused, matching
+// exportSet: an export is a read, and a stale id in a filtered selection is not
+// worth failing the whole download over.
+func (s *Server) handleExportQuotes(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	olog.Tracef("[export] handleExportQuotes uid=%d", uid)
+	var body struct {
+		IDs []int64 `json:"ids"`
+	}
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	md, err := s.renderQuotesExport(uid, body.IDs)
+	if err != nil {
+		internalError(w, r, "render quotes export", err)
+		return
+	}
+	serveMarkdown(w, "tippani-quotes.md", md)
+}
+
+// utteranceExportRow is the flat row the renderer walks — deliberately not
+// utteranceRow, which carries sticker coordinates and an id the file has no
+// use for.
+type utteranceExportRow struct {
+	id                                             int64
+	quote, note, color                             string
+	speaker, occasion, occasionDate, place, medium string
+	favorite                                       bool
+	notedAt                                        string
+}
+
+func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
+	q := `SELECT id, quote, COALESCE(note,''), color, COALESCE(speaker,''), COALESCE(occasion,''),
+	             COALESCE(occasion_date,''), COALESCE(place,''), COALESCE(medium,''),
+	             favorite, COALESCE(noted_at,'')
+	      FROM utterances WHERE user_id = ?`
+	args := []any{uid}
+	if len(ids) > 0 {
+		q += ` AND id IN (?` + strings.Repeat(",?", len(ids)-1) + `)`
+		for _, id := range ids {
+			args = append(args, id)
+		}
+	}
+	// Insertion order, matching the book export. Grouping below re-orders by
+	// occasion but keeps each occasion's quotes in the order they were saved.
+	q += ` ORDER BY id`
+
+	rows, err := s.Store.DB.Query(q, args...)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var us []utteranceExportRow
+	for rows.Next() {
+		var u utteranceExportRow
+		if err := rows.Scan(&u.id, &u.quote, &u.note, &u.color, &u.speaker, &u.occasion,
+			&u.occasionDate, &u.place, &u.medium, &u.favorite, &u.notedAt); err != nil {
+			olog.Warnf(olog.CodeExportRowScan, "[export] quote row scan failed: %v", err)
+			continue
+		}
+		us = append(us, u)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeExportRowScan, "[export] quote row iteration failed: %v", err)
+		return "", err
+	}
+	tags, err := s.exportUtteranceTags(uid)
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+	// `type` is the only frontmatter there is, and it is always written — see
+	// the file header.
+	writeFrontmatter(&sb, kv{"type", "quotes"})
+
+	order := []string{""}
+	grouped := map[string][]utteranceExportRow{}
+	for _, u := range us {
+		if _, seen := grouped[u.occasion]; !seen && u.occasion != "" {
+			order = append(order, u.occasion)
+		}
+		grouped[u.occasion] = append(grouped[u.occasion], u)
+	}
+	for _, occ := range order {
+		if occ != "" {
+			sb.WriteString("\n## ")
+			sb.WriteString(occ)
+			sb.WriteString("\n")
+		}
+		for _, u := range grouped[occ] {
+			sb.WriteString("\n")
+			writeQuoteBlock(&sb, u.quote, u.note, func(note string) {
+				// The occasion is the heading, so it is NOT repeated here — the
+				// same rule the book export applies to chapter. Everything else
+				// that locates the quote is a binding.
+				writeBinding(&sb, "speaker", u.speaker)
+				writeBinding(&sb, "occasion_date", u.occasionDate)
+				writeBinding(&sb, "place", u.place)
+				writeBinding(&sb, "medium", u.medium)
+				writeBinding(&sb, "note", note)
+				// Same rule as the other two exports: the default colour is left
+				// out, so a file only mentions colour when one was chosen.
+				if u.color != "yellow" {
+					writeBinding(&sb, "color", u.color)
+				}
+				writeBinding(&sb, "tags", strings.Join(tags[u.id], ", "))
+				// `date` is when YOU saved it, matching the book export's key.
+				// When it was SAID is occasion_date above — two different facts
+				// that a single `date` key would silently merge.
+				writeBinding(&sb, "date", dateOnly(u.notedAt))
+				writeFavorite(&sb, u.favorite)
+			})
+		}
+	}
+	return sb.String(), nil
+}
+
+// exportUtteranceTags maps quote id -> sorted tag names for one account in a
+// single query. It cannot reuse exportTags, which is keyed on a parent work's
+// id — the thing this kind does not have.
+func (s *Server) exportUtteranceTags(uid int64) (map[int64][]string, error) {
+	rows, err := s.Store.DB.Query(`
+		SELECT ut.utterance_id, t.name FROM utterance_tags ut
+		JOIN tags t ON t.id = ut.tag_id
+		JOIN utterances u ON u.id = ut.utterance_id
+		WHERE u.user_id = ? ORDER BY t.name`, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]string{}
+	for rows.Next() {
+		var id int64
+		var n string
+		if err := rows.Scan(&id, &n); err != nil {
+			olog.Warnf(olog.CodeExportRowScan, "[export] quote tag row scan failed: %v", err)
+			continue
+		}
+		out[id] = append(out[id], n)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeExportRowScan, "[export] quote tag row iteration failed: %v", err)
+		return out, err
+	}
+	return out, nil
+}

@@ -277,6 +277,7 @@ func (s *Server) Handler() http.Handler {
 	// multi-item markdown file; empty ids => everything of that kind.
 	mux.Handle("POST /export/books", s.requireAuth(s.handleExportBooks))
 	mux.Handle("POST /export/movies", s.requireAuth(s.handleExportMovies))
+	mux.Handle("POST /export/quotes", s.requireAuth(s.handleExportQuotes))
 
 	// Library stats + metadata source status (§10).
 	mux.Handle("GET /stats", s.requireAuth(s.handleStats))
