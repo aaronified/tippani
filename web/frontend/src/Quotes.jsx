@@ -13,10 +13,10 @@
 // different `form`. See its comment for why a bespoke wrapper would have been
 // wrong.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { json, errText, downloadPost } from './api.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
-import { usePeople } from './people.jsx'
+import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, quoteShare } from './share.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import {
@@ -67,16 +67,71 @@ export function utteranceState(u) {
   }
 }
 
+// SPEAKER_LINK styles the speaker's name to inherit the meta line's mono voice
+// rather than arriving as a blue link in the middle of it — the same trick the
+// film pages use for PLAYED BY.
+const SPEAKER_LINK = {
+  font: 'inherit',
+  color: 'inherit',
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  cursor: 'pointer',
+  textDecoration: 'underline',
+  textUnderlineOffset: 2,
+}
+
 // utteranceMeta is the small line under the quote, standing where a book's
 // "CH. 4 · P.112" stands. Speaker first, because it is the thing you look for.
 //
 // The date is rendered by formatPartialDate, NEVER by the shelf's fmtDate: a
 // partial date is a string, and `new Date('1944')` is a valid Date that would
 // print as a January morning nobody recorded.
-export function utteranceMeta(u) {
-  return [u.speaker, u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium]
-    .filter(Boolean)
-    .join(' · ')
+//
+// Given `onOpenPerson` it returns a NODE rather than a string: the speaker
+// becomes a clickable credit with their portrait, which is what a book's author
+// and a dialogue's actor have always been. The share IMAGE has drawn speaker
+// faces since 1.5.0 — `speaker` became a people kind in the same release — so
+// until now a speaker you had enriched showed their portrait when you exported
+// the quote and stayed inert text on the card you exported it from.
+//
+// The name is split with splitCredits for the same reason the share image
+// splits it: a speaker is a credit and can name two people, and the card and
+// the image have to agree about who is credited.
+//
+// `omitSpeaker` drops the speaker from the line for a surface that has already
+// credited them above it — the search popup puts a portrait chip in its header,
+// so including the name here named the same person twice on one card, and
+// passing the rich version would have drawn their face twice as well.
+//
+// Returns '' when there is nothing to say, and that is load-bearing rather than
+// tidy. AnnotationCard renders this as `{metaLine && <MonoLabel>}`, and a JSX
+// element is ALWAYS truthy — so a proverb (no speaker, no occasion, nothing)
+// would otherwise get an empty label and the spacing that comes with it.
+export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {}) {
+  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium].filter(Boolean)
+  if (omitSpeaker) return rest.join(' · ')
+  if (!onOpenPerson) return [u.speaker, ...rest].filter(Boolean).join(' · ')
+
+  const names = u.speaker ? splitCredits(u.speaker, seps || DEFAULT_CREDIT_SEPS) : []
+  if (names.length === 0 && rest.length === 0) return ''
+  return (
+    <>
+      {names.length > 0 && (
+        <>
+          <CreditFaces names={names} map={people} size={20} ring="var(--card)" className="mr-1.5 align-middle" />
+          {names.map((n, i) => (
+            <Fragment key={n}>
+              {i > 0 && ', '}
+              <PersonName kind="speaker" name={n} onOpen={onOpenPerson} className="" style={SPEAKER_LINK} />
+            </Fragment>
+          ))}
+        </>
+      )}
+      {names.length > 0 && rest.length > 0 && ' · '}
+      {rest.join(' · ')}
+    </>
+  )
 }
 
 // UtteranceForm follows the house form contract: {initial, onSubmit, onCancel,
@@ -195,7 +250,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
 // so there is nothing to group by — and inventing one (by speaker, say) would
 // bury every proverb, which has no speaker at all. Filters do the narrowing
 // instead: the server already answers ?color= ?favorite= ?tag= ?speaker=.
-export default function QuotesPage() {
+export default function QuotesPage({ creditSeparators }) {
   const [rows, setRows] = useState(null)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -207,9 +262,13 @@ export default function QuotesPage() {
   const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
   const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
   const { stickers, reload: reloadStickers } = useStickers()
-  // Speaker portraits for the share image — the same enrichment authors and
-  // actors get, now that `speaker` is a people kind.
-  const { map: speakerMap } = usePeople('speaker')
+  // Speaker portraits for the card's credit line AND the share image — the same
+  // enrichment authors and actors get, now that `speaker` is a people kind.
+  // reload matters: saving a portrait in the panel has to repaint the chip
+  // behind it, the way Library reloads its authors.
+  const { map: speakerMap, reload: reloadSpeakers } = usePeople('speaker')
+  const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+  const seps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const columns = useColumnsAt([[1280, 3], [860, 2]])
 
   const load = useCallback(async () => {
@@ -366,7 +425,7 @@ export default function QuotesPage() {
               key={u.id}
               a={u}
               variant={i}
-              meta={utteranceMeta(u)}
+              meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: setPerson })}
               form={UtteranceForm}
               tagMap={tagMap}
               stickerMap={stickerMap}
@@ -391,6 +450,15 @@ export default function QuotesPage() {
           share={sharePayload(shareFor)}
           seen={{ kind: 'utterance', id: shareFor.id }}
           onClose={() => setShareFor(null)}
+        />
+      )}
+
+      {person && (
+        <PersonModal
+          kind={person.kind}
+          name={person.name}
+          onClose={() => setPerson(null)}
+          onSaved={reloadSpeakers}
         />
       )}
     </section>

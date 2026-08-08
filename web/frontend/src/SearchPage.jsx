@@ -218,7 +218,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       {results && !empty && (
         <>
           {results?.date_added && (
-            <DateSection d={results.date_added} view={view} terms={terms} renderBook={renderBook} renderMovie={renderMovie} onOpenQuote={setQuote} />
+            <DateSection d={results.date_added} view={view} terms={terms} renderBook={renderBook} renderMovie={renderMovie} onOpenQuote={setQuote} speakerMap={speakers.map} creditSeps={creditSeps} />
           )}
           {results?.decade && (
             <section className="space-y-3">
@@ -332,7 +332,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               <MonoLabel className="block">Quotes · {results.quotes.length}</MonoLabel>
               <div className="space-y-2">
                 {results.quotes.map((h) => (
-                  <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} />
+                  <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} people={speakers.map} seps={creditSeps} />
                 ))}
               </div>
             </section>
@@ -351,7 +351,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
                   </div>
                   <div className="space-y-2">
                     {sp.quotes.map((h) => (
-                      <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} />
+                      <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} people={speakers.map} seps={creditSeps} />
                     ))}
                   </div>
                 </div>
@@ -367,14 +367,14 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               {r.notes?.quotes?.length > 0 && (
                 <div className="space-y-2">
                   {r.notes.quotes.map((h) => (
-                    <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} />
+                    <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} people={speakers.map} seps={creditSeps} />
                   ))}
                 </div>
               )}
             </section>
           )}
           {results?.tags?.length > 0 && (
-            <TagSection tags={results.tags} terms={terms} onOpenQuote={setQuote} />
+            <TagSection tags={results.tags} terms={terms} onOpenQuote={setQuote} speakerMap={speakers.map} creditSeps={creditSeps} />
           )}
           {results?.genres?.length > 0 && (
             <GenreSection genres={results.genres} view={view} renderBook={renderBook} renderMovie={renderMovie} />
@@ -553,7 +553,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
         ) : isBook || isQuote ? (
           <AnnotationCard
             a={row}
-            meta={isQuote ? utteranceMeta(row) : undefined}
+            meta={isQuote ? utteranceMeta(row, { omitSpeaker: true }) : undefined}
             form={isQuote ? UtteranceForm : undefined}
             variant={0}
             tagMap={tagMap}
@@ -1107,7 +1107,7 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
 // The key prefix is `u` because `a`/`d`/`b`/`m` are taken and the kinds share
 // one children array — two hits with the same numeric id from different tables
 // would otherwise collide and React would drop one.
-function QuoteHit({ h, terms, onOpen }) {
+function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
   return (
     <ChildHit key={`u${h.id}`} onClick={() => onOpen({ kind: 'utterance', hit: h })}>
       {(h.quote || h.note) && (
@@ -1117,9 +1117,16 @@ function QuoteHit({ h, terms, onOpen }) {
           style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}
         />
       )}
-      <MonoLabel className="mt-1 block min-w-0 truncate">
-        {[h.speaker, h.occasion].filter(Boolean).join(' · ')}
-      </MonoLabel>
+      <span className="mt-1 flex items-center gap-1.5">
+        {/* Speaker face(s), split the way a dialogue hit splits its actors. A
+            FACE and not a PersonName: the whole row is already a click target
+            that opens the quote, and nesting a second one inside it means a
+            near-miss opens the wrong thing. The panel is one tap further in. */}
+        <CreditFaces names={splitCredits(h.speaker, seps)} map={people} size={22} ring="var(--raised)" />
+        <MonoLabel className="block min-w-0 truncate">
+          {[h.speaker, h.occasion].filter(Boolean).join(' · ')}
+        </MonoLabel>
+      </span>
     </ChildHit>
   )
 }
@@ -1127,7 +1134,7 @@ function QuoteHit({ h, terms, onOpen }) {
 // TagSection — matched tags, each a chip heading over the quotes wearing it
 // (annotations, dialogues and standalone quotes mixed); a child opens the quote
 // modal.
-function TagSection({ tags, terms, onOpenQuote }) {
+function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
   return (
     <section className="space-y-4">
       <MonoLabel className="block">Tags · {tags.length}</MonoLabel>
@@ -1161,7 +1168,7 @@ function TagSection({ tags, terms, onOpenQuote }) {
                 third kind, so leaving them out rendered "grief · 3" over a box
                 holding one row. */}
             {(t.quotes || []).map((h) => (
-              <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} />
+              <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} people={speakerMap} seps={creditSeps} />
             ))}
           </div>
         </div>
@@ -1198,7 +1205,7 @@ function GenreSection({ genres, view, renderBook, renderMovie }) {
 // DateSection — everything added on one day (the Stats calendar's dot target):
 // the works shelved that day, then the quotes captured that day under their
 // parent works.
-function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote }) {
+function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote, speakerMap, creditSeps }) {
   const pretty = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'long' })
   const works = [
     ...groupBooks({ books: d.books || [], annotations: [] }).map(renderBook),
@@ -1226,7 +1233,7 @@ function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote }) {
       {standalone.length > 0 && (
         <div className="space-y-2">
           {standalone.map((h) => (
-            <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} />
+            <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} people={speakerMap} seps={creditSeps} />
           ))}
         </div>
       )}
