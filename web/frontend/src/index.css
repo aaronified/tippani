@@ -523,6 +523,44 @@
     color: #15100C;
   }
   .tp-btn-primary:hover:not(:disabled) { filter: brightness(1.05); }
+  /* Destructive ghost button. Tint only — a delete does not get its own fill,
+     because a red slab beside three neutral buttons is read as the primary
+     action of the row. Replaces the inline styles Library and Movies were each
+     using to recolour their delete IconButton. */
+  .tp-btn-danger { color: var(--error); }
+  .tp-btn-danger:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--error) 55%, var(--line));
+    background: color-mix(in srgb, var(--error) 9%, transparent);
+  }
+
+  /* ---- label collapse (html[data-labels], theme.js) ----------------------
+     A button given an `icon` prop renders <span class="btn-icon"> + <span
+     class="btn-label">, and this is the one rule that hides the words. Clipped
+     rather than display:none, so they stay in the accessibility tree: an
+     icon-only row still reads as "Share, Edit, Delete" instead of three
+     unnamed buttons. Same recipe .topbar-nav.icon-only has used for the tabs
+     since §7 — that hook stays separate because it is measured (scrollWidth)
+     rather than preferred.
+
+     theme.js resolves auto→on/off against the mobile breakpoint and writes the
+     concrete value, so there is no second copy of this block inside a media
+     query. .btn-label-fixed is the opt-out (primary submits, destructive
+     confirms) and deliberately has no rule here at all. */
+  html[data-labels="off"] .btn-label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  /* With the words gone the button is a square, not a pill with a glyph
+     rattling around in it. 44px matches IconButton, so a converted row lines up
+     with an unconverted one. */
+  html[data-labels="off"] .tp-btn.has-btn-icon {
+    width: 44px;
+    padding-left: 0;
+    padding-right: 0;
+    gap: 0;
+  }
+  .btn-icon { display: inline-flex; align-items: center; flex: none; }
+  .btn-icon svg { width: 18px; height: 18px; }
 
   /* ---- materials (§ design): tactile faces from the uploaded textures.
      Cards get paper (paper) / brushed metal (film); accent buttons + toggle
@@ -1268,10 +1306,33 @@
     border-color: var(--line);
     background: var(--raised);
   }
-  .field-icon-btn:disabled { opacity: .5; cursor: default; }
+  .field-icon-btn:disabled, .field-icon-btn.is-busy { opacity: .5; cursor: default; }
   .field-icon-btn-ok { color: var(--ok); }
   .field-icon-btn-ok:hover:not(:disabled), .field-icon-btn-ok:focus-visible { color: var(--ok); }
   .field-icon-btn-danger { color: var(--error); }
+  .field-icon-btn-danger:hover:not(:disabled), .field-icon-btn-danger:focus-visible {
+    color: var(--error);
+    border-color: color-mix(in srgb, var(--error) 55%, var(--line));
+    background: color-mix(in srgb, var(--error) 9%, transparent);
+  }
+  /* A latched toggle (the cover row's "paste a URL" / "fetch metadata"), not a
+     hover state — it has to survive the pointer leaving. */
+  .field-icon-btn.is-active {
+    color: var(--accent-ui);
+    border-color: var(--accent-ui);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  /* -boxed keeps a resting outline. The dense button is borderless because it
+     sits INSIDE a field row, where the row itself is the affordance. The cover
+     controls are a free-standing cluster under the artwork with no row around
+     them, so borderless there reads as nothing to click. This is the whole of
+     what the old 40px .cover-icon-btn was carrying that the size didn't: a
+     third size existed to express a border. */
+  .field-icon-btn-boxed {
+    background: var(--raised);
+    border-color: var(--line);
+  }
+  .field-icon-btn-boxed:hover:not(:disabled) { background: var(--card); }
   /* Phones get the 44px minimum; desktop keeps the tighter 34px disc. */
   @media (max-width: 768px) {
     .field-icon-btn { width: 42px; height: 42px; }
@@ -1425,27 +1486,10 @@
   }
   .cover-pick:hover { border-color: var(--accent-ui); }
   /* Compact cover controls (§7 declutter): a row of icon buttons with tooltips
-     replacing the old wide labelled button row. Ghost-styled squares, tactile,
-     with an active state for the toggles (paste URL / fetch metadata) and a
-     danger tint for remove. */
+     replacing the old wide labelled button row. These use the dense icon button
+     (.field-icon-btn + -boxed) — they had their own 40px class until 1.6.0,
+     which made three icon-button sizes in an app that wants two. */
   .cover-ctl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .cover-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    color: var(--soft);
-    background: var(--raised);
-    border: 1.3px solid var(--line);
-    border-radius: 10px 7px 9px 8px / 8px 9px 7px 10px;
-    transition: color .15s ease, border-color .15s ease, background .15s ease;
-  }
-  .cover-icon-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
-  .cover-icon-btn:disabled, .cover-icon-btn.is-busy { opacity: .55; cursor: default; }
-  .cover-icon-btn.is-active { color: var(--accent-ui); border-color: var(--accent-ui); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-  .cover-icon-btn-danger:hover:not(:disabled) { color: var(--error); border-color: color-mix(in srgb, var(--error) 55%, var(--line)); }
   /* Look-up matches ("Browse other matches" / movie search): a compact card
      grid (~3 columns) instead of full-width rows, cover on top. */
   .lookup-grid {

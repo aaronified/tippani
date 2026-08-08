@@ -843,7 +843,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                       icon={<IconDelete />}
                       ariaLabel="Delete this title"
                       onClick={remove}
-                      style={{ width: 44, height: 44, padding: 0, flexShrink: 0, color: 'var(--error)' }}
+                      danger
                     tooltip="Delete this title"
                   />
                 </>

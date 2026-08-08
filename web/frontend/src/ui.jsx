@@ -348,18 +348,40 @@ export function BulkBar({ n, onClear, children }) {
 // PlayfulButton is the shared base: it plays a random button animation on click
 // (its own carousel) then calls through to the caller's onClick. `base` is the
 // style class (btn-sticker / btn-film / tp-btn-ghost).
-function PlayfulButton({ base, className = "", onClick, ...rest }) {
+//
+// `icon` puts a glyph before the words and wraps the words in .btn-label, which
+// is the span html[data-labels="off"] clips. A call site therefore becomes
+// icon-only by gaining one prop, and the collapse itself costs no JS. The words
+// are clipped rather than display:none'd, so they stay in the accessibility
+// tree — an icon-only row still reads as "Share, Edit, Delete" to a screen
+// reader instead of three unnamed buttons, and no aria-label has to be bolted
+// on and then kept in sync with the visible text.
+//
+// `keepLabel` opts out of the collapse. Primary submits and destructive
+// confirms keep their words at every width: a glyph is a thing you learn, and
+// neither "save this" nor "delete this permanently" is something a person
+// should have to have learned already.
+function PlayfulButton({ base, className = "", icon, keepLabel, onClick, children, ...rest }) {
   const { play, animClass, onAnimationEnd } = usePlayful("anim-btn", 3);
   return (
     <button
       {...rest}
-      className={`tp-btn tactile ${base} ${animClass} ${className}`}
+      className={`tp-btn tactile ${base} ${animClass}${icon ? " has-btn-icon" : ""} ${className}`}
       onClick={(e) => {
         play();
         onClick?.(e);
       }}
       onAnimationEnd={onAnimationEnd}
-    />
+    >
+      {icon ? (
+        <>
+          <span className="btn-icon">{icon}</span>
+          <span className={keepLabel ? "btn-label-fixed" : "btn-label"}>{children}</span>
+        </>
+      ) : (
+        children
+      )}
+    </button>
   );
 }
 
@@ -2923,16 +2945,17 @@ export function useFrameBase() {
 }
 export const frameCode = (base, i = 0) => `${base + i}A`;
 
-// ---- compatibility exports (pre-redesign pages; removed in the page pass) ----
+// ---- shared class names ----
+//
+// What is left of the pre-redesign compatibility block. Six of its eight
+// constants (inputClass, buttonClass, ghostButtonClass, cardClass,
+// linkButtonClass, deleteButtonClass) had no caller anywhere once the page pass
+// finished, and an exported name for a button style is exactly the kind of
+// thing a later screen adopts by accident, giving one control two vocabularies.
+// These two have real callers, both in this file, so neither is exported.
 
-export const inputClass = "tp-input";
-export const buttonClass = "tp-btn tp-btn-primary";
-export const ghostButtonClass = "tp-btn tp-btn-ghost";
-export const cardClass = "hand-card hc-r1";
-export const chipClass = "tp-chip";
-export const linkButtonClass = "tp-link";
-export const deleteButtonClass = "tp-link tp-link-danger";
-export const colorDotClass = {
+const chipClass = "tp-chip";
+const colorDotClass = {
   yellow: "dot-yellow",
   blue: "dot-blue",
   pink: "dot-pink",
@@ -3344,20 +3367,29 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour" }) {
 
 const ICON_SIZE = 24
 
-// IconButton — a glyph-only 44px control. It carries its OWN Tooltip: a button
-// with no words has to say what it is on every device, and threading a wrapper
-// through forty call sites is how half of them end up without one. `ariaLabel`
-// doubles as the tooltip label (they should say the same thing anyway); pass
-// `tooltip` to differ, or `tooltip={null}` for the rare button whose label is
-// already visible beside it. `tipSide` picks which way the bubble opens.
-export function IconButton({ icon, ariaLabel, tooltip, tipSide = "top", className = "", wrapClassName = "", onClick, ...rest }) {
+// IconButton — a glyph-only 44px control, and the standard of the two icon
+// sizes (the other is .field-icon-btn, 34px, for controls that sit inside a
+// form row). It carries its OWN Tooltip: a button with no words has to say what
+// it is on every device, and threading a wrapper through forty call sites is
+// how half of them end up without one. `ariaLabel` doubles as the tooltip label
+// (they should say the same thing anyway); pass `tooltip` to differ, or
+// `tooltip={null}` for the rare button whose label is already visible beside
+// it. `tipSide` picks which way the bubble opens.
+//
+// `danger` tints it with --error. It exists because Library and Movies were
+// each reaching past the component with an inline style to recolour the delete
+// button — and, since `style` arrives in ...rest and lands after this one, a
+// caller doing that had to restate all four sizing properties or lose the 44px
+// box. `style` is merged now rather than replaced, so a partial override is a
+// partial override.
+export function IconButton({ icon, ariaLabel, tooltip, tipSide = "top", danger = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
   const label = tooltip === undefined ? ariaLabel : tooltip
   return (
     <Tooltip label={label} side={tipSide} className={wrapClassName}>
       <button
         type="button"
-        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full ${className}`}
-        style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
+        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${danger ? " tp-btn-danger" : ""} ${className}`}
+        style={{ width: 44, height: 44, padding: 0, flexShrink: 0, ...style }}
         aria-label={ariaLabel}
         onClick={onClick}
         {...rest}
@@ -3398,7 +3430,6 @@ export function IconMetadata() { return <svg {...iconStroke}><path d="M12 3.5v11
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 export function IconCheck() { return <svg {...iconStroke}><path d="M5 13l4 4L19 7"/></svg> }
 export function IconClose() { return <svg {...iconStroke}><path d="M6 6l12 12M18 6 6 18"/></svg> }
-export function IconSearch2() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
 // The two in-progress marks, drawn in the same ink-stroke hand as the rest: an
 // open book for a book on the go, a play triangle for a film or show. These are
 // the ONLY icons the shelf lifecycle puts on artwork — every other state is

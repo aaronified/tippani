@@ -55,6 +55,64 @@ media.addEventListener('change', () => {
   if (current.theme !== 'light' && current.theme !== 'dark') apply() // live "system" updates
 })
 
+// ---- label density (§1 icons) ----
+//
+// A button built with an `icon` prop renders its words inside a .btn-label
+// span, and html[data-labels="off"] clips that span. This module owns the
+// attribute for the same reason it owns data-theme: two writers of one
+// attribute is how they drift.
+//
+// The resolution mirrors theme's system→light/dark exactly. The stored
+// preference is 'auto' | 'on' | 'off'; what lands on <html> is always the
+// concrete 'on' or 'off'. That is not a stylistic choice — resolving here
+// means index.css needs ONE clip rule instead of one rule plus a duplicate
+// inside a media query, and a duplicated clip recipe is a thing that gets
+// edited in one place only.
+//
+// 'auto' means labels on for desktop and off under the mobile breakpoint,
+// which is the width where the words genuinely stop fitting. 768px is the
+// app's mobile breakpoint, matching index.css.
+export const LABELS_KEY = 'tippani:labels'
+
+let labelPref = 'auto'
+const narrow = window.matchMedia('(max-width: 768px)')
+// Re-resolve when the window crosses the breakpoint. No `if (labelPref ===
+// 'auto')` guard: applyLabelsNow only consults the viewport under 'auto'
+// anyway, so a guard here would be unreachable logic that reads as though it
+// decides something — the kind of line a later change trusts and shouldn't.
+narrow.addEventListener('change', applyLabelsNow)
+
+// applyLabels(pref) — 'auto' | 'on' | 'off'. Called with no argument it reads
+// the device-local preference, which is what boot does.
+//
+// Note this is deliberately NOT folded into applyTheme: Settings' Appearance
+// card re-sends every theme field on any change, so a label preference riding
+// along in that object would be wiped by an unrelated accent click.
+export function applyLabels(pref) {
+  let next = pref
+  if (next === undefined) {
+    try {
+      next = JSON.parse(localStorage.getItem(LABELS_KEY))
+    } catch {
+      next = null // private mode / disabled storage — fall through to auto
+    }
+  }
+  labelPref = next === 'on' || next === 'off' ? next : 'auto'
+  applyLabelsNow()
+}
+
+function applyLabelsNow() {
+  const on = labelPref === 'auto' ? !narrow.matches : labelPref === 'on'
+  document.documentElement.dataset.labels = on ? 'on' : 'off'
+}
+
+// labelsPref returns the stored preference ('auto' by default) — Settings
+// initialises its control from this rather than from a prop, so the control
+// always mirrors what is actually applied.
+export function labelsPref() {
+  return labelPref
+}
+
 // applyTheme({aesthetic, theme, accent}) — all optional; defaults per §4:
 // theme "system", aesthetic light→paper / dark→film, accent terracotta.
 export function applyTheme({ aesthetic, theme, accent } = {}) {

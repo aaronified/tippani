@@ -19,11 +19,15 @@ import '@fontsource/caveat/600.css'
 import '@fontsource/noto-serif-bengali/400.css'
 import './index.css'
 import App from './App.jsx'
-import { applyTheme } from './theme.js'
+import { applyLabels, applyTheme } from './theme.js'
 import { initTactile } from './ui.jsx'
 
 function boot() {
   applyTheme({}) // defaults until /auth/me preferences load (§4)
+  // Before the first render, not after: the label preference is device-local,
+  // so it is readable synchronously here. Applying it later would show a phone
+  // a frame of fully labelled buttons and then snap them to glyphs.
+  applyLabels()
   initTactile() // "press where you clicked" for .tactile toggles + buttons
   createRoot(document.getElementById('root')).render(<App />)
 }

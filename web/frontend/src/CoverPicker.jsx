@@ -190,7 +190,7 @@ export function CoverControls({
             edit form stops burning a whole labelled row on them. */}
         <div className="cover-ctl-row">
           <Tooltip label={busy ? 'Uploading…' : `Upload a ${label.toLowerCase()} image`}>
-            <label className={'cover-icon-btn tactile' + (busy ? ' is-busy' : '')} aria-label={`Upload ${label.toLowerCase()} image`}>
+            <label className={'field-icon-btn field-icon-btn-boxed tactile' + (busy ? ' is-busy' : '')} aria-label={`Upload ${label.toLowerCase()} image`}>
               <IconUpload />
               <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
             </label>
@@ -199,7 +199,7 @@ export function CoverControls({
             <Tooltip label="Fetch metadata by edition">
               <button
                 type="button"
-                className={'cover-icon-btn tactile' + (fetchMetaOpen ? ' is-active' : '')}
+                className={'field-icon-btn field-icon-btn-boxed tactile' + (fetchMetaOpen ? ' is-active' : '')}
                 aria-label="Fetch metadata"
                 aria-pressed={!!fetchMetaOpen}
                 onClick={onFetchMeta}
@@ -211,7 +211,7 @@ export function CoverControls({
           <Tooltip label="Paste an image URL">
             <button
               type="button"
-              className={'cover-icon-btn tactile' + (urlOpen ? ' is-active' : '')}
+              className={'field-icon-btn field-icon-btn-boxed tactile' + (urlOpen ? ' is-active' : '')}
               aria-label="Paste image URL"
               aria-pressed={urlOpen}
               onClick={() => setUrlOpen((v) => !v)}
@@ -226,7 +226,7 @@ export function CoverControls({
           >
             <button
               type="button"
-              className={'cover-icon-btn tactile' + (searching ? ' is-busy' : '')}
+              className={'field-icon-btn field-icon-btn-boxed tactile' + (searching ? ' is-busy' : '')}
               aria-label={`Search ${label.toLowerCase()}s`}
               onClick={searchCovers}
               disabled={searching}
@@ -238,7 +238,7 @@ export function CoverControls({
             <Tooltip label={`Remove ${label.toLowerCase()}`}>
               <button
                 type="button"
-                className="cover-icon-btn cover-icon-btn-danger tactile"
+                className="field-icon-btn field-icon-btn-boxed field-icon-btn-danger tactile"
                 aria-label={`Remove ${label.toLowerCase()}`}
                 onClick={onClear}
               >
