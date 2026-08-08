@@ -4,6 +4,7 @@ import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
 import Movies from './Movies.jsx'
+import QuotesPage from './Quotes.jsx'
 import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import StagingPage from './StagingPage.jsx'
@@ -441,6 +442,7 @@ const CONTENT_TABS = [
   ['home', 'Home', "Today's review"],
   ['library', 'Library', 'Your books'],
   ['movies', 'Catalogue', 'Your films and shows'],
+  ['quotes', 'Quotes', 'Lines from anywhere else'],
 ]
 const UTILITY_TABS = [
   ['tags', 'Tags', 'Tags and stickers'],
@@ -463,6 +465,13 @@ function TabIcon({ name }) {
         <svg {...p}>
           <path d="M4 11.2 12 4.5l8 6.7" />
           <path d="M6 9.8V19a1 1 0 0 0 1 1h3.4v-4.6a1.6 1.6 0 0 1 3.2 0V20H17a1 1 0 0 0 1-1V9.8" />
+        </svg>
+      )
+    case 'quotes': // a pair of quotation marks — the kind with no work behind it
+      return (
+        <svg {...p}>
+          <path d="M9.5 7.5C7 8.6 5.5 10.7 5.5 13.2v3.3h4.6v-4.6H7.9c0-1.6.7-2.8 2.3-3.6z" />
+          <path d="M18 7.5c-2.5 1.1-4 3.2-4 5.7v3.3h4.6v-4.6h-2.2c0-1.6.7-2.8 2.3-3.6z" />
         </svg>
       )
     case 'library': // open book
@@ -928,11 +937,16 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
 // — note 'movies' is the legacy id for the Catalogue tab (statePath maps it to
 // /catalogue). Icon-only: TabIcon's glyph is the affordance, the aria-label
 // carries the name.
+// SEARCH IS NOT HERE, AND THAT IS THE POINT. The mobile top bar has carried
+// ＋ · Search · ? · chip since 1.4.1 — the same four the desktop bar carries —
+// so a Search entry down here was the same control twice on one screen while
+// the third content tab had nowhere to live. The bar now holds the four
+// content screens and nothing else.
 const BOTTOM_TABS = [
-  ['search', 'Search', 'Search everything'],
   ['home', 'Home', "Go home to today's review"],
   ['library', 'Library', 'Open your book library'],
   ['movies', 'Catalogue', 'Open your film catalogue'],
+  ['quotes', 'Quotes', 'Open your standalone quotes'],
 ]
 
 // MobileBottomNav — the floating phone nav: four thumb-reachable icons, hovering
@@ -1337,6 +1351,11 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         {tab === 'search' && (
           <div data-screen-label="search">
             <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} creditSeparators={user.preferences?.creditSeparators} />
+          </div>
+        )}
+        {tab === 'quotes' && (
+          <div data-screen-label="quotes">
+            <QuotesPage />
           </div>
         )}
         {tab === 'tags' && (

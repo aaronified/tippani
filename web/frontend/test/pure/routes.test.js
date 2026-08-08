@@ -35,16 +35,30 @@ describe('parsePath', () => {
   // nothing would fail. This is the only test protecting that table, so it has
   // to state the expected contents rather than read them.
   it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'tags', 'metadata', 'stats', 'settings', 'staging'])
+    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging'])
   })
 
   it('routes every plain tab by name', () => {
     expect(parsePath('/search')).toEqual({ tab: 'search', detail: null })
+    expect(parsePath('/quotes')).toEqual({ tab: 'quotes', detail: null })
     expect(parsePath('/tags')).toEqual({ tab: 'tags', detail: null })
     expect(parsePath('/metadata')).toEqual({ tab: 'metadata', detail: null })
     expect(parsePath('/stats')).toEqual({ tab: 'stats', detail: null })
     expect(parsePath('/settings')).toEqual({ tab: 'settings', detail: null })
     expect(parsePath('/staging')).toEqual({ tab: 'staging', detail: null })
+  })
+
+  // /quotes is a LIST, not a work prefix: there is no /quotes/:id to open,
+  // because a standalone quote has no detail page of its own. An id segment is
+  // simply ignored rather than routed to a screen that does not exist.
+  it('routes /quotes to its list whatever follows it', () => {
+    expect(parsePath('/quotes')).toEqual({ tab: 'quotes', detail: null })
+    expect(parsePath('/quotes/')).toEqual({ tab: 'quotes', detail: null })
+    expect(parsePath('/quotes/7')).toEqual({ tab: 'quotes', detail: null })
+  })
+
+  it('emits /quotes for the quotes tab', () => {
+    expect(statePath('quotes', null)).toBe('/quotes')
   })
 
   it('maps /pending onto the staging tab', () => {
@@ -174,12 +188,16 @@ describe('the shell controls', () => {
     expect(addSection('library', null)).toBe('book')
     expect(addSection('movies', null)).toBe('film')
     expect(addSection('home', null)).toBe('book')
+    // The Quotes list holds quotes belonging to nothing, so its ＋ offers one
+    // of those rather than a book.
+    expect(addSection('quotes', null)).toBe('standalone')
   })
 
   it('pre-scopes search to the side you are on', () => {
     expect(searchScope('library', null)).toBe('books')
     expect(searchScope('movies', null)).toBe('movies')
     expect(searchScope('home', null)).toBe('all')
+    expect(searchScope('quotes', null)).toBe('quotes')
     expect(searchScope('home', { type: 'book', id: 1 })).toBe('books')
     expect(searchScope('home', { type: 'movie', id: 1 })).toBe('movies')
   })

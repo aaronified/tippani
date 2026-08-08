@@ -13,18 +13,30 @@
 // different `form`. See its comment for why a bespoke wrapper would have been
 // wrong.
 
-import { useState } from 'react'
-import { StickerPicker } from './stickers.jsx'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { json, errText, downloadPost } from './api.js'
+import { AnnotationCard, fmtDate } from './Library.jsx'
+import { ShareDialog, quoteShare } from './share.jsx'
+import { StickerPicker, useStickers } from './stickers.jsx'
 import {
   ColorSwatches,
+  EmptyState,
   ErrorText,
   Field,
+  filterChipClass,
   GhostButton,
+  Masonry,
   MonoLabel,
+  PageHeader,
   PartialDateField,
+  Placeholder,
+  Select,
   TokenInput,
+  Tooltip,
   formatPartialDate,
   isPartialDate,
+  useColumnsAt,
+  usePersistedState,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -172,5 +184,211 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       </div>
       <ErrorText>{error}</ErrorText>
     </form>
+  )
+}
+
+// ---- the screen ---------------------------------------------------------
+
+// QuotesPage is a FLAT list, and that is the whole design. Library and
+// Catalogue group quotes under the work they came from; there is no work here,
+// so there is nothing to group by — and inventing one (by speaker, say) would
+// bury every proverb, which has no speaker at all. Filters do the narrowing
+// instead: the server already answers ?color= ?favorite= ?tag= ?speaker=.
+export default function QuotesPage() {
+  const [rows, setRows] = useState(null)
+  const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [shareFor, setShareFor] = useState(null)
+  const [expanded, setExpanded] = useState(null)
+  const [tags, setTags] = useState([])
+  const [color, setColor] = usePersistedState('tippani:quotes:color', '')
+  const [favOnly, setFavOnly] = usePersistedState('tippani:quotes:fav', false)
+  const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
+  const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
+  const { stickers, reload: reloadStickers } = useStickers()
+  const columns = useColumnsAt([[1280, 3], [860, 2]])
+
+  const load = useCallback(async () => {
+    const qs = new URLSearchParams()
+    if (color) qs.set('color', color)
+    if (favOnly) qs.set('favorite', '1')
+    if (tag) qs.set('tag', tag)
+    if (speaker) qs.set('speaker', speaker)
+    const r = await json('GET', '/quotes' + (qs.toString() ? `?${qs}` : ''))
+    // The response key is `utterances` — the table, not the route. 0026 records
+    // why the two differ.
+    if (r.ok) {
+      setRows(r.data.utterances || [])
+      setError('')
+    } else {
+      setError(errText(r))
+    }
+  }, [color, favOnly, tag, speaker])
+
+  useEffect(() => {
+    load()
+  }, [load])
+  useEffect(() => {
+    json('GET', '/tags').then((r) => {
+      if (r.ok) setTags(r.data.tags)
+    })
+  }, [])
+
+  const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
+  const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
+  // Speakers offered as a filter come from what is actually saved rather than
+  // from the People console: an unenriched speaker is still a speaker, and
+  // filtering by one you can see is the point.
+  const speakers = useMemo(() => {
+    const seen = new Set()
+    for (const u of rows || []) if (u.speaker) seen.add(u.speaker)
+    return [...seen].sort((a, b) => a.localeCompare(b))
+  }, [rows])
+
+  async function save(id, fields) {
+    const r = await json('PUT', `/quotes/${id}`, fields)
+    if (!r.ok) return errText(r, 'could not save')
+    setEditingId(null)
+    await load()
+    return null
+  }
+  // Resolves false on failure so AnnotationCard's optimistic colour pick can
+  // roll its preview back — the same contract Library's patch keeps.
+  async function patch(u, fields) {
+    const r = await json('PUT', `/quotes/${u.id}`, { ...utteranceState(u), ...fields })
+    if (!r.ok) {
+      setError(errText(r, 'could not save'))
+      return false
+    }
+    setError('')
+    await load()
+    return true
+  }
+  async function remove(u) {
+    if (!confirm('Delete this quote?')) return
+    const r = await json('DELETE', `/quotes/${u.id}`)
+    if (r.ok) load()
+    else setError(errText(r))
+  }
+
+  const sharePayload = (u) =>
+    quoteShare({
+      quote: u.quote,
+      note: u.note,
+      speaker: u.speaker,
+      occasion: u.occasion,
+      when: formatPartialDate(u.occasion_date),
+      place: u.place,
+      medium: u.medium,
+      date: fmtDate(u.noted_at || u.created_at),
+      tags: u.tags,
+      color: u.color,
+      people: {},
+    })
+
+  const filtered = !!(color || favOnly || tag || speaker)
+  return (
+    <section className="space-y-5">
+      <PageHeader
+        title="Quotes"
+        counts={rows ? `${rows.length} quote${rows.length === 1 ? '' : 's'} · from no book and no film` : undefined}
+        right={
+          rows && rows.length > 0 ? (
+            <Tooltip label="Export these quotes" side="bottom">
+              <GhostButton
+                onClick={() => downloadPost('/export/quotes', { ids: rows.map((u) => u.id) }, 'tippani-quotes.md')}
+              >
+                Export
+              </GhostButton>
+            </Tooltip>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className={filterChipClass(favOnly)}
+          aria-pressed={favOnly}
+          onClick={() => setFavOnly(!favOnly)}
+        >
+          ♥ favourites
+        </button>
+        {/* Tapping the picked colour clears it — there is no "no colour" to
+            pick, so the swatch has to double as its own off switch. */}
+        <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by colour" />
+        {tags.length > 0 && (
+          <Select
+            ariaLabel="Filter by tag"
+            value={tag}
+            onChange={setTag}
+            options={[['', 'All tags'], ...tags.map((t) => [t.name, t.name])]}
+          />
+        )}
+        {speakers.length > 0 && (
+          <Select
+            ariaLabel="Filter by speaker"
+            value={speaker}
+            onChange={setSpeaker}
+            options={[['', 'All speakers'], ...speakers.map((n) => [n, n])]}
+          />
+        )}
+        {filtered && (
+          <GhostButton
+            onClick={() => {
+              setColor('')
+              setFavOnly(false)
+              setTag('')
+              setSpeaker('')
+            }}
+          >
+            Clear
+          </GhostButton>
+        )}
+      </div>
+
+      <ErrorText>{error}</ErrorText>
+
+      {!rows ? (
+        <Placeholder />
+      ) : rows.length === 0 ? (
+        <EmptyState>
+          {filtered ? 'no quotes match those filters' : 'nothing here yet — ＋ Add saves a line from anywhere'}
+        </EmptyState>
+      ) : (
+        <Masonry columns={columns}>
+          {rows.map((u, i) => (
+            <AnnotationCard
+              key={u.id}
+              a={u}
+              variant={i}
+              meta={utteranceMeta(u)}
+              form={UtteranceForm}
+              tagMap={tagMap}
+              stickerMap={stickerMap}
+              stickers={stickers}
+              reloadStickers={reloadStickers}
+              editing={editingId === u.id}
+              setEditingId={setEditingId}
+              save={save}
+              patch={patch}
+              remove={remove}
+              onShare={() => setShareFor(u)}
+              tagSuggestions={Object.keys(tagMap)}
+              expanded={expanded === u.id}
+              onToggleExpand={() => setExpanded(expanded === u.id ? null : u.id)}
+            />
+          ))}
+        </Masonry>
+      )}
+
+      {shareFor && (
+        <ShareDialog
+          share={sharePayload(shareFor)}
+          seen={{ kind: 'utterance', id: shareFor.id }}
+          onClose={() => setShareFor(null)}
+        />
+      )}
+    </section>
   )
 }

@@ -130,6 +130,17 @@ export const HELP = {
       { term: 'Select', what: 'Tick a set of results for a bulk tag or field edit.' },
     ],
   },
+  quotes: {
+    title: 'Quotes',
+    entries: [
+      { term: 'What lives here', what: 'Lines that belong to no book and no film: a speech, a letter, an interview, a song, a proverb, something a friend said.' },
+      { term: 'Occasion', what: 'Where the words were said. It is the locator, and unlike a page number it tells two quotes apart — the same line on two occasions is two quotes, not one.' },
+      { term: 'Speaker', what: 'Who said it. It stands where a book’s author stands, and it is what the review deck asks you to recall.' },
+      { term: 'When', what: 'A partial date: a year on its own is a complete answer, so nothing is padded to a day nobody recorded.' },
+      { term: 'A quote with no attribution', what: 'Perfectly fine to save, and it stays out of the review deck — there is nothing to recall but the words already in front of you.' },
+      { term: 'Export', icon: <IconExport />, what: 'These quotes as Markdown, which imports back cleanly.' },
+    ],
+  },
   tags: {
     title: 'Tags & stickers',
     entries: [

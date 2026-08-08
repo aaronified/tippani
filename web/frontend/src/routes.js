@@ -9,7 +9,7 @@
 
 // The tabs whose URL is just their own name. Anything with a different slug, a
 // detail id, or a legacy alias is spelled out in parsePath/statePath below.
-export const ROUTE_TABS = ['search', 'tags', 'metadata', 'stats', 'settings', 'staging']
+export const ROUTE_TABS = ['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging']
 
 // workID reads the id segment of a detail path, or null when it is not one.
 // Guarding on Number.isInteger rather than truthiness is the difference between
@@ -76,6 +76,9 @@ export function helpScreen(tab, detail) {
 export function addSection(tab, detail) {
   if (detail) return 'quote'
   if (tab === 'movies') return 'film'
+  // The Quotes list holds quotes belonging to nothing, so ＋ there means one of
+  // those — not a book, and not a highlight against a work you do not have open.
+  if (tab === 'quotes') return 'standalone'
   return 'book'
 }
 
@@ -84,5 +87,6 @@ export function addSection(tab, detail) {
 export function searchScope(tab, detail) {
   if (tab === 'library' || detail?.type === 'book') return 'books'
   if (tab === 'movies' || detail?.type === 'movie') return 'movies'
+  if (tab === 'quotes') return 'quotes'
   return 'all'
 }
