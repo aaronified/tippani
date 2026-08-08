@@ -54,6 +54,22 @@ type movieHit struct {
 	MediaType   string   `json:"media_type"` // movie | show — so the UI tags films vs shows
 }
 
+// utteranceHit is a standalone quote (§24). It is the only hit with no parent
+// fields, because it has no parent: where an annotation borrows its book's
+// author and year so the client can still group it, a quote's grouping keys —
+// the speaker and the occasion — are on the row itself.
+type utteranceHit struct {
+	ID           int64  `json:"id"`
+	Quote        string `json:"quote"`
+	Note         string `json:"note"`
+	Color        string `json:"color"`
+	Speaker      string `json:"speaker"`
+	Occasion     string `json:"occasion"`
+	OccasionDate string `json:"occasion_date"`
+	Place        string `json:"place"`
+	Medium       string `json:"medium"`
+}
+
 type dialogueHit struct {
 	ID              int64  `json:"id"`
 	MovieID         int64  `json:"movie_id"`
@@ -95,9 +111,18 @@ type actorHits struct {
 	Dialogues []dialogueHit `json:"dialogues"`
 }
 
+// speakerHits mirrors authorHits and actorHits: the credit matched, plus what
+// they said. It is a separate section from Quotes for the same reason Authors is
+// separate from Books — searching a person's name is asking about the person.
+type speakerHits struct {
+	Name   string         `json:"name"`
+	Quotes []utteranceHit `json:"quotes"`
+}
+
 type noteHits struct {
 	Annotations []annotationHit `json:"annotations"`
 	Dialogues   []dialogueHit   `json:"dialogues"`
+	Quotes      []utteranceHit  `json:"quotes"`
 }
 
 type tagHits struct {
@@ -105,6 +130,7 @@ type tagHits struct {
 	Count       int             `json:"count"` // total quotes wearing the tag (in scope)
 	Annotations []annotationHit `json:"annotations"`
 	Dialogues   []dialogueHit   `json:"dialogues"`
+	Quotes      []utteranceHit  `json:"quotes"`
 }
 
 type genreHits struct {
@@ -125,6 +151,30 @@ type dateHits struct {
 	Movies      []movieHit      `json:"movies"`
 	Annotations []annotationHit `json:"annotations"`
 	Dialogues   []dialogueHit   `json:"dialogues"`
+	Quotes      []utteranceHit  `json:"quotes"`
+}
+
+// searchScope is which media a request covers. One value rather than a bool per
+// medium: searchDateFacet alone took four consecutive bools, and a fifth would
+// have made transposing two of them a silent wrong answer the compiler cannot
+// see.
+type searchScope struct {
+	books       bool
+	annotations bool
+	movies      bool
+	dialogues   bool
+	utterances  bool
+}
+
+func parseSearchScope(scope string) searchScope {
+	all := scope == "all"
+	return searchScope{
+		books:       all || scope == "books",
+		annotations: all || scope == "annotations",
+		movies:      all || scope == "movies",
+		dialogues:   all || scope == "dialogues",
+		utterances:  all || scope == "quotes",
+	}
 }
 
 type searchResults struct {
@@ -132,9 +182,11 @@ type searchResults struct {
 	Annotations []annotationHit `json:"annotations"` // quote matches
 	Movies      []movieHit      `json:"movies"`      // title / series matches
 	Dialogues   []dialogueHit   `json:"dialogues"`   // quote / character matches
+	Quotes      []utteranceHit  `json:"quotes"`      // standalone quote / occasion matches
 	Authors     []authorHits    `json:"authors"`
 	Directors   []directorHits  `json:"directors"`
 	Actors      []actorHits     `json:"actors"`
+	Speakers    []speakerHits   `json:"speakers"`
 	Notes       noteHits        `json:"notes"`
 	Tags        []tagHits       `json:"tags"`
 	Genres      []genreHits     `json:"genres"`
@@ -162,6 +214,9 @@ const (
 		d.season, d.episode,
 		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
 		COALESCE(m.media_type, 'movie')`
+	utteranceHitCols = `u.id, u.quote, COALESCE(u.note, ''), u.color,
+		COALESCE(u.speaker, ''), COALESCE(u.occasion, ''), COALESCE(u.occasion_date, ''),
+		COALESCE(u.place, ''), COALESCE(u.medium, '')`
 )
 
 func scanBookHit(rows *sql.Rows) (bookHit, error) {
@@ -188,6 +243,13 @@ func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note,
 		&h.Character, &h.Actor, &h.Timestamp, &h.Season, &h.Episode,
 		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType)
+	return h, err
+}
+
+func scanUtteranceHit(rows *sql.Rows) (utteranceHit, error) {
+	var h utteranceHit
+	err := rows.Scan(&h.ID, &h.Quote, &h.Note, &h.Color, &h.Speaker, &h.Occasion,
+		&h.OccasionDate, &h.Place, &h.Medium)
 	return h, err
 }
 
@@ -368,7 +430,7 @@ func nameConds(col string, tokens []string) (string, []any) {
 
 // searchTagFacet finds tags whose name contains every query token and returns
 // each with its total use count and a page of the quotes wearing it.
-func (s *Server) searchTagFacet(uid int64, tokens []string, wantAnn, wantDlg bool, limit int) ([]tagHits, error) {
+func (s *Server) searchTagFacet(uid int64, tokens []string, sc searchScope, limit int) ([]tagHits, error) {
 	out := []tagHits{}
 	if len(tokens) == 0 {
 		return out, nil
@@ -395,8 +457,8 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, wantAnn, wantDlg boo
 	rows.Close()
 
 	for _, tr := range found {
-		th := tagHits{Name: tr.name, Annotations: []annotationHit{}, Dialogues: []dialogueHit{}}
-		if wantAnn {
+		th := tagHits{Name: tr.name, Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}}
+		if sc.annotations {
 			var n int
 			if err := s.Store.DB.QueryRow(`SELECT count(*) FROM annotation_tags at
 				JOIN annotations a ON a.id = at.annotation_id JOIN books b ON b.id = a.book_id
@@ -413,7 +475,7 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, wantAnn, wantDlg boo
 			}
 			th.Annotations = hits
 		}
-		if wantDlg {
+		if sc.dialogues {
 			var n int
 			if err := s.Store.DB.QueryRow(`SELECT count(*) FROM dialogue_tags dt
 				JOIN dialogues d ON d.id = dt.dialogue_id JOIN movies m ON m.id = d.movie_id
@@ -430,6 +492,26 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, wantAnn, wantDlg boo
 			}
 			th.Dialogues = hits
 		}
+		if sc.utterances {
+			// The user scope is on the row, not on a parent — see 0026. Both
+			// halves carry it, because a tag id is guessable and the count alone
+			// would report how many quotes a stranger filed under it.
+			var n int
+			if err := s.Store.DB.QueryRow(`SELECT count(*) FROM utterance_tags ut
+				JOIN utterances u ON u.id = ut.utterance_id
+				WHERE ut.tag_id = ? AND u.user_id = ?`, tr.id, uid).Scan(&n); err != nil {
+				return nil, err
+			}
+			th.Count += n
+			hits, err := hitQuery(s, "", "tag quote", `SELECT `+utteranceHitCols+` FROM utterance_tags ut
+				JOIN utterances u ON u.id = ut.utterance_id
+				WHERE ut.tag_id = ? AND u.user_id = ? ORDER BY u.created_at DESC LIMIT ?`,
+				scanUtteranceHit, tr.id, uid, searchSubLimit)
+			if err != nil {
+				return nil, err
+			}
+			th.Quotes = hits
+		}
 		out = append(out, th)
 	}
 	// Most-used first; the name ORDER BY above breaks ties.
@@ -440,7 +522,7 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, wantAnn, wantDlg boo
 // searchGenreFacet finds genres whose name contains every query token and
 // returns each with a page of its works. Genres with no works in scope are
 // dropped (an orphaned genre name is noise, not a result).
-func (s *Server) searchGenreFacet(uid int64, tokens []string, wantBooks, wantMovies bool, limit int) ([]genreHits, error) {
+func (s *Server) searchGenreFacet(uid int64, tokens []string, sc searchScope, limit int) ([]genreHits, error) {
 	out := []genreHits{}
 	if len(tokens) == 0 {
 		return out, nil
@@ -468,7 +550,7 @@ func (s *Server) searchGenreFacet(uid int64, tokens []string, wantBooks, wantMov
 
 	for _, gr := range found {
 		gh := genreHits{Name: gr.name, Books: []bookHit{}, Movies: []movieHit{}}
-		if wantBooks {
+		if sc.books {
 			hits, err := hitQuery(s, "", "genre book", `SELECT `+bookHitCols+` FROM book_genres bg
 				JOIN books b ON b.id = bg.book_id WHERE bg.genre_id = ? AND b.user_id = ?
 				ORDER BY b.title LIMIT ?`, scanBookHit, gr.id, uid, searchSubLimit)
@@ -477,7 +559,7 @@ func (s *Server) searchGenreFacet(uid int64, tokens []string, wantBooks, wantMov
 			}
 			gh.Books = hits
 		}
-		if wantMovies {
+		if sc.movies {
 			hits, err := hitQuery(s, "", "genre movie", `SELECT `+movieHitCols+` FROM movie_genres mg
 				JOIN movies m ON m.id = mg.movie_id WHERE mg.genre_id = ? AND m.user_id = ?
 				ORDER BY m.title LIMIT ?`, scanMovieHit, gr.id, uid, searchSubLimit)
@@ -522,10 +604,11 @@ func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBo
 
 // searchDateFacet lists everything added on one (UTC) day — the target of the
 // Stats activity calendar's dot links. Returns nil when the day was quiet.
-func (s *Server) searchDateFacet(uid int64, day string, wantBooks, wantAnn, wantMovies, wantDlg bool, limit int) (*dateHits, error) {
-	dh := &dateHits{Date: day, Books: []bookHit{}, Movies: []movieHit{}, Annotations: []annotationHit{}, Dialogues: []dialogueHit{}}
+func (s *Server) searchDateFacet(uid int64, day string, sc searchScope, limit int) (*dateHits, error) {
+	dh := &dateHits{Date: day, Books: []bookHit{}, Movies: []movieHit{},
+		Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}}
 	var err error
-	if wantBooks {
+	if sc.books {
 		dh.Books, err = hitQuery(s, "", "date book", `SELECT `+bookHitCols+` FROM books b
 			WHERE b.user_id = ? AND substr(b.created_at, 1, 10) = ? ORDER BY b.created_at LIMIT ?`,
 			scanBookHit, uid, day, limit)
@@ -533,7 +616,7 @@ func (s *Server) searchDateFacet(uid int64, day string, wantBooks, wantAnn, want
 			return nil, err
 		}
 	}
-	if wantMovies {
+	if sc.movies {
 		dh.Movies, err = hitQuery(s, "", "date movie", `SELECT `+movieHitCols+` FROM movies m
 			WHERE m.user_id = ? AND substr(m.created_at, 1, 10) = ? ORDER BY m.created_at LIMIT ?`,
 			scanMovieHit, uid, day, limit)
@@ -541,7 +624,7 @@ func (s *Server) searchDateFacet(uid int64, day string, wantBooks, wantAnn, want
 			return nil, err
 		}
 	}
-	if wantAnn {
+	if sc.annotations {
 		dh.Annotations, err = hitQuery(s, "", "date annotation", `SELECT `+annotationHitCols+` FROM annotations a
 			JOIN books b ON b.id = a.book_id
 			WHERE b.user_id = ? AND substr(a.created_at, 1, 10) = ? ORDER BY a.created_at LIMIT ?`,
@@ -550,7 +633,7 @@ func (s *Server) searchDateFacet(uid int64, day string, wantBooks, wantAnn, want
 			return nil, err
 		}
 	}
-	if wantDlg {
+	if sc.dialogues {
 		dh.Dialogues, err = hitQuery(s, "", "date dialogue", `SELECT `+dialogueHitCols+` FROM dialogues d
 			JOIN movies m ON m.id = d.movie_id
 			WHERE m.user_id = ? AND substr(d.created_at, 1, 10) = ? ORDER BY d.created_at LIMIT ?`,
@@ -559,7 +642,15 @@ func (s *Server) searchDateFacet(uid int64, day string, wantBooks, wantAnn, want
 			return nil, err
 		}
 	}
-	if len(dh.Books)+len(dh.Movies)+len(dh.Annotations)+len(dh.Dialogues) == 0 {
+	if sc.utterances {
+		dh.Quotes, err = hitQuery(s, "", "date quote", `SELECT `+utteranceHitCols+` FROM utterances u
+			WHERE u.user_id = ? AND substr(u.created_at, 1, 10) = ? ORDER BY u.created_at LIMIT ?`,
+			scanUtteranceHit, uid, day, limit)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(dh.Books)+len(dh.Movies)+len(dh.Annotations)+len(dh.Dialogues)+len(dh.Quotes) == 0 {
 		return nil, nil
 	}
 	return dh, nil
@@ -600,10 +691,11 @@ func fillDialogueGenres(by map[int64][]string, hits []dialogueHit) {
 }
 
 // handleSearch implements
-// GET /search?q=&scope=all|books|annotations|movies|dialogues&limit=
+// GET /search?q=&scope=all|books|annotations|movies|dialogues|quotes&limit=
 // (PLAN §4, § sectioned search). Results come back faceted by what matched —
 // books/movies (title·series), annotations/dialogues (quote·character),
-// authors/directors/actors (credit columns), notes, tags, genres — plus the
+// quotes (quote·occasion), authors/directors/actors/speakers (credit columns),
+// notes, tags, genres — plus the
 // structured decade ("1990s") and date-added ("2026-07-14") facets. Structured
 // filters (tag/color/book_id/movie_id) live on the list endpoints instead —
 // not duplicated here (KISS).
@@ -626,16 +718,14 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[search] handleSearch uid=%d scope=%q q=%q limit=%d", uid, scope, q, limit)
 	resp := searchResults{
 		Books: []bookHit{}, Annotations: []annotationHit{},
-		Movies: []movieHit{}, Dialogues: []dialogueHit{},
+		Movies: []movieHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{},
 		Authors: []authorHits{}, Directors: []directorHits{}, Actors: []actorHits{},
-		Notes: noteHits{Annotations: []annotationHit{}, Dialogues: []dialogueHit{}},
-		Tags:  []tagHits{}, Genres: []genreHits{},
+		Speakers: []speakerHits{},
+		Notes:    noteHits{Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}},
+		Tags:     []tagHits{}, Genres: []genreHits{},
 	}
 
-	wantBooks := scope == "all" || scope == "books"
-	wantAnnotations := scope == "all" || scope == "annotations"
-	wantMovies := scope == "all" || scope == "movies"
-	wantDialogues := scope == "all" || scope == "dialogues"
+	sc := parseSearchScope(scope)
 
 	seps := s.creditSeps(uid)
 
@@ -646,7 +736,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	parsedStructured := false
 	if day, ok := parseAddedDate(q); ok {
 		parsedStructured = true
-		dh, err := s.searchDateFacet(uid, day, wantBooks, wantAnnotations, wantMovies, wantDialogues, limit)
+		dh, err := s.searchDateFacet(uid, day, sc, limit)
 		if err != nil {
 			internalError(w, r, "search date added", err)
 			return
@@ -657,7 +747,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if label, from, to, ok := parseDecade(q); ok {
 		parsedStructured = true
-		dec, err := s.searchDecadeFacet(uid, label, from, to, wantBooks, wantMovies, limit)
+		dec, err := s.searchDecadeFacet(uid, label, from, to, sc.books, sc.movies, limit)
 		if err != nil {
 			internalError(w, r, "search decade", err)
 			return
@@ -676,7 +766,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		tokens := queryTokens(qq)
 		total := 0
 
-		if wantBooks {
+		if sc.books {
 			hits, err := hitQuery(s, "books_fts", "book", `SELECT `+bookHitCols+` FROM books_fts
 				JOIN books b ON b.id = books_fts.rowid
 				WHERE books_fts MATCH ? AND b.user_id = ? ORDER BY bm25(books_fts) LIMIT ?`,
@@ -701,7 +791,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			total += len(resp.Authors)
 		}
 
-		if wantAnnotations {
+		if sc.annotations {
 			hits, err := hitQuery(s, "annotations_fts", "annotation", `SELECT `+annotationHitCols+` FROM annotations_fts
 				JOIN annotations a ON a.id = annotations_fts.rowid
 				JOIN books b ON b.id = a.book_id
@@ -725,7 +815,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			total += len(notes)
 		}
 
-		if wantMovies {
+		if sc.movies {
 			hits, err := hitQuery(s, "movies_fts", "movie", `SELECT `+movieHitCols+` FROM movies_fts
 				JOIN movies m ON m.id = movies_fts.rowid
 				WHERE movies_fts MATCH ? AND m.user_id = ? ORDER BY bm25(movies_fts) LIMIT ?`,
@@ -750,7 +840,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			total += len(resp.Directors)
 		}
 
-		if wantDialogues {
+		if sc.dialogues {
 			hits, err := hitQuery(s, "dialogues_fts", "dialogue", `SELECT `+dialogueHitCols+` FROM dialogues_fts
 				JOIN dialogues d ON d.id = dialogues_fts.rowid
 				JOIN movies m ON m.id = d.movie_id
@@ -788,18 +878,61 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			total += len(noteHitsD)
 		}
 
+		if sc.utterances {
+			// Quote and occasion share one section, because for a standalone quote
+			// they are the two halves of the same thing: the words, and where they
+			// were said. There is no separate list of speeches to send them to the
+			// way a book title goes to Books.
+			//
+			// The user scope is on the row here (0026), not on a joined parent, so
+			// each of these three carries its own WHERE — a missing one is a
+			// cross-account leak rather than a hidden row.
+			hits, err := hitQuery(s, "utterances_fts", "quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
+				JOIN utterances u ON u.id = utterances_fts.rowid
+				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
+				scanUtteranceHit, search.ColumnPrefixQuery("quote occasion", qq), uid, limit)
+			if err != nil {
+				return 0, err
+			}
+			resp.Quotes = hits
+			total += len(hits)
+
+			bySpeaker, err := hitQuery(s, "utterances_fts", "speaker quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
+				JOIN utterances u ON u.id = utterances_fts.rowid
+				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
+				scanUtteranceHit, search.ColumnPrefixQuery("speaker", qq), uid, limit)
+			if err != nil {
+				return 0, err
+			}
+			resp.Speakers = resp.Speakers[:0]
+			for _, g := range groupByCredit(bySpeaker, func(u utteranceHit) string { return u.Speaker }, seps, tokens, limit) {
+				resp.Speakers = append(resp.Speakers, speakerHits{Name: g.Name, Quotes: g.Hits})
+			}
+			total += len(resp.Speakers)
+
+			noteHitsU, err := hitQuery(s, "utterances_fts", "quote note", `SELECT `+utteranceHitCols+` FROM utterances_fts
+				JOIN utterances u ON u.id = utterances_fts.rowid
+				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
+				scanUtteranceHit, search.ColumnPrefixQuery("note", qq), uid, limit)
+			if err != nil {
+				return 0, err
+			}
+			resp.Notes.Quotes = noteHitsU
+			total += len(noteHitsU)
+		}
+
 		// Tags + genres match by name (substring, not FTS) but follow the same
 		// pass so they benefit from the typo correction too.
-		if wantAnnotations || wantDialogues {
-			tags, err := s.searchTagFacet(uid, tokens, wantAnnotations, wantDialogues, searchSubLimit)
+		if sc.annotations || sc.dialogues || sc.utterances {
+			tags, err := s.searchTagFacet(uid, tokens, sc, searchSubLimit)
 			if err != nil {
 				return 0, err
 			}
 			resp.Tags = tags
 			total += len(tags)
 		}
-		if wantBooks || wantMovies {
-			genres, err := s.searchGenreFacet(uid, tokens, wantBooks, wantMovies, searchSubLimit)
+		if sc.books || sc.movies {
+			genres, err := s.searchGenreFacet(uid, tokens, sc, searchSubLimit)
 			if err != nil {
 				return 0, err
 			}
@@ -817,7 +950,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	runMixedPass := func(qq string) (int, error) {
 		match := search.PrefixQuery(qq)
 		total := 0
-		if wantBooks {
+		if sc.books {
 			hits, err := hitQuery(s, "books_fts", "book", `SELECT `+bookHitCols+` FROM books_fts
 				JOIN books b ON b.id = books_fts.rowid
 				WHERE books_fts MATCH ? AND b.user_id = ? ORDER BY bm25(books_fts) LIMIT ?`,
@@ -828,7 +961,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			resp.Books = hits
 			total += len(hits)
 		}
-		if wantAnnotations {
+		if sc.annotations {
 			hits, err := hitQuery(s, "annotations_fts", "annotation", `SELECT `+annotationHitCols+` FROM annotations_fts
 				JOIN annotations a ON a.id = annotations_fts.rowid
 				JOIN books b ON b.id = a.book_id
@@ -840,7 +973,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			resp.Annotations = hits
 			total += len(hits)
 		}
-		if wantMovies {
+		if sc.movies {
 			hits, err := hitQuery(s, "movies_fts", "movie", `SELECT `+movieHitCols+` FROM movies_fts
 				JOIN movies m ON m.id = movies_fts.rowid
 				WHERE movies_fts MATCH ? AND m.user_id = ? ORDER BY bm25(movies_fts) LIMIT ?`,
@@ -851,7 +984,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			resp.Movies = hits
 			total += len(hits)
 		}
-		if wantDialogues {
+		if sc.dialogues {
 			hits, err := hitQuery(s, "dialogues_fts", "dialogue", `SELECT `+dialogueHitCols+` FROM dialogues_fts
 				JOIN dialogues d ON d.id = dialogues_fts.rowid
 				JOIN movies m ON m.id = d.movie_id
@@ -861,6 +994,17 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 				return 0, err
 			}
 			resp.Dialogues = hits
+			total += len(hits)
+		}
+		if sc.utterances {
+			hits, err := hitQuery(s, "utterances_fts", "quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
+				JOIN utterances u ON u.id = utterances_fts.rowid
+				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
+				scanUtteranceHit, match, uid, limit)
+			if err != nil {
+				return 0, err
+			}
+			resp.Quotes = hits
 			total += len(hits)
 		}
 		return total, nil
@@ -886,7 +1030,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// surfaced only when THIS user actually received rows — so no other user's
 	// vocabulary ever leaks (§3.6).
 	if total == 0 && !parsedStructured {
-		if corrected := s.fuzzyCorrect(q, wantBooks, wantAnnotations, wantMovies, wantDialogues); corrected != "" {
+		if corrected := s.fuzzyCorrect(q, sc); corrected != "" {
 			t2, err := runBoth(corrected)
 			if err != nil {
 				internalError(w, r, "search (corrected)", err)
@@ -900,7 +1044,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	// Genre names as arrays for every section's hits, so grouping-by-genre and
 	// the genre chip rows work on every card.
-	if wantBooks || wantAnnotations {
+	if sc.books || sc.annotations {
 		if byBook, err := s.genreNames(uid, "book"); err == nil {
 			fillBookGenres(byBook, resp.Books)
 			fillAnnotationGenres(byBook, resp.Annotations)
@@ -923,7 +1067,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if wantMovies || wantDialogues {
+	if sc.movies || sc.dialogues {
 		if byMovie, err := s.genreNames(uid, "movie"); err == nil {
 			fillMovieGenres(byMovie, resp.Movies)
 			fillDialogueGenres(byMovie, resp.Dialogues)
@@ -986,7 +1130,7 @@ type fuzzyVocabScope struct {
 // not correctable, nothing changed, or the vocabulary could not be read. A vocab
 // read that fails even after ftsQuery's one-shot repair logs TIP-SRCH-004 once
 // and degrades to "" (best-effort: search never 500s because fuzzy broke).
-func (s *Server) fuzzyCorrect(q string, wantBooks, wantAnnotations, wantMovies, wantDialogues bool) string {
+func (s *Server) fuzzyCorrect(q string, sc searchScope) string {
 	tokens := strings.Fields(q)
 	if len(tokens) == 0 || len(tokens) > maxFuzzyTokens || utf8.RuneCountInString(q) > maxFuzzyQueryRunes {
 		return ""
@@ -1011,10 +1155,11 @@ func (s *Server) fuzzyCorrect(q string, wantBooks, wantAnnotations, wantMovies, 
 	// most popular — most likely-intended — terms.
 	merged := map[string]int64{}
 	for _, sc := range []fuzzyVocabScope{
-		{wantBooks, "books_fts_vocab", "books_fts"},
-		{wantAnnotations, "annotations_fts_vocab", "annotations_fts"},
-		{wantMovies, "movies_fts_vocab", "movies_fts"},
-		{wantDialogues, "dialogues_fts_vocab", "dialogues_fts"},
+		{sc.books, "books_fts_vocab", "books_fts"},
+		{sc.annotations, "annotations_fts_vocab", "annotations_fts"},
+		{sc.movies, "movies_fts_vocab", "movies_fts"},
+		{sc.dialogues, "dialogues_fts_vocab", "dialogues_fts"},
+		{sc.utterances, "utterances_fts_vocab", "utterances_fts"},
 	} {
 		if !sc.want {
 			continue

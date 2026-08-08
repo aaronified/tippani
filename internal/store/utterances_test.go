@@ -168,8 +168,10 @@ func TestDeletingAUserTakesTheirUtterances(t *testing.T) {
 }
 
 // The FTS index has to stay in step through insert, update and delete, and it
-// indexes speaker as well as the text — "who said the thing about freedom" is
-// the natural way to look one of these up.
+// indexes the occasion and the speaker as well as the text — "who said the
+// thing about freedom" and "that Burma broadcast" are both natural ways to look
+// one of these up, and neither field sits on a parent row that search already
+// joins the way a book's title and author do.
 func TestUtterancesFTSStaysInStep(t *testing.T) {
 	st := openHead(t)
 	mustExec := func(q string, args ...any) {
@@ -187,8 +189,9 @@ func TestUtterancesFTSStaysInStep(t *testing.T) {
 		return n
 	}
 	mustExec(`INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')`)
-	mustExec(`INSERT INTO utterances (id, user_id, quote, speaker, dedupe_hash)
-	          VALUES (1, 1, 'Give me blood and I will give you freedom', 'Subhas Chandra Bose', 'h')`)
+	mustExec(`INSERT INTO utterances (id, user_id, quote, speaker, occasion, dedupe_hash)
+	          VALUES (1, 1, 'Give me blood and I will give you freedom', 'Subhas Chandra Bose',
+	                  'Burma Radio broadcast', 'h')`)
 
 	if got := count("freedom"); got != 1 {
 		t.Fatalf("insert did not reach the FTS index: %d", got)
@@ -196,18 +199,32 @@ func TestUtterancesFTSStaysInStep(t *testing.T) {
 	if got := count("speaker:Bose"); got != 1 {
 		t.Fatalf("speaker is not indexed: %d", got)
 	}
+	if got := count("occasion:Burma"); got != 1 {
+		t.Fatalf("occasion is not indexed: %d", got)
+	}
 
-	mustExec(`UPDATE utterances SET quote = 'entirely different words' WHERE id = 1`)
+	// An edit has to move every indexed column, not just the one that changed.
+	mustExec(`UPDATE utterances SET quote = 'entirely different words',
+	          occasion = 'Singapore rally' WHERE id = 1`)
 	if got := count("freedom"); got != 0 {
 		t.Fatalf("update left the old text in the index: %d", got)
 	}
 	if got := count("different"); got != 1 {
 		t.Fatalf("update did not index the new text: %d", got)
 	}
+	if got := count("occasion:Burma"); got != 0 {
+		t.Fatalf("update left the old occasion in the index: %d", got)
+	}
+	if got := count("occasion:Singapore"); got != 1 {
+		t.Fatalf("update did not index the new occasion: %d", got)
+	}
 
 	mustExec(`DELETE FROM utterances WHERE id = 1`)
 	if got := count("different"); got != 0 {
 		t.Fatalf("delete left the row in the index: %d", got)
+	}
+	if got := count("occasion:Singapore"); got != 0 {
+		t.Fatalf("delete left the occasion in the index: %d", got)
 	}
 }
 

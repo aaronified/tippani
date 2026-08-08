@@ -112,10 +112,17 @@ CREATE TABLE utterance_tags (
 
 -- -------------------------------------------------------------------- FTS
 -- External-content index over the searchable text, mirroring annotations_fts.
--- speaker is indexed alongside quote and note: "who said the thing about
--- freedom" is the natural way to look for one of these, and unlike a book's
--- author the speaker is ON the row rather than on a parent that search already
--- joins.
+-- speaker and occasion are indexed alongside quote and note, because unlike a
+-- book's author and title they are ON the row rather than on a parent that
+-- search already joins — leave them out and the two most natural ways to look
+-- for one of these ("who said the thing about freedom", "that Burma
+-- broadcast") both find nothing. The occasion is also the title the review deck
+-- shows, and a title you cannot search for is the gap this whole feature would
+-- be judged on.
+--
+-- place and medium stay out. They are filter values, like a genre, not prose:
+-- indexing them would let a search for "radio" return every quote ever
+-- broadcast, ranked above the one that is actually about radios.
 --
 -- THE NAME IS CONSTRAINED, in two directions, and both are silent if broken:
 --   * store.Recover() copies base tables with `INSERT INTO main.t SELECT * FROM
@@ -128,25 +135,25 @@ CREATE TABLE utterance_tags (
 --     repairs. `utterances_fts` is neither a substring of nor a superstring of
 --     books_fts, annotations_fts, movies_fts or dialogues_fts.
 CREATE VIRTUAL TABLE utterances_fts USING fts5(
-  quote, note, speaker,
+  quote, note, speaker, occasion,
   content='utterances', content_rowid='id',
   tokenize='unicode61 remove_diacritics 2',
   prefix='2 3'
 );
 
 CREATE TRIGGER utterances_ai AFTER INSERT ON utterances BEGIN
-  INSERT INTO utterances_fts(rowid, quote, note, speaker)
-  VALUES (new.id, new.quote, new.note, new.speaker);
+  INSERT INTO utterances_fts(rowid, quote, note, speaker, occasion)
+  VALUES (new.id, new.quote, new.note, new.speaker, new.occasion);
 END;
 CREATE TRIGGER utterances_ad AFTER DELETE ON utterances BEGIN
-  INSERT INTO utterances_fts(utterances_fts, rowid, quote, note, speaker)
-  VALUES ('delete', old.id, old.quote, old.note, old.speaker);
+  INSERT INTO utterances_fts(utterances_fts, rowid, quote, note, speaker, occasion)
+  VALUES ('delete', old.id, old.quote, old.note, old.speaker, old.occasion);
 END;
 CREATE TRIGGER utterances_au AFTER UPDATE ON utterances BEGIN
-  INSERT INTO utterances_fts(utterances_fts, rowid, quote, note, speaker)
-  VALUES ('delete', old.id, old.quote, old.note, old.speaker);
-  INSERT INTO utterances_fts(rowid, quote, note, speaker)
-  VALUES (new.id, new.quote, new.note, new.speaker);
+  INSERT INTO utterances_fts(utterances_fts, rowid, quote, note, speaker, occasion)
+  VALUES ('delete', old.id, old.quote, old.note, old.speaker, old.occasion);
+  INSERT INTO utterances_fts(rowid, quote, note, speaker, occasion)
+  VALUES (new.id, new.quote, new.note, new.speaker, new.occasion);
 END;
 
 -- NO CONVENIENCE TRIGGER ON THIS TABLE. 0022's header records why: an AFTER
