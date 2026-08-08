@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
-import { ShareDialog, bookShare, movieShare } from './share.jsx'
+import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
+import { ShareDialog, bookShare, movieShare, quoteShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
@@ -16,6 +17,7 @@ import {
   HandNote,
   HighlightSpan,
   Masonry,
+  formatPartialDate,
   MonoLabel,
   Placeholder,
   Select,
@@ -35,6 +37,7 @@ const SCOPES = [
   ['annotations', 'Annotations'],
   ['movies', 'Movies'],
   ['dialogues', 'Dialogues'],
+  ['quotes', 'Quotes'],
 ]
 
 // SearchPage (§8.9, § sectioned search): one big Newsreader box + scope chips.
@@ -100,9 +103,13 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   const dlgGroups = results ? groupMovies({ movies: [], dialogues: r.dialogues }) : []
   const noteAnnGroups = results ? groupBooks({ books: [], annotations: r.notes?.annotations || [] }) : []
   const noteDlgGroups = results ? groupMovies({ movies: [], dialogues: r.notes?.dialogues || [] }) : []
+  // Every section that can render has to be counted here, or a result made
+  // ENTIRELY of that section reports "nothing found" over its own hits — which
+  // is what a quotes-only library would have seen.
   const total = results
-    ? [r.books, r.annotations, r.movies, r.dialogues, r.authors, r.directors, r.actors,
-       r.notes?.annotations, r.notes?.dialogues, r.tags, r.genres]
+    ? [r.books, r.annotations, r.movies, r.dialogues, r.quotes,
+       r.authors, r.directors, r.actors, r.speakers,
+       r.notes?.annotations, r.notes?.dialogues, r.notes?.quotes, r.tags, r.genres]
         .reduce((n, a) => n + (a?.length || 0), 0) +
       (r.decade ? 1 : 0) + (r.date_added ? 1 : 0)
     : 0
@@ -210,7 +217,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       {results && !empty && (
         <>
           {results?.date_added && (
-            <DateSection d={results.date_added} view={view} renderBook={renderBook} renderMovie={renderMovie} />
+            <DateSection d={results.date_added} view={view} terms={terms} renderBook={renderBook} renderMovie={renderMovie} onOpenQuote={setQuote} />
           )}
           {results?.decade && (
             <section className="space-y-3">
@@ -316,12 +323,53 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               render={renderMovie}
             />
           )}
-          {(noteAnnGroups.length > 0 || noteDlgGroups.length > 0) && (
+          {/* Standalone quotes (§24). Their own section rather than folded into
+              Annotations, because they are not from a book: matching one is a
+              different answer to a different question. */}
+          {results?.quotes?.length > 0 && (
+            <section className="space-y-3">
+              <MonoLabel className="block">Quotes · {results.quotes.length}</MonoLabel>
+              <div className="space-y-2">
+                {results.quotes.map((h) => (
+                  <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} />
+                ))}
+              </div>
+            </section>
+          )}
+          {/* Searching a person's name is asking about the person, so speakers
+              get the treatment authors and actors get. */}
+          {results?.speakers?.length > 0 && (
+            <section className="space-y-4">
+              <MonoLabel className="block">Speakers · {results.speakers.length}</MonoLabel>
+              {results.speakers.map((sp) => (
+                <div key={sp.name} className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="tp-chip">{sp.name}</span>
+                    <MonoLabel style={{ color: 'var(--accent-ui)' }}>{sp.quotes.length}</MonoLabel>
+                    <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+                  </div>
+                  <div className="space-y-2">
+                    {sp.quotes.map((h) => (
+                      <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+          {(noteAnnGroups.length > 0 || noteDlgGroups.length > 0 || r.notes?.quotes?.length > 0) && (
             <section className="space-y-3">
               <MonoLabel className="block">
-                Notes · {(r.notes?.annotations?.length || 0) + (r.notes?.dialogues?.length || 0)}
+                Notes · {(r.notes?.annotations?.length || 0) + (r.notes?.dialogues?.length || 0) + (r.notes?.quotes?.length || 0)}
               </MonoLabel>
               <Board view={view}>{[...noteAnnGroups.map(renderBook), ...noteDlgGroups.map(renderMovie)]}</Board>
+              {r.notes?.quotes?.length > 0 && (
+                <div className="space-y-2">
+                  {r.notes.quotes.map((h) => (
+                    <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={setQuote} />
+                  ))}
+                </div>
+              )}
             </section>
           )}
           {results?.tags?.length > 0 && (
@@ -370,12 +418,18 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 // re-run the search via onChanged.
 function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
   const isBook = kind === 'book'
+  // A standalone quote (§24) has NO PARENT, which is the whole difference here:
+  // no parent fetch, no "Open book" button, and the list it is found in is not
+  // scoped to a work. There is no GET /quotes/{id} either, so the row is picked
+  // out of the account's list — and the response key is `utterances`, the table
+  // name, not `quotes`, the route.
+  const isQuote = kind === 'utterance'
   const parentId = isBook ? hit.book_id : hit.movie_id
-  const childPath = isBook ? `/annotations?book_id=${parentId}` : `/dialogues?movie_id=${parentId}`
-  const childKey = isBook ? 'annotations' : 'dialogues'
-  const itemPath = isBook ? '/annotations' : '/dialogues'
+  const childPath = isQuote ? '/quotes' : isBook ? `/annotations?book_id=${parentId}` : `/dialogues?movie_id=${parentId}`
+  const childKey = isQuote ? 'utterances' : isBook ? 'annotations' : 'dialogues'
+  const itemPath = isQuote ? '/quotes' : isBook ? '/annotations' : '/dialogues'
   const parentPath = isBook ? `/books/${parentId}` : `/movies/${parentId}`
-  const stateFn = isBook ? annotationState : dialogueState
+  const stateFn = isQuote ? utteranceState : isBook ? annotationState : dialogueState
 
   const [row, setRow] = useState(null)
   const [parent, setParent] = useState(null)
@@ -395,7 +449,9 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
   }
   useEffect(() => {
     loadRow()
-    json('GET', parentPath).then((r) => { if (r.ok) setParent(r.data) })
+    // No parent to fetch for a standalone quote — asking for /books/undefined
+    // would be a 404 the modal then has to ignore.
+    if (!isQuote) json('GET', parentPath).then((r) => { if (r.ok) setParent(r.data) })
     json('GET', '/tags').then((r) => { if (r.ok) setTags(r.data.tags) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hit.id, kind])
@@ -431,23 +487,33 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
     return true
   }
   async function remove(x) {
-    if (!confirm(isBook ? 'Delete this annotation?' : 'Delete this dialogue?')) return
+    if (!confirm(isQuote ? 'Delete this quote?' : isBook ? 'Delete this annotation?' : 'Delete this dialogue?')) return
     const r = await json('DELETE', `${itemPath}/${x.id}`)
     if (r.ok) { onChanged && onChanged(); onClose() }
     else setError(errText(r))
   }
 
-  const title = isBook ? parent?.title || hit.book_title : parent?.title || hit.movie_title
+  // The header line. A standalone quote's "title" is the occasion it was said
+  // on — the nearest thing it has to a work.
+  const title = isQuote
+    ? row?.occasion || hit.occasion || 'Quote'
+    : isBook
+      ? parent?.title || hit.book_title
+      : parent?.title || hit.movie_title
   // The credited people for the header chip row: a book's author(s) (split), a
-  // dialogue's actor. Portraits come from the people maps — the "image chips"
-  // the detail pages show but the search popup was missing.
-  const creditKind = isBook ? 'author' : 'actor'
-  const creditMap = isBook ? authorMap : actorMap
-  const creditNames = splitCredits(isBook ? parent?.author : row?.actor, seps)
+  // dialogue's actor, a quote's speaker. Portraits come from the people maps —
+  // the "image chips" the detail pages show but the search popup was missing.
+  // `speaker` is not a people kind yet, so its chip renders without a portrait,
+  // which PersonCredit already supports.
+  const creditKind = isQuote ? 'speaker' : isBook ? 'author' : 'actor'
+  const creditMap = isBook ? authorMap : isQuote ? {} : actorMap
+  const creditNames = splitCredits(isQuote ? row?.speaker || hit.speaker : isBook ? parent?.author : row?.actor, seps)
   const sharePayload = () =>
-    isBook
-      ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
-      : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
+    isQuote
+      ? quoteShare({ quote: row.quote, note: row.note, speaker: row.speaker, occasion: row.occasion, when: formatPartialDate(row.occasion_date), place: row.place, medium: row.medium, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: {}, seps })
+      : isBook
+        ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
+        : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
 
   return (
     <div
@@ -470,9 +536,12 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
             )}
           </div>
           <div className="flex gap-2">
-            <GhostButton onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
-              Open {isBook ? 'book' : 'film'}
-            </GhostButton>
+            {/* Nothing to open: a standalone quote is the whole record. */}
+            {!isQuote && (
+              <GhostButton onClick={() => (isBook ? onOpenBook(parentId) : onOpenMovie(parentId))}>
+                Open {isBook ? 'book' : 'film'}
+              </GhostButton>
+            )}
             <GhostButton onClick={onClose}>Close</GhostButton>
           </div>
         </div>
@@ -481,9 +550,11 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
           <HandCard className="p-5"><EmptyState>this quote no longer exists</EmptyState></HandCard>
         ) : !row ? (
           <HandCard className="p-5"><p className="microcopy">loading…</p></HandCard>
-        ) : isBook ? (
+        ) : isBook || isQuote ? (
           <AnnotationCard
             a={row}
+            meta={isQuote ? utteranceMeta(row) : undefined}
+            form={isQuote ? UtteranceForm : undefined}
             variant={0}
             tagMap={tagMap}
             stickerMap={stickerMap}
@@ -521,7 +592,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, seps, onOpenBook
           />
         )}
       </div>
-      {shareOpen && row && <ShareDialog share={sharePayload()} seen={{ kind: isBook ? 'book' : 'screen', id: row.id }} onClose={() => setShareOpen(false)} />}
+      {shareOpen && row && <ShareDialog share={sharePayload()} seen={{ kind: isQuote ? 'utterance' : isBook ? 'book' : 'screen', id: row.id }} onClose={() => setShareOpen(false)} />}
     </div>
   )
 }
@@ -1029,8 +1100,33 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
   )
 }
 
+// QuoteHit — one standalone-quote result (§24). It is its own renderer because
+// a quote of this kind has no parent to name underneath it: where an annotation
+// shows "Book · Author", this shows the occasion it was said on.
+//
+// The key prefix is `u` because `a`/`d`/`b`/`m` are taken and the kinds share
+// one children array — two hits with the same numeric id from different tables
+// would otherwise collide and React would drop one.
+function QuoteHit({ h, terms, onOpen }) {
+  return (
+    <ChildHit key={`u${h.id}`} onClick={() => onOpen({ kind: 'utterance', hit: h })}>
+      {(h.quote || h.note) && (
+        <MatchWindow
+          text={h.quote || h.note}
+          terms={terms}
+          style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}
+        />
+      )}
+      <MonoLabel className="mt-1 block min-w-0 truncate">
+        {[h.speaker, h.occasion].filter(Boolean).join(' · ')}
+      </MonoLabel>
+    </ChildHit>
+  )
+}
+
 // TagSection — matched tags, each a chip heading over the quotes wearing it
-// (annotations and dialogues mixed); a child opens the quote modal.
+// (annotations, dialogues and standalone quotes mixed); a child opens the quote
+// modal.
 function TagSection({ tags, terms, onOpenQuote }) {
   return (
     <section className="space-y-4">
@@ -1060,6 +1156,12 @@ function TagSection({ tags, terms, onOpenQuote }) {
                   {[h.movie_title, h.character].filter(Boolean).join(' · ')}
                 </MonoLabel>
               </ChildHit>
+            ))}
+            {/* The count above has included these since the backend learned the
+                third kind, so leaving them out rendered "grief · 3" over a box
+                holding one row. */}
+            {(t.quotes || []).map((h) => (
+              <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} />
             ))}
           </div>
         </div>
@@ -1096,7 +1198,7 @@ function GenreSection({ genres, view, renderBook, renderMovie }) {
 // DateSection — everything added on one day (the Stats calendar's dot target):
 // the works shelved that day, then the quotes captured that day under their
 // parent works.
-function DateSection({ d, view, renderBook, renderMovie }) {
+function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote }) {
   const pretty = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'long' })
   const works = [
     ...groupBooks({ books: d.books || [], annotations: [] }).map(renderBook),
@@ -1106,12 +1208,28 @@ function DateSection({ d, view, renderBook, renderMovie }) {
     ...groupBooks({ books: [], annotations: d.annotations || [] }).map(renderBook),
     ...groupMovies({ movies: [], dialogues: d.dialogues || [] }).map(renderMovie),
   ]
-  const n = (d.books?.length || 0) + (d.movies?.length || 0) + (d.annotations?.length || 0) + (d.dialogues?.length || 0)
+  const n =
+    (d.books?.length || 0) +
+    (d.movies?.length || 0) +
+    (d.annotations?.length || 0) +
+    (d.dialogues?.length || 0) +
+    (d.quotes?.length || 0)
+  // Standalone quotes cannot go through groupBooks/groupMovies — those bucket
+  // hits under a parent work, and this kind has none. They render as their own
+  // flat block below the work cards.
+  const standalone = d.quotes || []
   return (
     <section className="space-y-3">
       <MonoLabel className="block">Added on {pretty} · {n}</MonoLabel>
       {works.length > 0 && <Board view={view}>{works}</Board>}
       {quotes.length > 0 && <Board view={view}>{quotes}</Board>}
+      {standalone.length > 0 && (
+        <div className="space-y-2">
+          {standalone.map((h) => (
+            <QuoteHit key={`u${h.id}`} h={h} terms={terms} onOpen={onOpenQuote} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
