@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The full -race sweep runs here, not on every push. See the `race` job.
+  schedule:
+    - cron: "0 3 * * *"
 
 jobs:
   go:
@@ -14,19 +17,7 @@ jobs:
         with:
           go-version: "1.26"
       - run: go vet ./...
-      # -race, because two tests exist for the sole purpose of catching a
-      # locking regression (TestConcurrentDuplicatePostsAllConflict,
-      # TestReadersOverlapAWriter) and neither has ever run under it. The DSN
-      # takes the write lock at BEGIN (_txlock=immediate) and the suite drives
-      # real goroutines against a real SQLite file, so a data race here is a
-      # data race in production, not a test artefact.
-      # -race is 5-10x slower than a plain run, and Go's default per-package
-      # test timeout is 10 minutes. internal/httpapi takes ~2 minutes unraced,
-      # so it crossed 600s under -race as the suite grew and CI began failing
-      # with a goroutine dump that looks like a deadlock and is not one — it is
-      # the timeout firing mid-test. The number is generous on purpose: the
-      # point of the limit is to catch a genuine hang, not to police duration.
-      - run: go test -race -timeout 30m ./...
+      - run: go test -timeout 10m ./...
 
       # Smoke-test the `healthcheck` subcommand against a real running server
       # (the container HEALTHCHECK depends on it). Runs on the CI runner.
@@ -47,6 +38,55 @@ jobs:
             echo "healthcheck should have failed against a dead port"; exit 1
           fi
           echo "healthcheck smoke test passed"
+
+  # -race, and why it is its own job rather than a flag on the one above.
+  #
+  # Two files exist for the sole purpose of catching a locking regression —
+  # conflict_pool_test.go and write_lock_test.go — and until 1.7.4 neither had
+  # ever run under the detector. The DSN takes the write lock at BEGIN
+  # (_txlock=immediate) and both drive real goroutines against a real SQLite
+  # file, so a data race there is a data race in production, not a test artefact.
+  #
+  # But the whole-suite sweep costs TWENTY-NINE MINUTES, and the reason is
+  # specific to this app: modernc.org/sqlite is pure Go, so -race instruments
+  # the entire database engine — every btree page and every VDBE step — and not
+  # merely this repo's own code, as it would with a cgo driver. internal/httpapi
+  # alone is 143s unraced and ~29m raced. The v1.7.4 run finished 43 seconds
+  # inside its 30-minute timeout, which is not a margin, and 1.8.0 adds tests.
+  #
+  # Raising the number would have bought one release and made every push wait
+  # half an hour, and a job that slow is a job people stop reading. So the split
+  # is by value: the locking tests run raced on EVERY push, which is what that
+  # original comment actually wanted and costs about two minutes, and the full
+  # sweep runs nightly where thirty minutes is free.
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: The locking tests, under -race
+        if: github.event_name != 'schedule'
+        run: |
+          set -o pipefail
+          names='TestDuplicatePostUnderPoolPressure|TestConcurrentDuplicatePostsAllConflict|TestConcurrentDuplicateDialoguePostsAllConflict|TestConcurrentReadThenWriteTransactions|TestReadersOverlapAWriter'
+          go test -race -v -timeout 15m -run "^($names)\$" ./internal/httpapi/ ./internal/store/ 2>&1 | tee /tmp/race.log
+          # A -run filter that matches nothing still exits 0, and "ok, 0 tests"
+          # is indistinguishable from "ok" at a glance. That false green has
+          # already cost this repo once during 1.7.4, when a filtered run
+          # reported success while the test it named did not exist. Every name
+          # above must appear as a PASS or this job fails.
+          fail=0
+          for t in $(echo "$names" | tr '|' ' '); do
+            grep -q -- "--- PASS: $t" /tmp/race.log || { echo "::error::$t did not run under -race"; fail=1; }
+          done
+          exit $fail
+
+      - name: The whole suite, under -race (nightly)
+        if: github.event_name == 'schedule'
+        run: go test -race -timeout 60m ./...
 
   frontend:
     runs-on: ubuntu-latest

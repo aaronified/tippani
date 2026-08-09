@@ -101,8 +101,8 @@ The last three matter for forks — see [Forking it as your own](#forking-it-as-
 ## Tests
 
 ```bash
-go test ./...               # everything, Go side
-go test -race ./...         # what CI runs; needs a C toolchain
+go test ./...               # everything, Go side — the local bar
+go test -race ./...         # the nightly sweep; needs a C toolchain
 go test ./internal/store/ -run TestConcurrent -count=5    # one thing, repeatedly
 go vet ./...
 
@@ -130,11 +130,24 @@ not evidence yet**: several written for this suite were found to assert nothing 
 code was deliberately broken under them. Break your fix on purpose and watch the test go
 red before you trust it.
 
-CI runs the suite under `-race`. That needs `CGO_ENABLED=1` and a C compiler, which the
-rest of the build deliberately does without (`CGO_ENABLED=0`, pure-Go SQLite) — so on a
-machine with no gcc, `-race` is a thing you read in a CI log rather than run. Plain
-`go test ./...` is the local bar; if you are changing anything that writes concurrently,
-push and read the race job before you call it done.
+`-race` needs `CGO_ENABLED=1` and a C compiler, which the rest of the build deliberately
+does without (`CGO_ENABLED=0`, pure-Go SQLite) — so on a machine with no gcc it is a
+thing you read in a CI log rather than run. Plain `go test ./...` is the local bar; if
+you are changing anything that writes concurrently, push and read the race job before you
+call it done.
+
+**It runs in two halves, and the reason is worth knowing before you move it back.** The
+whole suite under `-race` takes **29 minutes**, because pure-Go SQLite means the detector
+instruments the entire database engine rather than only this repo's code — `internal/httpapi`
+alone is 143 seconds unraced and about 29 minutes raced. So the five locking tests
+(`conflict_pool_test.go`, `write_lock_test.go`) run raced on **every push**, which is the
+coverage those files were written for and costs a couple of minutes, and the full sweep
+runs **nightly at 03:00 UTC**. If you add a test that races, name it in the `race` job's
+filter or it will not be raced until the following morning.
+
+That job asserts each named test actually ran. A `-run` filter that matches nothing still
+exits 0, and `ok (0 tests)` reads exactly like `ok` — a false green that has already cost
+this repo an afternoon.
 
 The bar for a change: `go vet` clean, `go test ./...` green, and a test that would have
 failed before your fix. That last one is the one that matters. There is a worked example
@@ -142,9 +155,9 @@ in the repo — the concurrent-write `500` had a written-up cause and a written-
 both were wrong. What settled it was making the test fail on purpose and reading the
 error code.
 
-CI runs `go vet`, `go test` under `-race`, `npm test`, a smoke test that boots the server
-and health-checks it, the frontend build, and a check that the roadmap's generated
-regions still match their data files.
+CI runs `go vet`, `go test`, the locking tests under `-race` (and the whole suite nightly),
+`npm test`, a smoke test that boots the server and health-checks it, the frontend build,
+and a check that the roadmap's generated regions still match their data files.
 
 It also runs `git diff --exit-code -- web/dist` after building the frontend. `web/dist`
 is a committed build artifact embedded with `go:embed`, and before 1.5.0 nothing checked
