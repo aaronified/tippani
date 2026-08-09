@@ -319,16 +319,30 @@ Releases are tag-driven. There is no version constant to bump: it is stamped fro
 
 1. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`.
 2. Commit as `chore(release): X.Y.Z`.
-3. Tag and push:
+3. Tag and push — **the tag by name, never `--tags`**:
 
    ```bash
    git tag vX.Y.Z
-   git push origin main --tags
+   git push origin main
+   git push origin vX.Y.Z
    ```
+
+   `--tags` pushes every tag in the local repository, and `--follow-tags` pushes every
+   annotated tag reachable from the commit — which is all of them. Either will quietly
+   publish a tag made weeks ago and never pushed, firing its whole release pipeline
+   alongside the one I meant. That is not hypothetical: on 2026-08-09 an orphaned
+   `v1.3.0` went up beside `v1.7.2`, built more slowly, finished second, and took
+   `:latest` with it. Naming the tag pushes exactly one thing.
 
 `release.yml` cuts the GitHub Release using that version's changelog section as the notes,
 and `docker-publish.yml` builds and pushes the GHCR image on the same tag. Both are also
 runnable by hand against an existing tag to backfill a missed release.
+
+`docker-publish.yml` decides which image tags may *move*: `X.Y.Z` is always published,
+but `latest` and `X.Y` are claimed only by the highest-ranked tag, computed from the tag
+list rather than from build order. And the binary refuses to open a database whose schema
+version is above the newest migration it carries — so a downgrade stops with both numbers
+in the message instead of starting up blind to every table added since.
 
 Version numbers follow [Semantic Versioning](https://semver.org/). A migration that
 changes existing data, or anything that alters an export format, deserves a minor bump and

@@ -18,7 +18,39 @@ jobs:
       contents: read
       packages: write
     steps:
+      # fetch-depth: 0 for the tag list — the ranking step below has to compare
+      # this tag against every other one, and a shallow clone carries none.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # WHICH TAG IS ALLOWED TO MOVE A MOVING TAG.
+      #
+      # `latest` and `1.7` are pointers, and the workflow used to let whichever
+      # build finished last claim them. That is only ever the newest release by
+      # coincidence — the ordering is the ordering of BUILD COMPLETION, not of
+      # version. On 2026-08-09 an unpushed v1.3.0 tag went up alongside v1.7.2,
+      # both fired, v1.3.0 built ~2 minutes slower on a colder cache, finished
+      # second, and `:latest` came to mean 1.3.0. Everyone tracking `:latest`
+      # was silently downgraded four minor versions.
+      #
+      # So the pointers are gated on rank rather than on arrival. `{{version}}`
+      # is deliberately NOT gated: an immutable per-release tag must always be
+      # published, and it is what recovery is done with.
+      - name: Rank this tag against the others
+        id: rank
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          newest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          series="${tag%.*}"                                        # v1.7.2 -> v1.7
+          newest_in_series=$(git tag -l "${series}.*" --sort=-v:refname | head -n1)
+          if [ "$tag" = "$newest" ]; then overall=true; else overall=false; fi
+          if [ "$tag" = "$newest_in_series" ]; then in_series=true; else in_series=false; fi
+          echo "overall=$overall"     >> "$GITHUB_OUTPUT"
+          echo "in_series=$in_series" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag newest=$newest newest_in_series=$newest_in_series -> latest=$overall series=$in_series"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -34,16 +66,21 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
-          # A git tag v1.2.3 -> image tags 1.2.3, 1.2, and latest (latest=auto
-          # moves only on non-prerelease semver tags). Pushes to main -> edge +
-          # a short-sha tag, so :latest always points at the newest release.
+          # A git tag v1.2.3 -> image tag 1.2.3 always; plus 1.2 only if it is the
+          # newest v1.2.x, plus latest only if it is the newest tag in the repo.
+          # Pushes to main -> edge + a short-sha tag and nothing that moves.
+          #
+          # latest=false because `latest=auto` means "any non-prerelease semver
+          # tag", which is the thing that broke: v1.3.0 is a non-prerelease semver
+          # tag. Rank, not shape, decides. See the ranking step above.
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.rank.outputs.in_series == 'true' }}
+            type=raw,value=latest,enable=${{ steps.rank.outputs.overall == 'true' }}
             type=raw,value=edge,enable={{is_default_branch}}
             type=sha,format=short,enable={{is_default_branch}}
           flavor: |
-            latest=auto
+            latest=false
 
       - name: Build and push
         uses: docker/build-push-action@v6
