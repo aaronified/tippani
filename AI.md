@@ -118,7 +118,12 @@ worth nothing here and only execution counts. What the repo actually runs:
   including decisions that were wrong once and why the current shape replaced
   them. Comments in the code explain why rather than what, for the same reason.
 - **Migrations are numbered, embedded and append-only**, each in its own
-  transaction.
+  transaction — and the runner **refuses to open a database newer than itself**.
+  Forward-only means the downgrade failure mode is a *success*: an old binary
+  finds all its own migrations applied, skips them, returns nil, and serves an
+  app missing every table added since, with nothing in the log. It happened, from
+  a stray tag winning `:latest` in CI. Stopping with both version numbers turns a
+  four-migration audit into one line.
 
 What that honestly does not cover:
 
