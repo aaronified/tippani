@@ -175,7 +175,8 @@ func TestTagCRUD(t *testing.T) {
 	c.mustDo("POST", "/tags", map[string]string{"name": "Poetry"}, http.StatusConflict)
 	c.mustDo("POST", "/tags", map[string]string{"name": "READING"}, http.StatusConflict)
 	c.mustDo("POST", "/tags", map[string]string{"name": "  "}, http.StatusBadRequest)
-	c.mustDo("POST", "/tags", map[string]string{"name": "x", "color": "green"}, http.StatusBadRequest)
+	// Not "green" — that is a real colour since 0029 widened the set.
+	c.mustDo("POST", "/tags", map[string]string{"name": "x", "color": "chartreuse"}, http.StatusBadRequest)
 	c.mustDo("POST", "/tags", map[string]string{"name": "x", "style": "hologram"}, http.StatusBadRequest)
 
 	// Over-long names are capped at 64 runes (shared cleanNames rule).

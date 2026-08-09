@@ -193,8 +193,24 @@ function apply() {
 // import with no colour writes 'yellow' too, so a yellow quote may be yellow
 // because somebody chose it or because nobody chose anything. It cannot be named
 // or hidden — the server refuses both — and its label says which of those it is.
-export const CATEGORY_SLOTS = ['yellow', 'blue', 'pink', 'orange']
-export const CATEGORY_DEFAULT_HEX = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B']
+// SIX SLOTS. The tokens are append-only and their order never changes: slot N
+// is --hl-N and always has been, so reordering them would silently recolour
+// every quote in the library. 'green' and 'purple' arrived in 0029, which had to
+// rebuild four tables to widen a CHECK SQLite cannot alter.
+export const CATEGORY_SLOTS = ['yellow', 'blue', 'pink', 'orange', 'green', 'purple']
+export const CATEGORY_DEFAULT_HEX = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B', '#7CB342', '#8A7BC8']
+
+// The built-in names. A colour word describes a highlighter; these describe what
+// you meant by reaching for it, which is the point of the whole feature — so the
+// app arrives with an opinion rather than with "Blue" and an empty box.
+//
+// All of them are editable, and none of them is stored: a name here is what a
+// slot is CALLED when the reader has not said otherwise, so an untouched account
+// stores nothing at all and a renamed one stores only what it renamed.
+//
+// Slot 1 has no name for the reason it has no name field — it is the absence of
+// a choice, not one of six.
+export const CATEGORY_DEFAULT_NAME = ['', 'Fact', 'Disagreed', 'Inspirational', 'Funny', 'Meta']
 export const UNSET_LABEL = 'Uncategorised'
 
 // CATEGORY_PALETTE — the swatches the picker offers.
@@ -232,9 +248,9 @@ export const CATEGORY_PALETTE = [
 // The live state, read by anything that has to draw a colour rather than name a
 // CSS variable — the share image most of all, because a canvas cannot resolve
 // var() or color-mix() and the picture is the artefact that leaves the app.
-let catNames = ['', '', '', '']
+let catNames = CATEGORY_SLOTS.map(() => '')
 let catHex = [...CATEGORY_DEFAULT_HEX]
-let catHidden = [false, false, false, false]
+let catHidden = CATEGORY_SLOTS.map(() => false)
 
 // applyColors writes the four --hl-N custom properties and keeps the JS mirror
 // in step.
@@ -268,7 +284,9 @@ export function categoryName(token) {
   if (i < 0) return token
   if (catNames[i]) return catNames[i]
   if (i === 0) return UNSET_LABEL
-  return token[0].toUpperCase() + token.slice(1)
+  // The built-in name, not the colour word. "Blue" is what the token is; "Fact"
+  // is what it is for.
+  return CATEGORY_DEFAULT_NAME[i] || token[0].toUpperCase() + token.slice(1)
 }
 
 // categoryVar is the CSS reference for a token — what everything that is NOT a
@@ -317,6 +335,7 @@ export function categoryState() {
     slot: i + 1,
     name: catNames[i],
     label: categoryName(token),
+    defaultName: CATEGORY_DEFAULT_NAME[i] || token[0].toUpperCase() + token.slice(1),
     hex: catHex[i],
     custom: catHex[i].toLowerCase() !== CATEGORY_DEFAULT_HEX[i].toLowerCase(),
     hidden: catHidden[i],

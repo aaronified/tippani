@@ -538,7 +538,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// since the beginning, dialogues since 0021, standalone quotes since 0026.
 	// The card is headed "Highlight colours" and counts itself in "quotes", and
 	// in this app a quote is any of the three.
-	colors := map[string]int{"yellow": 0, "blue": 0, "pink": 0, "orange": 0}
+	// Seeded from the set, so a colour added by a migration appears in the
+	// breakdown at zero rather than being absent from it entirely.
+	colors := map[string]int{}
+	for _, c := range annotationColors {
+		colors[c] = 0
+	}
 	if crows, err := s.Store.DB.Query(`
 		SELECT color, count(*) FROM (
 		  SELECT a.color FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?

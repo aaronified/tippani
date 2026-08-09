@@ -79,7 +79,9 @@ func TestImportMarkdown(t *testing.T) {
 	}
 
 	// Invalid color aborts the whole import (transaction rolled back).
-	bad := "---\ntitle: Other Book\n---\n\n> a quote\n- color: green\n"
+	// "chartreuse", not "green" — green became a real colour in 0029, and an
+	// invalid-input test whose input quietly turns valid asserts nothing.
+	bad := "---\ntitle: Other Book\n---\n\n> a quote\n- color: chartreuse\n"
 	if rec := c.importFile("/import/markdown", "bad.md", []byte(bad)); rec.Code != http.StatusBadRequest {
 		t.Fatalf("bad color: %d %s", rec.Code, rec.Body)
 	}

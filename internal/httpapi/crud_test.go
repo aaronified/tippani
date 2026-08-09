@@ -323,7 +323,9 @@ func TestAnnotationCRUD(t *testing.T) {
 
 	// Validation.
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID}, http.StatusBadRequest)
-	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "x", "color": "green"}, http.StatusBadRequest)
+	// "chartreuse", not "green": green became a real colour in 0029, and an
+	// invalid-input test whose input quietly turned valid asserts nothing.
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "x", "color": "chartreuse"}, http.StatusBadRequest)
 
 	// List + filters.
 	type annList struct {
@@ -345,7 +347,11 @@ func TestAnnotationCRUD(t *testing.T) {
 	if len(byColor.Annotations) != 1 || byColor.Annotations[0].ID != a2.ID {
 		t.Fatalf("color filter: %+v", byColor.Annotations)
 	}
-	c.mustDo("GET", "/annotations?color=purple", nil, http.StatusBadRequest)
+	// A colour outside the set is a 400 on the FILTER too, not an empty list —
+	// silently returning nothing would read as "you have no purple quotes"
+	// rather than "purple is not a colour". (Was "purple", which the 0029
+	// widening turned into a real one.)
+	c.mustDo("GET", "/annotations?color=chartreuse", nil, http.StatusBadRequest)
 
 	// annotation_count shows up on the book list.
 	count := decode[struct {

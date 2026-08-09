@@ -17,15 +17,19 @@ import (
 // and an optional note (span#note). Note-only entries (no span#highlight) are
 // skipped in this pass.
 var (
-	anTitle     = regexp.MustCompile(`(?s)id="annotationBookTitle"[^>]*>(.*?)</`)
-	anTitleH3   = regexp.MustCompile(`(?s)<h3[^>]*kp-notebook-metadata[^>]*>(.*?)</h3>`)
+	anTitle   = regexp.MustCompile(`(?s)id="annotationBookTitle"[^>]*>(.*?)</`)
+	anTitleH3 = regexp.MustCompile(`(?s)<h3[^>]*kp-notebook-metadata[^>]*>(.*?)</h3>`)
 	// The page has two <p ... kp-notebook-metadata>: a bold "Your Kindle Notes
 	// For:" label and the author. Capture attrs+inner so we can pick the author,
 	// which is the a-color-secondary one (the label is a-color-base / bold-caps).
-	anAuthor    = regexp.MustCompile(`(?s)<p([^>]*kp-notebook-metadata[^>]*)>(.*?)</p>`)
-	anAsinA     = regexp.MustCompile(`id="kp-notebook-annotations-asin"[^>]*value="([^"]+)"`)
-	anAsinB     = regexp.MustCompile(`value="([^"]+)"[^>]*id="kp-notebook-annotations-asin"`)
-	anHeader    = regexp.MustCompile(`(?s)id="annotationHighlightHeader"[^>]*>(.*?)</span>`)
+	anAuthor = regexp.MustCompile(`(?s)<p([^>]*kp-notebook-metadata[^>]*)>(.*?)</p>`)
+	anAsinA  = regexp.MustCompile(`id="kp-notebook-annotations-asin"[^>]*value="([^"]+)"`)
+	anAsinB  = regexp.MustCompile(`value="([^"]+)"[^>]*id="kp-notebook-annotations-asin"`)
+	anHeader = regexp.MustCompile(`(?s)id="annotationHighlightHeader"[^>]*>(.*?)</span>`)
+	// Four, and deliberately NOT tracking Tippani's own colour set, which grew to
+	// six in 0029. This parses Amazon's markup: Kindle offers exactly these four
+	// highlighter colours, so adding ours here would match a class Amazon never
+	// emits. The two sets happen to overlap because ours started as theirs.
 	anColor     = regexp.MustCompile(`kp-notebook-highlight-(yellow|blue|pink|orange)`)
 	anHighlight = regexp.MustCompile(`(?s)id="highlight"[^>]*>(.*?)</span>`)
 	anNote      = regexp.MustCompile(`(?s)id="note"[^>]*>(.*?)</span>`)

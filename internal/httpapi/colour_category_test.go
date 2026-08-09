@@ -161,3 +161,81 @@ func TestRenamingACategoryDoesNotTouchTheExport(t *testing.T) {
 		t.Fatalf("a display name leaked into the export:\n%s", after)
 	}
 }
+
+
+// SIX SLOTS, and the fifth and sixth are ordinary ones. They arrived with 0029,
+// which rebuilt four tables to widen a CHECK — so the thing worth asserting is
+// that nothing about them is special once they exist.
+func TestTheTwoNewSlotsBehaveLikeTheRest(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"catName5": "Funny", "catName6": "Meta",
+		"catColor5": "#7CB342", "catColor6": "#8A7BC8",
+		"catHidden6": true,
+	}, 200)
+	p := getPrefs(t, c)
+	if p.CatName5 != "Funny" || p.CatName6 != "Meta" {
+		t.Fatalf("the new slots did not store their names: %+v", p)
+	}
+	if p.CatColor5 != "#7CB342" || p.CatColor6 != "#8A7BC8" {
+		t.Fatalf("the new slots did not store their colours: %+v", p)
+	}
+	if !p.CatHidden6 {
+		t.Fatal("the sixth slot could not be hidden")
+	}
+	// Same rules as everywhere else.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catColor5": "#B4482D"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"catColor6": "nope"}, http.StatusBadRequest)
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"catName5": strings.Repeat("a", catNameMax+1)}, http.StatusBadRequest)
+}
+
+// The colour set and the slot count are two statements of one fact, in two
+// files. A slot with no token is a name for a colour nothing can be; a token
+// with no slot is a colour no picker can offer. Neither fails loudly.
+func TestSlotCountMatchesTheColourSet(t *testing.T) {
+	if catSlots != len(annotationColors) {
+		t.Fatalf("catSlots = %d but there are %d colours: %v",
+			catSlots, len(annotationColors), annotationColors)
+	}
+}
+
+// A colour the database accepts must be a colour the API accepts, and the other
+// way round. The CHECK lives in a migration and the allowlist lives in Go, so
+// this is the seam between them.
+func TestEveryColourInTheSetIsStorable(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Earthsea"}, http.StatusCreated))
+
+	for _, colour := range annotationColors {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book.ID, "quote": "a line in " + colour, "color": colour,
+		}, http.StatusCreated)
+	}
+	// And one that is not in the set is refused by the API rather than reaching
+	// the CHECK, which would surface as a 500 instead of a 400.
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "chartreuse line", "color": "chartreuse",
+	}, http.StatusBadRequest)
+}
+
+// The stats breakdown is seeded from the set, so a colour added by a migration
+// appears at zero rather than being absent from the response entirely — a
+// missing key reads to the client as a colour that does not exist.
+func TestStatsBreakdownNamesEveryColour(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	stats := decode[struct {
+		Colors map[string]int `json:"colors"`
+	}](t, c.mustDo("GET", "/stats", nil, 200))
+	for _, colour := range annotationColors {
+		if _, ok := stats.Colors[colour]; !ok {
+			t.Errorf("the breakdown has no key for %q: %v", colour, stats.Colors)
+		}
+	}
+}

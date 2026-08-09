@@ -148,7 +148,7 @@ func (t *tagReq) validate() string {
 		t.Color = "yellow"
 	}
 	if !validColor(t.Color) {
-		return "color must be yellow, blue, pink or orange"
+		return "color must be " + colorList()
 	}
 	if t.Style == "" {
 		t.Style = "sticker"

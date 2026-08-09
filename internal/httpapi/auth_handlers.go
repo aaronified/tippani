@@ -380,15 +380,28 @@ type prefs struct {
 	CatName2   string `json:"catName2"`
 	CatName3   string `json:"catName3"`
 	CatName4   string `json:"catName4"`
+	CatName5   string `json:"catName5"`
+	CatName6   string `json:"catName6"`
 	CatColor1  string `json:"catColor1"`
 	CatColor2  string `json:"catColor2"`
 	CatColor3  string `json:"catColor3"`
 	CatColor4  string `json:"catColor4"`
+	CatColor5  string `json:"catColor5"`
+	CatColor6  string `json:"catColor6"`
 	CatHidden1 bool   `json:"catHidden1"`
 	CatHidden2 bool   `json:"catHidden2"`
 	CatHidden3 bool   `json:"catHidden3"`
 	CatHidden4 bool   `json:"catHidden4"`
+	CatHidden5 bool   `json:"catHidden5"`
+	CatHidden6 bool   `json:"catHidden6"`
 }
+
+// catSlots is how many colour categories exist, and it is not a number this file
+// gets to choose: it must match annotationColors, because a slot with no token
+// is a name for a colour nothing can be. 0029 took it from four to six by
+// rebuilding four tables to widen a CHECK SQLite cannot alter, so the next
+// change to this constant is another migration, not an edit here.
+const catSlots = 6
 
 // catNameMax bounds a category name. Five words is the house rule for a label,
 // and these ARE labels — they ride a swatch tooltip, a filter chip and a group
@@ -406,6 +419,17 @@ var accentHexes = map[string]bool{
 	"#2f6d8f": true, // slate
 }
 
+// catColorsValid checks every slot. A loop rather than a chain of ||, because a
+// chain is where the fifth and sixth slots would have been forgotten.
+func catColorsValid(p *prefs) bool {
+	for _, c := range catColorPtrs(p) {
+		if !catColorValid(*c) {
+			return false
+		}
+	}
+	return true
+}
+
 // normalizeCats drops anything a category slot may not hold, on READ as well as
 // on write. The write path already refuses these, so this is about the row that
 // did not come through it: a restored archive, a hand-edited database, or a
@@ -418,8 +442,8 @@ var accentHexes = map[string]bool{
 func normalizeCats(p *prefs) {
 	p.CatName1 = ""
 	p.CatHidden1 = false
-	names := []*string{&p.CatName1, &p.CatName2, &p.CatName3, &p.CatName4}
-	colors := []*string{&p.CatColor1, &p.CatColor2, &p.CatColor3, &p.CatColor4}
+	names := catNamePtrs(p)
+	colors := catColorPtrs(p)
 	for i := range names {
 		// A stored value that no longer passes is cleared to "" — the built-in —
 		// rather than truncated or kept. Every other field in loadPrefs falls back
@@ -434,6 +458,20 @@ func normalizeCats(p *prefs) {
 			*colors[i] = ""
 		}
 	}
+}
+
+// The three slot lists, in one place each. Flat FIELDS because ui_test.go
+// compares the whole struct with != and a struct holding a map is not
+// comparable; flat ACCESSORS because everything downstream wants to loop, and
+// six hand-written repetitions of the same line is where a slot gets missed.
+func catNamePtrs(p *prefs) []*string {
+	return []*string{&p.CatName1, &p.CatName2, &p.CatName3, &p.CatName4, &p.CatName5, &p.CatName6}
+}
+func catColorPtrs(p *prefs) []*string {
+	return []*string{&p.CatColor1, &p.CatColor2, &p.CatColor3, &p.CatColor4, &p.CatColor5, &p.CatColor6}
+}
+func catHiddenPtrs(p *prefs) []*bool {
+	return []*bool{&p.CatHidden1, &p.CatHidden2, &p.CatHidden3, &p.CatHidden4, &p.CatHidden5, &p.CatHidden6}
 }
 
 // catColorValid accepts "" (use the built-in) or a six-digit hex that is not one
@@ -535,14 +573,20 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		CatName2   *string `json:"catName2"`
 		CatName3   *string `json:"catName3"`
 		CatName4   *string `json:"catName4"`
+		CatName5   *string `json:"catName5"`
+		CatName6   *string `json:"catName6"`
 		CatColor1  *string `json:"catColor1"`
 		CatColor2  *string `json:"catColor2"`
 		CatColor3  *string `json:"catColor3"`
 		CatColor4  *string `json:"catColor4"`
+		CatColor5  *string `json:"catColor5"`
+		CatColor6  *string `json:"catColor6"`
 		CatHidden1 *bool   `json:"catHidden1"`
 		CatHidden2 *bool   `json:"catHidden2"`
 		CatHidden3 *bool   `json:"catHidden3"`
 		CatHidden4 *bool   `json:"catHidden4"`
+		CatHidden5 *bool   `json:"catHidden5"`
+		CatHidden6 *bool   `json:"catHidden6"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -574,46 +618,27 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// Category slots. Set before the validation switch so a bad value is caught
 	// there rather than normalised into something the caller did not ask for.
 	catNameTooLong := false
-	for _, f := range []struct {
-		in  *string
-		out *string
-	}{
-		{in.CatName1, &cur.CatName1}, {in.CatName2, &cur.CatName2},
-		{in.CatName3, &cur.CatName3}, {in.CatName4, &cur.CatName4},
-	} {
-		if f.in == nil {
-			continue
+	inNames := []*string{in.CatName1, in.CatName2, in.CatName3, in.CatName4, in.CatName5, in.CatName6}
+	inColors := []*string{in.CatColor1, in.CatColor2, in.CatColor3, in.CatColor4, in.CatColor5, in.CatColor6}
+	inHidden := []*bool{in.CatHidden1, in.CatHidden2, in.CatHidden3, in.CatHidden4, in.CatHidden5, in.CatHidden6}
+	curNames, curColors, curHidden := catNamePtrs(&cur), catColorPtrs(&cur), catHiddenPtrs(&cur)
+	for i := 0; i < catSlots; i++ {
+		if inNames[i] != nil {
+			// Refused, not truncated. Every other short free-text field on this
+			// server rejects an over-long value rather than storing a cut-off
+			// one, and a name that comes back shorter than you typed it is a
+			// worse answer than being told it does not fit.
+			n, ok := trimCap(*inNames[i], catNameMax)
+			if !ok {
+				catNameTooLong = true
+			}
+			*curNames[i] = n
 		}
-		// Refused, not truncated. Every other short free-text field on this
-		// server rejects an over-long value rather than storing a cut-off one,
-		// and a name that comes back shorter than you typed it is a worse answer
-		// than being told it does not fit.
-		n, ok := trimCap(*f.in, catNameMax)
-		if !ok {
-			catNameTooLong = true
+		if inColors[i] != nil {
+			*curColors[i] = strings.TrimSpace(*inColors[i])
 		}
-		*f.out = n
-	}
-	for _, f := range []struct {
-		in  *string
-		out *string
-	}{
-		{in.CatColor1, &cur.CatColor1}, {in.CatColor2, &cur.CatColor2},
-		{in.CatColor3, &cur.CatColor3}, {in.CatColor4, &cur.CatColor4},
-	} {
-		if f.in != nil {
-			*f.out = strings.TrimSpace(*f.in)
-		}
-	}
-	for _, f := range []struct {
-		in  *bool
-		out *bool
-	}{
-		{in.CatHidden1, &cur.CatHidden1}, {in.CatHidden2, &cur.CatHidden2},
-		{in.CatHidden3, &cur.CatHidden3}, {in.CatHidden4, &cur.CatHidden4},
-	} {
-		if f.in != nil {
-			*f.out = *f.in
+		if inHidden[i] != nil {
+			*curHidden[i] = *inHidden[i]
 		}
 	}
 	if in.SRDaily != nil && *in.SRDaily != 0 {
@@ -662,8 +687,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusBadRequest,
 			"the first colour is the default one quotes get when nobody chooses, so it cannot be hidden")
 		return
-	case !catColorValid(cur.CatColor1) || !catColorValid(cur.CatColor2) ||
-		!catColorValid(cur.CatColor3) || !catColorValid(cur.CatColor4):
+	case !catColorsValid(&cur):
 		writeErr(w, http.StatusBadRequest,
 			"a category colour must be a #rrggbb hex, and not one of the theme accents")
 		return

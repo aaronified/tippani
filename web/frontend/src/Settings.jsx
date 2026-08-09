@@ -332,7 +332,7 @@ function ColourCategoriesCard({ prefs, onSaved }) {
                   style={{ flex: 1, minWidth: 0 }}
                   value={row.name}
                   maxLength={CAT_NAME_MAX}
-                  placeholder={row.token[0].toUpperCase() + row.token.slice(1)}
+                  placeholder={row.defaultName}
                   aria-label={`Name for the ${row.token} category`}
                   onChange={(e) => setRows(rows.map((r) => (r.slot === row.slot ? { ...r, name: e.target.value } : r)))}
                   onBlur={() => save({})}

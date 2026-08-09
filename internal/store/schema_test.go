@@ -580,7 +580,7 @@ func wantShapes() []tableShape {
 				{Name: "style", Type: "TEXT", NotNull: true, Default: "'sticker'", HasDflt: true},
 			},
 			Checks: []string{
-				"color IN ('yellow','blue','pink','orange')",
+				"color IN ('yellow','blue','pink','orange','green','purple')",
 				"style IN ('sticker','banner','flyout','tape','reel')",
 			},
 			Indexes: []indexShape{
@@ -703,7 +703,7 @@ func wantShapes() []tableShape {
 				{Name: "sticker_id", Type: "INTEGER"},
 			},
 			Checks: []string{
-				"color IN ('yellow','blue','pink','orange')",
+				"color IN ('yellow','blue','pink','orange','green','purple')",
 				"quote IS NOT NULL OR note IS NOT NULL",
 			},
 			Indexes: []indexShape{
@@ -761,7 +761,7 @@ func wantShapes() []tableShape {
 				{Name: "episode", Type: "INTEGER"},
 			},
 			Checks: []string{
-				"color IN ('yellow','blue','pink','orange')",
+				"color IN ('yellow','blue','pink','orange','green','purple')",
 			},
 			Indexes: []indexShape{
 				{Name: autoIndexName, Unique: true, Origin: "u", Columns: []string{"movie_id", "dedupe_hash"}},
@@ -1033,19 +1033,28 @@ func TestSchemaInvariants(t *testing.T) {
 	s := openHead(t)
 	shapes := map[string]tableShape{}
 	for _, n := range []string{
-		"tags", "annotation_tags", "dialogue_tags",
-		"annotations", "dialogues", "item_reviews",
+		"tags", "annotation_tags", "dialogue_tags", "utterance_tags",
+		"annotations", "dialogues", "utterances", "staged_quotes", "item_reviews",
 	} {
 		shapes[n] = captureShape(t, s.DB, n)
 	}
 
-	// The four highlight colours are fixed (PLAN §3) and the UI paints exactly
-	// four swatches. A rebuild that widens the CHECK by one value lets a colour
-	// into the database that no client can render; one that narrows it starts
-	// rejecting rows already stored. Assert the SET, not the spelling, so
-	// reordering the IN list is not a failure.
-	wantColors := []string{"blue", "orange", "pink", "yellow"}
-	for _, table := range []string{"tags", "annotations", "dialogues"} {
+	// The colour set is fixed at any given time and the UI paints exactly that
+	// many swatches. A CHECK that is wider than the set lets a colour into the
+	// database that no client can render; one that is narrower starts rejecting
+	// rows already stored. Assert the SET, not the spelling, so reordering the IN
+	// list is not a failure.
+	//
+	// 0029 took this from four to six by rebuilding FIVE tables — every one of
+	// them a foreign-key parent with cascading children. Changing this list is
+	// therefore never a one-line edit here: it means another migration, and this
+	// assertion is what says so out loud.
+	//
+	// utterances and staged_quotes are checked too. They were absent while this
+	// list was four values long, which meant two of the five tables carrying the
+	// constraint had nothing watching them.
+	wantColors := []string{"blue", "green", "orange", "pink", "purple", "yellow"}
+	for _, table := range []string{"tags", "annotations", "dialogues", "utterances", "staged_quotes"} {
 		checks := shapes[table].checkMentioning("color IN")
 		if len(checks) != 1 {
 			// Errorf, not Fatalf: every other rule in this function reports and

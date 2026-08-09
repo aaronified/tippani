@@ -2972,12 +2972,11 @@ export const frameCode = (base, i = 0) => `${base + i}A`;
 // These two have real callers, both in this file, so neither is exported.
 
 const chipClass = "tp-chip";
-const colorDotClass = {
-  yellow: "dot-yellow",
-  blue: "dot-blue",
-  pink: "dot-pink",
-  orange: "dot-orange",
-};
+// Derived from the slot list rather than written out, so a colour added by a
+// migration cannot arrive with no dot class and render as an unstyled circle.
+// The class names follow the tokens by construction; index.css declares one
+// .dot-<token> per slot.
+const colorDotClass = Object.fromEntries(CATEGORY_SLOTS.map((t) => [t, "dot-" + t]));
 
 // splitCommas turns a comma-separated input value into a trimmed string array.
 export function splitCommas(s) {

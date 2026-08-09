@@ -31,7 +31,9 @@ describe('applyColors', () => {
   it('writes the built-ins when nothing is stored', async () => {
     const { applyColors, CATEGORY_DEFAULT_HEX } = await load()
     applyColors({})
-    for (let i = 0; i < 4; i++) expect(hl(i + 1)).toBe(CATEGORY_DEFAULT_HEX[i])
+    for (let i = 0; i < CATEGORY_DEFAULT_HEX.length; i++) {
+      expect(hl(i + 1), `--hl-${i + 1}`).toBe(CATEGORY_DEFAULT_HEX[i])
+    }
   })
 
   it('writes a chosen colour to the custom property the whole app reads', async () => {
@@ -91,11 +93,27 @@ describe('names', () => {
     expect(categoryName('pink')).toBe('Disagreed')
   })
 
-  it('falls back to the colour word, so a fresh account reads as it always did', async () => {
-    const { applyColors, categoryName } = await load()
+  it('falls back to the BUILT-IN name, not the colour word', async () => {
+    // "Blue" is what the token is; "Fact" is what it is for, and the app arrives
+    // with an opinion rather than a colour word and an empty box. None of these
+    // is stored — an untouched account stores nothing at all.
+    const { applyColors, categoryName, CATEGORY_DEFAULT_NAME, CATEGORY_SLOTS } = await load()
     applyColors({})
-    expect(categoryName('blue')).toBe('Blue')
-    expect(categoryName('orange')).toBe('Orange')
+    expect(categoryName('blue')).toBe('Fact')
+    expect(categoryName('pink')).toBe('Disagreed')
+    expect(categoryName('orange')).toBe('Inspirational')
+    expect(categoryName('green')).toBe('Funny')
+    expect(categoryName('purple')).toBe('Meta')
+    // Every slot past the first has one, or a colour arrives unnamed.
+    for (let i = 1; i < CATEGORY_SLOTS.length; i++) {
+      expect(CATEGORY_DEFAULT_NAME[i], `slot ${i + 1} has no built-in name`).toBeTruthy()
+    }
+  })
+
+  it('a reader’s name still beats the built-in', async () => {
+    const { applyColors, categoryName } = await load()
+    applyColors({ catName2: 'Evidence' })
+    expect(categoryName('blue')).toBe('Evidence')
   })
 
   it('passes an unknown token straight through', async () => {
@@ -109,9 +127,17 @@ describe('names', () => {
 
 describe('hiding', () => {
   it('takes a category out of the pickers', async () => {
-    const { applyColors, visibleCategories } = await load()
+    const { applyColors, visibleCategories, CATEGORY_SLOTS } = await load()
     applyColors({ catHidden4: true })
-    expect(visibleCategories()).toEqual(['yellow', 'blue', 'pink'])
+    expect(visibleCategories()).toEqual(CATEGORY_SLOTS.filter((t) => t !== 'orange'))
+  })
+
+  it('hides the two newest ones as readily as the old ones', async () => {
+    // The slots a migration added are ordinary slots. Nothing about them is
+    // special except that a CHECK on four tables had to be widened to store them.
+    const { applyColors, visibleCategories } = await load()
+    applyColors({ catHidden5: true, catHidden6: true })
+    expect(visibleCategories()).toEqual(['yellow', 'blue', 'pink', 'orange'])
   })
 
   it('does NOT take it off a quote that already wears it', async () => {

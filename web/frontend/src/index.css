@@ -44,6 +44,8 @@
     --hl-2: #7FA6C9;
     --hl-3: #D98CA6;
     --hl-4: #DF9A5B;
+    --hl-5: #7CB342;
+    --hl-6: #8A7BC8;
   }
   /* Base colour lives on <html> (the canvas). <body> stays transparent so the
      fixed .scene-bg layer (z-index -1) shows through behind the content. The
@@ -934,6 +936,8 @@
     transform: rotate(var(--tilt, -0.9deg));
   }
   .tc-yellow { --tc: var(--hl-1); }
+  .tc-green { --tc: var(--hl-5); }
+  .tc-purple { --tc: var(--hl-6); }
   .tc-blue { --tc: var(--hl-2); }
   .tc-pink { --tc: var(--hl-3); }
   .tc-orange { --tc: var(--hl-4); }
@@ -2341,6 +2345,8 @@
     .view-toggle-row { flex: 1 1 100%; flex-wrap: wrap; row-gap: 8px; margin-left: 0; }
   }
   .dot-yellow { background: var(--hl-1); }
+  .dot-green { background: var(--hl-5); }
+  .dot-purple { background: var(--hl-6); }
   .dot-blue { background: var(--hl-2); }
   .dot-pink { background: var(--hl-3); }
   .dot-orange { background: var(--hl-4); }

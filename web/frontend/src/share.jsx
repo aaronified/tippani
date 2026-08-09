@@ -511,11 +511,20 @@ function QuoteImagePanel({ share, selected, onShared }) {
   // The image skin is chosen independently of the app theme and persisted per
   // device (an export preference, not an identity one — like the view toggles).
   const [imageTheme, setImageTheme] = usePersistedState("tippani:shareImageTheme", defaultImageTheme());
-  // The portrait backdrop, persisted per device beside the skin — both are
-  // export preferences rather than identity ones. It offers nothing when nobody
-  // credited has a saved photo, so the control is hidden rather than shown
-  // greyed: a toggle that cannot change the picture is a question with one
-  // answer.
+  // How the credited person appears: as a small CHIP beside their name, or as a
+  // BACKDROP bled in from the card's edge. Persisted per device beside the skin
+  // — both are export preferences rather than identity ones.
+  //
+  // ONE CONTROL, TWO ANSWERS, because there were never three. The backdrop has
+  // always replaced the chip rather than joining it — a 34px crop of the same
+  // photograph beside a full-height version of it reads as a mistake — so an
+  // Off/Backdrop switch was really a Chip/Backdrop switch with one of its
+  // answers unnamed, and "off" was a lie: turning it off did not remove the
+  // person from the card, it changed how they appeared.
+  //
+  // It offers nothing when nobody credited has a saved photo, so the control is
+  // hidden rather than shown greyed: a toggle that cannot change the picture is
+  // a question with one answer.
   const [portrait, setPortrait] = usePersistedState("tippani:sharePortrait", false);
   const canPortrait = (share.faces || []).length > 0;
   // Whether the quote's highlight colour appears at all. One switch for both
@@ -659,14 +668,14 @@ function QuoteImagePanel({ share, selected, onShared }) {
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <MonoLabel>portrait</MonoLabel>
           <Toggle
-            ariaLabel="Portrait backdrop"
-            value={portrait ? "on" : "off"}
-            onChange={(v) => setPortrait(v === "on")}
-            options={[["off", "Off"], ["on", "Backdrop"]]}
+            ariaLabel="Portrait"
+            value={portrait ? "backdrop" : "chip"}
+            onChange={(v) => setPortrait(v === "backdrop")}
+            options={[["chip", "Chip"], ["backdrop", "Backdrop"]]}
           />
           <InfoDot
-            title="Portrait backdrop"
-            text="Bleeds the credited person's photo in from the card's edge and fades it out before the words start. One name enters from the left; two or more, and the first two take a side each with the quote between them — which is the shape a conversation has. It only offers itself when someone credited has a saved photo, and it rides the same Author / Actor / Speaker tick as the small portrait discs, so turning that credit off takes the backdrop with it. With a backdrop the small discs step aside: the portrait is already the face, and a thumbnail crop of the same photograph beside it reads as a mistake."
+            title="Portrait"
+            text="How the credited person appears. Chip is the small round photo beside their name. Backdrop bleeds the same photo in from the card's edge, tinted with the quote's colour and faded out before the words start — one name enters from the left; two or more, and the first two take a side each with the quote between them, which is the shape a conversation has. It is one or the other, never both: a thumbnail crop of the same photograph beside a full-height version of it reads as a mistake. Either way it rides the same Author / Actor / Speaker tick as the credit itself, so turning that off takes the portrait with it, and neither is offered when nobody credited has a saved photo."
           />
         </div>
       )}

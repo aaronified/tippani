@@ -59,7 +59,7 @@ func (q *quoteReq) validate() string {
 		q.Color = "yellow" // PLAN §3: colours fixed at 4, default yellow
 	}
 	if !validColor(q.Color) {
-		return "color must be yellow, blue, pink or orange"
+		return "color must be " + colorList()
 	}
 	if q.NotedAt != "" {
 		normalized, err := parseNotedAt(q.NotedAt)
@@ -111,12 +111,29 @@ type quoteRow struct {
 	LastResult     string  `json:"last_result"` // "got" | "forgot" | ""
 }
 
-// validColor gates the four fixed highlight colours (PLAN §3), shared by both
-// kinds and by the list filters.
+// annotationColors is the colour set, in slot order. Adding to it is not a code
+// change — it is a migration, because each value is gated by a CHECK on four
+// tables and SQLite cannot alter a CHECK (see 0029, which widened four to six).
+// The order is the order the pickers draw, and it is append-only: 'yellow' is
+// slot 1 and stays the column default and the value an import writes when the
+// source named no colour.
+var annotationColors = []string{"yellow", "blue", "pink", "orange", "green", "purple"}
+
+// colorList is the human list for an error message, built from the set rather
+// than typed out beside it — four handlers used to spell "yellow, blue, pink or
+// orange" independently, which is four messages to forget when the set grows.
+func colorList() string {
+	return strings.Join(annotationColors[:len(annotationColors)-1], ", ") +
+		" or " + annotationColors[len(annotationColors)-1]
+}
+
+// validColor gates the fixed highlight colours (PLAN §3), shared by every kind
+// and by the list filters.
 func validColor(c string) bool {
-	switch c {
-	case "yellow", "blue", "pink", "orange":
-		return true
+	for _, v := range annotationColors {
+		if c == v {
+			return true
+		}
 	}
 	return false
 }
@@ -126,7 +143,7 @@ func validColor(c string) bool {
 func colorFilter(w http.ResponseWriter, r *http.Request, alias string, q *string, args *[]any) bool {
 	if v := r.URL.Query().Get("color"); v != "" {
 		if !validColor(v) {
-			writeErr(w, http.StatusBadRequest, "color must be yellow, blue, pink or orange")
+			writeErr(w, http.StatusBadRequest, "color must be "+colorList())
 			return false
 		}
 		*q += ` AND ` + alias + `.color = ?`

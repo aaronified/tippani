@@ -81,7 +81,7 @@ func (req *stagedBulkReq) validate() string {
 		*f.val = &trimmed
 	}
 	if req.Color != nil && !validColor(*req.Color) {
-		return "color must be yellow, blue, pink or orange"
+		return "color must be " + colorList()
 	}
 	for _, f := range []struct {
 		val  *string

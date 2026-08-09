@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ANNOTATION_COLORS, ANNOTATION_HEX } from '../../src/ui.jsx'
+import { CATEGORY_SLOTS } from '../../src/theme.js'
 
 // TIPPANI_SRC is set by vitest.config.js, which is the only place that knows the
 // answer for certain: under jsdom `import.meta.url` is an http URL, and
@@ -34,10 +35,17 @@ const css = readFileSync(join(SRC, 'index.css'), 'utf8')
 // token exists, and a test that forbade it would forbid explaining itself.
 const rules = css.replace(/\/\*[\s\S]*?\*\//g, '')
 
-// The slot order is a contract in its own right: slot 1 is yellow, and yellow is
-// the token an import writes when a source gave no colour at all. Reordering
-// these would silently re-colour every unmarked quote ever imported.
-const SLOTS = ['yellow', 'blue', 'pink', 'orange']
+// The slot order is a contract in its own right, and an APPEND-ONLY one: slot N
+// is --hl-N, so reordering would silently recolour every quote in the library,
+// and slot 1 is the token an import writes when a source gave no colour at all.
+//
+// Derived from theme.js rather than restated, because this list was written out
+// here when there were four and had to be found and edited when there were six —
+// which is the drift this whole file exists to catch, reproduced inside it.
+const SLOTS = CATEGORY_SLOTS
+// The first four, pinned by value. Everything after them may be appended; these
+// four may not move, because they predate the ability to add any.
+const ORIGINAL_FOUR = ['yellow', 'blue', 'pink', 'orange']
 
 const tokenHex = (n) => {
   const m = rules.match(new RegExp(`--hl-${n}:\\s*(#[0-9A-Fa-f]{3,8})\\s*;`))
@@ -54,10 +62,19 @@ describe('--hl-1..4 and ANNOTATION_HEX', () => {
     // breakdown. Slot 1 must stay yellow: it is what an import writes when the
     // source named no colour, so a reorder recolours history.
     expect(ANNOTATION_COLORS).toEqual(SLOTS)
+    expect(SLOTS.slice(0, 4)).toEqual(ORIGINAL_FOUR)
+  })
+
+  it('only ever grows at the end', () => {
+    // Adding a colour is a MIGRATION, not a code change — each value is gated by
+    // a CHECK on four tables that SQLite cannot alter. Whatever is appended, the
+    // original four keep their slots.
+    expect(SLOTS.length).toBeGreaterThanOrEqual(ORIGINAL_FOUR.length)
+    expect(new Set(SLOTS).size).toBe(SLOTS.length)
   })
 
   it('every slot is defined on both sides', () => {
-    for (let n = 1; n <= 4; n++) expect(tokenHex(n), `--hl-${n} is missing`).toBeTruthy()
+    for (let n = 1; n <= SLOTS.length; n++) expect(tokenHex(n), `--hl-${n} is missing`).toBeTruthy()
     expect(Object.keys(ANNOTATION_HEX).sort()).toEqual([...SLOTS].sort())
   })
 })
