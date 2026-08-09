@@ -1,9 +1,10 @@
-// What the share picture assumes about the quote's colour.
+// The share dialog's two standing decisions: what the picture assumes about the
+// quote's colour, and where the explanatory prose lives.
 //
-// This is the kind of thing that has no failure. A card that carries a colour
-// nobody asked it to carry renders perfectly, downloads perfectly and opens
-// perfectly. It is only wrong once somebody looks at it, which is after it has
-// been sent.
+// Both are the kind of thing that has no failure. A card that carries a colour
+// nobody asked it to carry renders perfectly; four lines of syntax reference
+// above the fold on a phone lay out perfectly. They are only wrong once somebody
+// looks at the result, which is after it has been sent.
 //
 // The colour default is tested through the CANVAS rather than through the
 // toggle's markup. A control reading "Off" while the drawing code carries on
@@ -102,5 +103,45 @@ describe("the picture's colour switch", () => {
     expect(selected(off)).toBe('true')
     await waitFor(() => expect(fills.length).toBeGreaterThan(0))
     expect(drewTheColour()).toBe(false)
+  })
+})
+
+describe('the prose in the share dialog', () => {
+  const logicOf = (name) => screen.queryByText((t) => t.startsWith(name))
+
+  it('keeps a format’s syntax behind its dot rather than above the quote', async () => {
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    // WhatsApp is the opening format; its syntax reference is reachable, not
+    // resident.
+    expect(logicOf('WhatsApp chat formatting')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More information: WhatsApp' }))
+    expect(logicOf('WhatsApp chat formatting')).not.toBeNull()
+    // "the formatter suggestions as well" — the mono token sample went in with
+    // the sentence it belongs to, not left behind on its own.
+    expect(screen.getByText((t) => t.includes('~strike~')).className).toContain('share-hint')
+  })
+
+  it('re-titles the dot with whichever format is chosen', async () => {
+    // An anonymous i beside a control whose meaning it depends on is a dot you
+    // have to open to find out whether it was worth opening. It also has to
+    // change: a dot still announcing "WhatsApp" after Markdown is selected is
+    // worse than an unnamed one.
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Markdown' }))
+    expect(screen.queryByRole('button', { name: 'More information: WhatsApp' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More information: Markdown' }))
+    expect(logicOf('Rich Markdown')).not.toBeNull()
+  })
+
+  it('explains the picture, and its skin, the same way', async () => {
+    await openImage()
+    // Image has no syntax, so its dot answers the other question — what is this
+    // thing — and the theme picker's "doesn't change the app" caveat, which is
+    // the one people actually need, is a dot rather than a grey aside.
+    fireEvent.click(screen.getByRole('button', { name: 'More information: Image' }))
+    expect(logicOf('A picture of the quote')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More information: Image' })) // close
+    fireEvent.click(screen.getByRole('button', { name: 'More information: Image theme' }))
+    expect(logicOf('Which of the four skins')).not.toBeNull()
   })
 })

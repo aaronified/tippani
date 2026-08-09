@@ -44,9 +44,12 @@ function drawTheme(key) {
 const PRIMARY = "tp-btn tp-btn-primary";
 
 // ---- supported formats -------------------------------------------------
-// Each format's `logic` line is shown at the top of the popup so the sharer
-// knows exactly which syntax will be produced; `hint` is a compact mono sample
-// of that format's key tokens. Rules verified against the WhatsApp (2023
+// Each format's `logic` line says exactly which syntax will be produced and
+// `hint` is a compact mono sample of that format's key tokens. Both live behind
+// the format row's InfoDot: they are reference material — you read them once,
+// when you are deciding, and then you know — and four lines of syntax reference
+// standing permanently above the thing they describe pushes the quote itself
+// below the fold on a phone. Rules verified against the WhatsApp (2023
 // formatting update) and Reddit markdown conventions.
 export const SHARE_FORMATS = [
   {
@@ -78,6 +81,14 @@ export const SHARE_FORMATS = [
     hint: "**bold**  *italic*  ~~strike~~  > quote  [text](url)",
   },
 ];
+
+// The Image "format" has no syntax to describe, so its help says what the thing
+// IS instead. It sits here beside the `logic` lines because it answers the same
+// question in the same place — what am I about to produce — and the dialog
+// picks between them on one condition rather than laying out two different
+// explanations in two different shapes.
+const IMAGE_LOGIC =
+  "A picture of the quote, drawn on this device in whichever of the four skins you pick — nothing is uploaded, and the photograph of whoever said it never leaves the machine either. Tick the parts you want below, then download it or copy it straight to the clipboard.";
 
 // ---- normalised share payload builders ---------------------------------
 // Callers pass already-resolved strings (dates pre-formatted); these shape the
@@ -672,9 +683,10 @@ function QuoteImagePanel({ share, selected, onShared }) {
           onChange={setImageTheme}
           options={IMAGE_THEMES}
         />
-        <span className="microcopy" style={{ color: "var(--soft)" }}>
-          image only — doesn’t change the app
-        </span>
+        <InfoDot
+          title="Image theme"
+          text="Which of the four skins the picture is drawn in — paper or film, light or dark. It is the picture's skin only: choosing one here never changes what the app looks like, because the card you post and the app you read in are two different rooms. It starts on whatever the app is showing now, so the first share matches what you were just looking at."
+        />
       </div>
       {canPortrait && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -804,46 +816,49 @@ export function ShareDialog({ share, seen, onClose }) {
           <CloseButton onClick={onClose} />
         </div>
 
-        {/* format toggle + the per-format logic shown up top */}
-        <div className="mb-4 space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <MonoLabel>format</MonoLabel>
-            {mobile ? (
-              <select
-                className="tp-input"
-                aria-label="Share format"
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-              >
-                {formatOptions.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="share-format-toggle">
-                <Toggle
-                  ariaLabel="Share format"
-                  value={format}
-                  onChange={setFormat}
-                  options={formatOptions}
-                />
-              </div>
-            )}
-          </div>
-          {isImage ? (
-            <p className="microcopy" style={{ color: "var(--soft)" }}>
-              a shareable image in your current paper/film skin — pick what to include below, then download or copy it.
-            </p>
+        {/* format toggle; what each one produces lives behind the dot */}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <MonoLabel>format</MonoLabel>
+          {mobile ? (
+            <select
+              className="tp-input"
+              aria-label="Share format"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+            >
+              {formatOptions.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
           ) : (
-            <>
-              <p className="microcopy" style={{ color: "var(--soft)" }}>
-                {active.logic}
-              </p>
-              <code className="share-hint">{active.hint}</code>
-            </>
+            <div className="share-format-toggle">
+              <Toggle
+                ariaLabel="Share format"
+                value={format}
+                onChange={setFormat}
+                options={formatOptions}
+              />
+            </div>
           )}
+          {/* The dot is TITLED with the format, so it announces as "More
+              information: WhatsApp" and re-reads as the selection changes,
+              rather than sitting there as an anonymous i beside a control whose
+              meaning it depends on. */}
+          <InfoDot
+            title={isImage ? "Image" : active.name}
+            text={
+              isImage ? (
+                IMAGE_LOGIC
+              ) : (
+                <>
+                  {active.logic}
+                  <code className="share-hint mt-2">{active.hint}</code>
+                </>
+              )
+            }
+          />
         </div>
 
         {/* choose what to include */}
