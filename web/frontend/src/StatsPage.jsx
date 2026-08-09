@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -573,6 +573,117 @@ export function topDecade(timeline) {
   return best
 }
 
+
+// ---- the timeline ---------------------------------------------------------
+//
+// When the library's works are FROM, as opposed to when they were saved. The
+// activity calendar already answers the second question; nothing answered the
+// first, despite every book and film having carried a year since 0001.
+//
+// The server sends one bucket per YEAR and this decides how to read them,
+// because the right scale is a property of the library rather than of the data:
+// 2,500 years wants centuries, a shelf of films wants years, and nothing
+// sensible wants both at once.
+
+export const TIMELINE_SCALES = [
+  { key: 'decade', label: 'Decades', size: 10 },
+  { key: 'century', label: 'Centuries', size: 100 },
+  { key: 'year', label: 'Years', size: 1 },
+]
+
+// bucketTimeline groups the per-year rows at a scale, INCLUDING the empty
+// buckets in between.
+//
+// The gaps are the point. A library with something from 380 BCE and nothing else
+// until 1600 should show that as a long emptiness, not as two bars side by side
+// — which is what dropping the empty buckets would draw, and it would read as
+// two adjacent periods rather than two millennia apart.
+export function bucketTimeline(timeline, size) {
+  const rows = (Array.isArray(timeline) ? timeline : []).filter((b) => Number.isFinite(b?.year))
+  if (rows.length === 0) return []
+  const floor = (y) => Math.floor(y / size) * size
+  const byStart = new Map()
+  for (const b of rows) {
+    const start = floor(b.year)
+    const cur = byStart.get(start) || { start, works: 0, quotes: 0 }
+    cur.works += b.works || 0
+    cur.quotes += b.quotes || 0
+    byStart.set(start, cur)
+  }
+  const first = floor(rows[0].year)
+  const last = floor(rows[rows.length - 1].year)
+  const out = []
+  for (let start = first; start <= last; start += size) {
+    out.push(byStart.get(start) || { start, works: 0, quotes: 0 })
+  }
+  return out
+}
+
+// TimelineCard — a scrollable band of stacked bars, one per bucket.
+//
+// WIDTH IS HANDLED BY CSS, not by measuring. Every bar has a minimum width, the
+// row scrolls sideways, and that is exactly "show as many as are legible and
+// scroll the rest" without a ResizeObserver, without a re-render on resize, and
+// without a number that has to be kept in step with a font size. A narrow phone
+// simply shows fewer bars of the same size.
+//
+// overscroll-behavior-x is contained, following the 1.7.2 sweep: a sideways
+// scroller that runs off its end otherwise hands the gesture to the browser's
+// back navigation, which on a stats page means leaving it.
+function TimelineCard({ timeline }) {
+  const [scale, setScale] = usePersistedState('tippani:stats:timelineScale', 'decade')
+  const meta = TIMELINE_SCALES.find((x) => x.key === scale) || TIMELINE_SCALES[0]
+  const buckets = bucketTimeline(timeline, meta.size)
+  const peak = buckets.reduce((m, b) => Math.max(m, b.works + b.quotes), 0)
+  if (!timeline || timeline.length === 0) {
+    return (
+      <Card>
+        <SectionHead label="Timeline" />
+        <p style={{ color: 'var(--soft)', fontSize: 13 }}>
+          Nothing here yet — a book or film needs a year on it to have a place in time.
+        </p>
+      </Card>
+    )
+  }
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <MonoLabel>Timeline · {buckets.length}</MonoLabel>
+        <select className="tp-input" aria-label="Timeline scale" value={scale} onChange={(e) => setScale(e.target.value)} style={{ width: 'auto' }}>
+          {TIMELINE_SCALES.map((x) => (
+            <option key={x.key} value={x.key}>{x.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="tl-scroll">
+        <div className="tl-row">
+          {buckets.map((b) => {
+            const total = b.works + b.quotes
+            return (
+              <Tooltip
+                key={b.start}
+                label={`${decadeLabel(b.start)}: ${b.works} works, ${b.quotes} quotes`}
+                side="top"
+              >
+                <div className="tl-col" aria-label={`${decadeLabel(b.start)}, ${b.works} works, ${b.quotes} quotes`}>
+                  <div className="tl-bar">
+                    {/* Quotes sit on top of works so the darker segment is the
+                        one you are usually reading for. An empty bucket draws
+                        nothing at all, which is what a gap in time looks like. */}
+                    <div className="tl-seg tl-seg-quotes" style={{ height: peak ? `${(b.quotes / peak) * 100}%` : 0 }} />
+                    <div className="tl-seg tl-seg-works" style={{ height: peak ? `${(b.works / peak) * 100}%` : 0 }} />
+                  </div>
+                  <div className="tl-tick">{total ? decadeLabel(b.start) : ''}</div>
+                </div>
+              </Tooltip>
+            )
+          })}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 // SuperTile — a superlative as a compact tile (the same raised-chip tiling the
 // Overview and Memory grids use): cover thumb · truncated headline · accent
 // count · label. With `onOpen` the headline is a doorway (→ Search).
@@ -715,6 +826,7 @@ export default function StatsPage({ onSearch }) {
               column beside the tall Breakdown); Colours + Top tags stack in
               the Breakdown's second column instead. */}
           <Superlatives s={s} personMaps={personMaps} onSearch={onSearch} />
+          <TimelineCard timeline={s.timeline} />
           <div style={twoCol}>
             <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} onSearch={onSearch} />
             <div className="space-y-6">

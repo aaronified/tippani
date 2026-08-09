@@ -3455,3 +3455,62 @@ html[data-theme="dark"] .mobile-sheet-footer {
   top: 1px;
   right: 1px;
 }
+
+/* ---- Stats timeline ------------------------------------------------------
+   A band of stacked bars, one per bucket. The width rule is entirely CSS: a
+   minimum bar width plus a sideways scroller IS "show as many as are legible
+   and scroll the rest", with no measuring, no ResizeObserver and no number to
+   keep in step with a font size. A narrow phone shows fewer bars, not thinner
+   ones — thinner would make the axis unreadable, which is the whole thing the
+   scale selector exists to avoid. */
+.tl-scroll {
+  overflow-x: auto;
+  /* 1.7.2's containment sweep: a sideways scroller that runs off its end hands
+     the gesture to the browser's back navigation, and leaving the stats page is
+     not what reaching the end of a chart should do. */
+  overscroll-behavior-x: contain;
+  padding-bottom: 4px;
+}
+.tl-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: min-content;
+  height: 132px;
+}
+.tl-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 30px;
+  height: 100%;
+}
+.tl-bar {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tl-seg {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  min-height: 0;
+}
+/* Quotes above works: the darker segment is the one you are usually reading
+   for, and an empty bucket draws nothing at all — which is what a gap in time
+   should look like. */
+.tl-seg-quotes { background: var(--accent); }
+.tl-seg-works { background: var(--line); border-radius: 0; }
+.tl-tick {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--soft);
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  height: 46px;
+  overflow: hidden;
+}
