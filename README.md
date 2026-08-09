@@ -79,14 +79,14 @@ of that are spelled out in [`AI.md`](AI.md).
 
 ## Features
 
-- 📚 **Books & annotations** — quotes and notes with 4 **colour categories you name yourself**, tags, chapter/location,
+- 📚 **Books & annotations** — quotes and notes with 6 **colour categories you name yourself**, tags, chapter/location,
   a favourite ★ and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or
   genre**.
-- 🎨 **Colour categories** — the four highlight colours are the top of the hierarchy: tags say what a
-  quote is *about*, its colour says what *kind* of note it is. Name them — *fact*, *disagreed*,
-  *inspirational* — pick their colours from a curated palette, and put away the ones you do not
-  use. Every picker, filter, group heading and breakdown then speaks your words instead of
+- 🎨 **Colour categories** — six highlight colours, and they are the top of the hierarchy: tags say
+  what a quote is *about*, its colour says what *kind* of note it is. They arrive named — *fact*,
+  *disagreed*, *inspirational*, *funny*, *meta* — and every one is yours to rename, recolour from a
+  curated palette, or put away when you are not using it. Every picker, filter, group heading and breakdown then speaks your words instead of
   "blue". **What is stored never changes**: the value in the database and in every Markdown export
   stays `yellow` / `blue` / `pink` / `orange`, so a rename cannot break a round trip. The first
   colour is deliberately not nameable — it is what a quote gets when nobody picks one, and what an

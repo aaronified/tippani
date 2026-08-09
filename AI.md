@@ -57,16 +57,16 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 328 |
-| Commits with an AI co-author trailer | **324** |
-| Period | 2026-07-02 → 2026-08-08 |
+| Commits in the repository | 332 |
+| Commits with an AI co-author trailer | **328** |
+| Period | 2026-07-02 → 2026-08-09 |
 
 Models used, by commit count:
 
 | Model | Commits |
 | :-- | --: |
 | Claude Opus 4.8 | 151 |
-| Claude Opus 5 | 108 |
+| Claude Opus 5 | 112 |
 | Claude Fable 5 | 55 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
