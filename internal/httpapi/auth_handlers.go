@@ -337,8 +337,8 @@ type prefs struct {
 	// three — see scopeFlags. SRPracticeCounts
 	// opts Practice into moving the schedule (off by default, so Practice is
 	// study without distortion).
-	SRDaily          int     `json:"srDaily"`
-	SRReviewScope    string  `json:"srReviewScope"`
+	SRDaily       int    `json:"srDaily"`
+	SRReviewScope string `json:"srReviewScope"`
 	// SRSeen is the "seeing" multiplier — practising (not skipping), sharing, or
 	// favouriting a card lengthens its half-life marginally. 1.0 = off (default),
 	// so this reinforcement is entirely opt-in.

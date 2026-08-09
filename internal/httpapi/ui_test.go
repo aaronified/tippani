@@ -273,7 +273,7 @@ type statsResp struct {
 	Recall struct {
 		States      statusCounts `json:"states"`
 		Reviewed    int          `json:"reviewed"`
-		AvgHalfLife float64     `json:"avg_half_life"`
+		AvgHalfLife float64      `json:"avg_half_life"`
 	} `json:"recall"`
 	Breakdown map[string]statsKind `json:"breakdown"`
 }

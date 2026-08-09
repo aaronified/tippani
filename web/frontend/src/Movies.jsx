@@ -823,6 +823,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                 progress={movie.progress}
                 pos={movie}
                 reads={movie.reads}
+                onReadsChanged={load}
                 wishlist={lineCount === 0}
                 busy={shelfBusy}
                 onSelect={pick}

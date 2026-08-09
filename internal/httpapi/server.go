@@ -83,20 +83,20 @@ type Server struct {
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
 	return &Server{
-		Store:          st,
-		Sessions:       auth.Sessions{DB: st.DB},
-		Devices:        auth.DeviceTokens{DB: st.DB},
-		CookieSecure:   cookieSecure,
-		TrustedProxy:   trustedProxy,
-		SeedNewUsers:   true,
-		Static:         static,
-		DataDir:        dataDir,
+		Store:        st,
+		Sessions:     auth.Sessions{DB: st.DB},
+		Devices:      auth.DeviceTokens{DB: st.DB},
+		CookieSecure: cookieSecure,
+		TrustedProxy: trustedProxy,
+		SeedNewUsers: true,
+		Static:       static,
+		DataDir:      dataDir,
 		// TMDB.Key is a direct/programmatic override (embedders/tests); it is no
 		// longer read from the environment — production keys come from Settings
 		// or the built-in slot (see resolveTMDB).
-		TMDB:           &metadata.TMDB{},
-		TVDB:           &metadata.TVDB{},                              // key configured in Settings (resolveTVDB); no env slot
-		loginLimiter:   auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
+		TMDB:         &metadata.TMDB{},
+		TVDB:         &metadata.TVDB{},                              // key configured in Settings (resolveTVDB); no env slot
+		loginLimiter: auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 5), // 5/min, burst 5
 		// Pairing is a deliberate, one-at-a-time act, so it can be tighter than
 		// login: a burst of 10 covers a mistyped code or two, then 5/min.
 		pairingLimiter: auth.NewKeyedLimiter(rate.Limit(5.0/60.0), 10),
@@ -203,6 +203,12 @@ func (s *Server) Handler() http.Handler {
 	// Shelf status is its own endpoint, not part of the full-state PUT: the
 	// transition and the read log have to move together (PLAN §3f).
 	mux.Handle("PUT /books/{id}/status", s.requireAuth(s.handleSetBookStatus))
+	// Editing the read log itself. The open read stays the status
+	// endpoint's to own; these three edit history. See read_history_handlers.go.
+	mux.Handle("POST /books/{id}/reads", s.requireAuth(s.handleAddRead("book")))
+	mux.Handle("POST /movies/{id}/reads", s.requireAuth(s.handleAddRead("movie")))
+	mux.Handle("PUT /reads/{id}", s.requireAuth(s.handleUpdateRead))
+	mux.Handle("DELETE /reads/{id}", s.requireAuth(s.handleDeleteRead))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
 	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
@@ -258,8 +264,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
 	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
 	mux.Handle("POST /import/goodreads-html", s.requireAuth(s.handleImportGoodreads))
-	mux.Handle("POST /import/kindle-notebook", s.requireAuth(s.handleImportKindleNotebook)) // read.amazon.com/notebook
-	mux.Handle("POST /import/imdb-quotes", s.requireAuth(s.handleImportIMDb))               // movies/dialogues (PLAN §5)
+	mux.Handle("POST /import/kindle-notebook", s.requireAuth(s.handleImportKindleNotebook))   // read.amazon.com/notebook
+	mux.Handle("POST /import/imdb-quotes", s.requireAuth(s.handleImportIMDb))                 // movies/dialogues (PLAN §5)
 	mux.Handle("POST /import/kindle-clippings", s.requireAuth(s.handleImportKindleClippings)) // the device's My Clippings.txt
 	// Import staging: every import above parses into this queue, and nothing
 	// reaches the library until it is approved (ROADMAP 1.2.0).

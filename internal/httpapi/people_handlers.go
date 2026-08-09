@@ -24,16 +24,16 @@ type personRow struct {
 	// Kind echoes the role that was ASKED for, not one stored on the row — since
 	// 0027 a person has a set of them. Kinds carries the whole set, so a chip can
 	// read "author · speaker" rather than appearing twice on one page.
-	Kind  string   `json:"kind"`
-	Kinds []string `json:"kinds,omitempty"`
-	Name  string   `json:"name"`
-	Bio       string `json:"bio"`
-	ImagePath string `json:"image_path"`
-	Born      string `json:"born"`
-	Died      string `json:"died"`
-	Links     string `json:"links"`
-	Source    string `json:"source"`
-	SourceID  string `json:"source_id"`
+	Kind      string   `json:"kind"`
+	Kinds     []string `json:"kinds,omitempty"`
+	Name      string   `json:"name"`
+	Bio       string   `json:"bio"`
+	ImagePath string   `json:"image_path"`
+	Born      string   `json:"born"`
+	Died      string   `json:"died"`
+	Links     string   `json:"links"`
+	Source    string   `json:"source"`
+	SourceID  string   `json:"source_id"`
 }
 
 // personCols is p.-prefixed because every read joins person_kinds now — see

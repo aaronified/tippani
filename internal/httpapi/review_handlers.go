@@ -325,11 +325,11 @@ type reviewCard struct {
 	Chapter      string  `json:"chapter"`       // book only
 	Location     string  `json:"location"`      // book only
 	Timestamp    string  `json:"timestamp"`     // screen only
-	episodeRef              // screen only, shows only; null on a film's lines
-	MediaType   string  `json:"media_type"` // movie | show (screen); "" for book
-	Stability   float64 `json:"stability"`
-	ReviewCount int     `json:"review_count"`
-	Status      string  `json:"status"`
+	episodeRef           // screen only, shows only; null on a film's lines
+	MediaType    string  `json:"media_type"` // movie | show (screen); "" for book
+	Stability    float64 `json:"stability"`
+	ReviewCount  int     `json:"review_count"`
+	Status       string  `json:"status"`
 	// Multiple-choice options and the index of the correct one. For a "source"
 	// card the options are titles (which work is this quote from?); for a "quote"
 	// card they are quotes (which quote is from this work?).

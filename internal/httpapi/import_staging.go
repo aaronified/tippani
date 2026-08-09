@@ -518,32 +518,32 @@ type stagedWorkRow struct {
 }
 
 type stagedQuoteRow struct {
-	ID            int64    `json:"id"`
-	StagedWorkID  int64    `json:"staged_work_id"`
-	BatchID       int64    `json:"batch_id"`
-	Quote         string   `json:"quote"`
-	Note          string   `json:"note"`
-	Color         string   `json:"color"`
-	Favorite      bool     `json:"favorite"`
-	Chapter       string   `json:"chapter"`
-	Location      string   `json:"location"`
-	LocationOrig  string   `json:"location_orig"`
-	Character     string   `json:"character"`
-	Actor         string   `json:"actor"`
-	Timestamp     string   `json:"timestamp"`
-	TimestampOrig string   `json:"timestamp_orig"`
-	Season        *int     `json:"season"`  // shows only; null = the file didn't say
-	Episode       *int     `json:"episode"` // (season 0 is a real season — see 0025)
+	ID            int64  `json:"id"`
+	StagedWorkID  int64  `json:"staged_work_id"`
+	BatchID       int64  `json:"batch_id"`
+	Quote         string `json:"quote"`
+	Note          string `json:"note"`
+	Color         string `json:"color"`
+	Favorite      bool   `json:"favorite"`
+	Chapter       string `json:"chapter"`
+	Location      string `json:"location"`
+	LocationOrig  string `json:"location_orig"`
+	Character     string `json:"character"`
+	Actor         string `json:"actor"`
+	Timestamp     string `json:"timestamp"`
+	TimestampOrig string `json:"timestamp_orig"`
+	Season        *int   `json:"season"`  // shows only; null = the file didn't say
+	Episode       *int   `json:"episode"` // (season 0 is a real season — see 0025)
 	// The occasion (§24), the third kind's locator. Empty on every book and
 	// film row, as chapter/character are on this one.
-	Speaker      string `json:"speaker"`
-	Occasion     string `json:"occasion"`
-	OccasionDate string `json:"occasion_date"`
-	Place        string `json:"place"`
-	Medium       string `json:"medium"`
-	Tags          []string `json:"tags"`
-	NotedAt       string   `json:"noted_at"`
-	CreatedAt     string   `json:"created_at"`
+	Speaker      string   `json:"speaker"`
+	Occasion     string   `json:"occasion"`
+	OccasionDate string   `json:"occasion_date"`
+	Place        string   `json:"place"`
+	Medium       string   `json:"medium"`
+	Tags         []string `json:"tags"`
+	NotedAt      string   `json:"noted_at"`
+	CreatedAt    string   `json:"created_at"`
 }
 
 // handleListStaged answers the pending queue: every batch, every work, and the

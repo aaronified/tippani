@@ -162,7 +162,6 @@ func TestRenamingACategoryDoesNotTouchTheExport(t *testing.T) {
 	}
 }
 
-
 // SIX SLOTS, and the fifth and sixth are ordinary ones. They arrived with 0029,
 // which rebuilt four tables to widen a CHECK — so the thing worth asserting is
 // that nothing about them is special once they exist.

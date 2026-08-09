@@ -4,7 +4,7 @@
 // the same pieces instead of re-deriving them (and to avoid a ui ↔ people
 // import cycle — this layer is free to import from both).
 import { useState } from 'react'
-import { DEMO, coverImgURL } from './api.js'
+import { DEMO, coverImgURL, errText, json } from './api.js'
 import { CreditFaces, PersonPortrait, splitCredits } from './people.jsx'
 import {
   ConfirmDialog,
@@ -458,7 +458,157 @@ function ProgressEditor({ kind, unit, status, progress, pos, busy, onSave }) {
   )
 }
 
-export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads = [], wishlist, onSelect, onProgress, busy }) {
+// ReadLog — the read/watch history, editable.
+//
+// work_reads could only ever be written as a side effect of a status change,
+// which records what is happening now and is hopeless for what happened before.
+// A book read three times over fifteen years had one row at best, and there was
+// no way to say "I finished this in 2009" about something already on the shelf.
+// 1.7.2 then made the Library sortable by that log, which turned it from a
+// curiosity into something the shelf order depends on — and a sort you cannot
+// correct is worse than no sort.
+//
+// THE OPEN READ IS NOT EDITABLE HERE, and that is the design rather than a
+// shortcut. The status control and the log are kept consistent by one path, and
+// the open row IS that consistency: it exists exactly while the work is in
+// progress. Deleting it would leave a book reading with nothing being read.
+// Both things you might want to do to it — finish it, abandon it — are already
+// one tap away in the status menu above, so the row says so instead of offering
+// a second route to an inconsistent state.
+export function ReadLog({ kind, workId, reads = [], onChanged }) {
+  const [editing, setEditing] = useState(null) // a read id, or 'new'
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const path = kind === 'movie' ? 'movies' : 'books'
+  const noun = kind === 'movie' ? 'watch' : 'read'
+
+  async function run(method, url, body) {
+    setBusy(true)
+    setError('')
+    const r = await json(method, url, body)
+    setBusy(false)
+    if (!r.ok) {
+      setError(errText(r, `could not save this ${noun}`))
+      return false
+    }
+    setEditing(null)
+    onChanged?.()
+    return true
+  }
+
+  return (
+    <div className="read-log-wrap">
+      <ul className="read-log">
+        {reads.map((r, i) => (
+          <li key={r.id ?? i}>
+            <span className="read-n">{i + 1}</span>
+            {editing === r.id ? (
+              <ReadForm
+                initial={r}
+                busy={busy}
+                onCancel={() => setEditing(null)}
+                onSave={(body) => run('PUT', `/reads/${r.id}`, body)}
+                onDelete={() => run('DELETE', `/reads/${r.id}`)}
+              />
+            ) : (
+              <>
+                <span>
+                  {formatPartialDate(r.started_at) || 'unknown'}
+                  {' – '}
+                  {r.outcome === 'open' ? (
+                    <span className="read-open">still going</span>
+                  ) : (
+                    <>
+                      {formatPartialDate(r.finished_at) || 'unknown'}
+                      {r.outcome === 'abandoned' && <span className="read-open"> (abandoned)</span>}
+                    </>
+                  )}
+                </span>
+                {r.outcome === 'open' ? (
+                  <span className="read-hint">set above</span>
+                ) : (
+                  <button type="button" className="read-edit" onClick={() => setEditing(r.id)}>
+                    edit
+                  </button>
+                )}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      {editing === 'new' ? (
+        <ReadForm
+          initial={{ started_at: '', finished_at: '', outcome: 'finished' }}
+          busy={busy}
+          onCancel={() => setEditing(null)}
+          onSave={(body) => run('POST', `/${path}/${workId}/reads`, body)}
+        />
+      ) : (
+        <button type="button" className="read-add" onClick={() => setEditing('new')}>
+          {kind === 'movie' ? 'add a past watch' : 'add a past read'}
+        </button>
+      )}
+      {error && <p className="tp-error">{error}</p>}
+    </div>
+  )
+}
+
+// ReadForm — two partial dates and an outcome.
+//
+// The dates stay partial on purpose. "I read it in 2009" is a real answer, and
+// padding it to a January morning would invent a precision nobody had — the same
+// reasoning the schema has carried since 0024. So these are text inputs with a
+// shape hint rather than date pickers, which cannot express a bare year.
+function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
+  const [started, setStarted] = useState(initial.started_at || '')
+  const [finished, setFinished] = useState(initial.finished_at || '')
+  const [outcome, setOutcome] = useState(initial.outcome === 'abandoned' ? 'abandoned' : 'finished')
+  return (
+    <span className="read-form">
+      <input
+        className="tp-input read-date"
+        value={started}
+        onChange={(e) => setStarted(e.target.value)}
+        placeholder="2009 or 2009-06-14"
+        aria-label="Started"
+      />
+      <input
+        className="tp-input read-date"
+        value={finished}
+        onChange={(e) => setFinished(e.target.value)}
+        placeholder="2009-06"
+        aria-label="Finished"
+      />
+      <select
+        className="tp-input read-outcome"
+        value={outcome}
+        onChange={(e) => setOutcome(e.target.value)}
+        aria-label="Outcome"
+      >
+        <option value="finished">finished</option>
+        <option value="abandoned">abandoned</option>
+      </select>
+      <button
+        type="button"
+        className="read-edit"
+        disabled={busy}
+        onClick={() => onSave({ started_at: started.trim(), finished_at: finished.trim(), outcome })}
+      >
+        save
+      </button>
+      <button type="button" className="read-edit" disabled={busy} onClick={onCancel}>
+        cancel
+      </button>
+      {onDelete && (
+        <button type="button" className="read-edit read-danger" disabled={busy} onClick={onDelete}>
+          delete
+        </button>
+      )}
+    </span>
+  )
+}
+
+export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads = [], wishlist, onSelect, onProgress, onReadsChanged, busy }) {
   const active = ACTIVE_STATUS[kind]
   const unit = posUnitFor(kind, item)
   // Which moves are offered. From completed the only way on is to start again —
@@ -527,29 +677,13 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
       {(status === active || status === 'paused') && (
         <ShelfProgress status={status} progress={progress} pos={pos} />
       )}
-      {finished > 0 && (
-        <StateTag state={state} label={`×${finished}`} tip="Open the read log">
-          <ul className="read-log">
-            {reads.map((r, i) => (
-              <li key={r.id ?? i}>
-                <span className="read-n">{i + 1}</span>
-                <span>
-                  {formatPartialDate(r.started_at) || 'unknown'}
-                  {' – '}
-                  {r.outcome === 'open' ? (
-                    <span className="read-open">still going</span>
-                  ) : (
-                    <>
-                      {formatPartialDate(r.finished_at) || 'unknown'}
-                      {r.outcome === 'abandoned' && <span className="read-open"> (abandoned)</span>}
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </StateTag>
-      )}
+      {/* The log is always reachable, not only once something has been finished.
+          Recording that you read a book in 2009 is the whole point of editing
+          history, and gating the way in on the history already existing made it
+          impossible for exactly the books it matters for. */}
+      <StateTag state={state} label={`×${finished}`} tip="Open the read log">
+        <ReadLog kind={kind} workId={item.id} reads={reads} onChanged={onReadsChanged} />
+      </StateTag>
     </>
   )
 }

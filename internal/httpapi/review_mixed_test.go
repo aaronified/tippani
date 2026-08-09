@@ -120,7 +120,6 @@ func TestEveryAcceptedScopeDrawsWhatItNames(t *testing.T) {
 	}
 }
 
-
 // The three media are independent choices, so every combination of them has to
 // work — including the two that were unsayable until the preference learned to
 // hold a list. "books,quotes" is the case that motivated it: a reader who does
@@ -140,7 +139,7 @@ func TestScopeAcceptsAnyCombination(t *testing.T) {
 		{"movies,quotes", []string{kindScreen, kindUtterance}},
 		{"books,movies", []string{kindBook, kindScreen}},
 		{"books,movies,quotes", []string{kindBook, kindScreen, kindUtterance}},
-		{"quotes,books", []string{kindBook, kindUtterance}}, // order is not meaning
+		{"quotes,books", []string{kindBook, kindUtterance}},  // order is not meaning
 		{"Books, Quotes", []string{kindBook, kindUtterance}}, // spacing and case are not meaning
 	} {
 		t.Run(tc.scope, func(t *testing.T) {

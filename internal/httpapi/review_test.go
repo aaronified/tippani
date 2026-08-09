@@ -398,8 +398,8 @@ func TestDailyQuizIdempotentSameDay(t *testing.T) {
 // that a daily answer tallies + drops the card for that local day — no
 // wall-clock-dependent cross-midnight arithmetic.
 func TestDailyQuizTimezone(t *testing.T) {
-	east, _, _ := reviewDay(720)   // UTC+12
-	west, _, _ := reviewDay(-720)  // UTC-12
+	east, _, _ := reviewDay(720)  // UTC+12
+	west, _, _ := reviewDay(-720) // UTC-12
 	if east == west {
 		t.Fatalf("offsets 24h apart share a local day: %s", east)
 	}

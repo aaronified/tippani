@@ -3589,3 +3589,40 @@ html[data-theme="dark"] .mobile-sheet-footer {
 }
 .cs-menu-row:hover { background: var(--raised); }
 .cs-menu-name { font-size: 13px; white-space: nowrap; }
+
+/* ---- editable read log ---------------------------------------------------
+   The log lives in a StateTag popover and is now a small form. Dates are TEXT
+   inputs, not date pickers: the schema stores partial dates ('2009',
+   '2009-06') because "I read it in 2009" is a real answer, and a date picker
+   cannot express a bare year without inventing a January morning. */
+.read-log-wrap { display: flex; flex-direction: column; gap: 6px; min-width: 240px; }
+.read-form { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.read-date { width: 8.5rem; font-size: 12px; padding: 3px 6px; }
+.read-outcome { width: auto; font-size: 12px; padding: 3px 6px; }
+.read-edit {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--soft);
+  text-decoration: underline;
+}
+.read-edit:hover { color: var(--ink); }
+.read-danger:hover { color: var(--error); }
+.read-add {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--soft);
+  text-decoration: underline;
+}
+.read-add:hover { color: var(--ink); }
+/* The open read says where it is edited rather than offering a second way to
+   reach a state the status control owns. */
+.read-hint { font-family: var(--font-mono); font-size: 10px; color: var(--soft); opacity: .75; }

@@ -266,7 +266,7 @@ func TestReverifyApply(t *testing.T) {
 	res = decode[reverifyApplyResp](t, c.mustDo("POST", "/metadata/reverify/apply", map[string]any{
 		"items": []map[string]any{{
 			"type": "book", "id": book,
-			"set":  map[string]any{"description": "fresher", "cover": "https://covers.openlibrary.org/fails.jpg"},
+			"set": map[string]any{"description": "fresher", "cover": "https://covers.openlibrary.org/fails.jpg"},
 		}},
 	}, 200))
 	if res.Applied != 1 || !res.Results[0].OK || !strings.Contains(res.Results[0].Note, "cover") {

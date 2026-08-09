@@ -77,17 +77,17 @@ type dialogueHit struct {
 	MoviePosterPath string `json:"movie_poster_path"` // group header art
 	// Parent-movie fields, mirroring annotationHit — so a dialogue-only group
 	// still groups by director/decade/series/genre.
-	MovieDirector   string   `json:"movie_director"`
-	MovieYear       int      `json:"movie_release_year"`
-	MovieSeries     string   `json:"movie_series"`
-	MovieGenres     []string `json:"movie_genres"`
-	MovieMediaType  string   `json:"movie_media_type"` // movie | show
-	Quote           string   `json:"quote"`
-	Note            string   `json:"note"`
-	Character       string   `json:"character"`
-	Actor           string   `json:"actor"`
-	Timestamp       string   `json:"timestamp"`
-	episodeRef               // shows only; null on a film's lines
+	MovieDirector  string   `json:"movie_director"`
+	MovieYear      int      `json:"movie_release_year"`
+	MovieSeries    string   `json:"movie_series"`
+	MovieGenres    []string `json:"movie_genres"`
+	MovieMediaType string   `json:"movie_media_type"` // movie | show
+	Quote          string   `json:"quote"`
+	Note           string   `json:"note"`
+	Character      string   `json:"character"`
+	Actor          string   `json:"actor"`
+	Timestamp      string   `json:"timestamp"`
+	episodeRef              // shows only; null on a film's lines
 }
 
 // ---- facet sections (§ sectioned search) ------------------------------------

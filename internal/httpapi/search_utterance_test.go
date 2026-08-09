@@ -78,7 +78,7 @@ func TestSearchGroupsQuotesBySpeaker(t *testing.T) {
 	newUtterance(t, c, second)
 
 	fdr := map[string]any{
-		"quote": "The only thing we have to fear is fear itself",
+		"quote":   "The only thing we have to fear is fear itself",
 		"speaker": "Franklin D. Roosevelt", "occasion": "first inaugural address",
 	}
 	newUtterance(t, c, fdr)

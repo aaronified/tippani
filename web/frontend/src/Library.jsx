@@ -640,6 +640,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                 progress={book.progress}
                 pos={book}
                 reads={book.reads}
+                onReadsChanged={load}
                 wishlist={quoteCount === 0}
                 busy={shelfBusy}
                 onSelect={pick}

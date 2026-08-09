@@ -27,16 +27,16 @@ import (
 //
 // v1 derived the archive's key straight from "<username>#<password>". Two faults.
 //
-//   1. Changing your password orphaned every archive made before the change.
-//      The archive is a file; its key was a string you had stopped using. This
-//      is the footgun v2 exists to close, and it closes it with the recovery key
-//      described below rather than by weakening the cipher.
-//   2. That secret was ambiguous. The comment asserting "#" could not appear in
-//      an account name was simply false — normalizeUsername rejects only empty,
-//      over-long, whitespace and control characters — so accountSecret("a#b","cd")
-//      and accountSecret("a","b#cd") derived the SAME key. Harmless in practice
-//      (no v1 archive was ever made outside this repo's tests) and gone now: the
-//      username is not an input to the key at all.
+//  1. Changing your password orphaned every archive made before the change.
+//     The archive is a file; its key was a string you had stopped using. This
+//     is the footgun v2 exists to close, and it closes it with the recovery key
+//     described below rather than by weakening the cipher.
+//  2. That secret was ambiguous. The comment asserting "#" could not appear in
+//     an account name was simply false — normalizeUsername rejects only empty,
+//     over-long, whitespace and control characters — so accountSecret("a#b","cd")
+//     and accountSecret("a","b#cd") derived the SAME key. Harmless in practice
+//     (no v1 archive was ever made outside this repo's tests) and gone now: the
+//     username is not an input to the key at all.
 //
 // A note on a claim v1 made and v2 should not repeat: a RENAME never orphaned an
 // archive. The account name was written into the header at seal time and the
