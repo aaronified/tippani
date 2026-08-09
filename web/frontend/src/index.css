@@ -1489,6 +1489,34 @@
   .inline-field { padding: 9px 0; border-bottom: 1px solid var(--line); }
   .inline-field:last-child { border-bottom: none; }
   .inline-field-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
+  /* Nothing below the row: the gap it was leaving is for a value line or an
+     editor that is not there, and a settings card is mostly rows like this. */
+  .inline-field-head.is-flush { margin-bottom: 0; }
+  /* A value that is not a secret, shown on the row rather than under it. */
+  .inline-field-inline {
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .inline-field-inline.is-empty { color: var(--faint); font-style: italic; }
+  /* field-badge — a field-icon-btn's footprint with none of its affordances, so
+     a reported state lines up with the controls beside it without pretending to
+     be one. No hover, no border, no cursor: there is nothing to press. */
+  .field-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    color: var(--accent-ui);
+  }
+  .field-badge svg { width: 18px; height: 18px; }
+  /* A subsection of a card: separated by a rule rather than by a card of its own,
+     for content that is a footnote to the card's subject. */
+  .settings-subsection { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
   .inline-field-value {
     font-family: var(--font-ui);
     font-size: 14px;

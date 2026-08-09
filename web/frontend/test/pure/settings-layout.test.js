@@ -53,6 +53,19 @@ describe('SETTINGS_LAYOUT', () => {
   it('shows the single column in the canonical order', () => {
     expect(SETTINGS_LAYOUT[1][0]).toEqual(SETTINGS_CARDS)
   })
+
+  it('keeps colours directly under metadata, in every layout', () => {
+    // Not decoration. Both cards answer "what is this thing labelled with" —
+    // where a work's facts come from, and what the colour on a highlight is
+    // called — so one column reads as one subject. Nothing enforces that but
+    // this: a later card added to the wrong slot separates them and the page
+    // still renders perfectly.
+    for (const n of WIDTHS) {
+      const col = SETTINGS_LAYOUT[n].find((c) => c.includes('meta'))
+      expect(col, `${n}: no column holds meta`).toBeTruthy()
+      expect(col[col.indexOf('meta') + 1], `${n} columns`).toBe('colors')
+    }
+  })
 })
 
 describe('settingsColumns', () => {

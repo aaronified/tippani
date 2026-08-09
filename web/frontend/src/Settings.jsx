@@ -64,7 +64,7 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'sr', 'colors', 'credits', 'devices', 'upd', 'backup']
+export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -90,15 +90,19 @@ export const SETTINGS_CARDS = ['onboard', 'meta', 'sr', 'colors', 'credits', 'de
 // layout below. It will not render until you do — the render walks the layout,
 // not the card list — which is a loud failure rather than a card appearing
 // somewhere unpredictable. settings-layout.test.js checks the three agree.
+// Colours sit directly under Metadata in every layout, and that is a rule rather
+// than an arrangement: both are about what a quote is LABELLED with — where the
+// facts about a work come from, and what the colour on a highlight is called —
+// so reading down one column reads as one subject.
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
-    ['meta', 'onboard', 'credits'],
-    ['sr', 'colors', 'devices', 'upd', 'backup'],
+    ['meta', 'colors', 'onboard'],
+    ['sr', 'devices', 'upd', 'backup'],
   ],
   3: [
-    ['meta'], // the tall one gets a column to itself
-    ['sr', 'colors', 'credits', 'onboard'],
+    ['meta', 'colors'], // the tall one, and the card that belongs under it
+    ['sr', 'onboard'],
     ['devices', 'upd', 'backup'],
   ],
 }
@@ -117,10 +121,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   const ncols = useColumnCount()
   const cards = {
     onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
-    meta: <Metadata user={user} />,
+    meta: <Metadata user={user} onPreferences={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
-    credits: <CreditSepsCard user={user} onPreferences={onPreferences} />,
     devices: <DevicesCard />,
     ...(user.is_admin
       ? {
@@ -158,19 +161,26 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   )
 }
 
-// CreditSepsCard — which separators split a joined multi-author credit
+// CreditSeparators — which separators split a joined multi-author credit
 // ("Gaiman & Pratchett") into distinct people, across group-by headings and
 // the People console (ROADMAP §11). Stored as the creditSeparators pref
 // ("none" = splitting off). The author string stored on each book is never
 // rewritten — only the people views split — so this is safe to flip freely.
 // Chips show the bare symbol; the key doubles as the screen-reader name.
+//
+// A SECTION OF THE METADATA CARD, not a card of its own. Four chips and a label
+// is not a subject; it is a footnote to one, and the subject is the card it now
+// sits at the bottom of. A lookup returns "Gaiman & Pratchett" as one string and
+// this decides whether that is one person or two, so the question only arises
+// because of the sources above it — and a card with four chips in it was
+// claiming the same share of a settings page as the keys every lookup runs on.
 const CREDIT_SEP_OPTIONS = [
   ['comma', ','],
   ['semicolon', ';'],
   ['amp', '&'],
   ['and', '“and”'],
 ]
-function CreditSepsCard({ user, onPreferences }) {
+function CreditSeparators({ user, onPreferences }) {
   const parse = (v) => {
     const t = String(v || '').trim()
     if (!t) return new Set(CREDIT_SEP_OPTIONS.map(([k]) => k)) // unset = all on
@@ -190,11 +200,10 @@ function CreditSepsCard({ user, onPreferences }) {
     json('PUT', '/auth/me/preferences', { creditSeparators: value })
   }
   return (
-    <Card>
-      <SectionTitle>Multi-author credits</SectionTitle>
-      <div className="mb-2 flex items-center gap-2">
-        <MonoLabel>Split joined credits on</MonoLabel>
-        <InfoDot text="A credit like “Gaiman & Pratchett” lists as two people — in group-by headings and the People console — split on the separators picked here. The author line stored on each book stays untouched. Turn the comma off if your library stores authors as “Last, First”." />
+    <div className="settings-subsection">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <MonoLabel>Multi-author credits</MonoLabel>
+        <InfoDot title="Multi-author credits" text="A credit like “Gaiman & Pratchett” lists as two people — in group-by headings and the People console — split on the separators picked here. The author line stored on each book stays untouched, so this is safe to change at any time. Turn the comma off if your library stores authors as “Last, First”." />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {CREDIT_SEP_OPTIONS.map(([key, label]) => (
@@ -214,7 +223,7 @@ function CreditSepsCard({ user, onPreferences }) {
       {active.size === 0 && (
         <p className="microcopy mt-2">splitting is off — every credit stays one person</p>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -294,19 +303,22 @@ function ColourCategoriesCard({ prefs, onSaved }) {
   const visible = rows.filter((r) => !r.hidden).length
 
   return (
+    // The dot goes THROUGH SectionTitle rather than beside it. Wrapping the
+    // title in another flex row put the heading's own 16px bottom margin between
+    // the two, so the dot floated above the baseline of the words it belongs to;
+    // SectionTitle already lays a dot out on the heading's own line, which is
+    // where it was wanted, and it carries the standing copy that a line of
+    // microcopy underneath was repeating in shorter words.
     <Card data-tour="categories">
-      <div className="flex items-center gap-1.5">
-        <SectionTitle>Colour categories</SectionTitle>
-        <InfoDot
-          title="Colour categories"
-          text="The four highlight colours, named. Tags say what a quote is about; its colour says what kind of note it is — a fact, a line you disagreed with, something to come back to. Renaming one changes nothing but the words on your screen: the stored value stays yellow, blue, pink or orange, so exports and imports round-trip exactly as before. Hiding a category takes it out of the pickers without touching a single quote already wearing it."
-        />
-      </div>
-      <p className="microcopy mb-4">Names and colours are yours; what is stored never changes.</p>
-      <div className="space-y-3">
+      <SectionTitle
+        info="The six highlight colours, named. Tags say what a quote is about; its colour says what kind of note it is — a fact, a line you disagreed with, something to come back to. Renaming one changes nothing but the words on your screen: the stored value stays yellow, blue, pink or orange, so exports and imports round-trip exactly as before. Hiding a category takes it out of the pickers without touching a single quote already wearing it."
+      >
+        Colour categories
+      </SectionTitle>
+      <div>
         {rows.map((row) => (
           <div key={row.token} className="inline-field">
-            <div className="inline-field-head" style={{ gap: 10 }}>
+            <div className={'inline-field-head' + (picking === row.slot ? '' : ' is-flush')} style={{ gap: 10 }}>
               <Tooltip label={row.fixed ? 'The default colour' : `Recolour ${row.label}`}>
                 <button
                   type="button"
@@ -1751,6 +1763,39 @@ export function LabelDensity() {
 //
 // A stored secret is never echoed by the server, so editing always starts from
 // an empty box: saving a blank clears the key, which is how you remove one.
+// IconSaved — a floppy disk with a tick: this key is stored.
+//
+// A BADGE, NOT A BUTTON. It reports; there is nothing to press. So it is a span
+// with role="img" and a real label rather than a disabled button, which would be
+// a tab stop that does nothing and would announce itself as an action.
+//
+// The disk's outline stops short of its bottom-right corner and the tick sits in
+// the gap. Two closed shapes overlapping at 18px read as one smudge, and the
+// whole point of the glyph is to be legible at a glance in a row of controls.
+function IconSaved() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M13.2 19.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5h8.3L19.5 9.7v2.9" />
+      <path d="M9 4.5v3.7h5.4V4.5" />
+      <path d="M13.9 17.9l2.1 2.1 4-4.6" />
+    </svg>
+  )
+}
+
+// KeyField — one API key, on ONE LINE until you ask to change it.
+//
+// It used to carry a permanent second row reading "•••••••••• saved", which is a
+// full line of vertical space per key spent restating what it does not say: the
+// dots are not the key, they are not even the right NUMBER of characters, and a
+// secret is write-only here precisely so that nothing can reveal it. Six keys
+// meant six such lines. The badge beside the edit button carries the same one bit
+// — stored, or not — in no space at all, and the field for typing a new one
+// appears below the row only while you are typing it.
+//
+// A NON-SECRET KEY IS DIFFERENT and keeps its value visible, inline on the same
+// row. The Amazon domain is not a secret, it is a setting whose whole content is
+// "www.amazon.de", and hiding that behind a badge saying "saved" would be
+// withholding the answer to the only question the field asks.
 function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(secret ? '' : value)
@@ -1761,12 +1806,24 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
     if (ok) setEditing(false)
   }
 
+  const saved = secret ? !!set : !!value
+
   return (
     <div className="inline-field">
-      <div className="inline-field-head">
+      <div className={'inline-field-head' + (editing ? '' : ' is-flush')}>
         <MonoLabel>{label}</MonoLabel>
         {hint && <InfoDot text={hint} title={label} />}
+        {!secret && !editing && (
+          <span className={'inline-field-inline' + (value ? '' : ' is-empty')}>{value || 'not set'}</span>
+        )}
         <span className="flex-1" />
+        {saved && !editing && (
+          <Tooltip label="Saved">
+            <span className="field-badge" role="img" aria-label={`${label}: saved`}>
+              <IconSaved />
+            </span>
+          </Tooltip>
+        )}
         {!editing ? (
           <Tooltip label={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}>
             <button
@@ -1805,7 +1862,7 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
           </>
         )}
       </div>
-      {editing ? (
+      {editing && (
         <input
           className="tp-input"
           placeholder={placeholder}
@@ -1818,16 +1875,12 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
             if (e.key === 'Escape') { e.preventDefault(); setEditing(false); setDraft(secret ? '' : value) }
           }}
         />
-      ) : (
-        <div className={'inline-field-value' + (set || value ? '' : ' is-empty')}>
-          {secret ? (set ? '•••••••••• saved' : 'not set') : value || 'not set'}
-        </div>
       )}
     </div>
   )
 }
 
-function Metadata({ user }) {
+function Metadata({ user, onPreferences }) {
   const admin = user.is_admin
   const [status, setStatus] = useState(null)
   const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
@@ -1851,14 +1904,17 @@ function Metadata({ user }) {
   const lookup = status?.books_lookup
   const booksTone = lookup?.ok === false ? 'error' : lookup?.ok === true ? 'ok' : 'muted'
   const booksLabel = lookup?.ok === false ? 'Lookup failing' : lookup?.ok === true ? 'OK' : 'Untested'
-  const tmdbTone = source === 'none' ? 'error' : 'active'
-  const tmdbLabel =
-    source === 'builtin' ? 'Built-in key · active'
-      : source === 'custom' ? 'Custom key'
-        : 'No key'
-  const tvdbSource = status?.tvdb?.source
-  const tvdbTone = tvdbSource === 'none' || !tvdbSource ? 'muted' : 'active'
-  const tvdbLabel = tvdbSource === 'custom' ? 'Custom key' : 'No key (optional)'
+  // A CHIP ONLY WHERE THE KEY FIELDS CANNOT ANSWER. "Custom key" beside TMDB
+  // said exactly what the saved badge on the TMDB field says one line below it,
+  // and "No key (optional)" beside TheTVDB said nothing at all — an optional key
+  // you have not set is the ordinary state of the app, not a status worth a pill.
+  // What survives is the pair a key field genuinely cannot report: that lookups
+  // are running on the shared built-in key even though you have set nothing, and
+  // that they are running on nothing at all and will 503.
+  const tmdbChip =
+    source === 'builtin' ? ['active', 'Built-in key']
+      : source === 'none' ? ['error', 'No key']
+        : null
 
   // saveKey writes exactly one field. The endpoint decodes every key as a
   // pointer, so an omitted field is left alone and a present-but-empty one is
@@ -1885,11 +1941,13 @@ function Metadata({ user }) {
         Metadata sources
       </SectionTitle>
 
-      {/* Books */}
+      {/* Books. WHICH services these are is a fact about the app, not a setting
+          — it belongs in the info dot and the README, and as a bold line beside
+          every heading it was three rows of feature description on the one page
+          you open to change something. */}
       <div className="mb-5">
         <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>Books</MonoLabel>
-          <span style={{ fontWeight: 600 }}>Google Books + Open Library</span>
           <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
           <InfoDot title="Book lookups" text="Google Books and Open Library, merged best-effort and on demand. No key is needed, and manual entry always works." />
         </div>
@@ -1916,11 +1974,8 @@ function Metadata({ user }) {
       <div className="mb-5">
         <div className="flex flex-wrap items-center gap-2">
           <MonoLabel>Movies &amp; Shows</MonoLabel>
-          <span style={{ fontWeight: 600 }}>TMDB</span>
-          <StatusChip tone={tmdbTone}>{tmdbLabel}</StatusChip>
-          <span style={{ fontWeight: 600 }}>+ TheTVDB</span>
-          <StatusChip tone={tvdbTone}>{tvdbLabel}</StatusChip>
-          <InfoDot title="Film & show lookups" text="Both sources cover films and shows, and a lookup merges them. Each key is added in its own field below." />
+          {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
+          <InfoDot title="Film & show lookups" text="TMDB and TheTVDB. Both cover films and shows, and a lookup merges them; each key goes in its own field below. TMDB ships with a shared built-in key, so lookups work before you set anything — TheTVDB has none, and is optional." />
         </div>
         {admin && (
           <div className="mt-3">
@@ -1950,10 +2005,7 @@ function Metadata({ user }) {
         <div className="mb-6">
           <div className="flex flex-wrap items-center gap-2">
             <MonoLabel>Amazon</MonoLabel>
-            <span style={{ fontWeight: 600 }}>Kindle / ASIN</span>
-            <StatusChip tone={keys?.amazon_cookie_set ? 'ok' : 'muted'}>
-              {keys?.amazon_cookie_set ? 'Cookie saved' : 'Covers only'}
-            </StatusChip>
+            <InfoDot title="Amazon" text="Covers by ASIN, which needs no setup at all. The optional cookie below adds description and genres by reading the product page." />
           </div>
           <div className="mt-3">
             <KeyField
@@ -1983,6 +2035,10 @@ function Metadata({ user }) {
       )}
 
       <ErrorText>{error}</ErrorText>
+
+      {/* Last, and a section rather than a card: a lookup hands back one credit
+          string and this decides whether it names one person or two. */}
+      <CreditSeparators user={user} onPreferences={onPreferences} />
     </Card>
   )
 }
