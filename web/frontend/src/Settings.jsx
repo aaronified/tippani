@@ -988,7 +988,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
+  useBodyScrollLock(true)
  const mobile = useIsMobileScreen()
   const key = meta?.key || 'none'
   // `recoverable` (from the server for the kept archive, sniffed from the header
@@ -1122,7 +1122,7 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
+  useBodyScrollLock(true)
  const mobile = useIsMobileScreen()
   const [usePhrase, setUsePhrase] = useState(false)
   const [password, setPassword] = useState('')
@@ -1952,73 +1952,63 @@ function Metadata({ user, onPreferences }) {
         Metadata sources
       </SectionTitle>
 
-      {/* Books. WHICH services these are is a fact about the app, not a setting
-          — it belongs in the info dot and the README, and as a bold line beside
-          every heading it was three rows of feature description on the one page
-          you open to change something. */}
-      <div className="mb-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <MonoLabel>Books</MonoLabel>
-          <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
-          <InfoDot title="Book lookups" text="Google Books and Open Library, merged best-effort and on demand. No key is needed, and manual entry always works." />
-        </div>
-        {lookup?.ok === false && lookup.error && (
-          <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
-            last error: {lookup.error}
-          </p>
-        )}
-        {admin && (
-          <div className="mt-2.5">
-            <KeyField
-              label="Google Books key"
-              hint="Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all."
-              set={keys?.google_books_key_set}
-              placeholder="Google Books API key — optional"
-              busy={saving}
-              onSave={(v) => saveKey('google_books_key', v)}
-            />
-          </div>
-        )}
-      </div>
+      {/* No per-source headings. 1.7.2 took away the feature descriptions that
+          sat under them ("Books: Google Books + Open Library"), which left three
+          MonoLabels each introducing a single field that already names itself —
+          "Books" above "Google Books key" is the same word twice.
 
-      {/* Movies & Shows */}
-      <div className="mb-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <MonoLabel>Movies &amp; Shows</MonoLabel>
-          {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
-          <InfoDot title="Film & show lookups" text="TMDB and TheTVDB. Both cover films and shows, and a lookup merges them; each key goes in its own field below. TMDB ships with a shared built-in key, so lookups work before you set anything — TheTVDB has none, and is optional." />
-        </div>
-        {admin && (
-          <div className="mt-3">
-            <KeyField
-              label="TMDB key"
-              hint="themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works."
-              set={keys?.tmdb_key_set}
-              placeholder="TMDB v3 key or v4 token — overrides built-in"
-              busy={saving}
-              onSave={(v) => saveKey('tmdb_key', v)}
-            />
-            <KeyField
-              label="TheTVDB key"
-              hint="Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys."
-              set={keys?.tvdb_key_set}
-              placeholder="TheTVDB v4 API key — optional"
-              busy={saving}
-              onSave={(v) => saveKey('tvdb_key', v)}
-            />
-          </div>
-        )}
+          What the headings were genuinely carrying is the STATUS: whether
+          lookups work at all right now, which no key field can report, because
+          a key field only knows whether it is filled. So the chips move up into
+          one row and the headings go. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
+        <InfoDot title="Book lookups" text="Google Books and Open Library, queried together and merged field by field — the first-publication year from one, the larger cover and the description from the other. No key is needed, and manual entry always works." />
+        {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
+        <InfoDot title="Film & show lookups" text="TMDB and TheTVDB. Both cover films and shows, and a lookup merges them; each key goes in its own field below. TMDB ships with a shared built-in key, so lookups work before you set anything — TheTVDB has none, and is optional." />
       </div>
+      {lookup?.ok === false && lookup.error && (
+        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
+          last error: {lookup.error}
+        </p>
+      )}
+
+      {/* One flat list. Every field says which service it is for, so grouping
+          them added a heading and two rows of air per group and no meaning. */}
+      {admin && (
+        <div className="mt-3">
+          <KeyField
+            label="Google Books key"
+            hint="Optional, and only if you exceed roughly 1,000 lookups a day: console.cloud.google.com → enable the Books API → create a key. Books work with no key at all."
+            set={keys?.google_books_key_set}
+            placeholder="Google Books API key — optional"
+            busy={saving}
+            onSave={(v) => saveKey('google_books_key', v)}
+          />
+          <KeyField
+            label="TMDB key"
+            hint="themoviedb.org → Settings → API → a free v3 key (a v4 read token also works). Overrides the built-in shared key. With no key at all, lookups return 503 — manual entry still works."
+            set={keys?.tmdb_key_set}
+            placeholder="TMDB v3 key or v4 token — overrides built-in"
+            busy={saving}
+            onSave={(v) => saveKey('tmdb_key', v)}
+          />
+          <KeyField
+            label="TheTVDB key"
+            hint="Optional, and usually better for long-running shows: thetvdb.com → Dashboard → API keys."
+            set={keys?.tvdb_key_set}
+            placeholder="TheTVDB v4 API key — optional"
+            busy={saving}
+            onSave={(v) => saveKey('tvdb_key', v)}
+          />
+        </div>
+      )}
 
       {/* Amazon (advanced): cover-by-ASIN needs nothing; the optional cookie
           adds description/genres by scraping the product page. */}
       {admin && (
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <MonoLabel>Amazon</MonoLabel>
-            <InfoDot title="Amazon" text="Covers by ASIN, which needs no setup at all. The optional cookie below adds description and genres by reading the product page." />
-          </div>
-          <div className="mt-3">
+        <div>
+          <div>
             <KeyField
               label="Amazon cookie"
               hint={

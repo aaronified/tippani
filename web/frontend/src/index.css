@@ -1511,7 +1511,11 @@
      reads as plain text with a pencil beside it; the pencil swaps in an input
      with ✓/✕ discs. Same control set in the work Details panel and the metadata
      keys, so one pattern covers both. */
-  .inline-field { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  /* 9px above and below each key row was sized when every group of them
+     carried a heading and its own margin. With the headings gone the rows
+     are a single list and the air between them is the only thing keeping
+     the section tall. */
+  .inline-field { padding: 6px 0; border-bottom: 1px solid var(--line); }
   .inline-field:last-child { border-bottom: none; }
   .inline-field-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
   /* Nothing below the row: the gap it was leaving is for a value line or an
