@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.5] - 2026-08-09
+
+Two things 1.7.4 shipped broken, and the CI change that stops the next one
+hiding.
+
+### Fixed
+
+- **The colour list opened as a three-pixel sliver.** 1.7.4 gave a quote card a
+  collapsed colour picker for the case where six dots will not fit, and it has
+  not been usable since it shipped — opening it produced a thin line where the
+  named list should have been.
+
+  The element carries two classes, and that was deliberate: `.token-menu` is the
+  app's popover look, and reusing it is why the list had the right border,
+  shadow and entrance animation for free. What was missed is that `.token-menu`
+  also *places* itself, because it was written for a dropdown hanging under a
+  text input — `top: calc(100% + 4px)`. The new rule set `bottom` to open
+  upwards and never cleared the `top`.
+
+  Nothing conflicts in the way CSS usually conflicts, which is why it survived
+  review. Neither declaration loses. For a box with `height: auto`, `top` and
+  `bottom` both set is not a tie to be broken — CSS solves for the height, and
+  against a 44px anchor that came out near −60px. What reached the screen was
+  the border, twice, with nothing between.
+
+  It is a real popup now: portalled to the page, anchored by measurement,
+  flipping downwards when there is no room above. That part is not tidiness. The
+  collapsed form is chosen by a container query, and a container is a stacking
+  context — so even at the correct height the list would have slid *under* the
+  card beside it the moment it passed the card's edge. A menu is not part of the
+  card it belongs to.
+
+- **A searched quote arrived without its colour.** Colour stopped being
+  decoration in 1.7.1, when the six slots became categories you name. Every
+  surface carried it — the Library, a work's page, the export, the share card.
+  Search did not, and on an odd seam: standalone quotes were built later and
+  built right, so they carried their colour, while every book annotation and
+  every film line came back with none. A library sorted into six named
+  categories looked uncategorised the moment it was searched.
+
+  The quieter half is worse. The share sheet opened from a result reads the
+  colour off the row, so sharing a quote you found by *searching* dropped its
+  category line while sharing the same quote from its book kept it — the same
+  quote, two different exports, depending on how you got there.
+
+  Result rows now wear the same left bar the card they stand for wears. A row
+  whose colour is unrecognised falls back to the plain border rather than to
+  slot 1, because slot 1 is a category somebody may have named and painting an
+  unknown row with it would assert a choice nobody made.
+
+### Internal
+
+- **The race sweep had forty-three seconds of headroom.** The 1.7.4 run passed,
+  so this is not a failure — it is the number underneath it: 29 minutes 17
+  seconds against the 30-minute timeout raised for it one commit earlier.
+
+  The cost is specific to this app. `-race` needs cgo, and the usual assumption
+  — that the detector instruments your code and the C library underneath is
+  opaque to it — is backwards here, because the SQLite driver is pure Go. The
+  detector instruments the entire database engine, in a suite whose premise is
+  that there are no mocks and every test drives a real database file.
+
+  Raising the number again buys one release and makes every push wait half an
+  hour, and a job that slow is a job people stop reading — which is how the
+  previous breakage survived eight releases. So the five locking tests, which
+  are the reason `-race` was turned on at all, run raced on **every push** in
+  about two minutes, and the whole-suite sweep runs **nightly**. Plain tests run
+  on every push as before.
+
+  The job now asserts that each named test actually ran. A filter that matches
+  nothing still exits 0, and `ok (0 tests)` reads exactly like `ok` — a false
+  green that already cost an afternoon during 1.7.4.
+
+- A stylesheet invariant, in the shape the scroll-containment sweep established:
+  every composed popup class is checked for offsets that fight. jsdom applies no
+  layout, so all six existing tests over that colour picker passed while it was
+  broken — the elements were present, correct and accessible, in a box with no
+  height. Both new checks were confirmed to go red against the real 1.7.4 rules.
+
+- 828 frontend tests, and two Go tests asserting a searched quote's colour
+  across all three kinds at once — the bug was that two of the three disagreed
+  with the third.
+
 ## [1.7.4] - 2026-08-09
 
 ### Added
