@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-08-09
+
+A recovery release. Nothing in the app itself changed. What changed is that a
+downgrade can no longer happen silently, can no longer happen by accident, and
+can no longer be mistaken for data loss.
+
+### Fixed
+
+- **An old build could open a database written by a newer one, and say nothing
+  about it.** Migrations are forward-only, so the failure mode here is not an
+  error — it is a *success*. The older binary looks for work, finds every one of
+  its own migrations already applied, skips them all, returns cleanly, and serves
+  an app in which every table added since its release does not exist. No warning,
+  no log line, nothing to search for. What you see is a screen that used to have
+  your quotes on it and now does not, which is indistinguishable from having lost
+  them.
+
+  It refuses to start now, naming both numbers: the schema version on disk and
+  the newest one it carries. Stopping is the safe direction — the data is exactly
+  as the newer build left it, and the remedy is to run that build again. Starting
+  is the direction with no way back.
+
+- **The image tag `latest` was claimed by whichever build finished last.** Which
+  is only the newest release by coincidence: that ordering is build completion,
+  not version. On 9 August an orphaned `v1.3.0` tag went up alongside `v1.7.2`,
+  both fired the image workflow, `v1.3.0` built about two minutes slower on a
+  colder cache — and `:latest` came to mean 1.3.0. Anyone tracking `:latest` was
+  silently moved back four minor versions, onto a binary with no standalone
+  quotes in it at all.
+
+  `latest` and `X.Y` are pointers, and are now claimed by rank rather than by
+  arrival: computed from the tag list, so an old tag rebuilt at any time can move
+  nothing. `X.Y.Z` stays ungated and always publishes, because an immutable
+  per-release tag is what recovery is done with — it is what was still correct
+  while `latest` was wrong.
+
+  The same accident had a second, unfired barrel: `X.Y` was ungated too, so a
+  late `v1.7.1` build would have repointed `1.7` at the older image by exactly
+  the same route. Both are gated.
+
+- **The documented release command pushed every tag I had.** `git push origin
+  main --tags` sends the whole local tag list, and `--follow-tags` sends every
+  annotated tag reachable from the commit, which is all of them. Either will
+  publish a tag made weeks ago and forgotten, firing its entire pipeline beside
+  the one that was meant. That is how `v1.3.0` — created 4 August, never pushed —
+  shipped on 9 August. The instruction now names the tag, and pushes one thing.
+
+### Internal
+
+- The guard was mutation-tested before it was kept: disabled, the test that says
+  a future database is refused goes red. The tag ranking was replayed against the
+  real tag list, including the pair that collided — `v1.3.0` scores `latest=false`
+  and `1.3=false`, and would have moved nothing.
+
 ## [1.7.2] - 2026-08-09
 
 ### Added
