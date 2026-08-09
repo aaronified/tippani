@@ -1266,7 +1266,7 @@
         </div>
         <div class="g-name">State chip · read count</div>
         <div class="g-src">works.jsx — beside the hearts on a work detail</div>
-        <div class="g-desc">The state chip opens the rest of the lifecycle; <b>completed</b> is settled, and the only move out of it is starting again. Clearing back to untracked stays available everywhere, because a mis-tap should not be permanent. The <b>×3</b> chip opens the read log — one row per read, so a reread is history rather than an overwrite, and only <i>finished</i> attempts count.</div>
+        <div class="g-desc">The state chip opens the rest of the lifecycle; <b>completed</b> is settled, and the only move out of it is starting again. Clearing back to untracked stays available everywhere, because a mis-tap should not be permanent. The <b>×3</b> chip opens the read log — one row per read, so a reread is history rather than an overwrite, and only <i>finished</i> attempts count. The log is <b>editable</b>: add a read that happened before you kept the library, correct a date, delete a mistake. The read still <i>open</i> is the one exception — it says <b>set above</b>, because it is what keeps the status and the log agreeing with each other, and finishing or abandoning it is already one tap away in the chip.</div>
       </div>
 
       <div class="g-item">
@@ -1280,6 +1280,38 @@
         <div class="g-name">Wishlist triplet</div>
         <div class="g-src">works.jsx — the filter row, its own section in the mobile sheet</div>
         <div class="g-desc">A work with <b>zero</b> quotes <i>is</i> the wishlist — derived, so there is no column, no bookkeeping, and it clears itself the moment you add a quote. The triplet browses just the unopened shelf, or hides it to leave only what you have actually marked up.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <span class="mono-label" style="display:block;margin-bottom:6px">c. 380 BCE · 1954 · c. 1719</span>
+        </div>
+        <div class="g-name">Years, before and after the era</div>
+        <div class="g-src">ui.jsx — formatYear / parseYearInput, on every work</div>
+        <div class="g-desc">A negative year is written, not signed: <code>-380</code> reads as <b>380 BCE</b>, because a minus sign in front of a year reads as a countdown. CE is left unmarked — saying "1954 CE" about a novel is pedantry, and the era is worth naming only when it is the unusual one. The field also <i>reads</i> what it writes, so <b>380 BC</b>, <b>-380</b>, <b>c. 380 BCE</b> and <b>circa 380 BCE</b> all arrive at the same year. <b>c.</b> is an estimate and display-only: a text written over a century does not have a publication date, it has a contested guess, and marking it never moves the work on a shelf or a chart.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <div style="display:flex;align-items:flex-end;gap:3px;height:44px">
+            <span style="width:10px;height:60%;background:var(--accent);border-radius:2px 2px 0 0"></span>
+            <span style="width:10px;height:20%;background:var(--line);border-radius:2px 2px 0 0"></span>
+            <span style="width:10px;height:0"></span>
+            <span style="width:10px;height:95%;background:var(--accent);border-radius:2px 2px 0 0"></span>
+          </div>
+        </div>
+        <div class="g-name">Timeline</div>
+        <div class="g-src">StatsPage.jsx — a band under the superlatives</div>
+        <div class="g-desc">When the library’s works are <i>from</i>, as opposed to when they were saved — the activity calendar already answers the second. A quote sits at its work’s year, so a line copied out of the Analects last week belongs at 479 BCE. Readable as <b>decades</b>, <b>centuries</b> or <b>years</b>, because a shelf spanning two millennia and a shelf of films want different bucket sizes and neither is the right default for the other. The <b>empty</b> buckets are drawn deliberately: two bars side by side would read as two adjacent periods rather than two thousand years apart. Bars keep a minimum width and the band scrolls, so a narrow screen shows fewer of them rather than thinner ones.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
+          <span class="tp-chip">● ⌄</span>
+        </div>
+        <div class="g-name">Collapsed colour picker</div>
+        <div class="g-src">ui.jsx — on a quote card, when the card is narrow</div>
+        <div class="g-desc">Six colour categories plus a heart plus the actions do not fit one line on a narrow card, so below a threshold the six dots become the current one with a chevron, opening a list. The list is the point rather than a consolation: the categories carry <b>names you chose</b>, and six unlabelled blobs squeezed to fit are six things nobody can tell apart — so the narrow layout shows more than the wide one, not less. Decided by the width of the <i>card</i>, not the window, since a phone in one column and a five-column desktop board can hand the control the same space.</div>
       </div>
 
       <div class="g-item">

@@ -173,7 +173,9 @@ export const HELP = {
     entries: [
       { term: 'Calendar', icon: <IconCalendar />, what: 'A dot per day you captured something. Tapping a day opens exactly those captures in Search.' },
       { term: 'Memory', what: 'Health straight from the quiz: how many quotes are remembered, slipping, or probably gone, and your streak.' },
-      { term: 'Breakdowns', what: 'The authors, speakers, actors, directors, occasions and tags your library leans on. Everything is a doorway — tap through to the works.' },
+      { term: 'Breakdowns', what: 'The authors, speakers, actors, directors and tags your library leans on — plus People, which is all of them at once, one row per person however you credited them. Everything is a doorway — tap through to the works.' },
+      { term: 'Timeline', what: 'When your works are from, not when you saved them. Readable by decade, century or year, because a library holding something from 380 BCE and something from last year needs different bucket sizes to make sense. Empty stretches are drawn, so a long gap looks like one.' },
+      { term: 'Superlatives', what: 'The most annotated book, the most quoted film, the person you quote and heart most, the busiest month and the decade you return to — plus who you remember best and who keeps slipping away.' },
       { term: 'Counts', what: 'All three kinds of quote, counted separately: annotations are the lines you kept from books, dialogues the ones from films and shows, and quotes the standalone ones that came from no work at all. The header total is the three added up.' },
     ],
   },
