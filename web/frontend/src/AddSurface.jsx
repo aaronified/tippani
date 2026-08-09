@@ -31,6 +31,8 @@ import {
   toast,
   useIsMobileScreen,
   useBodyScrollLock,
+  useAnchoredPosition,
+  useDismiss,
 } from './ui.jsx'
 
 // One card, three kinds. "Film" and "Show" both map to the movies flow (they
@@ -381,14 +383,11 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
   const [hi, setHi] = useState(0)
   const boxRef = useRef(null)
 
-  useEffect(() => {
-    if (!open) return
-    const close = (e) => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
+  // matchWidth: the list hangs under a full-width search field, which is what
+  // the inline width:'100%' used to say — and which stops meaning the field
+  // once the list is portalled to <body>.
+  const { popRef, style } = useAnchoredPosition(open, boxRef, { matchWidth: true, minHeight: 140 })
+  useDismiss(open, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
 
   const q = text.trim().toLowerCase()
   const hits = (works || []).filter(
@@ -463,8 +462,8 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
       />
-      {open && (
-        <ul className="token-menu" style={{ width: '100%' }} role="listbox">
+      {open && createPortal(
+        <ul ref={popRef} className="token-menu" style={style} role="listbox">
           {matches.map((w, i) => (
             <li key={`${w.kind}:${w.id}`}>
               <button
@@ -494,7 +493,8 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
               ＋ Add {text.trim() ? `“${text.trim()}”` : 'a new work'} — book, film or show
             </button>
           </li>
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   )

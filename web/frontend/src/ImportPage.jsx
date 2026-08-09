@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { upload, errText } from './api.js'
 import {
   GhostButton,
@@ -8,6 +9,8 @@ import {
   PageHeader,
   useIsMobileScreen,
   useReveal,
+  useAnchoredPosition,
+  useDismiss,
 } from './ui.jsx'
 
 // Import page (§8.8, mockups 17–19): source cards with bulk multi-select and
@@ -241,16 +244,8 @@ function MobileImportPicker({ busy, onFiles }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const boxRef = useRef(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('touchstart', onDoc)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('touchstart', onDoc)
-    }
-  }, [open])
+  const { popRef, style } = useAnchoredPosition(open, boxRef, { matchWidth: true, minHeight: 140 })
+  useDismiss(open, () => setOpen(false), [boxRef, popRef], { event: ['mousedown', 'touchstart'] })
   const selIdx = SOURCES.findIndex((s) => s.kind === sel)
   const selected = SOURCES[selIdx]
   const color = CARD_COLORS[selIdx % CARD_COLORS.length]
@@ -272,8 +267,8 @@ function MobileImportPicker({ busy, onFiles }) {
           onFocus={() => { setQuery(''); setOpen(true) }}
           onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         />
-        {open && (
-          <div className="tp-select-panel" role="listbox" style={{ width: '100%' }}>
+        {open && createPortal(
+          <div ref={popRef} className="tp-select-panel" role="listbox" style={style}>
             {hits.length === 0 && <p className="microcopy px-3 py-2">no format matches</p>}
             {hits.map((s) => (
               <button
@@ -287,7 +282,8 @@ function MobileImportPicker({ busy, onFiles }) {
                 {s.title} <span className="mono-label" style={{ color: 'var(--faint)', marginLeft: 6 }}>{s.ext}</span>
               </button>
             ))}
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
       <HandCard variant={selIdx} colorBar={color} className="flex flex-col gap-3 p-5">

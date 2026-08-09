@@ -443,13 +443,12 @@
   .tp-select-ph { color: var(--faint); }
   .tp-select-chev { color: var(--soft); transition: transform .22s ease; flex: none; }
   .tp-select-trigger[aria-expanded="true"] .tp-select-chev { transform: rotate(180deg); }
+  /* Placed by useAnchoredPosition (matchWidth: 'min' supplies the trigger width
+     that `min-width: 100%` used to mean — and which means nothing once this is
+     a child of <body>). */
   .tp-select-panel {
-    position: absolute;
-    z-index: 50;
-    top: calc(100% + 5px);
-    left: 0;
-    min-width: 100%;
-    max-height: 300px;
+    position: fixed;
+    z-index: 70;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 5px;
@@ -506,7 +505,14 @@
      must NOT claim the vertical gesture: with touch-action:none inherited from
      the single-select rules below, a phone could not scroll the page from the
      open panel and the grab cursor promised a drag that isn't there. */
-  .tp-select-panel.tp-multi { cursor: default; user-select: auto; -webkit-user-select: auto; touch-action: auto; }
+  /* position, re-stated at higher specificity, and not belt-and-braces. A
+     multi-select panel is `hand-card hc-r2 tp-select-panel tp-multi`, and
+     .hand-card sets `position: relative` — later in this file than
+     .tp-select-panel, so on equal specificity IT WINS. The panel only renders
+     fixed because the inline style from useAnchoredPosition outranks both,
+     which means the stylesheet has been quietly wrong and something else was
+     covering for it. Two classes here outrank one there. */
+  .tp-select-panel.tp-multi { position: fixed; cursor: default; user-select: auto; -webkit-user-select: auto; touch-action: auto; }
   /* Claim the vertical gesture only when the list doesn't scroll: touch-action
      can't serve both the thumb and the scroller, and a scrolling panel keeps
      the native one (hover and the arrow keys still move the thumb there). */
@@ -1281,9 +1287,12 @@
   .token-x:hover { opacity: 1; }
   .token-entry { flex: 1; min-width: 90px; border: none; background: none; outline: none; font-family: var(--font-ui); font-size: 15px; color: var(--ink); padding: 2px 0; }
   .token-entry::placeholder { color: var(--faint); }
+  /* Placed by useAnchoredPosition, portalled to <body>. No offsets here: JS
+     owns top/left/max-height so the list can flip and be capped to the room
+     actually on screen. z-index clears the grain overlay (60). */
   .token-menu {
-    position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; min-width: 220px; max-width: 100%;
-    max-height: 220px; overflow-y: auto; overscroll-behavior: contain; padding: 5px; margin: 0; list-style: none;
+    position: fixed; z-index: 70; min-width: 220px;
+    overflow-y: auto; overscroll-behavior: contain; padding: 5px; margin: 0; list-style: none;
     border: 1.4px solid var(--ink-border); border-radius: 11px;
     box-shadow: 0 12px 28px -8px rgba(0,0,0,.5); animation: tp-dip .14s ease;
   }
@@ -1781,8 +1790,12 @@
      it and none has to be raised to let it out.
      The lift stays for a card whose ⋯ overflow (mobile QuoteActions, §7) is open, so
      its dropdown isn't clipped by a later sibling card in a masonry column. */
-  .hand-card:has(.more-menu),
-  .film-frame:has(.more-menu) { position: relative; z-index: 30; }
+  /* The card-lift that used to live here is GONE, and its absence is the point.
+     It raised a whole card above its masonry siblings whenever a .more-menu was
+     open inside it, because an absolutely-positioned menu cannot escape the
+     card that contains it — so the card had to be lifted instead, dragging its
+     cover, its quote and its shadow up with it. The menu is portalled now and
+     is nobody's descendant, so there is nothing to lift. */
 
   /* ---- cover-search results (CoverControls): tappable 2:3 thumbs with a
      source label; picking one stages it exactly like Paste URL. ---- */
@@ -2176,11 +2189,12 @@
     background: linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
   }
   .user-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Placed by useAnchoredPosition with align:'end' — which is what `right: 0`
+     used to say, and which now survives being pushed back inside the viewport
+     when the trigger is near a corner. */
   .more-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 6px);
-    z-index: 50;
+    position: fixed;
+    z-index: 70;
     min-width: 168px;
     padding: 6px;
     display: flex;
@@ -2189,7 +2203,7 @@
   }
   /* ---- partial-date picker (§3f): a year / month / day drill-down where every
      level is a legal answer, so "I read it in 2019" needs no invented day. ---- */
-  .date-pop { position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; max-width: 100%; }
+  .date-pop { position: fixed; z-index: 70; }
   /* max-width, not a fixed width: inside a confirm dialog on a 320px phone the
      content column is ~240px, and a rigid 244px picker would spill the page
      sideways — which nothing in this app is allowed to do. The day grid
@@ -3590,7 +3604,6 @@ html[data-theme="dark"] .mobile-sheet-footer {
   /* Contained, per the 1.7.2 sweep: reaching the end of this list must not
      scroll the board behind it. */
   overscroll-behavior: contain;
-  max-height: 260px;
   overflow-y: auto;
 }
 .cs-menu-row {
