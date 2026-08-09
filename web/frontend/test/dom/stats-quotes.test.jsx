@@ -98,20 +98,40 @@ describe('the breakdown dropdown', () => {
 })
 
 describe('the superlatives', () => {
-  it('name a most-quoted speaker beside the book and the film', async () => {
-    // A standalone quote has no work to be the most-quoted thing, so the
-    // speaker is the closest it has to one — taken from the breakdown already
-    // on the page rather than a new query.
+  it('name a most-quoted person beside the book and the film', async () => {
+    // Reads the COMBINED people breakdown, not one role's. In a library holding
+    // books and films the most-quoted person is very often somebody who appears
+    // in both, and "most quoted speaker" could only ever return the winner of
+    // one of the four sections.
     await page()
-    expect(screen.getByText('Most quoted speaker')).toBeTruthy()
-    expect(screen.getByText('Bose')).toBeTruthy()
+    expect(screen.getByText('Most quoted person')).toBeTruthy()
+    expect(screen.getAllByText('Bose').length).toBeGreaterThan(0)
   })
 
-  it('stays quiet when there is no speaker yet', async () => {
+  it('stays quiet when there is nobody yet', async () => {
     // An empty library must not render a superlative about nobody.
-    STATS.breakdown.speakers = kind()
+    STATS.breakdown.people = kind()
     await page()
-    expect(screen.getByText('Most quoted speaker')).toBeTruthy()
+    expect(screen.getByText('Most quoted person')).toBeTruthy()
     expect(screen.queryByText('Bose')).toBeNull()
+  })
+
+  it('offers the superlatives that were asked for', async () => {
+    // The set is a deliberate list, not whatever happened to be easy. Naming
+    // them here means removing one is a decision somebody has to make on
+    // purpose rather than a line that quietly stopped rendering.
+    await page()
+    for (const label of [
+      'Most annotated book',
+      'Most quoted film/show',
+      'Most quoted person',
+      'Most favourited person',
+      'Most quoted decade',
+      'Busiest month',
+      'Best remembered',
+      'Most forgotten',
+    ]) {
+      expect(screen.getByText(label), label).toBeTruthy()
+    }
   })
 })

@@ -531,20 +531,69 @@ function TopList({ label, rows, onSearch }) {
   )
 }
 
+
+// decadeStart floors a year to its decade, towards the past on both sides of the
+// era boundary. Math.floor rather than a truncating divide, because truncation
+// rounds -479 UP to -470 and would file the Analects in the wrong decade — the
+// one classic sign error in date bucketing, and it only shows up on BCE data.
+function decadeStart(year) {
+  return Math.floor(year / 10) * 10
+}
+
+// decadeLabel writes a decade the way it is said: "1990s", "480s BCE". The
+// number shown for a BCE decade is the START of it as spoken, which is the
+// higher absolute value — the 480s BCE runs from 489 to 480.
+export function decadeLabel(start) {
+  return start < 0 ? `${-start}s BCE` : `${start}s`
+}
+
+// topDecade finds the decade holding the most quotes.
+//
+// Derived from the timeline rather than asked of the server, because the server
+// deliberately sends per-YEAR buckets: which scale to read them at is a question
+// about the library and the screen, and the same rows answer the decade tile and
+// the chart without a second query.
+//
+// Ties break towards the EARLIER decade, so the tile is stable across reloads
+// and, when it does have to choose, points at the older one — which in a library
+// like this is the more interesting answer.
+export function topDecade(timeline) {
+  if (!Array.isArray(timeline) || timeline.length === 0) return null
+  const byDecade = new Map()
+  for (const b of timeline) {
+    const start = decadeStart(b.year)
+    byDecade.set(start, (byDecade.get(start) || 0) + (b.quotes || 0))
+  }
+  let best = null
+  for (const [start, quotes] of [...byDecade].sort((a, b) => a[0] - b[0])) {
+    if (quotes > 0 && (best === null || quotes > best.quotes)) {
+      best = { start, quotes, label: decadeLabel(start) }
+    }
+  }
+  return best
+}
+
 // SuperTile — a superlative as a compact tile (the same raised-chip tiling the
 // Overview and Memory grids use): cover thumb · truncated headline · accent
 // count · label. With `onOpen` the headline is a doorway (→ Search).
-function SuperTile({ label, title, count, amber, cover, onOpen }) {
+function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', minWidth: 0 }}>
       <div className="flex items-center gap-2.5" style={{ minWidth: 0 }}>
-        {cover && (
+        {cover ? (
           <img
             src={coverImgURL(cover)}
             alt=""
             style={{ width: 26, height: 39, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--ink-border)', flex: '0 0 auto' }}
           />
-        )}
+        ) : person ? (
+          // A person's tile wears their face, the same portrait the breakdown
+          // rows and the People console use. A name alone in a grid of covers
+          // reads as the one tile whose art failed to load.
+          <span style={{ flex: '0 0 auto' }}>
+            <PersonPortrait person={person} size={30} />
+          </span>
+        ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
             {title && onOpen ? (
@@ -579,7 +628,7 @@ function SuperTile({ label, title, count, amber, cover, onOpen }) {
   )
 }
 
-function Superlatives({ s, onSearch }) {
+function Superlatives({ s, personMaps, onSearch }) {
   const since = s.first_saved ? new Date(s.first_saved + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' }) : null
   const open = (title) => (title && onSearch ? () => onSearch(title) : undefined)
   // The third medium had no superlative beside the other two. It gets one from
@@ -587,15 +636,28 @@ function Superlatives({ s, onSearch }) {
   // sorted most-quoted first, so the head of it IS the superlative, and a
   // standalone quote has no work to be the most-quoted THING — the speaker is
   // the closest thing it has to one.
-  const topSpeaker = s.breakdown?.speakers?.top?.[0] || null
+  // Every people superlative reads the COMBINED breakdown, not one role's. The
+  // most quoted person in a library that holds both books and films is very
+  // often somebody who appears in both, and asking "most quoted speaker" could
+  // only ever return the winner of one of the four sections.
+  const people = s.breakdown?.people
+  const topPerson = people?.top?.[0] || null
+  const remembered = people?.most_remembered || null
+  const forgotten = people?.most_forgotten || null
+  const decade = topDecade(s.timeline)
+  const face = (name) => (name ? personMaps?.any?.[name] : null)
   return (
     <Card>
       <SectionHead label="Superlatives" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-        <SuperTile label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
-        <SuperTile label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
-        <SuperTile label="Most quoted speaker" title={topSpeaker?.name} count={topSpeaker?.quotes} onOpen={open(topSpeaker?.name)} />
+        <SuperTile label="Most annotated book" title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
+        <SuperTile label="Most quoted film/show" title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
+        <SuperTile label="Most quoted person" title={topPerson?.name} count={topPerson?.quotes} person={face(topPerson?.name)} onOpen={open(topPerson?.name)} />
+        <SuperTile label="Most favourited person" title={s.favourite_person?.title} count={s.favourite_person?.count} person={face(s.favourite_person?.title)} onOpen={open(s.favourite_person?.title)} />
+        <SuperTile label="Most quoted decade" title={decade?.label} count={decade ? `${decade.quotes} quotes` : null} amber />
         <SuperTile label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
+        <SuperTile label="Best remembered" title={remembered?.name} count={remembered ? `${remembered.remembered} of ${remembered.quotes}` : null} person={face(remembered?.name)} onOpen={open(remembered?.name)} />
+        <SuperTile label="Most forgotten" title={forgotten?.name} count={forgotten ? `${forgotten.probably_forgotten} of ${forgotten.quotes}` : null} person={face(forgotten?.name)} onOpen={open(forgotten?.name)} />
         <SuperTile label="Collecting since" title={since} />
       </div>
     </Card>
@@ -652,7 +714,7 @@ export default function StatsPage({ onSearch }) {
           {/* Superlatives as one row of tiles (they used to pad out half a
               column beside the tall Breakdown); Colours + Top tags stack in
               the Breakdown's second column instead. */}
-          <Superlatives s={s} onSearch={onSearch} />
+          <Superlatives s={s} personMaps={personMaps} onSearch={onSearch} />
           <div style={twoCol}>
             <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} onSearch={onSearch} />
             <div className="space-y-6">
