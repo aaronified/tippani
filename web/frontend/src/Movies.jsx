@@ -1685,6 +1685,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             ⋯ cluster to a second line before it splits or squeezes them. */}
         <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
           <ColorSwatches
+            collapsible
             value={d.color || 'yellow'}
             onChange={(c) => onPatch({ color: c })}
             ariaLabel="Colour category"

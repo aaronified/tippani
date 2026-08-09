@@ -3460,7 +3460,7 @@ export function FavoriteStar({ value, onChange }) {
 //
 // `showAll` renders every slot regardless — Settings needs to show the one you
 // are in the middle of hiding.
-export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false }) {
+export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false, collapsible = false }) {
   const ref = useRef(null);
   const offered = showAll
     ? ANNOTATION_COLORS
@@ -3483,7 +3483,7 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
     const next = (((from < 0 ? focusIndex : from) + step) % btns.length + btns.length) % btns.length;
     btns[next].focus();
   };
-  return (
+  const dots = (
     <span
       ref={ref}
       role="radiogroup"
@@ -3506,6 +3506,77 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
           </button>
         </Tooltip>
       ))}
+    </span>
+  );
+  if (!collapsible) return dots;
+  // Both forms are rendered and a container query picks one. The alternative is
+  // measuring, and measuring a control that lives inside a masonry cell means a
+  // ResizeObserver per card plus a re-render on every reflow — for a decision
+  // CSS can make from the card's own width.
+  return (
+    <>
+      <span className="cs-full">{dots}</span>
+      <span className="cs-mini">
+        <ColorMenu value={value} offered={offered} onChange={onChange} ariaLabel={ariaLabel} />
+      </span>
+    </>
+  );
+}
+
+// ColorMenu — the colour picker when there is no room for six of anything: the
+// current colour as one dot with a chevron, opening a list.
+//
+// The list is the reason this is not simply a smaller row of dots. Six unlabelled
+// blobs shrunk to fit are six things you cannot tell apart on a phone, and since
+// 1.7.1 the categories have had NAMES the reader chose — so the collapsed form
+// is the one place they can actually be read. A cramped row hides information
+// the expanded row was already failing to show.
+function ColorMenu({ value, offered, onChange, ariaLabel }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  return (
+    <span className="cs-menu-wrap" ref={box}>
+      <Tooltip label={value ? `Colour: ${categoryName(value)}` : "Pick a colour"}>
+        <button
+          type="button"
+          className="cs-menu-btn"
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-label={ariaLabel}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className={"color-dot " + (colorDotClass[value] || "") + (value ? " active" : "")} />
+          <IconChevron open={open} size={14} />
+        </button>
+      </Tooltip>
+      {open && (
+        <span className="cs-menu token-menu" role="radiogroup" aria-label={ariaLabel}>
+          {offered.map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={value === c}
+              className="cs-menu-row"
+              onClick={() => { onChange(c); setOpen(false); }}
+            >
+              <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
+              <span className="cs-menu-name">{categoryName(c)}</span>
+            </button>
+          ))}
+        </span>
+      )}
     </span>
   );
 }

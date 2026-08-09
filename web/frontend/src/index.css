@@ -3514,3 +3514,78 @@ html[data-theme="dark"] .mobile-sheet-footer {
   height: 46px;
   overflow: hidden;
 }
+
+/* ---- the in-card colour picker, at six categories -------------------------
+   The row is ♥ + the colours + ⋯, and it has to fit a card in a masonry
+   column. The rule below it used to read "four blobs … measures at 232px";
+   1.7.1 made it SIX, which is 288px, and the row started wrapping to two lines
+   on every desktop card — the bug this fixes.
+
+   Two changes, in order of how much they buy. Packing the dots closer wins back
+   the desktop case. Below that there is no packing that helps, so the picker
+   becomes ONE dot with a chevron and a named list, which is better than a
+   cramped row anyway: since 1.7.1 the categories have names the reader chose,
+   and six unlabelled blobs are six things you cannot tell apart.
+
+   A container query, not a media query, and not measurement. What matters is
+   how wide the CARD is — a phone in a single column and a 5-column desktop
+   board can hand the same control the same 260px — and `.cl-grid` already
+   established container queries here as the fix for exactly that mismatch. */
+.hand-card,
+.film-frame {
+  container-type: inline-size;
+  container-name: card;
+}
+.cs-mini { display: none; }
+@container card (max-width: 330px) {
+  .cs-full { display: none; }
+  .cs-mini { display: inline-flex; }
+}
+/* Tighter gaps inside a card only. The picker in a form or a filter sheet has
+   room and keeps its breathing space. */
+.hand-card .color-dot-btn,
+.film-frame .color-dot-btn { min-width: 24px; }
+.hand-card .card-colors .flex,
+.film-frame .card-colors .flex { gap: 3px; }
+
+.cs-menu-wrap { position: relative; display: inline-flex; }
+.cs-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--soft);
+}
+.cs-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 148px;
+  padding: 4px;
+  /* Contained, per the 1.7.2 sweep: reaching the end of this list must not
+     scroll the board behind it. */
+  overscroll-behavior: contain;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.cs-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+  color: inherit;
+}
+.cs-menu-row:hover { background: var(--raised); }
+.cs-menu-name { font-size: 13px; white-space: nowrap; }
