@@ -800,7 +800,9 @@ const FAV_KINDS = {
 
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onPending, pendingImport, onReviewImport }) {
   const [favs, setFavs] = useState([])
-  const favCols = useColumnsAt([[640, 2]]) // favourites masonry: 1 col < sm, 2 ≥ sm
+  // Favourites sit in Home's reading column, not the full container, so this
+  // ladder tracks --home-max rather than --container-max.
+  const favCols = useColumnsAt([[1400, 3], [640, 2]])
   const [favsShown, setFavsShown] = useState(FAVS_INITIAL)
   const [openFav, setOpenFav] = useState(null) // favourite key expanded in place
   const [editingFav, setEditingFav] = useState(null) // favourite key being edited in place
@@ -928,7 +930,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4 pt-4" data-screen-label="home-body">
+    <div className="home-col flex flex-col gap-4 pt-4" data-screen-label="home-body">
       {/* No "?" beside the greeting since 1.4.1 — it is a shell control now — so
           the date and greeting own the row outright. */}
       <div className="px-0.5">

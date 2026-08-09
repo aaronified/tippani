@@ -253,6 +253,27 @@ export function useHideOnScrollDown({
   return active ? hidden : false;
 }
 
+// ---- how many columns a board gets ---------------------------------------
+//
+// PAIRED WITH --container-max IN index.css, and neither table means anything
+// without the other. The container widens in steps; each step has a rung here,
+// because the point of a wider window is MORE CARDS, not wider ones. Raise the
+// cap alone and a quote card grows to 600px across, which is a worse card on a
+// bigger screen — the reason the app looked capped at 1180px was never the cap
+// on its own, it was that nothing downstream would have used the space.
+//
+// The rungs read against the VIEWPORT (that is what useColumnsAt measures) and
+// the container is what actually holds the cards, so the arithmetic that
+// matters is container ÷ columns: 1180/3 ≈ 390, 1500/4 ≈ 375, 1760/5 ≈ 352.
+// Roughly one card width throughout, which is the intent.
+//
+// BOARD_COLUMNS is the tile boards — Library and the Catalogue, whose cards are
+// covers and posters. QUOTE_COLUMNS is the same ladder for cards that are
+// mostly text: it holds two columns down to 860px rather than 640px, because a
+// quote wrapped to 300px is a column of syllables.
+export const BOARD_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [640, 2]]
+export const QUOTE_COLUMNS = [[1900, 5], [1600, 4], [1280, 3], [860, 2]]
+
 // useColumnsAt — the live column count for a Masonry, from a [minWidthPx, cols]
 // ladder (largest breakpoint first; below the smallest ⇒ 1 column). Mirrors the
 // Tailwind breakpoints the old CSS-column boards used, e.g. [[1280,3],[640,2]].

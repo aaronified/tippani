@@ -5,6 +5,24 @@
 
 @layer base {
   :root {
+    /* ---- how wide the app is allowed to be -------------------------------
+       ONE TOKEN, TWO CONSUMERS, and they are not optional companions: the
+       page body (.container-tp) and the top bar (.topbar-inner) both read it,
+       and the moment they disagree the brand and the avatar stop lining up
+       with the gutters of everything underneath them. Written twice as a
+       literal, that is a one-line edit away at all times.
+
+       The cap steps rather than growing continuously. A board of cards wants
+       MORE COLUMNS on a wider screen, not wider cards — a quote card at 1600px
+       across is a worse card — so each step here is matched by a rung in the
+       column ladders (see BOARD_COLUMNS in ui.jsx), and the two tables have to
+       be read together. Below 1400px nothing changes: 1180px was chosen for a
+       laptop and is still right on one. */
+    --container-max: 1180px;
+    /* the reading column on Home: a single stack of cards, so it widens far
+       more slowly than a board does */
+    --home-max: 42rem;
+
     /* type stack (§3) */
     --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
     --font-ui: 'Hanken Grotesk', system-ui, sans-serif;
@@ -1922,7 +1940,7 @@
     box-shadow: 0 4px 16px -6px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
   }
   .topbar-inner {
-    max-width: 1180px;
+    max-width: var(--container-max);
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -2199,7 +2217,23 @@
     flex: 1; overflow-y: auto;
     padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   }
-  .container-tp { max-width: 1180px; margin: 0 auto; padding: 4px 20px 64px; }
+  .container-tp { max-width: var(--container-max); margin: 0 auto; padding: 4px 20px 64px; }
+  /* Home is a single stack of cards rather than a board, so it reads as a
+     column and widens on its own, slower schedule. */
+  .home-col { width: 100%; max-width: var(--home-max); margin-inline: auto; }
+
+  /* The steps. Each one is paired with a rung in BOARD_COLUMNS (ui.jsx): the
+     extra width has to arrive as another column, or it arrives as slack inside
+     the cards that were already the right size. */
+  @media (min-width: 1400px) {
+    :root { --container-max: 1320px; --home-max: 50rem; }
+  }
+  @media (min-width: 1600px) {
+    :root { --container-max: 1500px; }
+  }
+  @media (min-width: 1900px) {
+    :root { --container-max: 1760px; --home-max: 58rem; }
+  }
   /* The brand is a button now (logo tap = Home, §7 redesign) — strip the
      button chrome so it keeps reading as the wordmark. */
   button.brand {

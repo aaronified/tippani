@@ -68,6 +68,7 @@ import {
   todayPartial,
   TokenInput,
   Tooltip,
+  BOARD_COLUMNS,
   useColumnsAt,
   useCoverSize,
   useIsMobileScreen,
@@ -1230,7 +1231,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
   const displayRows = useMemo(() => pinToTop(sortedRows, pinned), [sortedRows, pinned])
   // Tiles are a height-packed masonry (1/2/3 cols by width). Newly-added quotes
   // (the pinned prefix of displayRows) stay glued to the top of the board.
-  const tileCols = useColumnsAt([[1280, 3], [640, 2]])
+  const tileCols = useColumnsAt(BOARD_COLUMNS)
   const pinnedShown = useMemo(
     () => (!pinned.length || !items ? 0 : pinned.filter((id) => items.some((x) => x.id === id)).length),
     [pinned, items],

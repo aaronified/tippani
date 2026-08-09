@@ -34,6 +34,7 @@ import {
   TokenInput,
   formatPartialDate,
   isPartialDate,
+  QUOTE_COLUMNS,
   useColumnsAt,
   useIsMobileScreen,
   usePersistedState,
@@ -341,7 +342,7 @@ export default function QuotesPage({ creditSeparators }) {
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   const seps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const mobile = useIsMobileScreen()
-  const columns = useColumnsAt([[1280, 3], [860, 2]])
+  const columns = useColumnsAt(QUOTE_COLUMNS)
 
   const load = useCallback(async () => {
     const r = await json('GET', '/quotes')

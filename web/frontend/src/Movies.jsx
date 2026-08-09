@@ -77,6 +77,7 @@ import {
   Toggle,
   TokenInput,
   Tooltip,
+  BOARD_COLUMNS,
   useColumnsAt,
   useCoverSize,
   useFrameBase,
@@ -1105,7 +1106,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
   // A show's table opens grouped by episode, which is the order the list view is
   // served in; a film has only its runtime to sort by.
   const [sort, setSort] = useState({ col: show ? 'episode' : 'timestamp', dir: 'asc' })
-  const tileCols = useColumnsAt([[1280, 3], [640, 2]]) // tiles: book-style collage (§8.6)
+  const tileCols = useColumnsAt(BOARD_COLUMNS) // tiles: book-style collage (§8.6)
   const reqSeq = useRef(0)
   const base = useFrameBase() // frame codes regenerate per mount (§6)
   const toggleSort = (col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))

@@ -997,7 +997,7 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
   // sort, no jitter), but tiles pack the shared greedy way every other board
   // does: each card lands on the SHORTEST column, so the last hit can't leave
   // one column hanging long. list is a plain vertical stack.
-  const tileCols = useColumnsAt([[768, 2]])
+  const tileCols = useColumnsAt([[1600, 4], [1180, 3], [768, 2]])
   const pack = (items) =>
     view === 'tiles' ? (
       <Masonry columns={tileCols} gap={12} order="source">{items.map(renderItem)}</Masonry>
@@ -1064,7 +1064,7 @@ function ResultSection({ label, groups, group, view, isMovie, renderItem, people
 // tiles view (same greedy shortest-column fill every other board uses), a
 // vertical stack in list view.
 function Board({ view, children }) {
-  const cols = useColumnsAt([[768, 2]])
+  const cols = useColumnsAt([[1600, 4], [1180, 3], [768, 2]])
   return view === 'tiles' ? (
     <Masonry columns={cols} gap={12} order="source">{children}</Masonry>
   ) : (
