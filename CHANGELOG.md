@@ -5,6 +5,151 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-08-09
+
+### Added
+
+- **A wide screen is used as one.** The page body capped at 1180px and so did the
+  top bar, both as literals — 46% of a 2560px monitor, with the rest left as mat.
+  One token now, read by both, because the moment they disagree the brand and the
+  avatar stop lining up with the gutters of everything underneath them.
+
+  Raising the cap alone would have made it worse: a board wants **more columns**
+  on a wider screen, not wider cards, and a quote card 600px across is a worse
+  card. So the cap steps and every step has a matching rung in a column ladder —
+  a card stays roughly one card wide throughout. A 13" laptop is untouched;
+  nothing below 1400px reflows.
+
+- **Sort a shelf by when you last had it in your hands** — **Last read** in the
+  Library, **Last watched** in the Catalogue. The read log has existed since 0024
+  and nothing had ever sorted on it. The finish date if there is one, else the
+  start: a book you are in the middle of has no finish date and is the one you
+  touched most recently. Every outcome counts, not only *finished* — giving up on
+  something in November is an answer to the question.
+
+  Anything never logged sits at the end, alphabetically, which in a library built
+  to hold quotes is usually most of it.
+
+### Changed
+
+- **The share picture no longer assumes your colour scheme.** A colour category
+  is a note to yourself about what kind of thought a quote is; the person you send
+  the picture to has no idea the scheme exists, so a blue stripe or a blue face
+  reads as a design choice the card is making. The switch starts **off**.
+
+  Changing that default meant retiring its storage key. The hook behind it writes
+  on *mount*, so the old default had been stamped into local storage by the first
+  render of the panel on every device that ever opened it — flipping the literal
+  alone would have changed the default for nobody.
+
+- **Each format's syntax reference moved behind an info dot.** It is reference
+  material — read once, while deciding — and four lines of it standing permanently
+  above the quote pushed the thing being shared below the fold on a phone. The dot
+  is titled with the chosen format, so it announces as "More information:
+  WhatsApp" and re-titles as you switch.
+
+- **The Settings page stopped restating itself.** Six API keys each carried a
+  permanent second line reading `•••••••••• saved` — a full row per key, restating one
+  bit in a form that cannot be read, since a secret here is write-only and the
+  server never sends it back. A floppy-with-a-tick beside the edit button carries
+  the same bit in no space; the box for a new key appears only while you are
+  typing one. A key that is *not* a secret keeps its value visible, because
+  "saved" is the whole content of a stored secret and is not the whole content of
+  `www.amazon.de`.
+
+  The feature descriptions went with them — which services back a lookup is a fact
+  about the app, not a setting — along with the chips that duplicated the row
+  below them. What survives is the pair a key field cannot report: that lookups
+  run on the shared built-in key although you have set nothing, and that they run
+  on nothing and will 503.
+
+  **Multi-author credits** is a section at the bottom of Metadata sources rather
+  than a card beside it: a lookup hands back one credit string and that setting
+  decides whether it names one person or two. **Colour categories** lost a line of
+  microcopy that was the info dot's first sentence in shorter words, and sits
+  directly under Metadata in every layout now — both cards answer "what is this
+  thing labelled with", so one column reads as one subject.
+
+- **Switching accounts looks like the log-out beside it.** Two ways out of an
+  account, in one card, built to different plans: a heading over a full-width
+  button here, a right-aligned button there. They are the same row now, and the
+  form names the account you are leaving — the one fact it is about, and it was
+  nowhere on it. Real labels instead of placeholders, and the reason the button is
+  grey appears beside the button rather than only in a `title` attribute a touch
+  screen has no way to show.
+
+### Fixed
+
+- **Words on a portrait backdrop could disappear into the photograph.** A
+  photograph is not a background colour: it has its own lights and darks, and ink
+  that reads cleanly on paper vanishes into a shoulder or an eye — not all of it,
+  which would at least be obvious, but a word here and a word there, in the one
+  artefact this app produces that somebody else reads.
+
+  Every word on a backdrop card now carries a halo of the card's own surface
+  colour, with **no offset**, so it is a glow around each letter rather than a drop
+  shadow beneath it — the text is meant to be *on* the card, not floating above a
+  picture. The colour comes from the skin being **drawn**, not the one on screen,
+  because the picture's skin is chosen separately and frequently is not the app's.
+
+- **Scrolling a popup also scrolled the page behind it.** Nine scroll containers,
+  two of which declared `overscroll-behavior` — so reaching the end of a select
+  panel, a tag menu, a mobile sheet or a share dialog carried the scroll into the
+  page underneath, which was still moved when you closed the thing.
+
+  The second half was worse than the report: CSS containment only governs a scroll
+  that *started* inside the overlay, and eleven full-viewport overlays needed the
+  page frozen behind them. Four did it. Widening the sweep from vertical scrollers
+  to sideways ones then found one nobody had reported — the top navigation, where
+  running off the end is the browser's back gesture, so a nav that navigates away.
+
+- **Admin was a role you could take, not only give.** Any admin could revoke any
+  other admin's rights: two admins, and whichever opened the page first was the
+  only one left, with no seniority to appeal to and nothing to undo it with.
+  Granting is something you do to others; revoking is something you do to
+  yourself. Handing over is still one action each.
+
+  The same rule applies to deleting an admin, or the first one is decorative —
+  refusing to take somebody's rights while offering to delete the account they
+  belong to is the same act, louder, and it takes their library with it. **An
+  admin account can now only be removed after it steps down.**
+
+- **The Stats page was about two of the three kinds of quote.** The server has
+  counted standalone quotes since §24 — in the totals, the colours, the tags, the
+  calendar, the recall states, and in two whole breakdown kinds of their own,
+  *speakers* and *occasions*, computed and sent on every request and rendered by
+  nothing. The header said "50 saved" when 57 were. And the counts row called book
+  highlights "Quotes" while the nav has a Quotes tab meaning the standalone kind,
+  so a tile borrowed a screen's name without counting it while the kind it was
+  named after had no tile at all.
+
+### Internal
+
+- **Fifty-one mutations across the release, and three of them survived first** —
+  which is the only reason they were worth running.
+
+  Deleting a middle width step passed every assertion about the container cap,
+  because they checked only that the staircase starts low and ends high; a missing
+  tread is the same complaint at a screen size nobody named. The "last read"
+  comparator's two explicit *unread goes last* guards turned out to be unreachable
+  — `""` is a prefix of every string and the compare is inverted, so the direction
+  was already doing their work, and an unreachable branch that looks like the rule
+  is worse than no branch. And the server's *keep only real dates* filter could not
+  be observed through the API at all, since a map miss and a stored empty string
+  serialise to the same JSON.
+
+- **A bug of omission needs a sweep, not a case.** The scroll fix is one CSS
+  property, and the temptation is to add it to the popup that was reported. The
+  defect was not a wrong value anywhere — it was that nobody had thought about
+  chaining — so the test is an invariant over the stylesheet, with a named
+  exemption list and a guard that it still matches something.
+
+- `Settings.jsx` carried an unused second users list, with the same add and the
+  same delete and none of the rules. Dead code that duplicates a live screen reads
+  as the implementation.
+
+- 785 frontend tests.
+
 ## [1.7.1] - 2026-08-09
 
 ### Added
