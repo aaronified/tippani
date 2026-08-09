@@ -76,6 +76,8 @@ import {
   usePersistedState,
   useReveal,
   ViewToggle,
+  formatYear,
+  parseYearInput,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -377,11 +379,15 @@ export function ManualTab({ onAdded }) {
   async function submit(e) {
     e.preventDefault()
     if (!title.trim()) return setError('title is required')
-    let publishedYear
+    // parseYearInput reads "380 BCE" and "c. 1500" as well as "1719", because
+    // that is what the field shows when it rests. A bare Number() would read
+    // every one of those as NaN and erase the year on save.
+    let publishedYear, publishedCirca
     if (year.trim()) {
-      const y = Number(year)
-      if (!Number.isInteger(y)) return setError('year must be a number')
-      publishedYear = y
+      const parsed = parseYearInput(year)
+      if (!parsed.year) return setError('year must be a year')
+      publishedYear = parsed.year
+      publishedCirca = parsed.circa
     }
     setBusy(true)
     setError('')
@@ -390,6 +396,7 @@ export function ManualTab({ onAdded }) {
       author: author.trim() || undefined,
       isbn: isbn.trim() || undefined,
       published_year: publishedYear,
+      published_circa: publishedCirca,
     })
     setBusy(false)
     if (r.ok) onAdded(r.data) // hand back the created book (capture targets it)
@@ -549,7 +556,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
         ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
           <PersonCredit key={`author-${a}`} kind="author" name={a} person={authorMap[a]} size={28} onOpen={setPerson} />
         )),
-        book.published_year || null,
+        formatYear(book.published_year, book.published_circa) || null,
         seriesLabel(book) || null,
       ].filter(Boolean)
     : []
@@ -689,7 +696,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
       )}
       <InProgressCapDialog
         open={!!capPool}
-        items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, b.published_year || null].filter(Boolean).join(' · ') }))}
+        items={(capPool || []).map((b) => ({ id: b.id, title: b.title, meta: [b.author, formatYear(b.published_year, b.published_circa) || null].filter(Boolean).join(' · ') }))}
         cap={SHELF_CAPS.book}
         noun="book"
         verb="reading"
@@ -723,7 +730,7 @@ export function EditBook({ book, onSaved, onCancel }) {
   const [author, setAuthor] = useState(book.author || '')
   const [isbn, setIsbn] = useState(book.isbn || '')
   const [asin, setAsin] = useState(book.asin || '')
-  const [year, setYear] = useState(book.published_year ? String(book.published_year) : '')
+  const [year, setYear] = useState(formatYear(book.published_year, book.published_circa))
   const [genres, setGenres] = useState(book.genres || [])
   const [genreSuggestions, setGenreSuggestions] = useState([])
   useEffect(() => {
@@ -773,13 +780,15 @@ export function EditBook({ book, onSaved, onCancel }) {
   async function submit(e) {
     e.preventDefault()
     if (!title.trim()) return setError('title is required')
-    // Guard a non-numeric year: Number('abc') is NaN, which serializes to JSON
-    // null and would silently erase the stored year. Empty clears it on purpose.
-    let publishedYear
+    // parseYearInput reads "380 BCE" and "c. 1500" as well as "1719", because
+    // that is what the field shows when it rests. A bare Number() would read
+    // every one of those as NaN and erase the year on save.
+    let publishedYear, publishedCirca
     if (year.trim()) {
-      const y = Number(year)
-      if (!Number.isInteger(y)) return setError('year must be a number')
-      publishedYear = y
+      const parsed = parseYearInput(year)
+      if (!parsed.year) return setError('year must be a year')
+      publishedYear = parsed.year
+      publishedCirca = parsed.circa
     }
     setBusy(true)
     setError('')
@@ -789,6 +798,7 @@ export function EditBook({ book, onSaved, onCancel }) {
       isbn: isbn.trim(),
       asin: asin.trim(),
       published_year: publishedYear,
+      published_circa: publishedCirca,
       genres,
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,

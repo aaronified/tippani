@@ -3378,6 +3378,58 @@ export function byLastRead(a, b) {
   return (a.title || "").localeCompare(b.title || "");
 }
 
+// formatYear — how a publication or release year is written down.
+//
+// 0 means "not recorded" and has since the column existed, so it renders as
+// nothing rather than as a year. A negative year is BCE, and it is written with
+// the sign turned into a word: -380 is "380 BCE", never "-380", which reads as a
+// countdown. CE is left unmarked, because writing "1954 CE" on a novel is
+// pedantry — the era only needs saying when it is the unusual one.
+//
+// `circa` is display-only by design (see migration 0030): it never touches
+// sorting or bucketing, because an approximate year is still that year for
+// every purpose except how it is printed. A "c." that changed the ordering
+// would put the timeline and the shelf into disagreement about the same book.
+export function formatYear(year, circa = false) {
+  const y = Number(year);
+  if (!y) return ""; // 0, null, undefined, NaN — all "no year recorded"
+  return (circa ? "c. " : "") + (y < 0 ? `${-y} BCE` : String(y));
+}
+
+// parseYearInput — the inverse of formatYear, and deliberately forgiving.
+//
+// It reads what formatYear writes, so a year round-trips through the editor
+// unchanged, and it also reads the forms people actually type: "380 BCE",
+// "380 BC", "-380", "c. 380 BCE", "1954 CE". The era word wins over a leading
+// minus, so "-380 BCE" is 380 BCE rather than 380 CE by double negation.
+//
+// Circa is parsed from the same string on purpose. "c. 380 BCE" is one phrase
+// that anyone who owns an old book already knows how to write; splitting it
+// across a number field and a checkbox asks them to take it apart first.
+//
+// Anything unreadable returns 0, which is what this field has always meant by
+// "no year" — the same answer the old Number() coercion gave, for the same
+// reason.
+export function parseYearInput(raw) {
+  let s = String(raw ?? "").trim();
+  if (!s) return { year: 0, circa: false };
+  let circa = false;
+  const c = s.match(/^(?:circa|ca|c)\.?\s*/i); // longest first: "circa" before "c"
+  if (c && c[0].length < s.length) {
+    circa = true;
+    s = s.slice(c[0].length).trim();
+  }
+  let bce = false;
+  const era = s.match(/\s*\b(b\.?\s*c\.?(?:\s*e\.?)?|a\.?\s*d\.?|c\.?\s*e\.?)\.?\s*$/i);
+  if (era) {
+    bce = era[1].replace(/[^a-z]/gi, "").toLowerCase().startsWith("b");
+    s = s.slice(0, era.index).trim();
+  }
+  const n = Number(s);
+  if (!Number.isInteger(n) || n === 0) return { year: 0, circa: false };
+  return { year: bce ? -Math.abs(n) : n, circa };
+}
+
 // FavoriteStar kept its name for compat but renders hearts now (§6).
 export function FavoriteStar({ value, onChange }) {
   return <Hearts value={value} onChange={onChange} />;

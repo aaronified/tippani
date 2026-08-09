@@ -86,6 +86,8 @@ import {
   usePersistedState,
   useReveal,
   ViewToggle,
+  formatYear,
+  parseYearInput,
 } from './ui.jsx'
 
 // Movies — the reel wall (§8.6, mockups 12–14) + movie detail with the
@@ -531,7 +533,8 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
       title: title.trim(),
       media_type: mediaType,
       director: director.trim() || undefined,
-      release_year: year ? Number(year) : undefined,
+      release_year: year ? parseYearInput(year).year : undefined,
+      release_circa: year ? parseYearInput(year).circa : undefined,
       genres,
       series: series.trim() || undefined,
       series_index: Number(seriesIndex) || 0,
@@ -735,13 +738,13 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const metaParts = movie
     ? [
         directorNode,
-        movie.release_year && String(movie.release_year),
+        formatYear(movie.release_year, movie.release_circa) || null,
         seriesLabel(movie) || null,
       ].filter(Boolean)
     : []
 
   const detailTitle = movie ? (movie.title || 'Untitled') : ''
-  const detailMeta = movie ? (movie.director || movie.release_year || '') : ''
+  const detailMeta = movie ? (movie.director || formatYear(movie.release_year, movie.release_circa) || '') : ''
 
   return (
     <section className="space-y-6 md:pt-5" data-screen-label="movie-detail">
@@ -870,7 +873,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
       )}
       <InProgressCapDialog
         open={!!capPool}
-        items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, m.release_year || null].filter(Boolean).join(' · ') }))}
+        items={(capPool || []).map((m) => ({ id: m.id, title: m.title, meta: [m.director, formatYear(m.release_year, m.release_circa) || null].filter(Boolean).join(' · ') }))}
         cap={SHELF_CAPS[capKey]}
         noun={capKey === 'show' ? 'show' : 'film'}
         verb="watching"
@@ -902,7 +905,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   const [title, setTitle] = useState(movie.title || '')
   const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
   const [director, setDirector] = useState(movie.director || '')
-  const [year, setYear] = useState(movie.release_year ? String(movie.release_year) : '')
+  const [year, setYear] = useState(formatYear(movie.release_year, movie.release_circa))
   const [genres, setGenres] = useState(movie.genres || [])
   const [genreSuggestions, setGenreSuggestions] = useState([])
   useEffect(() => {
@@ -930,7 +933,8 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       title: title.trim(),
       media_type: mediaType,
       director: director.trim(),
-      release_year: year ? Number(year) : undefined,
+      release_year: year ? parseYearInput(year).year : undefined,
+      release_circa: year ? parseYearInput(year).circa : undefined,
       genres,
       series: series.trim(),
       series_index: Number(seriesIndex) || 0,

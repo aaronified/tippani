@@ -33,6 +33,8 @@ import {
   IconDelete,
   IconMetadata,
   InfoDot,
+  formatYear,
+  parseYearInput,
   InlineField,
   MonoLabel,
   Placeholder,
@@ -52,7 +54,7 @@ import {
 const BOOK_FIELDS = [
   { key: 'title', label: 'Title' },
   { key: 'author', label: 'Author', hint: 'Multiple authors can share one line — Settings decides which separators split them into distinct people.' },
-  { key: 'published_year', label: 'Year', kind: 'year' },
+  { key: 'published_year', label: 'Year', kind: 'year', circaKey: 'published_circa' },
   { key: 'series', label: 'Series', hint: 'The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.' },
   { key: 'series_index', label: 'Series #', kind: 'number' },
   {
@@ -73,7 +75,7 @@ const MOVIE_FIELDS = [
   { key: 'title', label: 'Title' },
   { key: 'media_type', label: 'Type', kind: 'mediaType', hint: 'A show’s dialogue carries a season and episode; a film’s does not. Changing this does not move any lines you have already saved.' },
   { key: 'director', label: 'Director', labelShow: 'Creator' },
-  { key: 'release_year', label: 'Year', kind: 'year' },
+  { key: 'release_year', label: 'Year', kind: 'year', circaKey: 'release_circa' },
   { key: 'series', label: 'Collection', hint: 'The franchise this title belongs to — the film side of a book’s series.' },
   { key: 'series_index', label: 'Collection #', kind: 'number' },
   {
@@ -108,6 +110,7 @@ function fullState(kind, it) {
       asin: it.asin || '',
       description: it.description || '',
       published_year: it.published_year || 0,
+      published_circa: !!it.published_circa,
       genres: it.genres || [],
       series: it.series || '',
       series_index: it.series_index || 0,
@@ -118,6 +121,7 @@ function fullState(kind, it) {
     title: it.title,
     director: it.director || '',
     release_year: it.release_year || 0,
+    release_circa: !!it.release_circa,
     description: it.description || '',
     genres: it.genres || [],
     media_type: it.media_type || 'movie',
@@ -131,8 +135,13 @@ function fullState(kind, it) {
 function coerce(spec, draft) {
   if (spec.kind === 'tokens') return Array.isArray(draft) ? draft : []
   if (spec.kind === 'year') {
-    const n = Number(String(draft).trim())
-    return Number.isInteger(n) && n > 0 ? n : 0
+    // `n > 0` used to live here, which read every BCE year as no year at all —
+    // you could type 380 BCE, watch it save, and find the field empty. The
+    // parser also carries the estimate, because "c. 380 BCE" is how the year of
+    // an ancient text is actually written, and splitting that across two
+    // controls asks the reader to disassemble a phrase they already know.
+    const { year, circa } = parseYearInput(draft)
+    return spec.circaKey ? { [spec.key]: year, [spec.circaKey]: circa } : year
   }
   if (spec.kind === 'number') return Number(String(draft).trim()) || 0
   return String(draft ?? '').trim()
@@ -142,7 +151,8 @@ function coerce(spec, draft) {
 function resting(spec, it) {
   const v = it?.[spec.key]
   if (spec.kind === 'tokens') return v || []
-  if (spec.kind === 'year' || spec.kind === 'number') return v ? String(v) : ''
+  if (spec.kind === 'year') return formatYear(v, spec.circaKey ? it?.[spec.circaKey] : false)
+  if (spec.kind === 'number') return v ? String(v) : ''
   return v == null ? '' : String(v)
 }
 
@@ -202,7 +212,12 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       setError('a title is required')
       return false
     }
-    const ok = await save({ [spec.key]: next })
+    // A year writes two columns (the year and whether it is an estimate), so
+    // coerce may return a patch instead of a value. Arrays are token fields and
+    // are values, not patches.
+    const patch =
+      next && typeof next === 'object' && !Array.isArray(next) ? next : { [spec.key]: next }
+    const ok = await save(patch)
     if (ok) toast(`${spec.label.toLowerCase()} saved`)
     return ok
   }
@@ -512,8 +527,8 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
               hint={spec.hint}
               busy={!!busy}
               multiline={spec.kind === 'long'}
-              inputMode={spec.kind === 'year' ? 'numeric' : spec.kind === 'number' ? 'decimal' : undefined}
-              maxLength={spec.kind === 'year' ? 4 : undefined}
+              inputMode={spec.kind === 'number' ? 'decimal' : undefined}
+              maxLength={spec.kind === 'year' ? 12 : undefined}
               onSave={(d) => onSaveField(spec, d)}
             />
           )
