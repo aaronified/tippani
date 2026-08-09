@@ -71,6 +71,39 @@ describe('ColorSwatches', () => {
     expect(checked.length).toBe(1)
   })
 
+  it('opens outside the card, not inside it', () => {
+    // 1.7.4 rendered the list inside .cs-menu-wrap, and it could not work there.
+    // A quote card sets `container-type: inline-size` — that is what chooses the
+    // collapsed form in the first place — and a container is `contain: layout`,
+    // which makes the card a stacking context. An absolutely-positioned list
+    // inside one cannot be raised above a neighbouring card by any z-index, so a
+    // menu wider or taller than its card slides UNDER the card beside it.
+    //
+    // jsdom has no stacking contexts, so what is testable is the structural
+    // claim the fix rests on: the list is a child of <body>. The offsets that
+    // made it a 3px sliver are covered in test/pure/popup-offsets.test.js, which
+    // reads the stylesheet — this file measures nothing.
+    const { container } = render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
+    fireEvent.click(screen.getByRole('button', { expanded: false }))
+    const menu = document.querySelector('.cs-menu')
+    expect(menu).toBeTruthy()
+    expect(container.contains(menu), 'the menu is still trapped in the card').toBe(false)
+    expect(menu.parentElement).toBe(document.body)
+  })
+
+  it('closes when the click lands outside both the button and the list', () => {
+    // The portal moved the list out of the wrap, so "outside" has to ask two
+    // elements. Asking only the wrap closes the menu on the way to choosing
+    // from it.
+    render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
+    fireEvent.click(screen.getByRole('button', { expanded: false }))
+    const menu = document.querySelector('.cs-menu')
+    fireEvent.mouseDown(menu)
+    expect(document.querySelector('.cs-menu'), 'closed on its own list').toBeTruthy()
+    fireEvent.mouseDown(document.body)
+    expect(document.querySelector('.cs-menu')).toBeNull()
+  })
+
   it('closes on Escape', () => {
     render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
     fireEvent.click(screen.getByRole('button', { expanded: false }))

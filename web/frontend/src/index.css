@@ -3564,14 +3564,28 @@ html[data-theme="dark"] .mobile-sheet-footer {
   cursor: pointer;
   color: var(--soft);
 }
+/* Fixed, and portalled to <body> — see ColorMenu in ui.jsx for why a card's
+   own stacking context makes an absolutely-positioned list unliftable.
+
+   Every offset .token-menu sets for an in-flow anchored dropdown has to be
+   cleared here, because the two classes are composed onto one element. The pair
+   that was NOT cleared is exactly what shipped in 1.7.4 as a 3px sliver:
+   token-menu's `top: calc(100% + 4px)` survived beside this rule's `bottom`,
+   and an over-constrained box with `height: auto` does not drop one of them —
+   it SOLVES for the height, which came out negative. What was on screen was the
+   1.4px border, twice, with nothing in between.
+
+   top and left are deliberately absent: they arrive as an inline style from the
+   measured anchor position. */
 .cs-menu {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 0;
-  z-index: 40;
+  position: fixed;
+  bottom: auto;
+  right: auto;
+  z-index: 70;                 /* over sheets/modals (50) and the grain (60) */
   display: flex;
   flex-direction: column;
   min-width: 148px;
+  max-width: none;             /* token-menu caps at 100% of a 40px anchor */
   padding: 4px;
   /* Contained, per the 1.7.2 sweep: reaching the end of this list must not
      scroll the board behind it. */

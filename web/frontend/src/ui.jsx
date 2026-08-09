@@ -3531,13 +3531,66 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
 // 1.7.1 the categories have had NAMES the reader chose — so the collapsed form
 // is the one place they can actually be read. A cramped row hides information
 // the expanded row was already failing to show.
+// It is PORTALLED and fixed-positioned, which is not fussiness. A quote card
+// sets `container-type: inline-size` (that is what chooses this form over the
+// row), and a container is `contain: layout` — which makes the card a stacking
+// context. An absolutely-positioned list inside one cannot be lifted above a
+// neighbouring card no matter what z-index it carries, so a menu that opened
+// past the card's edge would slide UNDER the card beside it. Anchoring to the
+// viewport puts it where a popup belongs and flips it when there is no room.
 function ColorMenu({ value, offered, onChange, ariaLabel }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
   const box = useRef(null);
+  const menu = useRef(null);
+
+  // Placement needs the list's real height, which needs one paint — hence
+  // useLayoutEffect and the hidden first frame (pos === null), the same shape
+  // InfoPopover uses.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const el = box.current;
+      const m = menu.current;
+      if (!el || !m) return;
+      const r = el.getBoundingClientRect();
+      const w = m.offsetWidth;
+      const h = m.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Above by preference: this control sits low on a card, and a list that
+      // drops downwards would cover the quote you are colouring.
+      const above = r.top - 6 - h >= 8;
+      setPos({
+        top: above ? r.top - 6 - h : Math.min(r.bottom + 6, Math.max(8, vh - h - 8)),
+        left: Math.max(8, Math.min(r.left, vw - w - 8)),
+      });
+    };
+    place();
+    // `true` captures scrolls in any ancestor, not just the window — these cards
+    // live inside scrollable boards and sheets.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open]);
+
   useEffect(() => {
-    if (!open) return;
-    const away = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
-    const esc = (e) => { if (e.key === "Escape") setOpen(false); };
+    if (!open) return undefined;
+    // The list is no longer a descendant of the wrap, so "outside" has to ask
+    // both elements.
+    const away = (e) => {
+      if (box.current?.contains(e.target)) return;
+      if (menu.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const esc = (e) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      box.current?.querySelector("button")?.focus();
+    };
     document.addEventListener("mousedown", away);
     document.addEventListener("keydown", esc);
     return () => {
@@ -3545,6 +3598,9 @@ function ColorMenu({ value, offered, onChange, ariaLabel }) {
       document.removeEventListener("keydown", esc);
     };
   }, [open]);
+
+  const close = () => { setOpen(false); setPos(null); };
+
   return (
     <span className="cs-menu-wrap" ref={box}>
       <Tooltip label={value ? `Colour: ${categoryName(value)}` : "Pick a colour"}>
@@ -3554,14 +3610,20 @@ function ColorMenu({ value, offered, onChange, ariaLabel }) {
           aria-haspopup="true"
           aria-expanded={open}
           aria-label={ariaLabel}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => (open ? close() : setOpen(true))}
         >
           <span className={"color-dot " + (colorDotClass[value] || "") + (value ? " active" : "")} />
           <IconChevron open={open} size={14} />
         </button>
       </Tooltip>
-      {open && (
-        <span className="cs-menu token-menu" role="radiogroup" aria-label={ariaLabel}>
+      {open && createPortal(
+        <span
+          ref={menu}
+          className="cs-menu token-menu"
+          role="radiogroup"
+          aria-label={ariaLabel}
+          style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? undefined : "hidden" }}
+        >
           {offered.map((c) => (
             <button
               key={c}
@@ -3569,13 +3631,14 @@ function ColorMenu({ value, offered, onChange, ariaLabel }) {
               role="radio"
               aria-checked={value === c}
               className="cs-menu-row"
-              onClick={() => { onChange(c); setOpen(false); }}
+              onClick={() => { onChange(c); close(); }}
             >
               <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
               <span className="cs-menu-name">{categoryName(c)}</span>
             </button>
           ))}
-        </span>
+        </span>,
+        document.body,
       )}
     </span>
   );
