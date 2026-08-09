@@ -26,6 +26,7 @@ import {
   wishFilter,
 } from './works.jsx'
 import {
+  byLastRead,
   bySeries,
   clampSequence,
   ColorSwatches,
@@ -227,6 +228,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
     else if (sort === 'series') list.sort(bySeries)
+    else if (sort === 'read') list.sort(byLastRead)
     return list
   }, [books, genre, series, fav, tagged, noted, states, wish, sort])
 
@@ -283,7 +285,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       setSeries={setSeries}
       sort={sort}
       setSort={setSort}
-      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series']]}
+      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series'], ['read', 'Last read']]}
       trailing={
         <label className="flex items-center gap-2">
           <MonoLabel>group</MonoLabel>

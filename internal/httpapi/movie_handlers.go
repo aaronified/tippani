@@ -31,9 +31,9 @@ type movieReq struct {
 	Series      string   `json:"series"`
 	SeriesIndex float64  `json:"series_index"`
 	Favorite    bool     `json:"favorite"`
-	PosterURL   string   `json:"poster_url"`   // update: set/replace the poster
-	ClearCover  bool     `json:"clear_cover"`  // update: drop the current poster
-	ConfirmNew  bool     `json:"confirm_new"`  // create-from-source: add a separate title despite a same-name look-alike
+	PosterURL   string   `json:"poster_url"`  // update: set/replace the poster
+	ClearCover  bool     `json:"clear_cover"` // update: drop the current poster
+	ConfirmNew  bool     `json:"confirm_new"` // create-from-source: add a separate title despite a same-name look-alike
 }
 
 func (m *movieReq) validate() string {
@@ -362,20 +362,22 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 
 func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	type item struct {
-		ID            int64    `json:"id"`
-		Title         string   `json:"title"`
-		Director      string   `json:"director"`
-		ReleaseYear   int      `json:"release_year"`
-		MediaType     string   `json:"media_type"`
-		PosterPath    string   `json:"poster_path"`
-		Genres        []string `json:"genres"`
-		Series        string   `json:"series"`
-		SeriesIndex   float64  `json:"series_index"`
-		Favorite      bool     `json:"favorite"`
-		Status        string   `json:"status"`     // "" | watching | paused | abandoned | completed
-		Progress      int      `json:"progress"`   // 0-100; fills the status bar under the poster
-		ReadCount     int      `json:"read_count"` // finished watches, for the "×2" chip
-		DialogueCount int      `json:"dialogue_count"`
+		ID          int64    `json:"id"`
+		Title       string   `json:"title"`
+		Director    string   `json:"director"`
+		ReleaseYear int      `json:"release_year"`
+		MediaType   string   `json:"media_type"`
+		PosterPath  string   `json:"poster_path"`
+		Genres      []string `json:"genres"`
+		Series      string   `json:"series"`
+		SeriesIndex float64  `json:"series_index"`
+		Favorite    bool     `json:"favorite"`
+		Status      string   `json:"status"`     // "" | watching | paused | abandoned | completed
+		Progress    int      `json:"progress"`   // 0-100; fills the status bar under the poster
+		ReadCount   int      `json:"read_count"` // finished watches, for the "×2" chip
+		// The most recent date this was watched, for the "Last watched" sort.
+		LastReadAt    string `json:"last_read_at"`
+		DialogueCount int    `json:"dialogue_count"`
 		// Mirrors the books list: "tagged" means the title has at least one
 		// tagged dialogue, "noted" at least one carrying a note. "Wishlist" is
 		// likewise derived from dialogue_count == 0 and so needs no field.
@@ -429,11 +431,17 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "list movies: read counts", err)
 		return
 	}
+	lastRead, err := s.lastReadAt(uid, "movie")
+	if err != nil {
+		internalError(w, r, "list movies: last watched", err)
+		return
+	}
 	for i := range items {
 		if gs := byMovie[items[i].ID]; gs != nil {
 			items[i].Genres = gs
 		}
 		items[i].ReadCount = reads[items[i].ID]
+		items[i].LastReadAt = lastRead[items[i].ID]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"movies": items})
 }
@@ -725,6 +733,6 @@ func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.removeCoverFile(poster.String) // best-effort
-	s.gcOrphanPeople(uid, "actor") // cascaded-deleted dialogues can orphan actors
+	s.gcOrphanPeople(uid, "actor")   // cascaded-deleted dialogues can orphan actors
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

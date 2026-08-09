@@ -79,6 +79,10 @@ of that are spelled out in [`AI.md`](AI.md).
 
 ## Features
 
+- 🕒 **Sort by when you last read it** — the Library and the Catalogue sort by **Last read** / **Last
+  watched**: the most recent date you had the thing in your hands, whether you finished it, are still in
+  it, or gave up on it. Anything never logged sits at the end, alphabetically — which in a library built
+  to hold quotes is usually most of it.
 - 📚 **Books & annotations** — quotes and notes with 6 **colour categories you name yourself**, tags, chapter/location,
   a favourite ★ and series/reading-order metadata. Browse as a packed masonry, a
   list, or a sortable table; filter by any combination, and **group by series, author, decade, or

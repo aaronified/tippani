@@ -3345,6 +3345,39 @@ export function bySeries(a, b) {
   return a.title.localeCompare(b.title);
 }
 
+// byLastRead orders by when you last had the thing in your hands — most recent
+// first — with everything you have never read after it, alphabetically.
+//
+// NEVER-READ GOES LAST, ALWAYS. Most libraries here are mostly unread: this app
+// exists to keep quotes, and a book can be shelved, quoted and never once logged
+// as read. If the undated ones sorted first, or scattered through, the sort
+// would answer a question nobody asked. They keep their own order — by title,
+// because "no date" is not a tie worth breaking randomly, and a stable
+// alphabetical tail is something you can actually look things up in.
+//
+// Dates are PARTIAL ('2019' | '2019-05' | '2019-05-02') and compared as strings,
+// which is the property the schema was designed around and noted_at has relied
+// on since 0008. '2019-05' > '2019' is the honest reading of the two: May is a
+// more precise claim than "sometime that year", and there is nothing to do with
+// the imprecision except order it consistently.
+// UNDATED LANDS LAST WITHOUT BEING SENT THERE, and this is the one thing to know
+// before editing it. "" is a prefix of every string, so it always compares FIRST
+// ascending — and this compare is inverted for "most recent first", which puts
+// it last. Two explicit `if (!da) return 1` guards were written here and a
+// mutation proved them unreachable: deleting both changed no result, because the
+// direction was already doing their work.
+//
+// So the invariant lives in the test, not in a branch that cannot run. If this
+// ever sorts oldest-first, the guards have to come back — the unread belong at
+// the bottom either way, and that is the one thing flipping the comparison would
+// silently undo.
+export function byLastRead(a, b) {
+  const da = a.last_read_at || "",
+    db = b.last_read_at || "";
+  if (da !== db) return db.localeCompare(da); // most recent first; "" sorts last
+  return (a.title || "").localeCompare(b.title || "");
+}
+
 // FavoriteStar kept its name for compat but renders hearts now (§6).
 export function FavoriteStar({ value, onChange }) {
   return <Hearts value={value} onChange={onChange} />;

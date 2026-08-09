@@ -674,6 +674,48 @@ func (s *Server) setWorkStatus(w http.ResponseWriter, r *http.Request, kind stri
 // readCounts maps work id -> finished-read count for one side in a single query,
 // so a list endpoint can print "×2" without an N+1. Only 'finished' rows count:
 // an abandoned attempt is history, not a read.
+// lastReadAt is the most recent date each work was read or watched, for the
+// list pages' "Last read" / "Last watched" sort. Works with no dated read at
+// all are simply absent from the map.
+//
+// FINISHED IF THERE IS ONE, ELSE STARTED. A read you are still in the middle of
+// has no finish date, and it is the one you touched most recently — sorting by
+// finished_at alone would file the book currently open under "never".
+//
+// Every outcome counts, not just 'finished'. The question is "when did I last
+// have this in my hands", and abandoning a book halfway through November is an
+// answer to it. That is also why this cannot reuse readCounts, which asks a
+// different question — how many times did I get to the end — and is right to
+// filter on the outcome.
+//
+// Partial dates ('YYYY' | 'YYYY-MM' | 'YYYY-MM-DD') compare lexically, which is
+// the same property noted_at has relied on since 0008, so MAX() over the mixed
+// shapes is meaningful without parsing anything.
+func (s *Server) lastReadAt(uid int64, kind string) (map[int64]string, error) {
+	rows, err := s.Store.DB.Query(
+		`SELECT work_id, MAX(CASE WHEN finished_at <> '' THEN finished_at ELSE started_at END)
+		   FROM work_reads WHERE user_id = ? AND kind = ? GROUP BY work_id`,
+		uid, kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var at sql.NullString
+		if err := rows.Scan(&id, &at); err != nil {
+			return nil, err
+		}
+		// A work whose only reads carry no dates at all — undated is not a date,
+		// and an empty string here would sort as one.
+		if at.Valid && at.String != "" {
+			out[id] = at.String
+		}
+	}
+	return out, rows.Err()
+}
+
 func (s *Server) readCounts(uid int64, kind string) (map[int64]int, error) {
 	rows, err := s.Store.DB.Query(
 		`SELECT work_id, count(*) FROM work_reads

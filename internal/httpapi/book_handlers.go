@@ -205,20 +205,25 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	type item struct {
-		ID              int64    `json:"id"`
-		Title           string   `json:"title"`
-		Author          string   `json:"author"`
-		ISBN            string   `json:"isbn"`
-		PublishedYear   int      `json:"published_year"`
-		CoverPath       string   `json:"cover_path"`
-		Genres          []string `json:"genres"`
-		Series          string   `json:"series"`
-		SeriesIndex     float64  `json:"series_index"`
-		Favorite        bool     `json:"favorite"`
-		Status          string   `json:"status"`     // "" | reading | paused | abandoned | completed
-		Progress        int      `json:"progress"`   // 0-100; fills the status bar under the cover
-		ReadCount       int      `json:"read_count"` // finished reads, for the "×2" chip
-		AnnotationCount int      `json:"annotation_count"`
+		ID            int64    `json:"id"`
+		Title         string   `json:"title"`
+		Author        string   `json:"author"`
+		ISBN          string   `json:"isbn"`
+		PublishedYear int      `json:"published_year"`
+		CoverPath     string   `json:"cover_path"`
+		Genres        []string `json:"genres"`
+		Series        string   `json:"series"`
+		SeriesIndex   float64  `json:"series_index"`
+		Favorite      bool     `json:"favorite"`
+		Status        string   `json:"status"`     // "" | reading | paused | abandoned | completed
+		Progress      int      `json:"progress"`   // 0-100; fills the status bar under the cover
+		ReadCount     int      `json:"read_count"` // finished reads, for the "×2" chip
+		// The most recent date this was read, for the "Last read" sort. Empty
+		// when it has never been read or the reads carry no dates — which is a
+		// real and common state, and the reason the sort has to say where those
+		// go rather than leaving them wherever a comparator drops them.
+		LastReadAt      string `json:"last_read_at"`
+		AnnotationCount int    `json:"annotation_count"`
 		// Books carry no tags of their own — annotation_tags joins ANNOTATIONS to
 		// tags — so "tagged" on a book row means "has at least one tagged quote".
 		// Counts rather than bools: same cost, and the list page can say how many.
@@ -277,11 +282,17 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "list book read counts", err)
 		return
 	}
+	lastRead, err := s.lastReadAt(uid, "book")
+	if err != nil {
+		internalError(w, r, "list book last read", err)
+		return
+	}
 	for i := range items {
 		if gs := byBook[items[i].ID]; gs != nil {
 			items[i].Genres = gs
 		}
 		items[i].ReadCount = reads[items[i].ID]
+		items[i].LastReadAt = lastRead[items[i].ID]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"books": items})
 }

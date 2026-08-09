@@ -29,6 +29,7 @@ import {
 } from './works.jsx'
 import {
   ANNOTATION_HEX,
+  byLastRead,
   bySeries,
   clampSequence,
   ColorSwatches,
@@ -272,6 +273,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'year') list.sort((a, b) => (b.release_year || 0) - (a.release_year || 0))
     else if (sort === 'series') list.sort(bySeries)
+    else if (sort === 'read') list.sort(byLastRead)
     return list
   }, [movies, mediaType, genre, series, fav, tagged, noted, states, wish, sort])
 
@@ -339,7 +341,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       sort={sort}
       setSort={setSort}
       seriesNoun="collection"
-      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Collection']]}
+      sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Collection'], ['read', 'Last watched']]}
       leading={
         hasShows &&
         [['', 'All'], ['movie', 'Movies'], ['show', 'Shows']].map(([k, label]) => (
