@@ -7,6 +7,7 @@ import { ShareDialog, bookShare, movieShare, quoteShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
+import { categoryVar } from './theme.js'
 import {
   BulkBar,
   CloseButton,
@@ -894,13 +895,32 @@ function MediaGroup({ kind, cover, title, mediaTag, credits, genres = [], terms,
 }
 
 // ChildHit: an annotation / dialogue row inside a group, its own click target.
-function ChildHit({ onClick, children }) {
+// ChildHit — one matching quote under a result heading, on every search
+// surface: a book's annotations, a film's dialogues, a tag's quotes, a date's.
+//
+// `color` draws the same 4px left bar HandCard's `colorBar` draws, because a
+// quote is the same object wherever it is listed and search was the one place
+// that forgot. Via categoryVar rather than a copied hex, so renaming or
+// recolouring a category repaints these rows immediately instead of on the next
+// full reload — the same reason HandCard resolves it that way.
+//
+// No colour falls back to the border, not to slot 1: `--hl-1` is a real
+// category somebody may have named, and painting an unknown row with it would
+// be asserting a category that was never chosen.
+function ChildHit({ color, onClick, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="block w-full text-left"
-      style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer' }}
+      style={{
+        background: 'var(--raised)',
+        border: '1px solid var(--line)',
+        borderLeft: `4px solid ${categoryVar(color) || 'var(--line)'}`,
+        borderRadius: 8,
+        padding: '8px 12px',
+        cursor: 'pointer',
+      }}
     >
       {children}
     </button>
@@ -950,7 +970,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
       >
         {(isBook ? g.annotations : g.dialogues).map((h) =>
           isBook ? (
-            <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
+            <ChildHit key={h.id} color={h.color} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
               {h.quote && (
                 <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
               )}
@@ -961,7 +981,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
               )}
             </ChildHit>
           ) : (
-            <ChildHit key={h.id} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
+            <ChildHit key={h.id} color={h.color} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
               <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
               {/* The margin note (highlighted — this is what a Notes hit matched on). */}
               {h.note && (
@@ -1118,7 +1138,7 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
 // would otherwise collide and React would drop one.
 function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
   return (
-    <ChildHit key={`u${h.id}`} onClick={() => onOpen({ kind: 'utterance', hit: h })}>
+    <ChildHit key={`u${h.id}`} color={h.color} onClick={() => onOpen({ kind: 'utterance', hit: h })}>
       {(h.quote || h.note) && (
         <MatchWindow
           text={h.quote || h.note}
@@ -1156,7 +1176,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
           </div>
           <div className="space-y-2">
             {(t.annotations || []).map((h) => (
-              <ChildHit key={`a${h.id}`} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
+              <ChildHit key={`a${h.id}`} color={h.color} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
                 {(h.quote || h.note) && (
                   <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
                 )}
@@ -1166,7 +1186,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
               </ChildHit>
             ))}
             {(t.dialogues || []).map((h) => (
-              <ChildHit key={`d${h.id}`} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
+              <ChildHit key={`d${h.id}`} color={h.color} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
                 <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
                 <MonoLabel className="mt-1 block min-w-0 truncate">
                   {[h.movie_title, h.character].filter(Boolean).join(' · ')}

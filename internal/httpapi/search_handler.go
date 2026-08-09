@@ -40,6 +40,11 @@ type annotationHit struct {
 	BookGenres []string `json:"book_genres"`
 	Quote      string   `json:"quote"`
 	Note       string   `json:"note"`
+	// Color, because a quote is the same object wherever it is listed. Search
+	// was the one place it arrived without one, so every annotation in a result
+	// list wore the default colour and a library sorted into six named
+	// categories looked uncategorised the moment you searched it.
+	Color string `json:"color"`
 }
 
 type movieHit struct {
@@ -84,6 +89,7 @@ type dialogueHit struct {
 	MovieMediaType string   `json:"movie_media_type"` // movie | show
 	Quote          string   `json:"quote"`
 	Note           string   `json:"note"`
+	Color          string   `json:"color"` // see annotationHit.Color
 	Character      string   `json:"character"`
 	Actor          string   `json:"actor"`
 	Timestamp      string   `json:"timestamp"`
@@ -204,13 +210,13 @@ const (
 	bookHitCols = `b.id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
 		COALESCE(b.published_year, 0), COALESCE(b.series, ''), COALESCE(b.series_index, 0)`
 	annotationHitCols = `a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
-		COALESCE(a.quote, ''), COALESCE(a.note, ''),
+		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, '')`
 	movieHitCols = `m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		COALESCE(m.poster_path, ''), COALESCE(m.series, ''), COALESCE(m.series_index, 0),
 		COALESCE(m.media_type, 'movie')`
 	dialogueHitCols = `d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
-		COALESCE(d.note, ''), COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
+		COALESCE(d.note, ''), d.color, COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
 		d.season, d.episode,
 		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
 		COALESCE(m.media_type, 'movie')`
@@ -227,7 +233,7 @@ func scanBookHit(rows *sql.Rows) (bookHit, error) {
 
 func scanAnnotationHit(rows *sql.Rows) (annotationHit, error) {
 	h := annotationHit{BookGenres: []string{}}
-	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note,
+	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color,
 		&h.BookAuthor, &h.BookYear, &h.BookSeries)
 	return h, err
 }
@@ -240,7 +246,7 @@ func scanMovieHit(rows *sql.Rows) (movieHit, error) {
 
 func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	h := dialogueHit{MovieGenres: []string{}}
-	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note,
+	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note, &h.Color,
 		&h.Character, &h.Actor, &h.Timestamp, &h.Season, &h.Episode,
 		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType)
 	return h, err
