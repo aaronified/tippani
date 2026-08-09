@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-08-09
+
+### Added
+
+- **Six colour categories, not four.** They arrive named — **Fact**, **Disagreed**,
+  **Inspirational**, **Funny**, **Meta** — beside the first slot, which stays
+  unnameable because it is the default an import writes when the source gave no
+  colour. All of them are yours to rename, recolour and hide, and none of the
+  names is stored until you change one.
+
+  This is a **migration**, not a setting: `color` carries a `CHECK` on *five*
+  live tables, SQLite cannot alter a CHECK, and four of those tables are
+  foreign-key parents whose children cascade on delete. `tags` is the one
+  migration 0018 explicitly refused to rebuild — it could not be left out here,
+  because `tags.color` is validated by the same allowlist the quote colours use,
+  so widening one and not the other would turn a green tag into a 500 on a valid
+  request.
+
+### Fixed
+
+- **Standalone quotes never appeared in Home's favourites.** Home fetched two
+  lists and merged two lists, and had done since before the third kind existed —
+  the comment above the loader still said "both media". Nothing failed: hearting
+  a standalone quote worked, the heart stayed on, the Quotes screen filtered by
+  it, and the quote simply never showed up in the section that exists to
+  resurface exactly that.
+
+- **The share image's portrait control said "Off" when it meant "Chip".** The
+  backdrop has always replaced the small credit chip rather than joining it — a
+  thumbnail crop of the same photograph beside a full-height version of it reads
+  as a mistake — so an Off/Backdrop switch was a Chip/Backdrop switch with one of
+  its answers unnamed. Turning it "off" never removed the person from the card;
+  it changed how they appeared. It says so now.
+
+### Internal
+
+- **Sixteen mutations against migration 0029, all killed** — the join-row parking
+  removed, the restore removed, each FTS and review trigger dropped, an index
+  dropped, a foreign key dropped, the CHECK dropped rather than widened, a column
+  dropped from the copy, the ids not preserved, a scaffolding table left behind,
+  and the `tags` CHECK left at four.
+
+  One of them taught something by *surviving*. Removing the FTS index rebuild
+  changed nothing: an external-content FTS5 index keeps its own entries, so
+  dropping and recreating the content table does not clear them and pre-existing
+  rows stay searchable either way. That is exactly the signal that a line is
+  either unnecessary or untested — and it was the latter. What the rebuild
+  actually repairs is an index that had *already* drifted, which is now what the
+  test asserts.
+
+- **Three existing tests used `green` as their example of an invalid colour.**
+  They use one that will never be valid now: an invalid-input test whose input
+  quietly becomes valid asserts nothing, and all three would have gone on passing.
+
+- The Home favourites test reads the loader out of the source rather than
+  rendering it, because the bug was an absent *fetch* — a render test asserts what
+  a component does with the data it was given, and this one was never given it.
+
+- 713 frontend tests.
+
 ## [1.7.0] - 2026-08-08
 
 **The four colours have names.** And the daily quiz can finally be told which
