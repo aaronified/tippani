@@ -398,6 +398,156 @@ func distinctCredits(seps metadata.CreditSeps, credits ...string) map[string]str
 	return out
 }
 
+// yearBucket is one year on the timeline: how many works were first published
+// or released in it, and how many quotes the library holds from those works.
+type yearBucket struct {
+	Year   int `json:"year"`
+	Works  int `json:"works"`
+	Quotes int `json:"quotes"`
+}
+
+// timelineYears returns one row per year the library actually touches, ordered.
+//
+// A quote is dated by the WORK it came from, not by when it was saved — the
+// activity calendar already answers "when was I reading". This answers "how old
+// is what I read", which for a library assembled around old books is a different
+// and more interesting shape.
+//
+// Standalone quotes are dated by occasion_date, the only date they carry that is
+// about the quote rather than about the saving of it. That column is a partial
+// date stored as TEXT ('YYYY' | 'YYYY-MM' | 'YYYY-MM-DD'), so the year comes off
+// the front: substr(…, 1, 5) rather than 1, 4, because a BCE year carries a
+// leading '-' and '-380' needs five characters. SQLite's CAST stops at the first
+// non-digit, so '2019-' and '-380-' both land on the right number.
+//
+// Works with no year are simply absent. There is no "unknown" bucket, because a
+// bar labelled "no year" sitting next to the 1920s invites reading it as a
+// point in time, and it is not one — it is a gap in the catalogue.
+func (s *Server) timelineYears(uid int64) ([]yearBucket, error) {
+	rows, err := s.Store.DB.Query(`
+		SELECT year, SUM(works) AS works, SUM(quotes) AS quotes FROM (
+			SELECT published_year AS year, 1 AS works, 0 AS quotes
+			  FROM books WHERE user_id = ? AND COALESCE(published_year, 0) <> 0
+			UNION ALL
+			SELECT release_year, 1, 0
+			  FROM movies WHERE user_id = ? AND COALESCE(release_year, 0) <> 0
+			UNION ALL
+			SELECT b.published_year, 0, 1
+			  FROM annotations a JOIN books b ON b.id = a.book_id
+			 WHERE b.user_id = ? AND COALESCE(b.published_year, 0) <> 0
+			UNION ALL
+			SELECT m.release_year, 0, 1
+			  FROM dialogues d JOIN movies m ON m.id = d.movie_id
+			 WHERE m.user_id = ? AND COALESCE(m.release_year, 0) <> 0
+			UNION ALL
+			SELECT CAST(substr(occasion_date, 1, 5) AS INTEGER), 0, 1
+			  FROM utterances
+			 WHERE user_id = ? AND occasion_date <> ''
+			   AND CAST(substr(occasion_date, 1, 5) AS INTEGER) <> 0
+		)
+		GROUP BY year ORDER BY year`, uid, uid, uid, uid, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []yearBucket{}
+	for rows.Next() {
+		var b yearBucket
+		if err := rows.Scan(&b.Year, &b.Works, &b.Quotes); err != nil {
+			olog.Warnf(olog.CodeStatsRowScan, "[stats] timeline row scan failed: %v", err)
+			continue
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// favouritePerson is the person whose quotes you have hearted most.
+//
+// Not derivable from the breakdown: tallyMap counts quotes and recall states and
+// has never carried favourites. And it cannot be a GROUP BY on the credit
+// column, for the two reasons every people query here has to respect — a credit
+// can name two people ("Gaiman & Pratchett"), and a dialogue can name the same
+// person twice, as director and as actor. So the rows come back per quote and
+// the splitting happens in Go, exactly as the breakdown does it.
+func (s *Server) favouritePerson(uid int64, seps metadata.CreditSeps) (*statsTop, error) {
+	counts := map[string]int{}
+	display := map[string]string{}
+	add := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		k := strings.ToLower(name)
+		if display[k] == "" {
+			display[k] = name
+		}
+		counts[k]++
+	}
+
+	// Books and standalone quotes carry one credit each.
+	for _, q := range []string{
+		`SELECT b.author FROM annotations a JOIN books b ON b.id = a.book_id
+		  WHERE b.user_id = ? AND a.favorite = 1`,
+		`SELECT speaker FROM utterances WHERE user_id = ? AND favorite = 1`,
+	} {
+		rows, err := s.Store.DB.Query(q, uid)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var credit sql.NullString
+			if err := rows.Scan(&credit); err != nil {
+				continue
+			}
+			for _, n := range metadata.SplitCredits(credit.String, seps) {
+				add(n)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+
+	// A dialogue carries two, and they can be the same person.
+	rows, err := s.Store.DB.Query(`
+		SELECT COALESCE(m.director, ''), COALESCE(d.actor, '')
+		  FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		 WHERE m.user_id = ? AND d.favorite = 1`, uid)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var director, actor string
+		if err := rows.Scan(&director, &actor); err != nil {
+			continue
+		}
+		for _, name := range distinctCredits(seps, director, actor) {
+			add(name)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	best, bestKey := 0, ""
+	for k, n := range counts {
+		// Ties break on the name so the tile does not change on every reload for
+		// a library where two people are level.
+		if n > best || (n == best && k < bestKey) {
+			best, bestKey = n, k
+		}
+	}
+	if best == 0 {
+		return nil, nil
+	}
+	return &statsTop{Title: display[bestKey], Count: best}, nil
+}
+
 // everyQuoteCreatedAt is one row per saved quote of any kind, carrying just the
 // timestamp. Three aggregates bucket by it — the busiest month, the activity
 // calendar, and "collecting since" — and each used to spell the union out
@@ -683,10 +833,22 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Per-kind recall breakdown (authors · books · series · films · shows ·
-	// directors · actors · speakers · occasions), multi-author credits split.
+	// directors · actors · speakers · people), multi-author credits split.
 	breakdown, err := s.statsBreakdown(uid)
 	if err != nil {
 		internalError(w, r, "recall breakdown", err)
+		return
+	}
+
+	// When the library's works are FROM, as opposed to when they were saved.
+	timeline, err := s.timelineYears(uid)
+	if err != nil {
+		internalError(w, r, "timeline", err)
+		return
+	}
+	favouritePerson, err := s.favouritePerson(uid, s.creditSeps(uid))
+	if err != nil {
+		internalError(w, r, "favourite person", err)
 		return
 	}
 
@@ -707,23 +869,25 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"books":          books,
-		"annotations":    annotations,
-		"movies":         movies,
-		"dialogues":      dialogues,
-		"quotes":         quotes,
-		"tags":           tags,
-		"favorites":      favorites,
-		"genres":         genres,
-		"most_annotated": mostAnnotated,
-		"most_quoted":    mostQuoted,
-		"busiest_month":  busiest,
-		"daily_activity": daily,
-		"daily_quiz":     dailyQuiz,
-		"daily_practice": dailyPractice,
-		"colors":         colors,
-		"top_tags":       topTags,
-		"first_saved":    firstSaved,
+		"books":            books,
+		"annotations":      annotations,
+		"movies":           movies,
+		"dialogues":        dialogues,
+		"quotes":           quotes,
+		"tags":             tags,
+		"favorites":        favorites,
+		"genres":           genres,
+		"most_annotated":   mostAnnotated,
+		"timeline":         timeline,
+		"favourite_person": favouritePerson,
+		"most_quoted":      mostQuoted,
+		"busiest_month":    busiest,
+		"daily_activity":   daily,
+		"daily_quiz":       dailyQuiz,
+		"daily_practice":   dailyPractice,
+		"colors":           colors,
+		"top_tags":         topTags,
+		"first_saved":      firstSaved,
 		"recall": map[string]any{
 			"states":        states,
 			"reviewed":      reviewedN,
