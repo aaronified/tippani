@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  🎭 <a href="https://aaronified.github.io/tippani/">Interactive demo</a> — a read-only click-around with dummy data
+  🎭 <a href="https://aaronified.github.io/tippani/demo/">Interactive demo</a> — a read-only click-around with dummy data
   that tracks the current frontend (it rebuilds whenever the UI changes). Writes are disabled; everything else is
   the real interface.
 </p>

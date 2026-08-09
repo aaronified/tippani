@@ -123,10 +123,12 @@ export default function App() {
         <div className="demo-ribbon" role="note">
           Demo · dummy data, read-only · rougher than the real thing — <a href="https://github.com/aaronified/tippani">the self-hosted app is more polished →</a>
           {' · '}
-          {/* Relative, and deliberately not routed through the SPA: pages.yml
-              copies docs/roadmap.html next to this build, so it resolves under
-              the Pages subpath without knowing what that subpath is. */}
-          <a href="roadmap.html">roadmap →</a>
+          {/* Relative, and deliberately not routed through the SPA, so it
+              resolves under the Pages subpath without knowing what that subpath
+              is. `../` because the demo now lives one level down at /demo/ —
+              the site root is the landing page, which is the only page a search
+              engine can read (this one is an empty div until JS runs). */}
+          <a href="../roadmap.html">roadmap →</a>
         </div>
       )}
       {/* A render error in any screen unmounts to a visible fallback, never a

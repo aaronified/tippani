@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Tippani — a self-hosted home for your book highlights and film dialogues</title>
+<meta name="description" content="Tippani is a frugal, self-hosted app for keeping quotes from books, films and shows. Bulk-import highlights, tag and colour them, auto-fetch covers and metadata, search everything instantly, and export it all as Obsidian-friendly Markdown. One 12 MB Go binary, SQLite, no background jobs.">
+<link rel="canonical" href="https://aaronified.github.io/tippani/">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tippani">
+<meta property="og:title" content="Tippani — quotes from books, films and shows, kept on your own box">
+<meta property="og:description" content="A frugal, self-hosted home for your book highlights and film dialogues. Import, tag, search and export — one small Go binary and a SQLite file.">
+<meta property="og:url" content="https://aaronified.github.io/tippani/">
+<meta property="og:image" content="https://aaronified.github.io/tippani/social.jpg">
+<meta property="og:image:alt" content="The Tippani library: a grid of book covers on a paper-textured background">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tippani — quotes from books, films and shows, kept on your own box">
+<meta name="twitter:description" content="A frugal, self-hosted home for your book highlights and film dialogues. Import, tag, search and export.">
+<meta name="twitter:image" content="https://aaronified.github.io/tippani/social.jpg">
+
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F3EBDB">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#2B241C">
+<link rel="icon" href="mark.svg" type="image/svg+xml">
+
+<!-- Structured data. SoftwareApplication is the type that earns the price /
+     category / platform treatment in a result, and "free, self-hosted" is the
+     single most useful thing a search engine can know about this. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Tippani",
+  "applicationCategory": "productivity",
+  "operatingSystem": "Linux, macOS, Windows, Docker",
+  "description": "A frugal, self-hosted, multi-user home for book highlights, film and show dialogues, and quotes from anywhere else. Import, tag, colour, search and export as Markdown.",
+  "url": "https://aaronified.github.io/tippani/",
+  "downloadUrl": "https://github.com/aaronified/tippani/releases",
+  "softwareVersion": "1.7.5",
+  "license": "https://github.com/aaronified/tippani/blob/main/LICENSE",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "featureList": [
+    "Bulk-import Kindle, Bookcision, Goodreads, Hardcover and IMDb exports",
+    "Full-text search across books, quotes, films and dialogues",
+    "Automatic cover and metadata lookup",
+    "Tags, six named colour categories and favourites",
+    "Spaced-repetition review of your own quotes",
+    "Markdown export for Obsidian",
+    "Multi-user with per-user isolation"
+  ]
+}
+</script>
+
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #F4EDDE; --raised: #F3EBDB; --ink: #2B241C; --soft: #6B5D4C;
+    --faint: #8B7C68; --line: #D8CBB2; --accent: #B4482D;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #221C15; --raised: #2B241C; --ink: #EFE5D2; --soft: #B6A88F;
+      --faint: #8B7C68; --line: #3E3428; --accent: #E0714F;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 ui-serif, Georgia, "Times New Roman", serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
+  header { padding: 4rem 0 2.5rem; text-align: center; }
+  h1 { font-size: clamp(2.6rem, 9vw, 4rem); margin: 0 0 .3rem; letter-spacing: -.02em; }
+  .etym { color: var(--faint); font-style: italic; margin: 0 0 1.5rem; font-size: 1rem; }
+  .lede { font-size: clamp(1.05rem, 2.6vw, 1.3rem); max-width: 44rem; margin: 0 auto 2rem; color: var(--soft); }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .cta { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; }
+  .btn {
+    display: inline-block; padding: .7rem 1.3rem; border-radius: 10px;
+    border: 1.5px solid var(--accent); color: var(--accent);
+    text-decoration: none; font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: .95rem; font-weight: 600;
+  }
+  .btn-solid { background: var(--accent); color: #FFF9EC; }
+  .btn:hover { opacity: .85; }
+  h2 {
+    font-size: 1.6rem; margin: 3rem 0 1rem; padding-bottom: .4rem;
+    border-bottom: 1.5px solid var(--line);
+  }
+  h3 { font-size: 1.1rem; margin: 1.6rem 0 .4rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); }
+  ul { padding-left: 1.2rem; }
+  li { margin: .35rem 0; }
+  .grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .card {
+    background: var(--raised); border: 1.5px solid var(--line);
+    border-radius: 12px; padding: 1.1rem 1.25rem;
+  }
+  .card h3 { margin-top: 0; }
+  .card p { margin: 0; color: var(--soft); font-size: .95rem; }
+  figure { margin: 1.5rem 0; }
+  figure img {
+    width: 100%; height: auto; display: block;
+    border: 1.5px solid var(--line); border-radius: 12px;
+  }
+  figcaption { color: var(--faint); font-size: .87rem; margin-top: .5rem; text-align: center; }
+  .shots { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .87em;
+    background: var(--raised); border: 1px solid var(--line);
+    border-radius: 5px; padding: .1em .35em;
+  }
+  pre {
+    background: var(--raised); border: 1.5px solid var(--line); border-radius: 10px;
+    padding: 1rem; overflow-x: auto;
+  }
+  pre code { background: none; border: 0; padding: 0; }
+  footer {
+    margin-top: 4rem; padding: 2rem 0 3rem; border-top: 1.5px solid var(--line);
+    color: var(--faint); font-size: .9rem; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <h1>Tippani</h1>
+  <p class="etym">ṭippaṇī · टिप्पणी · টিপ্পনী — a marginal annotation</p>
+  <p class="lede">
+    A self-hosted, multi-user home for your <strong>book highlights</strong>,
+    <strong>film and show dialogues</strong>, and <strong>quotes from anywhere else</strong>.
+    Paste or bulk-import them, tag and colour and favourite them, let it fetch the covers,
+    search the lot instantly, and take it all back out as Markdown whenever you want.
+  </p>
+  <div class="cta">
+    <a class="btn btn-solid" href="demo/">Try the demo</a>
+    <a class="btn" href="https://github.com/aaronified/tippani">Source on GitHub</a>
+    <a class="btn" href="roadmap.html">Roadmap</a>
+  </div>
+</header>
+
+<h2>What it is for</h2>
+
+<p>
+  I read on a Kindle, watch a lot of films, and kept ending up with highlights in four places that
+  did not talk to each other — a Kindle clippings file, a notes app, a folder of screenshots, and
+  the ones I had only meant to remember. Tippani is where I put all of it: one library, one search
+  box, and an export that hands everything back in plain Markdown if I ever want to leave.
+</p>
+
+<p>
+  It runs on your own machine. There is no account to make, no server of mine to trust, and nothing
+  is sent anywhere — metadata lookups are optional and only happen when you ask for one.
+</p>
+
+<h2>What it does</h2>
+
+<div class="grid">
+  <div class="card">
+    <h3>Keeps the quote, not just the book</h3>
+    <p>A highlight belongs to a page, a chapter, a timestamp or a speaker. All of that is a field, so you can find the line again by any of them.</p>
+  </div>
+  <div class="card">
+    <h3>Imports what you already have</h3>
+    <p>Kindle <code>My Clippings.txt</code>, Bookcision, Goodreads, Hardcover, IMDb lists and plain Markdown. Duplicates are detected on the way in.</p>
+  </div>
+  <div class="card">
+    <h3>Finds the covers itself</h3>
+    <p>Open Library, Google Books, TMDB and TheTVDB, merged field by field — the first-publication year from one, the larger cover from another.</p>
+  </div>
+  <div class="card">
+    <h3>Searches everything at once</h3>
+    <p>SQLite FTS5 across titles, authors, quotes, notes, tags and genres, sectioned by what actually matched, with typo correction when nothing does.</p>
+  </div>
+  <div class="card">
+    <h3>Helps you remember them</h3>
+    <p>An optional daily review that quizzes you on your own quotes — who said it, which book it came from, what the missing phrase was.</p>
+  </div>
+  <div class="card">
+    <h3>Gives it all back</h3>
+    <p>Obsidian-friendly Markdown export, and an encrypted backup archive you can restore anywhere. Your library is a file you own.</p>
+  </div>
+</div>
+
+<h2>What it costs to run</h2>
+
+<p>
+  It is built for a low-powered NAS that already runs a hundred other things. One static Go binary
+  of about 12 MB, a SQLite file beside it, and roughly <strong>25 MB of idle memory</strong> — a
+  budget I hold it inside rather than a number I measured once. There are
+  <strong>no background jobs</strong>: no pollers, no timers, no cron. When nothing is being asked
+  of it, it does nothing.
+</p>
+
+<pre><code>docker run -d --name tippani \
+  -p 8080:8080 \
+  -v /your/data:/data \
+  ghcr.io/aaronified/tippani:latest</code></pre>
+
+<p>
+  It serves plain HTTP on your LAN. Bring your own TLS through a reverse proxy, Tailscale, Netbird
+  or Twingate — or hand it a PEM pair and it will serve HTTPS itself.
+</p>
+
+<h2>What it looks like</h2>
+
+<div class="shots">
+  <figure>
+    <img src="img/library-paper-light.jpg" alt="The Books screen in the paper light theme: a grid of real book covers with genre filters down the side" loading="lazy">
+    <figcaption>Books — paper, light</figcaption>
+  </figure>
+  <figure>
+    <img src="img/catalogue-film-dark.jpg" alt="The Catalogue screen in the film dark theme: a grid of film and show posters, each with a dialogue count" loading="lazy">
+    <figcaption>Catalogue — film, dark</figcaption>
+  </figure>
+  <figure>
+    <img src="img/search-film-dark.jpg" alt="The Search screen: instant full-text results grouped into books, annotations, films and dialogues" loading="lazy">
+    <figcaption>Search across everything</figcaption>
+  </figure>
+  <figure>
+    <img src="img/import-paper-light.jpg" alt="The Import screen: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports" loading="lazy">
+    <figcaption>Import — six formats</figcaption>
+  </figure>
+</div>
+
+<p>
+  Two aesthetics, each with a light and a dark theme: <em>paper</em>, which is a notebook, and
+  <em>film</em>, which is a contact sheet. The
+  <a href="ui-glossary.html">UI glossary</a> names every control in both.
+</p>
+
+<h2>Where it is going</h2>
+
+<p>
+  <a href="roadmap.html">The roadmap</a> lists everything planned, every bug I already know about,
+  and — the part I would read first — the things I have
+  <a href="roadmap.html#aside">set aside on purpose</a>, so the boundaries are decisions rather
+  than gaps. It takes requests.
+</p>
+
+<p>
+  Tippani was <strong>written with AI assistance</strong>, and the app itself
+  <strong>contains no AI</strong>: no model calls, nothing sent anywhere, no feature that needs a
+  key to work. Both halves of that are spelled out in
+  <a href="https://github.com/aaronified/tippani/blob/main/AI.md">AI.md</a>.
+</p>
+
+<footer>
+  <p>
+    <a href="demo/">Demo</a> ·
+    <a href="roadmap.html">Roadmap</a> ·
+    <a href="ui-glossary.html">UI glossary</a> ·
+    <a href="https://github.com/aaronified/tippani">GitHub</a> ·
+    <a href="https://github.com/aaronified/tippani/releases">Releases</a>
+  </p>
+  <p>Free and open source. Run it yourself.</p>
+</footer>
+
+</div>
+</body>
+</html>

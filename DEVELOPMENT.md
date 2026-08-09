@@ -255,14 +255,19 @@ they matter:
 3. **Published docs base.** `DOCS_BASE` in `web/frontend/src/Settings.jsx` points at
    `https://aaronified.github.io/tippani/`. The roadmap and UI glossary are not embedded in
    the binary, so a self-hosted instance links out to a published copy.
-4. **Roadmap tooling.** `REPO` in `scripts/roadmap-data.mjs`, and the `GITHUB_REPOSITORY`
+4. **The published site's own URLs.** `docs/landing.html` carries an absolute `canonical`,
+   `og:url` and `og:image`, and `web/frontend/index.html` carries an absolute `og:image` —
+   all four must be absolute or they are ignored, so none of them can be made relative. The
+   `base` in `.github/workflows/pages.yml` builds `robots.txt` and `sitemap.xml` from the
+   same value. Point them at your fork's Pages URL, or your social previews advertise mine.
+5. **Roadmap tooling.** `REPO` in `scripts/roadmap-data.mjs`, and the `GITHUB_REPOSITORY`
    fallback in `scripts/roadmap-tracker.mjs` and `scripts/seed-issues.mjs`. In Actions the
    environment supplies it; locally the fallback is used.
-5. **Issue forms and links.** `.github/ISSUE_TEMPLATE/*.yml` and the URLs in
+6. **Issue forms and links.** `.github/ISSUE_TEMPLATE/*.yml` and the URLs in
    `docs/roadmap.html` and `README.md`.
-6. **Metadata user agent.** `internal/metadata/metadata.go` identifies itself to the
+7. **Metadata user agent.** `internal/metadata/metadata.go` identifies itself to the
    metadata providers. Change it — it is how they contact you about your traffic, not mine.
-7. **`docker-compose.yml`** references the image name.
+8. **`docker-compose.yml`** references the image name.
 
 To get the roadmap automation working on a fork you also need the labels it depends on,
 because a label that does not exist is silently not applied:

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:demo": "vite build --base=./ --outDir ../../_site",
+    "build:demo": "vite build --base=./ --outDir ../../_site/demo",
     "test": "vitest run",
     "test:watch": "vitest"
   },

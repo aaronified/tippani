@@ -41,9 +41,11 @@ import {
 // PUT /auth/me/preferences.
 // Where the roadmap lives. It is a self-contained static page under docs/ and is
 // NOT embedded in the binary, so a self-hosted instance cannot serve it from its
-// own origin — it links out to the published copy. The demo can use a relative
-// path, because pages.yml copies the file in beside the built app.
-const DOCS_BASE = DEMO ? '' : 'https://aaronified.github.io/tippani/'
+// own origin — it links out to the published copy. The demo uses a relative path
+// so it works whatever the Pages subpath is, and that path climbs one level:
+// the demo is published at /demo/ and the docs sit at the site root beside the
+// landing page.
+const DOCS_BASE = DEMO ? '../' : 'https://aaronified.github.io/tippani/'
 
 // useColumnCount tracks how many masonry columns fit: 1 (mobile) / 2 / 3 (wide).
 function useColumnCount() {

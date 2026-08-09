@@ -13,7 +13,43 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Tippani" />
-    <title>tippani</title>
+
+    <!-- The title was `tippani` — one lowercase word, which tells a search
+         engine nothing and competes directly with the Hindi/Bengali word it is
+         named after. It says what the thing IS now. The description is the
+         snippet Google prints under the link, and there was not one. -->
+    <title>Tippani — a self-hosted home for your book highlights and film dialogues</title>
+    <meta
+      name="description"
+      content="Tippani is a frugal, self-hosted app for keeping quotes from books, films and shows. Bulk-import highlights, tag and colour them, auto-fetch covers and metadata, search everything instantly, and export it all back out as Obsidian-friendly Markdown. One ~12 MB Go binary, SQLite, no background jobs."
+    />
+
+    <!-- Open Graph and the Twitter card, so a link pasted into a chat unfurls
+         as something rather than a bare URL.
+
+         No og:url, deliberately. This same file is embedded in the binary and
+         served by every self-hosted instance, so a hardcoded one would tell a
+         crawler that somebody's private library IS the public demo. Omitted, a
+         crawler uses the URL it actually fetched, which is right in both cases.
+         og:image has no such choice — a relative one is dropped, so it is
+         absolute, and worst case a private instance borrows the public
+         screenshot for its preview. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tippani" />
+    <meta property="og:title" content="Tippani — quotes from books, films and shows, kept on your own box" />
+    <meta
+      property="og:description"
+      content="A frugal, self-hosted home for your book highlights and film dialogues. Import, tag, search and export — one small Go binary and a SQLite file."
+    />
+    <meta property="og:image" content="https://aaronified.github.io/tippani/social.jpg" />
+    <meta property="og:image:alt" content="The Tippani library: a grid of book covers on a paper-textured background" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Tippani — quotes from books, films and shows, kept on your own box" />
+    <meta
+      name="twitter:description"
+      content="A frugal, self-hosted home for your book highlights and film dialogues. Import, tag, search and export."
+    />
+    <meta name="twitter:image" content="https://aaronified.github.io/tippani/social.jpg" />
   </head>
   <body>
     <div id="root"></div>

@@ -9,8 +9,10 @@ on:
     branches: [main]
     paths:
       - "web/frontend/**"
+      - "docs/landing.html"
       - "docs/roadmap.html"
       - "docs/ui-glossary.html"
+      - "docs/img/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -42,11 +44,80 @@ jobs:
         working-directory: web/frontend
         env:
           VITE_DEMO: "1"
-      # The static docs ride along beside the demo, so the roadmap has a real URL
-      # and the demo ribbon's relative "roadmap →" link resolves under the Pages
-      # subpath. Both are self-contained HTML — no build step, nothing to bundle.
-      - name: Copy static docs into the site
-        run: cp docs/roadmap.html docs/ui-glossary.html _site/
+      # The site root is a real HTML page, and the demo moved down to /demo/.
+      #
+      # It used to be the other way round, and that was the whole SEO problem:
+      # the only thing at the root was the demo's index.html, which is
+      # `<div id="root"></div>` and nothing else until JavaScript runs. A search
+      # engine arriving at the canonical URL for this project found a one-word
+      # lowercase title, no description, and no text — so there was nothing to
+      # rank and nothing to show as a snippet. The demo is still one click away
+      # and still rebuilt on every UI change; it simply is not the front door.
+      - name: Assemble the site around the demo
+        run: |
+          set -euo pipefail
+          mkdir -p _site/img
+          cp docs/landing.html _site/index.html
+          cp docs/roadmap.html docs/ui-glossary.html _site/
+          cp docs/img/*.jpg _site/img/
+          # The social card. og:image must be absolute and must resolve from the
+          # Pages origin — the README's screenshots live on raw.githubusercontent,
+          # which is not this origin, so nothing here could have unfurled before.
+          cp docs/img/library-paper-light.jpg _site/social.jpg
+          # The icon the landing page and the docs reference.
+          cp web/frontend/public/mark.svg _site/mark.svg
+          # A 404 that offers the way back rather than GitHub's default.
+          cp docs/landing.html _site/404.html
+
+      - name: robots.txt and sitemap.xml
+        run: |
+          set -euo pipefail
+          base="https://aaronified.github.io/tippani"
+          # Written here rather than committed, so the URLs cannot drift from
+          # the pages this job actually publishes.
+          cat > _site/robots.txt <<EOF
+          User-agent: *
+          Allow: /
+          Sitemap: ${base}/sitemap.xml
+          EOF
+          today=$(date -u +%Y-%m-%d)
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            for path in "/" "/roadmap.html" "/ui-glossary.html" "/demo/"; do
+              echo "  <url><loc>${base}${path}</loc><lastmod>${today}</lastmod></url>"
+            done
+            echo '</urlset>'
+          } > _site/sitemap.xml
+
+      # The published site is one page deeper than the app's own root, so the
+      # manifest's root-absolute paths (start_url "/", icons "/icons/…") point
+      # at github.io itself and 404. Vite's --base rewrites index.html only,
+      # never a copied public asset. Correct for the self-hosted app, wrong
+      # here — so the demo copy is rewritten in place.
+      - name: Point the demo manifest at the demo
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib
+          p = pathlib.Path("_site/demo/manifest.json")
+          m = json.loads(p.read_text(encoding="utf-8"))
+          m["start_url"] = "./"
+          m["scope"] = "./"
+          for icon in m.get("icons", []):
+              icon["src"] = "." + icon["src"]
+          p.write_text(json.dumps(m, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(m, indent=2))
+          PY
+      # The site is assembled by copying, and nothing else checks that the
+      # pieces agree. Every failure mode is silent: a copy step that stops
+      # running, a screenshot renamed on one side of the move, a relative path
+      # written for the old layout. Moving the demo to /demo/ makes the last one
+      # live — `href="roadmap.html"` from inside the demo used to be correct and
+      # now points at /demo/roadmap.html.
+      - name: Every local link on the site resolves
+        run: node scripts/site-links.mjs _site
+
       # enablement: turn Pages on (source = GitHub Actions) the first time this
       # runs, so no manual Settings toggle is needed.
       - uses: actions/configure-pages@v5
