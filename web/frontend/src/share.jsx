@@ -532,7 +532,19 @@ function QuoteImagePanel({ share, selected, onShared }) {
   // edge stripe beside the words, on a backdrop card it is the hue of the
   // portrait, and "do I want this quote's colour in the picture" is the same
   // question either way. Persisted per device beside the skin and the backdrop.
-  const [useColor, setUseColor] = usePersistedState("tippani:shareImageColor", true);
+  //
+  // OFF by default, and that is a change of mind. A colour category is a private
+  // filing decision — what KIND of note this is to me — and the picture goes to
+  // someone who has no idea the scheme exists: to them a blue stripe or a blue
+  // face is a design choice the card is making, and a fairly loud one. The
+  // colour is worth offering and worth remembering; it is not worth assuming.
+  //
+  // THE KEY HAD TO MOVE WITH THE DEFAULT. usePersistedState writes on mount, so
+  // the old default was stamped into local storage by the first render of this
+  // panel on every device that has ever opened it — flipping the literal alone
+  // would have changed the default for nobody. Retiring the key discards a value
+  // almost nobody chose, and the switch is one click away for anyone who did.
+  const [useColor, setUseColor] = usePersistedState("tippani:shareImageTint", false);
   const canColor = !!share.color;
 
   useEffect(() => {
@@ -690,7 +702,7 @@ function QuoteImagePanel({ share, selected, onShared }) {
           />
           <InfoDot
             title="Quote colour"
-            text="Whether this quote's highlight colour appears in the picture. One switch for both kinds of card, because it is one decision: on a plain card the colour is the stripe beside the words, and on a backdrop card it is the hue of the portrait. It is never both at once — a stripe next to a portrait already wearing the colour is the same thing said twice, the second time louder. Turning it off changes nothing about the quote itself."
+            text="Whether this quote's highlight colour appears in the picture. One switch for both kinds of card, because it is one decision: on a plain card the colour is the stripe beside the words, and on a backdrop card it is the hue of the portrait. It is never both at once — a stripe next to a portrait already wearing the colour is the same thing said twice, the second time louder. It starts off, because a colour category is a note to yourself about what kind of thought this is, and the person you send the picture to has no idea the scheme exists. Turning it on or off changes nothing about the quote itself."
           />
         </div>
       )}
