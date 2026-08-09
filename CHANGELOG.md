@@ -5,6 +5,141 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.4] - 2026-08-09
+
+### Added
+
+- **A book can be older than the year 1000.** The year field refused anything
+  below it, which is not a rounding error: it refused the Meditations, the
+  Analects and the Gita outright. An app for keeping quotes from things worth
+  quoting could not record when its oldest books were written.
+
+  The floor is now −4000 and a negative year is BCE. Almost nothing had to
+  change for it — the columns have been INTEGER since the first migration and
+  carry no constraint, so −380 already stored and already sorted correctly, and
+  0 has always meant "no year recorded", which is exactly what the era needs
+  since there is no year 0 between 1 BCE and 1 CE. Not one existing row changes
+  meaning.
+
+  On screen it is **written, not signed**: −380 reads as **380 BCE**, because a
+  minus in front of a year reads as a countdown. CE stays unmarked — saying
+  "1954 CE" about a novel is pedantry. The field reads back everything it
+  writes, so **380 BC**, **-380**, **c. 380 BCE** and **circa 380 BCE** all
+  arrive at the same year, and **c.** marks an estimate without ever moving the
+  work on a shelf or a chart. A text written over a century does not have a
+  publication date; it has a contested guess, and saying so is more honest than
+  printing a year nobody can defend.
+
+- **A timeline, readable by decade, century or year.** When the library's works
+  are *from*, as opposed to when they were saved — the activity calendar already
+  answered the second, and nothing answered the first, although every book and
+  film has carried a year since the first migration. A quote sits at its work's
+  year, so a line copied out of the Analects last week belongs at 479 BCE.
+
+  The scale is selectable because a library spanning two and a half millennia
+  and a shelf of films want different bucket sizes and neither is a sensible
+  default for the other. The **empty** stretches are drawn deliberately: two
+  bars side by side would read as two adjacent periods rather than two thousand
+  years apart.
+
+- **A reading history you can correct.** The read log could only ever be written
+  as a side effect of a status change, which records what is happening now and
+  is hopeless for what already happened — a book read three times over fifteen
+  years had one row at best, and there was no way to say "I finished this in
+  2019" about anything already on the shelf. 1.7.2 then made that log sort the
+  Library, so a log you could not correct became a shelf order you could not
+  correct.
+
+  Add a past read, fix a date, delete a mistake. The read still **open** is the
+  one exception — it is what keeps the status and the log agreeing with each
+  other, and finishing or abandoning it is already one tap away in the chip
+  above, so it says so rather than offering a second route to a state nothing
+  can resolve.
+
+- **Four more superlatives**: the person you quote most, the person you heart
+  most, the decade you return to, and who you remember best against who keeps
+  slipping away. The last two needed no new query at all — they have been
+  computed and sent on every request since the recall work landed and nothing
+  had ever drawn them.
+
+### Changed
+
+- **One book, assembled from every source that knows it.** An ISBN names one
+  book, so two providers describing it were never two choices — they were two
+  partial accounts of one object, and picking a row meant inheriting that row's
+  gaps. Pick Google and you got the blurb, the large cover, and the year the
+  paperback was printed. Pick Open Library and you got the year it was written
+  and no description.
+
+  A lookup by ISBN now returns **one merged record**, best-of per field: the
+  earliest year (a work cannot have been written after an edition of it), the
+  higher-resolution cover, the longer description, the fuller credit, the work's
+  title rather than the edition's, and both providers' subject lists rather than
+  one. On a modern paperback the year is a four-year quibble; on the Meditations
+  it is eighteen centuries, and a shelf sorted by publication year was sorted by
+  when the reprint went to press.
+
+- **One person, however you credited them.** The breakdowns asked "who" four
+  times — authors, directors, actors, speakers — and got four half-answers.
+  Somebody with books here and films here was two rows in two sections, each
+  carrying part of their work, and no section could answer "who do I actually
+  quote". There is a **People** breakdown now, one row per person whatever the
+  role, which is what the storage has said since it stopped keeping a person
+  once per job.
+
+  **Occasions is gone.** It was added in 1.7.2 because the server had been
+  computing it and nothing rendered it — which was an argument about the gap,
+  not about the value. An occasion is a locator, and a leaderboard of rallies
+  answers nothing the speaker list does not answer better. The count survives as
+  a speaker's works.
+
+- **The Metadata sources settings stopped introducing themselves.** Three
+  headings each announced a single field that already named itself; "Books"
+  above "Google Books key" is the same word twice. The status chips — the one
+  thing those headings genuinely carried, since a key field only knows whether
+  it is filled and not whether lookups work — moved into one row, and the fields
+  became a single tighter list.
+
+### Fixed
+
+- **Six colours would not fit on one line.** The stylesheet described this a
+  release before it happened: the rule sizing the control on a quote card reads
+  "♥ + FOUR blobs + ⋯ must fit a ~250px column", and 1.7.1 made the categories
+  six. The dots pack closer now, and on a card too narrow for that the picker
+  becomes the current colour with a chevron opening a **named** list — which is
+  better than a cramped row would have been anyway, since the categories carry
+  names you chose and six unlabelled blobs squeezed to fit are six things nobody
+  can tell apart. The narrow layout shows more than the wide one.
+
+- **A BCE year counted as no year.** The metadata completeness score asked
+  whether the year was greater than zero, so the oldest books in a library would
+  have been the ones it nagged about hardest.
+
+### Internal
+
+- **Both CI jobs had been failing on every push since 1.6.1**, and neither was a
+  real defect. The Go job was hitting the default 10-minute per-package test
+  timeout under `-race` and printing a goroutine dump that reads exactly like a
+  deadlock; nothing was hanging.
+
+  The frontend job was line endings, and the chain is worth recording because
+  every link looks harmless. The committed `web/dist/index.html` held CRLF, CI
+  builds LF, so the guard that proves the shipped UI matches its source failed on
+  every line of a file whose content was correct. Normalisation should have
+  prevented it — except the file contained a **lone carriage return**, from an
+  autocrlf double conversion, and git's heuristic reads a lone CR as evidence of
+  a binary file. So it classified the file as binary, which switched
+  normalisation off, which meant the CRLF could never be cleaned up by the
+  mechanism meant to clean it up. A `.gitattributes` now names the text types
+  explicitly, because auto-detection is exactly what failed.
+
+- A schema-equality test was comparing "every migration" against "every
+  migration as of 0029", and would have gone on passing while comparing two
+  different things. Two tests encoded the old year floor and were rewritten
+  rather than deleted.
+
+- 819 frontend tests.
+
 ## [1.7.3] - 2026-08-09
 
 A recovery release. Nothing in the app itself changed. What changed is that a
