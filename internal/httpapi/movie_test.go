@@ -24,7 +24,12 @@ func TestMovieAndDialogueCRUD(t *testing.T) {
 		!sameStrings(m.Genres, []string{"Drama", "Romance"}) {
 		t.Fatalf("movie: %+v", m)
 	}
-	c.mustDo("POST", "/movies", map[string]any{"title": "X", "release_year": 42}, http.StatusBadRequest)
+	// 42 is a year, not a typo — the old floor of 1000 rejected the first
+	// millennium wholesale. Out of range now means outside -4000..3000, and the
+	// round trip lives in ancient_years_test.go rather than here, where an extra
+	// row would shift the counts asserted below.
+	c.mustDo("POST", "/movies", map[string]any{"title": "X", "release_year": 3001}, http.StatusBadRequest)
+	c.mustDo("POST", "/movies", map[string]any{"title": "X", "release_year": -4001}, http.StatusBadRequest)
 
 	// Seed the cast list directly (manual movies have none) to exercise the
 	// PLAN §3b actor auto-fill.

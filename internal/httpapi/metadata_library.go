@@ -44,7 +44,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		       (b.isbn IS NOT NULL OR b.asin IS NOT NULL OR b.google_id IS NOT NULL OR b.openlibrary_id IS NOT NULL),
 		       (b.author IS NOT NULL AND b.author <> ''),
 		       (b.series IS NOT NULL AND b.series <> ''),
-		       (b.published_year IS NOT NULL AND b.published_year > 0),
+		       (b.published_year IS NOT NULL AND b.published_year <> 0),
 		       EXISTS(SELECT 1 FROM book_genres bg WHERE bg.book_id = b.id),
 		       (b.description IS NOT NULL AND b.description <> ''),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id)
@@ -99,7 +99,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		       (m.cast_json IS NOT NULL AND m.cast_json <> '[]' AND m.cast_json <> ''),
 		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL),
 		       (m.director IS NOT NULL AND m.director <> ''),
-		       (m.release_year IS NOT NULL AND m.release_year > 0),
+		       (m.release_year IS NOT NULL AND m.release_year <> 0),
 		       EXISTS(SELECT 1 FROM movie_genres mg WHERE mg.movie_id = m.id),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
 		FROM movies m WHERE m.user_id = ?

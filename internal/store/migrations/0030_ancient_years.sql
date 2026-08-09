@@ -1,0 +1,43 @@
+-- 0030: a year can be an estimate, and it can be before the common era.
+--
+-- THE YEAR COLUMNS NEEDED NO CHANGE, which is worth recording because it is the
+-- reason this migration is four lines instead of a rebuild. books.published_year
+-- and movies.release_year have been INTEGER since 0001 and 0003, and they carry
+-- no CHECK -- the 1000..3000 range lived in Go, in validYear. So a negative year
+-- already stores and already sorts correctly; -380 is less than 1900 by
+-- arithmetic, with none of the lexical trouble that a TEXT date would have had.
+--
+-- That distinction matters. The partial dates elsewhere in this schema
+-- (work_reads.started_at since 0024, utterances.occasion_date since 0026) are
+-- TEXT precisely so that 'YYYY', 'YYYY-MM' and 'YYYY-MM-DD' compare against each
+-- other lexically, and a leading '-' would break that ordering outright: '-380'
+-- sorts before every CE date as a string, which is right by luck, but '-380' and
+-- '-63' compare in the wrong order because a shorter BCE year is a LATER one.
+-- Those columns are therefore NOT extended to BCE here. They record when you
+-- read something and when a speech was given -- a rally, a broadcast, a letter --
+-- and none of that is ancient. The timeline parses a leading '-' when reading
+-- them so nothing crashes, but it is not a supported input.
+--
+-- 0 STAYS "ABSENT". validYear has always treated 0 as "no year recorded", which
+-- is exactly the convention the era needs anyway: there is no year 0 between
+-- 1 BCE and 1 CE. So -1 is 1 BCE, 1 is 1 CE, and 0 continues to mean nothing was
+-- entered. No sentinel had to be invented and no existing row changes meaning.
+
+-- ------------------------------------------------------------------- circa
+--
+-- A book first written in the 4th century BCE does not have a publication year;
+-- it has a scholarly estimate, and often a contested one. Storing -380 and
+-- rendering "380 BCE" states a precision that nobody has, in an app whose whole
+-- purpose is keeping other people's words accurately.
+--
+-- So: one flag, display-only. It never participates in sorting, bucketing or
+-- comparison -- an approximate year is still that year for every purpose except
+-- how it is written down, and a circa that changed the ordering would make the
+-- timeline disagree with the shelf.
+--
+-- INTEGER NOT NULL DEFAULT 0 rather than a nullable boolean, matching favorite
+-- and the other flags in this schema: SQLite has no boolean, and a NULL third
+-- state here would mean "we do not know whether we know", which is not a thing.
+
+ALTER TABLE books  ADD COLUMN published_circa INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE movies ADD COLUMN release_circa   INTEGER NOT NULL DEFAULT 0;

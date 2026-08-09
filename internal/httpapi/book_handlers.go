@@ -13,20 +13,21 @@ import (
 )
 
 type bookReq struct {
-	Title         string   `json:"title"`
-	Author        string   `json:"author"`
-	ISBN          string   `json:"isbn"`
-	ASIN          string   `json:"asin"`
-	Description   string   `json:"description"`
-	PublishedYear int      `json:"published_year"`
-	Genres        []string `json:"genres"`
-	Series        string   `json:"series"`
-	SeriesIndex   float64  `json:"series_index"`
-	Favorite      bool     `json:"favorite"`
-	CoverURL      string   `json:"cover_url"`
-	ClearCover    bool     `json:"clear_cover"` // update: drop the current cover
-	Source        string   `json:"source"`
-	SourceID      string   `json:"source_id"`
+	Title          string   `json:"title"`
+	Author         string   `json:"author"`
+	ISBN           string   `json:"isbn"`
+	ASIN           string   `json:"asin"`
+	Description    string   `json:"description"`
+	PublishedYear  int      `json:"published_year"`
+	PublishedCirca bool     `json:"published_circa"`
+	Genres         []string `json:"genres"`
+	Series         string   `json:"series"`
+	SeriesIndex    float64  `json:"series_index"`
+	Favorite       bool     `json:"favorite"`
+	CoverURL       string   `json:"cover_url"`
+	ClearCover     bool     `json:"clear_cover"` // update: drop the current cover
+	Source         string   `json:"source"`
+	SourceID       string   `json:"source_id"`
 }
 
 // validate trims the shared create/update fields and normalizes the ISBN
@@ -46,7 +47,7 @@ func (b *bookReq) validate() string {
 		return "invalid isbn"
 	}
 	if !validYear(b.PublishedYear) {
-		return "published_year must be between 1000 and 3000"
+		return "published_year must be between 4000 BCE and 3000 CE"
 	}
 	return ""
 }
@@ -58,35 +59,36 @@ func (b *bookReq) validate() string {
 // read log consistent with each other. A full-state PUT that carried them would
 // let an ordinary Edit-form save silently rewrite reading history.
 type bookDetail struct {
-	ID            int64     `json:"id"`
-	Title         string    `json:"title"`
-	Author        string    `json:"author"`
-	ISBN          string    `json:"isbn"`
-	ASIN          string    `json:"asin"`
-	Description   string    `json:"description"`
-	PublishedYear int       `json:"published_year"`
-	CoverPath     string    `json:"cover_path"`
-	Genres        []string  `json:"genres"`
-	Series        string    `json:"series"`
-	SeriesIndex   float64   `json:"series_index"`
-	Favorite      bool      `json:"favorite"`
-	Status        string    `json:"status"`   // "" | reading | paused | abandoned | completed
-	Progress      int       `json:"progress"` // 0-100, derived from the position when one is set
-	position                // pos_unit ('' | page) · pos · pos_total
-	Reads         []readRow `json:"reads"` // oldest first
-	CreatedAt     string    `json:"created_at"`
+	ID             int64     `json:"id"`
+	Title          string    `json:"title"`
+	Author         string    `json:"author"`
+	ISBN           string    `json:"isbn"`
+	ASIN           string    `json:"asin"`
+	Description    string    `json:"description"`
+	PublishedYear  int       `json:"published_year"`
+	PublishedCirca bool      `json:"published_circa"`
+	CoverPath      string    `json:"cover_path"`
+	Genres         []string  `json:"genres"`
+	Series         string    `json:"series"`
+	SeriesIndex    float64   `json:"series_index"`
+	Favorite       bool      `json:"favorite"`
+	Status         string    `json:"status"`   // "" | reading | paused | abandoned | completed
+	Progress       int       `json:"progress"` // 0-100, derived from the position when one is set
+	position                 // pos_unit ('' | page) · pos · pos_total
+	Reads          []readRow `json:"reads"` // oldest first
+	CreatedAt      string    `json:"created_at"`
 }
 
 func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	var b bookDetail
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(author, ''), COALESCE(isbn, ''), COALESCE(asin, ''),
-		       COALESCE(description, ''), COALESCE(published_year, 0), COALESCE(cover_path, ''),
+		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa, COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.ISBN, &b.ASIN,
-			&b.Description, &b.PublishedYear, &b.CoverPath,
+			&b.Description, &b.PublishedYear, &b.PublishedCirca, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
 			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
 	if err != nil {
@@ -167,11 +169,11 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		INSERT INTO books (updated_at, user_id, title, author, isbn, asin, cover_path,
-		                   description, published_year, google_id, openlibrary_id, source_metadata,
+		                   description, published_year, published_circa, google_id, openlibrary_id, source_metadata,
 		                   series, series_index, favorite)
-		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
-		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear),
+		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		googleID, openlibraryID, sourceMeta,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite)
 	if err != nil {
@@ -205,19 +207,20 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	type item struct {
-		ID            int64    `json:"id"`
-		Title         string   `json:"title"`
-		Author        string   `json:"author"`
-		ISBN          string   `json:"isbn"`
-		PublishedYear int      `json:"published_year"`
-		CoverPath     string   `json:"cover_path"`
-		Genres        []string `json:"genres"`
-		Series        string   `json:"series"`
-		SeriesIndex   float64  `json:"series_index"`
-		Favorite      bool     `json:"favorite"`
-		Status        string   `json:"status"`     // "" | reading | paused | abandoned | completed
-		Progress      int      `json:"progress"`   // 0-100; fills the status bar under the cover
-		ReadCount     int      `json:"read_count"` // finished reads, for the "×2" chip
+		ID             int64    `json:"id"`
+		Title          string   `json:"title"`
+		Author         string   `json:"author"`
+		ISBN           string   `json:"isbn"`
+		PublishedYear  int      `json:"published_year"`
+		PublishedCirca bool     `json:"published_circa"`
+		CoverPath      string   `json:"cover_path"`
+		Genres         []string `json:"genres"`
+		Series         string   `json:"series"`
+		SeriesIndex    float64  `json:"series_index"`
+		Favorite       bool     `json:"favorite"`
+		Status         string   `json:"status"`     // "" | reading | paused | abandoned | completed
+		Progress       int      `json:"progress"`   // 0-100; fills the status bar under the cover
+		ReadCount      int      `json:"read_count"` // finished reads, for the "×2" chip
 		// The most recent date this was read, for the "Last read" sort. Empty
 		// when it has never been read or the reads carry no dates — which is a
 		// real and common state, and the reason the sort has to say where those
@@ -237,7 +240,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[book] handleListBooks uid=%v", uid)
 	q := `
 		SELECT b.id, b.title, COALESCE(b.author, ''), COALESCE(b.isbn, ''),
-		       COALESCE(b.published_year, 0), COALESCE(b.cover_path, ''),
+		       COALESCE(b.published_year, 0), b.published_circa, COALESCE(b.cover_path, ''),
 		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite, b.status, b.progress,
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
@@ -262,7 +265,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
-			&it.PublishedYear, &it.CoverPath, &it.Series, &it.SeriesIndex,
+			&it.PublishedYear, &it.PublishedCirca, &it.CoverPath, &it.Series, &it.SeriesIndex,
 			&it.Favorite, &it.Status, &it.Progress, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount); err != nil {
 			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
 			continue
@@ -419,11 +422,11 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?,
+		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?, published_circa = ?,
 		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
-		nullable(req.Description), nullableInt(req.PublishedYear),
+		nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {
 		failErr("update book", err)

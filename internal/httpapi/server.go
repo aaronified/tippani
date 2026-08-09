@@ -641,8 +641,26 @@ func nullableInt64(n int64) any {
 	return n
 }
 
-// validYear: 0 means absent; anything else must be a plausible year.
-func validYear(y int) bool { return y == 0 || (y >= 1000 && y <= 3000) }
+// yearFloor / yearCeil bound a publication or release year.
+//
+// The floor is negative because a library that exists to keep quotes holds
+// things written before the common era, and the old floor of 1000 refused them
+// outright — the Meditations and the Analects could not be entered at all. The
+// era boundary needs no sentinel: 0 has always meant "absent" here, and there is
+// no year 0 between 1 BCE and 1 CE, so -1 is 1 BCE and nothing had to change
+// meaning. -4000 is around the earliest thing anyone has a text of.
+const (
+	yearFloor = -4000
+	yearCeil  = 3000
+)
+
+// validYear: 0 means absent; anything else must be a plausible year, BCE
+// included. Callers that want "does this row have a year" must test `!= 0`, not
+// `> 0` — a BCE year is a year, and > 0 reads it as missing.
+func validYear(y int) bool { return y == 0 || (y >= yearFloor && y <= yearCeil) }
+
+// hasYear is that test, named, so it cannot be written the wrong way twice.
+func hasYear(y int) bool { return y != 0 }
 
 // trimCap trims s and enforces the rune cap on short free-text fields
 // (chapter/location/timestamp/character/actor).

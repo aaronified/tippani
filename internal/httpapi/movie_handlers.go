@@ -19,21 +19,22 @@ const tmdbKeyMissing = "TMDB API key not configured (add one in Settings)"
 const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
 
 type movieReq struct {
-	TMDBID      int64    `json:"tmdb_id"`
-	Source      string   `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
-	SourceID    string   `json:"source_id"` // id within the source
-	Title       string   `json:"title"`
-	Director    string   `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
-	ReleaseYear int      `json:"release_year"`
-	Description string   `json:"description"`
-	Genres      []string `json:"genres"`
-	MediaType   string   `json:"media_type"` // "movie" (default) | "show"
-	Series      string   `json:"series"`
-	SeriesIndex float64  `json:"series_index"`
-	Favorite    bool     `json:"favorite"`
-	PosterURL   string   `json:"poster_url"`  // update: set/replace the poster
-	ClearCover  bool     `json:"clear_cover"` // update: drop the current poster
-	ConfirmNew  bool     `json:"confirm_new"` // create-from-source: add a separate title despite a same-name look-alike
+	TMDBID       int64    `json:"tmdb_id"`
+	Source       string   `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
+	SourceID     string   `json:"source_id"` // id within the source
+	Title        string   `json:"title"`
+	Director     string   `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
+	ReleaseYear  int      `json:"release_year"`
+	ReleaseCirca bool     `json:"release_circa"`
+	Description  string   `json:"description"`
+	Genres       []string `json:"genres"`
+	MediaType    string   `json:"media_type"` // "movie" (default) | "show"
+	Series       string   `json:"series"`
+	SeriesIndex  float64  `json:"series_index"`
+	Favorite     bool     `json:"favorite"`
+	PosterURL    string   `json:"poster_url"`  // update: set/replace the poster
+	ClearCover   bool     `json:"clear_cover"` // update: drop the current poster
+	ConfirmNew   bool     `json:"confirm_new"` // create-from-source: add a separate title despite a same-name look-alike
 }
 
 func (m *movieReq) validate() string {
@@ -45,7 +46,7 @@ func (m *movieReq) validate() string {
 		return "title is required"
 	}
 	if !validYear(m.ReleaseYear) {
-		return "release_year must be between 1000 and 3000"
+		return "release_year must be between 4000 BCE and 3000 CE"
 	}
 	if msg := normalizeMediaType(&m.MediaType); msg != "" {
 		return msg
@@ -73,37 +74,38 @@ func normalizeMediaType(mt *string) string {
 // PUT /movies/:id/status, the only path that keeps the status and the watch log
 // consistent with one another.
 type movieDetail struct {
-	ID          int64                 `json:"id"`
-	Title       string                `json:"title"`
-	Director    string                `json:"director"`
-	ReleaseYear int                   `json:"release_year"`
-	TMDBID      int64                 `json:"tmdb_id"`
-	TVDBID      int64                 `json:"tvdb_id"`
-	MediaType   string                `json:"media_type"`
-	PosterPath  string                `json:"poster_path"`
-	Description string                `json:"description"`
-	Genres      []string              `json:"genres"`
-	Series      string                `json:"series"`
-	SeriesIndex float64               `json:"series_index"`
-	Favorite    bool                  `json:"favorite"`
-	Status      string                `json:"status"`   // "" | watching | paused | abandoned | completed
-	Progress    int                   `json:"progress"` // 0-100, derived from the position when one is set
-	position                          // pos_unit ('' | episode) · pos · pos_total · season · season_total
-	Reads       []readRow             `json:"reads"` // oldest first
-	Cast        []metadata.CastMember `json:"cast"`
-	CreatedAt   string                `json:"created_at"`
+	ID           int64                 `json:"id"`
+	Title        string                `json:"title"`
+	Director     string                `json:"director"`
+	ReleaseYear  int                   `json:"release_year"`
+	ReleaseCirca bool                  `json:"release_circa"`
+	TMDBID       int64                 `json:"tmdb_id"`
+	TVDBID       int64                 `json:"tvdb_id"`
+	MediaType    string                `json:"media_type"`
+	PosterPath   string                `json:"poster_path"`
+	Description  string                `json:"description"`
+	Genres       []string              `json:"genres"`
+	Series       string                `json:"series"`
+	SeriesIndex  float64               `json:"series_index"`
+	Favorite     bool                  `json:"favorite"`
+	Status       string                `json:"status"`   // "" | watching | paused | abandoned | completed
+	Progress     int                   `json:"progress"` // 0-100, derived from the position when one is set
+	position                           // pos_unit ('' | episode) · pos · pos_total · season · season_total
+	Reads        []readRow             `json:"reads"` // oldest first
+	Cast         []metadata.CastMember `json:"cast"`
+	CreatedAt    string                `json:"created_at"`
 }
 
 func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	var m movieDetail
 	var castJSON string
 	err := s.Store.DB.QueryRow(`
-		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), COALESCE(tmdb_id, 0),
+		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), release_circa, COALESCE(tmdb_id, 0),
 		       COALESCE(tvdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.TMDBID,
+		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
@@ -170,10 +172,10 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		INSERT INTO movies (updated_at, user_id, title, director, release_year, description,
+		INSERT INTO movies (updated_at, user_id, title, director, release_year, release_circa, description,
 		                    media_type, series, series_index, favorite)
-		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
+		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
 		nullableFloat(req.SeriesIndex), req.Favorite)
 	if err != nil {
@@ -362,19 +364,20 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 
 func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	type item struct {
-		ID          int64    `json:"id"`
-		Title       string   `json:"title"`
-		Director    string   `json:"director"`
-		ReleaseYear int      `json:"release_year"`
-		MediaType   string   `json:"media_type"`
-		PosterPath  string   `json:"poster_path"`
-		Genres      []string `json:"genres"`
-		Series      string   `json:"series"`
-		SeriesIndex float64  `json:"series_index"`
-		Favorite    bool     `json:"favorite"`
-		Status      string   `json:"status"`     // "" | watching | paused | abandoned | completed
-		Progress    int      `json:"progress"`   // 0-100; fills the status bar under the poster
-		ReadCount   int      `json:"read_count"` // finished watches, for the "×2" chip
+		ID           int64    `json:"id"`
+		Title        string   `json:"title"`
+		Director     string   `json:"director"`
+		ReleaseYear  int      `json:"release_year"`
+		ReleaseCirca bool     `json:"release_circa"`
+		MediaType    string   `json:"media_type"`
+		PosterPath   string   `json:"poster_path"`
+		Genres       []string `json:"genres"`
+		Series       string   `json:"series"`
+		SeriesIndex  float64  `json:"series_index"`
+		Favorite     bool     `json:"favorite"`
+		Status       string   `json:"status"`     // "" | watching | paused | abandoned | completed
+		Progress     int      `json:"progress"`   // 0-100; fills the status bar under the poster
+		ReadCount    int      `json:"read_count"` // finished watches, for the "×2" chip
 		// The most recent date this was watched, for the "Last watched" sort.
 		LastReadAt    string `json:"last_read_at"`
 		DialogueCount int    `json:"dialogue_count"`
@@ -387,7 +390,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[movie] handleListMovies uid=%v", uid)
 	q := `
-		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
+		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0), m.release_circa,
 		       m.media_type, COALESCE(m.poster_path, ''),
 		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite, m.status, m.progress,
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id),
@@ -410,7 +413,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 	items := []item{}
 	for rows.Next() {
 		it := item{Genres: []string{}}
-		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear,
+		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear, &it.ReleaseCirca,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
 			&it.Favorite, &it.Status, &it.Progress, &it.DialogueCount, &it.TaggedCount, &it.NotedCount); err != nil {
 			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
@@ -533,11 +536,11 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		UPDATE movies SET title = ?, director = ?, release_year = ?, description = ?,
+		UPDATE movies SET title = ?, director = ?, release_year = ?, release_circa = ?, description = ?,
 		                  media_type = ?, series = ?, series_index = ?, favorite = ?,
 		                  updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
-		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear),
+		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
 		nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {

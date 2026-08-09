@@ -418,7 +418,14 @@ func TestSixColoursKeepsForeignKeys(t *testing.T) {
 // have.
 func TestSixColoursLeavesTheSameSchemaAsAFreshInstall(t *testing.T) {
 	upgraded := openAt28(t)
-	migrateThrough(t, upgraded, 29)
+	// Through EVERY remaining migration, not through 29. The claim above is that
+	// an upgraded database ends up identical to a fresh one, and a hardcoded
+	// target quietly narrows it to "identical as of 0029" — after which the test
+	// passes forever while comparing two different things. It caught 0030 by
+	// failing, which is the right outcome and the wrong reason.
+	if err := upgraded.Migrate(); err != nil {
+		t.Fatal(err)
+	}
 
 	fresh, err := Open(filepath.Join(t.TempDir(), "fresh.db"))
 	if err != nil {

@@ -246,7 +246,12 @@ func TestBookCRUD(t *testing.T) {
 	c.mustDo("POST", "/books", map[string]any{"title": "Dup", "isbn": "9780316769488"}, http.StatusConflict)
 	c.mustDo("POST", "/books", map[string]any{"title": " "}, http.StatusBadRequest)
 	c.mustDo("POST", "/books", map[string]any{"title": "X", "isbn": "junk"}, http.StatusBadRequest)
-	c.mustDo("POST", "/books", map[string]any{"title": "X", "published_year": 99}, http.StatusBadRequest)
+	// The bound moved from 1000..3000 to -4000..3000, so 99 is now a year rather
+	// than a rejection. Only the new edges are asserted here; that the first
+	// millennium and BCE actually round-trip is ancient_years_test.go's job, and
+	// creating rows for it here would move the list assertions below.
+	c.mustDo("POST", "/books", map[string]any{"title": "X", "published_year": -4001}, http.StatusBadRequest)
+	c.mustDo("POST", "/books", map[string]any{"title": "X", "published_year": 3001}, http.StatusBadRequest)
 
 	// List.
 	type bookItem struct {
