@@ -10,6 +10,7 @@ import { errText, json } from './api.js'
 import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState, episodeLabel } from './Movies.jsx'
+import { UtteranceForm, utteranceState } from './Quotes.jsx'
 import { PendingImportCard } from './StagingPage.jsx'
 import {
   CreditFaces,
@@ -21,15 +22,16 @@ import {
   splitCredits,
   usePeople,
 } from './people.jsx'
-import { ShareDialog, bookShare, movieShare } from './share.jsx'
+import { ShareDialog, bookShare, movieShare, quoteShare } from './share.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
   ClampMore,
   clampSequence,
   ErrorText,
-  GhostButton,
+  formatPartialDate,
   FormModal,
+  GhostButton,
   HandCard,
   HandNote,
   Hearts,
@@ -723,6 +725,79 @@ function screenFav(d, movieMap) {
   }
 }
 
+// quoteFav — a standalone quote as a favourite tile. The third kind, and the
+// one with no work behind it: where a book contributes a title and a film a
+// poster, this contributes the OCCASION — who said it, on what occasion, when,
+// where, through what medium — which is the same role and a different shape.
+//
+// No `workId` and no `openLabel`, and that absence is the point rather than an
+// omission: there is nothing to open. A standalone quote IS the whole record, so
+// the tile's "Open book →" button simply is not there for one.
+function quoteFav(u) {
+  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium].filter(Boolean)
+  return {
+    key: `quote:${u.id}`,
+    kind: 'quote',
+    color: u.color,
+    text: u.quote || u.note,
+    note: u.quote ? u.note : '',
+    tags: u.tags || [],
+    source: [u.speaker, u.occasion].filter(Boolean).join(' \u00b7 '),
+    meta: [u.speaker, ...rest].join(' \u00b7 '),
+    createdAt: u.created_at,
+    raw: u,
+  }
+}
+
+// FAV_KINDS — everything that differs between the three, in one table.
+//
+// It was a pair of `isBook` ternaries scattered through the tile, which is a
+// shape that works for exactly two kinds and quietly rots at three: adding
+// standalone quotes meant either a third leg on every one of them or this. Every
+// entry is something the tile genuinely has to know, and a kind missing from
+// here fails loudly at the lookup rather than silently rendering as a book.
+const FAV_KINDS = {
+  book: {
+    label: () => 'BOOK',
+    labelColor: 'var(--accent-ui)',
+    path: '/annotations',
+    state: annotationState,
+    form: AnnotationForm,
+    editTitle: 'Edit quote',
+    confirm: 'Delete this annotation?',
+    personKind: 'author',
+    credit: (f) => f.raw.book_author,
+    shareKind: 'book',
+    quoted: true,
+  },
+  screen: {
+    label: (f) => f.media,
+    labelColor: 'var(--amber)',
+    path: '/dialogues',
+    state: dialogueState,
+    form: DialogueForm,
+    editTitle: 'Edit dialogue',
+    confirm: 'Delete this dialogue?',
+    personKind: 'actor',
+    credit: (f) => f.raw.actor,
+    shareKind: 'screen',
+    quoted: false,
+  },
+  quote: {
+    label: () => 'QUOTE',
+    labelColor: 'var(--accent-ui)',
+    path: '/quotes',
+    state: utteranceState,
+    form: UtteranceForm,
+    editTitle: 'Edit quote',
+    confirm: 'Delete this quote?',
+    personKind: 'speaker',
+    credit: (f) => f.raw.speaker,
+    shareKind: 'utterance',
+    quoted: true,
+  },
+}
+
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onPending, pendingImport, onReviewImport }) {
   const [favs, setFavs] = useState([])
   const favCols = useColumnsAt([[640, 2]]) // favourites masonry: 1 col < sm, 2 ≥ sm
@@ -733,6 +808,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const [tagNames, setTagNames] = useState([]) // suggestions for the edit forms
   const { map: authorMap } = usePeople('author') // author faces: favourite chips + share payloads
   const { map: actorMap } = usePeople('actor') // actor faces: favourite chips + share payloads
+  const { map: speakerMap } = usePeople('speaker') // speaker faces on standalone-quote favourites
   const [person, setPerson] = useState(null) // {kind, name} open in the metadata panel
   const seps = parseCreditSeps(user?.preferences?.creditSeparators)
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
@@ -745,17 +821,25 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const hello = useMemo(() => greetingFor(user?.username), [user?.username])
   const today = useMemo(() => dateLine(), [])
 
-  // Favourites across both media — books (annotations) and films/shows
-  // (dialogues) — merged newest-first. A few show as tiles; the rest wait
+  // Favourites across all THREE kinds — book highlights, film dialogue and
+  // standalone quotes — merged and shuffled. A few show as tiles; the rest wait
   // behind "view more". Movies are fetched once to attribute each dialogue to
   // its title (the dialogues list carries only movie_id). Reloaded after any
   // tile mutation (edit · delete · un-heart).
+  //
+  // Standalone quotes were simply never asked for. This function fetched two
+  // lists and merged two lists, and had done since before the third kind
+  // existed; the comment above it still said "both media". Nothing failed —
+  // hearting a standalone quote worked, the heart stayed on, the Quotes screen
+  // filtered by it — and the quote never appeared here, which is a bug you can
+  // only find by owning one and looking for it.
   function loadFavs() {
     Promise.all([
       json('GET', '/annotations?favorite=1&limit=200'),
       json('GET', '/dialogues?favorite=1'),
+      json('GET', '/quotes?favorite=1'),
       json('GET', '/movies'),
-    ]).then(([ra, rd, rm]) => {
+    ]).then(([ra, rd, rq, rm]) => {
       // Guard .data, not just .ok: a 2xx response with a non-JSON/empty body
       // (an SPA/HTML fallback from a reverse proxy, or a session-expiry redirect
       // resolved to a 200 page) leaves .data null. Dereferencing .data.movies
@@ -766,6 +850,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       const list = []
       if (ra.ok && ra.data) for (const a of ra.data.annotations || []) list.push(bookFav(a))
       if (rd.ok && rd.data) for (const d of rd.data.dialogues || []) list.push(screenFav(d, movieMap))
+      // The response key is `utterances` — the table, not the route.
+      if (rq.ok && rq.data) for (const u of rq.data.utterances || []) list.push(quoteFav(u))
       // Favourites shuffle on every load (Fisher–Yates) — the section is a
       // re-surfacing wall, not a chronological feed, so each visit reorders it.
       for (let i = list.length - 1; i > 0; i--) {
@@ -793,7 +879,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // Share/edit/delete mirror the handlers in Library/Movies/SearchPage: PUTs
   // are full-state (annotationState/dialogueState carry every field), deletes
   // confirm first, and every success reloads the favourites list.
-  const itemPath = (f) => (f.kind === 'book' ? '/annotations' : '/dialogues')
+  const itemPath = (f) => FAV_KINDS[f.kind].path
   async function saveFav(f, fields) {
     const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, fields)
     if (!r.ok) return errText(r, 'could not save')
@@ -802,32 +888,44 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     return null
   }
   async function patchFav(f, fields) {
-    const stateFn = f.kind === 'book' ? annotationState : dialogueState
+    const stateFn = FAV_KINDS[f.kind].state
     const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, { ...stateFn(f.raw), ...fields })
     if (!r.ok) return toast(errText(r, 'could not save'))
     loadFavs()
   }
   async function removeFav(f) {
-    if (!confirm(f.kind === 'book' ? 'Delete this annotation?' : 'Delete this dialogue?')) return
+    if (!confirm(FAV_KINDS[f.kind].confirm)) return
     const r = await json('DELETE', `${itemPath(f)}/${f.raw.id}`)
     if (!r.ok) return toast(errText(r, 'could not delete'))
     if (openFav === f.key) setOpenFav(null)
     if (editingFav === f.key) setEditingFav(null)
     loadFavs()
   }
-  const sharePayloadFor = (f) =>
-    f.kind === 'book'
-      ? bookShare({
-          quote: f.raw.quote, note: f.raw.note, author: f.raw.book_author, title: f.raw.book_title,
-          chapter: f.raw.chapter, location: f.raw.location, date: fmtDate(annDate(f.raw)),
-          tags: f.raw.tags, color: f.raw.color, people: authorMap,
-        })
-      : movieShare({
-          quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
-          character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp,
-          episode: episodeLabel(f.raw), tags: f.raw.tags,
-          color: f.raw.color, people: actorMap,
-        })
+  const sharePayloadFor = (f) => {
+    if (f.kind === 'book') {
+      return bookShare({
+        quote: f.raw.quote, note: f.raw.note, author: f.raw.book_author, title: f.raw.book_title,
+        chapter: f.raw.chapter, location: f.raw.location, date: fmtDate(annDate(f.raw)),
+        tags: f.raw.tags, color: f.raw.color, people: authorMap,
+      })
+    }
+    if (f.kind === 'quote') {
+      // The same payload the Quotes screen builds, so a quote shared from Home
+      // and the same quote shared from its own screen produce the same picture.
+      return quoteShare({
+        quote: f.raw.quote, note: f.raw.note, speaker: f.raw.speaker, occasion: f.raw.occasion,
+        when: formatPartialDate(f.raw.occasion_date), place: f.raw.place, medium: f.raw.medium,
+        date: fmtDate(f.raw.noted_at || f.raw.created_at),
+        tags: f.raw.tags, color: f.raw.color, people: speakerMap, seps,
+      })
+    }
+    return movieShare({
+      quote: f.raw.quote, note: f.raw.note, title: f.movie?.title, year: f.movie?.release_year,
+      character: f.raw.character, actor: f.raw.actor, timestamp: f.raw.timestamp,
+      episode: episodeLabel(f.raw), tags: f.raw.tags,
+      color: f.raw.color, people: actorMap,
+    })
+  }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 pt-4" data-screen-label="home-body">
@@ -905,6 +1003,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                   setOpenFav((k) => (k === f.key ? null : f.key))
                 }}
                 onOpen={() => (f.kind === 'book' ? onOpenBook(f.workId) : onOpenMovie(f.workId))}
+                speakerMap={speakerMap}
                 onEditStart={() => setEditingFav(f.key)}
                 onEditCancel={() => setEditingFav(null)}
                 onSave={(fields) => saveFav(f, fields)}
@@ -934,7 +1033,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       {shareFav && (
         <ShareDialog
           share={sharePayloadFor(shareFav)}
-          seen={{ kind: shareFav.kind === 'book' ? 'book' : 'screen', id: shareFav.raw.id }}
+          seen={{ kind: FAV_KINDS[shareFav.kind].shareKind, id: shareFav.raw.id }}
           onClose={() => setShareFav(null)}
         />
       )}
@@ -957,16 +1056,18 @@ function FavouriteTile({
   f, variant, clampLines = 3, open, editing, onToggle, onOpen,
   onEditStart, onEditCancel, onSave, onPatch, onDelete, onShare,
   tagSuggestions, stickers, reloadStickers,
-  authorMap = {}, actorMap = {}, seps, onOpenPerson,
+  authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenPerson,
 }) {
+  const meta = FAV_KINDS[f.kind]
   const isBook = f.kind === 'book'
-  // The credited people: a book's author(s) OR a dialogue's actor(s) — BOTH are
-  // split per the user's separator prefs (ROADMAP §11), so a multi-speaker
-  // dialogue ("Sinéad Cusack, Hugo Weaving") becomes individual, clickable
-  // people with portraits, not one joined chip. Faces ride the collapsed source
-  // line (display-only); the expanded tile makes them clickable PersonCredit chips.
-  const peopleNames = splitCredits(isBook ? f.raw.book_author : f.raw.actor, seps)
-  const peopleMap = isBook ? authorMap : actorMap
+  // The credited people: a book's author(s), a dialogue's actor(s), or a
+  // standalone quote's speaker(s) — ALL split per the user's separator prefs
+  // (ROADMAP §11), so a multi-speaker line ("Sinéad Cusack, Hugo Weaving")
+  // becomes individual, clickable people with portraits, not one joined chip.
+  // Faces ride the collapsed source line (display-only); the expanded tile makes
+  // them clickable PersonCredit chips.
+  const peopleNames = splitCredits(meta.credit(f), seps)
+  const peopleMap = { author: authorMap, actor: actorMap, speaker: speakerMap }[meta.personKind] || {}
   // The source/meta lines are rebuilt here from the SPLIT credit names (ROADMAP
   // §11) — bookFav/screenFav stored the joined author verbatim, so a book with
   // co-authors read as "Gaiman & Pratchett" instead of individual people.
@@ -986,37 +1087,28 @@ function FavouriteTile({
       colorBar={f.color || 'yellow'}
       style={{ padding: '12px 15px' }}
     >
-      <FormModal open={editing} onClose={onEditCancel} title={isBook ? 'Edit quote' : 'Edit dialogue'} maxWidth={520}>
-        {isBook ? (
-          <AnnotationForm
-            initial={f.raw}
-            onSubmit={onSave}
-            onCancel={onEditCancel}
-            submitLabel="Save"
-            tagSuggestions={tagSuggestions}
-            stickers={stickers}
-            reloadStickers={reloadStickers}
-          />
-        ) : (
-          <DialogueForm
-            initial={f.raw}
-            onSubmit={onSave}
-            onCancel={onEditCancel}
-            submitLabel="Save"
-            show={f.movie?.media_type === 'show'}
-            tagSuggestions={tagSuggestions}
-            stickers={stickers}
-            reloadStickers={reloadStickers}
-          />
-        )}
+      <FormModal open={editing} onClose={onEditCancel} title={meta.editTitle} maxWidth={520}>
+        {/* One form per kind, picked from the table rather than by a ternary
+            that only had room for two of them. `show` is meaningless to the
+            other two forms and harmlessly ignored. */}
+        <meta.form
+          initial={f.raw}
+          onSubmit={onSave}
+          onCancel={onEditCancel}
+          submitLabel="Save"
+          show={f.movie?.media_type === 'show'}
+          tagSuggestions={tagSuggestions}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
+        />
       </FormModal>
         <>
           {/* Click anywhere on the tile head to expand — a chevron is the only
               affordance (no "show more"); the quote clamps to a per-card 3–5. */}
           <Tooltip label={open ? 'Collapse this quote' : 'Show the whole quote'} className="flex w-full">
             <button type="button" className="clampable is-clickable block w-full text-left" style={{ background: 'none', border: 'none', padding: 0 }} onClick={onToggle} aria-expanded={open}>
-              <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
-                {isBook ? 'BOOK' : f.media}
+              <MonoLabel className="mb-1.5 block" style={{ fontSize: 9.5, color: meta.labelColor }}>
+                {meta.label(f)}
               </MonoLabel>
               <p
                 style={{
@@ -1029,7 +1121,7 @@ function FavouriteTile({
                   ...(open ? {} : { display: '-webkit-box', WebkitLineClamp: clampLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
                 }}
               >
-                {isBook ? `“${f.text}”` : f.text}
+                {meta.quoted ? `“${f.text}”` : f.text}
               </p>
               <span className="mt-1.5 flex items-center gap-1.5">
                 <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
@@ -1046,7 +1138,7 @@ function FavouriteTile({
                   {peopleNames.map((n) => (
                     <PersonCredit
                       key={n}
-                      kind={isBook ? 'author' : 'actor'}
+                      kind={meta.personKind}
                       name={n}
                       person={peopleMap[n]}
                       size={24}
@@ -1061,9 +1153,14 @@ function FavouriteTile({
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
-                <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpen}>
-                  {f.openLabel}
-                </button>
+                {/* A standalone quote has nothing to open — it IS the whole
+                    record — so the button is absent rather than present and
+                    inert. */}
+                {f.openLabel && (
+                  <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpen}>
+                    {f.openLabel}
+                  </button>
+                )}
                 {/* Un-hearting removes the tile — this IS the favourites list. */}
                 <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
                 <span className="ml-auto flex items-center">
