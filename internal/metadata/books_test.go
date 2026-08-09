@@ -79,49 +79,56 @@ func TestSearchBooksMergesSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("got %d candidates, want 2", len(got))
+	// ONE record, not two. An ISBN names one book, so the providers are two
+	// partial accounts of it rather than two things to choose between — and
+	// choosing a row would mean inheriting that row's gaps wholesale.
+	if len(got) != 1 {
+		t.Fatalf("got %d candidates, want one merged record", len(got))
 	}
+	m := got[0]
 
-	g := got[0]
-	if g.Source != "google" || g.SourceID != "vol1" || g.Title != "Fooled by Randomness" {
-		t.Errorf("google candidate = %+v", g)
+	// Open Library titles the WORK; Google titles the edition in hand.
+	if m.Title != "Fooled by Randomness" {
+		t.Errorf("title = %q", m.Title)
 	}
-	if g.Author != "Nassim Taleb, Second Author" {
-		t.Errorf("author = %q", g.Author)
+	// The longest credit wins, which here means keeping the SECOND AUTHOR rather
+	// than the fuller spelling of the first. That is the right trade: a dropped
+	// co-author is data the library cannot get back, and a missing middle name is
+	// a cosmetic difference the credit splitter already tolerates.
+	if m.Author != "Nassim Taleb, Second Author" {
+		t.Errorf("author = %q", m.Author)
 	}
-	if g.ISBN13 != "9780306406157" {
-		t.Errorf("isbn13 = %q", g.ISBN13)
+	if m.ISBN13 != "9780306406157" {
+		t.Errorf("isbn13 = %q", m.ISBN13)
 	}
-	if g.Description != "On luck." || g.PublishedYear != 2004 {
-		t.Errorf("desc/year = %q/%d", g.Description, g.PublishedYear)
+	// 2001, not the 2004 in this fixture's publishedDate. Google reports the
+	// EDITION's date; Open Library reports first_publish_year. A work cannot have
+	// been written after an edition of it was printed, so the earlier one answers
+	// the question — a four-year quibble on a modern paperback, and eighteen
+	// centuries on the Meditations.
+	if m.PublishedYear != 2001 {
+		t.Errorf("year = %d, want the first publication", m.PublishedYear)
 	}
-	if len(g.Genres) != 2 || g.Genres[0] != "Business" {
-		t.Errorf("genres = %v", g.Genres)
+	// Google carries the blurb; Open Library usually carries none.
+	if m.Description != "On luck." {
+		t.Errorf("description = %q", m.Description)
 	}
-	// https upgrade + the hi-res fife render (query is re-encoded alphabetically).
-	if g.CoverURL != "https://books.google.com/thumb?fife=w1280-h1920&id=vol1" {
-		t.Errorf("cover = %q, want https + fife upgrade", g.CoverURL)
+	// Google's hi-res fife render beats Open Library's -L.jpg (https upgraded,
+	// query re-encoded alphabetically).
+	if m.CoverURL != "https://books.google.com/thumb?fife=w1280-h1920&id=vol1" {
+		t.Errorf("cover = %q, want the Google hi-res render", m.CoverURL)
 	}
-
-	ol := got[1]
-	if ol.Source != "openlibrary" || ol.SourceID != "/works/OL123W" {
-		t.Errorf("ol candidate = %+v", ol)
+	// The union of two vocabularies that barely overlap, capped.
+	if len(m.Genres) < 6 || m.Genres[0] != "Business" {
+		t.Errorf("genres = %v, want Google's first then Open Library's subjects", m.Genres)
 	}
-	if ol.Author != "Nassim Nicholas Taleb" || ol.PublishedYear != 2001 {
-		t.Errorf("ol author/year = %q/%d", ol.Author, ol.PublishedYear)
+	// Series only Open Library knew about.
+	if m.Series != "Incerto" || m.SeriesIndex != 2 {
+		t.Errorf("series = %q #%v, want Incerto #2", m.Series, m.SeriesIndex)
 	}
-	if ol.ISBN13 != "9780306406157" {
-		t.Errorf("ol isbn13 = %q", ol.ISBN13)
-	}
-	if len(ol.Genres) != 6 {
-		t.Errorf("ol genres = %v, want capped at 6", ol.Genres)
-	}
-	if ol.Series != "Incerto" || ol.SeriesIndex != 2 {
-		t.Errorf("ol series = %q #%v, want Incerto #2", ol.Series, ol.SeriesIndex)
-	}
-	if ol.CoverURL != "https://covers.openlibrary.org/b/id/240727-L.jpg" {
-		t.Errorf("ol cover = %q", ol.CoverURL)
+	// Both identities survive, so either can be re-verified later.
+	if m.GoogleID != "vol1" || m.OpenLibraryID != "/works/OL123W" {
+		t.Errorf("ids = %q / %q", m.GoogleID, m.OpenLibraryID)
 	}
 }
 
@@ -239,6 +246,9 @@ func TestSearchBooksGoogleKey(t *testing.T) {
 	}
 }
 
+// The cap belongs to TEXT searches now. An ISBN names one book, so that path
+// returns a single merged record and can never reach a cap — whereas a title
+// search is exactly where a provider hands back forty near-misses.
 func TestSearchBooksCap(t *testing.T) {
 	items := make([]string, 15)
 	for i := range items {
@@ -248,7 +258,7 @@ func TestSearchBooksCap(t *testing.T) {
 	osrv := jsonServer(t, openLibraryJSON)
 	setBases(t, gsrv.URL, osrv.URL)
 
-	got, err := SearchBooks(context.Background(), "9780306406157", "", "", "")
+	got, err := SearchBooks(context.Background(), "", "T", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

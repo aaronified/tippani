@@ -28,6 +28,11 @@ type bookReq struct {
 	ClearCover     bool     `json:"clear_cover"` // update: drop the current cover
 	Source         string   `json:"source"`
 	SourceID       string   `json:"source_id"`
+	// Both provider ids, for a candidate assembled from both of them. Source and
+	// SourceID still carry the primary, so a client that sends only those keeps
+	// working exactly as before.
+	GoogleID      string `json:"google_id"`
+	OpenLibraryID string `json:"openlibrary_id"`
 }
 
 // validate trims the shared create/update fields and normalizes the ISBN
@@ -156,6 +161,16 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		googleID = nullable(req.SourceID)
 	case "openlibrary":
 		openlibraryID = nullable(req.SourceID)
+	}
+	// A candidate assembled from both providers has two identities, and the
+	// switch above can only record one of them. Keeping both is what lets
+	// re-verify re-check either supplier later; pinning only the primary would
+	// half-orphan a record the moment it was created.
+	if req.GoogleID != "" {
+		googleID = req.GoogleID
+	}
+	if req.OpenLibraryID != "" {
+		openlibraryID = req.OpenLibraryID
 	}
 
 	uid := userID(r)

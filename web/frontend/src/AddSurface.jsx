@@ -152,6 +152,10 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       cover_url: c.cover_url || undefined,
       source: c.source,
       source_id: c.source_id,
+      // A candidate merged from both providers carries both ids; sending them
+      // keeps the record re-verifiable against either supplier later.
+      google_id: c.google_id || undefined,
+      openlibrary_id: c.openlibrary_id || undefined,
     })
     if (r.ok) finish('book', r.data)
     else setError(errText(r, 'could not add book')) // 409 duplicate lands here

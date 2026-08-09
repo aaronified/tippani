@@ -67,6 +67,7 @@ func FetchGoogleVolume(ctx context.Context, id, key string) (*BookCandidate, err
 	return &BookCandidate{
 		Source:        "google",
 		SourceID:      r.ID,
+		GoogleID:      r.ID,
 		Title:         vi.Title,
 		Author:        strings.Join(vi.Authors, ", "),
 		ISBN13:        isbn13,

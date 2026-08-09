@@ -40,6 +40,13 @@ type BookCandidate struct {
 	CoverURL      string   `json:"cover_url"`
 	Series        string   `json:"series"`       // franchise/series name, where the source has it
 	SeriesIndex   float64  `json:"series_index"` // position within the series (0 = unknown)
+
+	// Both provider ids, not just the one in SourceID. A merged candidate is
+	// assembled from two providers and has two identities; keeping only the
+	// primary would throw away the pin that re-verify needs to re-check the
+	// other one later.
+	GoogleID      string `json:"google_id"`
+	OpenLibraryID string `json:"openlibrary_id"`
 }
 
 // seriesRe splits a raw series string like "Discworld #5", "Discworld (5)" or
@@ -150,6 +157,14 @@ func SearchBooks(ctx context.Context, isbn, title, author, googleKey string) ([]
 			}
 		}
 	}
+	// An ISBN identifies one book, so the providers are not offering a choice —
+	// they are each half-describing the same object. Merge them into one record
+	// rather than making the reader pick a row and inherit all of its gaps.
+	if isbn != "" {
+		out = mergeSameBook(out)
+	} else {
+		adoptFirstPublished(out, false)
+	}
 	// Best-match-first when searching by text (an ISBN hit is already exact).
 	if isbn == "" && title != "" {
 		rankBooks(out, title, author)
@@ -159,6 +174,205 @@ func SearchBooks(ctx context.Context, isbn, title, author, googleKey string) ([]
 	}
 	return out, nil
 }
+
+// adoptFirstPublished replaces an edition year with the earliest year any
+// provider reported for the same work.
+//
+// The two sources answer different questions. Open Library's search returns
+// first_publish_year -- when the work was written -- and this package has always
+// read it. Google Books returns publishedDate, which is the date of the EDITION
+// it happens to be describing, so a Penguin reprint of the Meditations comes
+// back as 2006 and a Dover Thoreau as 1995. For most of a modern library the two
+// agree closely enough not to notice. For anything old they disagree by
+// centuries, and the shelf ends up sorted by when the paperback was printed.
+//
+// Both providers are already queried in the same call and their candidates
+// concatenated, so this costs no request: the earlier year is usually sitting a
+// few entries away in the same slice.
+//
+// The rule is min(), not "prefer Open Library". A first publication cannot be
+// later than an edition of it, so when the two disagree the earlier one is the
+// one that answers the question -- and if OL is the one missing a year, Google's
+// edition date survives, which is the fallback that was asked for.
+//
+// sameWork is deliberately narrow. An ISBN search returns one book, so every
+// candidate is that book and no matching is needed. A title search can return
+// two different works with one name -- Ulysses is Joyce's and Tennyson's -- so
+// there the titles must fold equal AND the authors must share a name. Sharing a
+// TOKEN rather than matching whole is what lets "Marcus Aurelius" meet "Marcus
+// Aurelius Antoninus", which is the exact case this exists for.
+func adoptFirstPublished(cands []BookCandidate, sameWork bool) {
+	earliest := func(group []int) int {
+		best := 0
+		for _, y := range group {
+			if y != 0 && (best == 0 || y < best) {
+				best = y
+			}
+		}
+		return best
+	}
+	if sameWork {
+		years := make([]int, 0, len(cands))
+		for _, c := range cands {
+			years = append(years, c.PublishedYear)
+		}
+		if y := earliest(years); y != 0 {
+			for i := range cands {
+				cands[i].PublishedYear = y
+			}
+		}
+		return
+	}
+	for i := range cands {
+		group := []int{cands[i].PublishedYear}
+		for j := range cands {
+			if i != j && normalizeWork(cands[i].Title) == normalizeWork(cands[j].Title) &&
+				sharesAuthorToken(cands[i].Author, cands[j].Author) {
+				group = append(group, cands[j].PublishedYear)
+			}
+		}
+		if y := earliest(group); y != 0 {
+			cands[i].PublishedYear = y
+		}
+	}
+}
+
+// sharesAuthorToken reports whether two credit strings name the same person
+// loosely enough for provider spelling. An empty credit matches anything: one
+// provider omitting the author is not evidence of a different book, and the
+// title has already had to fold equal to get here.
+func sharesAuthorToken(a, b string) bool {
+	fa, fb := normalizeWork(a), normalizeWork(b)
+	if fa == "" || fb == "" || fa == fb {
+		return true
+	}
+	seen := map[string]bool{}
+	for _, t := range strings.Fields(fa) {
+		if len(t) > 2 { // skip "de", "van", initials
+			seen[t] = true
+		}
+	}
+	for _, t := range strings.Fields(fb) {
+		if seen[t] {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeSameBook folds every candidate for one ISBN into a single best-of record.
+//
+// An ISBN names one book, so two providers describing it are not two choices to
+// pick between -- they are two partial accounts of the same object, and asking
+// somebody to choose a ROW means choosing a whole set of fields at once. Pick
+// the Google row and you get its blurb and its cover and its edition year. Pick
+// the Open Library row and you get the first-publication year but often no
+// description at all. Neither row is the best answer; the best answer is
+// assembled.
+//
+// Which source wins which field, and why:
+//
+//	year        earliest non-zero. Open Library reports first_publish_year and
+//	            Google reports the edition's publishedDate, and a work cannot
+//	            have been written after an edition of it was printed. This is
+//	            the field the whole merge exists for.
+//	cover       highest resolution. Google's is rewritten to a w1280-h1920 fife
+//	            render (see GoogleHiResCover), which beats Open Library's -L.jpg
+//	            comfortably; OL is the fallback when Google has no art.
+//	description longest. Google carries real publisher blurbs; OL usually
+//	            carries nothing, and occasionally a single line.
+//	author      longest. Providers disagree on how much of a name to print, and
+//	            "Nassim Nicholas Taleb" is more useful than "Nassim Taleb" --
+//	            it is also what the people table wants to match on.
+//	title       Open Library's, when it has one. It titles the WORK; Google
+//	            titles the edition in hand, which is where "(Penguin Classics)"
+//	            and series furniture come from. Since the year is now the work's
+//	            too, the two agree about what is being described.
+//	genres      union, deduplicated, capped. The two vocabularies barely
+//	            overlap -- Google has broad categories, OL has subject headings
+//	            -- so taking one and discarding the other loses real signal.
+//	series      whichever names one; a non-zero index breaks the tie, because
+//	            "Discworld 5" is strictly more than "Discworld".
+//
+// Both provider ids are kept, so the merged record can still be re-verified
+// against either one later.
+func mergeSameBook(cands []BookCandidate) []BookCandidate {
+	if len(cands) < 2 {
+		return cands
+	}
+	out := cands[0]
+	for _, c := range cands[1:] {
+		if c.PublishedYear != 0 && (out.PublishedYear == 0 || c.PublishedYear < out.PublishedYear) {
+			out.PublishedYear = c.PublishedYear
+		}
+		if len(c.Description) > len(out.Description) {
+			out.Description = c.Description
+		}
+		if len(c.Author) > len(out.Author) {
+			out.Author = c.Author
+		}
+		if out.CoverURL == "" {
+			out.CoverURL = c.CoverURL
+		} else if c.Source == "google" && c.CoverURL != "" {
+			out.CoverURL = c.CoverURL
+		}
+		if c.Source == "openlibrary" && strings.TrimSpace(c.Title) != "" {
+			out.Title = c.Title
+		}
+		if out.ISBN13 == "" {
+			out.ISBN13 = c.ISBN13
+		}
+		if c.Series != "" && (out.Series == "" || (out.SeriesIndex == 0 && c.SeriesIndex != 0)) {
+			out.Series, out.SeriesIndex = c.Series, c.SeriesIndex
+		}
+		out.Genres = unionGenres(out.Genres, c.Genres)
+		if c.GoogleID != "" {
+			out.GoogleID = c.GoogleID
+		}
+		if c.OpenLibraryID != "" {
+			out.OpenLibraryID = c.OpenLibraryID
+		}
+	}
+	// The merged record is not "a Google result" or "an OL result" any more. It
+	// keeps a primary source so the existing create path still has one id to
+	// pin, and carries both ids besides.
+	if out.Source == "" || out.SourceID == "" {
+		if out.GoogleID != "" {
+			out.Source, out.SourceID = "google", out.GoogleID
+		} else if out.OpenLibraryID != "" {
+			out.Source, out.SourceID = "openlibrary", out.OpenLibraryID
+		}
+	}
+	return []BookCandidate{out}
+}
+
+// unionGenres merges two subject lists case-insensitively, keeping first-seen
+// order and the existing candidate cap. Google's categories and Open Library's
+// subject headings barely overlap, so this is additive in practice.
+func unionGenres(a, b []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(a)+len(b))
+	for _, list := range [][]string{a, b} {
+		for _, g := range list {
+			g = strings.TrimSpace(g)
+			k := strings.ToLower(g)
+			if g == "" || seen[k] {
+				continue
+			}
+			seen[k] = true
+			out = append(out, g)
+		}
+	}
+	if len(out) > maxMergedGenres {
+		out = out[:maxMergedGenres]
+	}
+	return out
+}
+
+// maxMergedGenres caps the union. Open Library alone already caps its subjects
+// at 6; two vocabularies stitched together needs a little more room without
+// turning the genre row into a wall.
+const maxMergedGenres = 8
 
 // rankBooks stably reorders candidates best-match-first by title + author
 // similarity, with a nudge for actually carrying cover art. This is the
@@ -246,6 +460,7 @@ func searchGoogle(ctx context.Context, q, key string) ([]BookCandidate, error) {
 		out = append(out, BookCandidate{
 			Source:        "google",
 			SourceID:      it.ID,
+			GoogleID:      it.ID,
 			Title:         vi.Title,
 			Author:        strings.Join(vi.Authors, ", "),
 			ISBN13:        isbn13,
@@ -355,6 +570,7 @@ func searchOpenLibrary(ctx context.Context, params url.Values, isbnEcho string) 
 		out = append(out, BookCandidate{
 			Source:        "openlibrary",
 			SourceID:      d.Key,
+			OpenLibraryID: d.Key,
 			Title:         d.Title,
 			Author:        strings.Join(d.AuthorName, ", "),
 			ISBN13:        isbnEcho, // OL docs don't echo the queried ISBN back

@@ -23,10 +23,10 @@ func TestHiResImageURLs(t *testing.T) {
 	}
 
 	amazonCases := map[string]string{
-		"https://m.media-amazon.com/images/I/x._SY300_.jpg":     "https://m.media-amazon.com/images/I/x.jpg",
-		"https://m.media-amazon.com/images/I/x._AC_SX466_.jpg":  "https://m.media-amazon.com/images/I/x.jpg",
-		"https://m.media-amazon.com/images/I/plain.jpg":         "https://m.media-amazon.com/images/I/plain.jpg",
-		"https://books.google.com/books/content?id=1&zoom=1":    "https://books.google.com/books/content?id=1&zoom=1",
+		"https://m.media-amazon.com/images/I/x._SY300_.jpg":    "https://m.media-amazon.com/images/I/x.jpg",
+		"https://m.media-amazon.com/images/I/x._AC_SX466_.jpg": "https://m.media-amazon.com/images/I/x.jpg",
+		"https://m.media-amazon.com/images/I/plain.jpg":        "https://m.media-amazon.com/images/I/plain.jpg",
+		"https://books.google.com/books/content?id=1&zoom=1":   "https://books.google.com/books/content?id=1&zoom=1",
 	}
 	for in, want := range amazonCases {
 		if got := AmazonFullSizeImage(in); got != want {
