@@ -242,7 +242,13 @@
      Deliberately NOT a theme token: this is the ink the page is dimmed WITH, and
      it has to darken a light theme and a dark one alike. A scrim that followed
      --bg would stop dimming exactly when the page is already dark. ---- */
-  .tp-scrim { background: rgba(21, 16, 12, .55); }
+  /* SCROLL STOPS AT THE OVERLAY. Every element carrying .tp-scrim is a
+     full-viewport overlay that is itself the scroll container, so a wheel or a
+     swipe reaching the end of the dialog used to carry on into the page behind
+     it — the page you cannot see, moving under the thing you are reading, and
+     still moved when you close it. `contain` is the whole fix for the pointer
+     and the finger alike: chaining stops at this box's boundary. */
+  .tp-scrim { background: rgba(21, 16, 12, .55); overscroll-behavior: contain; }
   /* Deeper, for a chip or overlay that sits ON artwork rather than over a page —
      a poster has no predictable ground, so the mark needs its own. --on-scrim is
      the ink that rides on either: white, and deliberately not --on-accent, which
@@ -445,6 +451,7 @@
     min-width: 100%;
     max-height: 300px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 5px;
     /* no `background` here: the sheen rule up top owns the face for both
        popovers, and repeating it flat would silently win by being later. */
@@ -1276,7 +1283,7 @@
   .token-entry::placeholder { color: var(--faint); }
   .token-menu {
     position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; min-width: 220px; max-width: 100%;
-    max-height: 220px; overflow-y: auto; padding: 5px; margin: 0; list-style: none;
+    max-height: 220px; overflow-y: auto; overscroll-behavior: contain; padding: 5px; margin: 0; list-style: none;
     border: 1.4px solid var(--ink-border); border-radius: 11px;
     box-shadow: 0 12px 28px -8px rgba(0,0,0,.5); animation: tp-dip .14s ease;
   }
@@ -1900,7 +1907,9 @@
     .progress-indeterminate { animation: none; width: 100%; opacity: .55; }
   }
 
-  .ann-table-wrap { overflow-x: auto; }
+  /* Sideways chaining is the browser's back gesture. A trackpad swipe that
+     runs off the end of a wide table must not navigate away from the page. */
+  .ann-table-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
   .ann-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .ann-table th, .ann-table td {
     text-align: left;
@@ -1965,6 +1974,10 @@
   .topbar-inner .topbar-nav {
     min-width: 0;
     overflow-x: auto;
+    /* The drawer's nav has said this since it was written; the top bar's never
+       did, and it is the one people swipe. Running off its end sideways is the
+       browser's back gesture — a nav that navigates away is the worst one. */
+    overscroll-behavior-x: contain;
     scrollbar-width: none;
   }
   .topbar-inner nav[aria-label="Primary"]::-webkit-scrollbar,
@@ -2181,6 +2194,7 @@
   .read-log .read-open { color: var(--soft); font-style: italic; }
   /* Account surfaces (§7): a centered pop-up on desktop, a full page on phones. */
   .account-scrim {
+    overscroll-behavior: contain;
     position: fixed; inset: 0; z-index: 70;
     display: flex; align-items: flex-start; justify-content: center;
     padding: 8vh 16px 16px;
@@ -2201,7 +2215,7 @@
      closed with a glyph from the icon set — one of the five different ways a
      window could be dismissed. They use CloseButton now, so the class had
      nothing left to style. */
-  .account-modal-body { padding: 16px; max-height: 74vh; overflow-y: auto; }
+  .account-modal-body { padding: 16px; max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; }
   .account-page {
     position: fixed; inset: 0; z-index: 70;
     background: var(--bg); display: flex; flex-direction: column;
@@ -2214,6 +2228,7 @@
   }
   .account-page-title { font-family: var(--font-ui); font-size: 17px; font-weight: 600; }
   .account-page-body {
+    overscroll-behavior: contain;
     flex: 1; overflow-y: auto;
     padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
   }
@@ -2989,6 +3004,7 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
   background: color-mix(in srgb, var(--ink) 42%, transparent);
 }
 .tour-card {
+  overscroll-behavior: contain;
   position: fixed;
   z-index: 81;
   width: min(400px, calc(100vw - 24px));
@@ -3252,6 +3268,7 @@ html[data-theme="dark"] .mobile-sheet-header {
 }
 .mobile-sheet-spacer { width: 44px; flex-shrink: 0; }
 .mobile-sheet-body {
+  overscroll-behavior: contain;
   flex: 1;
   overflow-y: auto;
   padding: 16px 14px;

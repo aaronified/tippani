@@ -255,6 +255,17 @@ What that honestly does not cover:
   nobody would experience. The test that means anything is the one that seeds the
   *retired* key with the *old* value and asserts the switch still reads Off, which
   is the only version that can tell a default from a decision somebody made.
+- **A bug of omission needs a sweep, not a case.** Scrolling inside a popup also
+  scrolled the page behind it. The fix is one CSS property, and the temptation is
+  to add it to the popup that was reported — but the defect is not a wrong value
+  anywhere, it is that nobody thought about scroll chaining at all, so the test
+  is an invariant over the stylesheet: every scroll container declares
+  `overscroll-behavior`, with a named exemption list and a guard that the sweep
+  still matches something. Widening it from vertical to sideways immediately
+  found one nobody had reported — the top navigation, where running off the end
+  is the browser's back gesture, so a nav that navigates away. The same sweep
+  showed the other half was worse than the report: eleven full-viewport overlays,
+  and seven of them never froze the page behind them at all.
 
 ---
 

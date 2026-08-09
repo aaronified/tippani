@@ -2125,6 +2125,10 @@ export function ConfirmDialog({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
+  // Before the early return, because hooks cannot be conditional — which is
+  // also why this takes `open` rather than `true` the way the always-mounted
+  // dialogs do.
+  useBodyScrollLock(open);
   if (!open) return null;
   return (
     <div

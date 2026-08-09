@@ -20,6 +20,7 @@ import {
   ProgressBar,
   Tooltip,
   useIsMobileScreen,
+  useBodyScrollLock,
 } from './ui.jsx'
 
 const CHUNK = 10 // items per preview call (server caps at 15)
@@ -149,7 +150,12 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
 }
 
 export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
-  const mobile = useIsMobileScreen()
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const mobile = useIsMobileScreen()
   const [items, setItems] = useState([]) // previewed items, all statuses
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [phase, setPhase] = useState('checking') // checking | review | applying | done

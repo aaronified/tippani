@@ -32,6 +32,7 @@ import {
   useCoverSize,
   useFrameBase,
   useIsMobileScreen,
+  useBodyScrollLock,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -983,7 +984,12 @@ function fmtStamp(s) {
 // applies, and a warning you have to scroll past on the way to something else is
 // a warning nobody reads.
 function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
-  const mobile = useIsMobileScreen()
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const mobile = useIsMobileScreen()
   const key = meta?.key || 'none'
   // `recoverable` (from the server for the kept archive, sniffed from the header
   // for a chosen file) means this box can open it with YOUR current password,
@@ -1112,7 +1118,12 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
 // operation seen from either end, and they should not look like different
 // features.
 function BackupPrompt({ me, busy, onCancel, onConfirm }) {
-  const mobile = useIsMobileScreen()
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const mobile = useIsMobileScreen()
   const [usePhrase, setUsePhrase] = useState(false)
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')

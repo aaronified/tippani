@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, isPartialDate, Lightbox, MonoLabel, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, isPartialDate, Lightbox, MonoLabel, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -528,7 +528,12 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
 // yet. (The old links-only redirect view is retired — the chips here already
 // link out.)
 export function PersonModal({ kind, name, onClose, onSaved }) {
-  const [person, setPerson] = useState(null)
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const [person, setPerson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [fetching, setFetching] = useState(false)

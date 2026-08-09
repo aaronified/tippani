@@ -33,6 +33,7 @@ import {
   usePersistedState,
   useSort,
   ViewToggle,
+  useBodyScrollLock,
 } from './ui.jsx'
 
 const SCOPES = [
@@ -423,7 +424,12 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
 // detail pages, so share / edit / delete behave identically. Edits and deletes
 // re-run the search via onChanged.
 function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenBook, onOpenMovie, onOpenPerson, onClose, onChanged }) {
-  const isBook = kind === 'book'
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const isBook = kind === 'book'
   // A standalone quote (§24) has NO PARENT, which is the whole difference here:
   // no parent fetch, no "Open book" button, and the list it is found in is not
   // scoped to a work. There is no GET /quotes/{id} either, so the row is picked

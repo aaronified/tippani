@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { categoryHex, paletteTheme } from "./theme.js";
@@ -743,7 +743,12 @@ function QuoteImagePanel({ share, selected, onShared }) {
 
 // ---- the dialog --------------------------------------------------------
 export function ShareDialog({ share, seen, onClose }) {
-  const [format, setFormat] = useState("whatsapp");
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const [format, setFormat] = useState("whatsapp");
   const fields = useMemo(() => fieldsOf(share), [share]);
   // Location (page/timestamp) and Noted (the date you saved it) are the two
   // least-wanted parts in a shared quote — factual noise for most readers — so

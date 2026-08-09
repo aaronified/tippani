@@ -30,6 +30,7 @@ import {
   Toggle,
   toast,
   useIsMobileScreen,
+  useBodyScrollLock,
 } from './ui.jsx'
 
 // One card, three kinds. "Film" and "Show" both map to the movies flow (they
@@ -309,7 +310,12 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
 // sibling tab). Book → ManualTab; Film / Show → ManualMovie (media type fixed by
 // the kind that opened it).
 function ManualPopup({ kind, onClose, onAdded }) {
-  const [mt, setMt] = useState(kind === 'show' ? 'show' : 'movie')
+   // The page behind an overlay does not move. Without this a wheel or a swipe
+  // running past the end of the dialog scrolls the page you cannot see, which is
+  // still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
+ const [mt, setMt] = useState(kind === 'show' ? 'show' : 'movie')
   const [title, setTitle] = useState('')
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -497,6 +503,11 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
 // `onCaptured` fires after a successful save; `onWorkCreated` after an inline
 // work add (the shell refreshes its counts).
 export function CaptureQuote({ initialTarget = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
+  // The page behind an overlay does not move. Without this a wheel or a swipe
+  // that runs past the end of the dialog scrolls the page you cannot see, and it
+  // is still scrolled when you close this. Ref-counted, so a dialog opened from
+  // inside a sheet does not unlock the sheet on its way out.
+  useBodyScrollLock(true)
   const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
   const [creating, setCreating] = useState(null) // null | {title} — inline new-work lookup
   const [err, setErr] = useState('')
