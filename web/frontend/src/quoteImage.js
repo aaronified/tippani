@@ -225,6 +225,39 @@ const PORTRAIT_ALPHA = 0.62 // strength at the outer edge
 const PORTRAIT_FADE = 0.86 // fraction of the portrait's width the fade spans
 const PORTRAIT_TINT = 0.55 // how far the quote's colour pulls the portrait's hue
 
+// ---- the halo under the words ----------------------------------------------
+//
+// A photograph is not a background colour. It has its own lights and darks, and
+// the same ink that reads cleanly on paper vanishes into a shoulder or an eye —
+// not all of it, which would at least be obvious, but a word here and a word
+// there, which is worse in the one place the whole app is about reading a line
+// exactly as it was written.
+//
+// So every word on a backdrop card carries a halo of the card's own surface
+// colour: the type gets back, locally, the paper it was designed for. It is set
+// as a shadow with NO OFFSET, which makes it a glow around each letter rather
+// than a drop shadow beneath it — an offset shadow says "this text is floating
+// above a picture", and the text is meant to be ON the card, not over it.
+//
+// The card colour is the right halo in both modes without a branch: in light
+// mode dark ink gets a pale surround, in dark mode pale ink gets a dark one.
+// Which is also why it is drawn only where there IS an image — on a plain card
+// the paper is already exactly this colour, so it would cost a blur pass per
+// line to composite something invisible.
+const HALO_BLUR = 8
+const HALO_ALPHA = 0.85
+
+// setHalo turns the glow on or off for everything painted after it. Explicit
+// both ways rather than leaning on save/restore: the halo has to be OFF for the
+// rest of the card, and "off" being a thing this function says out loud is what
+// lets a test ask when it was on.
+function setHalo(ctx, theme, on) {
+  ctx.shadowColor = on ? hexToRgba(theme.cardTop, HALO_ALPHA) : 'rgba(0,0,0,0)'
+  ctx.shadowBlur = on ? HALO_BLUR : 0
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = 0
+}
+
 // fadedPortrait renders one image into an offscreen canvas of (w × h), cropped
 // to fill, optionally tinted, and erases it towards `dir` ('right' fades out
 // rightwards). Returns null when the image has not loaded — a missing portrait
@@ -496,7 +529,12 @@ export function drawQuoteCard(canvas, model, theme) {
   // else, so it sits behind the sprockets, the colour edge and every word.
   // Clipped to the card's own rounded path: the image bleeds to the card's edge,
   // not to the mat's.
-  if (model.portrait && model.faces?.length) {
+  // ONE condition, read twice: it decides both that the photograph is painted
+  // and that the words get their halo. Two separate tests of the same thing is
+  // how a card ends up with a face behind unhaloed text, or a halo glowing on
+  // bare paper — neither of which throws.
+  const backdrop = !!model.portrait && !!model.faces?.length
+  if (backdrop) {
     const pw = Math.round(cardW * PORTRAIT_W)
     const ph = cardH
     // SIDES is the cap. A card has two edges, so it holds two entries, and the
@@ -582,7 +620,11 @@ export function drawQuoteCard(canvas, model, theme) {
     }
   }
 
-  // walk the blocks
+  // walk the blocks — everything from here to the wordmark sits over whatever
+  // the backdrop put down, so it all reads through the same halo. The tag pills
+  // included: a translucent accent chip over a photograph is exactly as hard to
+  // find as a word is.
+  setHalo(ctx, theme, backdrop)
   let top = M + sprocket + CP
   blocks.forEach((b, i) => {
     if (i) top += b.gap
@@ -642,4 +684,5 @@ export function drawQuoteCard(canvas, model, theme) {
   const wm = ctx.measureText('tippani').width
   ctx.font = FONTS.bengali
   ctx.fillText('টিপ্পনী', innerX + wm + 8, footTop + 19)
+  setHalo(ctx, theme, false)
 }
