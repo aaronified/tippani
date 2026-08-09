@@ -1,0 +1,60 @@
+# Line endings, normalised in the repository.
+#
+# WHY THIS EXISTS. CI builds web/dist on Linux and then runs
+# `git diff --exit-code -- web/dist` to prove the committed artefact matches the
+# source it was built from. That check compared a freshly built LF file against
+# a committed CRLF one and failed on every line — so it reported "web/dist is
+# stale" for a dist that was byte-for-byte correct in content, on every push
+# since 1.6.1. A guard that cries wolf on every run is a guard nobody reads, and
+# this one was guarding the thing that makes the binary serve the right UI.
+#
+# core.autocrlf=true on the authoring machine was not enough on its own: it is a
+# local setting, it only applies to files git decides are text, and it does
+# nothing about blobs that were committed before it was set. An attributes file
+# is the version-controlled answer and it applies to everyone, including CI.
+#
+# text=auto lets git detect text and store it with LF; eol=lf checks it out with
+# LF everywhere. Editors on Windows have handled LF for many years, and the
+# alternative — normalising in the repo but checking out CRLF — puts the working
+# tree back in disagreement with what CI builds.
+* text=auto eol=lf
+
+# Binary, and explicitly so: git's heuristics are good but a corrupted cover or
+# a mangled webp is a silent, unrecoverable kind of wrong, and these never need
+# diffing.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.pdf    binary
+*.zip    binary
+*.gz     binary
+*.db     binary
+*.sqlite binary
+
+# Shell scripts must keep LF regardless of anything above: a CRLF shebang line
+# makes the interpreter part of the name and the script simply does not run.
+*.sh text eol=lf
+
+# EXPLICIT, not detected. `text=auto` asks git to guess, and git's guess is what
+# broke: one stray lone CR in web/dist/index.html (an autocrlf double-conversion
+# of an already-CRLF blob, CRLF -> CRCRLF) made it judge the file BINARY, which
+# switched normalisation off, which meant the CRLF could never be cleaned up.
+# Naming the types removes the guess from the loop.
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.json text eol=lf
+*.go   text eol=lf
+*.sql  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.svg  text eol=lf

@@ -572,7 +572,7 @@ export function topDecade(timeline) {
   }
   return best
 }
-
+
 
 // ---- the timeline ---------------------------------------------------------
 //
@@ -683,7 +683,7 @@ function TimelineCard({ timeline }) {
     </Card>
   )
 }
-
+
 // SuperTile — a superlative as a compact tile (the same raised-chip tiling the
 // Overview and Memory grids use): cover thumb · truncated headline · accent
 // count · label. With `onOpen` the headline is a doorway (→ Search).

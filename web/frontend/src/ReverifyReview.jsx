@@ -154,7 +154,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
+  useBodyScrollLock(true)
  const mobile = useIsMobileScreen()
   const [items, setItems] = useState([]) // previewed items, all statuses
   const [progress, setProgress] = useState({ done: 0, total: 0 })

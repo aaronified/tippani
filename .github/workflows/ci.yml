@@ -20,7 +20,13 @@ jobs:
       # takes the write lock at BEGIN (_txlock=immediate) and the suite drives
       # real goroutines against a real SQLite file, so a data race here is a
       # data race in production, not a test artefact.
-      - run: go test -race ./...
+      # -race is 5-10x slower than a plain run, and Go's default per-package
+      # test timeout is 10 minutes. internal/httpapi takes ~2 minutes unraced,
+      # so it crossed 600s under -race as the suite grew and CI began failing
+      # with a goroutine dump that looks like a deadlock and is not one — it is
+      # the timeout firing mid-test. The number is generous on purpose: the
+      # point of the limit is to catch a genuine hang, not to police duration.
+      - run: go test -race -timeout 30m ./...
 
       # Smoke-test the `healthcheck` subcommand against a real running server
       # (the container HEALTHCHECK depends on it). Runs on the CI runner.

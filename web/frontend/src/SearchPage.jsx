@@ -428,7 +428,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
+  useBodyScrollLock(true)
  const isBook = kind === 'book'
   // A standalone quote (§24) has NO PARENT, which is the whole difference here:
   // no parent fetch, no "Open book" button, and the list it is found in is not

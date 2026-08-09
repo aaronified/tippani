@@ -747,7 +747,7 @@ export function ShareDialog({ share, seen, onClose }) {
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
-  useBodyScrollLock(true)
+  useBodyScrollLock(true)
  const [format, setFormat] = useState("whatsapp");
   const fields = useMemo(() => fieldsOf(share), [share]);
   // Location (page/timestamp) and Noted (the date you saved it) are the two
