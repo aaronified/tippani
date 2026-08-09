@@ -244,6 +244,17 @@ What that honestly does not cover:
   consulted. It was caught by making the test *fail* on purpose and reading the error
   code — `517`, `SQLITE_BUSY_SNAPSHOT`, which names the upgrade — not by re-reading the
   explanation, which was fluent and had been sitting there being fluent for months.
+- **Changing a default changes nothing, if the default was ever written down.**
+  1.7.2 turned the share image's colour switch off by default. The one-character
+  version of that change — flip `true` to `false` — is correct, reviews clean, and
+  alters the behaviour of no device that has ever opened the panel: the hook
+  behind it persists on *mount*, so the old default had already been stamped into
+  local storage by the first render, and a stored value beats a default every
+  time. What makes this worth writing down is that the obvious test passes. Clear
+  the storage, render, assert the switch reads Off — green, and green for a change
+  nobody would experience. The test that means anything is the one that seeds the
+  *retired* key with the *old* value and asserts the switch still reads Off, which
+  is the only version that can tell a default from a decision somebody made.
 
 ---
 

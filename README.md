@@ -196,7 +196,12 @@ of that are spelled out in [`AI.md`](AI.md).
 - 📨 **Share a quote** — one click on any highlight, dialogue or standalone quote opens a share sheet that formats it
   for **Rich Markdown**, **WhatsApp**, **plain text** (Twitter/X, SMS), or **Reddit** — or renders it
   as a **shareable image** in your current paper/film skin, generated locally. Choose which fields to
-  include, tweak the text, and copy or download it — with a live preview.
+  include, tweak the text, and copy or download it — with a live preview. The image can carry the
+  credited person as a **portrait backdrop**, bled in from the card's edge and faded out before the
+  words start (two names take a side each, which is the shape a conversation has); the words over it
+  carry a halo of the card's own colour so none of them disappears into the photograph. Whether the
+  quote's **colour** appears in the picture at all is a switch, and it starts off — a colour category
+  is a note to yourself, and the person you send the picture to has no idea the scheme exists.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, directors, genres,
   **series**, quotes, notes, tags, and dialogue (find a line by its text, its character, or its
   actor). Results come back **sectioned by what matched** — books · movies · authors · directors ·
