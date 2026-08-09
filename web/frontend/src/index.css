@@ -1539,6 +1539,27 @@
     color: var(--accent-ui);
   }
   .field-badge svg { width: 18px; height: 18px; }
+  /* switch-panel — the account-switch form, once it is open. A raised inset
+     rather than three loose controls stacked on the card: it is a sign-in
+     living inside somebody's profile, and it has to read as a thing you have
+     stepped into and can step back out of. */
+  .switch-panel {
+    margin-top: 12px;
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .switch-from {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--soft);
+  }
   /* A subsection of a card: separated by a rule rather than by a card of its own,
      for content that is a footnote to the card's subject. */
   .settings-subsection { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }

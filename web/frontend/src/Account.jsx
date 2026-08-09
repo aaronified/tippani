@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
+import { Card, ErrorText, Field, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
@@ -220,29 +220,73 @@ function SwitchAccount({ me }) {
     setErr(errText(r, 'could not switch account'))
   }
 
+  const close = () => { setOpen(false); setUsername(''); setPassword(''); setErr('') }
+
   return (
-    <div className="space-y-3">
-      <span className="flex items-center gap-1.5">
-        <FieldLabel>Switch account</FieldLabel>
-        <InfoDot
-          title="Switch account"
-          text="Signs you in as another user on this server — each account has a fully separate library, so nothing is shared or merged. It asks for that account’s password every time; there is no stored list of accounts to click through, and being an admin does not let you in without one."
-        />
-      </span>
-      {!open ? (
-        <GhostButton icon={<IconSwitchUser />} keepLabel onClick={() => setOpen(true)}>Switch to another account…</GhostButton>
-      ) : (
-        <form onSubmit={submit} className="space-y-2">
-          <input className="tp-input" placeholder="account name" value={username} autoComplete="username" onChange={(e) => { setUsername(e.target.value); setErr('') }} />
-          <input className="tp-input" placeholder="password" type="password" value={password} autoComplete="current-password" maxLength={PASSWORD_MAX} onChange={(e) => { setPassword(e.target.value); setErr('') }} />
+    <div>
+      {/* THE SAME ROW SHAPE AS LOG OUT, which sits directly beneath it: label
+          and dot on the left, the action on the right. They are two ways out of
+          this account and they were laid out as two different kinds of thing —
+          a heading over a full-width button here, a right-aligned button there
+          — inside one card, which is the whole reason this section read badly.
+          Nothing about the mechanism changed. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <p className="text-sm font-semibold">Switch account</p>
+          <InfoDot
+            title="Switch account"
+            text="Signs you in as another user on this server — each account has a fully separate library, so nothing is shared or merged. It is a real sign-in rather than an impersonation: it asks for that account’s password every time, there is no stored list of accounts to click through, and being an admin does not let you in without one. Getting it wrong changes nothing, which is why it can live one tap inside your profile."
+          />
+        </div>
+        {!open && (
+          <GhostButton icon={<IconSwitchUser />} keepLabel onClick={() => setOpen(true)}>
+            Switch
+          </GhostButton>
+        )}
+      </div>
+
+      {open && (
+        <form onSubmit={submit} className="switch-panel">
+          {/* WHO YOU ARE LEAVING. The one fact this form is about, and it was
+              nowhere on it — on a server where several accounts have the same
+              small avatar and adjacent names, "switch" with no subject is a
+              question about a thing you cannot see. */}
+          <p className="switch-from">
+            <span className="user-chip" style={{ width: 24, height: 24, fontSize: 11 }} aria-hidden="true">
+              {me?.avatar_path ? <img src={coverImgURL(me.avatar_path)} alt="" /> : (me?.username || '?').trim().charAt(0).toLowerCase()}
+            </span>
+            <span>
+              Leaving <b>{me?.username}</b>. This browser signs out of it.
+            </span>
+          </p>
+          {/* Real labels, not placeholders. A placeholder is gone the moment you
+              type into it, which leaves two identical boxes and a password
+              manager's guess about which is which. */}
+          <Field
+            label="account name"
+            value={username}
+            autoFocus
+            autoComplete="username"
+            onChange={(e) => { setUsername(e.target.value); setErr('') }}
+          />
+          <Field
+            label="their password"
+            type="password"
+            value={password}
+            autoComplete="current-password"
+            maxLength={PASSWORD_MAX}
+            onChange={(e) => { setPassword(e.target.value); setErr('') }}
+          />
           <ErrorText>{err}</ErrorText>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <StickerButton disabled={busy || !!missing} title={missing || undefined}>
               {busy ? 'Switching…' : 'Sign in'}
             </StickerButton>
-            <GhostButton type="button" onClick={() => { setOpen(false); setUsername(''); setPassword(''); setErr('') }}>
-              Cancel
-            </GhostButton>
+            <GhostButton type="button" onClick={close}>Cancel</GhostButton>
+            {/* The reason the button is grey, in the place you are looking when
+                you wonder — rather than only in a title attribute a touch screen
+                has no way to show. */}
+            {missing && !err && <span className="microcopy" style={{ color: 'var(--faint)' }}>{missing}</span>}
           </div>
         </form>
       )}
@@ -394,7 +438,7 @@ export function Profile({ user, onUser, logout }) {
         <Card pad="p-5">
           <span className="flex items-center gap-1.5">
             <FieldLabel>Users on this server</FieldLabel>
-            <InfoDot title="User management" text="Every user gets a fully separate library — books, quotes, tags, stickers and preferences are never shared. To hand over the primary admin, grant another user admin first, then revoke your own; the last remaining admin cannot be demoted." />
+            <InfoDot title="User management" text="Every user gets a fully separate library — books, quotes, tags, stickers and preferences are never shared. Handing over admin is two halves and they belong to two people: you make someone an admin, and they step down or you do. Nobody can take another admin’s rights away, and nobody can delete another admin’s account either. The last remaining admin cannot step down, so the instance always has one." />
           </span>
           <UserManagement me={user} />
         </Card>
