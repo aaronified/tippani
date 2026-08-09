@@ -56,11 +56,18 @@ function StatTile({ n, label, heart, dot }) {
 }
 
 function Overview({ s }) {
+  // ONE WORD, ONE MEANING. This row called book highlights "Quotes" while the
+  // nav has a Quotes tab that means the standalone kind — so the tile named
+  // after a screen counted a different thing from the screen, and the kind it
+  // WAS named after had no tile at all. Annotations is what the API, the
+  // database and the README call the book kind, and Quotes is now what the tab
+  // means by it.
   const tiles = [
     ['Books', s.books],
-    ['Quotes', s.annotations],
+    ['Annotations', s.annotations],
     ['Films', s.movies],
     ['Dialogues', s.dialogues],
+    ['Quotes', s.quotes],
     ['Genres', s.genres],
     ['Tags', s.tags],
   ]
@@ -296,6 +303,17 @@ const BREAKDOWN_KINDS = [
   { key: 'shows', label: 'Shows', works: false, art: true },
   { key: 'directors', label: 'Directors', works: true, person: 'director' },
   { key: 'actors', label: 'Actors', works: true, person: 'actor' },
+  // Speakers and occasions are the standalone-quote kinds, and the server has
+  // been sending both since §24 shipped. This list stopped at actors, so two
+  // whole kinds were computed, serialised, delivered and dropped on the floor —
+  // no error, no empty state, just an absence in a dropdown.
+  //
+  // A speaker spans occasions the way an author spans books, so `works` is on;
+  // an occasion is one occasion, like a book or a film, so it is off. Neither
+  // carries art: a speech has no cover, and a speaker's portrait comes from the
+  // People console like every other person kind.
+  { key: 'speakers', label: 'Speakers', works: true, person: 'speaker' },
+  { key: 'occasions', label: 'Occasions', works: false },
 ]
 
 // The status segments of a breakdown row, in curve order.
@@ -565,12 +583,19 @@ function SuperTile({ label, title, count, amber, cover, onOpen }) {
 function Superlatives({ s, onSearch }) {
   const since = s.first_saved ? new Date(s.first_saved + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' }) : null
   const open = (title) => (title && onSearch ? () => onSearch(title) : undefined)
+  // The third medium had no superlative beside the other two. It gets one from
+  // the breakdown that was already on the page rather than a new query: `top` is
+  // sorted most-quoted first, so the head of it IS the superlative, and a
+  // standalone quote has no work to be the most-quoted THING — the speaker is
+  // the closest thing it has to one.
+  const topSpeaker = s.breakdown?.speakers?.top?.[0] || null
   return (
     <Card>
       <SectionHead label="Superlatives" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
         <SuperTile label="Most annotated" title={s.most_annotated?.title} count={s.most_annotated?.count} cover={s.most_annotated?.cover_path} onOpen={open(s.most_annotated?.title)} />
         <SuperTile label="Most quoted film" title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
+        <SuperTile label="Most quoted speaker" title={topSpeaker?.name} count={topSpeaker?.quotes} onOpen={open(topSpeaker?.name)} />
         <SuperTile label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
         <SuperTile label="Collecting since" title={since} />
       </div>
@@ -585,7 +610,8 @@ export default function StatsPage({ onSearch }) {
   const authors = usePeople('author')
   const directors = usePeople('director')
   const actors = usePeople('actor')
-  const personMaps = { author: authors.map, director: directors.map, actor: actors.map }
+  const speakers = usePeople('speaker')
+  const personMaps = { author: authors.map, director: directors.map, actor: actors.map, speaker: speakers.map }
   const loadStats = () => json('GET', '/stats').then((r) => { if (r.ok) setS(r.data) })
   useEffect(() => { loadStats() }, [])
   async function resetPractice() {
@@ -597,7 +623,7 @@ export default function StatsPage({ onSearch }) {
   return (
     <section className="space-y-6">
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0)} saved` : ''} />
+        <PageHeader title="Stats" counts={s ? `${(s.annotations || 0) + (s.dialogues || 0) + (s.quotes || 0)} saved` : ''} />
       </div>
       {!s ? (
         <Card><p className="tp-empty" style={{ padding: '32px 0' }}>loading…</p></Card>

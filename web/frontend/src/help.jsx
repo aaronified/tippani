@@ -171,7 +171,8 @@ export const HELP = {
     entries: [
       { term: 'Calendar', icon: <IconCalendar />, what: 'A dot per day you captured something. Tapping a day opens exactly those captures in Search.' },
       { term: 'Memory', what: 'Health straight from the quiz: how many quotes are remembered, slipping, or probably gone, and your streak.' },
-      { term: 'Breakdowns', what: 'The authors, actors, directors and tags your library leans on. Everything is a doorway — tap through to the works.' },
+      { term: 'Breakdowns', what: 'The authors, speakers, actors, directors, occasions and tags your library leans on. Everything is a doorway — tap through to the works.' },
+      { term: 'Counts', what: 'All three kinds of quote, counted separately: annotations are the lines you kept from books, dialogues the ones from films and shows, and quotes the standalone ones that came from no work at all. The header total is the three added up.' },
     ],
   },
   staging: {
