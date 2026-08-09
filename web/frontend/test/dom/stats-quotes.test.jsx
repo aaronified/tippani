@@ -2,8 +2,8 @@
 //
 // The server has been counting them since §24 shipped: they are in the totals,
 // the colour breakdown, the tag leaderboard, the activity calendar, the recall
-// states, and they have two whole breakdown kinds of their own — speakers and
-// occasions — computed, serialised and sent on every request. The page rendered
+// states, and they have a breakdown kind of their own — speakers —
+// computed, serialised and sent on every request. The page rendered
 // neither, counted them in no tile, and left them out of its own header total.
 //
 // That is the same shape as the Home favourites bug: nothing fails, nothing is
@@ -41,7 +41,10 @@ beforeEach(() => {
       authors: kind(), books: kind(), series: kind(), films: kind(),
       shows: kind(), directors: kind(), actors: kind(),
       speakers: kind({ count: 2, top: [{ name: 'Bose', works: 3, quotes: 5, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
-      occasions: kind({ count: 3 }),
+      // Occasions is gone as a breakdown — an occasion is a locator, not
+      // somebody you quote. `people` replaces it: every credited human in one
+      // row each, whatever role they were credited in.
+      people: kind({ count: 4, top: [{ name: 'Bose', works: 3, quotes: 5, remembered: 1, forgetting: 0, probably_forgotten: 0, unseen: 4 }] }),
     },
   }
 })

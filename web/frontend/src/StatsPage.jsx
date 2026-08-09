@@ -303,17 +303,16 @@ const BREAKDOWN_KINDS = [
   { key: 'shows', label: 'Shows', works: false, art: true },
   { key: 'directors', label: 'Directors', works: true, person: 'director' },
   { key: 'actors', label: 'Actors', works: true, person: 'actor' },
-  // Speakers and occasions are the standalone-quote kinds, and the server has
-  // been sending both since §24 shipped. This list stopped at actors, so two
-  // whole kinds were computed, serialised, delivered and dropped on the floor —
-  // no error, no empty state, just an absence in a dropdown.
-  //
-  // A speaker spans occasions the way an author spans books, so `works` is on;
-  // an occasion is one occasion, like a book or a film, so it is off. Neither
-  // carries art: a speech has no cover, and a speaker's portrait comes from the
-  // People console like every other person kind.
+  // A speaker spans occasions the way an author spans books, so `works` is on.
+  // The portrait comes from the People console like every other person kind.
   { key: 'speakers', label: 'Speakers', works: true, person: 'speaker' },
-  { key: 'occasions', label: 'Occasions', works: false },
+  // Everyone, whatever they were credited as. 0027 made a person's NAME their
+  // identity and their roles a set, exactly because a speaker is so often
+  // already an author — but the breakdowns still asked the question four times,
+  // so somebody with a book and a film was two half-people in two sections.
+  // This is the section that answers "who do I quote", which is the question
+  // the other four are each a fragment of.
+  { key: 'people', label: 'People', works: true, person: 'any' },
 ]
 
 // The status segments of a breakdown row, in curve order.
@@ -611,7 +610,19 @@ export default function StatsPage({ onSearch }) {
   const directors = usePeople('director')
   const actors = usePeople('actor')
   const speakers = usePeople('speaker')
-  const personMaps = { author: authors.map, director: directors.map, actor: actors.map, speaker: speakers.map }
+  // `any` is every portrait regardless of the role it was saved under. The
+  // people endpoint requires a kind, but all four maps are already loaded here,
+  // and 0027 made a person ONE row keyed by name — so the same human has the
+  // same row whichever of the four you ask, and merging them costs no request.
+  // Without this the combined People breakdown would show a portrait only for
+  // the people who happen to be authors.
+  const personMaps = {
+    author: authors.map,
+    director: directors.map,
+    actor: actors.map,
+    speaker: speakers.map,
+    any: { ...speakers.map, ...actors.map, ...directors.map, ...authors.map },
+  }
   const loadStats = () => json('GET', '/stats').then((r) => { if (r.ok) setS(r.data) })
   useEffect(() => { loadStats() }, [])
   async function resetPractice() {

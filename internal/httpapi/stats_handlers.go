@@ -44,10 +44,10 @@ type recallTally struct {
 // top rows by quote count, and the recall superlatives ("who is the most
 // remembered / most forgotten X").
 type statsKind struct {
-	Count          int            `json:"count"`
-	Top            []recallTally  `json:"top"`
-	MostRemembered *recallTally   `json:"most_remembered"`
-	MostForgotten  *recallTally   `json:"most_forgotten"`
+	Count          int           `json:"count"`
+	Top            []recallTally `json:"top"`
+	MostRemembered *recallTally  `json:"most_remembered"`
+	MostForgotten  *recallTally  `json:"most_forgotten"`
 }
 
 // statsTopN — rows per breakdown kind. The card shows ~10 and scrolls for the
@@ -153,6 +153,12 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	seps := s.creditSeps(uid)
 	authors, books, series := newTallyMap(), newTallyMap(), newTallyMap()
 	films, shows, directors, actors := newTallyMap(), newTallyMap(), newTallyMap(), newTallyMap()
+	// people is every credited human in one map, whatever role they were
+	// credited in. 0027 already made the NAME a person's identity and their
+	// kinds a set, precisely because a speaker is so often already an author —
+	// but the breakdowns never caught up, so somebody with a book and a film
+	// appeared twice, in two sections, each telling half the story.
+	people := newTallyMap()
 
 	// Books: register every shelved work, then walk the annotations.
 	type bookRef struct {
@@ -179,6 +185,7 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		series.work(br.series, key)
 		for _, a := range metadata.SplitCredits(br.author, seps) {
 			authors.work(a, key)
+			people.work(a, key)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -213,6 +220,7 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		series.quote(br.series, key, status)
 		for _, a := range metadata.SplitCredits(br.author, seps) {
 			authors.quote(a, key, status)
+			people.quote(a, key, status)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -250,6 +258,7 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		series.work(mr.series, key)
 		for _, d := range metadata.SplitCredits(mr.director, seps) {
 			directors.work(d, key)
+			people.work(d, key)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -293,6 +302,13 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		for _, a := range metadata.SplitCredits(actor, seps) {
 			actors.quote(a, key, status)
 		}
+		// Once per PERSON, not once per credit. Eastwood directs and stars, and
+		// counting the same line under both of his credits would give him twice
+		// the quotes he has — the one place where merging the roles can double
+		// count, because a dialogue is the only quote that carries two.
+		for _, name := range distinctCredits(seps, mr.director, actor) {
+			people.quote(name, key, status)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
@@ -309,7 +325,7 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	// A proverb contributes to neither: tallyMap.work drops an empty name, so a
 	// quote with no speaker and no occasion falls out of the breakdown the same
 	// way it falls out of the review deck.
-	speakers, occasions := newTallyMap(), newTallyMap()
+	speakers := newTallyMap()
 	rows, err = s.Store.DB.Query(`
 		SELECT COALESCE(u.speaker,''), COALESCE(u.occasion,''),
 		       r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
@@ -332,9 +348,9 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		}
 		status := recallStatus(seen, stability, elapsedDays(lr), age, lastResult)
 		key := utteranceWorkKey(speaker, occasion)
-		occasions.quote(occasion, key, status)
 		for _, sp := range metadata.SplitCredits(speaker, seps) {
 			speakers.quote(sp, key, status)
+			people.quote(sp, key, status)
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -352,8 +368,34 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		"directors": directors.finish(),
 		"actors":    actors.finish(),
 		"speakers":  speakers.finish(),
-		"occasions": occasions.finish(),
+		"people":    people.finish(),
 	}, nil
+}
+
+// distinctCredits folds several credit strings into one set of names, so a
+// person credited twice on the same work is counted once.
+//
+// It exists for exactly one case and it is worth naming: a dialogue carries both
+// a director and an actor, and those can be the same person. Every other quote
+// kind has a single role attached, so the role tallies can each walk their own
+// credit string without conflict — only the combined people map sees both at
+// once.
+// Keyed case-insensitively and returning the display spelling, because that is
+// how tallyMap identifies a row. Keying on the exact string would let "Clint
+// Eastwood" and "clint eastwood" through as two people and reintroduce the
+// double count this exists to stop.
+func distinctCredits(seps metadata.CreditSeps, credits ...string) map[string]string {
+	out := map[string]string{}
+	for _, c := range credits {
+		for _, name := range metadata.SplitCredits(c, seps) {
+			if name = strings.TrimSpace(name); name != "" {
+				if k := strings.ToLower(name); out[k] == "" {
+					out[k] = name
+				}
+			}
+		}
+	}
+	return out
 }
 
 // everyQuoteCreatedAt is one row per saved quote of any kind, carrying just the

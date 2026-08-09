@@ -187,12 +187,22 @@ func TestStatsBreakdownHasSpeakersAndOccasions(t *testing.T) {
 		t.Fatalf("a speaker's works should count distinct occasions, got %d", sp.Top[0].Works)
 	}
 
-	oc, ok := bd["occasions"]
-	if !ok {
-		t.Fatal("there is no occasions breakdown")
+	// The occasions breakdown is gone: an occasion is a locator, not somebody you
+	// quote, and a list of rallies answers no question the speaker list does not
+	// answer better. The speaker's `works` count still counts distinct occasions,
+	// which is where that information now lives.
+	if _, ok := bd["occasions"]; ok {
+		t.Error("the occasions breakdown came back")
 	}
-	if oc.Count != 2 {
-		t.Fatalf("occasions: %+v", oc)
+
+	// And the speaker appears in the combined people breakdown too, because a
+	// speaker is a person and so is an author.
+	pp, ok := bd["people"]
+	if !ok {
+		t.Fatal("there is no people breakdown")
+	}
+	if pp.Count == 0 {
+		t.Fatalf("people: %+v", pp)
 	}
 }
 
@@ -208,7 +218,7 @@ func TestStatsBreakdownSkipsProverbs(t *testing.T) {
 	if st.Quotes != 1 {
 		t.Fatalf("the proverb should still be counted in the totals: %d", st.Quotes)
 	}
-	for _, kind := range []string{"speakers", "occasions"} {
+	for _, kind := range []string{"speakers", "people"} {
 		k := st.Breakdown[kind]
 		if k.Count != 0 {
 			t.Fatalf("%s gained a nameless row from a proverb: %+v", kind, k.Top)
@@ -257,7 +267,7 @@ func TestStatsQuotesAreScopedToTheOwner(t *testing.T) {
 	if k := st.Breakdown["speakers"]; k.Count != 0 {
 		t.Errorf("another account's speakers reached the breakdown: %+v", k.Top)
 	}
-	if k := st.Breakdown["occasions"]; k.Count != 0 {
-		t.Errorf("another account's occasions reached the breakdown: %+v", k.Top)
+	if k := st.Breakdown["people"]; k.Count != 0 {
+		t.Errorf("another account's people reached the breakdown: %+v", k.Top)
 	}
 }
