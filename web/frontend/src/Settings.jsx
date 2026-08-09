@@ -2055,97 +2055,11 @@ function Metadata({ user, onPreferences }) {
 }
 
 // ---- 4. Users (§8.11, admin only) ----
+//
+// DELETED, not moved. This file carried a second AdminUsers component with no
+// call site: a users list that could add and delete accounts and knew nothing
+// about who may take whose rights away. Account.jsx's UserManagement is the
+// one that renders, and the one the rules live in. Dead code that duplicates a
+// live screen is worse than none — it reads as the implementation, and the
+// next person to wire it up gets a page with none of the guards.
 
-function AdminUsers({ me }) {
-  const [users, setUsers] = useState([])
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-
-  async function load() {
-    const r = await json('GET', '/admin/users')
-    if (r.ok) setUsers(r.data.users)
-  }
-  useEffect(() => {
-    load()
-  }, [])
-
-  async function addUser(e) {
-    e.preventDefault()
-    setError('')
-    const r = await json('POST', '/admin/users', { username, password })
-    if (r.ok) {
-      setUsername('')
-      setPassword('')
-      load()
-    } else {
-      setError(errText(r, 'could not add user'))
-    }
-  }
-
-  async function removeUser(u) {
-    if (!confirm(`Delete user "${u.username}"? Their books and annotations are removed too.`)) return
-    const r = await json('DELETE', `/admin/users/${u.id}`)
-    if (r.ok) load()
-    else setError(errText(r, 'could not delete user'))
-  }
-
-  return (
-    <Card>
-      <SectionTitle right={<MonoLabel>admin only</MonoLabel>}>Users</SectionTitle>
-      <ul className="space-y-1">
-        {users.map((u) => (
-          <li key={u.id} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
-            <span className="user-chip" style={{ width: 30, height: 30, fontSize: 13 }} aria-hidden="true">
-              {u.avatar_path
-                ? <img src={coverImgURL(u.avatar_path)} alt="" />
-                : (u.username || '?').trim().charAt(0).toLowerCase()}
-            </span>
-            <span style={{ fontWeight: 600 }}>{u.username}</span>
-            {u.is_admin && <StatusChip tone="active">admin</StatusChip>}
-            <span className="ml-auto flex items-center gap-3">
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--faint)' }}>
-                joined {(u.created_at || '').slice(0, 10)}
-              </span>
-              {u.id === me.id ? (
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--soft)' }}>you</span>
-              ) : (
-                <Tooltip label={`Delete ${u.username} and their library`} side="top">
-                  <button
-                    onClick={() => removeUser(u)}
-                    aria-label={`Delete ${u.username}`}
-                    style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: 16, padding: 4, lineHeight: 1 }}
-                  >
-                    ✕
-                  </button>
-                </Tooltip>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <form onSubmit={addUser} className="mt-4 flex flex-wrap items-center gap-2">
-        <input
-          className="tp-input"
-          style={{ flex: 1, minWidth: 130 }}
-          placeholder="username"
-          value={username}
-          autoComplete="off"
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          className="tp-input"
-          style={{ flex: 1, minWidth: 130 }}
-          placeholder="password (min 8)"
-          type="password"
-          value={password}
-          autoComplete="new-password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <StickerButton icon={<IconUserPlus />} keepLabel>Add user</StickerButton>
-      </form>
-      <ErrorText>{error}</ErrorText>
-    </Card>
-  )
-}

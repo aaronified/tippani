@@ -93,10 +93,19 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSetUserAdmin grants or revokes a user's admin rights (PATCH is_admin).
-// The last remaining admin can never be demoted — the count + update are one
-// atomic statement — so an instance always keeps at least one admin. Granting
-// admin to another user and revoking your own is how the primary-admin role is
-// handed over.
+//
+// GRANTING IS SOMETHING YOU DO TO OTHERS; REVOKING IS SOMETHING YOU DO TO
+// YOURSELF. An admin may promote any member, and may step down, and that is all
+// — nobody can take another admin's rights away.
+//
+// Otherwise admin is not a role, it is a race. Two admins, and whichever opens
+// this page first is the only one left; there is no seniority here to appeal
+// to, no founder flag, no audit trail, and nothing to undo it with once your own
+// rights are gone. Handing over is still one action each: I make you an admin,
+// you step down or I do. What is removed is doing the second half TO somebody.
+//
+// The last remaining admin can never step down either — the count and the update
+// are one atomic statement — so an instance always keeps at least one admin.
 func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
@@ -123,6 +132,14 @@ func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+	// 403 rather than the 409 its neighbours use, and the distinction is real:
+	// this is refused because of WHO IS ASKING, and the identical request from
+	// the target themselves succeeds. A 409 would say the instance is in a state
+	// that forbids it, which is not true of any state it could be in.
+	if id != userID(r) {
+		writeErr(w, http.StatusForbidden, "an admin can only step down themselves")
 		return
 	}
 	// Revoke, unless it would remove the last admin (guard in SQL, atomic).
@@ -164,6 +181,29 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[admin] handleDeleteUser id=%d uid=%d", id, userID(r))
 	if id == userID(r) {
 		writeErr(w, http.StatusConflict, "cannot delete your own account")
+		return
+	}
+	// AND NOT ANOTHER ADMIN, which is the same rule as handleSetUserAdmin's and
+	// has to be here or that one is decorative. Refusing to let an admin take
+	// another admin's rights away, while letting them delete the account those
+	// rights belong to, protects nothing: the bypass is louder and strictly
+	// worse, because it takes that person's whole library with it.
+	//
+	// The consequence, stated plainly: an admin account can only be removed
+	// after it steps down, and only its own holder can do that. Getting rid of
+	// an uncooperative admin is a database operation, not a UI one — which is
+	// the correct place for it to be, on an instance where the alternative is
+	// that any admin can quietly delete any other.
+	var targetAdmin bool
+	switch err := s.Store.DB.QueryRow(`SELECT is_admin FROM users WHERE id = ?`, id).Scan(&targetAdmin); {
+	case errors.Is(err, sql.ErrNoRows):
+		writeErr(w, http.StatusNotFound, "no such user")
+		return
+	case err != nil:
+		internalError(w, r, "load user admin status", err)
+		return
+	case targetAdmin:
+		writeErr(w, http.StatusForbidden, "an admin must step down before being removed")
 		return
 	}
 	// Collect the user's cover/poster filenames before the DB rows cascade away,

@@ -112,8 +112,9 @@ func TestOnboardingAndAdmin(t *testing.T) {
 		t.Fatalf("deleted user still listed: %s", rec.Body)
 	}
 
-	// The last-admin guard must not block deleting a *non-last* admin. No API
-	// promotes users, so create a second admin directly, then delete it.
+	// An admin is not deletable by another admin, last or not. Otherwise the rule
+	// that an admin cannot revoke another admin's rights protects nothing: the
+	// bypass is one button away and takes that person's whole library with it.
 	if _, err := st.DB.Exec(`INSERT INTO users (username, password_hash, is_admin) VALUES ('carol', 'x', 1)`); err != nil {
 		t.Fatal(err)
 	}
@@ -121,8 +122,17 @@ func TestOnboardingAndAdmin(t *testing.T) {
 	if err := st.DB.QueryRow(`SELECT id FROM users WHERE username = 'carol'`).Scan(&carolID); err != nil {
 		t.Fatal(err)
 	}
+	if rec := do("DELETE", "/admin/users/"+itoa(carolID), nil, admin); rec.Code != http.StatusForbidden {
+		t.Fatalf("deleting another admin should be refused: %d %s", rec.Code, rec.Body)
+	}
+	// Once she has stepped down she is an ordinary account again, and the
+	// last-admin guard must not block removing her — which is the case this
+	// block was originally written to cover.
+	if _, err := st.DB.Exec(`UPDATE users SET is_admin = 0 WHERE id = ?`, carolID); err != nil {
+		t.Fatal(err)
+	}
 	if rec := do("DELETE", "/admin/users/"+itoa(carolID), nil, admin); rec.Code != 200 {
-		t.Fatalf("deleting a non-last admin should succeed: %d %s", rec.Code, rec.Body)
+		t.Fatalf("deleting a former admin should succeed: %d %s", rec.Code, rec.Body)
 	}
 }
 

@@ -464,6 +464,14 @@ export function UserManagement({ me }) {
         {users.map((u) => {
           const isMe = u.id === me.id
           const lastAdmin = u.is_admin && adminCount <= 1
+          // Granting is something you do to others; revoking is something you
+          // do to yourself. So the button on an admin row is only ever yours,
+          // and an admin row that is not yours carries no role control and no
+          // delete — their account can only be removed once they have stepped
+          // down. The server enforces all three; this is so the page stops
+          // offering actions it is about to be refused for.
+          const canSetRole = u.is_admin ? isMe && !lastAdmin : true
+          const canDelete = !isMe && !u.is_admin
           return (
             <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2" style={{ borderBottom: '1px solid var(--line)' }}>
               <span className="user-chip" style={{ width: 30, height: 30, fontSize: 13 }} aria-hidden="true">
@@ -473,18 +481,24 @@ export function UserManagement({ me }) {
               {u.is_admin && <span className="tp-chip" style={{ color: 'var(--accent-ui)' }}>admin</span>}
               {isMe && <span className="mono-label">you</span>}
               <span className="ml-auto flex items-center gap-2">
-                {/* Grant/revoke admin. The last admin can't be demoted (server
-                    enforces it too); disable the control so it's obvious. */}
-                <button
-                  type="button"
-                  className="tp-chip tp-chip-btn"
-                  disabled={busyId === u.id || lastAdmin}
-                  title={lastAdmin ? 'the last admin can’t be demoted' : u.is_admin ? 'Revoke admin' : 'Grant admin'}
-                  onClick={() => setAdmin(u, !u.is_admin)}
-                >
-                  {u.is_admin ? 'Revoke admin' : 'Make admin'}
-                </button>
-                {!isMe && (
+                {canSetRole ? (
+                  <button
+                    type="button"
+                    className="tp-chip tp-chip-btn"
+                    disabled={busyId === u.id}
+                    title={u.is_admin ? 'Give up your own admin rights' : `Make ${u.username} an admin`}
+                    onClick={() => setAdmin(u, !u.is_admin)}
+                  >
+                    {u.is_admin ? 'Step down' : 'Make admin'}
+                  </button>
+                ) : (
+                  u.is_admin && (
+                    <span className="mono-label" style={{ color: 'var(--faint)' }}>
+                      {lastAdmin && isMe ? 'only admin' : 'their own'}
+                    </span>
+                  )
+                )}
+                {canDelete && (
                   <Tooltip label={`Delete ${u.username} and their library`} side="top">
                     <button
                       type="button"
