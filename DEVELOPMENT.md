@@ -19,7 +19,7 @@ link to it by name, because a summary is a copy that drifts more quietly than it
 | --- | --- |
 | `README.md` | Should I run this, and how do I run it? |
 | **`DEVELOPMENT.md`** (this file) | I want to change the code — where does it go, and how do I know it worked? |
-| `docs/PLAN.md` | Why is it built this way, and what was rejected on purpose? |
+| `docs/PLAN.md` | Why is it built this way, what was rejected, and what did I get wrong? |
 | `docs/plans/*.md` | How will one specific unbuilt feature work? |
 | `docs/ui-glossary.html` | What is this bit of the interface called? |
 | [`docs/roadmap.html`](https://aaronified.github.io/tippani/roadmap.html) | What is coming next? (generated — never hand-edited) |
@@ -327,7 +327,7 @@ The shared modules do:
 
 | Path | What it is |
 | --- | --- |
-| `docs/PLAN.md` | The design and the reasoning. |
+| `docs/PLAN.md` | The decision log — every design decision, its reasoning, and the reversals. |
 | `docs/plans/*.md` | One file per designed-but-unbuilt feature: the bin, context menus and multiselect, search facets. |
 | `docs/roadmap.html` · `docs/roadmap.backup.html` | The published roadmap, and its last known-good copy. Generated regions — do not hand-edit between the markers. |
 | `docs/ui-glossary.html` | Every part of the interface, named and rendered live in all four theme combinations. |

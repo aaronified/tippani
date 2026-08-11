@@ -118,9 +118,15 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
-- **`docs/PLAN.md`** carries the design and, more usefully, the *reasoning* —
-  including decisions that were wrong once and why the current shape replaced
-  them. Comments in the code explain why rather than what, for the same reason.
+- **`docs/PLAN.md`** is a decision log: every design decision, the reasoning that
+  produced it, the alternative turned down, and — where it applies — the part I
+  got wrong and what changed my mind. It used to be the design document I wrote
+  before building, and it had drifted into describing a system that was partly
+  never built and partly rebuilt underneath it. A log fixes that structurally: an
+  entry that records a decision *and* records that the decision was wrong stays
+  true forever, where a design document that is 80% accurate gives you no way to
+  tell which 80%. Comments in the code explain why rather than what, for the same
+  reason.
 - **Migrations are numbered, embedded and append-only**, each in its own
   transaction — and the runner **refuses to open a database newer than itself**.
   Forward-only means the downgrade failure mode is a *success*: an old binary

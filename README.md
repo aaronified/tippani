@@ -47,9 +47,10 @@ metadata lookups are on-demand and optional (nothing external is required to run
 posters are served from your own disk.
 
 What is coming next is on **[the roadmap](https://aaronified.github.io/tippani/roadmap.html)** —
-twenty-five numbered sections, the bugs I already know about, and a
+the open backlog in priority order, the bugs I already know about, and a
 [list of things refused on purpose](https://aaronified.github.io/tippani/roadmap.html#aside)
-so the boundaries stay decisions rather than gaps. The full original design lives in
+so the boundaries stay decisions rather than gaps. Why any of it is built the way it is —
+every design decision, its reasoning, and the ones I got wrong — is in
 [`docs/PLAN.md`](docs/PLAN.md); release history is in
 [`CHANGELOG.md`](CHANGELOG.md). **Building it, changing it, or forking it into your own
 thing** is [`DEVELOPMENT.md`](DEVELOPMENT.md) — it covers the handful of strings that
@@ -323,7 +324,7 @@ services:
     # environment:
     #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front
     #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
-    #   GOMAXPROCS: "1"              # NAS-friendly runtime caps (see PLAN §8)
+    #   GOMAXPROCS: "1"              # NAS-friendly runtime caps (reasoning in docs/PLAN.md)
     #   GOMEMLIMIT: "64MiB"
     #   GOGC: "200"
 
@@ -498,7 +499,9 @@ tippani user passwd <name>
 tippani user del <name>      # cascades to that user's books/annotations
 ```
 
-Each user has a fully isolated library (PLAN §2). Passwords change in-app via `POST /auth/password`.
+Each user has a fully isolated library — a security property, not a layout choice; the
+reasoning is in [docs/PLAN.md](docs/PLAN.md#2-ownership-authentication-and-exposure).
+Passwords change in-app via `POST /auth/password`.
 
 ## Layout
 

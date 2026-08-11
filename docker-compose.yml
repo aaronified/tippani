@@ -42,7 +42,7 @@ services:
     #   TIPPANI_COOKIE_SECURE: "1"   # when a TLS-terminating proxy is in front (implied by the TLS pair)
     #   TIPPANI_TRUSTED_PROXY: "1"   # to trust X-Forwarded-For for the login limiter
     #   TIPPANI_DOCKER_HOST: tcp://dockerproxy:2375  # one-click updates via a socket proxy
-    #   GOMAXPROCS: "1"              # Go runtime resource caps for a small NAS (see PLAN §8)
+    #   GOMAXPROCS: "1"              # Go runtime resource caps for a small NAS (docs/PLAN.md)
     #   GOMEMLIMIT: "64MiB"
     #   GOGC: "200"
     # Metadata API keys (TMDB, TheTVDB, Google Books) are set in the app under

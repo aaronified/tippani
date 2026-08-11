@@ -34,6 +34,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`docs/PLAN.md` is a decision log, not a design document.** It was the plan I
+  wrote before building, kept roughly current afterwards, and it had quietly
+  stopped being either. Parts described a system that was never built
+  (precompressed assets, a single-writer connection); parts described one that
+  had been rebuilt underneath them (the whole review-loop schema, the
+  four-colour palette, `synchronous=NORMAL`); it listed four direct Go
+  dependencies where there are three, pinned Go at 1.25 where `go.mod` says
+  1.26, and cited its own §7, which never existed. A design document that is 80%
+  true is worse than none, because from inside it there is no way to tell which
+  80%.
+
+  It is now 452 entries across seventeen sections, each with what was decided,
+  the reasoning at the time, the alternative turned down, and — where it
+  applies — a **Reversal** saying what I got wrong and what changed my mind.
+  Every entry states that I approved it, and grades how firmly: "approved by
+  silence" appears where a decision hardened by default rather than by argument,
+  because that is the honest description of the per-user isolation assumption
+  thirty migrations have now been built on top of.
+
+  The structural point is that **a log is allowed to be wrong in public**. An
+  entry recording a decision, and then recording that the decision was wrong,
+  stays true forever — which is exactly the property the old document lacked.
+  Nothing is deleted; the original is in git history, and several entries quote
+  it against itself.
+
+  Two conventions came out of the same problem. Evidence lines carry **paths and
+  no line numbers**, because a line number is wrong within a release and a path
+  is not; all 160 cited paths are checked to resolve. And roadmap sections are
+  **named and linked, never cited by §number**, since a §number is a position
+  and moves whenever the page is reordered.
+
+  One section is new rather than mined: appearance as material — the two
+  aesthetics, the six texture tiles, the `prefers-contrast` escape hatch, the
+  self-hosted type, the curated category palette held clear of the accent range.
+  A completeness pass found the most-argued family in the project had no home in
+  any of the other sixteen, which is how a decision quietly becomes a taste.
+
 - **The tree diagram is gone from `README.md`.** Two maps of the same repository
   disagree eventually, and these two already did. There is one now, in
   `DEVELOPMENT.md`, which README links to. The module-rename incantation moved
