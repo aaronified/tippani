@@ -509,7 +509,11 @@ export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCan
   )
 }
 
-export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded }) {
+// `formId` + `onBusy` are the Add-manually popup's header ✓ reaching in: the
+// commit control sits in the dialog header now, beside close, so the form is
+// submitted from outside via the HTML `form=` attribute and reports its in-flight
+// state up so that button can grey itself. See ManualTab in Library.jsx.
+export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded, formId, onBusy }) {
   const [director, setDirector] = useState('')
   const [year, setYear] = useState('')
   const [genres, setGenres] = useState([])
@@ -521,13 +525,12 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
   const [seriesIndex, setSeriesIndex] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
   const isShow = mediaType === 'show'
 
   async function submit(e) {
     e.preventDefault()
     if (!title.trim()) return setError('title is required')
-    setBusy(true)
+    onBusy?.(true)
     setError('')
     const r = await json('POST', '/movies', {
       title: title.trim(),
@@ -540,13 +543,13 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
       series_index: Number(seriesIndex) || 0,
       description: description.trim() || undefined,
     })
-    setBusy(false)
+    onBusy?.(false)
     if (r.ok) onAdded(r.data) // hand back the created title (capture targets it)
     else setError(errText(r, 'could not add title'))
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2.5">
+    <form id={formId} onSubmit={submit} className="space-y-2.5">
       <div className="grid gap-2.5 sm:grid-cols-2">
         <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <input
@@ -568,11 +571,9 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded 
       </div>
       <textarea className="tp-input" rows="3" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       <ErrorText>{error}</ErrorText>
-      {/* Title is the one must-fill field, so the button stays greyed until it
-          has one rather than accepting the press and answering with an error. */}
-      <button className="tp-btn tp-btn-primary" disabled={busy || !title.trim()}>
-        Add {isShow ? 'show' : 'movie'}
-      </button>
+      {/* Title is the one must-fill field. The ✓ in the popup header stays greyed
+          until it has one rather than accepting the press and answering with an
+          error; this line says why, because a disabled icon cannot. */}
       {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>A title is required to save.</p>}
     </form>
   )

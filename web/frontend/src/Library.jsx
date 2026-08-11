@@ -368,13 +368,20 @@ export function isIsbn(s) {
   return /^(\d{9}[\dXx]|\d{13})$/.test(t)
 }
 
-export function ManualTab({ onAdded }) {
-  const [title, setTitle] = useState('')
+// ManualTab — hand-entry for a book. `title` and `busy` are OWNED BY THE HOST,
+// not by this form, because the control that commits it is no longer inside it:
+// the Add-manually popup carries a ✓ in its header beside the close button, and
+// a header button can only know whether there is anything to save if the state
+// it depends on lives where both can see it. `formId` is what wires that button
+// back to this <form> (the HTML `form=` attribute), so submitting from outside
+// still goes through onSubmit and Enter in a field still saves.
+// ManualMovie has taken `title`/`setTitle` from its host all along; this is the
+// same arrangement, and now the two forms in that popup match.
+export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
   const [author, setAuthor] = useState('')
   const [year, setYear] = useState('')
   const [isbn, setIsbn] = useState('')
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
@@ -389,7 +396,7 @@ export function ManualTab({ onAdded }) {
       publishedYear = parsed.year
       publishedCirca = parsed.circa
     }
-    setBusy(true)
+    onBusy?.(true)
     setError('')
     const r = await json('POST', '/books', {
       title: title.trim(),
@@ -398,13 +405,13 @@ export function ManualTab({ onAdded }) {
       published_year: publishedYear,
       published_circa: publishedCirca,
     })
-    setBusy(false)
+    onBusy?.(false)
     if (r.ok) onAdded(r.data) // hand back the created book (capture targets it)
     else setError(errText(r, 'could not add book'))
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form id={formId} onSubmit={submit} className="space-y-3">
       <Field label="Title" value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
       <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -412,11 +419,9 @@ export function ManualTab({ onAdded }) {
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
       </div>
       <ErrorText>{error}</ErrorText>
-      {/* Title is the one must-fill field, so the button stays greyed until it
-          has one rather than accepting the press and answering with an error. */}
-      <button className={PRIMARY} disabled={busy || !title.trim()}>
-        Add book
-      </button>
+      {/* Title is the one must-fill field. The ✓ in the popup header stays greyed
+          until it has one rather than accepting the press and answering with an
+          error; this line says why, because a disabled icon cannot. */}
       {!title.trim() && <p className="microcopy" style={{ color: 'var(--faint)' }}>A title is required to save.</p>}
     </form>
   )

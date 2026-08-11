@@ -807,6 +807,22 @@
         <div class="g-desc">Replaces native <code>confirm()</code>: a <b>hand-card</b> modal (title + optional body + Cancel / confirm buttons) over a dark scrim. Escape or a backdrop click cancels. (Card shown here; the real dialog centres over a full-screen overlay.)</div>
       </div>
 
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
+          <div class="hand-card hc-r1" style="max-width:420px;padding:14px 16px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <div class="display-title" style="flex:1;font-size:17px">Add a book manually</div>
+              <button class="tp-btn tp-btn-ghost tactile" style="width:36px;height:36px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center" aria-label="Save"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></button>
+              <button class="tp-btn tp-btn-ghost tactile" style="width:36px;height:36px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+            </div>
+            <div class="tp-input" style="color:var(--faint)">Title</div>
+          </div>
+        </div>
+        <div class="g-name">Save in the dialog header</div>
+        <div class="g-src">ManualPopup — AddSurface.jsx · IconButton — ui.jsx</div>
+        <div class="g-desc">A dialog’s two answers are <b>yes and no</b>, and they sit together as ✓ and ✕ in the top right rather than one in the header and one at the foot of the form. The pattern replaced a primary <i>text</i> button ("Add book", "Add movie") at the end of a scrolling form — where the long variant pushed the commit off the screen while the way out stayed pinned in view, which is the wrong one to keep.<br><br><b>The form is still a form.</b> The ✓ is a real <code>type="submit"</code> wired back to it by the HTML <code>form=</code> attribute, so <code>onSubmit</code> is unchanged and <b>Enter in any field still saves</b> — no click handler kept in step with a submit handler. It greys out until the one required field has something in it and while a save is in flight, which is why the form hands both facts up to the dialog: a header button cannot disable itself on state it cannot see. A disabled glyph explains nothing, so the reason stays as one line of microcopy under the fields.</div>
+      </div>
+
       <div class="g-item">
         <div class="g-demo center">
           <div class="tp-toggle tactile" role="tablist" aria-label="View">

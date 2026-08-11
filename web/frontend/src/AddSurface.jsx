@@ -315,6 +315,32 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
 // Add surface (§3.1: manual entry is a popup reached from the look-up card, not a
 // sibling tab). Book → ManualTab; Film / Show → ManualMovie (media type fixed by
 // the kind that opened it).
+//
+// COMMIT LIVES IN THE HEADER, beside close. The form used to end in a primary
+// text button ("Add book" / "Add movie"), which is the pattern the rest of the
+// app has been leaving: a dialog's two answers are yes and no, they belong
+// together, and putting one of them at the bottom of a scrolling form means the
+// long variant (a film, with a description box) pushes it off the screen while
+// the way out stays pinned in view. So ✓ and ✕ sit as a pair in the top right.
+//
+// The form is submitted from OUTSIDE itself, via the HTML `form=` attribute on
+// the ✓. That keeps a real <form onSubmit>: the handler is unchanged and no click
+// handler has to be kept in step with it.
+//
+// DO NOT "SIMPLIFY" THE ✓ INTO AN onClick. `type="submit"` + `form=` makes it the
+// form's DEFAULT BUTTON — the first submit button whose form owner is that form —
+// and the default button is the entire reason Enter in a field still saves.
+// Neither of these forms has a submit control of its own any more, and a form with
+// several text fields and no default button does nothing at all on Enter. The
+// failure is silent: no error, no console warning, just a key that stopped
+// working in a four-field and a six-field form.
+//
+// Both forms hand `title` and their in-flight state up here, because the header
+// button has to know whether there is anything to save and whether a save is
+// already running — see ManualTab in Library.jsx. (Disabling it also disables
+// Enter, which is correct: there is nothing to save either way.)
+const MANUAL_FORM_ID = 'manual-add-form'
+
 function ManualPopup({ kind, onClose, onAdded }) {
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
@@ -323,12 +349,14 @@ function ManualPopup({ kind, onClose, onAdded }) {
   useBodyScrollLock(true)
  const [mt, setMt] = useState(kind === 'show' ? 'show' : 'movie')
   const [title, setTitle] = useState('')
+  const [busy, setBusy] = useState(false)
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
   const heading = kind === 'book' ? 'Add a book manually' : kind === 'show' ? 'Add a show manually' : 'Add a film manually'
+  const canSave = !busy && !!title.trim()
   return createPortal(
     <div
       className="tp-scrim fixed inset-0 flex items-start justify-center overflow-y-auto px-4 py-10"
@@ -341,16 +369,32 @@ function ManualPopup({ kind, onClose, onAdded }) {
       <HandCard variant={1} className="w-full max-w-lg px-6 py-6">
         <div className="mb-4 flex items-center gap-2">
           <h3 className="display-title flex-1 text-lg">{heading}</h3>
+          <IconButton
+            icon={<IconCheck />}
+            type="submit"
+            form={MANUAL_FORM_ID}
+            ariaLabel="Save"
+            tooltip={canSave ? 'Save' : 'A title is required'}
+            disabled={!canSave}
+          />
           <IconButton icon={<IconClose />} ariaLabel="Close" tooltip="Close without saving" onClick={onClose} />
         </div>
         {kind === 'book' ? (
-          <ManualTab onAdded={(rec) => { onAdded('book', rec); onClose() }} />
+          <ManualTab
+            formId={MANUAL_FORM_ID}
+            title={title}
+            setTitle={setTitle}
+            onBusy={setBusy}
+            onAdded={(rec) => { onAdded('book', rec); onClose() }}
+          />
         ) : (
           <ManualMovie
+            formId={MANUAL_FORM_ID}
             mediaType={mt}
             setMediaType={setMt}
             title={title}
             setTitle={setTitle}
+            onBusy={setBusy}
             onAdded={(rec) => { onAdded('film', rec); onClose() }}
           />
         )}
