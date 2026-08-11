@@ -3838,13 +3838,32 @@ export function IconEdit() { return <svg {...iconStroke}><path d="M17 3l4 4L7 19
 export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
 export function IconPlus() { return <svg {...iconStroke}><path d="M12 5v14"/><path d="M5 12h14"/></svg> }
 export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
-// IconQuote — a filled quotation-mark pair (the top-bar / drawer capture
-// entry). Filled, not stroked: outlined quote marks read as the digits "66".
+// IconQuote — quotation marks inside a square speech bubble: the Quotes tab, and
+// the top-bar / drawer capture entry.
+//
+// THE MARKS ALONE DREW TOO SMALL, and the reason is measurable rather than a
+// matter of taste. Every glyph on this grid is judged by how much of the 24×24
+// box it fills, and its neighbours in the nav fill nearly all of it — IconBooks
+// spans 17×15, IconReel 17×17. A bare pair of quote marks spanned 13×10, a
+// little over half the area, so the Quotes tab read as the same picture at a
+// smaller size than the two tabs beside it. Nothing was wrong with the drawing;
+// there was just not enough of it.
+//
+// The bubble is what fills the box, and it is not only packaging: a speech
+// bubble is what these three screens have in common — a line somebody said —
+// and it is the shape the app's own mark already uses. Square rather than
+// round, with a tail at the bottom left, because the set runs geometric.
+//
+// The marks stay FILLED inside the outlined bubble. Outlined quote marks read as
+// the digits "66", which is why they were filled to begin with; the bubble is
+// stroked like every other glyph, so the icon carries one weight and one fill in
+// the places each belongs.
 export function IconQuote() {
   return (
-    <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
-      <path d="M6.2 16.5H9L10.9 12.6V6.9H5.1V12.6H8L6.2 16.5Z" />
-      <path d="M13.3 16.5H16.1L18 12.6V6.9H12.2V12.6H15.1L13.3 16.5Z" />
+    <svg {...iconStroke}>
+      <path d="M6.5 4.5h11a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-6.2L7 20.9v-3.4h-.5a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3z" />
+      <path d="M8.3 14h1.9l1.2-2.6V8H7.4v3.4h1.8L8.3 14Z" fill="currentColor" stroke="none" />
+      <path d="M13.5 14h1.9l1.2-2.6V8h-4v3.4h1.8L13.5 14Z" fill="currentColor" stroke="none" />
     </svg>
   )
 }

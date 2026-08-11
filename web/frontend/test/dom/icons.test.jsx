@@ -131,3 +131,111 @@ describe('NavIcon', () => {
     }
   })
 })
+
+// ---- optical weight -------------------------------------------------------
+//
+// One glyph per meaning is not the whole job. A glyph also has to look like it
+// belongs to the same set at the same size, and the way that fails is by
+// FOOTPRINT: two icons drawn at the same stroke weight, side by side in a nav
+// strip, read as different sizes when one fills its box and the other fills
+// half of it.
+//
+// The Quotes tab was exactly that. A bare pair of quotation marks spanned 13×10
+// of the 24 grid — a little over half the area — while IconBooks beside it spans
+// 17×15 and IconReel 17×17. Nothing looked broken; it looked SMALL, which is a
+// complaint nobody can act on until it is measured. So it is measured.
+//
+// jsdom has no getBBox, so the extents come from walking the path data. Only the
+// commands this set actually uses are handled, and arcs are taken at their
+// endpoints — every arc here rounds a corner INWARD, so endpoints give the true
+// extent.
+function extentOf(svg) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  const see = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+  }
+  for (const el of svg.querySelectorAll('path, circle, rect')) {
+    const n = (a) => Number(el.getAttribute(a))
+    if (el.tagName.toLowerCase() === 'circle') {
+      const [cx, cy, r] = [n('cx'), n('cy'), n('r')]
+      see(cx - r, cy - r); see(cx + r, cy + r)
+      continue
+    }
+    if (el.tagName.toLowerCase() === 'rect') {
+      see(n('x'), n('y')); see(n('x') + n('width'), n('y') + n('height'))
+      continue
+    }
+    const d = el.getAttribute('d') || ''
+    let x = 0, y = 0, sx = 0, sy = 0
+    // Split into [command, ...numbers] runs.
+    for (const m of d.matchAll(/([MmLlHhVvAaZzCcSsQqTt])([^MmLlHhVvAaZzCcSsQqTt]*)/g)) {
+      const cmd = m[1]
+      const args = (m[2].match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || []).map(Number)
+      const rel = cmd === cmd.toLowerCase()
+      switch (cmd.toUpperCase()) {
+        case 'M': case 'L': case 'T':
+          for (let i = 0; i + 1 < args.length; i += 2) {
+            x = rel ? x + args[i] : args[i]
+            y = rel ? y + args[i + 1] : args[i + 1]
+            if (cmd.toUpperCase() === 'M' && i === 0) { sx = x; sy = y }
+            see(x, y)
+          }
+          break
+        case 'H': for (const a of args) { x = rel ? x + a : a; see(x, y) } break
+        case 'V': for (const a of args) { y = rel ? y + a : a; see(x, y) } break
+        case 'A': // rx ry rot large sweep x y — endpoint only
+          for (let i = 0; i + 6 < args.length; i += 7) {
+            x = rel ? x + args[i + 5] : args[i + 5]
+            y = rel ? y + args[i + 6] : args[i + 6]
+            see(x, y)
+          }
+          break
+        case 'C': case 'S': case 'Q': { // endpoints only; none of these glyphs
+          const step = cmd.toUpperCase() === 'C' ? 6 : 4
+          for (let i = 0; i + step - 1 < args.length; i += step) {
+            x = rel ? x + args[i + step - 2] : args[i + step - 2]
+            y = rel ? y + args[i + step - 1] : args[i + step - 1]
+            see(x, y)
+          }
+          break
+        }
+        case 'Z': x = sx; y = sy; break
+      }
+    }
+  }
+  return { w: maxX - minX, h: maxY - minY }
+}
+
+describe('the nav glyphs carry the same optical weight', () => {
+  const NAV = ['IconQuote', 'IconBooks', 'IconReel', 'IconHome', 'IconStats']
+  const area = (name) => {
+    const Comp = ui[name] // as an element, not a call: most take a `size` prop
+    const { container, unmount } = render(<Comp />)
+    const e = extentOf(container.querySelector('svg'))
+    unmount()
+    return e
+  }
+
+  it.each(NAV)('%s fills its box like the tabs beside it', (name) => {
+    const { w, h } = area(name)
+    // The set's own range, measured: nothing narrower than 14 or shorter than 13
+    // of the 24 grid. A glyph under that reads as a smaller icon rather than a
+    // different one.
+    expect(w, `${name} width`).toBeGreaterThanOrEqual(14)
+    expect(h, `${name} height`).toBeGreaterThanOrEqual(13)
+    expect(w, `${name} width`).toBeLessThanOrEqual(19)
+    expect(h, `${name} height`).toBeLessThanOrEqual(19)
+  })
+
+  it('Quotes is no smaller than the two tabs it sits between', () => {
+    // The reported bug, stated as the thing that was actually wrong.
+    const q = area('IconQuote')
+    for (const neighbour of ['IconBooks', 'IconReel']) {
+      const n = area(neighbour)
+      expect(q.w, `Quotes vs ${neighbour} width`).toBeGreaterThanOrEqual(n.w - 1)
+      expect(q.h, `Quotes vs ${neighbour} height`).toBeGreaterThanOrEqual(n.h - 1)
+    }
+  })
+})
