@@ -82,6 +82,7 @@ import {
   useColumnsAt,
   useCoverSize,
   useFrameBase,
+  useFormHost,
   useIsMobileScreen,
   usePersistedState,
   useReveal,
@@ -1778,6 +1779,8 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
     : episodeFields && episodeVal != null && seasonNum == null
       ? 'An episode needs its season'
       : ''
+  // Joins the dialog's header ✓ when there is one — see FormHostContext.
+  const host = useFormHost(busy ? 'Saving…' : missing)
 
   async function submit(e) {
     e.preventDefault()
@@ -1821,7 +1824,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2.5">
+    <form id={host?.formId} onSubmit={submit} className="space-y-2.5">
       <textarea
         className="tp-input"
         rows="3"
@@ -1903,16 +1906,20 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
         <MonoLabel className="mb-1.5 block">Sticker</MonoLabel>
         <StickerPicker value={stickerId} onChange={setStickerId} stickers={stickers} reload={reloadStickers} />
       </div>
-      <div className="flex items-center justify-end gap-2">
-        {onCancel && (
-          <GhostButton type="button" onClick={onCancel}>
-            Cancel
-          </GhostButton>
-        )}
-        <button className="tp-btn tp-btn-primary" disabled={busy || !!missing} title={missing || undefined}>
-          {submitLabel}
-        </button>
-      </div>
+      {/* Hosted in a dialog, yes and no live together in its header. Inline
+          there is no header, so the footer stays. See FormHostContext. */}
+      {!host && (
+        <div className="flex items-center justify-end gap-2">
+          {onCancel && (
+            <GhostButton type="button" onClick={onCancel}>
+              Cancel
+            </GhostButton>
+          )}
+          <button className="tp-btn tp-btn-primary" disabled={busy || !!missing} title={missing || undefined}>
+            {submitLabel}
+          </button>
+        </div>
+      )}
       <ErrorText>{error}</ErrorText>
     </form>
   )

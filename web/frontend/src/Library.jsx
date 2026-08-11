@@ -72,6 +72,7 @@ import {
   BOARD_COLUMNS,
   useColumnsAt,
   useCoverSize,
+  useFormHost,
   useIsMobileScreen,
   usePersistedState,
   useReveal,
@@ -1543,6 +1544,9 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   // read the same value, so the button is never pressable in a state the
   // handler would refuse.
   const missing = !quote.trim() && !note.trim() ? 'Write a quote or a note' : ''
+  // Joins the dialog's header ✓ when there is one, and tells it why it cannot
+  // save yet. Null when this form is rendered inline.
+  const host = useFormHost(busy ? 'Saving…' : missing)
 
   async function submit(e) {
     e.preventDefault()
@@ -1579,7 +1583,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   }
 
   return (
-    <form onSubmit={submit} className="ann-form space-y-3">
+    <form id={host?.formId} onSubmit={submit} className="ann-form space-y-3">
       <label className="block">
         <MonoLabel className="mb-1.5 block">Quote</MonoLabel>
         <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
@@ -1603,16 +1607,21 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <MonoLabel>colour</MonoLabel>
         <ColorSwatches value={color} onChange={setColor} />
-        <div className="ml-auto flex gap-2">
-          {onCancel && (
-            <GhostButton type="button" onClick={onCancel}>
-              Cancel
-            </GhostButton>
-          )}
-          <button className={PRIMARY} disabled={busy || !!missing} title={missing || undefined}>
-            {submitLabel}
-          </button>
-        </div>
+        {/* Hosted in a dialog, yes and no live together in its header — see
+            FormHostContext. Inline (the search modal's editor, the capture
+            surface) there is no header, so the footer stays. */}
+        {!host && (
+          <div className="ml-auto flex gap-2">
+            {onCancel && (
+              <GhostButton type="button" onClick={onCancel}>
+                Cancel
+              </GhostButton>
+            )}
+            <button className={PRIMARY} disabled={busy || !!missing} title={missing || undefined}>
+              {submitLabel}
+            </button>
+          </div>
+        )}
       </div>
       <ErrorText>{error}</ErrorText>
     </form>

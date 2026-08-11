@@ -2,7 +2,7 @@
 // compatibility exports the pre-redesign pages still import — the page pass
 import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
 // replaces those call sites, then the compat block can shrink.
-import { Children, Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, Component, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
@@ -2171,20 +2171,88 @@ export function ConfirmDialog({
 // MobileSheet, so the on-screen keyboard has room. The form itself supplies its
 // Save/Cancel row (Cancel should call onClose); this only frames it. Body scroll
 // is locked while open so the page behind can't scroll under the overlay.
+// FormHostContext — how a form inside a dialog and the dialog's own header find
+// each other.
+//
+// A dialog's two answers are yes and no and they belong together, so the ✓ sits
+// beside the ✕ in the header rather than at the foot of a form that scrolls. That
+// puts the commit control OUTSIDE the <form> it commits, which needs three things
+// arranged between them, and this context is all three:
+//
+//   formId     the header's button is a real type="submit" bound back by the HTML
+//              `form=` attribute. That keeps onSubmit as the single entry point,
+//              and — because a form-owned submit button is the form's DEFAULT
+//              button — it is also the entire reason Enter in a field still saves.
+//              A form with several text inputs and no default button does nothing
+//              at all on Enter, silently.
+//   setBlocked the form tells the header WHY it cannot be saved yet, so the ✓ can
+//              grey itself and say so. A header button cannot validate a form it
+//              does not contain.
+//   presence   a form that finds a host drops its own footer buttons; one that
+//              does not keeps them, because these forms are also used inline —
+//              the search modal's editor, the capture surface — where there is no
+//              header to put anything in.
+//
+// It is a context rather than a prop so that adding the pattern cost no call site
+// anything: every FormModal in the app got the header ✓ without being touched.
+//
+// AND THAT IS EXACTLY WHY THE ✓ HAS TO BE EARNED. Not every FormModal holds a
+// form: WorkDetails is a panel that saves each field on its own, and the staged-
+// quote editor commits through its own buttons. A header ✓ on either would be a
+// control that looks like it saves and does nothing — worse than no control. So
+// the reason is `null` until a form registers, and the button is absent until
+// then rather than present and inert.
+export const FormHostContext = createContext(null);
+
+// useFormHost — what a form calls to join its dialog's header. Returns the host
+// (or null when rendered inline) and reports why saving is blocked, if it is.
+// `reason` is shown on the disabled ✓, so it stays inside the five-word rule;
+// '' means ready, and unmounting hands back null so the button goes away with the
+// form it belonged to.
+export function useFormHost(reason) {
+  const host = useContext(FormHostContext);
+  const setBlocked = host?.setBlocked;
+  useEffect(() => {
+    if (!setBlocked) return;
+    setBlocked(reason || "");
+    return () => setBlocked(null);
+  }, [setBlocked, reason]);
+  return host;
+}
+
 export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
+  const formId = useId();
+  // null = no form has registered, so there is nothing to commit and no ✓.
+  const [blocked, setBlocked] = useState(null);
+  const host = useMemo(() => ({ formId, setBlocked }), [formId]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose && onClose();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+  // A closed dialog holds no form, so its last blocked reason must not survive
+  // into the next thing opened under the same instance.
+  useEffect(() => { if (!open) setBlocked(null); }, [open]);
   if (!open) return null;
+  const save = blocked === null ? null : (
+    <IconButton
+      icon={<IconCheck />}
+      type="submit"
+      form={formId}
+      ariaLabel="Save"
+      tooltip={blocked || "Save"}
+      disabled={!!blocked}
+      style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}
+      wrapClassName="shrink-0"
+    />
+  );
   if (mobile) {
     return createPortal(
-      <MobileSheet open={open} onClose={onClose} title={title}>
-        {children}
+      <MobileSheet open={open} onClose={onClose} title={title} actions={save}>
+        <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </MobileSheet>,
       document.body,
     );
@@ -2207,10 +2275,11 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
         className="hand-card hc-r2 w-full"
         style={{ maxWidth, padding: "18px 20px 20px" }}
       >
-        <div className="mb-3 flex items-center gap-3">
+        <div className="mb-3 flex items-center gap-2">
           <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
             {title}
           </h2>
+          {save}
           <IconButton
             icon={<IconClose />}
             ariaLabel="Close"
@@ -2220,7 +2289,7 @@ export function FormModal({ open, onClose, title, maxWidth = 560, children }) {
             wrapClassName="shrink-0"
           />
         </div>
-        {children}
+        <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </div>
     </div>,
     document.body,

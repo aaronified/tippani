@@ -13,6 +13,7 @@ import {
   TableActions,
   TAG_STYLES,
   TagChip,
+  useFormHost,
   useIsMobileScreen,
   useSort,
 } from './ui.jsx'
@@ -229,6 +230,9 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Joins the dialog's header ✓ when there is one — see FormHostContext.
+  const host = useFormHost(busy ? 'Saving…' : name.trim() ? '' : 'A name is required')
+
   async function submit(e) {
     e.preventDefault()
     if (!name.trim()) return setError('name is required')
@@ -245,7 +249,7 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form id={host?.formId} onSubmit={submit} className="space-y-3">
       <input
         className="tp-input"
         placeholder="name…"
@@ -262,16 +266,20 @@ function TagForm({ initial, submitLabel, onSubmit, onCancel }) {
         <StylePicker color={color} value={style} onChange={setStyle} />
       </div>
       <ErrorText>{error}</ErrorText>
-      <div className="flex flex-wrap gap-2">
-        <button className="tp-btn tp-btn-primary" disabled={busy}>
-          {submitLabel}
-        </button>
-        {onCancel && (
-          <GhostButton type="button" onClick={onCancel} disabled={busy}>
-            Cancel
-          </GhostButton>
-        )}
-      </div>
+      {/* Hosted in a dialog, yes and no live together in its header. The create
+          form on this page is inline and keeps its own. See FormHostContext. */}
+      {!host && (
+        <div className="flex flex-wrap gap-2">
+          <button className="tp-btn tp-btn-primary" disabled={busy}>
+            {submitLabel}
+          </button>
+          {onCancel && (
+            <GhostButton type="button" onClick={onCancel} disabled={busy}>
+              Cancel
+            </GhostButton>
+          )}
+        </div>
+      )}
     </form>
   )
 }
