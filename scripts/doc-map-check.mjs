@@ -41,6 +41,12 @@ const WARN = process.argv.includes('--warn')
 const SKIP_NAME = new Set(['.git', 'node_modules'])
 const SKIP_PATH = new Set(['bin', '_site', 'data', 'web/dist'])
 
+// Build output and runtime state. The map names these because a contributor needs to know
+// where a build lands and what is gitignored — but they do not exist in a fresh clone, and
+// on a checkout that has never run `make build` this check would otherwise fail on the
+// document being CORRECT. Found on the first CI run, on a machine that had built.
+const MAY_BE_ABSENT = new Set(['bin', '_site', 'data', 'node_modules', 'web/dist'])
+
 function walk(rel, out) {
   let entries
   try {
@@ -62,6 +68,7 @@ function walk(rel, out) {
 }
 
 const tree = walk('', { files: new Set(), dirs: new Set() })
+for (const p of MAY_BE_ABSENT) tree.dirs.add(p)
 const all = [...tree.files, ...tree.dirs]
 
 const text = readFileSync(join(ROOT, DOC), 'utf8')
