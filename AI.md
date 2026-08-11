@@ -103,8 +103,12 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **380 test functions across 71 test files**, over real HTTP handlers against a
-  real SQLite database — not mocks.
+- **573 Go test functions and 880 frontend tests, across 143 test files** — the
+  Go half over real HTTP handlers against a real SQLite database, not mocks.
+  Counted, not estimated: `grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l`
+  for the first, and `npm test` in `web/frontend` prints the rest. A number in a
+  file like this one is stale the moment it is written, so recount rather than
+  trust it.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
   generated regions still match the data files they come from, a check that the
