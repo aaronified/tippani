@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { categoryName, categoryVar } from './theme.js'
+import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
 import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
@@ -443,7 +443,12 @@ function HBar({ swatch, label, labelWidth, n, max, fill }) {
   return (
     <div className="flex items-center gap-2" title={`${label}: ${n}`}>
       {swatch}
-      <span className="mono-label" style={{ width: labelWidth, flex: '0 0 auto' }}>{label}</span>
+      {/* nowrap: the column is sized to the longest name below, but a name that
+          overruns the cap must ELLIPSISE rather than wrap — a wrapped label
+          pushes its own row taller than its neighbours and the bars stop
+          lining up, which is the one thing a magnitude column has to do. The
+          full name is on the row's title either way. */}
+      <span className="mono-label" style={{ width: labelWidth, flex: '0 0 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
       <div style={{ flex: 1, height: 8, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${Math.round((100 * n) / max)}%`, background: fill, borderRadius: 999 }} />
       </div>
@@ -459,7 +464,21 @@ function Colors({ colors }) {
   // The label column was a fixed 52px, which fitted "Yellow" and nothing a
   // reader would choose. It sizes to the longest name now — a breakdown that
   // truncates the categories it is breaking down is not a breakdown.
-  const labelWidth = Math.min(120, Math.max(52, ...rows.map(([, label]) => label.length * 7 + 8)))
+  //
+  // 8.4px PER CHARACTER, not 7. `.mono-label` is 11px IBM Plex Mono in caps with
+  // .14em tracking: the glyph advance is ~6.6px and the tracking adds ~1.5px on
+  // top of every character. Charging 7px was under-measuring by a fifth, so the
+  // column came out narrower than the words it was cut for and every name past
+  // about eight letters wrapped — the "unnecessary" wrap, because the space to
+  // avoid it was there and simply hadn't been asked for.
+  //
+  // The ceiling is CAT_NAME_MAX at that pitch rather than a number picked to look
+  // right, so the widest name the app will accept is the widest column this can
+  // ask for and no compliant name is ever cut. The ellipsis on the label survives
+  // for one case only: a name stored under the old, longer cap, which displays
+  // capped anyway (capCategoryName) and heals on its next save.
+  const labelCap = Math.ceil(CAT_NAME_MAX * 8.4) + 6
+  const labelWidth = Math.min(labelCap, Math.max(52, ...rows.map(([, label]) => Math.ceil(label.length * 8.4) + 6)))
   return (
     <Card>
       <SectionHead label="Colour categories" right={<span className="mono-label">{total} quotes</span>} />
