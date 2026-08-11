@@ -1295,16 +1295,17 @@
 
       <div class="g-item">
         <div class="g-demo center">
-          <div style="display:flex;align-items:flex-end;gap:3px;height:44px">
-            <span style="width:10px;height:60%;background:var(--accent);border-radius:2px 2px 0 0"></span>
-            <span style="width:10px;height:20%;background:var(--line);border-radius:2px 2px 0 0"></span>
-            <span style="width:10px;height:0"></span>
-            <span style="width:10px;height:95%;background:var(--accent);border-radius:2px 2px 0 0"></span>
+          <div style="display:flex;align-items:flex-end;gap:6px;height:56px">
+            <span class="tl-dots tl-dots-quotes"><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span></span>
+            <span class="tl-dots tl-dots-works"><span class="tl-dot"></span><span class="tl-dot"></span></span>
+            <span style="width:7px"></span>
+            <span class="tl-dots tl-dots-quotes"><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span></span>
+            <span class="tl-dots tl-dots-works"><span class="tl-dot"></span></span>
           </div>
         </div>
         <div class="g-name">Timeline</div>
-        <div class="g-src">StatsPage.jsx — a band under the superlatives</div>
-        <div class="g-desc">When the library’s works are <i>from</i>, as opposed to when they were saved — the activity calendar already answers the second. A quote sits at its work’s year, so a line copied out of the Analects last week belongs at 479 BCE. Readable as <b>decades</b>, <b>centuries</b> or <b>years</b>, because a shelf spanning two millennia and a shelf of films want different bucket sizes and neither is the right default for the other. The <b>empty</b> buckets are drawn deliberately: two bars side by side would read as two adjacent periods rather than two thousand years apart. Bars keep a minimum width and the band scrolls, so a narrow screen shows fewer of them rather than thinner ones.</div>
+        <div class="g-src">StatsPage.jsx — a band under the superlatives · <code>.tl-dots</code> / <code>.tl-dot</code> — index.css</div>
+        <div class="g-desc">When the library’s works are <i>from</i>, as opposed to when they were saved — the activity calendar already answers the second. A quote sits at its work’s year, so a line copied out of the Analects last week belongs at 479 BCE. Readable as <b>decades</b>, <b>centuries</b> or <b>years</b>, because a shelf spanning two millennia and a shelf of films want different bucket sizes and neither is the right default for the other. The <b>empty</b> buckets are drawn deliberately: two columns side by side would read as two adjacent periods rather than two thousand years apart. Columns keep a minimum width and the band scrolls, so a narrow screen shows fewer of them rather than thinner ones.<br><br><b>A dot plot, not a stacked bar.</b> Each bucket draws two columns of dots from the same floor — <b>quotes</b> in the accent, <b>works</b> in the muted ink — and the two are never added together. Stacking them had put the quote counts, which are what the chart is read for, each starting at a different height, so no two buckets could be compared by eye; and the summed height it produced was a number about nothing, because a work and a quote are not two of the same thing. A <b>standalone quote is a quote and not a work</b>, so it raises one column and not the other. Both series share <b>one scale</b>, and a legend states what one dot is worth once a library is large enough that a dot has to stand for more than one.</div>
       </div>
 
       <div class="g-item">

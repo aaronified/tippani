@@ -3493,12 +3493,15 @@ html[data-theme="dark"] .mobile-sheet-footer {
   overscroll-behavior-x: contain;
   padding-bottom: 4px;
 }
+/* 160px, up from 132: the plot area is now a stack of discrete dots rather than
+   a continuous bar, so the height has to divide by the dot pitch. 110px of plot
+   at a 9px pitch is the 12 dots TIMELINE_MAX_DOTS promises. */
 .tl-row {
   display: flex;
   align-items: flex-end;
   gap: 4px;
   min-width: min-content;
-  height: 132px;
+  height: 160px;
 }
 .tl-col {
   display: flex;
@@ -3509,24 +3512,40 @@ html[data-theme="dark"] .mobile-sheet-footer {
   min-width: 30px;
   height: 100%;
 }
-.tl-bar {
+/* The two series side by side, both rising from the same floor — see the note
+   above TimelineCard for why they are no longer stacked. */
+.tl-plot {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
 }
-.tl-seg {
-  width: 100%;
-  border-radius: 2px 2px 0 0;
-  min-height: 0;
+/* column-reverse so the dots fill upward from the baseline: the first dot in
+   document order is the bottom one, which is also the order a count reads in. */
+.tl-dots {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  gap: 2px;
 }
-/* Quotes above works: the darker segment is the one you are usually reading
-   for, and an empty bucket draws nothing at all — which is what a gap in time
-   should look like. */
-.tl-seg-quotes { background: var(--accent); }
-.tl-seg-works { background: var(--line); border-radius: 0; }
+.tl-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: currentColor;
+}
+/* Colour is set on the stack and inherited by its dots, so the legend swatch and
+   the plot cannot drift apart — they are the same rule. Quotes take the accent
+   because they are the series being read for; works take --soft, which separates
+   from the accent by lightness as well as hue and so survives being printed,
+   dimmed, or seen by an eye that does not sort red from green. --line, the old
+   works fill, is the hairline colour and all but vanished against the card. */
+.tl-dots-quotes { color: var(--accent); }
+.tl-dots-works { color: var(--soft); }
 .tl-tick {
   font-family: var(--font-mono);
   font-size: 9px;

@@ -638,13 +638,53 @@ export function bucketTimeline(timeline, size) {
   return out
 }
 
-// TimelineCard — a scrollable band of stacked bars, one per bucket.
+// ---- the timeline as a dot plot -------------------------------------------
 //
-// WIDTH IS HANDLED BY CSS, not by measuring. Every bar has a minimum width, the
-// row scrolls sideways, and that is exactly "show as many as are legible and
+// It was one stacked bar per bucket: works at the foot, quotes on top, the pair
+// summing to the bar's height. Stacking is what made it hard to read. Only the
+// bottom segment of a stack starts from a common baseline, so the quote counts
+// — the series you actually came for — each began at a different height and
+// could not be compared across buckets by eye. And the two series were being
+// added together, which they should never have been: a work and a quote are not
+// two of the same thing, and "3" on that axis meant nothing in particular.
+//
+// A dot plot fixes both. Each series gets its own column of dots rising from
+// the same floor, so quotes are comparable with quotes and works with works,
+// and nothing is summed. Dots also make the unit explicit in a way a continuous
+// bar does not: the count is something you can read off by counting, and the
+// legend states what one dot is worth when the library is too big for one each.
+//
+// TIMELINE_MAX_DOTS is how many dots the tallest column may reach — the height
+// the CSS gives .tl-plot, divided by the dot pitch. Both series share ONE scale
+// (the taller of the two peaks), because two scales in one frame is two charts
+// wearing a disguise.
+
+const TIMELINE_MAX_DOTS = 12
+
+// dotUnit — how many items one dot stands for, so the tallest column lands on
+// TIMELINE_MAX_DOTS. Always at least 1: fewer items than dots means one dot each,
+// which is the case a dot plot is best at and must not be scaled away.
+export function dotUnit(buckets, maxDots = TIMELINE_MAX_DOTS) {
+  const peak = (buckets || []).reduce((m, b) => Math.max(m, b.works || 0, b.quotes || 0), 0)
+  return Math.max(1, Math.ceil(peak / maxDots))
+}
+
+// dotCount — dots for a value at a given unit. ROUNDS UP, so anything at all
+// draws at least one dot: a decade holding a single book must not render as an
+// empty column, which is the mark this chart reserves for holding nothing.
+export function dotCount(value, unit) {
+  const n = value || 0
+  if (n <= 0) return 0
+  return Math.max(1, Math.ceil(n / Math.max(1, unit)))
+}
+
+// TimelineCard — a scrollable band of dot columns, one pair per bucket.
+//
+// WIDTH IS HANDLED BY CSS, not by measuring. Every column has a minimum width,
+// the row scrolls sideways, and that is exactly "show as many as are legible and
 // scroll the rest" without a ResizeObserver, without a re-render on resize, and
 // without a number that has to be kept in step with a font size. A narrow phone
-// simply shows fewer bars of the same size.
+// simply shows fewer columns of the same size.
 //
 // overscroll-behavior-x is contained, following the 1.7.2 sweep: a sideways
 // scroller that runs off its end otherwise hands the gesture to the browser's
@@ -653,7 +693,7 @@ function TimelineCard({ timeline }) {
   const [scale, setScale] = usePersistedState('tippani:stats:timelineScale', 'decade')
   const meta = TIMELINE_SCALES.find((x) => x.key === scale) || TIMELINE_SCALES[0]
   const buckets = bucketTimeline(timeline, meta.size)
-  const peak = buckets.reduce((m, b) => Math.max(m, b.works + b.quotes), 0)
+  const unit = dotUnit(buckets)
   if (!timeline || timeline.length === 0) {
     return (
       <Card>
@@ -678,19 +718,16 @@ function TimelineCard({ timeline }) {
         <div className="tl-row">
           {buckets.map((b) => {
             const total = b.works + b.quotes
+            const reading = `${decadeLabel(b.start)}: ${b.works} works, ${b.quotes} quotes`
             return (
-              <Tooltip
-                key={b.start}
-                label={`${decadeLabel(b.start)}: ${b.works} works, ${b.quotes} quotes`}
-                side="top"
-              >
-                <div className="tl-col" aria-label={`${decadeLabel(b.start)}, ${b.works} works, ${b.quotes} quotes`}>
-                  <div className="tl-bar">
-                    {/* Quotes sit on top of works so the darker segment is the
-                        one you are usually reading for. An empty bucket draws
-                        nothing at all, which is what a gap in time looks like. */}
-                    <div className="tl-seg tl-seg-quotes" style={{ height: peak ? `${(b.quotes / peak) * 100}%` : 0 }} />
-                    <div className="tl-seg tl-seg-works" style={{ height: peak ? `${(b.works / peak) * 100}%` : 0 }} />
+              <Tooltip key={b.start} label={reading} side="top">
+                {/* Two columns from one floor. An empty bucket draws no dots at
+                    all, which is what a gap in time looks like — and it keeps
+                    its width, so the gap is as wide as it was long. */}
+                <div className="tl-col" aria-label={reading}>
+                  <div className="tl-plot">
+                    <DotStack n={dotCount(b.quotes, unit)} kind="quotes" />
+                    <DotStack n={dotCount(b.works, unit)} kind="works" />
                   </div>
                   <div className="tl-tick">{total ? decadeLabel(b.start) : ''}</div>
                 </div>
@@ -699,7 +736,41 @@ function TimelineCard({ timeline }) {
           })}
         </div>
       </div>
+      {/* Two series, so a legend is not optional — identity must never be
+          carried by colour alone. The unit line only appears when a dot is worth
+          more than one thing; on a small library every dot is one thing and
+          saying so would be noise. */}
+      <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+        <TimelineKey kind="quotes" label="quotes" />
+        <TimelineKey kind="works" label="works" />
+        {unit > 1 && (
+          <span className="mono-label" style={{ fontSize: 9, color: 'var(--faint)' }}>1 dot ≈ {unit}</span>
+        )}
+      </div>
     </Card>
+  )
+}
+
+// DotStack — one series' column for one bucket, growing upward from the floor.
+function DotStack({ n, kind }) {
+  return (
+    <span className={`tl-dots tl-dots-${kind}`} aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => (
+        <span key={i} className="tl-dot" />
+      ))}
+    </span>
+  )
+}
+
+// TimelineKey — one legend entry, the swatch drawn by the same rule as the dots.
+function TimelineKey({ kind, label }) {
+  return (
+    <span className="mono-label inline-flex items-center gap-1.5" style={{ fontSize: 9 }}>
+      <span className={`tl-dots tl-dots-${kind}`} aria-hidden="true">
+        <span className="tl-dot" />
+      </span>
+      {label}
+    </span>
   )
 }
 
