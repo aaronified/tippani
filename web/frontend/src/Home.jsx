@@ -27,6 +27,7 @@ import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
   ClampMore,
+  ColorSwatches,
   clampSequence,
   ErrorText,
   formatPartialDate,
@@ -679,11 +680,15 @@ const FAVS_INITIAL = 4 // tiles shown before "view more"
 // shown (the quote, or the note for note-only captures); `note` is the margin
 // note, surfaced on expand only when there's a separate quote (so it never
 // duplicates the text).
+// `meta` is the EXPANDED line and carries no credit. The expanded tile renders
+// the credited people as PersonCredit chips — portrait, name, and a way into
+// their panel — so naming them here too put the same person on the card twice,
+// once as plain text and once as the thing you can actually click.
+// `source`, the collapsed line, keeps the credit: there are no chips down there.
 function bookFav(a) {
   const ch = (a.chapter || '').trim()
   const meta = [
     a.book_title,
-    a.book_author,
     ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch),
     a.location && `P. ${a.location}`,
   ]
@@ -712,6 +717,11 @@ function screenFav(d, movieMap) {
     key: `screen:${d.id}`,
     kind: 'screen',
     media: isShow ? 'SHOW' : 'FILM',
+    // A dialogue has carried a colour for as long as the other two kinds have,
+    // and this was the one builder that did not pass it on — so every film line
+    // on Home wore the default yellow bar whatever colour it actually is, and
+    // the quick-pick added to the expanded tile would have painted nothing.
+    color: d.color,
     text: d.quote || d.note,
     note: d.quote ? d.note : '',
     tags: d.tags || [],
@@ -743,7 +753,8 @@ function quoteFav(u) {
     note: u.quote ? u.note : '',
     tags: u.tags || [],
     source: [u.speaker, u.occasion].filter(Boolean).join(' \u00b7 '),
-    meta: [u.speaker, ...rest].join(' \u00b7 '),
+    // No speaker in `meta` \u2014 the expanded tile chips them. See bookFav.
+    meta: rest.join(' \u00b7 '),
     createdAt: u.created_at,
     raw: u,
   }
@@ -889,10 +900,16 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     loadFavs()
     return null
   }
+  // Returns false on failure, which is what the tile's optimistic colour pick
+  // rolls back on — the same contract Library's annotation patch has. `toast()`
+  // does not return false, so signalling it has to be explicit.
   async function patchFav(f, fields) {
     const stateFn = FAV_KINDS[f.kind].state
     const r = await json('PUT', `${itemPath(f)}/${f.raw.id}`, { ...stateFn(f.raw), ...fields })
-    if (!r.ok) return toast(errText(r, 'could not save'))
+    if (!r.ok) {
+      toast(errText(r, 'could not save'))
+      return false
+    }
     loadFavs()
   }
   async function removeFav(f) {
@@ -1081,12 +1098,27 @@ function FavouriteTile({
     const chLabel = ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch)
     const locLabel = f.raw.location ? `P. ${f.raw.location}` : ''
     collapsedSource = [f.raw.book_title, authorText].filter(Boolean).join(' · ')
-    expandedMeta = [f.raw.book_title, authorText, chLabel, locLabel].filter(Boolean).join(' · ')
+    // No author in the EXPANDED line: the PersonCredit chips below carry the
+    // same names with their portraits and their way in, so repeating them here
+    // was the same person on the card twice, one line apart.
+    expandedMeta = [f.raw.book_title, chLabel, locLabel].filter(Boolean).join(' · ')
+  }
+  // Optimistic colour, the same trick AnnotationCard uses: onPatch refetches the
+  // whole favourites list before the row comes back changed, so the quick-pick
+  // paints the bar (and its own picked dot) the instant it is tapped, and rolls
+  // back if the PUT failed.
+  const [pendingColor, setPendingColor] = useState(null)
+  useEffect(() => { setPendingColor(null) }, [f.color])
+  const color = pendingColor || f.color || 'yellow'
+  const pickColor = async (c) => {
+    if (c === color) return // no clear: the server has no "no colour" (validColor)
+    setPendingColor(c)
+    if ((await onPatch({ color: c })) === false) setPendingColor(null)
   }
   return (
     <HandCard
       variant={variant}
-      colorBar={f.color || 'yellow'}
+      colorBar={color}
       style={{ padding: '12px 15px' }}
     >
       <FormModal open={editing} onClose={onEditCancel} title={meta.editTitle} maxWidth={520}>
@@ -1125,8 +1157,12 @@ function FavouriteTile({
               >
                 {meta.quoted ? `“${f.text}”` : f.text}
               </p>
+              {/* Faces ride the COLLAPSED line only. Expanded, the same people
+                  are PersonCredit chips a few lines down — portrait, name and a
+                  way into their panel — and drawing the face here as well put
+                  one person on the tile twice. */}
               <span className="mt-1.5 flex items-center gap-1.5">
-                <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />
+                {!open && <CreditFaces names={peopleNames} map={peopleMap} size={18} ring="var(--card)" />}
                 <MonoLabel style={{ fontSize: 10.5 }}>{open ? expandedMeta : collapsedSource}</MonoLabel>
               </span>
               <ClampMore open={open} />
@@ -1165,6 +1201,16 @@ function FavouriteTile({
                 )}
                 {/* Un-hearting removes the tile — this IS the favourites list. */}
                 <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
+                {/* The colour quick-pick, in the same place and the same order as
+                    every other quote card (Library's ActionRow, Movies' Frame).
+                    A favourite is one of the three kinds of quote seen from a
+                    different screen, and recolouring it was the one thing you
+                    could do to it everywhere EXCEPT here. `collapsible` because
+                    a Home tile is a masonry cell and often narrower than 330px,
+                    where six dots become the named list. */}
+                <span className="card-colors is-visible shrink-0">
+                  <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel="Colour category" />
+                </span>
                 <span className="ml-auto flex items-center">
                   <QuoteActions onShare={onShare} onEdit={onEditStart} onDelete={onDelete} />
                 </span>
