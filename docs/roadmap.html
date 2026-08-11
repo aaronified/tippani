@@ -436,6 +436,47 @@
   still drift apart from each other. Single-sourcing them, and a test that fails when a
   control has no help, is what is left.
 </p>
+<p>
+  <strong>1.6 and 1.7 were mostly about the surface, and one of them was a schema
+  release after all.</strong> 1.6.0 folded standalone quotes onto the same screen the
+  Library and the Catalogue already were, gave people portraits and made a speaker a
+  doorway, and settled the icon set — one glyph per meaning, at one weight, with
+  <em>show the words anyway</em> as a setting rather than as an argument. 1.7.0 and
+  1.7.1 gave a quote's colour a <strong>name</strong>, then made it six colours rather
+  than four — which the §1 note below had predicted would be free and was not: the
+  <code>CHECK (color IN (…))</code> constraint appears seven times across four tables,
+  two of them backing FTS5 indexes with live sync triggers, and SQLite cannot alter a
+  CHECK. That was its own migration and its own release, exactly as the correction in
+  §1 now says.
+</p>
+<p>
+  <strong>The Stats page grew into the thing §17 was going to need.</strong> 1.7.2
+  fixed it to be about all three kinds of quote rather than two; 1.7.4 added a
+  <strong>timeline</strong> — when the library's works are <em>from</em>, readable by
+  decade, century or year — four more superlatives, and a person identity that
+  survives being credited four different ways. The timeline was a stacked bar and is a
+  <strong>dot plot</strong> now: works and quotes were being added together into a
+  height that meant nothing in particular, and only the bottom segment of a stack ever
+  starts from a common baseline, so the series you came to read could not be compared
+  across buckets by eye. Two columns of dots from one floor, one scale, and a legend
+  that says what a dot is worth. The activity calendar's Quiz and Practice days report
+  <strong>accuracy</strong> as well as volume on hover, because a heatmap coloured by
+  count paints twelve wrong answers exactly like twelve right ones.
+</p>
+<p>
+  <strong>What the interface is still working through is text.</strong> The direction
+  since 1.6 has been the same one each release: a control that repeats itself gets one
+  voice, and long copy goes behind an info dot rather than standing on the card. That
+  has now taken the six API-key blurbs (1.7.2), three headings that had stopped
+  introducing anything (1.7.4), and — most recently — the two dots the Metadata sources
+  chips were each carrying, which with a custom TMDB key set left the word
+  <em>Untested</em> trailed by two explanations of services it was not about. Backup
+  &amp; restore lost its second dot the same way: it was saying the consequence of a
+  restore three times, once on the card and twice more where it actually applies. The
+  same sweep is retiring the last primary <em>text</em> buttons — a dialog's yes and no
+  belong together in its header, not one of them at the foot of a form long enough to
+  scroll off.
+</p>
 <p>For a cheap start, §1 collects the items that are an afternoon each.</p>
 <p>
   The numbers are labels and they move, so read them as grouping rather than as
@@ -1236,10 +1277,19 @@
     <li>
       <strong>A source with no key reads as inactive, not as broken.</strong>
       <strong>TMDB and TheTVDB do nothing without an API key</strong> — that is their
-      rule, not mine — and today an unkeyed instance answers a 503 from a lookup that
-      looked like it should work. It should be visibly greyed out, labelled as needing a
-      key, and linked to the Settings card that takes one. The built-in TMDB key is
-      empty, so this is the first thing a new install hits.
+      rule, not mine — and an unkeyed instance answers a 503 from a lookup that looked
+      like it should work. The built-in TMDB key is empty in the source tree, so this is
+      the first thing a new install hits.
+      <br><br>
+      <em>Half of this has shipped.</em> Settings → Metadata sources now says the state
+      out loud rather than leaving it to be discovered by a failed lookup: a chip reads
+      <em>Built-in key</em> when film lookups are running on the shared application key,
+      <em>No key</em> when they are running on nothing and will 503, and a second chip
+      reports whether the last book lookup actually worked. Those two chips travel
+      alone now, with the explanation in one info dot on the heading. What is
+      still open is the part in the <em>lookup</em> rather than in Settings: the source
+      that cannot answer should be greyed out where you are asking the question, and
+      linked to the card that takes a key.
     </li>
     <li>
       <strong>It matters more now §24 has landed.</strong> Looking up Subhas Chandra Bose
