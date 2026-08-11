@@ -5,6 +5,201 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.7] - 2026-08-11
+
+### Added
+
+- **A dialog commits from its header, everywhere.** Every edit dialog ended in a
+  primary text button at the foot of its form. A dialog's two answers are yes and
+  no; they belong together — so ✓ and ✕ sit as a pair in the top right, and the
+  bottom button is gone.
+
+  Splitting them was worse than untidy. The way OUT was pinned in the header and
+  always visible; the way FORWARD was at the end of a form that scrolls, so on the
+  longer ones the commit went off the screen and the cancel stayed. That is the
+  wrong one to keep in view.
+
+  It is arranged through a context rather than a prop, which is the part that
+  matters: threading a form id and a validity flag through nine call sites would
+  have been nine chances to forget one, and forgetting is invisible. A form inside
+  a dialog finds its host, wears the id it is given, tells the host why it cannot
+  be saved yet, and drops its own footer. Not one call site changed. The same
+  forms rendered **inline** — the search modal's editor, the capture surface —
+  find no host and keep their footer, because there is no header there to borrow.
+
+  **The ✓ has to be earned.** Not every dialog holds a form: the work-details
+  panel saves each field on its own. A ✓ there would look like it saves and do
+  nothing, which is worse than no button, so it is absent until a form registers
+  and goes away again when the form unmounts.
+
+  It stays a real submit button bound by the HTML `form=` attribute — which is
+  also what makes it the form's *default button*, and the default button is the
+  only reason **Enter in a field still saves** now that these forms have no submit
+  control of their own. Rewriting it as a click handler would kill Enter in every
+  edit dialog at once, silently; there is a test that fails if a submit button
+  reappears inside a form.
+
+- **Quiz and Practice days report accuracy, not just volume.** The activity
+  calendar shades a day by how many cards it holds. For Saves that is the whole
+  fact. For the two review streams it answers half the question and paints the
+  other half misleadingly: a day of twelve answers all wrong is the same shade as
+  a day of twelve all right. Hovering a Quiz or Practice day now reads
+  "8 answers · 75% correct".
+
+  `quiz_sessions` has carried the right-answer count beside the tally since the
+  review rework, so this is a second column on a row already being read rather
+  than a second query.
+
+  The half that had to be exact is the **absent** day. Rows exist only for days
+  with answers on them, and a practice reset deletes those rows outright — so a
+  reset history is nothing but absent days. Those read "no answers", never "0%
+  correct", which would be a claim about a session that did not happen. An empty
+  stream now says so as well; a reset used to leave a full grid of grey dots and
+  no word about why, which reads as a chart that failed to load.
+
+- **A category name is fifteen characters.** Twenty-four was a number nothing was
+  built to hold — see the wrapping fix below. The cap is now what the Stats
+  breakdown's label column can hold outright, and the column's ceiling is computed
+  from the same constant, so the two cannot drift apart again. Every built-in name
+  fits with room over.
+
+  Lowering a cap is not retroactive, and pretending otherwise would have been the
+  bug: a name stored under the old limit is still in the database and is still
+  served. The client caps on the way in — once, where every reader picks the value
+  up — so the pickers, the group headings, the Stats column and the Settings field
+  all say the same thing, and the first save that field makes writes the capped
+  value back. Counted in code points, because the server counts runes.
+
+### Changed
+
+- **The timeline is a dot plot.** It was one stacked bar per bucket, works at the
+  foot and quotes on top, and the stacking is what made it hard to read. Only the
+  bottom segment of a stack starts from a common baseline, so the quote counts —
+  what anyone opens the chart for — each began at a different height and could not
+  be compared across buckets by eye. And the two series were being **added**: a
+  work and a quote are not two of the same thing, so the height the sum produced
+  was a number about nothing in particular.
+
+  Two columns of dots from one floor now, quotes in the accent and works in the
+  muted ink, never summed. Both share **one scale**, because two scales in one
+  frame is two charts wearing a disguise. Dots also make the unit explicit in a
+  way a bar cannot: the count is something you can read off by counting, and the
+  legend says what one dot is worth once a library is large enough that a dot has
+  to stand for more than one. Anything at all draws at least one dot, so a decade
+  holding a single book is never mistaken for the empty column that means a gap in
+  time.
+
+  A standalone quote raises the quote column and not the work one — it came from
+  no book and no film, so there is nothing for it to count as.
+
+- **Backup & restore was explaining the same consequence three times**, and
+  metadata sources had a status word trailed by two dots about something else.
+
+  The backup card carried two info dots; the second said restoring replaces
+  everything and logs everyone out, which the restore dialog already says in red at
+  the moment it applies. A card that explains the same thing three times is not
+  being three times as careful — it is teaching you to skim. One dot now, and two
+  lines of standing prose went with it: "the archive kept here" was the toggle's
+  own "This server" said again one line below it. Nothing safety-critical was cut.
+
+  Metadata sources read as a chip, a dot, sometimes a second chip, and a second
+  dot — so with a custom TMDB key saved, what was left was the word "Untested"
+  followed by two explanations of services the word was not about. Both blurbs are
+  in the heading's dot now and the chips travel alone. The chips themselves stay:
+  they are live state, not decoration.
+
+### Fixed
+
+- **A work's header on a phone had nowhere to put anything.** The reading status,
+  the read counter, the progress track, the author and the year all arrived
+  jumbled on a book, film or show detail.
+
+  None of them was misplaced. The header floats the cover and lets everything wrap
+  around it, which is exactly right in a 500px column — text reflows natively,
+  stays selectable, needs no measuring. In a 320px column that same float leaves a
+  ~150px gutter, and eight independent things wrap into it one after another, so
+  identity and state come out interleaved.
+
+  The phone stacks instead, in a stated order and the same order for every kind of
+  work: **what it is** (cover, title, author, year) · **where you are** (shelf
+  state, read count, then its own full-width track) · **what it is to you** (the
+  heart and the tags) · **what it is about** (genres, description). The progress
+  track moved to the end of the shelf row because its 168px minimum was breaking
+  the row around itself, and the cover drops to 96px because here it identifies
+  the work rather than being the subject of the screen.
+
+- **The shell's accent controls were the only ones wearing flat colour.** Every
+  accent-filled control wears the accent grain — leather on paper, rubber on film
+  — except the ones on the shell, which had none: the ＋ Add pill, the search and
+  help pills beside it, and the user chip, sitting next to a toggle thumb and an
+  active filter chip that both carry it.
+
+  **And the mobile selection ignored the theme entirely.** The bottom bar's active
+  item and the drawer's active row were a flat 13% accent wash — the one selection
+  state in the app that was the same rectangle whether the aesthetic was paper or
+  film. They use the filter chip's material now, so a selected nav row and a
+  selected filter chip are made of the same thing.
+
+  Both new surfaces join the `prefers-contrast` / `prefers-reduced-transparency`
+  block that drops every decorative layer, and there is now a test that reads the
+  stylesheet and fails when a textured surface has no entry there — or when an
+  accent-filled control has no grain at all.
+
+- **The favourite heart sat outside the row that holds every other mark.** On a
+  film or show dialogue it was rendered twice and never where a book annotation
+  keeps it: once beside the quote, and again in the credits line but only when a
+  sticker was attached, because the seal defaults to the same corner.
+
+  That second copy is the tell. Moving a control depending on whether an unrelated
+  feature is in use is a workaround for the control being in the wrong place. One
+  heart now, leading the action row, same order as the book card — the stylesheet
+  had already assumed exactly that.
+
+- **The Quotes glyph was drawn smaller than the tabs beside it.** Not a different
+  weight — a smaller footprint. A bare pair of quotation marks spanned 13×10 of
+  the 24 grid, between an open book spanning 17×15 and a film reel spanning 17×17.
+  Nothing looked broken; it looked small, which is a complaint nobody can act on
+  until it is measured.
+
+  The marks are inside a square speech bubble now, filling the box like their
+  neighbours — and the bubble is not only packaging, since a line somebody said is
+  what the three screens it fronts have in common. The icon test measures
+  footprint as well as identity now.
+
+- **A favourite you could not recolour, and a person named twice.** Recolouring a
+  quote was possible everywhere except the screen that shows your favourites; the
+  quick-pick is there now, in the same place and order as on every other card. A
+  film line's colour had also never reached Home at all, so every dialogue tile
+  wore the default yellow bar whatever colour it actually is.
+
+  Expanded, the tile drew the credited people twice — once as faces and names in
+  the meta line, once as the clickable chips below. The faces are collapsed-only
+  now and the expanded line no longer names them.
+
+- **A selection ring drawn around the only dot on screen.** The colour picker
+  collapses to a single trigger inside a narrow card, and that trigger wore the
+  selection ring — an accent outline distinguishing nothing from nothing, which
+  reads as a focus state that will not go away. The dots inside the open list keep
+  it, which is the case it was drawn for.
+
+- **Colour category names wrapped in a column cut too narrow for them.** The Stats
+  breakdown sized its label column at 7px per character; `.mono-label` is 11px IBM
+  Plex Mono in caps with .14em tracking, which is about 8.4. The estimate was a
+  fifth short, so any name past about eight letters wrapped — with the space to
+  avoid it already there and simply not asked for.
+
+- **The demo's Stats page had no timeline, and a reset that reset nothing.** The
+  demo shim sent no `timeline` at all, so the published demo has shown the card's
+  empty state since the chart shipped in 1.7.4 — with every book and film in the
+  demo library carrying a year. And a practice reset zeroed the score while the
+  calendar went on serving a full synthetic year of dots beside it.
+
+- **The roadmap had stopped at 1.5.0**, and AI.md claimed a test count that had
+  drifted by two thirds. The roadmap now covers what 1.6 and 1.7 actually were,
+  including the six-colour release that its own §1 note had predicted would be
+  free and was not. AI.md says how to recount rather than replacing one number
+  that will rot with another.
+
 ## [1.7.6] - 2026-08-09
 
 ### Fixed
