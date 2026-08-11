@@ -122,18 +122,43 @@ function useCalendarWeeks(ref, mobile) {
   return weeks
 }
 
+// dayTitle — what a calendar cell says on hover.
+//
+// The Saves stream counts things you kept, and the count IS the fact. The two
+// review streams count ANSWERS, where the count alone is the less interesting
+// half: a day of twelve answers all wrong shades exactly like a day of twelve
+// all right, because the fill is volume. So Quiz and Practice days report the
+// ratio the server now sends alongside the tally.
+//
+// `got` is absent on any day the server sent no row for — a quiet day, or the
+// whole of a practice history that has been reset (handlePracticeReset deletes
+// the rows). Those days say "no answers" rather than "0% correct", which is a
+// claim about a session that did not happen.
+export function dayTitle(dateLabel, day, noun, accuracy) {
+  if (!accuracy) return `${dateLabel}: ${day.count} ${noun}`
+  if (!day.count) return `${dateLabel}: no answers`
+  const answers = `${day.count} answer${day.count === 1 ? '' : 's'}`
+  if (day.got == null) return `${dateLabel}: ${answers}`
+  return `${dateLabel}: ${answers} · ${Math.round((100 * day.got) / day.count)}% correct`
+}
+
 // ActivityCalendar — a GitHub-style heatmap: one dot per day, one column per
 // week (Sunday-first), month names along the x axis. On desktop it fills the
 // card width (many months); on a phone it holds a year and scrolls, opened at
 // the most recent week. When `onSearch` is given, a day WITH activity is a
 // button that opens that day on the Search page (Saves only); otherwise days
 // are plain dots with a tooltip.
-function ActivityCalendar({ data, noun = 'saved', onSearch }) {
+//
+// `accuracy` switches the hover line to the answers-and-accuracy form — see
+// dayTitle. It is a property of the STREAM, not of the data, which is why it
+// arrives as a flag rather than being sniffed from whether `got` is present:
+// a Quiz day with nothing on it must still describe itself as a quiz day.
+function ActivityCalendar({ data, noun = 'saved', onSearch, accuracy = false }) {
   const scroller = useRef(null)
   const mobile = useIsMobileScreen()
   const weekCount = useCalendarWeeks(scroller, mobile)
 
-  const counts = new Map((data || []).map((d) => [d.date, d.count]))
+  const byDate = new Map((data || []).map((d) => [d.date, d]))
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const start = new Date(today)
@@ -153,9 +178,10 @@ function ActivityCalendar({ data, noun = 'saved', onSearch }) {
         days.push(null) // future pad of the current week
         continue
       }
-      const count = counts.get(localISO(d)) || 0
+      const rec = byDate.get(localISO(d))
+      const count = rec?.count || 0
       max = Math.max(max, count)
-      days.push({ count, date: new Date(d) })
+      days.push({ count, got: rec?.got, date: new Date(d) })
     }
     const m = ws.getMonth()
     const wi = weeks.length
@@ -188,7 +214,12 @@ function ActivityCalendar({ data, noun = 'saved', onSearch }) {
               <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
                 {days.map((d, di) => {
                   if (d === null) return <span key={di} style={{ width: DOT, height: DOT }} aria-hidden="true" />
-                  const label = `${d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}: ${d.count} ${noun}`
+                  const label = dayTitle(
+                    d.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
+                    d,
+                    noun,
+                    accuracy,
+                  )
                   const dot = { width: DOT, height: DOT, borderRadius: 999, background: calFill(d.count, max), flex: '0 0 auto' }
                   // A day with activity is a doorway only when onSearch is given
                   // (Saves → that day's additions); quiet days stay plain dots.
@@ -234,10 +265,17 @@ function ActivityCalendar({ data, noun = 'saved', onSearch }) {
 // the same heatmap shows what you've added, what the Daily Quiz has surfaced,
 // and what you've practised. Practice history is resettable here, mirroring the
 // Home practice-card reset (DELETE /review/practice).
+// `accuracy` marks the two streams whose days are ANSWERS rather than saves, and
+// so carry a right/wrong split worth reporting on hover (see dayTitle).
+//
+// `empty` is what the stream says when it holds nothing. Practice is the only one
+// the reader can empty on purpose, and a reset used to leave a full grid of grey
+// dots and no word about why — which reads as a chart that failed to load rather
+// than as the reset having worked.
 const ACTIVITY_STREAMS = [
-  { key: 'saves', label: 'Saves', noun: 'saved', clickable: true },
-  { key: 'quiz', label: 'Quiz', noun: 'reviewed', clickable: false },
-  { key: 'practice', label: 'Practice', noun: 'practised', clickable: false },
+  { key: 'saves', label: 'Saves', noun: 'saved', clickable: true, accuracy: false, empty: 'nothing saved yet' },
+  { key: 'quiz', label: 'Quiz', noun: 'reviewed', clickable: false, accuracy: true, empty: 'no quiz answers yet' },
+  { key: 'practice', label: 'Practice', noun: 'practised', clickable: false, accuracy: true, empty: 'no practice history' },
 ]
 function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
   const [stream, setStream] = useState('saves')
@@ -256,7 +294,11 @@ function ActivityCard({ saves, quiz, practice, onSearch, onResetPractice }) {
           <Toggle ariaLabel="Activity stream" value={stream} onChange={setStream} options={ACTIVITY_STREAMS.map((s) => [s.key, s.label])} />
         </div>
       </div>
-      <ActivityCalendar data={series} noun={meta.noun} onSearch={meta.clickable ? onSearch : undefined} />
+      {total === 0 ? (
+        <p className="tp-empty" style={{ padding: '16px 0' }}>{meta.empty}</p>
+      ) : (
+        <ActivityCalendar data={series} noun={meta.noun} accuracy={meta.accuracy} onSearch={meta.clickable ? onSearch : undefined} />
+      )}
     </Card>
   )
 }

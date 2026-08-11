@@ -681,9 +681,25 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Review activity for the same window, per mode: cards answered per
 	// reviewer-local day (quiz_sessions.day is already the local date). Feeds the
 	// Activity card's Quiz and Practice calendars beside the Saves one.
-	reviewSeries := func(mode string) ([]dayCount, error) {
-		out := []dayCount{}
-		rows, err := s.Store.DB.Query(`SELECT day, answered FROM quiz_sessions
+	//
+	// `got` rides along so the day tooltip can report ACCURACY. A heatmap cell
+	// coloured by volume answers "did I sit down that day" and nothing else —
+	// twelve answers all wrong paints exactly like twelve all right — and the
+	// ratio is the half of it worth knowing. It is a second column on a row
+	// already being read, not a second query.
+	//
+	// Practice rows are the resettable tally (handlePracticeReset DELETEs them
+	// outright), so a reset practice history simply returns no rows and the
+	// calendar has nothing to describe. There is no stale-accuracy case to guard:
+	// the numerator and the denominator leave together or not at all.
+	type reviewDay struct {
+		Date  string `json:"date"`
+		Count int    `json:"count"`
+		Got   int    `json:"got"`
+	}
+	reviewSeries := func(mode string) ([]reviewDay, error) {
+		out := []reviewDay{}
+		rows, err := s.Store.DB.Query(`SELECT day, answered, got FROM quiz_sessions
 			WHERE user_id = ? AND mode = ? AND answered > 0 AND day >= date('now','-930 days')
 			ORDER BY day`, uid, mode)
 		if err != nil {
@@ -691,12 +707,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var dc dayCount
-			if err := rows.Scan(&dc.Date, &dc.Count); err != nil {
+			var rd reviewDay
+			if err := rows.Scan(&rd.Date, &rd.Count, &rd.Got); err != nil {
 				olog.Warnf(olog.CodeStatsRowScan, "[stats] %s activity row scan failed: %v", mode, err)
 				continue
 			}
-			out = append(out, dc)
+			out = append(out, rd)
 		}
 		return out, rows.Err()
 	}
