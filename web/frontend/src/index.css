@@ -205,6 +205,8 @@
     .btn-sticker::before,
     .btn-film::before,
     .tp-btn-primary::before,
+    .topbar-add-btn::before,
+    .user-chip::before,
     .drawer::before,
     .mobile-bottom-nav::before,
     .topbar::before,
@@ -220,7 +222,9 @@
     .tp-toggle-thumb,
     .tp-select-thumb,
     .nav-toggle .tp-toggle-thumb,
-    .tp-filter-chip.active {
+    .tp-filter-chip.active,
+    .drawer-item.active,
+    .mobile-bottom-nav-btn.active {
       background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
       background-size: auto, auto;
       background-blend-mode: normal, normal;
@@ -228,7 +232,9 @@
     html[data-theme="dark"] .tp-toggle-thumb,
     html[data-theme="dark"] .tp-select-thumb,
     html[data-theme="dark"] .nav-toggle .tp-toggle-thumb,
-    html[data-theme="dark"] .tp-filter-chip.active {
+    html[data-theme="dark"] .tp-filter-chip.active,
+    html[data-theme="dark"] .drawer-item.active,
+    html[data-theme="dark"] .mobile-bottom-nav-btn.active {
       background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
     }
   }
@@ -829,8 +835,19 @@
     mix-blend-mode: overlay;
   }
 
-  .btn-sticker, .btn-film, .tp-btn-primary { isolation: isolate; }
-  .btn-sticker::before, .btn-film::before, .tp-btn-primary::before {
+  /* Every accent-FILLED control wears the accent grain — leather on paper, rubber
+     on film. The shell's own accent controls were the exception and had no reason
+     to be: the ＋ Add pill, the icon-only search and help pills beside it, and the
+     user chip are the same material as a primary button and sat on the bar as flat
+     colour, beside a toggle thumb and an active filter chip that both carry the
+     grain. The comment on .topbar-add-btn.icon-only had promised "same accent
+     texture" since it was written; this is the rule that makes that true.
+     .user-chip needs the positioning the others get from .tactile, and clips the
+     overlay to its squircle for free (overflow: hidden, for an avatar image). */
+  .btn-sticker, .btn-film, .tp-btn-primary, .topbar-add-btn, .user-chip { isolation: isolate; }
+  .user-chip { position: relative; }
+  .btn-sticker::before, .btn-film::before, .tp-btn-primary::before,
+  .topbar-add-btn::before, .user-chip::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -843,9 +860,13 @@
     mix-blend-mode: overlay;
   }
   html[data-aesthetic="paper"] .btn-sticker::before,
+  html[data-aesthetic="paper"] .topbar-add-btn::before,
+  html[data-aesthetic="paper"] .user-chip::before,
   html[data-aesthetic="paper"] .tp-btn-primary::before { background-image: url("./textures/fabric.webp"); }
   .btn-film::before,
   html[data-aesthetic="film"] .btn-sticker::before,
+  html[data-aesthetic="film"] .topbar-add-btn::before,
+  html[data-aesthetic="film"] .user-chip::before,
   html[data-aesthetic="film"] .tp-btn-primary::before { background-image: url("./textures/rubber.webp"); }
 
   /* A dark scrim over the textured accent surfaces: now the selected label rides
@@ -2317,6 +2338,13 @@
     flex: none;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--topbar-top) 80%, transparent);
   }
+  /* On the SELECTED row the dot would be accent on accent — a waiting deck
+     announcing itself in the one place you cannot see it. It flips to the ink
+     that rides on an accent fill, ringed in the fill it sits on. */
+  .drawer-item.active .review-dot {
+    background: var(--on-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
+  }
   /* One entrance for every tab (keyed on the active tab so it replays on switch):
      a quick "roll down" — fade + slight drop into place. Consistent across tabs. */
   .tab-panel { animation: tab-roll .34s cubic-bezier(.22,.7,.2,1); }
@@ -2836,10 +2864,32 @@ html[data-aesthetic="film"] .mobile-sheet-footer::before { background-image: url
 }
 .drawer-item:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); }
 .drawer-item.active {
-  color: var(--accent-ui);
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--on-accent);
+  text-shadow: 0 1px 1px rgba(0,0,0,.28);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
 }
 .drawer-item svg { flex: none; }
+
+/* THE SELECTED THING WEARS THE SELECTED MATERIAL. Both of these were a flat
+   13% accent wash — the one selection state in the app that ignored the
+   aesthetic entirely, so a phone showed the same tinted rectangle whether the
+   theme was paper or film, while every selection on a desktop (Toggle and
+   Select thumbs, active filter chips) wore the accent fill with leather or
+   rubber grain over it. Same recipe as .tp-filter-chip.active, down to the
+   --sel-scrim that lifts a light label off the grain. */
+html[data-aesthetic="paper"] .drawer-item.active,
+html[data-aesthetic="paper"] .mobile-bottom-nav-btn.active {
+  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/fabric.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  background-size: auto, var(--grain-accent), auto;
+  background-blend-mode: normal, overlay, normal;
+}
+html[data-aesthetic="film"] .drawer-item.active,
+html[data-aesthetic="film"] .mobile-bottom-nav-btn.active {
+  background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), url("./textures/rubber.webp"), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
+  background-size: auto, var(--grain-accent), auto;
+  background-blend-mode: normal, overlay, normal;
+}
 /* §7 One "＋ Add": the drawer's lead row wears the accent so the single add
    action reads as primary, and a rule sets it apart from the nav rows below. */
 .drawer-add {
@@ -2984,14 +3034,16 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
 }
 .mobile-bottom-nav-btn:hover,
 .mobile-bottom-nav-btn:active { color: var(--ink); }
-/* The active state carries three cues so colour is never the only one: an
-   accent tint (TabIcon strokes currentColor), a tinted pill, and a dot. The
-   tint's contrast against the bar depends on the chosen accent — ochre on
-   paper-light is the weakest — so the dot's presence, not its colour, is what
-   has to read. Same recipe as .drawer-item.active. */
+/* The active state carries three cues so colour is never the only one: the icon
+   rides on the accent fill (TabIcon strokes currentColor), the pill itself, and
+   a dot. The dot's PRESENCE, not its colour, is what has to read.
+   Same recipe as .drawer-item.active — and, since 1.7.7, the same material as
+   every other selected thing in the app. */
 .mobile-bottom-nav-btn.active {
-  color: var(--accent-ui);
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--on-accent);
+  text-shadow: 0 1px 1px rgba(0,0,0,.28);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent));
+  box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.3);
 }
 .mobile-bottom-nav-btn svg { flex: none; }
 .mobile-bottom-nav-mark {
