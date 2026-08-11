@@ -1316,7 +1316,7 @@ function BackupCard({ user }) {
   return (
     <Card data-tour="backup">
       <SectionTitle
-        info="One dated, encrypted archive of everything — your library, images, users and settings, including password hashes and API keys. Only the newest is kept on the server. It is sealed with your account password, or a passphrase you choose. On the server that made it your CURRENT password opens it, whichever password sealed it — that is a key kept in the data directory, never inside the archive. Carried to another machine it needs the password it was sealed with, so keep that. A passphrase archive is tied to nothing and recoverable by nothing: lose the passphrase and it is lost."
+        info="One dated, encrypted archive of everything — your library, images, users and settings, including password hashes and API keys. Only the newest is kept on the server. It is sealed with your account password, or a passphrase you choose. On the server that made it your CURRENT password opens it, whichever password sealed it — that is a key kept in the data directory, never inside the archive. Carried to another machine it needs the password it was sealed with, so keep that. A passphrase archive is tied to nothing and recoverable by nothing: lose the passphrase and it is lost. Restoring goes the other way and replaces everything here — every user, library and setting — and logs everyone out; what it replaced is kept as one recovery copy in the data directory until the next restore. Restoring a file taken off another Tippani is how you move to a new box, and the archive must not come from a newer version than this server."
         infoTitle="Backup & restore"
       >
         Backup &amp; restore
@@ -1345,13 +1345,13 @@ function BackupCard({ user }) {
         )}
 
         <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-          <div className="flex items-center gap-1.5">
-            <MonoLabel>restore from</MonoLabel>
-            <InfoDot
-              title="Restoring"
-              text="Replaces everything on this server with the archive's contents — every user, library and setting — and logs everyone out. The data being replaced is kept as one recovery copy in the data directory until the next restore. Restoring a file taken off another Tippani is how you move to a new box; the archive must not come from a newer version than this server."
-            />
-          </div>
+          {/* One label, no second dot. What this one said — restoring replaces
+              everything and logs everyone out — is said twice more already: once
+              in the heading's dot above, and once in red inside RestorePrompt,
+              which is the moment it applies and the only place it is certain to
+              be read. A card that explains the same consequence three times is
+              not being three times as careful. */}
+          <MonoLabel>restore from</MonoLabel>
           {/* One control, two sources. Choosing the source is the whole difference
               between what used to be two separate restore blocks. */}
           <Toggle
@@ -1360,10 +1360,10 @@ function BackupCard({ user }) {
             onChange={setSource}
             options={[['server', 'This server'], ['file', 'A file']]}
           />
+          {/* Just what it will ask for. "the archive kept here" was the Toggle's
+              own "This server" said again in different words, one line below it. */}
           {source === 'server' && (
-            <p className="microcopy">
-              {backup ? <>the archive kept here · {asks}</> : 'nothing kept here yet — back up first, or restore a file'}
-            </p>
+            <p className="microcopy">{backup ? asks : 'nothing kept here yet'}</p>
           )}
           {source === 'file' && (
             <>
