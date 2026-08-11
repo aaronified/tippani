@@ -1609,8 +1609,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // Coarse to fine: which episode, who says it, then where in the runtime.
   const creditParts = [episodeLabel(d) || null, d.character || null, actorCredit, d.timestamp || null].filter(Boolean)
   // Attached sticker → corner seal the line flows around (same as book
-  // annotations). With a seal present the favourite heart moves down so the
-  // top-right corner is free for the sticker.
+  // annotations). Nothing else competes for the top-right corner: the favourite
+  // ♥ lives in the action row at the foot of the frame, where a book
+  // annotation has always kept it (Library's ActionRow).
   const sticker = d.sticker_id != null ? stickerMap[d.sticker_id] : null
   const quoteStyle = { fontFamily: 'var(--font-display)', fontSize: 16.5, lineHeight: 1.5, color: 'var(--ink)' }
   return (
@@ -1634,19 +1635,15 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             onToggle={accordion ? onToggleExpand : undefined}
           />
         ) : (
-          <div className="flex items-start justify-between gap-3">
-            <ExpandableText
-              text={d.quote}
-              lines={quoteLines}
-              style={quoteStyle}
-              className="min-w-0 flex-1"
-              open={accordion ? !!expanded : undefined}
-              onToggle={accordion ? onToggleExpand : undefined}
-            />
-            <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
-          </div>
+          <ExpandableText
+            text={d.quote}
+            lines={quoteLines}
+            style={quoteStyle}
+            open={accordion ? !!expanded : undefined}
+            onToggle={accordion ? onToggleExpand : undefined}
+          />
         ))}
-      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2">
           {/* Actor face(s) on the quote block (when a portrait is saved),
               overlapping with the first actor on top; sized to match the
@@ -1662,9 +1659,6 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             ))}
           </span>
         </span>
-        <div className="flex flex-wrap items-center gap-3">
-          {sticker && <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />}
-        </div>
       </div>
       {d.tags?.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-2">
@@ -1679,11 +1673,17 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         </div>
       )}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
-      {/* §7 declutter: the ♥ above is the frame's resting mark; share/edit/delete
-          reveal on hover (desktop) or fold behind a ⋯ overflow (mobile). */}
+      {/* §7 declutter: the ♥ is the frame's resting mark and leads this row;
+          share/edit/delete reveal on hover (desktop) or fold behind a ⋯ overflow
+          (mobile). Order and contents match Library's ActionRow exactly — a
+          dialogue is an annotation with different credits, and the two cards
+          should not put the same control in two different places. */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        {/* shrink-0: the four blobs are one atomic control — the row wraps the
-            ⋯ cluster to a second line before it splits or squeezes them. */}
+        <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
+        {/* shrink-0: the colour dots are one atomic control — the row wraps the
+            ⋯ cluster to a second line before it splits or squeezes them. (Six
+            of them since 1.7.1, and below a 330px card they collapse to a single
+            trigger, which is what keeps this row on one line beside the ♥.) */}
         <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
           <ColorSwatches
             collapsible

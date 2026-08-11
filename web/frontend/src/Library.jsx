@@ -946,8 +946,9 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, ac
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-      {/* shrink-0: the four blobs are one atomic control — the row wraps the ⋯
-          cluster to a second line before it splits or squeezes them. */}
+      {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
+          cluster to a second line before it splits or squeezes them. (Six of
+          them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
       <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
         <ColorSwatches value={color} onChange={onColor} ariaLabel="Colour category" collapsible />
       </span>

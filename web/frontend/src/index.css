@@ -3382,9 +3382,13 @@ html[data-theme="dark"] .mobile-sheet-footer {
     min-height: 44px;
   }
   /* In-card marks keep the 44px hit height but narrow the box, as the hearts do:
-     ♥ + four blobs + ⋯ must fit a ~250px content column on a 320px phone, which
+     ♥ + the dots + ⋯ must fit a ~250px content column on a 320px phone, which
      this row measures at 232px. The 28px is load-bearing, not cosmetic — at the
-     generic 34px the row is 256px and wraps. */
+     generic 34px the row is 256px and wraps.
+     Measured when there were four dots. There are six since 1.7.1, and the row
+     still fits because a card that narrow is under the 330px container query
+     below and the picker is a single trigger by then — this width governs the
+     wider cards, where the six DO show and 6×28 has room. */
   .hand-card .color-dot-btn,
   .film-frame .color-dot-btn { min-width: 28px; }
   /* No hover on a phone, so the quick-pick stands beside the ♥. share / edit /
