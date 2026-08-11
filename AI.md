@@ -213,7 +213,8 @@ What that honestly does not cover:
   The *entries* are still written by hand and can still lag — 1.4.0 moved the app's
   explanatory copy into one registry (`web/frontend/src/help.jsx`) that the in-app
   help panel reads, and feeding the glossary from the same registry is the remaining
-  half of [the roadmap's §9](docs/roadmap.html). What 1.6.0 added is the cheaper
+  half of [the roadmap's help &amp; density section](docs/roadmap.html#help-density).
+  What 1.6.0 added is the cheaper
   half of that: `web/frontend/test/pure/help.test.jsx` asserts that every screen a
   nav list can reach has an entry, and that a control the app labels is a control
   the help names. It found three gaps on the first run — the whole Quotes filter

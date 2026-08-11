@@ -166,7 +166,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
 
 // CreditSeparators — which separators split a joined multi-author credit
 // ("Gaiman & Pratchett") into distinct people, across group-by headings and
-// the People console (ROADMAP §11). Stored as the creditSeparators pref
+// the People console. Stored as the creditSeparators pref
 // ("none" = splitting off). The author string stored on each book is never
 // rewritten — only the people views split — so this is safe to flip freely.
 // Chips show the bare symbol; the key doubles as the screen-reader name.

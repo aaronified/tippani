@@ -347,23 +347,42 @@ function considered(list, overrides, dropped) {
 const readJSON = (p) => JSON.parse(readFileSync(join(ROOT, p), 'utf8'))
 const readJSONIfAny = (p) => (existsSync(join(ROOT, p)) ? readJSON(p) : null)
 
-// Each numbered section carries a fill point in its <summary>. Put the section's issue
-// number in it, so the page and the tracker point at each other. Idempotent: it matches
-// an already-filled link as readily as an empty span, and an unmapped section renders as
-// nothing at all rather than as a dead "#".
+// Each section carries TWO fill points in its <summary>, both keyed by `data-for` on a
+// slug that names the section rather than its position:
+//
+//   class="sec-n"      the §n position number. Becomes a link to the issue.
+//   class="sec-issue"  the #n chip. The reference you actually cite.
+//
+// The split is the whole point. A section's §number is where it currently sits in the
+// priority order and changes every time I reorder the page; the issue number is fixed for
+// the life of the section. So the number you read is the disposable one, and it links to
+// the durable one. The id is a slug for the same reason — an anchor keyed on position
+// would break every inbound link on a reprioritise.
+//
+// Idempotent both ways: the pattern matches an already-filled <a> as readily as an empty
+// <span>. An unmapped section keeps its position number and renders no chip at all,
+// rather than a dead "#".
 function sectionIssues(html, map) {
   const sections = map?.sections ?? {}
   let filled = 0
+  let total = 0
   const out = html.replace(
-    /<(span|a)([^>]*?)class="sec-issue"([^>]*?)data-for="(s\d+)"([^>]*?)>[\s\S]*?<\/\1>/g,
-    (_all, _tag, _a, _b, id) => {
+    /<(span|a) class="(sec-n|sec-issue)" data-for="([a-z0-9-]+)"[^>]*>([\s\S]*?)<\/\1>/g,
+    (_all, _tag, cls, id, text) => {
       const n = sections[id]
-      if (!n) return `<span class="sec-issue" data-for="${id}"></span>`
+      if (cls === 'sec-issue') {
+        if (!n) return `<span class="sec-issue" data-for="${id}"></span>`
+        return `<a class="sec-issue" data-for="${id}" href="${issueURL(n)}" title="Track this on the issue tracker">#${n}</a>`
+      }
+      total++
+      // Keep the position exactly as hand-written; only the link around it is generated.
+      const pos = text.replace(/<[^>]*>/g, '').trim() || '§?'
+      if (!n) return `<span class="sec-n" data-for="${id}">${pos}</span>`
       filled++
-      return `<a class="sec-issue" data-for="${id}" href="${issueURL(n)}" title="Track ${id} on the issue tracker">#${n}</a>`
+      return `<a class="sec-n" data-for="${id}" href="${issueURL(n)}" title="Tracked as #${n}">${pos}</a>`
     },
   )
-  return { html: out, filled }
+  return { html: out, filled, total }
 }
 
 const hand = readJSON('docs/data/bugs.json')
@@ -397,7 +416,7 @@ html = region(html, 'RAIL_CONSIDERED', railLinks(c.rail, '        '))
 const secs = sectionIssues(html, readJSONIfAny('docs/data/issue-map.json'))
 html = secs.html
 
-const counts = `${b.rail.length} bug(s), ${a.rail.length} accepted, ${c.rail.length} considered, ${secs.filled}/25 sections linked`
+const counts = `${b.rail.length} bug(s), ${a.rail.length} accepted, ${c.rail.length} considered, ${secs.filled}/${secs.total} sections linked`
 for (const d of dropped) console.log(`dropped: ${d}`)
 
 // Refuse to publish a page that no longer looks like the page. Cheap, and it is the
@@ -408,7 +427,11 @@ function verify(out, prev) {
     if (!out.includes(`<!-- ROADMAP:${r}:START -->`)) bad.push(`lost the ROADMAP:${r}:START marker`)
     if (!out.includes(`<!-- ROADMAP:${r}:END -->`)) bad.push(`lost the ROADMAP:${r}:END marker`)
   }
-  for (const need of ['</main>', '</body>', 'id="backlog"', 'id="later"', 'class="rail"', 'id="s25"']) {
+  // Landmarks, not content: one per structural region, so a render that ate something
+  // it had no business touching fails loudly. Deliberately none of them a section id —
+  // sections get reordered and renamed, and a tripwire that fires on ordinary editing
+  // teaches you to ignore it.
+  for (const need of ['</main>', '</body>', 'id="backlog"', 'id="band-next"', 'id="later"', 'class="rail"']) {
     if (!out.includes(need)) bad.push(`lost ${need}`)
   }
   // The generated regions are a small fraction of the page; a large shrink means

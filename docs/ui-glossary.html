@@ -1118,7 +1118,7 @@
       <div class="g-item wide">
         <div class="g-name" style="margin-top:0">the escape hatch <span class="g-tlabel">1.6.0</span></div>
         <div class="g-src">@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) — index.css</div>
-        <div class="g-desc">There was none. Every texture here is a blended overlay, and <code>.grain-overlay</code> is a fixed layer at <code>z-index: 60</code> — <em>above</em> everything, multiplying over every glyph, every quote and every input on the screen. It is 5.5% opacity and it is the whole point of the design; for a reader who has asked their operating system for more contrast it is 5.5% of noise standing between them and the text, and neither of the two ways a person says so was honoured anywhere in the file.<br><br>Both now drop every decorative layer to zero: the page grain, the scenic backdrop, the card tiles, the dither, the shell tiles and the accent grain. Nothing structural moves — borders, lifts, colours and layout are untouched — so what is left is the same app with the noise taken off, not a different one. This is <a href="roadmap.html">§18</a>'s high-contrast item arriving early, and it arrives with this release rather than that one because the alternative was shipping six more textured surfaces with no way to turn any of them off.</div>
+        <div class="g-desc">There was none. Every texture here is a blended overlay, and <code>.grain-overlay</code> is a fixed layer at <code>z-index: 60</code> — <em>above</em> everything, multiplying over every glyph, every quote and every input on the screen. It is 5.5% opacity and it is the whole point of the design; for a reader who has asked their operating system for more contrast it is 5.5% of noise standing between them and the text, and neither of the two ways a person says so was honoured anywhere in the file.<br><br>Both now drop every decorative layer to zero: the page grain, the scenic backdrop, the card tiles, the dither, the shell tiles and the accent grain. Nothing structural moves — borders, lifts, colours and layout are untouched — so what is left is the same app with the noise taken off, not a different one. This is the <a href="roadmap.html#access">access &amp; reading comfort</a> section's high-contrast item arriving early, and it arrives with this release rather than that one because the alternative was shipping six more textured surfaces with no way to turn any of them off.</div>
       </div>
 
       <div class="g-item">
@@ -1590,7 +1590,9 @@
     stale), so the samples are always styled by the stylesheet the app actually ships —
     that snapshot going quietly out of date was this page's oldest failure mode. The entries
     themselves are still written by hand; feeding them from
-    web/frontend/src/help.jsx is ROADMAP §9's remaining half. The Shelf and Pending-imports
+    web/frontend/src/help.jsx is what the roadmap's
+    <a href="roadmap.html#help-density">help &amp; density</a> section still has open.
+    The Shelf and Pending-imports
     sections use inline styles rather than app classes, so they survive a refresh untouched.
   </p>
 </div>

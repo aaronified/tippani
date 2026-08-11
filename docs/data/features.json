@@ -30,6 +30,12 @@
     "                           anything that mattered.",
     "                note       append one paragraph, keeping the reporter's prose",
     "                near       the § section it sits beside",
+    "",
+    "  A § number is a POSITION in the backlog and moves whenever I reorder it, so any",
+    "  §n written here — in `near`, or in `html` prose — is a thing that can go stale in",
+    "  a commit that never touched this file. Always pair one with its anchor",
+    "  (`<a href=\"#mobile-pwa\">§5</a>`); the anchor is a content slug and does not move,",
+    "  and `roadmap-data.mjs --check` will not catch a number that is merely wrong.",
     "                credit     GitHub handle to thank. Asked-for, not written-by.",
     "                hide       true to keep the label and stay off the page",
     "",
@@ -43,7 +49,7 @@
     "7": {
       "title": "Richer author portraits",
       "railLabel": "Author portraits",
-      "near": "§25 Choose your metadata sources",
+      "near": "§12 Choose your metadata sources",
       "html": [
         "<p>",
         "  Resolve the author's Wikidata entry via the <em>book</em>, so a photo appears even",
@@ -51,9 +57,9 @@
         "  person; this only widens coverage, which is why it is small enough to say yes to.",
         "</p>",
         "<p>",
-        "  It should land after <a href=\"#s25\">§25</a>, not before: once sources are mine to",
-        "  pick, looking a person up should query Wikidata and not waste a call on TMDB.",
-        "  Doing it in the other order would bake in the fan-out §25 exists to end.",
+        "  It should land after <a href=\"#metadata-sources\">§12</a>, not before: once sources",
+        "  are mine to pick, looking a person up should query Wikidata and not waste a call on",
+        "  TMDB. Doing it in the other order would bake in the fan-out that section exists to end.",
         "</p>"
       ]
     },
@@ -64,7 +70,8 @@
       "html": [
         "<p>",
         "  Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It",
-        "  costs the server nothing, needs no key, and works offline once §8's service worker",
+        "  costs the server nothing, needs no key, and works offline once <a",
+        "  href=\"#mobile-pwa\">§5</a>'s service worker",
         "  exists — which is the entire reason this can be accepted while server-side speech",
         "  stays refused. Those are not the same feature wearing different clothes: one is a",
         "  model and an audio pipeline on a box that cannot spare either, and the other is an",
@@ -101,7 +108,7 @@
         "should be able to shout, and that case alone justifies this even if no summary ever gets",
         "generated. <br> This sat in the numbered backlog until I moved it here deliberately,",
         "because anything that pushes needs something that wakes up on its own. The cheap end of",
-        "the ask needs none of it: the app-icon badge in <a href=\"#s1\">§1</a> shows a due-card",
+        "the ask needs none of it: the app-icon badge in <a href=\"#quick-wins\">§1</a> shows a due-card",
         "count with no server work and nothing scheduled."
       ]
     },
@@ -137,7 +144,8 @@
     "9": {
       "title": "Semantic search",
       "html": [
-        "(<code>sqlite-vec</code>) — note that §6's \"more like this\", built from the term",
+        "(<code>sqlite-vec</code>) — note that <a href=\"#search-precision\">§3</a>'s \"more like",
+        "this\", built from the term",
         "dictionaries already in the database, ships first and costs no dependency at all. It may",
         "remove the need for this entirely."
       ]

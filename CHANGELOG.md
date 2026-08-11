@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The roadmap is only what is still ahead.** It had grown a "Next up" section
+  that was really a release retrospective, and the backlog sections had absorbed
+  the same habit — a shipped item kept in place with *Shipped in 1.7.0* beside it,
+  a whole section kept "for the reasoning" after the feature landed. That reads as
+  scorekeeping and it crowds out the question the page exists to answer. Both are
+  gone: the retrospective, and every shipped item and section. The reasoning the
+  shipped sections were being kept for belongs in `docs/PLAN.md`, which is the
+  decision log, and it is not lost by being moved there.
+
+- **The backlog is in priority order, in three bands** — Next, After that, Further
+  out — instead of one flat list "in rough order". The order is the point of the
+  page, so it is now stated rather than implied.
+
+- **A section's § number is its position, and links to the issue that tracks it.**
+  Those two facts belong together. The number moves whenever the order does, so it
+  is worthless as a name and citing it in an issue title or a code comment is how
+  documentation goes quietly wrong. The stable reference is the issue number
+  beside it, and the position now links straight to it. The anchors follow the
+  same rule: `#s8` became `#mobile-pwa`, so an inbound link survives a
+  reprioritise. `docs/data/issue-map.json` is keyed on those slugs for the same
+  reason — keyed on position, it would have repointed every section at the wrong
+  issue the first time anything moved.
+
 ## [1.7.7] - 2026-08-11
 
 ### Added

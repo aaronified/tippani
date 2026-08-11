@@ -243,7 +243,7 @@ of that are spelled out in [`AI.md`](AI.md).
   stays paired until you unpair it: changing your password signs out browsers but deliberately
   leaves phones alone, because silently unpairing every device on a routine password change is
   worse than the threat it would prevent. Unpair one, or all, from the same panel. (The Android
-  app itself is in progress — see [the roadmap](https://aaronified.github.io/tippani/roadmap.html) §23.)
+  app itself is in progress — see [the roadmap](https://aaronified.github.io/tippani/roadmap.html#android).)
 - 🔗 **Real URLs** — every tab and book/film detail has its own address, so browser (and mouse)
   back/forward work and a link deep-links straight to the view.
 - 🔄 **In-app updates** — Settings shows your running version and checks GitHub for a newer release
