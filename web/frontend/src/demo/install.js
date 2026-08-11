@@ -262,7 +262,12 @@ function uttRow(u) {
 // reload resets it. The reveal/grade flow and both modes work for real.
 const REVIEW_DECK = [1, 5, 4] // annotation ids, "due" order
 const review = { touched: new Set(), got: 0, forgot: 0 }
-const practice = { answered: 0, got: 0, forgot: 0 }
+// `cleared` is what a practice reset means on the Stats calendar, not just on
+// the score. The server's DELETE /review/practice removes the quiz_sessions rows
+// outright, so the calendar afterwards has nothing left to draw; the demo used
+// to zero the three counters and go on serving a full synthetic year of practice
+// dots beside them, which said the reset had not worked.
+const practice = { answered: 0, got: 0, forgot: 0, cleared: false }
 
 // demoShuffle / demoMCQ attach multiple-choice options the way review_handlers.go
 // does — options are titles (source direction) or quotes (quote direction), with
@@ -369,18 +374,78 @@ function dlgRow(d) {
 // A deterministic year of activity for the Stats calendars: a stable hash
 // scatters days, `keepBelow` sets the density (out of 100), `salt` varies the
 // pattern per stream so Saves / Quiz / Practice don't overlap identically.
-function demoActivity(salt, keepBelow) {
+//
+// `withGot` mirrors the review series the server sends for Quiz and Practice
+// (quiz_sessions.answered + .got): those days report accuracy on hover, not just
+// volume, and a demo whose review days carry no `got` would quietly show the
+// half of that tooltip the Saves calendar already had. Derived from the same
+// hash so it stays stable across reloads, and never above `count` — an accuracy
+// over 100% is the one number a demo must not invent.
+function demoActivity(salt, keepBelow, withGot = false) {
   const out = []
   for (let i = 364; i >= 0; i--) {
     const h = ((i + salt) * 2654435761) % 100
     if (h >= keepBelow) continue
     const d = new Date(Date.now() - i * 86400000)
-    out.push({
+    const count = 1 + (h % 4)
+    const day = {
       date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-      count: 1 + (h % 4),
-    })
+      count,
+    }
+    if (withGot) day.got = Math.min(count, Math.round((count * (55 + (h % 46))) / 100))
+    out.push(day)
   }
   return out
+}
+
+// demoTimeline mirrors timelineYears (stats_handlers.go): one row per year the
+// library touches, works and quotes counted separately, ordered.
+//
+// The demo had no timeline at all, so the Stats page showed the card's empty
+// state — a chart that shipped in 1.7.4 and that nobody looking at the demo has
+// ever seen. It is derived here rather than written out, for the same reason the
+// breakdown is: a hand-kept second copy of the seed data disagrees with it on
+// the first edit.
+//
+// A STANDALONE QUOTE IS NOT A WORK. It contributes to `quotes` at the year on
+// its own occasion_date and to `works` never — it came from no book and no film,
+// so there is nothing for it to count as. Books and films count as one work each
+// at their own year, and every annotation or dialogue counts as a quote at the
+// year of the work it came from. Anything with no year is simply absent: there
+// is no "unknown" bucket, because a column labelled "no year" beside the 1970s
+// invites reading it as a point in time.
+function demoTimeline() {
+  const years = new Map()
+  const add = (year, works, quotes) => {
+    if (!Number.isFinite(year) || year === 0) return
+    const cur = years.get(year) || { year, works: 0, quotes: 0 }
+    cur.works += works
+    cur.quotes += quotes
+    years.set(year, cur)
+  }
+  for (const b of BOOKS) add(b.published_year, 1, 0)
+  for (const m of MOVIES) add(m.release_year, 1, 0)
+  for (const a of ANNOTATIONS) add(BOOKS.find((b) => b.id === a.book_id)?.published_year, 0, 1)
+  for (const d of DIALOGUES) add(MOVIES.find((m) => m.id === d.movie_id)?.release_year, 0, 1)
+  // Partial dates: the year is the front of 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD',
+  // the same slice the server's substr() takes.
+  for (const u of UTTERANCES) add(parseInt(String(u.occasion_date || '').slice(0, 5), 10), 0, 1)
+  return [...years.values()].sort((a, b) => a.year - b.year)
+}
+
+// demoPractice — the Practice calendar, which is the one activity stream the
+// reader can empty. Before a reset it is a synthetic year like the other two;
+// after one it holds only what has been practised since, which in a session-only
+// demo is today or nothing at all.
+function demoPractice() {
+  if (!practice.cleared) return demoActivity(13, 15, true)
+  if (!practice.answered) return []
+  const d = new Date()
+  return [{
+    date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+    count: practice.answered,
+    got: practice.got,
+  }]
 }
 
 // demoBreakdown mirrors statsBreakdown (stats_handlers.go): per-kind entities
@@ -479,8 +544,9 @@ function stats() {
     most_quoted: { id: 1, title: 'Northline', cover_path: MOVIES[0].poster_path, count: 3 },
     busiest_month: { month: new Date().toISOString().slice(0, 7), count: 12 },
     daily_activity: demoActivity(0, 34),
-    daily_quiz: demoActivity(7, 24),
-    daily_practice: demoActivity(13, 15),
+    daily_quiz: demoActivity(7, 24, true),
+    daily_practice: demoPractice(),
+    timeline: demoTimeline(),
     colors,
     top_tags: topTags,
     first_saved: '2026-02-11',
@@ -623,6 +689,7 @@ export function route(method, path, params, body) {
     if (path === '/review/answer') return [200, reviewAnswer(body)]
     if (path === '/review/practice' && method === 'DELETE') {
       practice.answered = practice.got = practice.forgot = 0
+      practice.cleared = true
       return [200, { ok: true }]
     }
     if (path === '/auth/me/avatar') return [200, { avatar_path: '' }]
