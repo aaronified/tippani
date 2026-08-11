@@ -3582,6 +3582,14 @@ html[data-theme="dark"] .mobile-sheet-footer {
   cursor: pointer;
   color: var(--soft);
 }
+/* No selection ring on the collapsed trigger. The ring exists to pick one dot
+   out of six; the trigger IS the one dot, so a ring there rings the only thing
+   on screen — it says "this one" to a row of one. The dot still carries
+   `.active` because it must stay at full opacity, so only the outline is
+   dropped, and only here: `.cs-menu-row .color-dot.active` inside the open list
+   keeps its ring, which is the case the ring was drawn for.
+   Unlayered, so it wins over `.color-dot.active` in @layer components. */
+.cs-menu-btn .color-dot.active { outline: none; outline-offset: 0; }
 /* Fixed, and portalled to <body> — see ColorMenu in ui.jsx for why a card's
    own stacking context makes an absolutely-positioned list unliftable.
 

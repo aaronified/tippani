@@ -838,10 +838,12 @@
           <button class="color-dot dot-blue" title="blue"></button>
           <button class="color-dot dot-pink" title="pink"></button>
           <button class="color-dot dot-orange" title="orange"></button>
+          <button class="color-dot dot-green" title="green"></button>
+          <button class="color-dot dot-purple" title="purple"></button>
         </div>
         <div class="g-name">ColorSwatches</div>
         <div class="g-src">ColorSwatches — ui.jsx · .color-dot / .dot-* — index.css · categoryName / categoryHidden — theme.js</div>
-        <div class="g-desc">The four <b>colour categories</b> as a radio group — the one control every capture form, filter row and card shares. The <b>active</b> dot gains full opacity and an accent outline ring.<br><br><b>It draws the reader’s names, not the colour words.</b> "Pick blue" describes a highlighter; the whole point of naming a category is that the picker then asks the question you actually have. An unnamed slot falls back to its colour word, so a fresh account reads exactly as it always did.<br><br><b>A hidden category is dropped from the CHOICES but never from a quote that already wears it</b> — the current value is added back into the list for exactly that reason. Hiding is about tidying a picker you have stopped using; a quote silently changing colour because of it would be the app editing your library to match a preference you were not thinking about it with.</div>
+        <div class="g-desc">The six <b>colour categories</b> as a radio group — the one control every capture form, filter row and card shares. The <b>active</b> dot gains full opacity and an accent outline ring.<br><br><b>The ring is only drawn where there is something to tell it apart from.</b> It marks one dot out of six; on the collapsed picker, where the trigger <i>is</i> the chosen dot and the only dot on screen, it was saying "this one" to a row of one, so it is suppressed there and kept in the open list. The full opacity stays either way — that is what makes the chosen colour read as chosen rather than as offered.<br><br><b>It draws the reader’s names, not the colour words.</b> "Pick blue" describes a highlighter; the whole point of naming a category is that the picker then asks the question you actually have. An unnamed slot falls back to its colour word, so a fresh account reads exactly as it always did.<br><br><b>A hidden category is dropped from the CHOICES but never from a quote that already wears it</b> — the current value is added back into the list for exactly that reason. Hiding is about tidying a picker you have stopped using; a quote silently changing colour because of it would be the app editing your library to match a preference you were not thinking about it with.</div>
       </div>
 
       <div class="g-item wide">
@@ -1310,8 +1312,8 @@
           <span class="tp-chip">● ⌄</span>
         </div>
         <div class="g-name">Collapsed colour picker</div>
-        <div class="g-src">ui.jsx — on a quote card, when the card is narrow</div>
-        <div class="g-desc">Six colour categories plus a heart plus the actions do not fit one line on a narrow card, so below a threshold the six dots become the current one with a chevron, opening a list. The list is the point rather than a consolation: the categories carry <b>names you chose</b>, and six unlabelled blobs squeezed to fit are six things nobody can tell apart — so the narrow layout shows more than the wide one, not less. Decided by the width of the <i>card</i>, not the window, since a phone in one column and a five-column desktop board can hand the control the same space.</div>
+        <div class="g-src">ColorMenu — ui.jsx · on a quote card, when the card is narrow</div>
+        <div class="g-desc">Six colour categories plus a heart plus the actions do not fit one line on a narrow card, so below a threshold the six dots become the current one with a chevron, opening a list. The list is the point rather than a consolation: the categories carry <b>names you chose</b>, and six unlabelled blobs squeezed to fit are six things nobody can tell apart — so the narrow layout shows more than the wide one, not less. Decided by the width of the <i>card</i>, not the window, since a phone in one column and a five-column desktop board can hand the control the same space.<br><br><b>No selection ring on the trigger.</b> The ring exists to pick one dot out of six, and here there is one dot — the chosen colour, alone. It stays on the dots <i>inside</i> the open list, which is the case it was drawn for.</div>
       </div>
 
       <div class="g-item">
