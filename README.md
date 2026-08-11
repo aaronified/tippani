@@ -502,35 +502,12 @@ Each user has a fully isolated library (PLAN §2). Passwords change in-app via `
 
 ## Layout
 
-```text
-cmd/tippani/          entrypoint: serve + user subcommands + healthcheck
-internal/store/       SQLite open (WAL etc.), embedded migrations, dedupe hash, schema tests
-internal/auth/        bcrypt, hashed-token sessions + device tokens, rate limiters
-internal/httpapi/     routes (Go 1.22 patterns), CSRF, gzip, security headers, device
-                      pairing, the shared quote shape (quote.go), the import staging queue
-                      (import_staging.go + location formulae), handlers + exports
-internal/search/      FTS5 MATCH escaping (never pass raw input to MATCH)
-internal/importer/    markdown (frontmatter + Readest), Bookcision, Hardcover, Goodreads,
-                      Kindle-notebook, Kindle My Clippings.txt and IMDb-quotes parsers
-internal/metadata/    Google Books / Open Library / TMDB / TheTVDB clients, person-link
-                      resolution (incl. Wikipedia via Wikidata), SSRF-guarded cover fetcher
-web/frontend/         Vite + React 19 + Tailwind v4 source (+ the read-only demo shim)
-web/dist/             built SPA, embedded via go:embed
-deploy/               Caddyfile + systemd examples
-docs/PLAN.md          the design document this repo implements
-docs/ui-glossary.html visual glossary of every UI component
-AI.md                 how this repo was written, and why the app has no AI in it
-.github/workflows/    CI (go test/vet, frontend build), GHCR image publish, Pages demo deploy
-```
+A map of the tree — every package, script and workflow, what each one is for, and which
+file holds which rule — is in **[DEVELOPMENT.md](DEVELOPMENT.md#where-things-live)**. It
+lives there once rather than in both places, because two maps of the same tree disagree
+eventually and the copy nobody edits is the one people read.
 
-## Publishing note
-
-The module path is plain `tippani`. When you push this as `github.com/YOU/tippani`:
-
-```sh
-grep -rl '"tippani/' --include='*.go' . | xargs sed -i 's|"tippani/|"github.com/YOU/tippani/|g'
-sed -i 's|^module tippani$|module github.com/YOU/tippani|' go.mod
-```
+That file also covers forking this as your own, including renaming the module path.
 
 ## Attribution
 

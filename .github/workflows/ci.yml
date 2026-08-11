@@ -133,6 +133,11 @@ jobs:
         with:
           node-version: "22"
       - run: node scripts/roadmap-data.mjs --check
+      # DEVELOPMENT.md's file map is the answer to "where does this go", so a path in it
+      # that has been renamed away is worse than no map at all — it sends someone
+      # confidently to the wrong place. This asserts every path it names still exists,
+      # and that no package, script or workflow has been added without the map hearing.
+      - run: node scripts/doc-map-check.mjs
       # The archive-header and greetings checks used to run here as standalone
       # node scripts, because this app had no frontend test runner. It has one
       # now, and both are Vitest tests under web/frontend/test/pure — covered by

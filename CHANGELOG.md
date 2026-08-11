@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`DEVELOPMENT.md` now maps the whole tree.** Its old `## The layout` was a
+  nine-row table of the directories you were "most likely to touch", which left
+  four packages — `auth`, `olog`, `updater`, `buildinfo` — with no mention at
+  all, and answered none of the question a newcomer actually has. The new
+  `## Where things live` names every package, every script, every workflow and
+  every shared frontend module, with the rule stated in front of it: describe a
+  directory, and name a file only where that file is the single place some rule
+  is enforced. Ten interchangeable importers get their pattern and their
+  registration point rather than ten rows that would be wrong on the eleventh.
+
+  Around it, the sections a contributor needs before the map is useful: what I
+  will and will not merge, above the fold, so nobody spends a weekend on a
+  refusal; how the frontend and the backend actually meet, which the document
+  never said; seven step-by-step recipes for the likeliest first tasks; and the
+  four self-inflicted build failures with their fixes.
+
+- **`scripts/doc-map-check.mjs`, and a CI step that runs it.** A map is worse
+  than no map once it is wrong, because it sends someone confidently to the
+  wrong place. The check asserts every path `DEVELOPMENT.md` names still exists,
+  and that no package, script or workflow has appeared that it never mentions —
+  which is the failure that matters, since a path that is *added* and never
+  documented has nothing to trip over and so stays invisible.
+
 ### Changed
+
+- **The tree diagram is gone from `README.md`.** Two maps of the same repository
+  disagree eventually, and these two already did. There is one now, in
+  `DEVELOPMENT.md`, which README links to. The module-rename incantation moved
+  with it, into the forking appendix where the rest of the fork instructions
+  already lived.
 
 - **The roadmap is only what is still ahead.** It had grown a "Next up" section
   that was really a release retrospective, and the backlog sections had absorbed
