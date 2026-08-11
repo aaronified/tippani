@@ -1951,7 +1951,7 @@ function Metadata({ user, onPreferences }) {
 
   return (
     <Card data-tour="metadata-keys">
-      <SectionTitle info="The keys lookups run on. Every field here edits and saves on its own — a ✓ writes just that key and leaves the others alone. Saved secrets show masked and can never be revealed; save a blank field to clear one.">
+      <SectionTitle info="Books are looked up in Google Books and Open Library together and merged field by field — the first-publication year from one, the larger cover and the description from the other; neither needs a key. Films and shows come from TMDB and TheTVDB, also merged. TMDB may also carry a shared built-in key baked into the build: where the build has one, film lookups work before you set anything; where it does not, they answer 503 until a key goes in the field below. TheTVDB has no built-in and is optional. The chips report book lookups — “Untested” means none has been tried since this server started, not that anything is wrong — and flag TMDB only when it is running on that built-in key or on nothing at all. Every field here edits and saves on its own: a ✓ writes just that key and leaves the others alone, saved secrets show masked and can never be revealed, and a blank field clears one. Manual entry always works, whatever any of this says.">
         Metadata sources
       </SectionTitle>
 
@@ -1963,12 +1963,17 @@ function Metadata({ user, onPreferences }) {
           What the headings were genuinely carrying is the STATUS: whether
           lookups work at all right now, which no key field can report, because
           a key field only knows whether it is filled. So the chips move up into
-          one row and the headings go. */}
+          one row and the headings go.
+
+          The chips travel ALONE. Each used to carry its own InfoDot, and with a
+          custom TMDB key set — the state where tmdbChip is null — what was left
+          was the word "Untested" trailed by two dots explaining services the
+          word was not about. Two dots side by side are not two explanations, they
+          are a puzzle about which one answers you; both blurbs are in the
+          heading's dot now, which is where a reader looks for what a section is. */}
       <div className="flex flex-wrap items-center gap-2">
         <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
-        <InfoDot title="Book lookups" text="Google Books and Open Library, queried together and merged field by field — the first-publication year from one, the larger cover and the description from the other. No key is needed, and manual entry always works." />
         {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
-        <InfoDot title="Film & show lookups" text="TMDB and TheTVDB. Both cover films and shows, and a lookup merges them; each key goes in its own field below. TMDB ships with a shared built-in key, so lookups work before you set anything — TheTVDB has none, and is optional." />
       </div>
       {lookup?.ok === false && lookup.error && (
         <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
