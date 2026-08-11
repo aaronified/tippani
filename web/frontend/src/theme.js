@@ -245,6 +245,34 @@ export const CATEGORY_PALETTE = [
   ['#8C7F6E', 'Stone'],
 ]
 
+// CAT_NAME_MAX bounds a category name, counted in CODE POINTS. It mirrors
+// catNameMax in auth_handlers.go, which counts runes and REFUSES a longer name
+// rather than storing a cut-off one.
+//
+// FIFTEEN, down from twenty-four. These are labels: they ride a swatch tooltip, a
+// filter chip, a group heading and the Stats breakdown's label column, and none
+// of those has room for a sentence. Twenty-four was a number nothing was built
+// for — the breakdown's column could not hold one and ellipsised instead, which
+// is a chart truncating the very categories it is breaking down. Fifteen is what
+// that column can hold outright, so the cap and the layout now agree and neither
+// has to apologise for the other. Every built-in name fits with room to spare
+// ("Inspirational" is 13, "Uncategorised" 13).
+//
+// It lives here rather than in Settings.jsx because Settings is not its only
+// reader any more: StatsPage sizes its label column from it, and a cap the
+// layout is cut for has to be a cap the layout can see.
+export const CAT_NAME_MAX = 15
+
+// capCategoryName trims a name to the cap by CODE POINT, not by UTF-16 unit.
+// The server counts runes, and a plain .slice() can cut an astral character in
+// half and leave a lone surrogate — one unit to JS, one rune to Go, and a name
+// that fails validation for a reason nothing on screen explains.
+export function capCategoryName(name) {
+  const s = String(name || '')
+  const cp = [...s]
+  return cp.length <= CAT_NAME_MAX ? s : cp.slice(0, CAT_NAME_MAX).join('')
+}
+
 // The live state, read by anything that has to draw a colour rather than name a
 // CSS variable — the share image most of all, because a canvas cannot resolve
 // var() or color-mix() and the picture is the artefact that leaves the app.
@@ -268,7 +296,16 @@ export function applyColors(prefs = {}) {
     // Slot 1 is enforced here as well as on the server. A restored archive or a
     // hand-edited row can carry a name it should not have, and the client is
     // where it would be SEEN.
-    catNames[i] = n === 1 ? '' : name
+    //
+    // The cap is applied HERE, on the way in, and so exactly once. A name stored
+    // under the old 24 survives in the database until something writes over it,
+    // and every reader — the pickers, the group headings, the Stats column and
+    // the Settings field — has to agree about what it says or the field would
+    // show one thing and the chart another. Capping on read also means Settings
+    // sends back the capped value on the first save it makes, so the row heals
+    // itself rather than sitting permanently over a limit its own input will not
+    // let you type back down to.
+    catNames[i] = n === 1 ? '' : capCategoryName(name)
     catHidden[i] = n === 1 ? false : !!prefs['catHidden' + n]
     catHex[i] = /^#[0-9a-f]{6}$/i.test(hex) ? hex : CATEGORY_DEFAULT_HEX[i]
     document.documentElement.style.setProperty('--hl-' + n, catHex[i])

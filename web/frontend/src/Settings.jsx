@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
-import { ACCENTS, applyColors, applyLabels, applyTheme, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
+import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -255,11 +255,12 @@ function Slider({ label, hideLabel = false, min, max, step, value, unit = '', de
 
 // ---- colour categories --------------------------------------------------
 
-// Mirrors catNameMax in auth_handlers.go. The server REFUSES a longer name
-// rather than truncating it, so this cap is the courtesy that stops anyone
-// running into that: the input will not take a 25th character, and the rejection
-// path stays there for a client that is not this one.
-const CAT_NAME_MAX = 24
+// CAT_NAME_MAX comes from theme.js, which is also where the Stats breakdown gets
+// it — one number, so the input's cap and the column cut to hold it cannot drift
+// apart. The server REFUSES a longer name rather than truncating it, so the
+// maxLength below is the courtesy that stops anyone reaching that: the input will
+// not take a 16th character, and the rejection path stays there for a client that
+// is not this one.
 
 // ColourCategoriesCard — what the four highlight colours are CALLED.
 //

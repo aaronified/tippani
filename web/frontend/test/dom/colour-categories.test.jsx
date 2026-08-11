@@ -237,3 +237,61 @@ describe('categoryState — what Settings renders from', () => {
     expect(rows[1].custom).toBe(false)
   })
 })
+
+// The name cap. It is fifteen because that is what the Stats breakdown's label
+// column is cut to hold outright — the cap and the layout are one number, and
+// this is the file that stops them drifting apart.
+//
+// Lowering it from 24 was not retroactive: rows stored under the old limit are
+// still in the database. So the cap is applied on the way IN, where every reader
+// sees the same string, rather than in one screen — otherwise Settings would show
+// a name capped and the group headings would show it whole.
+describe('CAT_NAME_MAX', () => {
+  it('is fifteen, and the server agrees', async () => {
+    const { CAT_NAME_MAX } = await load()
+    expect(CAT_NAME_MAX).toBe(15)
+  })
+
+  it('fits every built-in name with room to spare', async () => {
+    const { CAT_NAME_MAX, CATEGORY_DEFAULT_NAME, UNSET_LABEL } = await load()
+    for (const n of [...CATEGORY_DEFAULT_NAME, UNSET_LABEL]) {
+      expect([...n].length, n).toBeLessThanOrEqual(CAT_NAME_MAX)
+    }
+  })
+
+  it('leaves a name that fits exactly alone', async () => {
+    const { capCategoryName, CAT_NAME_MAX } = await load()
+    const exact = 'a'.repeat(CAT_NAME_MAX)
+    expect(capCategoryName(exact)).toBe(exact)
+  })
+
+  it('caps a longer one, and caps it everywhere at once', async () => {
+    const { applyColors, categoryName, categoryState, CAT_NAME_MAX } = await load()
+    // A name stored under the old 24-character cap.
+    applyColors({ catName2: 'Disagreed with strongly' })
+    const capped = 'Disagreed with strongly'.slice(0, CAT_NAME_MAX)
+    // The pickers and headings read categoryName; Settings reads categoryState.
+    // Both have to say the same thing or the field edits a name nothing shows.
+    expect(categoryName('blue')).toBe(capped)
+    expect(categoryState()[1].name).toBe(capped)
+  })
+
+  it('counts CODE POINTS, because the server counts runes', async () => {
+    const { capCategoryName, CAT_NAME_MAX } = await load()
+    // trimCap in server.go measures len([]rune(s)). Fifteen accented characters
+    // are fifteen runes and must survive whole.
+    const accents = 'é'.repeat(CAT_NAME_MAX)
+    expect(capCategoryName(accents)).toBe(accents)
+    // And an astral character is ONE rune to Go. Slicing by UTF-16 unit would cut
+    // it in half and send a lone surrogate the server never counts the same way.
+    const astral = '🌱'.repeat(CAT_NAME_MAX + 3)
+    const out = capCategoryName(astral)
+    expect([...out].length).toBe(CAT_NAME_MAX)
+    expect(out).toBe('🌱'.repeat(CAT_NAME_MAX))
+  })
+
+  it('is untroubled by nothing at all', async () => {
+    const { capCategoryName } = await load()
+    for (const nil of [undefined, null, '']) expect(capCategoryName(nil)).toBe('')
+  })
+})

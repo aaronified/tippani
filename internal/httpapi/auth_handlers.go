@@ -403,10 +403,23 @@ type prefs struct {
 // change to this constant is another migration, not an edit here.
 const catSlots = 6
 
-// catNameMax bounds a category name. Five words is the house rule for a label,
-// and these ARE labels — they ride a swatch tooltip, a filter chip and a group
-// heading, none of which has room for a sentence.
-const catNameMax = 24
+// catNameMax bounds a category name, in runes. Five words is the house rule for
+// a label, and these ARE labels — they ride a swatch tooltip, a filter chip and a
+// group heading, none of which has room for a sentence.
+//
+// Fifteen, down from twenty-four. Twenty-four was a number nothing on the client
+// was built to hold: the Stats breakdown's label column ellipsised anything past
+// about seventeen characters, which is a chart truncating the categories it is
+// breaking down. The column is now cut to hold a full-length name, and this is
+// the length it is cut for — so the cap and the layout agree instead of one
+// apologising for the other. Every built-in name fits with room over.
+//
+// LOWERING A CAP IS NOT RETROACTIVE. Rows stored under the old limit are still in
+// the database and are still served; nothing here rewrites them, because a
+// preferences read is not the place to edit somebody's data. The client caps on
+// the way in (capCategoryName in theme.js), so an over-long name displays capped
+// everywhere at once and the next save it makes writes the capped value back.
+const catNameMax = 15
 
 // accentHexes is what a category colour may not be. The rule is that a category
 // colour can never be mistaken for the app's own accent, and an exact match is
