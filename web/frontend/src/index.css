@@ -3267,6 +3267,38 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn { border-radius: 9px; }
   flex-shrink: 0;
 }
 
+/* ---- a work's header, on a phone (WorkHero) -------------------------------
+   The desktop hero floats the cover and lets everything wrap around it, which
+   is right in a 500px column and wrong in a 320px one: the float leaves a
+   ~150px gutter, and the title, the author chips, the year, the series, the
+   shelf state, the read counter and the progress track all wrap into it
+   independently. Nothing is misplaced — there is nowhere to put it — but what
+   comes out reads as jumbled, because identity and state are interleaved.
+
+   So the phone stacks instead, in a stated order, and the SAME order for a
+   book, a film and a show: what it is · where you are · what it is to you ·
+   what it is about. See the note above WorkHero. */
+.work-hero-m { display: flex; flex-direction: column; gap: 12px; }
+.work-hero-m-top { display: flex; align-items: flex-start; gap: 14px; }
+/* 96px, down from 144. In this arrangement the cover identifies the work rather
+   than being the subject of the screen, and the full-size art is one tap away
+   through it. Fixed rather than fluid so the text column is a known width and
+   the title stops re-wrapping as the cover's aspect ratio changes. */
+.work-hero-m-cover { width: 96px; flex: 0 0 96px; filter: drop-shadow(0 8px 16px rgba(0,0,0,.32)); }
+/* One row for the whole shelf: ♥, the state chip, the ×N counter — then the
+   track, which takes the full line beneath them (see .shelf-track). */
+.work-hero-m-shelf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* The progress track is a 168px minimum inside a wrapping row of chips, so on a
+   narrow screen it has to own its line rather than push a chip onto the next
+   one. Full width here; inline and unremarkable on a desktop. */
+.work-hero-m-shelf .shelf-track { flex: 1 0 100%; }
+.shelf-track > span { max-width: 100%; }
+
 .mobile-detail-bar {
   display: flex;
   align-items: center;

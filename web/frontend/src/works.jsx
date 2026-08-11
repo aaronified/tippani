@@ -31,6 +31,7 @@ import {
   SheetFooter,
   StateTag,
   StatusBar,
+  useIsMobileScreen,
   ReadingBadge,
   Toggle,
   Tooltip,
@@ -673,10 +674,6 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
           </>
         )}
       </StateTag>
-      {/* Any in-progress work shows its track, in its own units. */}
-      {(status === active || status === 'paused') && (
-        <ShelfProgress status={status} progress={progress} pos={pos} />
-      )}
       {/* The log is always reachable, not only once something has been finished.
           Recording that you read a book in 2009 is the whole point of editing
           history, and gating the way in on the history already existing made it
@@ -684,6 +681,18 @@ export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads
       <StateTag state={state} label={`×${finished}`} tip="Open the read log">
         <ReadLog kind={kind} workId={item.id} reads={reads} onChanged={onReadsChanged} />
       </StateTag>
+      {/* Any in-progress work shows its track, in its own units.
+          LAST, and on its own line. It used to sit BETWEEN the state chip and the
+          ×N counter, which on a phone put a 168px-wide bar in the middle of a
+          wrapping row of chips: the row broke around it and the state, the track
+          and the counter came out on three lines in no particular order. Chips
+          first, then the track — and `.shelf-track` takes the whole line on a
+          narrow screen, so the order is the same every time. */}
+      {(status === active || status === 'paused') && (
+        <span className="shelf-track">
+          <ShelfProgress status={status} progress={progress} pos={pos} />
+        </span>
+      )}
     </>
   )
 }
@@ -915,6 +924,59 @@ export function WorkHero({
   description,
   actions,
 }) {
+  const mobile = useIsMobileScreen()
+  // ON A PHONE THE FLOAT IS THE BUG. The desktop layout floats a 144–176px cover
+  // into a wide column and lets everything wrap around it, which is right when
+  // there are 500px to wrap in. On a 320px screen it leaves a ~150px gutter, and
+  // into that gutter go the title, the author chips, the year, the series, the
+  // shelf state, the read counter, the progress track and the hearts — each
+  // wrapping independently, so the identity of the work and the state of it come
+  // out interleaved. Nothing is misplaced; there is simply nowhere to put it.
+  //
+  // So the phone gets a stated ORDER instead of a flow, and the same order for a
+  // book, a film and a show:
+  //
+  //   1. what it is      cover beside title, author and year — one band
+  //   2. where you are   the shelf row: state, read count, then its own track
+  //   3. what it is to you  the heart and the tags
+  //   4. what it is about   genres, then the description
+  //
+  // The cover shrinks to 96px because in this arrangement it is an identifier
+  // rather than the subject — the full-size art is one tap away through it.
+  if (mobile) {
+    return (
+      <div className="work-hero-m">
+        <div className="work-hero-m-top">
+          <div className="work-hero-m-cover">{cover}</div>
+          <div className="min-w-0 flex-1">
+            <h1 className="display-title" style={{ fontSize: 21, lineHeight: 1.2, ...titleStyle }}>
+              {title}
+            </h1>
+            {meta && <div className="mt-1.5">{meta}</div>}
+          </div>
+        </div>
+        {(tags || onFavorite) && (
+          <div className="work-hero-m-shelf">
+            <Hearts value={!!favorite} onChange={onFavorite} />
+            {tags}
+          </div>
+        )}
+        {genres.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {genres.map((g) => (
+              <span key={g} className="tp-chip">
+                {g}
+              </span>
+            ))}
+          </div>
+        )}
+        <ExpandableDescription text={description} />
+        {/* The desktop action row is deliberately absent: on a phone these live
+            in the sticky bar's ⋯ overflow, and both pages already pass null. */}
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </div>
+    )
+  }
   // Float layout (not flex): the cover floats left and the actions float right,
   // so the title / meta / favourite / genres / description flow in normal order
   // — beside the cover while short, and wrapping full-width UNDER it once the
