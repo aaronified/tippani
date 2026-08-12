@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.10] - 2026-08-12
+
+### Changed
+
+- **The share sheet opens on the picture.** The format row led with WhatsApp and
+  kept Image at the far end of it. That was right while this dialog was the only
+  way to get anything out of a quote, and wrong the moment copy became a glyph on
+  the card: pasting text is now one tap that never opens this window. What the
+  window is *for* is the picture — the one output that needs a skin, a portrait
+  and a colour chosen before it is worth anything, and the only one you cannot
+  get any other way. It is first in the row, and it is what you land on.
+
+- **One way out of the share window, and a glyph to hand the picture over.** The
+  footer's worded **Close** is gone: the window already has a × in its corner,
+  and two doors out of one room is one too many. The picture's **Download PNG** /
+  **Share / save PNG** button is gone too — its action is a share glyph in the
+  header now, immediately left of that ×, because handing the picture over and
+  leaving are the only two things anybody does here and they belong together.
+  That also ends a button that named itself two different ways depending on the
+  width of the window.
+
+  Copying stays a worded button in both panels. Copying is not sharing: it goes
+  nowhere, it needs somewhere to paste, and its ✓ is the whole feedback.
+
+- **A favourite tile's buttons read like every other quote card.** The row under
+  an expanded favourite went ♥ · colour · copy · share · ⋯ while every other
+  quote card in the app goes ♥ · copy · share · colour · ⋯. Same row, same order,
+  everywhere now.
+
+  Its **Open book →** is a glyph too, and it is the glyph the navigation uses for
+  wherever that quote lives — the Library for a highlight, the Catalogue for a
+  film line, **Quotes** for one that belongs to neither. A standalone quote had
+  no open button at all before, on the reasoning that it *is* the whole record;
+  that was true about a parent record and false about a destination.
+
+### Fixed
+
+- **The credit in the corner of a shared picture sits on one line properly.**
+  1.7.9 put the mark, "made with", the wordmark and the Bengali wordmark on one
+  line and then aligned each of them slightly differently — the logo hung off the
+  text baseline and floated a few pixels high, and the Bengali was lifted a pixel
+  for no reason anybody could state. There is one baseline for all three words
+  now, which is simply how mixed sizes are set, and the mark is centred on the
+  cap-height band of those words, because a logo has no baseline to share.
+
 ## [1.7.9] - 2026-08-12
 
 ### Added

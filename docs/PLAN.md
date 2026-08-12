@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and fifty-six entries, grouped by what they are about
+changed my mind. Four hundred and fifty-nine entries, grouped by what they are about
 rather than by when they happened.
 
 **Everything in this document was approved by me.** That statement covers every entry
@@ -2630,6 +2630,38 @@ The mark keeps the brand's red — lifted to `#D8613D` on a dark card — rather
 
 <sub>1.7.9 — `web/frontend/src/quoteImage.js` · `web/frontend/src/help.jsx` · `web/frontend/test/dom/quote-image-brand.test.jsx` · `CHANGELOG.md`</sub>
 
+### The credit is one baseline and one optical centre, with no per-run nudges
+
+**Decided.** All three words of the footer credit — "made with", the wordmark, the Bengali wordmark — are drawn on ONE baseline, at their three different sizes. The mark, which has no baseline, is centred on the **cap-height band** of those words: `base - FOOT_CAP` to `base`, where `FOOT_CAP` is 0.7em of the 14px face.
+
+**Why.** 1.7.9 shipped the line with three slightly different alignments — the mark hung off the baseline (so it floated, because the caps it sits beside only reach 0.7em) and the Bengali was lifted a pixel for no stated reason. A shared baseline is how mixed sizes are set on a line; the pixel of lift is what made it stop looking like a line.
+
+Centring the mark on the em box would have been the other plausible reading and is wrong here: an em box includes descender space this line never uses, so it pushes anything beside the words visibly high — which is the bug, arrived at from the other direction.
+
+**Instead of** eyeballing each element until the rendering looked right. That is how the first version was built, and it is why the test now asserts the three baselines are **equal** rather than "within a pixel or two": an approximate assertion is an invitation to re-add the fudge.
+
+**Approved.** Mine — I reported the misalignment.
+
+<sub>1.7.10 — `web/frontend/src/quoteImage.js` · `web/frontend/test/dom/quote-image-brand.test.jsx` · `CHANGELOG.md`</sub>
+
+### The share sheet opens on the picture, and its two window actions live together
+
+**Decided.** `Image` is first in the format row and is the initial state. The dialog's header carries the picture's share action as a glyph immediately left of the ×; the footer's worded `Close` and the panel's `Download PNG` / `Share / save PNG` primary are both gone. Copying — text or image — stays a worded button.
+
+**Why.** The order was right when this dialog was the only way to get anything out of a quote. 1.7.9 put copy on the card, so pasting text is now one tap that never opens this window, and what is left is the thing the window is actually for: the picture is the only output that needs a skin, a portrait and a colour decided first, and the only one nothing else can produce.
+
+The buttons follow from the same reading. Handing the picture over and leaving are the only two things anybody does to this window, so they sit as a pair in the corner; a second, worded way out in the footer was one door too many out of one room. It also retired a label that named itself two ways by breakpoint ("Share / save PNG" against "Download PNG"), which is the fault §13 already logged once.
+
+Copy keeps its words because copying is not sharing: it goes nowhere, it needs somewhere to paste, and the ✓ in its label is the whole feedback.
+
+**Instead of** making the header glyph share whatever the active format is, text included. Rejected as a guess: "share this text" has no meaning on a desktop without a share sheet, and the text panel already has the correct verb on a button.
+
+`QuoteImagePanel` publishes its share action through a ref rather than surrendering the canvas upward. The render pipeline — theme, portrait, colour, font loading, redraw-on-event — belongs to the panel, and moving any of it to satisfy a button's position would be the tail wagging the dog.
+
+**Approved.** Mine, and I asked for both halves.
+
+<sub>1.7.10 — `web/frontend/src/share.jsx` · `web/frontend/src/help.jsx` · `web/frontend/test/dom/share-dialog.test.jsx` · `CHANGELOG.md`</sub>
+
 ### One class of client forced a server route: Android WebView has no Web Share, and a blob URL is revoked mid-save
 
 **Decided.** Try `navigator.share` first. On mobile without it, POST the PNG to `/share/image` and navigate to the returned URL. The last-resort blob anchor revokes its object URL after 60 seconds, not immediately.
@@ -3607,6 +3639,24 @@ The glyph-not-words half of that was right and stands. The two-layouts half was 
 **Approved.** Mine. I asked for the row in this order.
 
 <sub>1.7.9 — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/src/Library.jsx` · `web/frontend/src/Movies.jsx` · `web/frontend/src/Home.jsx` · `web/frontend/src/share.jsx` · `web/frontend/test/dom/card-actions.test.jsx` · `CHANGELOG.md`</sub>
+
+### A favourite tile's row is the card row, and its open button is the nav's own glyph
+
+**Decided.** The expanded favourite tile lays out ♥ · copy · share · colour · ⋯, the same order as Library's `ActionRow` and Movies' `Frame`. Its "open" control leads the row as a glyph drawn by `NavIcon` — the Library's for a highlight, the Catalogue's for a film line, Quotes' for a standalone quote — with the destination per kind in `FAV_KINDS.openIcon`.
+
+**Why.** Two faults, both from the tile being written separately from the cards it copies. The order was ♥ · colour · copy · share for one release, so a reader who learned the row on a book's page had to re-learn it on Home. And the open control was the words "Open book →" in a `tp-btn-primary` — the loudest control on the tile, spent on the least surprising thing you can do with it, in a row whose other five controls are all glyphs.
+
+Drawing it with `NavIcon` rather than picking an icon per kind is the part worth recording: the tile now cannot disagree with the tab strip about what the Library looks like, which is the same argument the icon-set rules make one screen over.
+
+**Reversal.** A standalone quote used to have no open button at all.
+
+> **A standalone quote has nothing to open, so the button is absent rather than present and inert.** It IS the whole record: no work to fetch, no parent page to land on, so `quoteFav` carries neither `workId` nor `openLabel`.
+
+That was true about a parent record and false about a destination. The quote lives on the Quotes screen, and going there from a Home tile is worth a glyph. It still carries no `workId`, because there is still no work — the test says those two halves separately now, so the surviving half cannot be deleted along with the retired one.
+
+**Approved.** Mine; I named the three glyphs.
+
+<sub>1.7.10 — `web/frontend/src/Home.jsx` · `web/frontend/src/App.jsx` · `web/frontend/test/pure/home-favourites.test.js` · `CHANGELOG.md`</sub>
 
 ### Quotes expand on click, and overflow is measured rather than guessed
 
