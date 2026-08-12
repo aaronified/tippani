@@ -1,5 +1,19 @@
 # Plan — search that knows where you are and what you meant
 
+**STARTED. Commit 1 (`GET /search/vocabulary`) has shipped** — see the changelog's
+Unreleased section. The rest is unbuilt.
+
+Read this before picking it up: **Part 3 is the expensive half, and not because it
+is clever.** `/search` builds about fifteen separate FTS queries, one per section,
+and a facet is a predicate that has to reach every one of them. That is a
+mechanical change to the app's most complex handler where every mistake is SILENT —
+a wrong result set, not an error — so it wants doing in one sitting with a test per
+facet per section, rather than in pieces.
+
+Parts 1, 2 and 4 (the client-side grammar, the dropdown, the context chips) are
+independent of that and could land first: without Part 3 the chips would simply have
+nothing to narrow, which is why they have not.
+
 **Target: 1.10.0. Independent of the other two plans; could land at any point.**
 
 Two asks, one mechanism: **tagged searches** — say which field you mean, with the

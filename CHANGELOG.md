@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `GET /search/vocabulary` — the tags, genres, series, authors, directors, actors,
+  speakers, shelf states and named colour categories a reader's own library uses.
+  Groundwork for the search facets (`tag:`, `author:`, `colour:`): one call, meant
+  to be held for the session and narrowed in the browser. Nothing on screen reads it
+  yet.
+
 ## [1.10.0] - 2026-08-13
 
 ### Added
