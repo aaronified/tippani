@@ -1199,6 +1199,73 @@
     filter: drop-shadow(0 2px 3px rgba(20, 16, 12, .32));
   }
 
+  /* The bin (Settings → The bin). A list of summary rows, each expandable to the
+     quotes it is holding. Hairlines between rows rather than cards inside a card:
+     a bin entry is a line in a register, not a thing in its own right, and boxing
+     each one would make the bin look like a second library.
+
+     No hover reveal on the two buttons. Every other repeated row in the app hides
+     its actions until you point at it, and this is the one place where doing that
+     is wrong: you came here to put something back, and a control that appears only
+     when you find it is a control you have to hunt for while wondering whether the
+     feature exists at all. */
+  .trash-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .trash-row {
+    padding: 9px 0;
+    border-top: 1px solid var(--line);
+  }
+  .trash-row:first-child { border-top: none; }
+  /* The label takes the slack so the buttons stay pinned right, and a long title
+     ellipsises rather than pushing them off the card. */
+  .trash-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    font-size: 15px;
+  }
+  /* The disclosure control wears the kind, so the chevron has words to sit beside
+     and the whole thing is one target rather than a caret you have to hit. */
+  .trash-expand {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 28px;
+    padding: 0 4px;
+    border: none;
+    background: none;
+  }
+  .trash-contents {
+    margin: 6px 0 2px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  /* Each held quote keeps its colour bar, because that is how the same quote reads
+     everywhere else in the app — the bin is the last place to invent a new way of
+     showing one. */
+  .trash-contents li {
+    padding: 2px 0 2px 9px;
+    border-left: 3px solid var(--hl-1);
+    font-family: var(--font-display);
+    font-size: 13.5px;
+    color: var(--soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /* Sticker picker (add/edit forms): a scrollable strip of thumbnails + a none
      option + an upload tile. Selection is a ringed border. */
   .sticker-strip {

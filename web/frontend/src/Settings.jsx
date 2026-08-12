@@ -7,6 +7,7 @@ import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffA
 import {
   Card,
   CloseButton,
+  ConfirmDialog,
   ErrorText,
   filterChipClass,
   frameCode,
@@ -17,6 +18,7 @@ import {
   IconDelete,
   IconDevice,
   IconEdit,
+  IconChevron,
   IconRefresh,
   IconRestore,
   IconRevert,
@@ -25,6 +27,7 @@ import {
   MobileSheet,
   MonoLabel,
   PageHeader,
+  Select,
   StickerButton,
   toast,
   Toggle,
@@ -67,7 +70,7 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'upd', 'backup']
+export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -101,12 +104,12 @@ export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
     ['meta', 'colors', 'onboard'],
-    ['sr', 'devices', 'upd', 'backup'],
+    ['sr', 'devices', 'trash', 'upd', 'backup'],
   ],
   3: [
     ['meta', 'colors'], // the tall one, and the card that belongs under it
     ['sr', 'onboard'],
-    ['devices', 'upd', 'backup'],
+    ['devices', 'trash', 'upd', 'backup'],
   ],
 }
 
@@ -128,6 +131,10 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
     devices: <DevicesCard />,
+    // Every account has a bin, so this is not admin-gated — unlike the two cards
+    // below it. It sits beside Backup because that is the corner of Settings you
+    // come to when something has gone wrong.
+    trash: <TrashCard />,
     ...(user.is_admin
       ? {
           upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} />,
@@ -1120,6 +1127,244 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
 // with a passphrase. Same framing as RestorePrompt, deliberately: the two are one
 // operation seen from either end, and they should not look like different
 // features.
+// ---- the bin (§ trash-and-undo) ----
+
+// TRASH_LABELS: what a bin row calls each kind. The stored kind is the API's word
+// ('quote' is a standalone quote, 'screen' never appears here); these are the
+// reader's.
+const TRASH_LABELS = {
+  book: 'Book',
+  movie: 'Film or show',
+  annotation: 'Highlight',
+  dialogue: 'Film line',
+  quote: 'Quote',
+  account: 'Account',
+}
+
+// RETENTION: the offered windows. Never is -1 rather than 0 for the reason the
+// server gives (an unset preference reads as 0, and "nobody has set this" must not
+// mean "turn the purge off").
+const RETENTION = [
+  ['7', '7 days'],
+  ['30', '30 days'],
+  ['90', '90 days'],
+  ['-1', 'Never'],
+]
+
+// TrashCard — the thirty-day undo, and the only screen that shows it.
+//
+// The row is a SUMMARY and its expansion is READ-ONLY: kind, label, when, how many
+// quotes travelled with it, and — if you open it — the lines it is holding. Not an
+// editor and not a browser: the two things you can do to an entry are put it back
+// and get rid of it, and anything else here would be a second, worse library
+// screen over rows that do not exist any more.
+//
+// The contents come from the payload the delete already wrote, so opening a row
+// costs one read and no per-kind code. That is why the server hands back a
+// flattened summary rather than the snapshot itself.
+function TrashCard() {
+  const [items, setItems] = useState(null) // null = still loading
+  const [days, setDays] = useState(30)
+  const [open, setOpen] = useState(null) // the expanded entry id
+  const [contents, setContents] = useState({}) // id -> [{text, color}]
+  const [busy, setBusy] = useState(false)
+  const [asking, setAsking] = useState(false) // "empty it" confirmation
+
+  async function load() {
+    const r = await json('GET', '/trash')
+    if (!r.ok) return setItems([])
+    setItems(r.data.trash || [])
+    setDays(r.data.days ?? 30)
+  }
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function expand(id) {
+    if (open === id) return setOpen(null)
+    setOpen(id)
+    if (contents[id]) return
+    const r = await json('GET', `/trash/${id}`)
+    if (r.ok) setContents((c) => ({ ...c, [id]: r.data.contents || [] }))
+  }
+
+  async function putBack(entry) {
+    setBusy(true)
+    const r = await json('POST', `/trash/${entry.id}/restore`)
+    setBusy(false)
+    if (!r.ok) return toast(errText(r, 'could not restore'))
+    toast('restored')
+    setOpen(null)
+    load()
+  }
+
+  async function forget(entry) {
+    setBusy(true)
+    const r = await json('DELETE', `/trash/${entry.id}`)
+    setBusy(false)
+    if (!r.ok) return toast(errText(r, 'could not remove'))
+    toast('gone')
+    load()
+  }
+
+  async function emptyAll() {
+    setAsking(false)
+    setBusy(true)
+    const r = await json('DELETE', '/trash')
+    setBusy(false)
+    if (!r.ok) return toast(errText(r, 'could not empty'))
+    toast('bin emptied')
+    load()
+  }
+
+  async function setWindow(v) {
+    const n = Number(v)
+    setDays(n)
+    const r = await json('PUT', '/auth/me/preferences', { trashDays: n })
+    if (!r.ok) {
+      toast(errText(r, 'could not save'))
+      load() // put the control back to what the server actually holds
+    }
+  }
+
+  return (
+    <Card data-tour="trash">
+      <SectionTitle
+        info="Everything you delete waits here first: a book with all its quotes, a film with its lines, or one highlight on its own. Putting one back returns it exactly as it was — the same quotes, the same tags, the same colours, the same review schedule, and the cover picture too, which waits in a corner of the image store rather than being thrown away. Deleting an account is kept here as well, whole, for whichever admin deleted it. An entry leaves on its own once it is older than the window below, and that clock only runs while the server is running: nothing expires on an instance that is switched off. “Empty now” is for when the reason you wanted a shorter window was wanting something gone today."
+        infoTitle="The bin"
+      >
+        The bin
+      </SectionTitle>
+
+      <div className="space-y-4">
+        {items === null && <p className="microcopy">reading the bin…</p>}
+        {items !== null && items.length === 0 && (
+          <p className="microcopy">nothing deleted — anything you delete waits here first</p>
+        )}
+
+        {items !== null && items.length > 0 && (
+          <ul className="trash-list">
+            {items.map((e) => (
+              <li key={e.id} className="trash-row">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {/* The chevron is the whole row's affordance on the left, so the
+                      two buttons on the right are never mistaken for it. Only rows
+                      that HOLD something get one: a single highlight has nothing
+                      to expand, and a control that opens an empty list is worse
+                      than no control. */}
+                  {e.child_count > 0 ? (
+                    <button
+                      type="button"
+                      className="tp-btn tp-btn-ghost tactile trash-expand"
+                      aria-expanded={open === e.id}
+                      aria-label={`What is inside ${e.label || 'this entry'}`}
+                      onClick={() => expand(e.id)}
+                    >
+                      <IconChevron open={open === e.id} size={16} />
+                      <MonoLabel>{TRASH_LABELS[e.kind] || e.kind}</MonoLabel>
+                    </button>
+                  ) : (
+                    <MonoLabel>{TRASH_LABELS[e.kind] || e.kind}</MonoLabel>
+                  )}
+                  <span className="trash-label">{e.label || 'untitled'}</span>
+                  <span className="ml-auto flex items-center gap-1">
+                    <Tooltip label="Put this back">
+                      <button
+                        type="button"
+                        className="field-icon-btn tactile"
+                        aria-label={`Restore ${e.label || 'this'}`}
+                        disabled={busy}
+                        onClick={() => putBack(e)}
+                      >
+                        <IconRevert />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Remove for good">
+                      <button
+                        type="button"
+                        className="field-icon-btn field-icon-btn-danger tactile"
+                        aria-label={`Remove ${e.label || 'this'} for good`}
+                        disabled={busy}
+                        onClick={() => forget(e)}
+                      >
+                        <IconDelete />
+                      </button>
+                    </Tooltip>
+                  </span>
+                </div>
+                <p className="microcopy">
+                  {fmtDeleted(e.deleted_at)}
+                  {e.child_count > 0 && ` · ${e.child_count} ${e.child_count === 1 ? 'quote' : 'quotes'}`}
+                  {e.files > 0 && ' · picture kept'}
+                </p>
+                {open === e.id && (
+                  <ul className="trash-contents">
+                    {(contents[e.id] || []).map((q, i) => (
+                      <li key={i} style={{ borderLeftColor: `var(--hl-${colorSlot(q.color)})` }}>
+                        {q.text}
+                      </li>
+                    ))}
+                    {contents[e.id] && contents[e.id].length === 0 && (
+                      <li className="microcopy">no quotes inside</li>
+                    )}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <MonoLabel>keep for</MonoLabel>
+          <Select
+            ariaLabel="How long the bin keeps things"
+            value={String(days)}
+            onChange={setWindow}
+            options={RETENTION}
+          />
+          <InfoDot
+            title="Keep for"
+            text="How long a deleted thing waits before it is thrown away for good. The clock runs on server time and only while the server is up, so an instance that spends a week switched off has not spent a week of anybody's thirty days. “Never” keeps everything until you empty the bin yourself — the cost is one small record per deleted thing, plus its picture."
+          />
+          {items !== null && items.length > 0 && (
+            <GhostButton onClick={() => setAsking(true)} disabled={busy}>
+              Empty now
+            </GhostButton>
+          )}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={asking}
+        title="Empty the bin?"
+        body={`This removes ${items?.length || 0} ${items?.length === 1 ? 'entry' : 'entries'} and the pictures they were holding. There is no undo for this one.`}
+        confirmLabel="Empty it"
+        onConfirm={emptyAll}
+        onCancel={() => setAsking(false)}
+      />
+    </Card>
+  )
+}
+
+// fmtDeleted reads the server's `datetime('now')` stamp as a local date. It is a
+// UTC wall-clock string with no zone marker, so the T and the Z are added rather
+// than letting the browser guess — Safari refuses the space form outright, and
+// the guess that does parse is a day out for half the world.
+function fmtDeleted(raw) {
+  if (!raw) return ''
+  const d = new Date(String(raw).replace(' ', 'T') + 'Z')
+  if (Number.isNaN(d.getTime())) return String(raw)
+  return `deleted ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+}
+
+// colorSlot maps a stored colour word to its category slot, so a binned quote's
+// stripe is the colour the reader named rather than the storage token. The order
+// is the schema's CHECK order, which is what CATEGORY_PALETTE follows too.
+const COLOR_SLOTS = { yellow: 1, blue: 2, pink: 3, orange: 4, green: 5, purple: 6 }
+function colorSlot(word) {
+  return COLOR_SLOTS[word] || 1
+}
+
 function BackupPrompt({ me, busy, onCancel, onConfirm }) {
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is

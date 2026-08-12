@@ -1593,6 +1593,39 @@
     </div>
   </section>
 
+  <section class="g-section">
+    <h2>The bin <span class="g-tlabel">1.8.0</span></h2>
+    <p>Every delete is recoverable for thirty days. The row is really deleted — a JSON snapshot of its whole subtree is parked instead — so nothing else in the app has to know the bin exists.</p>
+    <div class="g-grid">
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:16px">
+          <ul class="trash-list">
+            <li class="trash-row">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px">
+                <span class="trash-expand"><span class="microcopy" style="font-family:var(--font-mono),monospace">Book</span></span>
+                <span class="trash-label">The Dispossessed</span>
+                <span style="margin-left:auto;display:flex;gap:4px">
+                  <span class="field-icon-btn">↺</span>
+                  <span class="field-icon-btn field-icon-btn-danger">✕</span>
+                </span>
+              </div>
+              <p class="microcopy">deleted 1 Aug · 40 quotes · picture kept</p>
+              <ul class="trash-contents">
+                <li style="border-left-color:var(--hl-2)">You cannot buy the revolution</li>
+                <li style="border-left-color:var(--hl-1)">Where does a thought come from</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <div class="g-name">bin row</div>
+        <div class="g-src">TrashCard — Settings.jsx · .trash-list / .trash-row / .trash-label / .trash-expand / .trash-contents — index.css</div>
+        <div class="g-desc">One row per DELETED THING, not per deleted row: a book and its forty quotes are one entry, restored whole. Anatomy: the kind as a mono label (doubling as the disclosure control where there is something inside), the title, and the two acts pinned right — <b>put it back</b> and <b>remove for good</b>. Under it, when it went, how many quotes travel with it, and whether a cover is being kept. Expanding lists the held quotes read-only, each keeping its own colour bar, straight from the snapshot the delete already wrote. <b>The two buttons do not hide until hover</b>, unlike every other repeated row in the app: this is the screen you open because something has already gone wrong, and a control you have to find by pointing at it is one you hunt for while wondering whether the feature exists.</div>
+      </div>
+
+    </div>
+  </section>
+
   <p style="margin-top:56px;color:var(--faint);font-size:12px;font-family:var(--font-mono),monospace">
     Hand-maintained copy, generated CSS. The &lt;style id="appcss"&gt; snapshot is refreshed by
     <code>node scripts/glossary-css.mjs</code> (and <code>--check</code> fails CI when it is

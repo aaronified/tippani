@@ -4072,8 +4072,14 @@ export function IconHelp({ size = 22 }) { return <svg {...iconStroke} width={siz
 export function IconDetails({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9h9"/><path d="M7.5 12.5h9"/><path d="M7.5 16h5"/></svg> }
 // IconCopy — copy a value to the clipboard (the device pairing code).
 export function IconCopy({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="9" y="9" width="11.5" height="11.5" rx="2.5"/><path d="M15 6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15"/></svg> }
-// IconRevert — put a field back to the value it had before a lookup match
-// overwrote it (the merge screen's per-row undo).
+// IconRevert — put something back the way it was: a field before a lookup match
+// overwrote it (the merge screen's per-row undo), a filter sheet to its defaults,
+// or an item out of the bin.
+//
+// The bin deliberately does NOT get its own glyph. "Restore" there means the same
+// act this already draws, and the one drawing it must not be confused with is
+// IconRestore — that is the backup box opened upward, which replaces the whole
+// instance and logs everyone out. Same English word, two very different buttons.
 export function IconRevert({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 10h9.5a5 5 0 0 1 0 10H8"/><path d="m7.5 6-3.5 4 3.5 4"/></svg> }
 // IconChevron — a disclosure caret that points where it will go. Promoted out of
 // CoverPicker.jsx, where it had been the only glyph in the app defined outside
