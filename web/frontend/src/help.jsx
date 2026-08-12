@@ -157,7 +157,7 @@ export const HELP = {
     entries: [
       { term: 'Tags', what: 'Cut across books and films alike. Rename one here and every quote follows.' },
       { term: 'Tag style', what: 'Sticker, banner, flyout, tape or reel — how the tag draws on a quote card.' },
-      { term: 'Stickers', icon: <IconUpload />, what: 'Your own transparent PNG or SVG images. Pin one to a quote as a seal the text flows around, and drag it where you like.' },
+      { term: 'Stickers', icon: <IconUpload />, what: 'A heart, a star and three faces to start with, plus any transparent PNG or SVG you upload. Pin one to a quote as a seal the text flows around, and drag it where you like. The five that came with the app are ordinary stickers — rename them, or delete the ones you will never use and they stay gone.' },
     ],
   },
   metadata: {

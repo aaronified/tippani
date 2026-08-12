@@ -87,7 +87,8 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	id, _ := res.LastInsertId()
 	if s.SeedNewUsers {
-		seedDefaultTags(s.Store.DB, id) // starter tag/sticker vocabulary (v3)
+		seedDefaultTags(s.Store.DB, id) // starter tag vocabulary (v3)
+		s.seedDefaultStickers(id)       // and the starter seals (see seed_stickers.go)
 	}
 	writeJSON(w, http.StatusCreated, userRow{ID: id, Username: uname, IsAdmin: false})
 }

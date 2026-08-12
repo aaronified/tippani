@@ -201,6 +201,7 @@ The route groups themselves, so you can find the noun you want:
 | `metadata_handlers.go` · `metadata_library.go` · `metadata_bulk.go` · `lookup_handlers.go` · `reverify_handlers.go` | Source keys, the coverage console, bulk correction, one-off lookups, and the preview-then-apply re-verify flow. |
 | `covers_handler.go` · `avatar_handlers.go` · `sticker_handlers.go` | The three image kinds, all under `<DataDir>/MediaCover`. |
 | `taxonomy_handlers.go` | Tags and genres, and the starter vocabulary seeded per account. |
+| `seed_stickers.go` · `assets/stickers/` | The five starter seals, embedded as SVG and copied into each account's own cover store — plus the one-shot backfill that hands them to accounts older than the feature. |
 | `backup_handlers.go` · `backup_recovery.go` | Archive create, download and in-process restore; the per-instance recovery key. |
 | `admin_handlers.go` · `maintenance_handlers.go` · `update_handlers.go` | User management, FTS rebuild and factory reset, and the self-updater. |
 | `pairing_handlers.go` · `capabilities_handler.go` · `share_handlers.go` | Phone pairing by QR, the client version handshake, and one-shot share-image downloads. |

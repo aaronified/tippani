@@ -189,6 +189,12 @@ func serve() {
 	)
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
 
+	// One-shot: hand the starter stickers to the accounts that existed before
+	// they shipped, so an upgrade opens the same box a fresh install does. Not a
+	// migration — it writes image files into the cover store, which is the
+	// server's business rather than the schema's. Runs once per instance.
+	srv.BackfillDefaultStickers()
+
 	// Identity + one-line config summary at boot so `docker logs` shows the
 	// running version and what's wired without leaking secrets (presence only).
 	// Per-request lines follow (logRequests).

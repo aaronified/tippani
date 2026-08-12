@@ -174,8 +174,9 @@ of that are spelled out in [`AI.md`](AI.md).
   colours and layout do not move, so what is left is the same app with the noise taken off. The
   textures are the whole point of the design and they are not free — the page grain is a fixed layer
   above *everything*, including every glyph and every input on the screen.
-- 🏷️ **Stickers** — upload your own transparent PNG/SVG images, manage them on the Tags page, and
-  pin one to any quote as a seal the text flows around — drag it wherever you like within the block.
+- 🏷️ **Stickers** — a heart, a star and three faces come in the box; upload your own transparent
+  PNG/SVG images beside them, manage the lot on the Tags page, and pin one to any quote as a seal
+  the text flows around — drag it wherever you like within the block.
 - 📥 **Bulk import** — Markdown (Tippani frontmatter for all three kinds **and** Readest exports,
   auto-detected), Kindle
   **Bookcision** JSON, saved **Hardcover** and **Goodreads** pages, your **Kindle notebook**

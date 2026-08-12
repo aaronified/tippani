@@ -53,12 +53,13 @@ const (
 	CodeMetaRowScan    Code = "TIP-META-001"
 
 	// Specific genuine-failure codes (were silently swallowed before).
-	CodeMetaKeyRead      Code = "TIP-META-002" // provider key/settings read failed (degrades to no-key)
-	CodeMetaGenrePersist Code = "TIP-META-010" // genre write not persisted (tx begin/commit failed)
-	CodePeopleOrphanGC   Code = "TIP-PEOPLE-010" // orphan-people garbage collection failed
-	CodeBookCover        Code = "TIP-BOOK-002"  // book cover fetch failed on create (cover dropped, book kept)
-	CodeMovieCover       Code = "TIP-MOVIE-002" // movie poster fetch failed on create/update (dropped)
-	CodeCoverFetch       Code = "TIP-COVER-001" // on-demand cover/poster refetch failed
+	CodeStickerSeed      Code = "TIP-STICKER-002" // a starter sticker could not be copied into a user's library
+	CodeMetaKeyRead      Code = "TIP-META-002"    // provider key/settings read failed (degrades to no-key)
+	CodeMetaGenrePersist Code = "TIP-META-010"    // genre write not persisted (tx begin/commit failed)
+	CodePeopleOrphanGC   Code = "TIP-PEOPLE-010"  // orphan-people garbage collection failed
+	CodeBookCover        Code = "TIP-BOOK-002"    // book cover fetch failed on create (cover dropped, book kept)
+	CodeMovieCover       Code = "TIP-MOVIE-002"   // movie poster fetch failed on create/update (dropped)
+	CodeCoverFetch       Code = "TIP-COVER-001"   // on-demand cover/poster refetch failed
 
 	// User-supplied cover/poster/image URL fetch failed on an edit — the whole
 	// save is rejected (502), unlike the create-time CodeBookCover/CodeMovieCover
@@ -132,6 +133,7 @@ var Registry = map[Code]string{
 	CodeAdminRowScan:   "A user list row failed to scan; dropped from the admin list.",
 	CodeMetaRowScan:    "A metadata console/library row failed to scan; dropped from the result.",
 
+	CodeStickerSeed:      "A starter sticker could not be copied into a user's library; the rest of the set still went in.",
 	CodeMetaKeyRead:      "A metadata provider key/setting could not be read; lookups degrade to unconfigured.",
 	CodeMetaGenrePersist: "Genres failed to persist (transaction begin/commit error) although the request returned OK.",
 	CodePeopleOrphanGC:   "Garbage-collecting orphaned people rows/images failed; orphans may remain.",
