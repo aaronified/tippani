@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-08-13
+
+### Added
+
+- **A thirty-day bin, so every delete can be taken back.** Nothing in this app has
+  ever been recoverable. Deleting a book, a film or show, a highlight, a film line,
+  a standalone quote — or a whole account — now writes it to a bin first, and it
+  comes back exactly as it was.
+
+  **Undo is in the toast**, right where the mistake happened. **Settings → The
+  bin** is the slower way in: one row per deleted thing, with what it is, when it
+  went, how many quotes travelled with it, and whether a picture is being kept.
+  Open a row to read the quotes it is holding.
+
+  A restore is not an approximation. The same ids, so a bookmarked URL still
+  resolves; the same tags and colours; the same spaced-repetition history, so a
+  restored quote is not suddenly a brand-new card; the cover or poster, which waits
+  in a corner of the image store rather than being thrown away; and, for a book or
+  a film, every quote under it. A book and its forty highlights are ONE entry —
+  there is no way to end up with a quote whose book is missing.
+
+  **Deleting a member is undoable too.** The account, the library, the vocabulary,
+  the review history and the files go to the deleting admin's bin as one entry.
+  Three things deliberately do not come back: browser sessions, paired devices and
+  today's quiz — the first two are credentials, and re-arming a credential nobody
+  chose to reissue is not a decision to make on somebody's behalf. Pairing a phone
+  again is one scan.
+
+  **Keep for 7, 30 or 90 days, or never**, per account, in the same card. "Empty
+  now" is there because the real reason to want a shorter window is usually wanting
+  something gone today — and it is the one act in this feature with no undo behind
+  it, so it asks first.
+
+  Two things worth knowing about how it works, because both are visible in how it
+  behaves:
+
+  It is a **snapshot**, not a "deleted" flag. The rows really are deleted, so no
+  query, count, stat, export or search in the app has to remember to exclude them
+  — which is the class of bug that shows a deleted quote in a quiz six months
+  later. And the retention clock **only runs while the server does**: nothing
+  expires on an instance that spends a fortnight switched off, and there is no
+  timer or background job behind it — just a sweep on the first request of the day.
+
+### Fixed
+
+- **Ids are no longer reused, which also fixes something older.** SQLite hands out
+  `max(id) + 1`, so deleting the newest quote and adding another gave the new one
+  the old one's id. That is what would have made a restore collide, and it was
+  already quietly wrong before the bin existed: the review schedule is keyed on
+  that id with no foreign key behind it, so a reused id inherited the deleted
+  quote's memory half-life, review count and lapse count. Every id is now allocated
+  above a high-water mark that only climbs.
+
 ## [1.7.10] - 2026-08-12
 
 ### Changed
