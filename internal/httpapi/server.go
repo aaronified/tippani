@@ -532,6 +532,11 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 		ctx := context.WithValue(r.Context(), ctxUserID, uid)
 		ctx = context.WithValue(ctx, ctxUsername, uname)
 		ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
+		// The bin's retention sweep, at most once a calendar day, from whichever
+		// authenticated request is first after midnight. This is the whole scheduler:
+		// no ticker, no goroutine, nothing awake on an idle instance (see PurgeTrash).
+		// It costs one settings read and a string compare on every other request.
+		s.purgeIfNewDay()
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

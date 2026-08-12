@@ -675,3 +675,155 @@ func (s *Server) trashDays(uid int64) int {
 	}
 	return p.TrashDays
 }
+
+// ---------------------------------------------------------------------------
+// the purge
+// ---------------------------------------------------------------------------
+
+// purgeStampKey records the day the last sweep ran, so the daily one is a date
+// comparison rather than a timer.
+const purgeStampKey = "trash_purged_on"
+
+// PurgeTrash removes every entry past its owner's retention window, and the files
+// those entries were holding, then collects any parked file no entry references.
+//
+// NO SCHEDULER, DELIBERATELY. It runs at startup and then at most once a day, on
+// the first request that notices the date has changed. A ticker would mean a
+// goroutine and a wakeup on a machine that is otherwise asleep; a self-hosted box
+// gets switched off, and "30 days" meaning 30 days OF THE APP BEING ALIVE is the
+// honest reading of a promise made by a program that is not running.
+//
+// The window is PER USER, because the setting is: two accounts on one instance can
+// keep their bins for different lengths of time, so the sweep asks each owner's
+// preference rather than applying one number to the table.
+func (s *Server) PurgeTrash() {
+	uids, err := allUserIDs(s.Store.DB)
+	if err != nil {
+		olog.Warnf(olog.CodeTrashPurge, "[trash] purge: list users: %v", err)
+		return
+	}
+	total := 0
+	for _, uid := range uids {
+		days := s.trashDays(uid)
+		if days == trashNever {
+			continue
+		}
+		// The cutoff is computed by SQLite in its own time format, against the same
+		// clock that wrote deleted_at. Comparing in Go would mean parsing that
+		// format and picking a timezone, and both are ways to be a day out.
+		rows, err := s.Store.DB.Query(
+			`SELECT id, files FROM trash
+			 WHERE user_id = ? AND deleted_at < datetime('now', ?)`,
+			uid, fmt.Sprintf("-%d days", days))
+		if err != nil {
+			olog.Warnf(olog.CodeTrashPurge, "[trash] purge: read expired for user %d: %v", uid, err)
+			continue
+		}
+		var expired []int64
+		var files []string
+		for rows.Next() {
+			var id int64
+			var raw string
+			if err := rows.Scan(&id, &raw); err != nil {
+				continue
+			}
+			expired = append(expired, id)
+			files = append(files, fileList(raw)...)
+		}
+		rows.Close()
+		for _, id := range expired {
+			if _, err := s.Store.DB.Exec(`DELETE FROM trash WHERE id = ? AND user_id = ?`, id, uid); err != nil {
+				olog.Warnf(olog.CodeTrashPurge, "[trash] purge: delete entry %d: %v", id, err)
+				continue
+			}
+			total++
+		}
+		// Files after the rows: a file removed for a row that then failed to delete
+		// would be a bin entry that restores without its cover.
+		s.removeParked(files)
+	}
+	s.sweepOrphanParked()
+	if total > 0 {
+		olog.Printf("[trash] purged %d expired entr%s", total, plural(total, "y", "ies"))
+	}
+}
+
+// sweepOrphanParked deletes parked files no bin entry names.
+//
+// These exist because parking is the one step outside the transaction and it fails
+// towards keeping the file (see parkFiles). It is also the only cleanup path for a
+// user whose account was deleted: their trash rows cascade with the user row, and
+// the files they named do not.
+func (s *Server) sweepOrphanParked() {
+	entries, err := os.ReadDir(s.trashDir())
+	if err != nil {
+		return // no parked files yet, or the directory is unreadable — nothing to do
+	}
+	referenced := map[string]bool{}
+	rows, err := s.Store.DB.Query(`SELECT files FROM trash`)
+	if err != nil {
+		olog.Warnf(olog.CodeTrashPurge, "[trash] sweep: read file lists: %v", err)
+		return // without the full list, deleting anything would be a guess
+	}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			// A row that will not scan is a row whose files are unknown, and deleting
+			// files on an incomplete list is exactly the mistake to avoid here.
+			olog.Warnf(olog.CodeTrashPurge, "[trash] sweep: unreadable file list; skipping the sweep")
+			rows.Close()
+			return
+		}
+		for _, f := range fileList(raw) {
+			referenced[f] = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeTrashPurge, "[trash] sweep: %v", err)
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() || referenced[e.Name()] {
+			continue
+		}
+		_ = os.Remove(filepath.Join(s.trashDir(), e.Name()))
+	}
+}
+
+// purgeIfNewDay runs the sweep at most once a calendar day, from whichever request
+// happens to be first after midnight. Cheap enough to call on any request: one
+// settings read, and a string compare.
+func (s *Server) purgeIfNewDay() {
+	today, err := s.today()
+	if err != nil {
+		return
+	}
+	last, err := s.Store.GetSetting(purgeStampKey)
+	if err != nil || last == today {
+		return
+	}
+	// Stamp BEFORE sweeping, not after. Two requests can arrive in the same
+	// millisecond after midnight; stamping first means the loser does nothing
+	// instead of running a second concurrent sweep over the same rows.
+	if err := s.Store.SetSetting(purgeStampKey, today); err != nil {
+		olog.Warnf(olog.CodeTrashPurge, "[trash] purge: stamp the day: %v", err)
+		return
+	}
+	s.PurgeTrash()
+}
+
+// today is the server's date as SQLite sees it, so the stamp and every
+// `deleted_at` are written by one clock in one format.
+func (s *Server) today() (string, error) {
+	var d string
+	err := s.Store.DB.QueryRow(`SELECT date('now')`).Scan(&d)
+	return d, err
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}

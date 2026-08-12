@@ -195,6 +195,12 @@ func serve() {
 	// server's business rather than the schema's. Runs once per instance.
 	srv.BackfillDefaultStickers()
 
+	// The bin's retention sweep, once at boot. It also runs at most once a day from
+	// the first request after midnight (purgeIfNewDay) — no ticker and no goroutine,
+	// so nothing is expiring on an instance that is switched off, which is the
+	// honest reading of "30 days" on a box that sleeps.
+	srv.PurgeTrash()
+
 	// Identity + one-line config summary at boot so `docker logs` shows the
 	// running version and what's wired without leaking secrets (presence only).
 	// Per-request lines follow (logRequests).
