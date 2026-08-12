@@ -331,6 +331,11 @@ type prefs struct {
 	// splitting off. Unset (older rows) defaults to all four; libraries that
 	// store authors as "Last, First" turn comma off.
 	CreditSeparators string `json:"creditSeparators"`
+	// TrashDays: how long a deleted thing waits in the bin before the purge takes
+	// it. One of 7, 30, 90, or -1 for "never expire" — never is -1 and not 0
+	// because an absent field unmarshals to 0, and "nobody has set this" must not
+	// mean "turn the purge off". Validated on read; see normalizeTrashDays.
+	TrashDays int `json:"trashDays"`
 	// Spaced repetition (v0.5.0 Daily Quiz & Practice), per-user, defaults +
 	// clamps applied in loadPrefs. SRDaily (Daily Quiz deck size) is 2..10;
 	// SRReviewScope bounds BOTH modes: one medium (books|movies|quotes), the
@@ -541,6 +546,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	} else {
 		p.CreditSeparators = defaultCreditSeps
 	}
+	p.TrashDays = normalizeTrashDays(p.TrashDays)
 	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
 	if !srScopeValid(p.SRReviewScope) {
 		p.SRReviewScope = "both"
@@ -573,6 +579,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		Theme            *string  `json:"theme"`
 		Accent           *string  `json:"accent"`
 		CreditSeparators *string  `json:"creditSeparators"`
+		TrashDays        *int     `json:"trashDays"`
 		SRDaily          *int     `json:"srDaily"`
 		SRReviewScope    *string  `json:"srReviewScope"`
 		SRSeen           *float64 `json:"srSeen"`
@@ -654,6 +661,17 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		if inHidden[i] != nil {
 			*curHidden[i] = *inHidden[i]
 		}
+	}
+	// 0 is "not saying", exactly as it is in storage — which is what lets a client
+	// PUT the whole preferences struct without having to know this field exists.
+	// "Never expire" is -1 for the same reason: an absent int and a deliberate one
+	// have to be tellable apart, and JSON gives no way to do that at 0.
+	if in.TrashDays != nil && *in.TrashDays != 0 {
+		if !trashDayChoices[*in.TrashDays] {
+			writeErr(w, http.StatusBadRequest, "trashDays must be 7, 30, 90, or -1 for never")
+			return
+		}
+		cur.TrashDays = *in.TrashDays
 	}
 	if in.SRDaily != nil && *in.SRDaily != 0 {
 		cur.SRDaily = *in.SRDaily

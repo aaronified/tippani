@@ -629,3 +629,49 @@ func (s *Server) binDelete(w http.ResponseWriter, r *http.Request, kind, notFoun
 	// wrong entry when two deletes land in the same second.
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": got.TrashID})
 }
+
+// ---------------------------------------------------------------------------
+// the retention window
+// ---------------------------------------------------------------------------
+
+// trashDayChoices are the offered windows, and NEVER IS -1 RATHER THAN 0.
+//
+// That is the whole subtlety of this setting. `preferences` is one JSON blob with
+// defaults applied on read, so a field nobody has ever set is absent and
+// unmarshals to the zero value — which means 0 cannot also mean "never expire".
+// If it did, every account that predates the bin would read as "never", the purge
+// would never run for any of them, and the bin would grow forever because of a
+// missing key. -1 is unambiguous: it can only have been written on purpose.
+//
+// 30 days is the default. The reason to want a shorter window is usually wanting
+// something gone NOW, which is what "Empty now" is for.
+var trashDayChoices = map[int]bool{7: true, 30: true, 90: true, trashNever: true}
+
+// trashNever is the retention window that does not expire.
+const trashNever = -1
+
+// defaultTrashDays is what every account starts with, and what every account that
+// predates the bin reads as.
+const defaultTrashDays = 30
+
+// normalizeTrashDays maps a stored value onto an offered one, so a hand-edited
+// preferences blob or a restored archive from a future version cannot turn the
+// purge off by accident.
+func normalizeTrashDays(v int) int {
+	if trashDayChoices[v] {
+		return v
+	}
+	return defaultTrashDays
+}
+
+// trashDays is the caller's retention window, in days, with 0 meaning never.
+// Reads the preference and falls back to the default rather than failing: a bin
+// list that 500s because a preference could not be read is worse than a list.
+func (s *Server) trashDays(uid int64) int {
+	p, err := s.loadPrefs(uid)
+	if err != nil {
+		olog.Warnf(olog.CodeTrashPurge, "[trash] could not read the retention window for user %d: %v", uid, err)
+		return defaultTrashDays
+	}
+	return p.TrashDays
+}

@@ -71,6 +71,7 @@ the subsystem and the underlying error.
 | `TIP-TAG-001` | Genres / tags list |
 | `TIP-STATS-001` | Stats aggregate rows |
 | `TIP-STICKER-001` | Stickers list |
+| `TIP-TRASH-005` | The bin list |
 | `TIP-ADMIN-001` | Admin user list |
 | `TIP-META-001` | Metadata console / library rows |
 | `TIP-IMPORT-002` | Import staging queue rows (batches / works / quotes) |

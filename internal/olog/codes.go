@@ -92,6 +92,7 @@ const (
 	CodeTrashFile    Code = "TIP-TRASH-002" // a binned image could not be parked, restored or purged
 	CodeTrashRestore Code = "TIP-TRASH-003" // a restore failed; the bin entry is left intact
 	CodeTrashPurge   Code = "TIP-TRASH-004" // the retention sweep failed; nothing was removed
+	CodeTrashRowScan Code = "TIP-TRASH-005" // a bin list row failed to scan; dropped from the list
 
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
@@ -167,6 +168,7 @@ var Registry = map[Code]string{
 	CodeTrashFile:    "A binned cover/poster could not be parked, restored or purged; the row itself is unaffected.",
 	CodeTrashRestore: "A restore from the bin failed and rolled back; the bin entry is still there to retry.",
 	CodeTrashPurge:   "The bin's retention sweep failed; expired entries and their files are still on disk.",
+	CodeTrashRowScan: "A bin list row failed to scan; that entry was left out of the list.",
 
 	CodeBackupSnapshot: "The backup's database snapshot (VACUUM INTO) failed; no archive was produced.",
 	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory.",

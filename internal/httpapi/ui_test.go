@@ -33,7 +33,7 @@ func TestPreferences(t *testing.T) {
 
 	// Fresh user: defaults (theme system -> paper aesthetic, terracotta).
 	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -43,7 +43,7 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("dark default aesthetic: %+v", me.Preferences)
 	}
 
@@ -51,7 +51,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		prefs{Aesthetic: "film", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "film", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
@@ -61,7 +61,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu", "srGrow": 3.0, "srShrink": 0.5}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
+	if me.Preferences != (prefs{Aesthetic: "paper", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1}) {
 		t.Fatalf("after PUT with stale retired keys: %+v", me.Preferences)
 	}
 

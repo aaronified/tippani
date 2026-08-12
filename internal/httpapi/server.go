@@ -211,6 +211,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /reads/{id}", s.requireAuth(s.handleDeleteRead))
 	mux.Handle("POST /books/{id}/cover", s.requireAuth(s.handleUploadBookCover))
 	mux.Handle("DELETE /books/{id}", s.requireAuth(s.handleDeleteBook))
+
+	// The bin (0031). Every route is scoped to the caller's own entries — an
+	// admin's bin is not a superset of anybody else's — and a foreign id is 404.
+	mux.Handle("GET /trash", s.requireAuth(s.handleListTrash))
+	mux.Handle("GET /trash/{id}", s.requireAuth(s.handleGetTrashEntry))
+	mux.Handle("POST /trash/{id}/restore", s.requireAuth(s.handleRestoreTrash))
+	mux.Handle("DELETE /trash/{id}", s.requireAuth(s.handleDeleteTrashEntry))
+	mux.Handle("DELETE /trash", s.requireAuth(s.handleEmptyTrash))
 	mux.Handle("POST /annotations", s.requireAuth(s.handleCreateAnnotation))
 	mux.Handle("GET /annotations", s.requireAuth(s.handleListAnnotations))
 	mux.Handle("PUT /annotations/{id}", s.requireAuth(s.handleUpdateAnnotation))
