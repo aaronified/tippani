@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and fifty-nine entries, grouped by what they are about
+changed my mind. Four hundred and sixty-five entries, grouped by what they are about
 rather than by when they happened.
 
 **Everything in this document was approved by me.** That statement covers every entry
@@ -653,6 +653,82 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 **Reversal.** Yes: a planned work item removed before it was written.
 
 <sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+
+### A delete is a snapshot in a bin, not a flag on the row
+
+**Decided.** The five content kinds and a whole account go to `trash` (migration 0031) as a JSON snapshot of their subtree; the rows are then really deleted, cascades and triggers and all. Restoring re-inserts them. Retention is a per-user preference, swept at boot and once a day.
+
+**Why.** The alternative is a `deleted_at` column, and it costs a predicate in front of every query, count, stat, export, dedupe check and FTS trigger in the app — forever, on every future one too. The failure mode is not a crash: it is a deleted quote turning up in a quiz six months later because one query out of two hundred forgot the clause. With a snapshot, nothing else in the schema changes and nothing else in the application knows the bin exists.
+
+The cost is real and named: a snapshot is a copy, so it can be incomplete in ways the live row cannot. That is why the payload's COLUMNS are read from `PRAGMA table_info` rather than listed in Go, and why there is a test comparing a payload's keys against the table's own columns.
+
+**Instead of** a soft delete, above. **Instead of** an export-and-reimport round trip, which loses everything the exporter does not carry — ids, review schedules, sticker positions — and would make "undo" mean "something quite like it".
+
+**Approved.** Mine, and I approved shipping it BEFORE the features that need it: bulk delete is only a reasonable thing to offer once every delete is recoverable.
+
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go` · `docs/plans/trash-and-undo.md` · `CHANGELOG.md`</sub>
+
+### What travels with a deleted thing is DECLARED, because the foreign-key graph is incomplete
+
+**Decided.** The writer carries a hand-listed set of tables per kind — the row, its quote children, their tag joins, the tag and genre ROWS by name, `item_reviews` and `work_reads` — rather than walking `PRAGMA foreign_key_list`.
+
+**Why.** The FK walk is the obviously-robust choice and it silently loses data here. `item_reviews` is polymorphic `(kind, item_id)` and `work_reads` is `(kind, work_id)`; neither can hold a real foreign key to three parents, so both are cleared by AFTER DELETE TRIGGERS instead (0015, 0024, restated in 0029). A walk of the FK graph finds neither, and the restore that follows looks perfect: the book is back, the quotes are back, and a year of review history is quietly a new card. Nothing throws and nothing logs.
+
+Tags and genres travel by NAME as well as by id for a related reason: both outlive the rows that used them — a tag is managed vocabulary, and a genre is garbage-collected when its last work goes — so between the delete and the restore an id can be gone or belong to something else. The name is the stable thing.
+
+**Instead of** the FK walk, and this entry exists mostly to argue against it, because it is what the next person will reach for and for good reasons.
+
+**Approved.** Mine, on the strength of the verification rather than the plan: the plan said "follow the cascade edges rather than a hand-written list", and the schema disagreed.
+
+<sub>1.8.0 — `internal/httpapi/trash.go` · `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash_test.go` · `AI.md`</sub>
+
+### Ids are never reused, via an allocation floor rather than AUTOINCREMENT
+
+**Decided.** `id_floor(table_name, next_id)` is a high-water mark the create paths allocate above, for the five binnable tables. Nine create paths take an id explicitly; the three import loops take a block per batch. A restore raises the floor past everything it puts back.
+
+**Why.** `id INTEGER PRIMARY KEY` is a rowid alias, so SQLite hands out `max(rowid) + 1` — which reuses a freed id whenever the deleted row held the table's highest, and that is the common case rather than an edge one: you delete the thing you just added. A bin holding that row's snapshot then cannot put it back.
+
+The two alternatives were worse in opposite directions. AUTOINCREMENT is a column definition, so adding it means rebuilding five foreign-key parents with cascading children — precisely the migration class 0018 refused to attempt, and the most dangerous kind in this repo. Renumbering on restore means an id remap across every child row and join table, running on the one code path whose entire purpose is putting things back exactly as they were.
+
+It also closed a bug older than itself: `item_reviews` is keyed `(kind, item_id)` with no FK, so a reused annotation id inherited the deleted quote's half-life, review count and lapse count.
+
+**Instead of** "original id if free, a new one otherwise", which needs no migration and no create-path changes — and hands the id remap to the restore anyway, which is where it can do the most damage.
+
+**Reversal.** This settles the open question the plan left open, in favour of its own recommendation.
+
+**Approved.** Mine. The cost is a new subtlety on nine create paths, and the test is behavioural — create, delete, create, compare — because a test that asserted "the code calls nextID" would pass for a call that passes the wrong table name.
+
+<sub>1.8.0 — `internal/httpapi/id_floor.go` · `internal/httpapi/id_floor_test.go` · `internal/store/migrations/0031_trash.sql` · `CHANGELOG.md`</sub>
+
+### The retention sweep has no scheduler, and "never" is -1
+
+**Decided.** The purge runs once at boot and then at most once a calendar day, from whichever authenticated request is first after midnight — a date stamp in `settings`, checked in `requireAuth`. The window is a per-user preference of 7, 30, 90, or **-1** for never.
+
+**Why.** A ticker means a goroutine and a wakeup on a machine that is otherwise asleep, which is the frugality budget this whole app is built inside. It also means "30 days" would be a promise made by a program that is not running: a self-hosted box gets switched off, and thirty days OF THE APP BEING ALIVE is the honest reading.
+
+The stamp is written BEFORE the sweep, not after: two requests can arrive in the same millisecond after midnight, and the loser should do nothing rather than run a second concurrent sweep over the same rows.
+
+`-1` for never is the subtle half. Preferences are one JSON blob with defaults applied on read, so a field nobody has set unmarshals to 0 — if 0 meant "never", every account that predates the bin would read as never-expire and the purge would never run for any of them. 0 stays "not saying" on the way in too, so a client can PUT the whole preferences struct without knowing this field exists.
+
+**Instead of** a cron entry or a background goroutine (the budget), and instead of one instance-wide window (the setting is per person, so the sweep asks each owner).
+
+**Approved.** Mine, including the -1, which I would defend hardest: it is the difference between a feature that works on a fresh install and one that works on every install.
+
+<sub>1.8.0 — `internal/httpapi/trash.go` · `internal/httpapi/auth_handlers.go` · `cmd/tippani/main.go` · `internal/httpapi/trash_purge_test.go`</sub>
+
+### An account entry belongs to the admin who deleted it
+
+**Decided.** Deleting a member bins the account, its library, its vocabulary, its review history and its files as one entry in the DELETING ADMIN's bin. Restoring is admin-only and refuses with a 409 that names the clash when the username has been taken since. Sessions, device tokens and quiz sessions are the three user-owned tables deliberately not restored.
+
+**Why.** `trash.user_id` is whose bin a row sits in, and it cascades with that user — so an account entry in the deleted user's own bin would be removed by the same statement that made it necessary. Putting it in the admin's bin also puts it with the person allowed to undo it, so the ownership and the permission are one fact rather than two rules.
+
+The three exclusions are credentials or scratch: a session or a device token that out-survives the account it belonged to is a credential nobody chose to reissue, and pairing a phone again is one scan. A quiz session is a day's state.
+
+The table list is declared, like every other snapshot here, and the test that matters asks the SCHEMA for every table with a `user_id` column and fails when one is in neither list — because otherwise adding a table next release means a deleted account silently drops it, and the loss surfaces on a restore months later.
+
+**Approved.** Mine, and I approved the exclusions individually rather than as a category.
+
+<sub>1.8.0 — `internal/httpapi/trash.go` · `internal/httpapi/admin_handlers.go` · `internal/httpapi/trash_account_test.go`</sub>
 
 ## 4. What a Quote Is
 
@@ -3507,6 +3583,22 @@ Two mechanisms for explaining a control both widened the page and neither worked
 **Approved.** My call throughout, and refusing the escape hatch is the part I approved hardest: it is the polite-looking option that quietly makes the rule optional.
 
 <sub>post-1.4.0 — `web/frontend/src/greetings.js`</sub>
+
+### An actionable toast lives longer, and there is only ever one action
+
+**Decided.** `toast(msg, {label, onClick})` renders one action beside the message and extends the pill's life from 1.5s to 6s. There is no two-action form.
+
+**Why.** 1.5 seconds is one glance, which is right for news and useless for an offer: an Undo nobody can reach is decoration. Six is about how long it takes to read "deleted · Undo", decide, and move a hand — and the offer does not really expire when the pill goes, because the bin holds the thing for thirty days. The pill is the shortcut, not the safety net.
+
+One action, because a toast is a glance and a choice is a dialog. Two buttons in a pill that vanishes is a decision under a timer.
+
+`.toast` keeps `pointer-events: none` — it floats over the bottom of the screen where a tap belongs to the page underneath — so the action turns them back on for its own box only. That is the smallest hole that can be cut in it, and it is the kind of thing only a human tapping the button would find, so it is asserted against the stylesheet.
+
+**Instead of** a persistent snackbar with a dismiss, which is a second thing to close, and instead of no shortcut at all: Settings → The bin is two screens away from the mistake.
+
+**Approved.** Mine.
+
+<sub>1.8.0 — `web/frontend/src/ui.jsx` · `web/frontend/src/undo.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/undo-toast.test.jsx`</sub>
 
 ## 14. Boards, Cards, Charts and Popups
 

@@ -271,6 +271,19 @@ What that honestly does not cover:
   nobody would experience. The test that means anything is the one that seeds the
   *retired* key with the *old* value and asserts the switch still reads Off, which
   is the only version that can tell a default from a decision somebody made.
+- **The safest-looking way to walk a schema was the one that lost data.** The bin
+  snapshots a deleted thing and its whole subtree, and "follow the foreign keys"
+  is obviously the robust way to find that subtree — it cannot go stale, it needs
+  no list to maintain. Except that in this schema two of the tables that travel
+  with a quote have no foreign key at all: `item_reviews` is polymorphic
+  `(kind, item_id)` and `work_reads` is `(kind, work_id)`, and both are cleared by
+  AFTER DELETE triggers instead. An FK walk finds neither. The restore then works
+  perfectly: the book comes back, the quotes come back, and a year of
+  spaced-repetition history is silently a new card. Nothing throws, nothing logs,
+  and the person who notices is the person who had that history. The fix was to
+  declare the table list and write down, in the migration, why the obvious
+  approach is wrong — because the next person to touch it will reach for the FK
+  walk for exactly the same good reasons.
 - **A bug of omission needs a sweep, not a case.** Scrolling inside a popup also
   scrolled the page behind it. The fix is one CSS property, and the temptation is
   to add it to the popup that was reported — but the defect is not a wrong value

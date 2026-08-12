@@ -1,6 +1,20 @@
 # Plan — the bin: a 30-day undo for anything deleted
 
-**Target: 1.8.0. Ships first, and alone.**
+**SHIPPED in 1.8.0.** Kept as written, so the plan and what landed can be compared.
+Four things went differently, all recorded in `docs/PLAN.md` and in migration
+`0031_trash.sql`:
+
+1. The migration is **0031**, not 0030 — `0030_ancient_years.sql` landed first.
+2. **The subtree is not the foreign-key graph.** `item_reviews` and `work_reads`
+   carry no FK and are cleared by triggers, so an FK walk would silently drop the
+   review schedule and the read log. The writer carries a declared list instead.
+   The plan's "seven child tables" belonged to a schema that the 0018/0029
+   rebuilds had already changed.
+3. **The open question was settled as the allocation floor** (`id_floor`), as
+   recommended. Nine create paths allocate above a high-water mark; the import
+   loops take a block per batch.
+4. **"Never" is -1, not 0.** An unset preference unmarshals to 0, so 0 meaning
+   never would have turned the purge off for every account that predates the bin.
 
 Every delete in this app is final. There is no undo anywhere in it, and there
 never has been. That was tolerable while deleting meant one row at a time behind

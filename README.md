@@ -174,6 +174,18 @@ of that are spelled out in [`AI.md`](AI.md).
   colours and layout do not move, so what is left is the same app with the noise taken off. The
   textures are the whole point of the design and they are not free — the page grain is a fixed layer
   above *everything*, including every glyph and every input on the screen.
+- 🗑️ **A thirty-day bin** — every delete is recoverable. A book with all its quotes, a film
+  with its lines, one highlight on its own, or a whole account: each goes to the bin as a single
+  entry and comes back exactly as it was, with the same ids, the same tags and colours, the same
+  spaced-repetition history, and the cover picture too — which waits in a corner of the image store
+  rather than being thrown away. The toast right after a delete carries an **Undo**; **Settings →
+  The bin** is the slower way in, and lists what each entry is holding. Keep things for 7, 30 or 90
+  days, or never, and empty it yourself whenever you like.
+
+  It is a **snapshot**, not a `deleted_at` flag: the rows really are deleted, so no query, count,
+  stat, export or search anywhere in the app has to remember to exclude them. The clock only runs
+  while the server does — nothing expires on an instance that spends a fortnight switched off — and
+  there is no timer behind it, just a sweep on the first request of the day.
 - 🏷️ **Stickers** — a heart, a star and three faces come in the box; upload your own transparent
   PNG/SVG images beside them, manage the lot on the Tags page, and pin one to any quote as a seal
   the text flows around — drag it wherever you like within the block.
@@ -236,7 +248,8 @@ of that are spelled out in [`AI.md`](AI.md).
   granting is something you do to others, revoking is something you do to yourself. An admin can
   make any member an admin and can step down, and that is all — nobody can take another admin's
   rights away, and nobody can delete another admin's account either, because that would be the same
-  act with someone's whole library attached. Handing over is still one action each. The last
+  act with someone's whole library attached. Removing a member is itself undoable: the account and
+  everything in it goes to the deleting admin's bin, whole, for the retention window. Handing over is still one action each. The last
   remaining admin cannot step down, so an instance always has one.
   First-run admin onboarding; bcrypt + hashed-token sessions, stdlib CSRF, login rate limiting.
   Passwords are 8–20 characters of printable ASCII, which is narrower than it looks arbitrary: a
