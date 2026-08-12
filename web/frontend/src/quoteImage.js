@@ -19,6 +19,7 @@ const FONTS = {
   note: '400 22px "Caveat", cursive',
   tag: '600 11px "IBM Plex Mono", ui-monospace, monospace',
   foot: '600 14px "Newsreader", Georgia, serif',
+  credit: '500 11px "IBM Plex Mono", ui-monospace, monospace',
   bengali: '400 12px "Noto Serif Bengali", serif',
 }
 
@@ -32,7 +33,7 @@ export function ensureFonts() {
   }
   const faces = [
     'italic 27px "Newsreader"', '600 15px "Newsreader"', 'italic 15px "Newsreader"', '600 14px "Newsreader"',
-    '500 12px "IBM Plex Mono"', '600 11px "IBM Plex Mono"',
+    '500 12px "IBM Plex Mono"', '600 11px "IBM Plex Mono"', '500 11px "IBM Plex Mono"',
     '22px "Caveat"', '12px "Noto Serif Bengali"',
   ]
   return Promise.all(faces.map((f) => document.fonts.load(f).catch(() => {}))).then(() => {})
@@ -85,6 +86,71 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, rad)
   ctx.arcTo(x, y, x + w, y, rad)
   ctx.closePath()
+}
+
+// ---- the mark ---------------------------------------------------------------
+//
+// The app's own logo, DRAWN rather than loaded. public/mark.svg is same-origin
+// and an <img> would not taint the canvas, but it would make the one part of the
+// card that says where the picture came from the one part that needs a network
+// round-trip to be correct. The portraits can afford that — they arrive and the
+// card redraws — and a wordmark cannot: a PNG exported in the first half-second
+// would be the copy that goes out, with the brand missing from it.
+//
+// So it is geometry, in the SVG's own 256 viewBox coordinates: the speech bubble
+// and its tail, the two ৭-shaped quote glyphs, and the punch-card column down
+// the right edge. The gradients, the ink hairline and the displacement filter
+// that roughens the real file are all left out — none of them is legible at
+// 20px, and each would be a second definition of the logo to keep in step.
+const MARK_RED = '#B4482D' // mark.svg
+const MARK_RED_DARK = '#D8613D' // mark-dark.svg — lifted so it reads on a dark card
+const MARK_CREAM = '#F4EDDE'
+
+// drawMark paints the mark with its INK at (x, y) — not the SVG's canvas, which
+// carries ~1.7px of padding at this size and would leave the logo hanging off
+// the text column it is supposed to line up with. `size` still scales the 256
+// box, so the drawn shape is a little under `size` on both axes.
+//
+// Deliberately built from the same primitives the rest of this file uses
+// (roundRectPath, arc, a stroked line) rather than a Path2D or a transform, so
+// it draws on any 2D context the card already draws on.
+function drawMark(ctx, x, y, size, dark) {
+  const k = size / 256
+  const px = (v) => x + (v - 21.43) * k
+  const py = (v) => y + (v - 23.37) * k
+  ctx.save()
+  ctx.fillStyle = dark ? MARK_RED_DARK : MARK_RED
+  roundRectPath(ctx, px(21.43), py(23.37), 213.14 * k, 178.04 * k, 44.51 * k)
+  ctx.fill()
+  // The tail, which is what makes it a speech bubble rather than a rounded
+  // rectangle. Drawn as its own triangle overlapping the body, so the two never
+  // need a seam painted between them.
+  ctx.beginPath()
+  ctx.moveTo(px(84), py(190))
+  ctx.lineTo(px(128), py(190))
+  ctx.lineTo(px(78), py(229))
+  ctx.closePath()
+  ctx.fill()
+  // The two quote glyphs: a bowl with a flick off its shoulder.
+  ctx.fillStyle = MARK_CREAM
+  ctx.strokeStyle = MARK_CREAM
+  ctx.lineWidth = 13 * k
+  ctx.lineCap = 'round'
+  for (const cx of [72, 152]) {
+    ctx.beginPath()
+    ctx.arc(px(cx), py(128), 31 * k, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.moveTo(px(cx + 13), py(104))
+    ctx.lineTo(px(cx + 6), py(74))
+    ctx.stroke()
+  }
+  // The punch-card column down the right edge.
+  for (const ry of [45.39, 82.72, 120.05, 157.38]) {
+    roundRectPath(ctx, px(197.24), py(ry), 22 * k, 22 * k, 6.8 * k)
+    ctx.fill()
+  }
+  ctx.restore()
 }
 
 // flowRuns lays a sequence of {text, font} runs onto lines that fit maxWidth,
@@ -353,7 +419,8 @@ export function buildModel(share, selected, colorHex) {
 // Line heights + tag metrics, shared by the measure and draw phases.
 const QLH = 38, ALH = 23, MLH = 19, NLH = 28
 const TAG_H = 24, TAG_PADX = 10, TAG_GAP = 7
-const FOOTER_H = 34 // hairline + wordmark block
+const FOOTER_H = 34 // hairline + the mark/credit block
+const MARK_SIZE = 20 // the logo's box in the footer; its drawn shape fills ~80%
 const FACE_SIZE = 34, FACE_MAX = 5 // credit portraits: disc size + how many fit
 
 // facesOnAttribution says WHICH LINE a credit's portraits hang beside: the
@@ -669,7 +736,19 @@ export function drawQuoteCard(canvas, model, theme) {
     top += b.height
   })
 
-  // footer: hairline + wordmark, pinned to the bottom of the card
+  // The footer: a hairline, then the mark, "made with" and the wordmark, all
+  // pinned to the bottom-left of the card.
+  //
+  // It used to be the word "tippani" and nothing else, which names the app to
+  // somebody who already knows it and reads as a signature to everybody else.
+  // The mark is what makes it attribution — a picture of a quote is exactly the
+  // kind of thing that travels with its source cropped off — and "made with"
+  // is what makes it a credit rather than a claim on the words above it, which
+  // belong to whoever said them.
+  //
+  // Bottom-left, one line, in --faint: the same corner and the same volume the
+  // wordmark already had. Louder branding on a card somebody is about to post
+  // is branding they crop out.
   const footTop = M + cardH - CP - FOOTER_H + 10
   ctx.strokeStyle = hexToRgba(theme.ink, film ? 0.18 : 0.12)
   ctx.lineWidth = 1
@@ -677,12 +756,18 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.moveTo(innerX, footTop)
   ctx.lineTo(innerX + innerW, footTop)
   ctx.stroke()
+  const base = footTop + 21
+  drawMark(ctx, innerX, base - MARK_SIZE + 4, MARK_SIZE, theme.dark)
+  let fx = innerX + MARK_SIZE + 7
   ctx.fillStyle = theme.faint
   ctx.textBaseline = 'alphabetic'
+  ctx.font = FONTS.credit
+  ctx.fillText('made with', fx, base)
+  fx += ctx.measureText('made with').width + 6
   ctx.font = FONTS.foot
-  ctx.fillText('tippani', innerX, footTop + 20)
-  const wm = ctx.measureText('tippani').width
+  ctx.fillText('tippani', fx, base)
+  fx += ctx.measureText('tippani').width + 8
   ctx.font = FONTS.bengali
-  ctx.fillText('টিপ্পনী', innerX + wm + 8, footTop + 19)
+  ctx.fillText('টিপ্পনী', fx, base - 1)
   setHalo(ctx, theme, false)
 }
