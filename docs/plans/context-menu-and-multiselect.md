@@ -1,5 +1,11 @@
 # Plan — right-click actions, and multiselect, on works and quotes
 
+**ALL THREE PARTS SHIPPED** — parts 1 and 2 in 1.9.0, part 3 (multiselect and
+bulk delete) in 1.10.0, on quote cards. Work-card selection and the work-card
+context menu are the one piece deliberately left: the Library and Catalogue boards
+show a work rather than a quote, and their bulk endpoints already have a home on the
+search screen.
+
 **PART 1 AND PART 2 SHIPPED in 1.9.0** — the action registry, the generalised
 menu, the gesture, and the two bulk-endpoint commits (8 and 9), which the plan
 itself notes are independent of everything above them.

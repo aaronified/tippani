@@ -64,6 +64,7 @@ const SHELL_TOUCH = [
 const SHELL_POINTER = [
   { term: 'Tab strip', what: 'Every screen, always visible in the top bar: Home, Library, Catalogue, then the tools — Tags, Metadata, Stats, Settings. It collapses to icons when the window is too narrow for the labels, and each one names itself on hover.' },
   { term: 'Hover labels', what: 'Every glyph-only control says what it is when you hover or tab to it, in a small bubble anchored to the control itself.' },
+  { term: 'Selecting several', what: 'Tick the box in a quote card’s corner, Ctrl-click (Cmd on a Mac) any card, or choose Select from the card’s own menu. A bar appears with what you can do to all of them: recolour, add tags, favourite, or delete. Shift-click extends the selection over the order the cards are in on screen. While anything is selected a plain click picks a card instead of opening it — click the last one off and it goes back to normal. Changing a filter drops whatever left the screen, so the number in the bar is always a number it can act on. Deleting a selection asks you to type what it will do, and then the whole lot goes to the bin as one entry with one Undo.' },
   { term: 'Right-click a card', what: 'A quote card answers a right-click with its own menu — copy, share, edit, delete — opened where you pressed. Shift+F10 or the Menu key does the same from the keyboard, and Escape closes it and hands focus back. If you have selected text inside the card, the browser’s own menu wins instead: you wanted Copy, or Look Up, and those are not ours to take away.' },
 ]
 

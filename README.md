@@ -174,6 +174,11 @@ of that are spelled out in [`AI.md`](AI.md).
   colours and layout do not move, so what is left is the same app with the noise taken off. The
   textures are the whole point of the design and they are not free — the page grain is a fixed layer
   above *everything*, including every glyph and every input on the screen.
+- ☑️ **Multiselect on quotes** — tick a card, Ctrl-click one, or pick Select from its menu, and a
+  bar appears offering the lot: recolour, add tags, favourite, delete. Shift-click extends over the
+  order on screen, a plain click picks rather than opens while the mode is up, and changing a filter
+  drops whatever left the screen — the count in the bar is always a count it can act on. Deleting a
+  selection asks you to type what it will do, then goes to the bin as one entry with one Undo.
 - 🖱️ **A menu on every quote** — right-click a card, or hold it for half a second on a phone, or
   press Shift+F10, and the card's own actions open where you pressed: copy, share, edit, delete. It
   is the same list the buttons on the card offer, from one registry, so the two cannot drift apart.

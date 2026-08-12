@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and sixty-nine entries, grouped by what they are about
+changed my mind. Four hundred and seventy-two entries, grouped by what they are about
 rather than by when they happened.
 
 **Everything in this document was approved by me.** That statement covers every entry
@@ -4069,6 +4069,52 @@ Both directions are tested because both fail silently and oppositely: matching n
 **Approved.** Mine, and I approved the table over the string swap specifically because the swap is the version that looks fine in review.
 
 <sub>1.9.0 — `internal/httpapi/bulk_handlers.go` · `internal/httpapi/bulk_quotes_test.go` · `internal/httpapi/capabilities_handler.go`</sub>
+
+### A selection drops what leaves the screen, rather than clearing or persisting
+
+**Decided.** `useSelection(orderedIds)` holds picked ids against the board's own visible list. When that list changes it removes ids that are no longer in it, keeps the rest, and clears the kind when nothing is left. One kind at a time — picking a second kind replaces the selection. Nothing is persisted across a reload.
+
+**Why.** The bar says "12 selected" and then acts on twelve things, so the number has to be one it can act on. Select thirty quotes, change the colour filter, and the ids that left the screen are things nobody can check any more — the bin makes acting on them recoverable, it does not make it honest.
+
+Clearing the WHOLE selection on any list change is the blunter rule and it is wrong for the commonest case: a board refetching itself after a patch, where every id is still there. Every bulk action reloads, so that rule would wipe the selection each action just used, and bulk editing would be impossible.
+
+One kind, because search shows books and quotes in one view and a selection spanning both has no coherent action — you cannot set a series on a quote.
+
+**Instead of** persisting a selection. Resuming one after a reload is a way to act on a library that changed while you were away.
+
+**Approved.** Mine.
+
+<sub>1.10.0 — `web/frontend/src/selection.jsx` · `web/frontend/test/dom/selection.test.jsx`</sub>
+
+### Select is the first item in the card's own menu
+
+**Decided.** Three ways in: the checkbox in a card's corner, Ctrl/Cmd-click anywhere on it, and `Select` at the top of the context menu. Once a selection exists a plain click toggles instead of opening.
+
+**Why.** The menu entry is what makes the context menu and multiselect one feature rather than two: the gesture that asks "what can I do to this" is also how you start doing it to several. It is also the only entry point that works identically on a phone, where long-press-to-select would collide with long-press-for-menu — and the menu wins that collision, because it is the more general gesture and it contains the selection entry anyway.
+
+The click changing meaning is the risky part, and it is legible rather than modal-by-stealth: the bar is up, the cards wear checkboxes and an accent ring. Clicking the last one off leaves the mode, so it needs no Cancel.
+
+**Instead of** a Select-mode toggle in the toolbar as the primary door. It is a mode you have to find and then leave; the checkbox and Ctrl-click are things you already know.
+
+**Approved.** Mine.
+
+<sub>1.10.0 — `web/frontend/src/Library.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/selection-cards.test.jsx`</sub>
+
+### A deleted selection is ONE bin entry, behind a phrase counting what will go
+
+**Decided.** Bulk delete writes a single `trash` row of kind `selection` (migration 0032) holding every row from every item. It requires a typed phrase — "delete 3 quotes" — checked on the server, and the count in that phrase is the count of items the caller actually OWNS.
+
+**Why.** Forty-one entries for one act would be a wall of rows in the bin for a single decision, and undoing it would mean forty-one restores that can each half-fail. One entry makes it one Undo, and the restore needed no new code: it walks the payload's tables in foreign-key order, and a payload holding forty annotations is the same shape as one holding a single annotation.
+
+The phrase counts the OWNED items because otherwise a selection containing one id that is not yours would refuse every phrase a reader could possibly type, with no way to find out why. That is the kind of dead end that reads as a broken feature.
+
+A typed confirmation for something the bin makes recoverable looks like belt and braces. It is not: this is the only path in the app that removes many things at once, the friction is the point, and it is unreachable by any gesture.
+
+**Instead of** rebuilding nothing and packing selections into the existing `book`/`quote` kinds, which would have meant a bin row that lies about what it holds. The rebuild is safe here specifically because `trash` is a leaf: nothing references it, and its only foreign key points out at `users`.
+
+**Approved.** Mine, and I approved shipping it only after the bin.
+
+<sub>1.10.0 — `internal/store/migrations/0032_trash_selection.sql` · `internal/httpapi/trash.go` · `internal/httpapi/bulk_handlers.go` · `internal/httpapi/bulk_delete_test.go` · `web/frontend/src/SelectionBar.jsx`</sub>
 
 ## 15. Appearance as Material: Skins, Texture, Type and Colour
 

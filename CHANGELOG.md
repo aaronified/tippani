@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-08-13
+
+### Added
+
+- **Select several quotes and act on all of them.** On the Quotes screen: tick the
+  box in a card's corner, **Ctrl/Cmd-click** any card, or pick **Select** from the
+  card's own menu — then a bar appears with what you can do to the lot. Recolour
+  them, add tags, favourite them, or delete them. **Shift-click** extends the
+  selection over the order they are in on screen.
+
+  Once something is selected, a plain click on a card picks it instead of opening
+  it. The mode is visible — the bar is up, the cards wear checkboxes and an accent
+  ring — and clicking the last one off leaves it again, so there is no mode to get
+  stuck in.
+
+  **The count cannot lie.** Change a filter and the selection drops the quotes that
+  left the screen, because a bar offering to act on twelve things has to be holding
+  twelve things you could still look at.
+
+- **Deleting a selection**, which is the one action here that asks first. It names
+  the count and the kind and waits for you to type it — *delete 3 quotes* — and
+  then the whole selection goes to the bin as **one entry with one Undo**, rather
+  than forty entries and forty restores. It cannot be reached by a gesture: only by
+  selecting, pressing Delete in the bar, and typing the phrase.
+
 ## [1.9.0] - 2026-08-13
 
 ### Added
