@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and fifty-two entries, grouped by what they are about
+changed my mind. Four hundred and fifty-six entries, grouped by what they are about
 rather than by when they happened.
 
 **Everything in this document was approved by me.** That statement covers every entry
@@ -898,6 +898,22 @@ Three kinds of quote — a book highlight, a screen line, and one belonging to n
 
 <sub>0.x — `internal/store/migrations/0009_sticker_pos.sql` · `internal/store/migrations/0011_stickers.sql`</sub>
 
+### Five starter stickers, seeded as ordinary rows and backfilled once per instance
+
+**Decided.** A heart, a star and three faces ship as embedded SVGs. On account creation — and once, at boot, for accounts that predate the feature — each is copied into that user's own `MediaCover` store with `StoreImage` and inserted into `stickers` exactly like an upload. They are indistinguishable from uploads afterwards: renameable, deletable, served by the cover route, carried in a backup, removed with the user. The backfill is guarded by the `seeded_stickers_v1` key in `settings`.
+
+**Why.** The feature shipped upload-only, so the first thing it asked of a new reader was to go and find a transparent PNG. Five in the box means a seal can be pinned to a quote in the first minute, which is the only way anybody finds out what the seal *is*.
+
+The reason they are ordinary rows rather than built-in ids is the count of places that would otherwise need a branch: the cover serve route, the picker, rename, delete, the annotation/dialogue foreign key, user deletion, and the backup archive. A negative or reserved `sticker_id` would have bought a few kilobytes per account and cost a special case in every one of them, each of which is a place to forget it.
+
+The flag is the whole safety argument for the backfill. Without it the sweep runs on every boot, and a starter sticker somebody deliberately deleted is back after the next restart — a bug that reads as the app not saving anything, and one nobody would report as a sticker bug. The flag is set even where an individual copy failed: a full disk or a read-only volume does not clear up by being retried a thousand times, and `TIP-STICKER-002` is the honest signal instead.
+
+**Instead of** a store migration. Migrations run against the database alone, and this writes image files into the cover store — that is the server's business, not the schema's, and a migration that needed `DataDir` would be the first one to know where the data directory is.
+
+**Approved.** Mine, including the choice to seed rather than to ship a built-in kind.
+
+<sub>1.7.9 — `internal/httpapi/seed_stickers.go` · `internal/httpapi/assets/stickers/` · `internal/httpapi/auth_handlers.go` · `internal/httpapi/admin_handlers.go` · `cmd/tippani/main.go` · `internal/httpapi/seed_stickers_test.go` · `CHANGELOG.md`</sub>
+
 ### Per-user UI preferences are one JSON blob; app-wide settings are their own table
 
 **Decided.** Migration 0005 adds `users.preferences TEXT NOT NULL DEFAULT '{}'` and a separate `settings(key, value)` table.
@@ -1393,6 +1409,22 @@ That was sound about the id and wrong about the search that produces it: it defe
 **Why.** "Try again in a moment" is false when the answer is that the credential is wrong, and it costs the reader an afternoon of retrying. So TMDB's 401 says a v4 token starts with `ey` and asks for the v3 API key, since pasting the wrong one of the two is the actual mistake people make. Google's quota case says whether *your* key was rejected or the shared free quota is exhausted, and gives the one-step remedy for each. The client still never sees a provider's raw error — that goes to the log with the ISBN and title — because a provider message is not written for this reader. My decision, and it is the same principle as the 404-not-403 rule pointed the other way: say what is true and useful, not what is safe and empty.
 
 <sub>`internal/httpapi/lookup_handlers.go` · `internal/metadata/tmdb.go` · `internal/metadata/tvdb.go`</sub>
+
+### A status chip appears only where there is something to say, and "working" is silence
+
+**Decided.** The chip row under Metadata sources carries a chip for a failed book lookup, for one not yet attempted since this server started ("Untested"), and for TMDB running on the shared built-in key or on no key at all. A working lookup produces **no chip**, and the row itself is not rendered when both are absent.
+
+**Why.** The chip had three states and one of them was "OK". A badge that is present exactly when there is nothing to do about it, and absent the moment there is, teaches the reader to look at a place that is empty in every case that matters — and it spends a row under the heading to say so. Silence is the healthy state; the heading's info dot explains that, so the absence is documented rather than merely quiet.
+
+Dropping the whole row rather than leaving an empty flex box is the smaller half of the same point: a gap under a heading reads as a missing element, not as nothing to report.
+
+**Instead of** keeping "OK" and toning it down — grey instead of green, or smaller. Rejected because the objection is not that it is loud, it is that it carries no information.
+
+**Instead of** dropping "Untested" with it. That one *is* information a key field cannot give: whether anything has been tried since the process started, which is the difference between "your key is fine" and "nobody has asked yet".
+
+**Approved.** Mine — I raised the chip as serving no purpose.
+
+<sub>1.7.9 — `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/settings-key-field.test.jsx` · `CHANGELOG.md`</sub>
 
 ### Covers are downloaded once and served locally, never hotlinked
 
@@ -2582,6 +2614,22 @@ An export whose own re-import loses or duplicates data is not an export, so roun
 
 <sub>`web/frontend/src/share.jsx` · `web/frontend/src/quoteImage.js`</sub>
 
+### The image's credit is the mark plus "made with", and the mark is drawn rather than loaded
+
+**Decided.** The footer of a shared card carries, bottom-left, in `--faint`: the Tippani mark, the words "made with", the wordmark and the Bengali wordmark. The mark is **canvas geometry** — the bubble, its tail, the two ৭ glyphs and the punch-card column, in `mark.svg`'s own 256 coordinates — not an `<img src="/mark.svg">`.
+
+**Why.** A picture of a quote is the one artefact this app makes that leaves it, and by the third re-post nothing travels with it except what was painted in. "tippani" alone named the app to somebody who already knew it, and to everybody else it read as a signature under words that belong to whoever said them; "made with" is what makes it a credit rather than a claim.
+
+Drawn rather than loaded because `mark.svg` is a *fetch*, and it would make the one part of the card that says where the picture came from the one part that needs a network round-trip to be correct. The portraits can afford that — they arrive and the card redraws — and a wordmark cannot: the PNG exported in the first half-second is the copy that goes out. Same-origin and untainted was never the problem; being late was. The gradients, ink hairline and displacement filter in the real file are left out, because none of them is legible at 20px and each would be a second definition of the logo to keep in step.
+
+The mark keeps the brand's red — lifted to `#D8613D` on a dark card — rather than taking `theme.accent` like every other coloured thing on the canvas. A blue tippani logo is not the tippani logo, and since the accent is the natural thing to reach for here, that is what the test asserts.
+
+**Instead of** louder branding: a corner badge, a bottom bar, the mark at 40px. Rejected on the same reasoning that put it bottom-left in `--faint` to begin with — branding somebody is about to post is branding they will crop.
+
+**Approved.** Mine. I asked for the logo and for it to stay unobtrusive, and picked the corner.
+
+<sub>1.7.9 — `web/frontend/src/quoteImage.js` · `web/frontend/src/help.jsx` · `web/frontend/test/dom/quote-image-brand.test.jsx` · `CHANGELOG.md`</sub>
+
 ### One class of client forced a server route: Android WebView has no Web Share, and a blob URL is revoked mid-save
 
 **Decided.** Try `navigator.share` first. On mobile without it, POST the PNG to `/share/image` and navigate to the returned URL. The last-resort blob anchor revokes its object URL after 60 seconds, not immediately.
@@ -3298,6 +3346,8 @@ Two mechanisms for explaining a control both widened the page and neither worked
 
 **Approved.** Mine, and `del` is the detail I approved recording, because it is the smallest possible evidence that nobody was applying a rule.
 
+**Reversal.** The rule stands; the fix described here did not go far enough. Making both breakpoints draw *glyphs* left them drawing glyphs in different **places** — three inline on a desktop, one ⋯ on a phone. 1.7.9 collapsed that too: see "A card's row is ♥ · copy · share · colour, then a ⋯ holding edit and delete" in §14.
+
 <sub>1.6.0 — `CHANGELOG.md`</sub>
 
 ### One glyph per meaning at one stroke weight, with the nav's private icon set deleted and duplicates caught by geometry comparison
@@ -3532,7 +3582,31 @@ A popup that places itself in CSS is correct exactly once, and a board that re-p
 
 **Why.** A resting board should show quotes, not a control panel per quote — a hundred cards each wearing share, edit, delete and six colour dots is a screen of buttons with some text in it. Opacity rather than `display: none` is the load-bearing choice: the cluster keeps its layout box, so revealing it never changes the card's height and therefore never re-packs the masonry under the pointer. Keyboard users tabbing into the hidden buttons trip `:focus-within`, which reveals and re-enables them, so the disclosure is not an accessibility trap. Mine.
 
+The class is `.card-tools` since 1.7.9, holds copy and share, and is revealed on a phone too — see the entry below.
+
 <sub>`web/frontend/src/index.css`</sub>
+
+### A card's row is ♥ · copy · share · colour, then a ⋯ holding edit and delete
+
+**Decided.** Every quote card — a book annotation, a film dialogue, a Home favourite tile — lays out the same row: the favourite ♥, then `QuoteTools` (copy, share), then the colour quick-pick, then `QuoteActions`, which is now a ⋯ overflow containing edit and delete **at every width**. The table views' action cell carries the same four, laid flat. `.card-tools` (was `.card-actions`) is hover-gated on a pointer and standing on a phone, like `.card-colors` beside it.
+
+**Why.** Copy did not exist, and share was one line inside the ⋯. Both are the wrong way round. A menu is the right home for an action you take rarely and think about first, and the wrong home for the thing a commonplace book is *for*: getting a line you kept into a message. Before this, that was open the share sheet → pick a format → press copy → close, four acts to paste one sentence.
+
+Edit and delete going the other way is the same argument read backwards. They change or destroy what somebody wrote down, so they should not be reachable by a sweep of the pointer — and they were the two that most wanted to stop being drawn differently per breakpoint.
+
+`copyQuote` reads its field ticks from `shareDefaults`, the same function the dialog opens with, so a copied quote carries its author and holds back the page number exactly as the sheet would. It writes **plaintext**, not the sheet's WhatsApp default: somebody who opened the sheet is choosing where the quote is going, and somebody who tapped a glyph on a card is not, so asterisks would land as asterisks everywhere but one app.
+
+**Instead of** adding copy to the ⋯ alongside share, which is the smaller diff and keeps the resting card at ♥ plus one glyph. Rejected because it puts the app's two most repeated actions behind the affordance meant for its two rarest, which is the thing that was already wrong.
+
+**Reversal.** This replaces the desktop half of the decision above it, and the branch the entry in §13 describes.
+
+> **`QuoteActions` draws share · edit · delete inline on desktop and folds the same three behind a ⋯ on a phone.** A card's actions are hidden until the card is hovered; a phone has no hover, so the three become one overflow glyph.
+
+The glyph-not-words half of that was right and stands. The two-layouts half was defended in §13 as *fixing* an inconsistency — the same control naming its actions differently by window width — and it left the weaker version of the same fault in place: the same control *placing* its actions differently by window width. One row now, at every width.
+
+**Approved.** Mine. I asked for the row in this order.
+
+<sub>1.7.9 — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/src/Library.jsx` · `web/frontend/src/Movies.jsx` · `web/frontend/src/Home.jsx` · `web/frontend/src/share.jsx` · `web/frontend/test/dom/card-actions.test.jsx` · `CHANGELOG.md`</sub>
 
 ### Quotes expand on click, and overflow is measured rather than guessed
 

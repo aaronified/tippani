@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.9] - 2026-08-12
+
+### Added
+
+- **A copy button on every quote card, and share out of the ⋯ menu.** The row
+  under a quote now reads ♥ · copy · share · colour on the left, with a single ⋯
+  on the right holding edit and delete. Copy did not exist before, and share was
+  a line inside that menu — which meant getting a line you had saved into a
+  message was four acts: open the share sheet, pick a format, press copy, close.
+
+  Copy writes the quote and its credit as plain text — no markdown, no
+  asterisks, nothing to strip out at the other end — and it reads the same field
+  choices the share sheet opens with, so it carries the author and holds back
+  the page number and the save-date exactly as the sheet would. The two cannot
+  drift; they are the same function.
+
+  Edit and delete went the other way. They were three inline glyphs on a desktop
+  and a ⋯ menu on a phone — the same control putting the same actions in two
+  different places depending on the width of the window — and they are the two
+  that change or destroy what you wrote down, so a sweep of the pointer should
+  not reach either. One overflow now, at every width.
+
+  The same row, in the same order, on a book annotation, a film dialogue and a
+  Home favourite tile; the table views get the same four laid flat in their
+  action cell.
+
+- **Five stickers in the box.** A heart, a star and three faces — smile, wink,
+  sad — arrive with the app, so pinning a seal to a quote no longer starts with
+  going to find a transparent PNG somewhere. **Existing accounts get them too**,
+  once, on the first start after this upgrade.
+
+  They are ordinary stickers, not built-ins: rename them, or delete the ones you
+  will never use and they stay deleted — including through the next restart,
+  which is the half of this that needed the most care. They are copied into your
+  own image store, so they leave with a deleted account and travel inside a
+  backup archive like anything you uploaded yourself.
+
+### Changed
+
+- **A shared quote image signs itself.** The footer was the word "tippani" and
+  nothing else, which names the app to somebody who already knows it and reads
+  as a signature under words that belong to whoever said them. It now carries
+  the Tippani mark, then "made with", then the wordmark — bottom-left, one line,
+  in the same faint ink and the same corner as before, because branding on a
+  picture you are about to post is branding you would crop.
+
+  A picture of a quote is the one thing this app makes that leaves it, and by
+  the third re-post nothing travels with it except what was painted in. The mark
+  is *drawn* on the canvas rather than loaded from the app's icon file: an image
+  file is a fetch, and the copy of the PNG that goes out is often the one
+  exported half a second after the panel opened, before a fetch would have
+  landed.
+
+- **The "OK" chip under Metadata sources is gone.** It had three states and one
+  of them said everything was fine. A badge that is only there when there is
+  nothing to do about it teaches you to check a spot that is empty in every case
+  that matters, and spends a row saying so. Silence is the healthy state now; a
+  chip means a lookup failed, or that none has been tried since the server
+  started, or that films are running on the shared built-in key or on no key at
+  all. The heading's info dot says as much, and the row itself disappears when
+  there is nothing to report.
+
 ## [1.7.8] - 2026-08-12
 
 ### Added
