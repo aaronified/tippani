@@ -1231,6 +1231,22 @@
     box-shadow: 0 0 0 2px var(--accent-ui), 0 10px 24px -18px rgba(0, 0, 0, .5);
   }
 
+  /* The line above the sign-in box. Display italic and --faint: it is an epigraph,
+     which is to say it is there to be read once and then ignored, and anything
+     louder would compete with the one control on the screen. Centred because the
+     whole login block is, and max-width in CH rather than px so the measure follows
+     the type size rather than the viewport. */
+  .login-epigraph {
+    margin: 10px auto 0;
+    max-width: 34ch;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--faint);
+  }
+
   /* The bar a selection puts up.
      STICKY, and that is the feature rather than a flourish: selecting forty things
      and scrolling to check one of them must not lose the controls, and the count is

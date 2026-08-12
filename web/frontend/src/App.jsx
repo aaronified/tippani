@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Home, { tzOffsetMinutes } from './Home.jsx'
+import { pickEpigraph } from './epigraphs.js'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
@@ -418,6 +419,9 @@ function Login({ onLogin }) {
   useEffect(() => {
     applyTheme({ aesthetic: 'film', theme: 'dark' })
   }, [])
+  // Picked once per mount rather than per render: re-rolling on every keystroke
+  // would make the line flicker while somebody types their password.
+  const [epigraph] = useState(pickEpigraph)
   const base = useFrameBase()
   return (
     <main
@@ -435,6 +439,13 @@ function Login({ onLogin }) {
                 <img src="/mark-dark.svg" alt="" width="44" height="44" className="mx-auto mb-3" />
                 <div className="wordmark" style={{ fontSize: 22 }}>tippani</div>
                 <p className="bengali text-sm" aria-hidden="true">টিপ্পনী</p>
+                {/* A locked door, and this app's subject is the sentence somebody
+                    kept — so it opens with one, and a different one each visit.
+                    Unattributed and written for the app: a login screen has no
+                    session to fetch a library with, and a bundled list of famous
+                    quotes is a bundled list of attributions from memory. See
+                    epigraphs.js. */}
+                <p className="login-epigraph">{epigraph}</p>
               </>
             }
             action="/auth/login"

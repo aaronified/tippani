@@ -286,6 +286,7 @@ The shared modules do:
 | `undo.jsx` | One delete-with-Undo helper, so the seven screens that delete something cannot each forget the offer. |
 | `actions.jsx` | The one list of what can be done to a quote, per kind, and where each action sits. Read by the card row, the ⋯ overflow and the bulk bar, so they cannot offer different sets. |
 | `selection.jsx` · `SelectionBar.jsx` | Which cards are picked, and the sticky bar that acts on them. The hook drops ids that leave the visible list, so the count it reports is a count it can act on. |
+| `greetings.js` · `epigraphs.js` | The two pools of bundled copy — Home’s greeting and the login screen’s epigraph — each with a rule about what may go in it. |
 | `secret.js` | Password and passphrase rules, plus the backup header layout — **parsed by fixed byte offset against a Go-defined struct**, so the two must change together. |
 | `greetings.js` | The date line and greeting on Home, from the device's own clock and zone. |
 | `index.css` | The whole stylesheet: tokens, the paper/film material system, every component recipe the JSX names by class, and the mobile layout. |
