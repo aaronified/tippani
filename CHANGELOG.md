@@ -5,9 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.11.0] - 2026-08-13
 
 ### Added
+
+- **The next quote starts where the last one left off.** Six quotes off one page of
+  one book used to be six full re-entries. A capture now remembers what it used: the
+  same colour and the same tags with no expiry, and the same **work for half an
+  hour** — long enough that you are still holding the book, short enough that
+  tomorrow's quote cannot be filed under yesterday's. The picker shows the work it
+  chose, so it is never silent about it, and the words themselves never carry over.
+
+- **What the installed app gets from its own icon.** Long-press it for **Capture a
+  quote**, **Daily quiz** or **Pending imports**. Tap a `.md`, a `My Clippings.txt`
+  or a Bookcision `.json` in your file manager and it opens straight into import
+  staging, in the window you already have. And the icon carries a badge of cards due
+  plus imports waiting — set when the app loads, because nothing here wakes up on
+  its own.
+
+- **The login screen opens with a line.** A different one each visit. They are
+  unattributed and written for the app on purpose: a login screen has no session to
+  fetch your library with, and a bundled list of famous quotes is a bundled list of
+  attributions from memory — which is the last thing an app about quoting people
+  accurately should put on its front door.
 
 - `GET /search/vocabulary` — the tags, genres, series, authors, directors, actors,
   speakers, shelf states and named colour categories a reader's own library uses.
