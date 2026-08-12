@@ -4270,14 +4270,26 @@ export function MoreMenu({ items }) {
 // QuoteActions draws on a card, so they are now the same three drawings, and the
 // cell is narrower than it was with the words in it.
 //
-// Kept separate from QuoteActions rather than shared, because the two differ in
-// the thing that matters: a card's actions are hidden until the card is hovered
-// (progressive disclosure — the resting card sheds its button row), and a table
-// row's are a column that must always be there or the column is empty. Merging
-// them would mean a prop that turns the entire behaviour off.
-export function TableActions({ onShare, onEdit, onDelete, noun = "row" }) {
+// Kept separate from QuoteActions/QuoteTools rather than shared, because they
+// differ in the thing that matters: a card's actions are hidden until the card is
+// hovered (progressive disclosure — the resting card sheds its button row) and
+// fold edit and delete into a ⋯, and a table row's are a column that must always
+// be there or the column is empty. Merging them would mean a prop that turns the
+// entire behaviour off.
+//
+// The SET is still the same set, and that part does have to stay in step: a
+// table row offers copy, share, edit and delete because that is what the card
+// beside it offers, just laid flat in a cell that has the width for it.
+export function TableActions({ onCopy, onShare, onEdit, onDelete, noun = "row" }) {
   return (
     <span className="flex items-center justify-end gap-1">
+      {onCopy && (
+        <Tooltip label={`Copy this ${noun}`}>
+          <button type="button" className="field-icon-btn tactile" aria-label="Copy" onClick={onCopy}>
+            <IconCopy />
+          </button>
+        </Tooltip>
+      )}
       {onShare && (
         <Tooltip label={`Share this ${noun}`}>
           <button type="button" className="field-icon-btn tactile" aria-label="Share" onClick={onShare}>
@@ -4335,39 +4347,32 @@ export function CloseButton({ onClick, label = "Close", tooltip, disabled = fals
   )
 }
 
-// QuoteActions — the share · edit · delete cluster on a quote card (§7
-// declutter: progressive disclosure). At rest a card shows only its primary
-// mark (the favourite ♥, rendered by the caller); these secondary actions stay
-// out of the way until wanted. On desktop they sit inline and fade in when the
-// card is hovered or focused (the `.card-actions` CSS keys off the card's
-// :hover / :focus-within); on a phone (no hover) they fold behind a single ⋯
-// overflow so the resting card sheds its standing button row either way.
-// `alwaysVisible` pins them on regardless — used where a card stands alone (the
-// search quote modal) rather than in a masonry a pointer sweeps across.
+// QuoteTools — copy · share, the two things you do WITH a quote rather than TO
+// it, sitting beside the favourite ♥ at the left end of a card's action row.
 //
-// The desktop branch draws the same three glyphs the phone's ⋯ menu has always
-// drawn, rather than the words `share` `edit` `delete`. That was the one place
-// in the app where the SAME component named its actions two different ways
-// depending on the width of the window, and the mobile branch had already
-// settled which glyph each action wears. Each is a 34px .field-icon-btn — these
-// sit inside a card row, which is what the dense size is for — with a Tooltip
-// and an aria-label, so nothing is lost to a pointer, a keyboard or a reader.
+// Both were once one entry in the ⋯ overflow (share) and nothing at all (copy).
+// A menu is the right home for an action you take rarely and think about first:
+// editing a quote, deleting one. It is the wrong home for the two that are the
+// whole point of keeping quotes — a line you saved to send to somebody is a
+// line you send, and behind two taps it stops being worth saving.
 //
-// Not words on desktop and glyphs on a phone: the three appear once per card in
-// a grid of cards, which is the definition of a repeated action, and a repeated
-// action is a glyph you learn once. The ones that keep their words are the
-// one-off and the irreversible.
-export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false }) {
-  const mobile = useIsMobileScreen();
-  if (mobile) {
-    const items = [];
-    if (onShare) items.push({ icon: <IconShare />, label: "Share", onClick: onShare });
-    if (onEdit) items.push({ icon: <IconEdit />, label: "Edit", onClick: onEdit });
-    if (onDelete) items.push({ icon: <IconDelete />, label: "Delete", onClick: onDelete, danger: true });
-    return <MoreMenu items={items} />;
-  }
+// So they are glyphs in the row, and the ⋯ keeps what is genuinely occasional.
+// They ride `.card-tools`, which is the same §7 gate the colour quick-pick uses:
+// hidden until the card is hovered or focused on desktop (the resting card still
+// shows only its ♥ and its ⋯), standing on a phone, where there is no hover to
+// wait for. `alwaysVisible` pins them on where a card stands alone rather than
+// in a masonry a pointer sweeps across (the search quote modal).
+export function QuoteTools({ onCopy, onShare, alwaysVisible = false }) {
+  if (!onCopy && !onShare) return null;
   return (
-    <span className={"card-actions" + (alwaysVisible ? " is-visible" : "")}>
+    <span className={"card-tools" + (alwaysVisible ? " is-visible" : "")}>
+      {onCopy && (
+        <Tooltip label="Copy this quote">
+          <button type="button" className="field-icon-btn tactile" aria-label="Copy" onClick={onCopy}>
+            <IconCopy />
+          </button>
+        </Tooltip>
+      )}
       {onShare && (
         <Tooltip label="Share this quote">
           <button type="button" className="field-icon-btn tactile" aria-label="Share" onClick={onShare}>
@@ -4375,22 +4380,31 @@ export function QuoteActions({ onShare, onEdit, onDelete, alwaysVisible = false 
           </button>
         </Tooltip>
       )}
-      {onEdit && (
-        <Tooltip label="Edit this quote">
-          <button type="button" className="field-icon-btn tactile" aria-label="Edit" onClick={onEdit}>
-            <IconEdit />
-          </button>
-        </Tooltip>
-      )}
-      {onDelete && (
-        <Tooltip label="Delete this quote">
-          <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Delete" onClick={onDelete}>
-            <IconDelete />
-          </button>
-        </Tooltip>
-      )}
     </span>
   );
+}
+
+// QuoteActions — the ⋯ overflow at the right end of a quote card's action row:
+// edit and delete.
+//
+// It used to be share · edit · delete, drawn inline on desktop and folded into
+// this menu on a phone. Two changes retired that. Share moved out to QuoteTools,
+// because it belongs with copy at the sending end of the row; and what is left
+// is a menu at every width instead of a menu on phones and three glyphs on
+// desktop, which was the same component putting the same actions in two
+// different places depending on the size of the window.
+//
+// One ⋯ is also the right resting state for these two specifically. Edit changes
+// what somebody wrote down and delete throws it away — neither is a thing to
+// offer at a sweep of the pointer, and both are exactly what a reader expects to
+// find behind an overflow. The menu is always visible (it is one quiet glyph),
+// so nothing on the card is unreachable without hovering it.
+export function QuoteActions({ onEdit, onDelete }) {
+  const items = [];
+  if (onEdit) items.push({ icon: <IconEdit />, label: "Edit", onClick: onEdit });
+  if (onDelete) items.push({ icon: <IconDelete />, label: "Delete", onClick: onDelete, danger: true });
+  if (!items.length) return null;
+  return <MoreMenu items={items} />;
 }
 
 // MobileSheet — a full-screen overlay for mobile filter pages and forms (§7).

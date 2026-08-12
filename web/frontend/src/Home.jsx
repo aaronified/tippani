@@ -22,7 +22,7 @@ import {
   splitCredits,
   usePeople,
 } from './people.jsx'
-import { ShareDialog, bookShare, movieShare, quoteShare } from './share.jsx'
+import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
@@ -41,6 +41,7 @@ import {
   Masonry,
   MonoLabel,
   QuoteActions,
+  QuoteTools,
   STATUS_META,
   toast,
   Tooltip,
@@ -1028,6 +1029,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                 onSave={(fields) => saveFav(f, fields)}
                 onPatch={(fields) => patchFav(f, fields)}
                 onDelete={() => removeFav(f)}
+                onCopy={() => copyQuote(sharePayloadFor(f))}
                 onShare={() => setShareFav(f)}
                 tagSuggestions={tagNames}
                 stickers={stickers}
@@ -1065,15 +1067,15 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 // it shows a media tag, the quote (clamped) and its source; tapping expands it
 // in place (full quote, note, tags) within its column — the board re-packs
 // around the taller tile — with a button to open the parent book / film / show
-// plus the same ♥ · share · edit ·
-// delete affordances the detail-screen cards carry (hover-revealed on desktop,
-// a ⋯ menu on phones — QuoteActions handles both). Edit swaps the tile body for
+// plus the same ♥ · copy · share · colour · ⋯ affordances the detail-screen
+// cards carry, in the same order (QuoteTools for the pair, QuoteActions for the
+// overflow that holds edit and delete). Edit swaps the tile body for
 // the same inline form the detail screens use. The colour bar is the highlight
 // colour for books, amber for screen quotes (the film voice). Tapping again
 // collapses.
 function FavouriteTile({
   f, variant, clampLines = 3, open, editing, onToggle, onOpen,
-  onEditStart, onEditCancel, onSave, onPatch, onDelete, onShare,
+  onEditStart, onEditCancel, onSave, onPatch, onDelete, onCopy, onShare,
   tagSuggestions, stickers, reloadStickers,
   authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenPerson,
 }) {
@@ -1211,8 +1213,12 @@ function FavouriteTile({
                 <span className="card-colors is-visible shrink-0">
                   <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel="Colour category" />
                 </span>
+                {/* Standing, not hover-gated: a favourite tile's row only exists
+                    while the tile is open, which is already the deliberate act
+                    the hover gate is there to wait for. */}
+                <QuoteTools onCopy={onCopy} onShare={onShare} alwaysVisible />
                 <span className="ml-auto flex items-center">
-                  <QuoteActions onShare={onShare} onEdit={onEditStart} onDelete={onDelete} />
+                  <QuoteActions onEdit={onEditStart} onDelete={onDelete} />
                 </span>
               </div>
             </div>

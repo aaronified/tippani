@@ -3,7 +3,7 @@ import { coverImgURL, json, errText } from './api.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
-import { ShareDialog, bookShare, movieShare, quoteShare } from './share.jsx'
+import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
@@ -575,6 +575,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
             save={save}
             patch={patch}
             remove={remove}
+            onCopy={() => copyQuote(sharePayload())}
             onShare={() => setShareOpen(true)}
             quoteLines={40}
             tagSuggestions={Object.keys(tagMap)}
@@ -595,6 +596,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
             onSave={(fields) => save(row.id, fields)}
             onPatch={(fields) => patch(row, fields)}
             onDelete={() => remove(row)}
+            onCopy={() => copyQuote(sharePayload())}
             onShare={() => setShareOpen(true)}
             quoteLines={40}
             actionsAlwaysVisible

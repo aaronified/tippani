@@ -5,7 +5,7 @@ import { FlowQuote } from './flow.jsx'
 import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
-import { ShareDialog, bookShare } from './share.jsx'
+import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -58,6 +58,7 @@ import {
   mulberry32,
   PageHeader,
   QuoteActions,
+  QuoteTools,
   ReviewDot,
   Select,
   seriesLabel,
@@ -943,15 +944,21 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, actionsAlwaysVisible }) {
-  // §7 declutter: the favourite ♥ is the card's resting mark; share/edit/delete
-  // hide until the card is hovered (desktop) or behind a ⋯ overflow (mobile),
-  // so the resting card sheds its standing button row (see QuoteActions). The
-  // colour quick-pick rides the same hover gate on desktop; on a phone there is
-  // no hover, so it stands between the ♥ and the ⋯ — one tap to recolour.
+function ActionRow({ a, color, onColor, patch, setEditingId, remove, onCopy, onShare, actionsAlwaysVisible }) {
+  // §7 declutter: the favourite ♥ is the card's resting mark, and beside it sit
+  // the two things you do WITH a quote — copy it, send it — then the colour
+  // quick-pick. Those three hide until the card is hovered on desktop and stand
+  // on a phone, where there is no hover to wait for. Only edit and delete are
+  // behind the ⋯, at every width (see QuoteActions), so what a resting card
+  // shows is its ♥ and one quiet overflow glyph.
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
+      <QuoteTools
+        onCopy={onCopy ? () => onCopy(a) : undefined}
+        onShare={onShare ? () => onShare(a) : undefined}
+        alwaysVisible={actionsAlwaysVisible}
+      />
       {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
           cluster to a second line before it splits or squeezes them. (Six of
           them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
@@ -959,12 +966,7 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, ac
         <ColorSwatches value={color} onChange={onColor} ariaLabel="Colour category" collapsible />
       </span>
       <span className="ml-auto flex items-center">
-        <QuoteActions
-          onShare={onShare ? () => onShare(a) : undefined}
-          onEdit={() => setEditingId(a.id)}
-          onDelete={() => remove(a)}
-          alwaysVisible={actionsAlwaysVisible}
-        />
+        <QuoteActions onEdit={() => setEditingId(a.id)} onDelete={() => remove(a)} />
       </span>
     </div>
   )
@@ -982,14 +984,14 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onShare, ac
 //   meta   the small line under the quote. Defaults to CH./P./date.
 //   form   the edit form. Defaults to AnnotationForm.
 //
-// EXTENDING THIS RATHER THAN WRITING A THIRD CARD IS DELIBERATE. `.card-actions`
+// EXTENDING THIS RATHER THAN WRITING A THIRD CARD IS DELIBERATE. `.card-tools`
 // and `.card-colors` are revealed only under `.hand-card:hover/:focus-within`
 // and `.film-frame:hover/:focus-within`, `.hand-card::before` is what carries
 // the paper/metal material, and the mobile rules that narrow the heart and the
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
@@ -1074,7 +1076,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               })}
             </div>
           )}
-          <ActionRow a={a} color={color} onColor={pickColor} patch={patch} setEditingId={setEditingId} remove={remove} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
+          <ActionRow a={a} color={color} onColor={pickColor} patch={patch} setEditingId={setEditingId} remove={remove} onCopy={onCopy} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
         </div>
     </HandCard>
   )
@@ -1088,7 +1090,7 @@ const TABLE_COLS = [
   { key: 'favorite', label: '♥' },
 ]
 
-function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onShare }) {
+function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((a) => a.id === editingId)
   return (
@@ -1132,6 +1134,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
               <td className="col-actions">
                 <TableActions
                   noun="quote"
+                  onCopy={onCopy && (() => onCopy(a))}
                   onShare={onShare && (() => onShare(a))}
                   onEdit={() => setEditingId(a.id)}
                   onDelete={() => remove(a)}
@@ -1363,6 +1366,11 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
       seps,
     })
 
+  // The card's copy glyph writes out the same quote the share dialog's plain-text
+  // format would — same payload, same default ticks — so the two cannot disagree
+  // about whether a copied quote carries its author.
+  const copyOne = (a) => copyQuote(sharePayload(a))
+
   const countsLabel = !items
     ? ''
     : filtering && total != null
@@ -1461,6 +1469,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
           setEditingId={setEditingId}
           save={save}
           remove={remove}
+          onCopy={copyOne}
           onShare={setShareTarget}
         />
       )}
@@ -1480,6 +1489,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
               save={save}
               patch={patch}
               remove={remove}
+              onCopy={copyOne}
               onShare={setShareTarget}
               quoteLines={5}
               tagSuggestions={Object.keys(tagMap)}
@@ -1511,6 +1521,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
               save={save}
               patch={patch}
               remove={remove}
+              onCopy={copyOne}
               onShare={setShareTarget}
               quoteLines={clampLines[i]}
               tagSuggestions={Object.keys(tagMap)}

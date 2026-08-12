@@ -1809,7 +1809,7 @@
   /* No card lift for tooltips any more: the bubble is a viewport-fixed sibling of
      the page (ToastHost, at the app root), so no card's stacking context can clip
      it and none has to be raised to let it out.
-     The lift stays for a card whose ⋯ overflow (mobile QuoteActions, §7) is open, so
+     The lift stays for a card whose ⋯ overflow (QuoteActions, §7) is open, so
      its dropdown isn't clipped by a later sibling card in a masonry column. */
   /* The card-lift that used to live here is GONE, and its absence is the point.
      It raised a whole card above its masonry siblings whenever a .more-menu was
@@ -2394,33 +2394,37 @@
   .tp-link-danger { color: var(--error); }
   .tp-link-danger:hover { color: var(--error); }
 
-  /* Progressive disclosure on quote cards (§7 declutter). The share/edit/delete
-     cluster is invisible + non-interactive at rest so a resting card shows only
-     its favourite mark; it fades in when the card is hovered or holds focus. It
-     keeps its layout box at rest (opacity, not display) so revealing it never
-     nudges the card's height in a masonry. `is-visible` pins it on (the search
-     quote modal, where a card stands alone). Phones use the ⋯ overflow instead
-     and never see this rule. Keyboard users tabbing into the hidden buttons
-     trip :focus-within, which reveals + re-enables them. */
-  .card-actions {
+  /* Progressive disclosure on quote cards (§7 declutter). The copy/share pair is
+     invisible + non-interactive at rest so a resting card shows only its
+     favourite mark and its ⋯; it fades in when the card is hovered or holds
+     focus. It keeps its layout box at rest (opacity, not display) so revealing it
+     never nudges the card's height in a masonry. `is-visible` pins it on (the
+     search quote modal, where a card stands alone). Phones override this below —
+     there is no hover to wait for, and copy and share are not in the ⋯ any more.
+     Keyboard users tabbing into the hidden buttons trip :focus-within, which
+     reveals + re-enables them.
+
+     Was .card-actions, which held share/edit/delete until edit and delete moved
+     into the ⋯ at every width and share moved to the sending end of the row. */
+  .card-tools {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
     opacity: 0;
     pointer-events: none;
     transition: opacity .18s ease;
   }
-  .card-actions.is-visible,
-  .hand-card:hover .card-actions,
-  .hand-card:focus-within .card-actions,
-  .film-frame:hover .card-actions,
-  .film-frame:focus-within .card-actions {
+  .card-tools.is-visible,
+  .hand-card:hover .card-tools,
+  .hand-card:focus-within .card-tools,
+  .film-frame:hover .card-tools,
+  .film-frame:focus-within .card-tools {
     opacity: 1;
     pointer-events: auto;
   }
-  @media (prefers-reduced-motion: reduce) { .card-actions { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .card-tools { transition: none; } }
 
-  /* The quote card's colour quick-pick rides the same §7 gate as .card-actions,
+  /* The quote card's colour quick-pick rides the same §7 gate as .card-tools,
      for the same reason: invisible and non-interactive at rest so the resting
      card still shows only its favourite mark, revealed with the card, and always
      holding its layout box (opacity, not display) so hovering never re-packs the
@@ -3475,9 +3479,10 @@ html[data-theme="dark"] .mobile-sheet-footer {
      wider cards, where the six DO show and 6×28 has room. */
   .hand-card .color-dot-btn,
   .film-frame .color-dot-btn { min-width: 28px; }
-  /* No hover on a phone, so the quick-pick stands beside the ♥. share / edit /
-     delete still fold behind the ⋯. */
-  .card-colors { opacity: 1; pointer-events: auto; }
+  /* No hover on a phone, so the quick-pick and the copy/share pair stand beside
+     the ♥. Edit and delete still fold behind the ⋯. */
+  .card-colors,
+  .card-tools { opacity: 1; pointer-events: auto; }
   .tp-btn-ghost {
     min-height: 44px;
     padding: 8px 14px;

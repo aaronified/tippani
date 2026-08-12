@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { categoryHex, paletteTheme } from "./theme.js";
@@ -243,8 +243,8 @@ export function quoteShare({
 }
 
 // Parts that start unchecked in the share dialog (present only on book quotes):
-// the page "Location" and the "Noted" save-date. See ShareDialog's initial
-// `selected` state.
+// the page "Location" and the "Noted" save-date. See shareDefaults, which is
+// where both the dialog and the cards' one-tap copy read it.
 const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted"]);
 
 // fieldsOf lists the toggleable parts present in a payload, in output order.
@@ -258,6 +258,32 @@ function fieldsOf(share) {
   if (share.tags && share.tags.length) f.push({ id: "tags", label: "Tags" });
   if (share.note) f.push({ id: "note", label: "Note" });
   return f;
+}
+
+// shareDefaults is the tick state a freshly-opened share dialog starts in:
+// everything the payload carries, minus the two parts that are factual noise to
+// a reader (see SHARE_OFF_BY_DEFAULT). Exported because the card's one-tap copy
+// has to produce the same quote the dialog would — a copy button that silently
+// drops the author, or keeps a page number the dialog hides, is a second
+// definition of "this quote, written out".
+export function shareDefaults(share) {
+  return Object.fromEntries(fieldsOf(share).map((f) => [f.id, !SHARE_OFF_BY_DEFAULT.has(f.id)]));
+}
+
+// copyQuote puts one quote on the clipboard, plain — the quote, the credit, the
+// note and the tags, with no markdown or WhatsApp syntax wrapped round any of
+// it. The dialog opens on WhatsApp because somebody who went there is choosing
+// where it is going; somebody who tapped a copy glyph on a card is not, and
+// asterisks land as asterisks everywhere except the one app that eats them.
+//
+// Toasts rather than a silent result: copyText falls back to execCommand on the
+// insecure origins where navigator.clipboard does not exist, and if even that
+// fails the only honest thing is to say so rather than leave somebody pasting an
+// old clipboard into a message.
+export async function copyQuote(share) {
+  const ok = await copyText(buildShareText(share, shareDefaults(share), "plaintext"));
+  toast(ok ? "copied" : "could not copy");
+  return ok;
 }
 
 // ---- text generation (source per format) -------------------------------
@@ -750,13 +776,10 @@ export function ShareDialog({ share, seen, onClose }) {
   useBodyScrollLock(true)
  const [format, setFormat] = useState("whatsapp");
   const fields = useMemo(() => fieldsOf(share), [share]);
-  // Location (page/timestamp) and Noted (the date you saved it) are the two
-  // least-wanted parts in a shared quote — factual noise for most readers — so
-  // they start unchecked. Everything else defaults on; the user can flip any of
-  // them per share.
-  const [selected, setSelected] = useState(() =>
-    Object.fromEntries(fields.map((f) => [f.id, !SHARE_OFF_BY_DEFAULT.has(f.id)])),
-  );
+  // Everything on, except the two parts shareDefaults holds back (Location and
+  // Noted — factual noise for most readers). The user can flip any of them per
+  // share. Shared with the cards' copy glyph so the two cannot drift.
+  const [selected, setSelected] = useState(() => shareDefaults(share));
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
   const mobile = useIsMobileScreen()

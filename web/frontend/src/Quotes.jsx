@@ -17,7 +17,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { json, errText, downloadPost } from './api.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { ShareDialog, quoteShare } from './share.jsx'
+import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
 import {
@@ -475,6 +475,7 @@ export default function QuotesPage({ creditSeparators }) {
       save={save}
       patch={patch}
       remove={remove}
+      onCopy={() => copyQuote(sharePayload(u))}
       onShare={() => setShareFor(u)}
       tagSuggestions={Object.keys(tagMap)}
       expanded={expanded === u.id}

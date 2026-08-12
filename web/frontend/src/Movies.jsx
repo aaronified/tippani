@@ -6,7 +6,7 @@ import { FlowQuote } from './flow.jsx'
 import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
-import { ShareDialog, movieShare } from './share.jsx'
+import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -66,6 +66,7 @@ import {
   PageHeader,
   Placeholder,
   QuoteActions,
+  QuoteTools,
   ReviewDot,
   Select,
   seriesLabel,
@@ -1250,6 +1251,10 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
       seps: creditSeps,
     })
 
+  // The frame's copy glyph writes out the same line the share dialog's plain-text
+  // format would — same payload, same default ticks (see copyQuote).
+  const copyOne = (d) => copyQuote(sharePayload(d))
+
   return (
     <div className="space-y-4">
       {mobile && (
@@ -1366,6 +1371,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
                 onSave={(fields) => save(d.id, fields)}
                 onPatch={(fields) => patch(d, fields)}
                 onDelete={() => remove(d)}
+                onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
                 actorMap={actorMap}
@@ -1401,6 +1407,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
                 onSave={(fields) => save(d.id, fields)}
                 onPatch={(fields) => patch(d, fields)}
                 onDelete={() => remove(d)}
+                onCopy={() => copyOne(d)}
                 onShare={() => setShareTarget(d)}
                 onOpenPerson={setPerson}
                 actorMap={actorMap}
@@ -1427,6 +1434,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
           show={show}
           cast={cast}
           actorMap={actorMap}
+          onCopy={copyOne}
           onShare={setShareTarget}
         />
       )}
@@ -1496,7 +1504,7 @@ function sortDialogues(rows, sort) {
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
 // ♥ is shown read-only here and toggled from the tiles/list views.
-function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, cast = [], actorMap = {}, onShare }) {
+function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, show = false, cast = [], actorMap = {}, onCopy, onShare }) {
   const arrow = (k) => (sort.col === k ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '')
   const editingRow = rows.find((d) => d.id === editingId)
   return (
@@ -1547,6 +1555,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
               <td className="col-actions">
                 <TableActions
                   noun="line"
+                  onCopy={onCopy && (() => onCopy(d))}
                   onShare={onShare && (() => onShare(d))}
                   onEdit={() => setEditingId(d.id)}
                   onDelete={() => remove(d)}
@@ -1584,7 +1593,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 // same dialogue on its film's page was "a textured card" versus "an untextured
 // rectangle". It is now "a torn-edged card" versus "a square lit panel", which
 // is a difference you can mean.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1699,13 +1708,15 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         </div>
       )}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
-      {/* §7 declutter: the ♥ is the frame's resting mark and leads this row;
-          share/edit/delete reveal on hover (desktop) or fold behind a ⋯ overflow
-          (mobile). Order and contents match Library's ActionRow exactly — a
+      {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
+          copy and share, then the colour quick-pick — the three reveal on hover
+          (desktop) and stand on a phone. Edit and delete are behind the ⋯ at
+          every width. Order and contents match Library's ActionRow exactly — a
           dialogue is an annotation with different credits, and the two cards
           should not put the same control in two different places. */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
+        <QuoteTools onCopy={onCopy || undefined} onShare={onShare || undefined} alwaysVisible={actionsAlwaysVisible} />
         {/* shrink-0: the colour dots are one atomic control — the row wraps the
             ⋯ cluster to a second line before it splits or squeezes them. (Six
             of them since 1.7.1, and below a 330px card they collapse to a single
@@ -1719,12 +1730,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           />
         </span>
         <span className="ml-auto flex items-center">
-          <QuoteActions
-            onShare={onShare || undefined}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            alwaysVisible={actionsAlwaysVisible}
-          />
+          <QuoteActions onEdit={onEdit} onDelete={onDelete} />
         </span>
       </div>
     </article>
