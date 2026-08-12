@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"tippani/internal/olog"
@@ -47,21 +48,52 @@ func (s *Server) ownedChildIDs(table, parentCol, parentTable string, uid int64, 
 	return out, nil
 }
 
-// bulkTagReq is the shared shape for tagging/flagging a set of annotations or
-// dialogues at once. Only the present fields act; add_tags unions (never
-// detaches), favorite sets when non-nil.
+// bulkTagReq is the shared shape for tagging/flagging/recolouring a set of quotes
+// of any of the three kinds. Only the present fields act; add_tags unions (never
+// detaches), favorite and color set when non-nil.
+//
+// Pointer-typed for the same reason every partial update in this app is: a client
+// sending one field must not clear the others, and `false` and "not sent" are the
+// same JSON at a bool.
 type bulkTagReq struct {
 	IDs      []int64  `json:"ids"`
 	AddTags  []string `json:"add_tags"`
 	Favorite *bool    `json:"favorite"`
+	// Colour became a six-slot, user-named category in 1.7.1, which made it the
+	// single most plausible reason to select forty quotes — and the bulk endpoints
+	// could not set it. Validated against the same allowlist validColor uses, so a
+	// colour the API accepts is a colour the CHECK constraint accepts.
+	Color *string `json:"color"`
 }
 
-// bulkTag applies a bulkTagReq to owned rows of `kind` (annotation|dialogue).
+// quoteBulkKind describes one binnable quote kind for the bulk path: its table,
+// and how ownership is established. THE TWO ARE DIFFERENT SHAPES, which is why
+// this table exists rather than a triple of string swaps: an annotation and a
+// dialogue are CHILD rows owned through their parent work, and a standalone quote
+// carries user_id on the row itself. A helper that "parameterised" over all three
+// by swapping three names would silently produce a query matching nothing — a bulk
+// action that reports success and does nothing.
+type quoteBulkKind struct {
+	Table       string
+	ParentCol   string // "" when the row is owned directly
+	ParentTable string
+}
+
+var quoteBulkKinds = map[string]quoteBulkKind{
+	"annotation": {Table: "annotations", ParentCol: "book_id", ParentTable: "books"},
+	"dialogue":   {Table: "dialogues", ParentCol: "movie_id", ParentTable: "movies"},
+	"utterance":  {Table: "utterances"},
+}
+
+// bulkTag applies a bulkTagReq to owned rows of `kind`
+// (annotation|dialogue|utterance).
 func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
-	table, parentCol, parentTable := "annotations", "book_id", "books"
-	if kind == "dialogue" {
-		table, parentCol, parentTable = "dialogues", "movie_id", "movies"
+	spec, ok := quoteBulkKinds[kind]
+	if !ok {
+		internalError(w, r, "bulk tag", fmt.Errorf("unknown kind %q", kind))
+		return
 	}
+	table := spec.Table
 	var req bulkTagReq
 	if !decodeBody(w, r, &req) {
 		return
@@ -74,8 +106,23 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		writeErr(w, http.StatusBadRequest, "too many items (max 5000)")
 		return
 	}
+	if req.Color != nil && !validColor(*req.Color) {
+		writeErr(w, http.StatusBadRequest, "invalid color")
+		return
+	}
 	uid := userID(r)
-	owned, err := s.ownedChildIDs(table, parentCol, parentTable, uid, req.IDs)
+	// The ownership query follows the shape of the kind, not a swapped table name:
+	// a child row is reached through its parent, a standalone quote is not. Both
+	// directions get a test, because an ownership filter that matches nothing is a
+	// bulk action that reports success and does nothing, and one that matches
+	// everything is somebody else's library.
+	var owned []int64
+	var err error
+	if spec.ParentCol == "" {
+		owned, err = s.ownedRowIDs(table, uid, req.IDs)
+	} else {
+		owned, err = s.ownedChildIDs(table, spec.ParentCol, spec.ParentTable, uid, req.IDs)
+	}
 	if err != nil {
 		internalError(w, r, "bulk tag: ownership", err)
 		return
@@ -104,6 +151,12 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.Favorite != nil {
 		if err := bulkSetChild(tx, table, "favorite", boolToInt(*req.Favorite), owned); err != nil {
 			internalError(w, r, "bulk tag: favorite", err)
+			return
+		}
+	}
+	if req.Color != nil {
+		if err := bulkSetChild(tx, table, "color", *req.Color, owned); err != nil {
+			internalError(w, r, "bulk tag: color", err)
 			return
 		}
 	}
@@ -143,8 +196,20 @@ func (s *Server) handleBulkTagDialogues(w http.ResponseWriter, r *http.Request) 
 	s.bulkTag(w, r, "dialogue")
 }
 
+// handleBulkTagQuotes is the fifth bulk endpoint, and the one that was missing:
+// annotations and dialogues had one, standalone quotes did not, so a selection on
+// the Quotes screen had nothing to post to.
+func (s *Server) handleBulkTagQuotes(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[bulk] handleBulkTagQuotes uid=%v", userID(r))
+	s.bulkTag(w, r, "utterance")
+}
+
 // handleBulkUpdateMovies mirrors handleBulkUpdateBooks for films/shows: batch
 // director / series / genre correction over a selection, one transaction.
+//
+// NO COLOUR HERE, deliberately: a colour category is a note about a QUOTE, and a
+// work has never had one. The three quote endpoints take it; these two take the
+// fields a work has instead.
 func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDs         []int64  `json:"ids"`

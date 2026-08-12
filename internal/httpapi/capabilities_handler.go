@@ -25,7 +25,10 @@ import (
 // 1 — device tokens, pairing, list paging, capture noted_at/source, duplicate
 //     409s carrying the existing row, and the shared quote shape (dialogues
 //     gained colour, so both kinds serialise the same fields).
-const apiRevision = 1
+// 2 — the bin: every content delete answers with a `trash_id`, and /trash lists,
+//     reads, restores and empties. Plus the fifth bulk endpoint (/quotes/bulk) and
+//     colour on all three quote bulk bodies.
+const apiRevision = 2
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -37,6 +40,14 @@ var apiFeatures = []string{
 	"capture-noted-at",  // noted_at and source accepted on create
 	"conflict-existing", // duplicate-create 409s carry the existing row
 	"quote-parity",      // annotations and dialogues share one shape; dialogues have colour
+	// A client that knows this string can offer its own Undo: every content delete
+	// answers with the bin entry it wrote, and POST /trash/{id}/restore puts it back.
+	// Without it, a delete is final as far as that client knows.
+	"trash-bin", // GET/DELETE /trash, POST /trash/{id}/restore, trash_id on deletes
+	// Standalone quotes gained the bulk endpoint the other two kinds already had, and
+	// all three accept `color`.
+	"bulk-quotes", // POST /quotes/bulk
+	"bulk-colour", // `color` on the annotation/dialogue/quote bulk bodies
 }
 
 // minClientRevision is the oldest client API revision this server still serves

@@ -209,6 +209,12 @@ func TestCapabilitiesAdvertisesThisWork(t *testing.T) {
 		"capture-noted-at":  false,
 		"conflict-existing": false,
 		"quote-parity":      false,
+		// A client that does not know these two treats a delete as final and has no
+		// bulk screen for standalone quotes — which is exactly the "discover a 404
+		// mid-save" this list exists to prevent.
+		"trash-bin":   false,
+		"bulk-quotes": false,
+		"bulk-colour": false,
 	}
 	for _, f := range got.Features {
 		if _, ok := want[f]; ok {
