@@ -774,7 +774,13 @@ export function ShareDialog({ share, seen, onClose }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
- const [format, setFormat] = useState("whatsapp");
+ // IMAGE OPENS THE DIALOG. It was WhatsApp, on the reasoning that the text
+  // formats are the cheap ones — but a text format is a thing you paste, and
+  // pasting is what the copy glyph on the card is for now. What the sheet is FOR
+  // is the picture: the one output that needs choosing a skin, a portrait and a
+  // colour before it is worth anything, and the one nobody can produce any other
+  // way. So it is first in the row and it is what you land on.
+  const [format, setFormat] = useState("image");
   const fields = useMemo(() => fieldsOf(share), [share]);
   // Everything on, except the two parts shareDefaults holds back (Location and
   // Noted — factual noise for most readers). The user can flip any of them per
@@ -797,7 +803,7 @@ export function ShareDialog({ share, seen, onClose }) {
   // "Image" is a format alongside the text ones — same field-picking, rendered
   // to a PNG instead of copyable text (ROADMAP §10).
   const isImage = format === "image";
-  const formatOptions = [...SHARE_FORMATS.map((f) => [f.id, f.name]), ["image", "Image"]];
+  const formatOptions = [["image", "Image"], ...SHARE_FORMATS.map((f) => [f.id, f.name])];
 
   // Regenerate the source whenever the format or the chosen fields change.
   // Manual edits to the textarea persist until the next such change.

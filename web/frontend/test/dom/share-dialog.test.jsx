@@ -56,10 +56,11 @@ const share = () =>
     color: 'blue',
   })
 
-// The Image panel only exists once Image is the chosen format.
+// The Image panel is what the dialog opens on, so this renders and waits rather
+// than selecting a format first. The colour switch is the panel's own control, so
+// finding it is how we know the panel is up.
 async function openImage() {
   render(<ShareDialog share={share()} onClose={() => {}} />)
-  fireEvent.click(screen.getByRole('tab', { name: 'Image' }))
   return await screen.findByRole('tab', { name: 'Off' })
 }
 
@@ -106,13 +107,38 @@ describe("the picture's colour switch", () => {
   })
 })
 
+describe('which format the dialog opens on', () => {
+  it('lands on the picture, and offers it first', async () => {
+    // The picture is the only output of this dialog that cannot be got any other
+    // way — copying text is a glyph on the card now — so it is what the sheet
+    // opens on. A default nobody sees is a default that does not exist, so this
+    // asserts the SELECTED tab, not merely that the option is present.
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    expect(selected(screen.getByRole('tab', { name: 'Image' }))).toBe('true')
+    for (const other of ['WhatsApp', 'Plain', 'Markdown', 'Reddit']) {
+      expect(selected(screen.getByRole('tab', { name: other })), other).toBe('false')
+    }
+    // First in the row, not merely selected: the reader should not have to hunt
+    // past four text formats to find the one they came for.
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent)
+    expect(tabs[0]).toBe('Image')
+  })
+
+  it('shows the picture panel rather than the text panel', async () => {
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    expect(await screen.findByLabelText('Quote card image preview')).toBeTruthy()
+    expect(screen.queryByLabelText('Shareable text')).toBeNull()
+  })
+})
+
 describe('the prose in the share dialog', () => {
   const logicOf = (name) => screen.queryByText((t) => t.startsWith(name))
 
   it('keeps a format’s syntax behind its dot rather than above the quote', async () => {
     render(<ShareDialog share={share()} onClose={() => {}} />)
-    // WhatsApp is the opening format; its syntax reference is reachable, not
-    // resident.
+    // Pick a text format first — the dialog opens on Image now. Its syntax
+    // reference is then reachable, not resident.
+    fireEvent.click(screen.getByRole('tab', { name: 'WhatsApp' }))
     expect(logicOf('WhatsApp chat formatting')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'More information: WhatsApp' }))
     expect(logicOf('WhatsApp chat formatting')).not.toBeNull()
@@ -127,6 +153,8 @@ describe('the prose in the share dialog', () => {
     // change: a dot still announcing "WhatsApp" after Markdown is selected is
     // worse than an unnamed one.
     render(<ShareDialog share={share()} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'WhatsApp' }))
+    expect(screen.getByRole('button', { name: 'More information: WhatsApp' })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Markdown' }))
     expect(screen.queryByRole('button', { name: 'More information: WhatsApp' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'More information: Markdown' }))
