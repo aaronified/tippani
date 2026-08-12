@@ -81,13 +81,31 @@ describe('the kind table', () => {
   })
 })
 
-describe('a standalone quote has nothing to open', () => {
-  it('gets no openLabel, and the button is conditional on one', () => {
-    // Every other kind contributes a work to jump to. This one IS the whole
-    // record, so the button must be absent rather than present and inert.
+describe('a standalone quote has no work behind it, but it has somewhere to go', () => {
+  it('carries no workId, because there is no parent record', () => {
+    // The half of the old rule that still holds. Every other kind contributes a
+    // work to open; this one IS the whole record, so there is nothing to fetch.
     const adapter = src.slice(src.indexOf('function quoteFav'), src.indexOf('const FAV_KINDS'))
-    expect(adapter).not.toContain('openLabel')
     expect(adapter).not.toContain('workId')
+  })
+
+  it('does get an open label, pointing at its own screen', () => {
+    // Reversed in 1.7.10. "Nothing to open" was true of a parent record and false
+    // of a destination: a standalone quote lives on the Quotes screen, and that is
+    // somewhere worth going from a tile on Home. The other two kinds keep opening
+    // their work.
+    const adapter = src.slice(src.indexOf('function quoteFav'), src.indexOf('const FAV_KINDS'))
+    expect(adapter).toContain('openLabel')
     expect(src).toContain('{f.openLabel && (')
+  })
+
+  it('names a nav glyph for each kind, so the tile draws the tab strip’s own picture', () => {
+    // The open control is a glyph now, and the glyph is whichever one the nav uses
+    // for that screen — two drawings of the Library is exactly the drift the icon
+    // set exists to prevent.
+    const table = src.slice(src.indexOf('const FAV_KINDS'), src.indexOf('export default function Home'))
+    expect(table).toContain("openIcon: 'library'")
+    expect(table).toContain("openIcon: 'movies'")
+    expect(table).toContain("openIcon: 'quotes'")
   })
 })

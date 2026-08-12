@@ -75,7 +75,7 @@ export const HELP = {
       { term: 'Practice', what: 'The unlimited, skippable twin of the quiz. It keeps its own score and, by default, never touches your review schedule (Settings can change that).' },
       { term: 'Reveal / Got it / Missed', what: 'Reveal shows the answer; then say honestly whether you had it. The honest answer is what makes the schedule work.' },
       { term: 'Status dot', what: 'Every quote wears one: remembered, forgetting, probably forgotten, or not yet reviewed. Hover or tap it for the memory half-life.' },
-      { term: 'Favourites', what: 'The lines you marked with ♥ — book highlights, film dialogue and standalone quotes together, reshuffled on every visit. It is a re-surfacing wall rather than a feed, which is why the order changes.' },
+      { term: 'Favourites', what: 'The lines you marked with ♥ — book highlights, film dialogue and standalone quotes together, reshuffled on every visit. It is a re-surfacing wall rather than a feed, which is why the order changes. Tap one open and it carries the same row as every other quote card — ♥, copy, share, colour, then the ⋯ — led by a glyph that takes you where the quote lives: the Library for a highlight, the Catalogue for a film line, Quotes for one that belongs to neither.' },
     ],
   },
   library: {

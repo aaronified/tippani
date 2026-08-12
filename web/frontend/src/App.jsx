@@ -1188,6 +1188,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpenMovie={openMovie}
               onGoLibrary={() => selectTab('library')}
               onGoMovies={() => selectTab('movies')}
+              onGoQuotes={() => selectTab('quotes')}
               onPending={setPending}
               pendingImport={pendingImport}
               onReviewImport={() => selectTab('staging')}

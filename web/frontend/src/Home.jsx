@@ -38,8 +38,10 @@ import {
   Hearts,
   IconDelete,
   InfoDot,
+  IconButton,
   Masonry,
   MonoLabel,
+  NavIcon,
   QuoteActions,
   QuoteTools,
   STATUS_META,
@@ -705,7 +707,7 @@ function bookFav(a) {
     source: [a.book_title, a.book_author].filter(Boolean).join(' · '),
     meta,
     createdAt: a.created_at,
-    openLabel: 'Open book →',
+    openLabel: 'Open this book',
     workId: a.book_id,
     raw: a, // the untouched row — share/edit/delete need the full state
   }
@@ -729,7 +731,7 @@ function screenFav(d, movieMap) {
     source: [m.title, d.character].filter(Boolean).join(' · '),
     meta: [m.title, episodeLabel(d), d.character, d.timestamp].filter(Boolean).join(' · '),
     createdAt: d.created_at,
-    openLabel: isShow ? 'Open show →' : 'Open film →',
+    openLabel: isShow ? 'Open this show' : 'Open this film',
     workId: d.movie_id,
     raw: d, // the untouched row — share/edit/delete need the full state
     movie: m, // parent title/year for the share payload
@@ -741,9 +743,11 @@ function screenFav(d, movieMap) {
 // poster, this contributes the OCCASION — who said it, on what occasion, when,
 // where, through what medium — which is the same role and a different shape.
 //
-// No `workId` and no `openLabel`, and that absence is the point rather than an
-// omission: there is nothing to open. A standalone quote IS the whole record, so
-// the tile's "Open book →" button simply is not there for one.
+// No `workId`, because there is no work: a standalone quote IS the whole record.
+// It does still have somewhere to GO, though — the Quotes screen it lives on —
+// which is what the open glyph does here, wearing that screen's own nav glyph. It
+// used to have no open button at all, on the reasoning that a quote has nothing
+// behind it. True of a parent record, false of a destination.
 function quoteFav(u) {
   const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium].filter(Boolean)
   return {
@@ -757,6 +761,7 @@ function quoteFav(u) {
     // No speaker in `meta` \u2014 the expanded tile chips them. See bookFav.
     meta: rest.join(' \u00b7 '),
     createdAt: u.created_at,
+    openLabel: 'Go to your quotes',
     raw: u,
   }
 }
@@ -781,6 +786,10 @@ const FAV_KINDS = {
     credit: (f) => f.raw.book_author,
     shareKind: 'book',
     quoted: true,
+    // The nav glyph of the screen this kind belongs to, drawn by NavIcon so the
+    // tile and the tab strip cannot end up with two different pictures of the
+    // Library.
+    openIcon: 'library',
   },
   screen: {
     label: (f) => f.media,
@@ -794,6 +803,7 @@ const FAV_KINDS = {
     credit: (f) => f.raw.actor,
     shareKind: 'screen',
     quoted: false,
+    openIcon: 'movies',
   },
   quote: {
     label: () => 'QUOTE',
@@ -805,12 +815,13 @@ const FAV_KINDS = {
     confirm: 'Delete this quote?',
     personKind: 'speaker',
     credit: (f) => f.raw.speaker,
+    openIcon: 'quotes',
     shareKind: 'utterance',
     quoted: true,
   },
 }
 
-export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onPending, pendingImport, onReviewImport }) {
+export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, onPending, pendingImport, onReviewImport }) {
   const [favs, setFavs] = useState([])
   // Favourites sit in Home's reading column, not the full container, so this
   // ladder tracks --home-max rather than --container-max.
@@ -1022,7 +1033,10 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                   setEditingFav(null)
                   setOpenFav((k) => (k === f.key ? null : f.key))
                 }}
-                onOpen={() => (f.kind === 'book' ? onOpenBook(f.workId) : onOpenMovie(f.workId))}
+                onOpen={() =>
+                  f.kind === 'book' ? onOpenBook(f.workId)
+                    : f.kind === 'screen' ? onOpenMovie(f.workId)
+                      : onGoQuotes?.()}
                 speakerMap={speakerMap}
                 onEditStart={() => setEditingFav(f.key)}
                 onEditCancel={() => setEditingFav(null)}
@@ -1192,31 +1206,40 @@ function FavouriteTile({
                   {f.tags.map((t) => <span key={t} className="tp-chip">{t}</span>)}
                 </div>
               )}
+              {/* THE SAME ROW, IN THE SAME ORDER, AS EVERY OTHER QUOTE CARD:
+                  ♥ · copy · share · colour, then the ⋯ alone on the right (see
+                  Library's ActionRow and Movies' Frame). A favourite is one of the
+                  three kinds of quote seen from a different screen, so a reader who
+                  has learned the row on a book's page should not have to re-learn it
+                  here — which is exactly what shipped for one release, with copy and
+                  share sitting after the colour dots instead of before them.
+                  Standing rather than hover-gated: this row only exists while the
+                  tile is open, which is already the deliberate act the hover gate
+                  waits for. */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
-                {/* A standalone quote has nothing to open — it IS the whole
-                    record — so the button is absent rather than present and
-                    inert. */}
+                {/* Where this quote lives, wearing that screen's own nav glyph — the
+                    Library for a book, the Catalogue for a film or show, Quotes for
+                    a standalone one. It was the words "Open book →" in a primary
+                    button, which is the loudest control on the tile spent on the
+                    least surprising thing you can do with it. NavIcon draws it, so
+                    the tile and the tab strip cannot end up with two different
+                    pictures of the Library. */}
                 {f.openLabel && (
-                  <button type="button" className="tp-btn tp-btn-primary tactile" onClick={onOpen}>
-                    {f.openLabel}
-                  </button>
+                  <IconButton
+                    icon={<NavIcon name={FAV_KINDS[f.kind].openIcon} />}
+                    ariaLabel={f.openLabel}
+                    onClick={onOpen}
+                    className="shrink-0"
+                  />
                 )}
                 {/* Un-hearting removes the tile — this IS the favourites list. */}
                 <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
-                {/* The colour quick-pick, in the same place and the same order as
-                    every other quote card (Library's ActionRow, Movies' Frame).
-                    A favourite is one of the three kinds of quote seen from a
-                    different screen, and recolouring it was the one thing you
-                    could do to it everywhere EXCEPT here. `collapsible` because
-                    a Home tile is a masonry cell and often narrower than 330px,
-                    where six dots become the named list. */}
+                <QuoteTools onCopy={onCopy} onShare={onShare} alwaysVisible />
+                {/* `collapsible` because a Home tile is a masonry cell and often
+                    narrower than 330px, where six dots become the named list. */}
                 <span className="card-colors is-visible shrink-0">
                   <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel="Colour category" />
                 </span>
-                {/* Standing, not hover-gated: a favourite tile's row only exists
-                    while the tile is open, which is already the deliberate act
-                    the hover gate is there to wait for. */}
-                <QuoteTools onCopy={onCopy} onShare={onShare} alwaysVisible />
                 <span className="ml-auto flex items-center">
                   <QuoteActions onEdit={onEditStart} onDelete={onDelete} />
                 </span>
