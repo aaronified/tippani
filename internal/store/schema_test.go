@@ -800,6 +800,58 @@ func wantShapes() []tableShape {
 				{Name: autoIndexName, Unique: true, Origin: "pk", Columns: []string{"kind", "item_id"}},
 			},
 		},
+		{
+			// trash is the bin (0031): one row per deleted THING, holding a JSON
+			// snapshot of its whole subtree. It is pinned here because the CHECK and
+			// the two defaults are the feature: a kind outside the six would be a
+			// restore path that does not exist, and a payload that could arrive NULL
+			// would be a bin entry with nothing in it.
+			//
+			// NO FOREIGN KEY to anything it describes, and there cannot be one — the
+			// rows it holds do not exist. `user_id` is whose BIN the row sits in,
+			// which for kind='account' is the admin who deleted the account rather
+			// than the account itself; see the migration header for why the cascade
+			// would otherwise delete the entry that makes the deletion undoable.
+			Name: "trash",
+			Columns: []columnShape{
+				{Name: "id", Type: "INTEGER", PK: 1},
+				{Name: "user_id", Type: "INTEGER", NotNull: true},
+				{Name: "kind", Type: "TEXT", NotNull: true},
+				{Name: "label", Type: "TEXT", NotNull: true},
+				{Name: "child_count", Type: "INTEGER", NotNull: true, Default: "0", HasDflt: true},
+				{Name: "deleted_at", Type: "TEXT", NotNull: true, Default: "datetime('now')", HasDflt: true},
+				{Name: "payload", Type: "TEXT", NotNull: true},
+				{Name: "files", Type: "TEXT", NotNull: true, Default: "'[]'", HasDflt: true},
+			},
+			Checks: []string{
+				"kind IN ('book','movie','annotation','dialogue','quote','account')",
+			},
+			Indexes: []indexShape{
+				{Name: "trash_user_time", Origin: "c", Columns: []string{"user_id", "deleted_at"}},
+			},
+			FKs: []fkShape{
+				{From: "user_id", Table: "users", To: "id", OnDelete: "CASCADE", OnUpdate: "NO ACTION"},
+			},
+		},
+		{
+			// id_floor (0031) is two columns and the reason a restore never has to
+			// renumber anything. `next_id` is the lowest id that may be handed out
+			// for that table; every create path allocates from it and a restore
+			// raises it above whatever it puts back.
+			//
+			// If this table is ever dropped or its default changed to something that
+			// can be NULL, ids start being reused the moment a table's highest row
+			// is deleted — and the symptom is not an error, it is a restore that
+			// collides months later.
+			Name: "id_floor",
+			Columns: []columnShape{
+				{Name: "table_name", Type: "TEXT", NotNull: false, PK: 1},
+				{Name: "next_id", Type: "INTEGER", NotNull: true},
+			},
+			Indexes: []indexShape{
+				{Name: autoIndexName, Unique: true, Origin: "pk", Columns: []string{"table_name"}},
+			},
+		},
 	}
 }
 
