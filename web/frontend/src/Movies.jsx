@@ -8,6 +8,7 @@ import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
+import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -1600,6 +1601,14 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
   const frameClass = ['film-frame', wrapClass, 'px-5 py-4'].filter(Boolean).join(' ')
+  // From the registry, like every other card (actions.jsx). A dialogue is an
+  // annotation with different credits, so it gets the same set in the same places.
+  const acts = actionsFor('dialogue', d, {
+    copy: onCopy && (() => onCopy()),
+    share: onShare && (() => onShare()),
+    edit: onEdit && (() => onEdit()),
+    remove: onDelete && (() => onDelete()),
+  })
   // The colour bar is the same affordance annotations get from HandCard's
   // colorBar — a dialogue is a quote like any other, so it wears its colour the
   // same way. Inline rather than a class because the frame's own borders are
@@ -1718,7 +1727,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           should not put the same control in two different places. */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
-        <QuoteTools onCopy={onCopy || undefined} onShare={onShare || undefined} alwaysVisible={actionsAlwaysVisible} />
+        <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
         {/* shrink-0: the colour dots are one atomic control — the row wraps the
             ⋯ cluster to a second line before it splits or squeezes them. (Six
             of them since 1.7.1, and below a 330px card they collapse to a single
@@ -1732,7 +1741,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           />
         </span>
         <span className="ml-auto flex items-center">
-          <QuoteActions onEdit={onEdit} onDelete={onDelete} />
+          <QuoteActions actions={atOverflow(acts)} />
         </span>
       </div>
     </article>

@@ -24,6 +24,7 @@ import {
 } from './people.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
+import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
@@ -1095,6 +1096,14 @@ function FavouriteTile({
   authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenPerson,
 }) {
   const meta = FAV_KINDS[f.kind]
+  // From the registry (actions.jsx): a favourite is one of the three kinds of
+  // quote seen from a different screen, so it gets the same set in the same order.
+  const acts = actionsFor(f.kind === 'screen' ? 'dialogue' : f.kind, f, {
+    copy: onCopy && (() => onCopy()),
+    share: onShare && (() => onShare()),
+    edit: onEditStart && (() => onEditStart()),
+    remove: onDelete && (() => onDelete()),
+  })
   const isBook = f.kind === 'book'
   // The credited people: a book's author(s), a dialogue's actor(s), or a
   // standalone quote's speaker(s) — ALL split per the user's separator prefs
@@ -1235,14 +1244,14 @@ function FavouriteTile({
                 )}
                 {/* Un-hearting removes the tile — this IS the favourites list. */}
                 <Hearts value={!!f.raw.favorite} onChange={(v) => onPatch({ favorite: v })} />
-                <QuoteTools onCopy={onCopy} onShare={onShare} alwaysVisible />
+                <QuoteTools actions={atRow(acts)} alwaysVisible />
                 {/* `collapsible` because a Home tile is a masonry cell and often
                     narrower than 330px, where six dots become the named list. */}
                 <span className="card-colors is-visible shrink-0">
                   <ColorSwatches collapsible value={color} onChange={pickColor} ariaLabel="Colour category" />
                 </span>
                 <span className="ml-auto flex items-center">
-                  <QuoteActions onEdit={onEditStart} onDelete={onDelete} />
+                  <QuoteActions actions={atOverflow(acts)} />
                 </span>
               </div>
             </div>

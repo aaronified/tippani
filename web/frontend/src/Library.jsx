@@ -7,6 +7,7 @@ import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
+import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -949,6 +950,16 @@ function locSortVal(a) {
   return m ? parseInt(m[0], 10) : -1
 }
 function ActionRow({ a, color, onColor, patch, setEditingId, remove, onCopy, onShare, actionsAlwaysVisible }) {
+  // The set comes from the registry (actions.jsx), not from this row: the same list
+  // feeds the card, the context menu and the bulk bar, so they cannot offer
+  // different things. Where each one goes — the row beside the ♥, or the ⋯ — is
+  // the registry's answer too.
+  const acts = actionsFor('annotation', a, {
+    copy: onCopy,
+    share: onShare,
+    edit: (row) => setEditingId(row.id),
+    remove,
+  })
   // §7 declutter: the favourite ♥ is the card's resting mark, and beside it sit
   // the two things you do WITH a quote — copy it, send it — then the colour
   // quick-pick. Those three hide until the card is hovered on desktop and stand
@@ -958,11 +969,7 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onCopy, onS
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-      <QuoteTools
-        onCopy={onCopy ? () => onCopy(a) : undefined}
-        onShare={onShare ? () => onShare(a) : undefined}
-        alwaysVisible={actionsAlwaysVisible}
-      />
+      <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
       {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
           cluster to a second line before it splits or squeezes them. (Six of
           them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
@@ -970,7 +977,7 @@ function ActionRow({ a, color, onColor, patch, setEditingId, remove, onCopy, onS
         <ColorSwatches value={color} onChange={onColor} ariaLabel="Colour category" collapsible />
       </span>
       <span className="ml-auto flex items-center">
-        <QuoteActions onEdit={() => setEditingId(a.id)} onDelete={() => remove(a)} />
+        <QuoteActions actions={atOverflow(acts)} />
       </span>
     </div>
   )

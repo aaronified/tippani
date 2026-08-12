@@ -5,6 +5,7 @@ import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
+import { BULK_FIELDS, BULK_TAGS, bulkActionsFor } from './actions.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
@@ -771,6 +772,23 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
   const [err, setErr] = useState('')
   const isTag = bulk.kind === 'tag'
   const isBook = bulk.kind === 'book-fields'
+  // WHICH INPUTS TO SHOW COMES FROM THE REGISTRY (actions.jsx), not from this
+  // component's own reading of `bulk.kind`. Both lists — what you can do to one
+  // quote and what you can do to a selection — now come from the same file, which
+  // is the point: a card menu and a bulk bar that each decide for themselves are
+  // two answers to one question, and they diverge the first time one of them gains
+  // an action.
+  //
+  // The single Apply that posts one body is unchanged, deliberately: this commit is
+  // meant to move the DEFINITIONS, not the behaviour.
+  const forms = new Set(
+    bulkActionsFor(isTag ? 'annotation' : isBook ? 'book' : 'movie', ids, {
+      addTags: true,
+      setFields: true,
+    }).map((a) => a.form),
+  )
+  const canSetFields = forms.has(BULK_FIELDS)
+  const canAddTags = forms.has(BULK_TAGS)
 
   // Nothing typed is the must-fill case here — a bulk action over N rows that
   // sets nothing is a no-op with a confirmation, which is worse than a greyed
@@ -802,20 +820,20 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
 
   return (
     <BulkBar n={n} onClear={onClear}>
-      {!isTag && (
+      {canSetFields && (
         <input className="tp-input w-auto" style={{ minWidth: 130 }} placeholder={isBook ? 'set author' : 'set director'} value={nameField} onChange={(e) => setNameField(e.target.value)} />
       )}
-      {!isTag && (
+      {canSetFields && (
         <input className="tp-input w-auto" style={{ minWidth: 110 }} placeholder="set series" value={series} onChange={(e) => setSeries(e.target.value)} />
       )}
-      <input
+      {canAddTags && <input
         className="tp-input w-auto"
         style={{ minWidth: 150 }}
         placeholder={isTag ? 'add tags (comma-separated)' : 'add genres (comma-separated)'}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); apply() } }}
-      />
+      />}
       <button
         className="tp-btn tp-btn-primary"
         disabled={busy || nothingSet}

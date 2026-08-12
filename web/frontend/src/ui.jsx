@@ -4368,24 +4368,26 @@ export function CloseButton({ onClick, label = "Close", tooltip, disabled = fals
 // shows only its ♥ and its ⋯), standing on a phone, where there is no hover to
 // wait for. `alwaysVisible` pins them on where a card stands alone rather than
 // in a masonry a pointer sweeps across (the search quote modal).
-export function QuoteTools({ onCopy, onShare, alwaysVisible = false }) {
-  if (!onCopy && !onShare) return null;
+// It renders whatever list it is given rather than knowing the actions itself:
+// the list comes from actions.jsx, so the card, the context menu and the bulk bar
+// cannot end up offering different sets. `actions` is already filtered to the row
+// placement by the caller (atRow).
+export function QuoteTools({ actions = [], alwaysVisible = false }) {
+  if (!actions.length) return null;
   return (
     <span className={"card-tools" + (alwaysVisible ? " is-visible" : "")}>
-      {onCopy && (
-        <Tooltip label="Copy this quote">
-          <button type="button" className="field-icon-btn tactile" aria-label="Copy" onClick={onCopy}>
-            <IconCopy />
+      {actions.map((a) => (
+        <Tooltip key={a.id} label={a.tooltip || a.label}>
+          <button
+            type="button"
+            className={"field-icon-btn tactile" + (a.danger ? " field-icon-btn-danger" : "")}
+            aria-label={a.label}
+            onClick={a.run}
+          >
+            {a.icon}
           </button>
         </Tooltip>
-      )}
-      {onShare && (
-        <Tooltip label="Share this quote">
-          <button type="button" className="field-icon-btn tactile" aria-label="Share" onClick={onShare}>
-            <IconShare />
-          </button>
-        </Tooltip>
-      )}
+      ))}
     </span>
   );
 }
@@ -4405,12 +4407,9 @@ export function QuoteTools({ onCopy, onShare, alwaysVisible = false }) {
 // offer at a sweep of the pointer, and both are exactly what a reader expects to
 // find behind an overflow. The menu is always visible (it is one quiet glyph),
 // so nothing on the card is unreachable without hovering it.
-export function QuoteActions({ onEdit, onDelete }) {
-  const items = [];
-  if (onEdit) items.push({ icon: <IconEdit />, label: "Edit", onClick: onEdit });
-  if (onDelete) items.push({ icon: <IconDelete />, label: "Delete", onClick: onDelete, danger: true });
-  if (!items.length) return null;
-  return <MoreMenu items={items} />;
+export function QuoteActions({ actions = [] }) {
+  if (!actions.length) return null;
+  return <MoreMenu items={actions.map((a) => ({ ...a, onClick: a.run }))} />;
 }
 
 // MobileSheet — a full-screen overlay for mobile filter pages and forms (§7).
