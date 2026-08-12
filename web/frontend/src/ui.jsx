@@ -2582,6 +2582,12 @@ export function useAnchoredPosition(open, anchorRef, opts = {}) {
     align = "start",
     gap = POPUP_GAP,
     minHeight = 120,
+    // `at` anchors to a POINT rather than to an element — where a pointer was when
+    // a context menu was asked for. A point is a zero-size rect, so it goes through
+    // exactly the same flipping and clamping as an element does; the alternative
+    // (a second placement path for menus) is how one of the two ends up off-screen
+    // in a corner nobody tested.
+    at = null,
   } = opts;
   const popRef = useRef(null);
   const [pos, setPos] = useState(null);
@@ -2594,8 +2600,10 @@ export function useAnchoredPosition(open, anchorRef, opts = {}) {
     const place = () => {
       const a = anchorRef?.current;
       const p = popRef.current;
-      if (!a || !p) return;
-      const r = a.getBoundingClientRect();
+      if (!p || (!a && !at)) return;
+      const r = at
+        ? { top: at.y, bottom: at.y, left: at.x, right: at.x, width: 0, height: 0 }
+        : a.getBoundingClientRect();
       // scrollHeight, not offsetHeight: once a cap has been applied the
       // element's own height IS the capped one, so re-measuring it would
       // ratchet the popup smaller on every scroll event until it vanished.
@@ -2618,7 +2626,8 @@ export function useAnchoredPosition(open, anchorRef, opts = {}) {
       window.removeEventListener("scroll", place, true);
       window.removeEventListener("resize", place);
     };
-  }, [open, anchorRef, prefer, matchWidth, align, gap, minHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, anchorRef, prefer, matchWidth, align, gap, minHeight, at?.x, at?.y]);
 
   const style = {
     position: "fixed",
@@ -4228,41 +4237,115 @@ export function SourceIcon({ source, detail, side = "top" }) {
 // MoreMenu — a small overflow dropdown for actions that don't fit a mobile
 // detail bar (export/edit/delete). Opens below the "⋯" trigger; closes on
 // outside click or item pick. `items` is [{icon, label, onClick, danger}].
+// ActionMenu — the menu itself, with no opinion about what opened it.
+//
+// ONE MENU, THREE TRIGGERS. The ⋯ button on a card row opens it anchored to
+// itself; a right-click or a long-press opens it at the POINT the pointer was;
+// Shift+F10 and the Menu key open it anchored to the card. Writing a second menu
+// for the second trigger is how an app ends up with two menus that offer slightly
+// different things — which is the whole argument actions.jsx makes one file over.
+//
+// `items` is [{ id, label, icon, danger, onClick }] — what the registry produces,
+// with `run` mapped to `onClick` by the caller.
+//
+// KEYBOARD BEHAVIOUR IS WHAT MAKES IT A MENU rather than a dropdown: focus lands
+// on the first item when it opens, arrows move, Home/End jump, Enter and Space
+// activate (the items are real buttons, so that is free), Escape closes and focus
+// goes back to whatever opened it. Without that, a keyboard user can open this and
+// then only tab THROUGH it into the page behind.
+export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, returnFocusTo }) {
+  const { popRef, style } = useAnchoredPosition(open, anchorRef, {
+    // align 'end' when it hangs off a glyph at the right end of a row — opening
+    // rightwards would need clamping immediately. A point-anchored menu opens
+    // rightwards from the pointer, which is what every native menu does.
+    align: at ? "start" : "end",
+    minHeight: 100,
+    at,
+  })
+  const close = onClose || (() => {})
+  useDismiss(open, close, [popRef, ...(anchorRef ? [anchorRef] : [])], {
+    onEscape: () => returnFocusTo?.current?.focus(),
+  })
+
+  // Focus the first item on open. In a layout effect rather than an effect so it
+  // happens before the browser paints — a menu that appears and then steals focus
+  // a frame later is a menu that can lose a keystroke typed in between.
+  useLayoutEffect(() => {
+    if (!open) return
+    popRef.current?.querySelector("[role=menuitem]")?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  if (!open) return null
+
+  // Arrow keys move within the menu, wrapping, and Home/End jump. Read off the DOM
+  // rather than an index in state: the items ARE the source of truth for order, and
+  // an index would have to be kept in step with a list that a screen can change
+  // while the menu is open.
+  const onKeyDown = (e) => {
+    const all = [...(popRef.current?.querySelectorAll("[role=menuitem]") || [])]
+    if (!all.length) return
+    const here = all.indexOf(document.activeElement)
+    const go = (i) => {
+      e.preventDefault()
+      all[(i + all.length) % all.length].focus()
+    }
+    if (e.key === "ArrowDown") return go(here + 1)
+    if (e.key === "ArrowUp") return go(here - 1)
+    if (e.key === "Home") return go(0)
+    if (e.key === "End") return go(all.length - 1)
+    if (e.key === "Tab") {
+      // A menu is a mode. Tabbing out of it is a way to leave it open behind you,
+      // with focus in the page and a floating panel nobody can see the state of.
+      e.preventDefault()
+      close()
+      returnFocusTo?.current?.focus()
+    }
+  }
+
+  return createPortal(
+    <div
+      ref={popRef}
+      className="hand-card hc-r2 more-menu"
+      role="menu"
+      style={style}
+      onKeyDown={onKeyDown}
+    >
+      {items.map((it, i) => (
+        <button
+          key={it.id || i}
+          type="button"
+          role="menuitem"
+          className="menu-item"
+          style={it.danger ? { color: "var(--error)" } : undefined}
+          onClick={() => {
+            close()
+            it.onClick()
+          }}
+        >
+          {it.icon}
+          {it.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  )
+}
+
+// MoreMenu — the ⋯ trigger, and the menu it opens. The pairing every card row uses.
 export function MoreMenu({ items }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
-  // align 'end': it hangs off a glyph at the right end of a row, so opening
-  // rightwards would need clamping immediately. Not matchWidth — a menu the
-  // width of a 44px button is unreadable.
-  const { popRef, style } = useAnchoredPosition(open, ref, { align: "end", minHeight: 100 })
-  const close = () => setOpen(false)
-  useDismiss(open, close, [ref, popRef], {
-    onEscape: () => ref.current?.querySelector("button")?.focus(),
-  })
   return (
     <div className="relative" ref={ref}>
       <IconButton icon={<IconMore />} ariaLabel="More actions" onClick={() => setOpen((o) => !o)} />
-      {open && createPortal(
-        <div ref={popRef} className="hand-card hc-r2 more-menu" role="menu" style={style}>
-          {items.map((it, i) => (
-            <button
-              key={i}
-              type="button"
-              role="menuitem"
-              className="menu-item"
-              style={it.danger ? { color: "var(--error)" } : undefined}
-              onClick={() => {
-                close()
-                it.onClick()
-              }}
-            >
-              {it.icon}
-              {it.label}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
+      <ActionMenu
+        open={open}
+        items={items}
+        anchorRef={ref}
+        onClose={() => setOpen(false)}
+        returnFocusTo={ref}
+      />
     </div>
   )
 }
