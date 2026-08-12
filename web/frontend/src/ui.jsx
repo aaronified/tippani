@@ -4464,13 +4464,14 @@ export function useCardMenu(items = []) {
     e.stopPropagation();
   };
 
-  // Spread onto the card body. `card-menu-host` carries the iOS callout suppression
-  // and nothing else — it must not carry a background or a border, because it is
-  // wrapped around cards that already have their own.
+  // `cardProps` carries NO className, and `menuClass` is returned separately, so a
+  // caller composes it into whatever class its card already has. A className inside
+  // a spread silently replaces the card's own — which on a HandCard means losing
+  // the paper material, the radius and the colour bar in one go, and it looks like
+  // a styling bug rather than a spread order bug.
   const cardProps = enabled
     ? {
         ref: cardRef,
-        className: "card-menu-host",
         onContextMenu,
         onPointerDown,
         onPointerMove,
@@ -4485,7 +4486,7 @@ export function useCardMenu(items = []) {
     <ActionMenu open={!!at} at={at} items={items} onClose={close} returnFocusTo={cardRef} />
   );
 
-  return { cardProps, menu, open: !!at, close };
+  return { cardProps, menuClass: enabled ? "card-menu-host" : "", menu, open: !!at, close };
 }
 
 // TableActions — the actions cell at the end of a table row.

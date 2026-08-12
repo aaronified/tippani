@@ -73,6 +73,7 @@ import {
   TokenInput,
   Tooltip,
   BOARD_COLUMNS,
+  useCardMenu,
   useColumnsAt,
   useCoverSize,
   useFormHost,
@@ -949,17 +950,11 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-function ActionRow({ a, color, onColor, patch, setEditingId, remove, onCopy, onShare, actionsAlwaysVisible }) {
-  // The set comes from the registry (actions.jsx), not from this row: the same list
-  // feeds the card, the context menu and the bulk bar, so they cannot offer
-  // different things. Where each one goes — the row beside the ♥, or the ⋯ — is
-  // the registry's answer too.
-  const acts = actionsFor('annotation', a, {
-    copy: onCopy,
-    share: onShare,
-    edit: (row) => setEditingId(row.id),
-    remove,
-  })
+function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
+  // `acts` is built by the card, from the registry (actions.jsx) — one list per
+  // card, rendered in three places: this row, the ⋯, and the context menu. Built
+  // here instead, the gesture and the buttons would be two lists that agree by
+  // coincidence.
   // §7 declutter: the favourite ♥ is the card's resting mark, and beside it sit
   // the two things you do WITH a quote — copy it, send it — then the colour
   // quick-pick. Those three hide until the card is hovered on desktop and stand
@@ -1029,10 +1024,22 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   const editForm = (
     <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
   )
+  // Right-click, long-press or Shift+F10 anywhere on the card opens the SAME list
+  // the row and the ⋯ render (actions.jsx), so the gesture can never offer
+  // something the buttons do not — which is the whole reason the registry exists.
+  const acts = actionsFor('annotation', a, {
+    copy: onCopy,
+    share: onShare,
+    edit: (row) => setEditingId(row.id),
+    remove,
+  })
+  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   // editInline renders the form in place of the card body — used inside the
   // search QuoteModal, which is itself a pop-up (avoids stacking two overlays).
   // Everywhere else the edit opens in a FormModal, the house style.
   if (editInline && editing) {
+    // A card that IS a form gets no card menu: every gesture on it belongs to the
+    // inputs inside it.
     return (
       <HandCard variant={variant} colorBar={color} className="px-5 py-4">
         {editForm}
@@ -1040,7 +1047,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     )
   }
   return (
-    <HandCard variant={variant} colorBar={color} className="px-5 py-4">
+    <HandCard variant={variant} colorBar={color} className={`px-5 py-4 ${menuClass}`} {...cardProps}>
       {!editInline && (
         <FormModal open={editing} onClose={() => setEditingId(null)} title="Edit quote">
           {editForm}
@@ -1087,8 +1094,9 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               })}
             </div>
           )}
-          <ActionRow a={a} color={color} onColor={pickColor} patch={patch} setEditingId={setEditingId} remove={remove} onCopy={onCopy} onShare={onShare} actionsAlwaysVisible={actionsAlwaysVisible} />
+          <ActionRow acts={acts} a={a} color={color} onColor={pickColor} patch={patch} actionsAlwaysVisible={actionsAlwaysVisible} />
         </div>
+      {menu}
     </HandCard>
   )
 }

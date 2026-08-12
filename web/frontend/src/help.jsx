@@ -57,13 +57,14 @@ const SHELL_COMMON = [
 const SHELL_TOUCH = [
   { term: 'Menu (☰)', icon: <IconMenu />, what: 'The drawer: every screen, your profile, and the pending-import queue. Its Add and Search are the deliberately context-free pair — they open with nothing pre-filled, whatever page you came from. Swipe it left or tap outside to close.' },
   { term: 'Bottom bar', what: 'Four thumb-reachable screens — Search, Home, Library, Catalogue. It slides away as you scroll down and comes back as you scroll up.' },
-  { term: 'Long press', what: 'There is no hover on a phone, so holding any control for half a second shows its label beside it. The hold swallows the tap, so holding Delete to find out what it does never deletes anything.' },
+  { term: 'Long press', what: 'There is no hover on a phone, so holding any CONTROL for half a second shows its label beside it. The hold swallows the tap, so holding Delete to find out what it does never deletes anything. Holding a QUOTE CARD itself — anywhere that is not one of its buttons — opens that card’s menu instead: the same copy, share, edit and delete the row offers, wherever your thumb happens to be.' },
 ]
 
 // Pointer only: the tab strip that stands in for the drawer, and hover labels.
 const SHELL_POINTER = [
   { term: 'Tab strip', what: 'Every screen, always visible in the top bar: Home, Library, Catalogue, then the tools — Tags, Metadata, Stats, Settings. It collapses to icons when the window is too narrow for the labels, and each one names itself on hover.' },
   { term: 'Hover labels', what: 'Every glyph-only control says what it is when you hover or tab to it, in a small bubble anchored to the control itself.' },
+  { term: 'Right-click a card', what: 'A quote card answers a right-click with its own menu — copy, share, edit, delete — opened where you pressed. Shift+F10 or the Menu key does the same from the keyboard, and Escape closes it and hands focus back. If you have selected text inside the card, the browser’s own menu wins instead: you wanted Copy, or Look Up, and those are not ours to take away.' },
 ]
 
 export const HELP = {

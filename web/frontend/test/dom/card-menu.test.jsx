@@ -26,10 +26,10 @@ const ITEMS = (onClick = vi.fn()) => [
 
 // A card that looks like the app's: a quote, and one of its own tooltip'd buttons.
 function Card({ items = ITEMS(), onOpen = () => {} }) {
-  const { cardProps, menu } = useCardMenu(items)
+  const { cardProps, menuClass, menu } = useCardMenu(items)
   return (
     <>
-      <div {...cardProps} onClick={onOpen} data-testid="card">
+      <div {...cardProps} className={menuClass} onClick={onOpen} data-testid="card">
         <p>The margins are where the reader answers back.</p>
         <Tooltip label="Share this quote">
           <button type="button" aria-label="Share">

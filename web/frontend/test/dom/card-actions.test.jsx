@@ -161,6 +161,35 @@ describe.each([
   })
 })
 
+describe.each([
+  ['a book annotation', (over) => annotation(over)],
+  ['a film dialogue', (over) => dialogue(over)],
+])('the context menu on %s', (_name, mount) => {
+  it('offers exactly what the row and the ⋯ offer, in one list', () => {
+    // THE REASON THE REGISTRY EXISTS, asserted on a real card rather than on the
+    // registry alone: a menu that offers Delete beside a row that does not looks
+    // completely normal on both, and the divergence only surfaces when somebody
+    // wonders why they cannot do to forty what they just did to one.
+    mount()
+    fireEvent.contextMenu(document.querySelector('.card-menu-host'), { clientX: 30, clientY: 30 })
+    const inMenu = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
+    expect(inMenu).toEqual(['Copy', 'Share', 'Edit', 'Delete'])
+  })
+
+  it('fires the same handler the glyph does', () => {
+    mount()
+    fireEvent.contextMenu(document.querySelector('.card-menu-host'), { clientX: 30, clientY: 30 })
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Copy'))
+    expect(onCopy).toHaveBeenCalledTimes(1)
+  })
+
+  it('is not offered on the card’s own buttons', () => {
+    mount()
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Share' }), { clientX: 5, clientY: 5 })
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
 describe('what the copy glyph puts on the clipboard', () => {
   const written = () => navigator.clipboard.writeText.mock.calls.at(-1)?.[0]
 

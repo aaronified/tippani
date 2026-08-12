@@ -83,6 +83,7 @@ import {
   TokenInput,
   Tooltip,
   BOARD_COLUMNS,
+  useCardMenu,
   useColumnsAt,
   useCoverSize,
   useFrameBase,
@@ -1609,6 +1610,9 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
     edit: onEdit && (() => onEdit()),
     remove: onDelete && (() => onDelete()),
   })
+  // The same list the row and the ⋯ render, on a right-click, a long press or
+  // Shift+F10 (useCardMenu).
+  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   // The colour bar is the same affordance annotations get from HandCard's
   // colorBar — a dialogue is a quote like any other, so it wears its colour the
   // same way. Inline rather than a class because the frame's own borders are
@@ -1665,7 +1669,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       <FormModal open={editing} onClose={onCancelEdit} title="Edit dialogue">
         {editForm}
       </FormModal>
-    <article className={frameClass} style={frameStyle}>
+    <article className={`${frameClass} ${menuClass}`} style={frameStyle} {...cardProps}>
       {d.quote &&
         (sticker ? (
           <FlowQuote
@@ -1744,6 +1748,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           <QuoteActions actions={atOverflow(acts)} />
         </span>
       </div>
+      {menu}
     </article>
     </>
   )

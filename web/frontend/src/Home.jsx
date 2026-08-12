@@ -49,6 +49,7 @@ import {
   STATUS_META,
   toast,
   Tooltip,
+  useCardMenu,
   useColumnsAt,
   usePersistedState,
 } from './ui.jsx'
@@ -1104,6 +1105,7 @@ function FavouriteTile({
     edit: onEditStart && (() => onEditStart()),
     remove: onDelete && (() => onDelete()),
   })
+  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
   const isBook = f.kind === 'book'
   // The credited people: a book's author(s), a dialogue's actor(s), or a
   // standalone quote's speaker(s) — ALL split per the user's separator prefs
@@ -1145,7 +1147,9 @@ function FavouriteTile({
     <HandCard
       variant={variant}
       colorBar={color}
+      className={menuClass}
       style={{ padding: '12px 15px' }}
+      {...cardProps}
     >
       <FormModal open={editing} onClose={onEditCancel} title={meta.editTitle} maxWidth={520}>
         {/* One form per kind, picked from the table rather than by a ternary
@@ -1257,6 +1261,7 @@ function FavouriteTile({
             </div>
           )}
         </>
+      {menu}
     </HandCard>
   )
 }
