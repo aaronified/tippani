@@ -177,6 +177,9 @@ func (s *Server) Handler() http.Handler {
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
+	// The reader's own vocabulary, for the facet dropdown: one call on first focus,
+	// held for the session, narrowed in the browser. Per user without exception.
+	mux.Handle("GET /search/vocabulary", s.requireAuth(s.handleSearchVocabulary))
 
 	// One-shot quote-image downloads (share_handlers.go). The GET is public by
 	// design: the single-use crypto-random token is the credential, because
