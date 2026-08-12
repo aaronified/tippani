@@ -143,7 +143,33 @@ type MovieDetails struct {
 	Series      string       // franchise/collection name, where the source has it
 	Cast        []CastMember // top 20 in billing order
 	PosterURL   string
-	Raw         json.RawMessage // raw details payload, cached in movies.source_metadata
+	// PosterThumbURL is the same art at picker size. A details fetch is normally
+	// on its way to storage and so wants PosterURL (full size), but a lookup
+	// pinned to a supplier id shows its record in the same grid of thumbnails as
+	// the title hits — and paying for a 2000×3000 poster to draw it at 90px wide
+	// is the kind of waste this app is supposed to not do.
+	PosterThumbURL string
+	Raw            json.RawMessage // raw details payload, cached in movies.source_metadata
+}
+
+// Candidate reduces a fetched details record to the search-result shape, so a
+// lookup pinned to a supplier id can sit in the same picker list as the hits a
+// title search returned.
+func (d *MovieDetails) Candidate() MovieCandidate {
+	poster := d.PosterThumbURL
+	if poster == "" {
+		poster = d.PosterURL
+	}
+	return MovieCandidate{
+		Source:      d.Source,
+		SourceID:    d.SourceID,
+		MediaType:   d.MediaType,
+		TMDBID:      d.TMDBID,
+		Title:       d.Title,
+		ReleaseYear: d.ReleaseYear,
+		Overview:    d.Overview,
+		PosterURL:   poster,
+	}
 }
 
 // TMDB is the api.themoviedb.org/3 client (PLAN §6). Key is auto-detected:
@@ -348,6 +374,7 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 	}
 	if r.PosterPath != "" {
 		d.PosterURL = TMDBPosterURL(r.PosterPath)
+		d.PosterThumbURL = tmdbPoster(r.PosterPath)
 	}
 	return d, nil
 }
@@ -421,6 +448,7 @@ func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
 	}
 	if r.PosterPath != "" {
 		d.PosterURL = TMDBPosterURL(r.PosterPath)
+		d.PosterThumbURL = tmdbPoster(r.PosterPath)
 	}
 	return d, nil
 }

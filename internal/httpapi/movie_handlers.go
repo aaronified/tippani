@@ -19,7 +19,13 @@ const tmdbKeyMissing = "TMDB API key not configured (add one in Settings)"
 const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
 
 type movieReq struct {
-	TMDBID       int64    `json:"tmdb_id"`
+	// TMDBID/TVDBID are the supplier ids, and they are POINTERS on purpose:
+	// nil means "field omitted, leave the column alone" and 0 means "clear it".
+	// PUT is full-state everywhere else, but a supplier id is not a field you
+	// retype every save — it is what a re-sync pulls from, so an old client that
+	// has never heard of it must not be able to wipe it by omission.
+	TMDBID       *int64   `json:"tmdb_id"`
+	TVDBID       *int64   `json:"tvdb_id"`
 	Source       string   `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
 	SourceID     string   `json:"source_id"` // id within the source
 	Title        string   `json:"title"`
@@ -51,7 +57,22 @@ func (m *movieReq) validate() string {
 	if msg := normalizeMediaType(&m.MediaType); msg != "" {
 		return msg
 	}
+	if idOrZero(m.TMDBID) < 0 {
+		return "tmdb_id must be a positive number"
+	}
+	if idOrZero(m.TVDBID) < 0 {
+		return "tvdb_id must be a positive number"
+	}
 	return ""
+}
+
+// idOrZero reads an optional supplier id: an omitted field and an explicit 0
+// both mean "no id", which is what the columns store as NULL either way.
+func idOrZero(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 // normalizeMediaType defaults an empty media_type to "movie" and rejects
@@ -151,13 +172,13 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	olog.Tracef("[movie] handleCreateMovie uid=%v source=%q source_id=%q tmdb_id=%v", userID(r), req.Source, req.SourceID, req.TMDBID)
+	olog.Tracef("[movie] handleCreateMovie uid=%v source=%q source_id=%q tmdb_id=%v", userID(r), req.Source, req.SourceID, idOrZero(req.TMDBID))
 	if req.Source != "" && req.SourceID != "" {
 		s.createMovieFromSource(w, r, req.Source, req.SourceID, req.MediaType, req.ConfirmNew)
 		return
 	}
-	if req.TMDBID != 0 { // legacy clients / tests: tmdb_id implies a TMDB movie
-		s.createMovieFromSource(w, r, "tmdb", strconv.FormatInt(req.TMDBID, 10), "movie", req.ConfirmNew)
+	if id := idOrZero(req.TMDBID); id != 0 { // legacy clients / tests: tmdb_id implies a TMDB movie
+		s.createMovieFromSource(w, r, "tmdb", strconv.FormatInt(id, 10), "movie", req.ConfirmNew)
 		return
 	}
 	if msg := req.validate(); msg != "" {
@@ -309,6 +330,24 @@ func (s *Server) similarMoviesForSource(uid int64, d *metadata.MovieDetails) ([]
 		out = append(out, h)
 	}
 	return out, nil
+}
+
+// movieIDClash reports whether another of this user's titles already holds the
+// given supplier id. Both id columns carry a partial unique index, so without
+// this check the write comes back as an opaque constraint error (a 500) instead
+// of a 409 that says which entry is in the way. A zero id is no id, and never
+// clashes — the index is partial for exactly that reason.
+//
+// column is one of two literals from this file, never anything off the wire.
+func (s *Server) movieIDClash(uid, id int64, column string, value int64) (bool, error) {
+	if value == 0 {
+		return false, nil
+	}
+	var clash bool
+	err := s.Store.DB.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM movies WHERE user_id = ? AND id <> ? AND `+column+` = ?)`,
+		uid, id, value).Scan(&clash)
+	return clash, err
 }
 
 // fetchSourceDetails dispatches a details lookup to the right supplier+media
@@ -478,14 +517,20 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	olog.Tracef("[movie] handleUpdateMovie uid=%v id=%v source=%q source_id=%q", userID(r), id, req.Source, req.SourceID)
-	// A source+source_id (or legacy tmdb_id) re-syncs everything (poster, cast,
-	// genres, details) from that supplier — the "look up" action in the edit view.
+	// A source+source_id re-syncs everything (poster, cast, genres, details) from
+	// that supplier — the "look up" action in the edit view.
 	if req.Source != "" && req.SourceID != "" {
 		s.resyncMovieFromSource(w, r, id, req.Source, req.SourceID, req.MediaType)
 		return
 	}
-	if req.TMDBID != 0 {
-		s.resyncMovieFromSource(w, r, id, "tmdb", strconv.FormatInt(req.TMDBID, 10), "movie")
+	// tmdb_id carries two meanings, and the title tells them apart. A bare
+	// {"tmdb_id": N} is the legacy re-sync verb from before source/source_id
+	// existed; it cannot be an edit, because an edit is full-state and a
+	// title-less one is refused two lines below. Anything WITH a title is an
+	// ordinary save, where tmdb_id/tvdb_id are just two more editable columns —
+	// which is how you correct an id the supplier search got wrong.
+	if tid := idOrZero(req.TMDBID); tid != 0 && req.Title == "" {
+		s.resyncMovieFromSource(w, r, id, "tmdb", strconv.FormatInt(tid, 10), "movie")
 		return
 	}
 	if msg := req.validate(); msg != "" {
@@ -506,6 +551,30 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	// The two supplier-id columns paired with what the body asked of each. nil is
+	// "not mentioned" and leaves the column exactly as it is — see movieReq.
+	idCols := []struct {
+		column string
+		value  *int64
+	}{{"tmdb_id", req.TMDBID}, {"tvdb_id", req.TVDBID}}
+
+	// A hand-typed id that another title already holds would fail as a unique
+	// constraint mid-transaction; catch it first so the answer names the problem.
+	for _, c := range idCols {
+		if c.value == nil {
+			continue
+		}
+		clash, err := s.movieIDClash(uid, id, c.column, *c.value)
+		if err != nil {
+			internalError(w, r, "update movie: check id clash", err)
+			return
+		}
+		if clash {
+			writeErr(w, http.StatusConflict, "another title in your library already has that id")
+			return
+		}
+	}
+
 	changePoster, newPoster := false, ""
 	if req.ClearCover {
 		changePoster = true
@@ -558,6 +627,20 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// The supplier ids write on their own rather than joining the SET above,
+	// because they are the only columns here a body is allowed to stay silent
+	// about. Correcting one changes nothing else: the cached cast and payload
+	// still describe the old record until a re-sync goes and gets the new one.
+	for _, c := range idCols {
+		if c.value == nil {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE movies SET `+c.column+` = ?, updated_at = datetime('now')
+			WHERE id = ? AND user_id = ?`, nullableInt64(*c.value), id, uid); err != nil {
+			failErr("update movie: set "+c.column, err)
+			return
+		}
+	}
 	if err := setGenres(tx, "movie", uid, id, req.Genres); err != nil {
 		failErr("update movie: set genres", err)
 		return
@@ -599,24 +682,21 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 	// Reject re-syncing to a tmdb_id/tvdb_id another of the user's titles holds.
-	var clash bool
-	var clashErr error
-	if d.TVDBID != 0 {
-		clashErr = s.Store.DB.QueryRow(
-			`SELECT EXISTS(SELECT 1 FROM movies WHERE user_id = ? AND id <> ? AND tvdb_id = ?)`,
-			uid, id, d.TVDBID).Scan(&clash)
-	} else {
-		clashErr = s.Store.DB.QueryRow(
-			`SELECT EXISTS(SELECT 1 FROM movies WHERE user_id = ? AND id <> ? AND tmdb_id = ?)`,
-			uid, id, d.TMDBID).Scan(&clash)
-	}
-	if clashErr != nil {
-		internalError(w, r, "resync movie: check id clash", clashErr)
-		return
-	}
-	if clash {
-		writeErr(w, http.StatusConflict, "another title in your library is already that entry")
-		return
+	// A details record only ever carries the id of the supplier it came from, so
+	// checking both columns checks exactly the one that is set.
+	for _, c := range []struct {
+		column string
+		value  int64
+	}{{"tmdb_id", d.TMDBID}, {"tvdb_id", d.TVDBID}} {
+		clash, err := s.movieIDClash(uid, id, c.column, c.value)
+		if err != nil {
+			internalError(w, r, "resync movie: check id clash", err)
+			return
+		}
+		if clash {
+			writeErr(w, http.StatusConflict, "another title in your library is already that entry")
+			return
+		}
 	}
 	var newPoster string
 	if d.PosterURL != "" {

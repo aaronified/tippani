@@ -117,7 +117,7 @@ export const HELP = {
   'movie-detail': {
     title: 'Film or show',
     entries: [
-      { term: 'Details', icon: <IconDetails />, what: 'Every stored field — title, director or creator, year, collection, TMDB and TheTVDB ids, genres, description, poster. Edit one field at a time, or re-sync from the source and choose what to take.' },
+      { term: 'Details', icon: <IconDetails />, what: 'Every stored field — title, director or creator, year, collection, TMDB and TheTVDB ids, genres, description, poster. Edit one field at a time, or re-sync from the source and choose what to take. The two ids can be typed as well as fetched, and once set every later search fetches that exact record first.' },
       { term: 'State chip', what: 'The shelf: start watching, pause, abandon, finish — with a ×N re-watch count.' },
       { term: 'Add dialogue', icon: <IconPlus />, what: 'A line with its timestamp, the character, and the actor auto-filled from the cast. Shows also take season and episode.' },
       { term: 'Cast', what: 'Pulled from the source when you fetch metadata; it is what fills the actor on a new line.' },
@@ -220,7 +220,7 @@ export const HELP = {
     entries: [
       { term: 'no book or film', what: 'Saves the line on its own, with who said it and on what occasion instead of a chapter and a page. It lands on the Quotes screen.' },
       { term: 'Book', what: 'Look one up by title, author or ISBN — covers and details come with it. Manual entry always works, key or no key.' },
-      { term: 'Film or show', what: 'Looked up on TMDB and TheTVDB by title and year; picking a match pulls the poster, cast and details.' },
+      { term: 'Film or show', what: 'Looked up on TMDB and TheTVDB by title and year — or by a TMDB/TheTVDB id you type in Details, which names one record exactly where a title cannot. Picking a match pulls the poster, cast and details.' },
       { term: 'Capture quote', icon: <IconQuote />, what: 'A line against any work you already have, without leaving the screen you were on. Opened from a book or film’s own page, that work is already filled in — it is the same surface either way, and the only add form there is.' },
       { term: 'Save (✓)', what: 'In the title bar, not at the foot of the form, so it is reachable on a phone without scrolling past every field. It stays greyed until the must-fill fields are filled, and says which one is missing.' },
       { term: 'Import', icon: <IconUpload />, what: 'Markdown and Readest exports, Kindle Bookcision and your Kindle notebook, Goodreads and Hardcover pages, IMDb quote pages. Everything lands in Pending import first.' },

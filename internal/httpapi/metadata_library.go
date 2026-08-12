@@ -79,22 +79,28 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type movieItem struct {
-		ID            int64  `json:"id"`
-		Title         string `json:"title"`
-		MediaType     string `json:"media_type"`
-		ReleaseYear   int    `json:"release_year"`
-		HasPoster     bool   `json:"has_poster"`
-		LowResPoster  bool   `json:"low_res_poster"`
-		HasCast       bool   `json:"has_cast"`
-		HasSource     bool   `json:"has_source"` // tmdb_id or tvdb_id
-		HasDirector   bool   `json:"has_director"`
-		HasYear       bool   `json:"has_year"`
-		HasGenre      bool   `json:"has_genre"`
-		DialogueCount int    `json:"dialogue_count"`
+		ID          int64  `json:"id"`
+		Title       string `json:"title"`
+		MediaType   string `json:"media_type"`
+		ReleaseYear int    `json:"release_year"`
+		// The supplier ids, like the book row's isbn/asin above: the console's
+		// look-up picker passes them on so a search here pins the same record
+		// the work page would.
+		TMDBID        int64 `json:"tmdb_id"`
+		TVDBID        int64 `json:"tvdb_id"`
+		HasPoster     bool  `json:"has_poster"`
+		LowResPoster  bool  `json:"low_res_poster"`
+		HasCast       bool  `json:"has_cast"`
+		HasSource     bool  `json:"has_source"` // tmdb_id or tvdb_id
+		HasDirector   bool  `json:"has_director"`
+		HasYear       bool  `json:"has_year"`
+		HasGenre      bool  `json:"has_genre"`
+		DialogueCount int   `json:"dialogue_count"`
 	}
 	movies := []movieItem{}
 	mrows, err := s.Store.DB.Query(`
 		SELECT m.id, m.title, m.media_type, COALESCE(m.release_year, 0),
+		       COALESCE(m.tmdb_id, 0), COALESCE(m.tvdb_id, 0),
 		       COALESCE(m.poster_path, ''),
 		       (m.cast_json IS NOT NULL AND m.cast_json <> '[]' AND m.cast_json <> ''),
 		       (m.tmdb_id IS NOT NULL OR m.tvdb_id IS NOT NULL),
@@ -113,6 +119,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		var it movieItem
 		var poster string
 		if err := mrows.Scan(&it.ID, &it.Title, &it.MediaType, &it.ReleaseYear,
+			&it.TMDBID, &it.TVDBID,
 			&poster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
 			&it.DialogueCount); err != nil {
 			olog.Warnf(olog.CodeMetaRowScan, "[meta] library movie row scan failed: %v", err)

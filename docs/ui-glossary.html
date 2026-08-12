@@ -1473,7 +1473,7 @@
           <dl class="help-list">
             <div class="help-row">
               <span class="help-row-icon" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9h9"/><path d="M7.5 12.5h9"/><path d="M7.5 16h5"/></svg></span>
-              <div class="min-w-0"><dt>Details</dt><dd>Every stored field — read it there, edit any one field with its pencil, or fetch fresh metadata and choose field by field what to take.</dd></div>
+              <div class="min-w-0"><dt>Details</dt><dd>Every stored field — read it there, edit any one field with its pencil, or fetch fresh metadata and choose field by field what to take. On a film or show that includes the TMDB and TheTVDB ids, which can be typed as well as fetched.</dd></div>
             </div>
             <div class="help-row">
               <span class="help-row-icon" aria-hidden="true"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l9 9v9l4-2v-7z"/></svg></span>
@@ -1515,11 +1515,20 @@
               </div>
               <div class="inline-field-value is-empty">not set</div>
             </div>
+            <div class="inline-field">
+              <div class="inline-field-head">
+                <span class="mono-label">TMDB id</span>
+                <span class="info-dot" style="cursor:help">i</span>
+                <span style="flex:1"></span>
+                <button class="field-icon-btn" type="button" aria-label="Edit TMDB id"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4L7 19H3v-4z"/></svg></button>
+              </div>
+              <div class="inline-field-value"><a class="tp-link" href="https://www.themoviedb.org/movie/603" target="_blank" rel="noopener noreferrer">#603 ↗</a></div>
+            </div>
           </div>
         </div>
         <div class="g-name">InlineField</div>
         <div class="g-src">InlineField — ui.jsx · <code>.inline-field</code> / <code>.inline-field-value</code> / <code>.field-icon-btn</code></div>
-        <div class="g-desc">Read at rest, edit in place. Every field that used to live in a modal behind an <i>Edit</i> button and save with a <i>Save</i> one: the value reads as plain text with a pencil beside it, the pencil swaps in an input with ✓ / ✕ discs, and ✓ saves <b>that one field</b>. A blank shows its placeholder in italic <code>--faint</code> rather than an empty row. Two details that matter: <b>Enter does not save when the editor is a token list</b> (Enter is how you add a genre, and committing on it would close the row on your first tag), and a <b>failed save keeps the editor open with your text intact</b> — closing first is snappier and throws away what you typed the moment the request fails. Discs are 34px on desktop, 42px on a phone.</div>
+        <div class="g-desc">Read at rest, edit in place. Every field that used to live in a modal behind an <i>Edit</i> button and save with a <i>Save</i> one: the value reads as plain text with a pencil beside it, the pencil swaps in an input with ✓ / ✕ discs, and ✓ saves <b>that one field</b>. A blank shows its placeholder in italic <code>--faint</code> rather than an empty row. Two details that matter: <b>Enter does not save when the editor is a token list</b> (Enter is how you add a genre, and committing on it would close the row on your first tag), and a <b>failed save keeps the editor open with your text intact</b> — closing first is snappier and throws away what you typed the moment the request fails. Discs are 34px on desktop, 42px on a phone. A row can also read as something other than its stored value: the <b>TMDB / TheTVDB id</b> rows show a link to the record they name rather than a bare number, while still editing as one — they spent a release read-only, on the reasoning that an id is written by picking a match, until it became clear a title search cannot tell two films of the same name apart and typing the id is the only way to say which you meant.</div>
       </div>
 
       <div class="g-item wide">

@@ -22,7 +22,7 @@
 // overwriting an author you typed by hand is, so the second one asks first.
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
-import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster } from './CoverPicker.jsx'
+import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
   ErrorText,
   FormModal,
@@ -47,7 +47,7 @@ import {
 
 // ---- field specs -----------------------------------------------------------
 // One row per stored field. `kind` picks the editor and the coercion on save:
-//   text (default) · long (textarea) · year · number · tokens · readonly
+//   text (default) · long (textarea) · year · number · tokens · id
 // `hint` is the InfoDot beside the label — where the ISBN/ASIN/TMDB explanation
 // went when it came off the hero.
 
@@ -81,15 +81,15 @@ const MOVIE_FIELDS = [
   {
     key: 'tmdb_id',
     label: 'TMDB id',
-    kind: 'readonly',
-    hint: 'The Movie Database’s id for this title. It is set by picking a match under “Fetch metadata”, not typed, because it is what a re-sync pulls from.',
+    kind: 'id',
+    hint: 'The Movie Database’s id for this title — the number in its URL. Picking a match under “Fetch metadata” sets it, and you can also type it: a title search cannot tell two films of the same name apart, and an id can. Once it is set, every later search fetches that exact record first. Clear it by emptying the field.',
     href: (it) => `https://www.themoviedb.org/${(it.media_type || 'movie') === 'show' ? 'tv' : 'movie'}/${it.tmdb_id}`,
   },
   {
     key: 'tvdb_id',
     label: 'TheTVDB id',
-    kind: 'readonly',
-    hint: 'TheTVDB’s id, set the same way. Optional — it usually has better coverage for long-running shows.',
+    kind: 'id',
+    hint: 'TheTVDB’s id, typed or fetched the same way. Optional — it usually has better coverage for long-running shows, so it is worth filling in when TMDB has a show only half-catalogued.',
     // The dereferrer resolves a bare numeric id to the right series/movie page.
     href: (it) => `https://thetvdb.com/dereferrer/${(it.media_type || 'movie') === 'show' ? 'series' : 'movie'}/${it.tvdb_id}`,
   },
@@ -128,6 +128,11 @@ function fullState(kind, it) {
     series: it.series || '',
     series_index: it.series_index || 0,
     favorite: !!it.favorite,
+    // The supplier ids are the one pair the server treats as optional rather
+    // than full-state, but carrying them anyway keeps this function honest to
+    // its name — every save re-states the record exactly as it stands.
+    tmdb_id: it.tmdb_id || 0,
+    tvdb_id: it.tvdb_id || 0,
   }
 }
 
@@ -144,6 +149,10 @@ function coerce(spec, draft) {
     return spec.circaKey ? { [spec.key]: year, [spec.circaKey]: circa } : year
   }
   if (spec.kind === 'number') return Number(String(draft).trim()) || 0
+  // A supplier id is a positive whole number or nothing at all; 0 is how the
+  // API spells "clear it", so an emptied field and a typo both land there
+  // rather than sending a fraction the server would only reject.
+  if (spec.kind === 'id') return idNum(draft)
   return String(draft ?? '').trim()
 }
 
@@ -152,7 +161,7 @@ function resting(spec, it) {
   const v = it?.[spec.key]
   if (spec.kind === 'tokens') return v || []
   if (spec.kind === 'year') return formatYear(v, spec.circaKey ? it?.[spec.circaKey] : false)
-  if (spec.kind === 'number') return v ? String(v) : ''
+  if (spec.kind === 'number' || spec.kind === 'id') return v ? String(v) : ''
   return v == null ? '' : String(v)
 }
 
@@ -163,7 +172,7 @@ function resting(spec, it) {
 // pre-tick, and a match that also has no year would propose "0" as a change.
 function blank(v, kind) {
   if (Array.isArray(v)) return v.length === 0
-  if (kind === 'year' || kind === 'number') return !Number(v)
+  if (kind === 'year' || kind === 'number' || kind === 'id') return !Number(v)
   return String(v ?? '').trim() === ''
 }
 
@@ -255,7 +264,10 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
   function buildRows(cand, artUrl) {
     const rows = []
     for (const spec of specs) {
-      if (spec.kind === 'readonly') continue
+      // A match proposes the fields it actually carries. The supplier ids are
+      // deliberately not among them: adopting an id without the record behind
+      // it would leave the row pointing at something it does not describe —
+      // "Re-sync everything" is the control that changes both together.
       if (!(spec.key in cand)) continue
       const next = cand[spec.key]
       if (blank(next, spec.kind)) continue
@@ -379,6 +391,8 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
               title={item.title}
               year={item.release_year}
               mediaType={item.media_type || 'movie'}
+              tmdbId={item.tmdb_id}
+              tvdbId={item.tvdb_id}
               onPick={(c) => { setMerge({ rows: proposeMovie(c), candidate: c }); setView('merge') }}
             />
           )}
@@ -421,7 +435,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
         onUploaded={(rec) => onChanged?.(rec)}
         search={kind === 'book'
           ? { isbn: item.isbn, title: item.title, author: item.author, asin: item.asin }
-          : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie' }}
+          : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id }}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -454,19 +468,23 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
         {specs.map((spec) => {
           const label = spec.key === 'director' && isShow ? spec.labelShow : spec.label
           const value = resting(spec, item)
-          if (spec.kind === 'readonly') {
-            // A supplier id is a link to the record it names, not a number to
-            // retype — it is written only by picking a match.
+          if (spec.kind === 'id') {
+            // A supplier id edits like any other field, but reads as a link to
+            // the record it names — the number itself is only worth looking at
+            // when you are checking it, and then you want to open it.
             return (
               <InlineField
                 key={spec.key}
                 label={label}
                 value={value}
                 hint={spec.hint}
-                placeholder="set by fetching metadata"
-                disabled
+                busy={!!busy}
+                inputMode="numeric"
+                maxLength={12}
+                placeholder="type an id, or fetch metadata"
+                onSave={(d) => onSaveField(spec, d)}
                 display={spec.href && value ? (
-                  <Tooltip label={`Open this record on ${label.replace(/ id$/, '')}`}>
+                  <Tooltip label={`Open on ${label.replace(/ id$/, '')}`}>
                     <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
                       #{value} ↗
                     </a>

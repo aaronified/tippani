@@ -214,7 +214,10 @@ func (t *TVDB) details(ctx context.Context, path, mediaType, id string) (*MovieD
 		Overview:    r.Data.Overview,
 		ReleaseYear: firstNonZero(atoiSafe(r.Data.Year), leadingYear(r.Data.FirstAired)),
 		PosterURL:   r.Data.Image, // already a full artworks.thetvdb.com URL
-		Raw:         body,
+		// TheTVDB serves one art URL rather than TMDB's size family, so the
+		// picker thumbnail and the stored poster are the same image.
+		PosterThumbURL: r.Data.Image,
+		Raw:            body,
 	}
 	for _, g := range r.Data.Genres {
 		d.Genres = append(d.Genres, g.Name)

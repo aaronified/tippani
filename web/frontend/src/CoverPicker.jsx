@@ -96,12 +96,21 @@ export function CoverPreview({ url, label, showRes = false, compact = false, cla
 // would store a worse image than the cover search stores for the same title.
 export const hiResPoster = (u) => (u || '').replace('/t/p/w342/', '/t/p/original/')
 
+// idNum reads a supplier id off a form field or a stored record and returns a
+// positive number, or 0 for "not set". A field holds a string, a record holds a
+// number, and an unset one is any of '', null, undefined or 0 — so every caller
+// would otherwise write the same four-way check.
+export const idNum = (v) => {
+  const n = Number(String(v ?? '').trim())
+  return Number.isInteger(n) && n > 0 ? n : 0
+}
+
 // CoverControls: preview + set/replace/clear. The parent owns the pending
 // {coverUrl, clearCover} that ride along in its Save PUT; file upload is
 // immediate (its own endpoint) and calls onUploaded with the refreshed record.
 // kind is the route segment: "books" | "movies". `search` carries the live
 // form fields the cover search queries with ({isbn,title,asin} for books,
-// {title,year,mediaType} for movies).
+// {title,year,mediaType,tmdbId,tvdbId} for movies).
 export function CoverControls({
   kind, id, currentPath, asin,
   coverUrl, clearCover, onSetUrl, onClear, onUploaded,
@@ -136,6 +145,10 @@ export function CoverControls({
         title: (search?.title || '').trim(),
         year: search?.year ? Number(search.year) : undefined,
         media_type: search?.mediaType || 'movie',
+        // The stored ids name the exact record, so its art leads the strip
+        // instead of whatever a same-name film happened to match.
+        tmdb_id: idNum(search?.tmdbId) || undefined,
+        tvdb_id: idNum(search?.tvdbId) || undefined,
       })
       if (!r.ok) {
         setSearching(false)
@@ -520,17 +533,25 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
 // MovieLookupPicker searches TMDB + TVDB (title + year, for the given
 // media_type) and, on pick, hands the whole candidate back so the caller can
 // re-sync from its source (poster, cast, genres, details).
-export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, auto = false }) {
+//
+// `tmdbId` / `tvdbId` are the ids stored on the title, and they ride along with
+// the title rather than replacing it: the server fetches each named record and
+// lists it first, then the title hits underneath. They are props, not fields —
+// like the ISBN on the book picker, they are edited where they live.
+export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tvdbId, onPick, auto = false }) {
   const [q, setQ] = useState(title || '')
   const [yr, setYr] = useState(year ? String(year) : '')
   const [cands, setCands] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const pinned = [idNum(tmdbId) && `TMDB #${idNum(tmdbId)}`, idNum(tvdbId) && `TVDB #${idNum(tvdbId)}`].filter(Boolean)
 
   // §7: opening the edition picker (from the Fetch-metadata icon) auto-runs the
   // search with the current title/year; the inline field still lets you refine.
+  // A stored id is reason enough to search on open even with no title, since it
+  // names one record exactly.
   useEffect(() => {
-    if (auto && (title || '').trim()) look()
+    if (auto && ((title || '').trim() || pinned.length)) look()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -539,12 +560,14 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, au
   // and reloads the page (the "search bounces to the homepage" bug). Search is a
   // plain button + Enter handler instead.
   async function look() {
-    if (!q.trim()) return
+    if (!q.trim() && !pinned.length) return
     setBusy(true)
     setErr('')
     setCands(null)
     const body = { title: q.trim(), media_type: mediaType }
     if (yr) body.year = Number(yr)
+    if (idNum(tmdbId)) body.tmdb_id = idNum(tmdbId)
+    if (idNum(tvdbId)) body.tvdb_id = idNum(tvdbId)
     const r = await json('POST', '/movies/lookup', body)
     setBusy(false)
     if (r.ok) setCands(r.data.candidates)
@@ -574,6 +597,8 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', onPick, au
           </button>
         </Tooltip>
       </div>
+      {/* Says why a match you did not search for is sitting at the top. */}
+      {pinned.length > 0 && <MonoLabel className="block">searching by id · {pinned.join(' · ')}</MonoLabel>}
       <ErrorText>{err}</ErrorText>
       {cands && cands.length === 0 && <p className="microcopy">no matches found</p>}
       {cands && cands.length > 0 && (

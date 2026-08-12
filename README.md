@@ -219,7 +219,9 @@ of that are spelled out in [`AI.md`](AI.md).
   [TMDB](https://www.themoviedb.org/) + TheTVDB. Covers, posters and portraits are fetched at full
   resolution through an SSRF-guarded fetcher and served locally, never hotlinked. A **Metadata
   console** shows per-field coverage, filters by what's missing, bulk-corrects a selection, and merges
-  duplicates; "fetch missing covers & metadata" runs in chunks behind a **real progress bar**.
+  duplicates; "fetch missing covers & metadata" runs in chunks behind a **real progress bar**. When a
+  title is too common to search for, **type its TMDB or TheTVDB id** in Details and every later
+  lookup fetches that exact record first — the same ids a match sets, editable by hand.
 - 👤 **People** — click any author or actor name for a menu of their **IMDb · TMDB · TheTVDB ·
   Wikipedia · Open Library** pages, resolved automatically on first open. **Portraits are fetched
   automatically too**, and matched to the right person — an actor from the film's own cast, an author

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
-import { CoverControls, CoverPreview, MovieLookupPicker } from './CoverPicker.jsx'
+import { CoverControls, CoverPreview, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
@@ -917,6 +917,11 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   const [series, setSeries] = useState(movie.series || '')
   const [seriesIndex, setSeriesIndex] = useState(movie.series_index ? String(movie.series_index) : '')
   const [description, setDescription] = useState(movie.description || '')
+  // The supplier ids, typed rather than only fetched: correcting one is how you
+  // point a title at the right record when its name matches several. They feed
+  // the picker below, so the next search returns that record first.
+  const [tmdbId, setTmdbId] = useState(movie.tmdb_id ? String(movie.tmdb_id) : '')
+  const [tvdbId, setTvdbId] = useState(movie.tvdb_id ? String(movie.tvdb_id) : '')
   const [posterPath, setPosterPath] = useState(movie.poster_path || '')
   const [posterUrl, setPosterUrl] = useState('')
   const [clearCover, setClearCover] = useState(false)
@@ -944,6 +949,9 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       description: description.trim(),
       // favorite is edited on the detail header — carry it (PUT is full-state).
       favorite: !!movie.favorite,
+      // An emptied field sends 0, which is how the API spells "clear it".
+      tmdb_id: idNum(tmdbId),
+      tvdb_id: idNum(tvdbId),
       poster_url: posterUrl || undefined,
       clear_cover: clearCover || undefined,
     })
@@ -991,13 +999,13 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         onUploaded={(rec) => setPosterPath(rec.poster_path || '')}
         onFetchMeta={() => setPickerOpen((v) => !v)}
         fetchMetaOpen={pickerOpen}
-        search={{ title, year, mediaType }}
+        search={{ title, year, mediaType, tmdbId, tvdbId }}
       />
       <MediaTypeToggle value={mediaType} onChange={setMediaType} />
       {pickerOpen && (
         <div>
           <MonoLabel className="mb-1.5 block">Pick the right title — replaces details, cast &amp; poster</MonoLabel>
-          <MovieLookupPicker auto title={title} year={year} mediaType={mediaType} onPick={resync} />
+          <MovieLookupPicker auto title={title} year={year} mediaType={mediaType} tmdbId={tmdbId} tvdbId={tvdbId} onPick={resync} />
         </div>
       )}
       <div className="grid gap-2.5 sm:grid-cols-2">
@@ -1017,6 +1025,23 @@ export function EditMovie({ movie, onSaved, onCancel }) {
           inputMode="decimal"
           value={seriesIndex}
           onChange={(e) => setSeriesIndex(e.target.value)}
+        />
+        {/* Digits only: both ids are the bare number out of the supplier's URL,
+            and pasting the whole URL is the obvious mistake to absorb rather
+            than reject. Emptying a field clears that id. */}
+        <input
+          className="tp-input"
+          placeholder="TMDB id"
+          inputMode="numeric"
+          value={tmdbId}
+          onChange={(e) => setTmdbId(e.target.value.replace(/\D/g, '').slice(0, 12))}
+        />
+        <input
+          className="tp-input"
+          placeholder="TheTVDB id"
+          inputMode="numeric"
+          value={tvdbId}
+          onChange={(e) => setTvdbId(e.target.value.replace(/\D/g, '').slice(0, 12))}
         />
       </div>
       <textarea className="tp-input" rows="4" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />

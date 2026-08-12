@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/metadata"
@@ -100,24 +101,33 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 // merges the candidates, each tagged with its source — mirroring how book
 // lookup blends Google Books + Open Library. A source with no key is skipped;
 // only when NO source is configured do we answer 503.
+//
+// A tmdb_id/tvdb_id in the body PINS that supplier's record: it is fetched by
+// id and listed first, ahead of whatever the title search guessed at. That is
+// the point of being able to type the ids — a title search cannot tell two films
+// called "Persuasion" apart, and an id can.
 func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title     string `json:"title"`
 		Year      int    `json:"year"`
 		MediaType string `json:"media_type"` // "movie" (default) | "show"
+		TMDBID    int64  `json:"tmdb_id"`    // pin TMDB's record for this id
+		TVDBID    int64  `json:"tvdb_id"`    // pin TheTVDB's record for this id
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
-	if req.Title = strings.TrimSpace(req.Title); req.Title == "" {
-		writeErr(w, http.StatusBadRequest, "title is required")
+	req.Title = strings.TrimSpace(req.Title)
+	if req.Title == "" && req.TMDBID <= 0 && req.TVDBID <= 0 {
+		writeErr(w, http.StatusBadRequest, "title, tmdb_id, or tvdb_id is required")
 		return
 	}
 	mediaType := "movie"
 	if req.MediaType == "show" {
 		mediaType = "show"
 	}
-	olog.Tracef("[meta] handleMovieLookup title=%q year=%d media=%s", req.Title, req.Year, mediaType)
+	olog.Tracef("[meta] handleMovieLookup title=%q year=%d media=%s tmdb_id=%d tvdb_id=%d",
+		req.Title, req.Year, mediaType, req.TMDBID, req.TVDBID)
 
 	tmdb, _ := s.resolveTMDB()
 	tvdb, _ := s.resolveTVDB()
@@ -126,9 +136,47 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Pinned first, so the record the user named outranks every guess. A pin
+	// that fails (wrong id, supplier down) is not fatal on its own — the title
+	// search is still worth running — so its message is only surfaced at the end
+	// if nothing at all came back.
 	cands := []metadata.MovieCandidate{}
+	pinMsg, pinCode := "", 0
+	pin := func(source, sourceID string) {
+		d, msg, code := s.fetchSourceDetails(r.Context(), source, sourceID, mediaType)
+		if d == nil {
+			olog.Tracef("[meta] movie lookup pin %s#%s failed: %s", source, sourceID, msg)
+			if pinMsg == "" {
+				pinMsg, pinCode = msg, code
+			}
+			return
+		}
+		cands = append(cands, d.Candidate())
+	}
+	if req.TMDBID > 0 && tmdb != nil {
+		pin("tmdb", strconv.FormatInt(req.TMDBID, 10))
+	}
+	if req.TVDBID > 0 && tvdb != nil {
+		pin("tvdb", strconv.FormatInt(req.TVDBID, 10))
+	}
+	// A pinned record would otherwise appear twice — once by id, once as its own
+	// search hit — and the duplicate reads as two different matches.
+	seen := map[string]bool{}
+	for _, c := range cands {
+		seen[c.Source+"#"+c.SourceID] = true
+	}
+	add := func(found []metadata.MovieCandidate) {
+		for _, c := range found {
+			if seen[c.Source+"#"+c.SourceID] {
+				continue
+			}
+			seen[c.Source+"#"+c.SourceID] = true
+			cands = append(cands, c)
+		}
+	}
+
 	var firstErr error
-	if tmdb != nil {
+	if tmdb != nil && req.Title != "" {
 		var c []metadata.MovieCandidate
 		var err error
 		if mediaType == "show" {
@@ -139,20 +187,27 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			firstErr = err
 		} else {
-			cands = append(cands, c...)
+			add(c)
 		}
 	}
-	if tvdb != nil {
+	if tvdb != nil && req.Title != "" {
 		if c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType); err != nil {
 			if firstErr == nil {
 				firstErr = err
 			}
 		} else {
-			cands = append(cands, c...)
+			add(c)
 		}
 	}
 	olog.Tracef("[meta] movie lookup %q year=%d media=%s: tmdb=%t tvdb=%t -> %d candidate(s), err=%v",
 		req.Title, req.Year, mediaType, tmdb != nil, tvdb != nil, len(cands), firstErr)
+
+	// A lookup that was nothing but a pin has no search error to report, so the
+	// pin's own failure is the only thing left to say.
+	if len(cands) == 0 && firstErr == nil && pinMsg != "" {
+		writeErr(w, pinCode, pinMsg)
+		return
+	}
 
 	// Only surface an error when nothing came back at all — a partial failure
 	// (one source down, the other returning hits) still yields useful results.

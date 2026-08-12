@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The TMDB and TheTVDB ids on a film or show can be typed, and steer the next
+  search.** They were read-only, and the hint beside them said so: an id is what
+  a re-sync pulls from, so it was written only by picking a match. That holds
+  right up until the match is the problem. Search TMDB for *Persuasion* and you
+  get four films with that name and no way to say which one you meant; the id
+  is the one thing that distinguishes them, and it was the one field you could
+  not touch.
+
+  Both rows now edit like any other field, on the work page's **Details** panel
+  and in the Metadata console's editor. With an id set, **Fetch metadata** and
+  the poster search send it along with the title: the server fetches that exact
+  record and lists it first, ahead of the title guesses, with the rest
+  underneath and the pinned record shown once rather than twice. An id alone is
+  enough — a title is no longer required to search.
+
+  Two rules worth knowing. Emptying a field clears the id, and a save that never
+  mentions the ids leaves them alone: everything else on that PUT is full-state,
+  but a supplier id must not be wipeable by a client that has never heard of it.
+  And typing an id another of your titles already holds is refused, naming the
+  collision, rather than failing as the unique-index error it would otherwise be.
+
+  Correcting an id changes nothing else on its own — the stored cast and cached
+  payload still describe the old record until you re-sync, which is the point of
+  fixing the id first.
+
 - **`DEVELOPMENT.md` now maps the whole tree.** Its old `## The layout` was a
   nine-row table of the directories you were "most likely to touch", which left
   four packages — `auth`, `olog`, `updater`, `buildinfo` — with no mention at

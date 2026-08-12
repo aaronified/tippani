@@ -804,7 +804,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
       {editing && <InlineEdit kind="movies" id={movie.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
         <div className="mt-3">
-          <MovieLookupPicker title={movie.title} year={movie.release_year} mediaType={movie.media_type || 'movie'} onPick={resync} />
+          <MovieLookupPicker title={movie.title} year={movie.release_year} mediaType={movie.media_type || 'movie'} tmdbId={movie.tmdb_id} tvdbId={movie.tvdb_id} onPick={resync} />
           <ErrorText>{err}</ErrorText>
         </div>
       )}
