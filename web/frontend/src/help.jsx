@@ -46,7 +46,7 @@ import {
 // The top bar is ＋ · Search · ? · your avatar, in that order, on both — and the
 // first three read the screen you are on.
 const SHELL_COMMON = [
-  { term: 'Add (＋)', icon: <IconPlus />, what: 'The single way in, and it knows where you are: a book on Library, a film or show on the Catalogue, and a quote against the work whose page you have open. Look-up, capture and bulk import are all tabs of the one surface. A badge on it counts imports waiting for review.' },
+  { term: 'Add (＋)', icon: <IconPlus />, what: 'The single way in, and it knows where you are: a book on Library, a film or show on the Catalogue, and a quote against the work whose page you have open. Look-up, capture and bulk import are all tabs of the one surface. A badge on it counts imports waiting for review. After you save one, the next capture starts where that one left off — the same colour and the same tags, and the same work for the next half-hour, so a sitting of six quotes off one page is not six full re-entries. The words themselves never carry over.' },
   { term: 'Search', icon: <IconSearch />, what: 'Typo-tolerant search across titles, people, quotes, notes, tags and genres. Started from Library or the Catalogue it lands scoped to that side.' },
   { term: 'Help (?)', icon: <IconHelp />, what: 'This list — the controls on whichever screen you are looking at, with the shell’s own appended. It sits in the top bar rather than in each page’s header, so it is in the same place on every screen.' },
   { term: 'Avatar chip', what: 'Opens your profile directly: photo, display name, password, switching accounts, logging out — and, for an admin, the user list and the recovery tools.' },

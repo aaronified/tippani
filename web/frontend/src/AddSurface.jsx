@@ -29,6 +29,7 @@ import {
   isPartialDate,
   Toggle,
   toast,
+  usePersistedState,
   useIsMobileScreen,
   useBodyScrollLock,
   useAnchoredPosition,
@@ -550,6 +551,26 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
 // are comma-separated names — unknown ones are auto-created server-side.
 // `onCaptured` fires after a successful save; `onWorkCreated` after an inline
 // work add (the shell refreshes its counts).
+// A SITTING is a run of captures made minutes apart — six quotes off one page of
+// one book — and it used to cost six full re-entries: pick the work, pick the
+// colour, retype the tags, every time.
+//
+// So a capture leaves a note of what it used, and the next one within the window
+// starts from it. The window is the whole design:
+//
+//   COLOUR AND TAGS carry with no expiry. Neither can mis-file anything — the worst
+//   case is a quote wearing a tag you have to remove, which is visible on the card.
+//
+//   THE WORK carries for THIRTY MINUTES and no longer. This is deliberately in
+//   tension with the rule stated below — "no default target when the surface was
+//   opened cold", because a silently pre-filled work invites mis-filed quotes — and
+//   the window is how both survive. Within half an hour you are still holding the
+//   same book, and the picker SHOWS the work it has chosen, so it is not silent.
+//   Tomorrow you are not, and a stale target would file tomorrow's quote under
+//   yesterday's book with no signal at all.
+const SITTING_KEY = 'tippani:lastCapture'
+const SITTING_MS = 30 * 60 * 1000
+
 export function CaptureQuote({ initialTarget = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
   // The page behind an overlay does not move. Without this a wheel or a swipe
   // that runs past the end of the dialog scrolls the page you cannot see, and it
@@ -565,7 +586,19 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
   // keystroke away. `initialTarget` is the deliberate exception: you pressed ＋
   // on a particular book's own page, so that book IS the answer to "which work",
   // and asking again would be asking a question you already answered.
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: '', color: 'yellow', speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
+  const [sitting, setSitting] = usePersistedState(SITTING_KEY, null)
+  // Read once, at mount: a capture writes this on the way out, and re-reading it
+  // mid-edit would change the form under somebody's hands.
+  const [seed] = useState(() => {
+    if (!sitting || typeof sitting !== 'object') return { color: 'yellow', tags: '', targetKey: null }
+    const fresh = typeof sitting.at === 'number' && Date.now() - sitting.at < SITTING_MS
+    return {
+      color: sitting.color || 'yellow',
+      tags: sitting.tags || '',
+      targetKey: fresh ? sitting.targetKey || null : null,
+    }
+  })
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
   // "This came from nothing" is a MODE rather than an entry in the work picker.
   // The picker is search-first, so a synthetic "no book or film" row would only
   // surface for someone who typed words matching it — which is nobody, since it
@@ -596,6 +629,12 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         const wantKind = initialTarget.type === 'movie' ? 'screen' : 'book'
         const hit = list.find((w) => w.kind === wantKind && w.id === initialTarget.id)
         if (hit) setDraft((d) => ({ ...d, target: hit }))
+      } else if (seed.targetKey) {
+        // The work from a sitting still in its window. Resolved against the list
+        // that just landed, so a work deleted in the meantime simply leaves the
+        // picker empty rather than half-filled with something that is gone.
+        const hit = list.find((w) => `${w.kind}:${w.id}` === seed.targetKey)
+        if (hit) setDraft((d) => (d.target ? d : { ...d, target: hit }))
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -685,6 +724,16 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
     setBusy(false)
     if (!r.ok) return setErr(errText(r))
     toast(standalone ? 'quote captured' : isScreen ? 'dialogue captured' : 'annotation captured')
+    // What the next capture in this sitting starts from. The QUOTE is deliberately
+    // not here: the words are the one thing that is never the same twice, and a
+    // form that came back holding the last quote would be a form somebody saves
+    // twice by accident.
+    setSitting({
+      at: Date.now(),
+      color: draft.color,
+      tags: draft.tags,
+      targetKey: standalone || !t ? null : `${t.kind}:${t.id}`,
+    })
     onCaptured?.()
   }
 
