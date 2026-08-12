@@ -2459,8 +2459,12 @@ export function Tooltip({ label, side = "top", className = "", children }) {
       onClickCapture={onClickCapture}
       onFocus={onFocus}
       onBlur={close}
-      // Long-pressing a control on Android otherwise raises the text-selection
-      // handles or the context menu over the label we just showed.
+      // LOAD-BEARING TWICE, so it says so. On Android, long-pressing a control
+      // otherwise raises the text-selection handles or the platform context menu
+      // over the label we just showed. And since useCardMenu, this is also what
+      // stops a right-click on a card's own buttons from opening the CARD's menu:
+      // right-clicking the share glyph should do nothing, not offer to delete the
+      // quote. Removing this line breaks two features, one of them silently.
       onContextMenu={(e) => e.preventDefault()}
     >
       {children}
@@ -4348,6 +4352,140 @@ export function MoreMenu({ items }) {
       />
     </div>
   )
+}
+
+// ---- the gesture a card has always been missing -----------------------------
+//
+// useCardMenu wires one card body to one ActionMenu: right-click, long-press, and
+// Shift+F10 / the Menu key.
+//
+// THE LONG-PRESS IS ALREADY TAKEN, and by something that overlaps. Tooltip opens a
+// label after LONG_PRESS_MS on touch, because a phone has no hover and the
+// glyph-only buttons would otherwise be unlabelled. A card CONTAINS those buttons,
+// so "long-press shows a label" and "long-press opens a menu" are live on the same
+// square inch.
+//
+// They coexist because of what each is attached to. Tooltip's press is on a
+// CONTROL; this one is on the card BODY, and any press whose target is inside a
+// control is ignored. A thumb on the share glyph gets the label; a thumb on the
+// quote gets the menu. That is a constraint on the design rather than a detail:
+// bound to the whole card including its buttons, every press on a glyph would race
+// a tooltip against a menu and the winner would depend on event order.
+//
+// Three more touch problems, each of which shows up on real hardware and on no
+// test in this repo:
+//
+//   - iOS raises its own callout (Copy / Look Up) on a long press over text.
+//     `-webkit-touch-callout: none` on the card body, in the stylesheet.
+//   - A press that becomes a drag is not a press. LONG_PRESS_SLOP already exists;
+//     reusing the constant rather than inventing a second one is the point.
+//   - The card must not also fire its click. Tooltip already solves that with a
+//     suppress-then-eat-the-click ref, so this copies the mechanism rather than
+//     re-deriving it.
+const MENU_IGNORE_SELECTOR = ".tp-tip-wrap, button, a, input, textarea, select, label";
+
+export function useCardMenu(items = []) {
+  const [at, setAt] = useState(null); // the point the menu is open at, or null
+  const cardRef = useRef(null);
+  const timer = useRef(null);
+  const origin = useRef(null);
+  const fired = useRef(false); // a press fired: eat the click that trails it
+  const enabled = items.length > 0;
+
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    origin.current = null;
+  };
+  const close = () => setAt(null);
+
+  // A right-click or a press inside one of the card's own controls belongs to that
+  // control, not to the card.
+  const onControl = (target) => !!target?.closest?.(MENU_IGNORE_SELECTOR);
+
+  // Somebody who has dragged across a quote and right-clicked wants Copy — and
+  // Look Up, and Translate, and Search With, none of which this menu offers. Taking
+  // the browser's menu away from them in a note-keeping app is worse than having no
+  // menu at all.
+  const hasSelectionInside = (node) => {
+    const sel = typeof window !== "undefined" ? window.getSelection?.() : null;
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
+    const anchor = sel.anchorNode;
+    return !!(anchor && node?.contains?.(anchor));
+  };
+
+  const onContextMenu = (e) => {
+    if (!enabled || onControl(e.target)) return;
+    if (hasSelectionInside(cardRef.current)) return; // the browser's menu wins
+    e.preventDefault();
+    setAt({ x: e.clientX, y: e.clientY });
+  };
+
+  const onPointerDown = (e) => {
+    if (!enabled || e.pointerType !== "touch" || onControl(e.target)) return;
+    fired.current = false;
+    origin.current = { x: e.clientX, y: e.clientY };
+    clear();
+    origin.current = { x: e.clientX, y: e.clientY };
+    const { clientX: x, clientY: y } = e;
+    timer.current = setTimeout(() => {
+      fired.current = true;
+      setAt({ x, y });
+    }, LONG_PRESS_MS);
+  };
+
+  const onPointerMove = (e) => {
+    if (!timer.current || !origin.current) return;
+    if (
+      Math.abs(e.clientX - origin.current.x) > LONG_PRESS_SLOP ||
+      Math.abs(e.clientY - origin.current.y) > LONG_PRESS_SLOP
+    ) {
+      clear();
+    }
+  };
+
+  // Shift+F10 and the Menu key are the keyboard's context menu, on every platform
+  // that has one. Anchored to the card rather than to a pointer that was never
+  // there — hence a rect, not a point, which is what ActionMenu's element anchoring
+  // is already for.
+  const onKeyDown = (e) => {
+    if (!enabled) return;
+    const wants = e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
+    if (!wants) return;
+    e.preventDefault();
+    const r = cardRef.current?.getBoundingClientRect?.();
+    setAt(r ? { x: r.left + 12, y: r.top + 12 } : { x: 0, y: 0 });
+  };
+
+  const onClickCapture = (e) => {
+    if (!fired.current) return;
+    fired.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // Spread onto the card body. `card-menu-host` carries the iOS callout suppression
+  // and nothing else — it must not carry a background or a border, because it is
+  // wrapped around cards that already have their own.
+  const cardProps = enabled
+    ? {
+        ref: cardRef,
+        className: "card-menu-host",
+        onContextMenu,
+        onPointerDown,
+        onPointerMove,
+        onPointerUp: clear,
+        onPointerCancel: clear,
+        onClickCapture,
+        onKeyDown,
+      }
+    : { ref: cardRef };
+
+  const menu = (
+    <ActionMenu open={!!at} at={at} items={items} onClose={close} returnFocusTo={cardRef} />
+  );
+
+  return { cardProps, menu, open: !!at, close };
 }
 
 // TableActions — the actions cell at the end of a table row.

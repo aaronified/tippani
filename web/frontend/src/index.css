@@ -1199,6 +1199,17 @@
     filter: drop-shadow(0 2px 3px rgba(20, 16, 12, .32));
   }
 
+  /* A card that answers a right-click or a long press (useCardMenu).
+     ONE PROPERTY, deliberately: iOS raises its own callout menu (Copy / Look Up /
+     Share) on a long press over text, which would land on top of ours. Everything
+     else about the card — background, border, material, padding — belongs to the
+     card's own class, because this wrapper goes around cards that already have one.
+
+     `user-select` is NOT touched. Selecting a quote to copy part of it by hand is a
+     thing people do in a note-keeping app, and the menu already stands aside when
+     there is a selection. */
+  .card-menu-host { -webkit-touch-callout: none; }
+
   /* The bin (Settings → The bin). A list of summary rows, each expandable to the
      quotes it is holding. Hairlines between rows rather than cards inside a card:
      a bin entry is a line in a register, not a thing in its own right, and boxing
