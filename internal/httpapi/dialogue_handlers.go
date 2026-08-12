@@ -301,11 +301,16 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	id, err := nextID(tx, "dialogues")
+	if err != nil {
+		internalError(w, r, "reserve dialogue id", err)
+		return
+	}
 	res, err := tx.Exec(`
-		INSERT INTO dialogues (movie_id, quote, note, color, character, actor, timestamp, season, episode,
+		INSERT INTO dialogues (id, movie_id, quote, note, color, character, actor, timestamp, season, episode,
 		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
-		req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		id, req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode, req.Favorite, req.Source,
 		req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
@@ -343,7 +348,6 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		writeConflictExisting(w, "duplicate dialogue", existing)
 		return
 	}
-	id, _ := res.LastInsertId()
 	if err := setTags(tx, "dialogue", uid, id, req.Tags); err != nil {
 		internalError(w, r, "set tags", err)
 		return

@@ -135,11 +135,19 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 	// noted_at defaults to now (the "date of addition"); imports set it from the
 	// source, and a client flushing an offline capture sends the date it was
 	// actually taken — COALESCE picks whichever applies.
+	// The id is allocated rather than left to SQLite, so a deleted quote's id is
+	// never handed to a new one — see id_floor.go. Everything downstream uses this
+	// value instead of LastInsertId().
+	id, err := nextID(tx, "annotations")
+	if err != nil {
+		internalError(w, r, "reserve annotation id", err)
+		return
+	}
 	res, err := tx.Exec(`
-		INSERT INTO annotations (book_id, quote, note, color, chapter, location,
+		INSERT INTO annotations (id, book_id, quote, note, color, chapter, location,
 		                         favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
-		req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		id, req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
 		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Source, req.hash(),
 		nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
@@ -191,7 +199,6 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		writeConflictExisting(w, "duplicate annotation", existing)
 		return
 	}
-	id, _ := res.LastInsertId()
 	if err := setTags(tx, "annotation", uid, id, req.Tags); err != nil {
 		internalError(w, r, "set tags", err)
 		return

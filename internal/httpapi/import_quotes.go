@@ -166,6 +166,8 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 // worth keeping, and a refused date is recoverable by hand.
 func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error) {
 	added := 0
+	// One id reservation for the batch (idBlock, id_floor.go).
+	ids := newIDBlock(tx, "utterances", len(us))
 	for _, u := range us {
 		color := u.Color
 		if color == "" {
@@ -193,12 +195,16 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		occasion := strings.TrimSpace(u.Occasion)
 		hash := store.UtteranceDedupeHash(text, speaker, occasion, occDate)
 
+		id, err := ids.take()
+		if err != nil {
+			return added, err
+		}
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
-			  (user_id, quote, note, color, favorite, speaker, occasion, occasion_date,
+			  (id, user_id, quote, note, color, favorite, speaker, occasion, occasion_date,
 			   place, medium, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
-			uid, strings.TrimSpace(u.Quote), nullable(u.Note), color, u.Favorite,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
+			id, uid, strings.TrimSpace(u.Quote), nullable(u.Note), color, u.Favorite,
 			speaker, occasion, occDate,
 			strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
 			hash, nullable(u.NotedAt))
@@ -210,10 +216,6 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 			continue // already saved — a re-import of the same file
 		}
 		added++
-		id, err := res.LastInsertId()
-		if err != nil {
-			return added, err
-		}
 		if err := setTags(tx, "utterance", uid, id, u.Tags); err != nil {
 			return added, err
 		}

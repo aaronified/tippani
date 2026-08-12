@@ -182,12 +182,20 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	// Allocated, not left to SQLite: a deleted book's id must never be reused
+	// while its bin entry still holds it (id_floor.go).
+	id, err := nextID(tx, "books")
+	if err != nil {
+		s.removeCoverFile(coverPath)
+		internalError(w, r, "reserve book id", err)
+		return
+	}
 	res, err := tx.Exec(`
-		INSERT INTO books (updated_at, user_id, title, author, isbn, asin, cover_path,
+		INSERT INTO books (id, updated_at, user_id, title, author, isbn, asin, cover_path,
 		                   description, published_year, published_circa, google_id, openlibrary_id, source_metadata,
 		                   series, series_index, favorite)
-		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		id, uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		googleID, openlibraryID, sourceMeta,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite)
@@ -201,7 +209,6 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "book already in your library")
 		return
 	}
-	id, _ := res.LastInsertId()
 	if err := setGenres(tx, "book", uid, id, req.Genres); err != nil {
 		s.removeCoverFile(coverPath)
 		internalError(w, r, "set genres", err)

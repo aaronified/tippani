@@ -122,15 +122,14 @@ func upsertImportMovie(tx *sql.Tx, uid int64, m importer.MovieHeader) (importMov
 	if got.ID != 0 {
 		return got, nil
 	}
-	res, err := tx.Exec(
-		`INSERT INTO movies (updated_at, user_id, title, release_year, media_type)
-		 VALUES (datetime('now'), ?, ?, ?, ?)`,
-		uid, m.Title, nullableInt(m.Year), mediaType)
+	id, err := nextID(tx, "movies")
 	if err != nil {
 		return importMovieResult{}, err
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
+	if _, err := tx.Exec(
+		`INSERT INTO movies (id, updated_at, user_id, title, release_year, media_type)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?)`,
+		id, uid, m.Title, nullableInt(m.Year), mediaType); err != nil {
 		return importMovieResult{}, err
 	}
 	if err := applyImportedShelf(tx, "movie", mediaType, uid, id, movieShelf(m)); err != nil {
@@ -216,6 +215,8 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 	show := mediaType == "show"
 
 	added, enriched := 0, 0
+	// One id reservation for the batch (idBlock, id_floor.go).
+	ids := newIDBlock(tx, "dialogues", len(dialogues))
 	for _, d := range dialogues {
 		actor := autofillActor(castJSON, d.Character, d.Actor)
 		// A film has one runtime and no episodes. Retargeting a show's file onto a
@@ -246,11 +247,15 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		if quote == "" {
 			continue
 		}
+		did, err := ids.take()
+		if err != nil {
+			return 0, 0, err
+		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			movieID, quote, nullable(note), color, nullable(d.Character), nullable(actor),
+			  (id, movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			did, movieID, quote, nullable(note), color, nullable(d.Character), nullable(actor),
 			nullable(d.Timestamp), season, episode, d.Favorite, store.DialogueDedupeHash(quote, season, episode), nullable(d.NotedAt))
 		if err != nil {
 			return 0, 0, err
@@ -292,10 +297,12 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				enriched++
 			}
 			if len(d.Tags) > 0 {
-				var did int64
+				// The row already holding the slot — not the id reserved above, which
+				// this ignored insert left attached to nothing.
+				var existingID int64
 				if err := tx.QueryRow(`SELECT id FROM dialogues WHERE movie_id = ? AND dedupe_hash = ?`,
-					movieID, store.DialogueDedupeHash(quote, season, episode)).Scan(&did); err == nil {
-					if err := addTags(tx, "dialogue", uid, did, d.Tags); err != nil {
+					movieID, store.DialogueDedupeHash(quote, season, episode)).Scan(&existingID); err == nil {
+					if err := addTags(tx, "dialogue", uid, existingID, d.Tags); err != nil {
 						return 0, 0, err
 					}
 				}
@@ -304,7 +311,6 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		}
 		added++
 		if len(d.Tags) > 0 {
-			did, _ := ins.LastInsertId()
 			if err := setTags(tx, "dialogue", uid, did, d.Tags); err != nil {
 				return 0, 0, err
 			}

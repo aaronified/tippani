@@ -167,13 +167,18 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	id, err := nextID(tx, "utterances")
+	if err != nil {
+		internalError(w, r, "reserve quote id", err)
+		return
+	}
 	res, err := tx.Exec(`
-		INSERT INTO utterances (user_id, quote, note, color, favorite,
+		INSERT INTO utterances (id, user_id, quote, note, color, favorite,
 		                        speaker, occasion, occasion_date, place, medium,
 		                        source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
 		ON CONFLICT DO NOTHING`,
-		uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
+		id, uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
 		req.Source, req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
@@ -211,7 +216,6 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 		writeConflictExisting(w, "duplicate quote", existing)
 		return
 	}
-	id, _ := res.LastInsertId()
 	if err := setTags(tx, "utterance", uid, id, req.Tags); err != nil {
 		internalError(w, r, "set tags", err)
 		return

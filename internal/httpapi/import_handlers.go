@@ -215,6 +215,10 @@ type bookSummary struct {
 // below stay the single implementation for every path into the library.
 func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, anns []importer.Annotation) (int, int, error) {
 	added, enriched := 0, 0
+	// One id reservation for the batch rather than one per quote: a clippings file
+	// is thousands of rows, and ids skipped by the dedupe below cost nothing (see
+	// idBlock in id_floor.go).
+	ids := newIDBlock(tx, "annotations", len(anns))
 	for _, a := range anns {
 		color := a.Color
 		if color == "" {
@@ -227,11 +231,15 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 		if text == "" {
 			text = a.Note
 		}
+		annID, err := ids.take()
+		if err != nil {
+			return 0, 0, err
+		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (book_id, quote, note, color, chapter, location, favorite, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			bookID, nullable(a.Quote), nullable(a.Note), color,
+			  (id, book_id, quote, note, color, chapter, location, favorite, source, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			annID, bookID, nullable(a.Quote), nullable(a.Note), color,
 			nullable(a.Chapter), nullable(a.Location), a.Favorite,
 			source, store.DedupeHash(text), nullable(a.NotedAt))
 		if err != nil {
@@ -273,10 +281,12 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				enriched++
 			}
 			if len(a.Tags) > 0 {
-				var annID int64
+				// The row that holds the slot, which is NOT the id reserved above:
+				// this insert was ignored, so that id belongs to nothing.
+				var existingID int64
 				if err := tx.QueryRow(`SELECT id FROM annotations WHERE book_id = ? AND dedupe_hash = ?`,
-					bookID, store.DedupeHash(text)).Scan(&annID); err == nil {
-					if err := addTags(tx, "annotation", uid, annID, a.Tags); err != nil {
+					bookID, store.DedupeHash(text)).Scan(&existingID); err == nil {
+					if err := addTags(tx, "annotation", uid, existingID, a.Tags); err != nil {
 						return 0, 0, err
 					}
 				}
@@ -285,7 +295,6 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 		}
 		added++
 		if len(a.Tags) > 0 {
-			annID, _ := ins.LastInsertId()
 			if err := setTags(tx, "annotation", uid, annID, a.Tags); err != nil {
 				return 0, 0, err
 			}
@@ -362,16 +371,17 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		}
 		return id, false, nil
 	}
-	res, err := tx.Exec(
-		`INSERT INTO books (updated_at, user_id, title, author, isbn, asin, series, series_index)
-		 VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?)`,
-		uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN),
-		nullable(b.Series), nullableFloat(b.SeriesIndex))
+	// Allocated, not left to SQLite — see id_floor.go. An import creates works and
+	// quotes like any other path, so it reserves ids like any other path.
+	id, err = nextID(tx, "books")
 	if err != nil {
 		return 0, false, err
 	}
-	id, err = res.LastInsertId()
-	if err != nil {
+	if _, err := tx.Exec(
+		`INSERT INTO books (id, updated_at, user_id, title, author, isbn, asin, series, series_index)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)`,
+		id, uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN),
+		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
 		return 0, false, err
 	}
 	if err := applyImportedShelf(tx, "book", "", uid, id, bookShelf(b)); err != nil {

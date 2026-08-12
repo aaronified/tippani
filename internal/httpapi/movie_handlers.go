@@ -192,18 +192,23 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-	res, err := tx.Exec(`
-		INSERT INTO movies (updated_at, user_id, title, director, release_year, release_circa, description,
-		                    media_type, series, series_index, favorite)
-		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
-		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite)
+	// Allocated rather than left to SQLite, so a binned movie's id stays reserved
+	// for as long as its bin entry holds it (id_floor.go).
+	id, err := nextID(tx, "movies")
 	if err != nil {
+		internalError(w, r, "create movie: reserve id", err)
+		return
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, release_circa, description,
+		                    media_type, series, series_index, favorite)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
+		nullable(req.Description), req.MediaType, nullable(req.Series),
+		nullableFloat(req.SeriesIndex), req.Favorite); err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
 	}
-	id, _ := res.LastInsertId()
 	if err := setGenres(tx, "movie", uid, id, req.Genres); err != nil {
 		internalError(w, r, "create movie: set genres", err)
 		return
@@ -276,11 +281,17 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		return
 	}
 	defer tx.Rollback()
+	id, err := nextID(tx, "movies")
+	if err != nil {
+		s.removeCoverFile(posterPath)
+		internalError(w, r, "create movie: reserve id", err)
+		return
+	}
 	res, err := tx.Exec(`
-		INSERT INTO movies (updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
+		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
 		                    poster_path, description, series, cast_json, source_metadata)
-		VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		id, uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
 		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw))
 	if err != nil {
@@ -293,7 +304,6 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		writeErr(w, http.StatusConflict, "title already in your library")
 		return
 	}
-	id, _ := res.LastInsertId()
 	if err := setGenres(tx, "movie", uid, id, d.Genres); err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: set genres", err)
