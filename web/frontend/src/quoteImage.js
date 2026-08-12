@@ -420,7 +420,17 @@ export function buildModel(share, selected, colorHex) {
 const QLH = 38, ALH = 23, MLH = 19, NLH = 28
 const TAG_H = 24, TAG_PADX = 10, TAG_GAP = 7
 const FOOTER_H = 34 // hairline + the mark/credit block
-const MARK_SIZE = 20 // the logo's box in the footer; its drawn shape fills ~80%
+const MARK_SIZE = 20 // the logo's box in the footer
+// The share of that box the drawn logo actually occupies vertically: the mark's
+// ink runs from y=23.37 to y=229.3 of the SVG's 256 grid, and the rest is the
+// file's own padding. Named because the footer LINES THE MARK UP against text and
+// cannot do that against a box that is 20% air.
+const MARK_INK = (229.3 - 23.37) / 256
+// The cap height of FONTS.foot, as a share of its 14px. Newsreader's capitals
+// reach about 0.7em, and the credit line is centred on that band rather than on
+// the em box — an em box includes the descender space, so centring against it
+// pushes anything beside the words visibly high.
+const FOOT_CAP = 14 * 0.7
 const FACE_SIZE = 34, FACE_MAX = 5 // credit portraits: disc size + how many fit
 
 // facesOnAttribution says WHICH LINE a credit's portraits hang beside: the
@@ -756,8 +766,20 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.moveTo(innerX, footTop)
   ctx.lineTo(innerX + innerW, footTop)
   ctx.stroke()
+  // ONE BASELINE, AND ONE OPTICAL CENTRE. Every word on this line sits on `base`
+  // — no per-run nudges, which is what left the two wordmarks and the mark each
+  // a pixel or two off the sentence between them. The three faces are different
+  // sizes (11px mono, 14px serif, 12px Bengali) and a shared baseline is exactly
+  // how mixed sizes are set on one line; lifting one of them by a pixel is how
+  // they stop looking like one line.
+  //
+  // The mark is the exception that proves it: a logo has no baseline, so it is
+  // centred on the CAP-HEIGHT BAND of the words instead — the band from
+  // base - FOOT_CAP to base. Centring it on the em box or hanging it off the
+  // baseline both read as floating.
   const base = footTop + 21
-  drawMark(ctx, innerX, base - MARK_SIZE + 4, MARK_SIZE, theme.dark)
+  const markInk = MARK_SIZE * MARK_INK
+  drawMark(ctx, innerX, base - FOOT_CAP / 2 - markInk / 2, MARK_SIZE, theme.dark)
   let fx = innerX + MARK_SIZE + 7
   ctx.fillStyle = theme.faint
   ctx.textBaseline = 'alphabetic'
@@ -768,6 +790,6 @@ export function drawQuoteCard(canvas, model, theme) {
   ctx.fillText('tippani', fx, base)
   fx += ctx.measureText('tippani').width + 8
   ctx.font = FONTS.bengali
-  ctx.fillText('টিপ্পনী', fx, base - 1)
+  ctx.fillText('টিপ্পনী', fx, base)
   setHalo(ctx, theme, false)
 }
