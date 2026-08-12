@@ -827,3 +827,130 @@ func plural(n int, one, many string) string {
 	}
 	return many
 }
+
+// ---------------------------------------------------------------------------
+// an account
+// ---------------------------------------------------------------------------
+
+// accountTables is the whole of a user's data, in restore order: parents before
+// children, and the user row first because everything else references it.
+//
+// DECLARED, like every other snapshot in this file, and for a sharper version of
+// the same reason: a table added next release that belongs to a user and is NOT
+// listed here means deleting an account silently drops it from the bin, so the
+// restore comes back missing something nobody thought to check. The
+// account-round-trip test compares this list against every table with a `user_id`
+// column, so adding one to the schema fails the build rather than the restore.
+var accountTables = []string{
+	"users",
+	"genres", "tags", "stickers", "people", "person_kinds",
+	"books", "movies",
+	"annotations", "dialogues", "utterances",
+	"book_genres", "movie_genres",
+	"annotation_tags", "dialogue_tags", "utterance_tags",
+	"item_reviews", "work_reads",
+	"import_batches", "staged_works", "staged_quotes",
+}
+
+// accountSkipTables are the user-owned tables a restore deliberately does NOT put
+// back, with the reason each: they are credentials, and a credential that
+// out-survives the account it belonged to is a credential nobody chose to reissue.
+//
+//	sessions       browser logins. Restoring them would hand a live cookie back
+//	               to whoever had it when the account was deleted.
+//	device_tokens  paired phones. Pairing again is one QR scan; silently
+//	               re-arming a bearer token is not a decision to make for
+//	               somebody.
+//	quiz_sessions  today's quiz, which is a day's scratch state and not data.
+var accountSkipTables = map[string]bool{
+	"sessions": true, "device_tokens": true, "quiz_sessions": true,
+}
+
+// binAccount snapshots an entire account and its library into ONE bin entry,
+// owned by the admin doing the deleting.
+//
+// The owner matters: `trash.user_id` is whose bin the row sits in, and putting an
+// account entry in the deleted user's own bin would have it cascade away in the
+// same statement that made it necessary. It is also who may put it back.
+func (s *Server) binAccount(tx *sql.Tx, adminID, targetID int64, username string, files []string) (int64, error) {
+	snap := snapshot{}
+	children := 0
+	for _, table := range accountTables {
+		var rows []map[string]any
+		var err error
+		switch table {
+		case "users":
+			rows, err = queryMaps(tx, `SELECT * FROM users WHERE id = ?`, targetID)
+		case "person_kinds":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM person_kinds WHERE person_id IN (SELECT id FROM people WHERE user_id = ?)`, targetID)
+		case "annotations":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM annotations WHERE book_id IN (SELECT id FROM books WHERE user_id = ?)`, targetID)
+		case "dialogues":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM dialogues WHERE movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, targetID)
+		case "book_genres":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM book_genres WHERE book_id IN (SELECT id FROM books WHERE user_id = ?)`, targetID)
+		case "movie_genres":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM movie_genres WHERE movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, targetID)
+		case "annotation_tags":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM annotation_tags WHERE annotation_id IN
+				   (SELECT a.id FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?)`, targetID)
+		case "dialogue_tags":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM dialogue_tags WHERE dialogue_id IN
+				   (SELECT d.id FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)`, targetID)
+		case "utterance_tags":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM utterance_tags WHERE utterance_id IN (SELECT id FROM utterances WHERE user_id = ?)`, targetID)
+		case "item_reviews":
+			// Polymorphic and user-blind, so it is reached through each parent kind
+			// in turn — the same three-way join the stats page has to make.
+			rows, err = queryMaps(tx, `
+				SELECT * FROM item_reviews WHERE
+				  (kind = 'book'      AND item_id IN (SELECT a.id FROM annotations a JOIN books b ON b.id = a.book_id WHERE b.user_id = ?))
+				  OR (kind = 'screen' AND item_id IN (SELECT d.id FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?))
+				  OR (kind = 'utterance' AND item_id IN (SELECT id FROM utterances WHERE user_id = ?))`,
+				targetID, targetID, targetID)
+		case "staged_works":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM staged_works WHERE batch_id IN (SELECT id FROM import_batches WHERE user_id = ?)`, targetID)
+		case "staged_quotes":
+			rows, err = queryMaps(tx,
+				`SELECT * FROM staged_quotes WHERE staged_work_id IN
+				   (SELECT w.id FROM staged_works w JOIN import_batches i ON i.id = w.batch_id WHERE i.user_id = ?)`, targetID)
+		default:
+			rows, err = queryMaps(tx, `SELECT * FROM `+table+` WHERE user_id = ?`, targetID)
+		}
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", table, err)
+		}
+		if len(rows) > 0 {
+			snap[table] = rows
+		}
+		switch table {
+		case "annotations", "dialogues", "utterances":
+			children += len(rows)
+		}
+	}
+	payload, err := json.Marshal(snap)
+	if err != nil {
+		return 0, err
+	}
+	fileJSON, err := json.Marshal(files)
+	if err != nil {
+		return 0, err
+	}
+	res, err := tx.Exec(
+		`INSERT INTO trash (user_id, kind, label, child_count, payload, files)
+		 VALUES (?, 'account', ?, ?, ?, ?)`,
+		adminID, username, children, string(payload), string(fileJSON))
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}

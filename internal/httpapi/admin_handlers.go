@@ -207,13 +207,34 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "an admin must step down before being removed")
 		return
 	}
-	// Collect the user's cover/poster filenames before the DB rows cascade away,
-	// so we can remove the now-orphaned files afterwards (the cascade only frees
-	// rows, not on-disk images).
+	// Collect the user's cover/poster/sticker filenames before the DB rows cascade
+	// away: the cascade frees rows, not on-disk images. They are PARKED rather than
+	// removed now, because the account goes to the bin like everything else.
 	covers := s.userCoverFiles(id)
+	var username string
+	if err := s.Store.DB.QueryRow(`SELECT username FROM users WHERE id = ?`, id).Scan(&username); err != nil {
+		internalError(w, r, "load username", err)
+		return
+	}
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "delete user: begin tx", err)
+		return
+	}
+	defer tx.Rollback()
+	// The snapshot goes in the DELETING ADMIN's bin, not the deleted user's: a row
+	// in their own bin would cascade away with them, in the same statement that
+	// made it worth keeping. See migration 0031.
+	trashID, err := s.binAccount(tx, userID(r), id, username, covers)
+	if err != nil {
+		olog.Warnf(olog.CodeTrashWrite, "[trash] could not bin account %d: %v", id, err)
+		internalError(w, r, "delete user: bin it first", err)
+		return
+	}
 	// Delete unless it would remove the last admin. The guard is in SQL so the
 	// count and delete are one atomic statement.
-	res, err := s.Store.DB.Exec(
+	res, err := tx.Exec(
 		`DELETE FROM users WHERE id = ?
 		 AND (is_admin = 0 OR (SELECT count(*) FROM users WHERE is_admin = 1) > 1)`, id)
 	if err != nil {
@@ -221,9 +242,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		// Distinguish "no such user" from "blocked as the last admin".
+		// Distinguish "no such user" from "blocked as the last admin". The rollback
+		// takes the bin entry with it, so a refused delete leaves nothing behind.
 		var isLastAdmin bool
-		switch err := s.Store.DB.QueryRow(`SELECT is_admin FROM users WHERE id = ?`, id).Scan(&isLastAdmin); {
+		switch err := tx.QueryRow(`SELECT is_admin FROM users WHERE id = ?`, id).Scan(&isLastAdmin); {
 		case errors.Is(err, sql.ErrNoRows):
 			writeErr(w, http.StatusNotFound, "no such user")
 		case err != nil:
@@ -233,10 +255,12 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	for _, name := range covers {
-		s.removeCoverFile(name) // best-effort
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "delete user: commit", err)
+		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	s.parkFiles(covers)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "trash_id": trashID})
 }
 
 // userCoverFiles returns the stored image filenames owned by a user (book

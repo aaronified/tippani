@@ -24,18 +24,18 @@ import (
 // avoids telling a stranger that somebody else deleted something.
 
 // restoreOrder is the order rows go back in, and it is FK order: a child cannot be
-// inserted before its parent. Tables absent from a payload are skipped, so one
-// list serves all five kinds rather than five nearly-identical lists.
-//
-// `tags` and `genres` are NOT in this list. They are re-created by name before
-// anything else (see resolveVocabulary), because their ids may have moved.
-var restoreOrder = []string{
-	"books", "movies",
-	"annotations", "dialogues", "utterances",
-	"book_genres", "movie_genres",
-	"annotation_tags", "dialogue_tags", "utterance_tags",
-	"item_reviews", "work_reads",
-}
+// inserted before its parent. Tables absent from a payload are skipped, which is
+// what lets ONE list serve all six kinds — a highlight's payload holds three of
+// these tables and an account's holds all of them, and neither needs its own list
+// to walk. It IS accountTables, deliberately: two orderings of the same foreign
+// keys would be two places to get the order wrong, and the one that is wrong is
+// the one nobody exercises until an account restore.
+var restoreOrder = accountTables
+
+// vocabularyTables are handled before the walk and skipped inside it: their rows
+// go back by NAME rather than by id (see resolveVocabulary), because a tag can be
+// deleted and a genre garbage-collected while the entry sits in the bin.
+var vocabularyTables = map[string]bool{"tags": true, "genres": true}
 
 // remapColumn names, per join table, the column holding a vocabulary id that may
 // have to be re-pointed on the way back in.
@@ -170,7 +170,30 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "restore: read payload", err)
 		return
 	}
-	if err := s.restoreSnapshot(tx, uid, snap); err != nil {
+	// An account entry is a whole library and a login. Admin-only, and the rows
+	// belong to the user being restored rather than to whoever is restoring them —
+	// so the vocabulary resolution runs against the RESTORED user's id, not the
+	// admin's. It is also the one restore that can be refused by something outside
+	// the payload: a username somebody else has taken in the meantime.
+	owner := uid
+	if kind == "account" {
+		if !isAdmin(r) {
+			writeErr(w, http.StatusForbidden, "admin only")
+			return
+		}
+		if n, ok := accountOwner(snap); ok {
+			owner = n
+		}
+		if taken, err := usernameTaken(tx, snap); err != nil {
+			internalError(w, r, "restore: check the username", err)
+			return
+		} else if taken != "" {
+			writeErr(w, http.StatusConflict,
+				"the name \u201c"+taken+"\u201d is taken now \u2014 rename that account first")
+			return
+		}
+	}
+	if err := s.restoreSnapshot(tx, owner, snap); err != nil {
 		olog.Warnf(olog.CodeTrashRestore, "[trash] restoring entry %d for user %d failed: %v", id, uid, err)
 		internalError(w, r, "restore", err)
 		return
@@ -195,6 +218,39 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "kind": kind})
 }
 
+// accountOwner is the user id an account snapshot belongs to, read from the row it
+// carries rather than from the request — the admin restoring it is a different
+// person, and every FK in the payload points at this id.
+func accountOwner(snap snapshot) (int64, bool) {
+	rows := snap["users"]
+	if len(rows) == 0 {
+		return 0, false
+	}
+	return intOf(rows[0]["id"])
+}
+
+// usernameTaken reports the username in an account snapshot if somebody else holds
+// it now, so the restore can say which name is in the way instead of failing on a
+// UNIQUE constraint. Returns "" when the name is free.
+func usernameTaken(tx *sql.Tx, snap snapshot) (string, error) {
+	rows := snap["users"]
+	if len(rows) == 0 {
+		return "", nil
+	}
+	name := stringOf(rows[0]["username"])
+	if name == "" {
+		return "", nil
+	}
+	var n int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE username = ?`, name).Scan(&n); err != nil {
+		return "", err
+	}
+	if n > 0 {
+		return name, nil
+	}
+	return "", nil
+}
+
 // restoreSnapshot re-inserts a payload in foreign-key order.
 //
 // Ids are the ORIGINAL ids, always. Nothing has to be renumbered because no id was
@@ -204,13 +260,27 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 // primary key and the whole restore rolls back; that is the honest outcome, and it
 // is asserted rather than assumed.
 func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
+	// THE USER ROW GOES IN FIRST, before anything else including the vocabulary.
+	// Every other table in an account payload has a foreign key to it — directly or
+	// through a parent — and the tags re-created in the next step are the first
+	// thing to trip on its absence. (A single-item payload has no user row, so this
+	// is a no-op there.)
+	for _, row := range snap["users"] {
+		cols, err := tableColumns(tx, "users")
+		if err != nil {
+			return err
+		}
+		if err := insertRow(tx, "users", cols, row); err != nil {
+			return fmt.Errorf("users: %w", err)
+		}
+	}
 	vocab, err := resolveVocabulary(tx, uid, snap)
 	if err != nil {
 		return err
 	}
 	for _, table := range restoreOrder {
 		rows := snap[table]
-		if len(rows) == 0 {
+		if len(rows) == 0 || table == "users" || vocabularyTables[table] {
 			continue
 		}
 		cols, err := tableColumns(tx, table)
