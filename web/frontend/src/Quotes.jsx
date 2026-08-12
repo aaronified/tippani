@@ -18,6 +18,7 @@ import { json, errText, downloadPost } from './api.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
+import { deleteWithUndo } from './undo.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
 import {
@@ -438,7 +439,7 @@ export default function QuotesPage({ creditSeparators }) {
   }
   async function remove(u) {
     if (!confirm('Delete this quote?')) return
-    const r = await json('DELETE', `/quotes/${u.id}`)
+    const r = await deleteWithUndo(`/quotes/${u.id}`, { reload: load })
     if (r.ok) load()
     else setError(errText(r))
   }

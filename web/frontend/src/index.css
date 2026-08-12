@@ -3033,6 +3033,33 @@ html[data-aesthetic="film"] .mobile-bottom-nav-btn.active {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* An action inside the pill (the delete toast's Undo).
+   The pill itself keeps `pointer-events: none` — it floats over the bottom of the
+   screen and must never eat a tap meant for what is under it — so the button turns
+   them back on for its own box and nothing else. That is the smallest hole that
+   can be cut in it, and it is why the action is a child rather than the pill
+   itself becoming clickable.
+
+   Underlined and inverted rather than a bordered button: the pill is already an
+   object floating over the page, and a second object inside it reads as a dialog.
+   Cream on ink is the same contrast pair the pill already uses. */
+.toast-action {
+  pointer-events: auto;
+  margin-left: 12px;
+  padding: 1px 2px;
+  border: none;
+  background: none;
+  color: var(--bg);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.toast-action:hover { text-decoration-thickness: 2px; }
+.toast-action:focus-visible { outline: 2px solid var(--bg); outline-offset: 2px; border-radius: 4px; }
+
 /* ---- floating mobile bottom nav ---- */
 /* An ADDITION to the ☰ drawer, not a replacement: four thumb-reachable icons
    for the main screens. It floats clear of the bottom edge so the Android

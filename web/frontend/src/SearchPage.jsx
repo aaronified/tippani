@@ -4,6 +4,7 @@ import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
+import { deleteWithUndo } from './undo.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
@@ -501,7 +502,9 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
   }
   async function remove(x) {
     if (!confirm(isQuote ? 'Delete this quote?' : isBook ? 'Delete this annotation?' : 'Delete this dialogue?')) return
-    const r = await json('DELETE', `${itemPath}/${x.id}`)
+    // The modal closes on success, so the Undo refreshes the RESULTS behind it
+    // rather than this view — which is where the row would reappear.
+    const r = await deleteWithUndo(`${itemPath}/${x.id}`, { reload: onChanged })
     if (r.ok) { onChanged && onChanged(); onClose() }
     else setError(errText(r))
   }

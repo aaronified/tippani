@@ -6,6 +6,7 @@ import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
+import { deleteWithUndo } from './undo.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -537,7 +538,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
 
   async function remove() {
     if (!confirm(`Delete "${book.title}" and all its annotations?`)) return
-    const r = await json('DELETE', `/books/${id}`)
+    // No reload on the Undo: this view closes on a successful delete, so the book
+    // coming back has to be found again from the shelf. The toast still offers it,
+    // and Settings → The bin is the other way in.
+    const r = await deleteWithUndo(`/books/${id}`, { label: 'book deleted' })
     if (r.ok) onClose()
     else setError(errText(r))
   }
@@ -1327,7 +1331,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
 
   async function remove(a) {
     if (!confirm('Delete this annotation?')) return
-    const r = await json('DELETE', `/annotations/${a.id}`)
+    const r = await deleteWithUndo(`/annotations/${a.id}`, { reload: load })
     if (r.ok) {
       setTotal((t) => (t == null ? t : t - 1))
       setExpandedId(null) // collapse before the shorter set re-packs

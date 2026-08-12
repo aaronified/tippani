@@ -283,6 +283,7 @@ The shared modules do:
 | `tour.jsx` | The first-launch guided tour, replayable from Settings. |
 | `share.jsx` · `quoteImage.js` | The share sheet, and rendering a quote to PNG on a 2D canvas in the current styling. |
 | `stickers.jsx` · `flow.jsx` | The sticker library, and the layer that flows quote text around a dragged sticker while keeping it real selectable DOM. |
+| `undo.jsx` | One delete-with-Undo helper, so the seven screens that delete something cannot each forget the offer. |
 | `secret.js` | Password and passphrase rules, plus the backup header layout — **parsed by fixed byte offset against a Go-defined struct**, so the two must change together. |
 | `greetings.js` | The date line and greeting on Home, from the device's own clock and zone. |
 | `index.css` | The whole stylesheet: tokens, the paper/film material system, every component recipe the JSX names by class, and the mobile layout. |

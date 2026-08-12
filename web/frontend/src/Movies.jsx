@@ -7,6 +7,7 @@ import { ScreenHelpSheet } from './help.jsx'
 import { WorkDetails } from './WorkDetails.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
+import { deleteWithUndo } from './undo.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -694,7 +695,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
 
   async function remove() {
     if (!confirm(`Delete "${movie.title}" and all its dialogues?`)) return
-    const r = await json('DELETE', `/movies/${id}`)
+    // As with a book: this view closes, so there is nothing here to reload.
+    const r = await deleteWithUndo(`/movies/${id}`, { label: 'title deleted' })
     if (r.ok) onClose()
     else setError(errText(r))
   }
@@ -1217,7 +1219,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
 
   async function remove(d) {
     if (!confirm('Delete this dialogue?')) return
-    const r = await json('DELETE', `/dialogues/${d.id}`)
+    const r = await deleteWithUndo(`/dialogues/${d.id}`, { reload: load })
     if (r.ok) { setExpandedId(null); load() } // collapse before the shorter set re-packs
     else setError(errText(r))
   }

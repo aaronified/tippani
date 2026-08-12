@@ -23,6 +23,7 @@ import {
   usePeople,
 } from './people.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
+import { deleteWithUndo } from './undo.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
@@ -926,7 +927,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   }
   async function removeFav(f) {
     if (!confirm(FAV_KINDS[f.kind].confirm)) return
-    const r = await json('DELETE', `${itemPath(f)}/${f.raw.id}`)
+    const r = await deleteWithUndo(`${itemPath(f)}/${f.raw.id}`, { reload: loadFavs })
     if (!r.ok) return toast(errText(r, 'could not delete'))
     if (openFav === f.key) setOpenFav(null)
     if (editingFav === f.key) setEditingFav(null)

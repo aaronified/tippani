@@ -4504,14 +4504,23 @@ export function ProgressBar({ value, max, label }) {
 // seconds after the glance reads as something you are expected to act on.
 
 const TOAST_MS = 1500 // a mutation confirmation — news, so slightly longer
+// An ACTIONABLE toast lives longer, and it has to: 1.5s is one glance, which is
+// right for news and useless for an offer. Six seconds is about how long it takes
+// to read "deleted · Undo", decide, and reach it — and the offer does not expire
+// in any real sense when it goes, because the bin holds the thing for thirty days.
+// The pill is just the shortcut.
+const TOAST_ACTION_MS = 6000
 const HINT_MS = 1200 // a control's own label, on touch — one glance
 
 let toastSink = null
 let hintSink = null
 let hintSeq = 0
 
-export function toast(msg) {
-  if (toastSink) toastSink(msg)
+// toast(msg) shows a pill; toast(msg, {label, onClick}) shows one with a single
+// action beside it. There is no two-action form and there should not be: a toast
+// is a glance, and a choice is a dialog.
+export function toast(msg, action) {
+  if (toastSink) toastSink(msg, action)
 }
 
 // ---- the hint slot: one label bubble, two lifetimes ----
@@ -4594,10 +4603,10 @@ function HintBubble({ msg, rect, side }) {
 }
 
 export function ToastHost() {
-  const [t, setT] = useState({ msg: "", n: 0 })
+  const [t, setT] = useState({ msg: "", action: null, n: 0 })
   const [h, setH] = useState({ msg: "", n: 0, rect: null, side: "top", sticky: false, token: 0 })
   useEffect(() => {
-    toastSink = (msg) => setT((s) => ({ msg, n: s.n + 1 }))
+    toastSink = (msg, action) => setT((s) => ({ msg, action: action || null, n: s.n + 1 }))
     hintSink = (m) =>
       setH((s) => {
         // Returning `s` itself, not a copy, when the close is stale or the bubble
@@ -4610,7 +4619,7 @@ export function ToastHost() {
   }, [])
   useEffect(() => {
     if (!t.msg) return
-    const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), TOAST_MS)
+    const id = setTimeout(() => setT((s) => ({ ...s, msg: "" })), t.action ? TOAST_ACTION_MS : TOAST_MS)
     return () => clearTimeout(id)
   }, [t])
   useEffect(() => {
@@ -4622,8 +4631,24 @@ export function ToastHost() {
   return (
     <>
       {t.msg && (
+        // role="status" for the message, with the action as a real button inside
+        // it: a polite live region announces the text, and the button is reachable
+        // by keyboard for as long as the pill is up. Dismissing on click is the
+        // point — the offer is taken, so the pill has nothing left to say.
         <div className="toast" key={t.n} role="status">
           {t.msg}
+          {t.action && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={() => {
+                setT((s) => ({ ...s, msg: "" }))
+                t.action.onClick()
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       )}
       {/* Re-keyed per message so a repeat replays the entrance — and so the
