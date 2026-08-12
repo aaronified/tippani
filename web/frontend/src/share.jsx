@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, GhostButton, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, Tooltip, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { categoryHex, paletteTheme } from "./theme.js";
@@ -539,7 +539,16 @@ export function renderShareHTML(text, fmt) {
 // ---- quote-card image (ROADMAP §10) ------------------------------------
 // The "Image" format: the same field-picking, rendered to a shareable PNG in
 // the current paper/film skin (drawn locally on a <canvas>, see quoteImage.js).
-function QuoteImagePanel({ share, selected, onShared }) {
+// QuoteImagePanel draws the card and owns everything about producing the PNG. The
+// one thing it does NOT own any more is the button that hands it over: `actionRef`
+// is how the dialog's header reaches `download`, because that action now lives up
+// beside the close glyph rather than at the bottom of this panel.
+//
+// A ref rather than lifting the canvas or the blob-making into the dialog: the
+// whole render pipeline — theme, portrait, colour, fonts, redraw-on-event — belongs
+// to this component, and moving any of it up to satisfy a button's position would
+// be the tail wagging the dog.
+function QuoteImagePanel({ share, selected, onShared, actionRef }) {
   const canvasRef = useRef(null);
   const mobile = useIsMobileScreen();
   const [copied, setCopied] = useState(false);
@@ -677,6 +686,11 @@ function QuoteImagePanel({ share, selected, onShared }) {
     onShared?.();
   }
 
+  // Published for the header's share glyph. Assigned on every render so the
+  // closure the header calls is always the current one (it captures `share`,
+  // `selected`, the chosen skin and the live canvas).
+  if (actionRef) actionRef.current = download;
+
   const canCopyImage =
     typeof window !== "undefined" &&
     typeof window.ClipboardItem !== "undefined" &&
@@ -753,16 +767,17 @@ function QuoteImagePanel({ share, selected, onShared }) {
           {err}
         </p>
       )}
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-        {canCopyImage && (
+      {/* No primary button here any more: sharing the picture is the share glyph in
+          the dialog's header, next to the close. Copying it to the clipboard is a
+          different act — it goes nowhere and needs somewhere to paste — so it stays
+          a worded button, where the one-off actions in this app live. */}
+      {canCopyImage && (
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <GhostButton onClick={copyImage} disabled={busy}>
             {copied ? "Copied ✓" : "Copy image"}
           </GhostButton>
-        )}
-        <button className={PRIMARY} onClick={download}>
-          {mobile ? "Share / save PNG" : "Download PNG"}
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -792,6 +807,8 @@ export function ShareDialog({ share, seen, onClose }) {
   // Sharing a quote counts as "seeing" it (spaced-repetition reinforcement).
   // Fire once per dialog, on the first successful copy/download, for the item
   // being shared. Fire-and-forget: it's a marginal bump, off unless srSeen > 1.
+  // The picture panel's share action, so the header glyph above can fire it.
+  const shareImage = useRef(null);
   const seenFired = useRef(false);
   const markSeen = () => {
     if (seenFired.current || DEMO || !seen?.id) return;
@@ -845,9 +862,29 @@ export function ShareDialog({ share, seen, onClose }) {
         aria-label="Share quote"
         className="hand-card hc-r2 mx-auto w-full max-w-3xl px-6 py-6"
       >
+        {/* Title, then the two glyphs: share, then close. The worded Close that
+            used to sit in the footer is gone — a window that already has a × in its
+            corner does not need a second way out written in words, and the footer
+            row it left behind is one less thing between the picture and the reader.
+            The share action came UP here from the picture panel so the two live
+            together: they are the only two things you do to this window. */}
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="display-title text-xl">Share</h2>
-          <CloseButton onClick={onClose} />
+          <span className="flex items-center gap-1">
+            {isImage && (
+              <Tooltip label="Share this picture">
+                <button
+                  type="button"
+                  className="field-icon-btn tactile"
+                  aria-label="Share picture"
+                  onClick={() => shareImage.current?.()}
+                >
+                  <IconShare />
+                </button>
+              </Tooltip>
+            )}
+            <CloseButton onClick={onClose} />
+          </span>
         </div>
 
         {/* format toggle; what each one produces lives behind the dot */}
@@ -923,7 +960,7 @@ export function ShareDialog({ share, seen, onClose }) {
         {/* Image: rendered card + download/copy. Text: editable source ↔ live
             rendered preview. */}
         {isImage ? (
-          <QuoteImagePanel share={share} selected={selected} onShared={markSeen} />
+          <QuoteImagePanel share={share} selected={selected} onShared={markSeen} actionRef={shareImage} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -949,14 +986,13 @@ export function ShareDialog({ share, seen, onClose }) {
           </div>
         )}
 
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <GhostButton onClick={onClose}>Close</GhostButton>
-          {!isImage && (
+        {!isImage && (
+          <div className="mt-5 flex items-center justify-end gap-2">
             <button className={PRIMARY} onClick={copy}>
               {copied ? "Copied ✓" : "Copy"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -131,6 +131,40 @@ describe('which format the dialog opens on', () => {
   })
 })
 
+describe('the two things you do to this window', () => {
+  it('has no lettered close, because it already has a cross', async () => {
+    // The × in the corner and a "Close" button in the footer are two doors out of
+    // one room. The glyph keeps its accessible name — this asserts there is no
+    // WORDED one, not that the control is gone.
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    expect(screen.queryByText('Close')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Close' }).className).toContain('field-icon-btn')
+  })
+
+  it('shares the picture from a glyph beside the close', async () => {
+    const blobbed = vi.fn((cb) => cb(new Blob(['png'], { type: 'image/png' })))
+    HTMLCanvasElement.prototype.toBlob = blobbed
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    const button = await screen.findByRole('button', { name: 'Share picture' })
+    // Left of the close, in the header: the order is the claim, since a share
+    // glyph to the RIGHT of a × is a button people close the window with.
+    const close = screen.getByRole('button', { name: 'Close' })
+    expect(!!(button.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    // And it is wired to the picture, not decorative: the panel's own worded
+    // "Download PNG" is gone, so this glyph is the only way out with a file.
+    expect(screen.queryByRole('button', { name: /Download PNG|Share \/ save PNG/ })).toBeNull()
+    fireEvent.click(button)
+    await waitFor(() => expect(blobbed).toHaveBeenCalled())
+  })
+
+  it('offers no share glyph for a text format, where copy is the way out', async () => {
+    render(<ShareDialog share={share()} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Markdown' }))
+    expect(screen.queryByRole('button', { name: 'Share picture' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy()
+  })
+})
+
 describe('the prose in the share dialog', () => {
   const logicOf = (name) => screen.queryByText((t) => t.startsWith(name))
 
