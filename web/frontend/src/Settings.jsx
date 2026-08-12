@@ -1916,8 +1916,16 @@ function Metadata({ user, onPreferences }) {
 
   const source = status?.tmdb?.source
   const lookup = status?.books_lookup
-  const booksTone = lookup?.ok === false ? 'error' : lookup?.ok === true ? 'ok' : 'muted'
-  const booksLabel = lookup?.ok === false ? 'Lookup failing' : lookup?.ok === true ? 'OK' : 'Untested'
+  // NO CHIP FOR "WORKING". A green OK under the heading is a pill that appears
+  // when there is nothing to tell you and vanishes the moment there is — the
+  // reader learns to read it, and then it is gone exactly when they need it.
+  // Silence is the healthy state; a chip here always means something to act on
+  // (the last lookup failed) or something not yet known (none has been tried
+  // since this server started).
+  const booksChip =
+    lookup?.ok === false ? ['error', 'Lookup failing']
+      : lookup?.ok === true ? null
+        : ['muted', 'Untested']
   // A CHIP ONLY WHERE THE KEY FIELDS CANNOT ANSWER. "Custom key" beside TMDB
   // said exactly what the saved badge on the TMDB field says one line below it,
   // and "No key (optional)" beside TheTVDB said nothing at all — an optional key
@@ -1951,7 +1959,7 @@ function Metadata({ user, onPreferences }) {
 
   return (
     <Card data-tour="metadata-keys">
-      <SectionTitle info="Books are looked up in Google Books and Open Library together and merged field by field — the first-publication year from one, the larger cover and the description from the other; neither needs a key. Films and shows come from TMDB and TheTVDB, also merged. TMDB may also carry a shared built-in key baked into the build: where the build has one, film lookups work before you set anything; where it does not, they answer 503 until a key goes in the field below. TheTVDB has no built-in and is optional. The chips report book lookups — “Untested” means none has been tried since this server started, not that anything is wrong — and flag TMDB only when it is running on that built-in key or on nothing at all. Every field here edits and saves on its own: a ✓ writes just that key and leaves the others alone, saved secrets show masked and can never be revealed, and a blank field clears one. Manual entry always works, whatever any of this says.">
+      <SectionTitle info="Books are looked up in Google Books and Open Library together and merged field by field — the first-publication year from one, the larger cover and the description from the other; neither needs a key. Films and shows come from TMDB and TheTVDB, also merged. TMDB may also carry a shared built-in key baked into the build: where the build has one, film lookups work before you set anything; where it does not, they answer 503 until a key goes in the field below. TheTVDB has no built-in and is optional. A chip appears only where there is something to say: that no book lookup has been tried since this server started (“Untested” — not that anything is wrong), that the last one failed, or that films are running on the shared built-in key or on no key at all. Working lookups show nothing, because a pill that says everything is fine is only ever there when you do not need it. Every field here edits and saves on its own: a ✓ writes just that key and leaves the others alone, saved secrets show masked and can never be revealed, and a blank field clears one. Manual entry always works, whatever any of this says.">
         Metadata sources
       </SectionTitle>
 
@@ -1970,11 +1978,17 @@ function Metadata({ user, onPreferences }) {
           was the word "Untested" trailed by two dots explaining services the
           word was not about. Two dots side by side are not two explanations, they
           are a puzzle about which one answers you; both blurbs are in the
-          heading's dot now, which is where a reader looks for what a section is. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusChip tone={booksTone}>{booksLabel}</StatusChip>
-        {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
-      </div>
+          heading's dot now, which is where a reader looks for what a section is.
+
+          The row itself goes when both chips do: an empty flex box under the
+          heading is a gap that reads as a missing element rather than as
+          nothing to report. */}
+      {(booksChip || tmdbChip) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {booksChip && <StatusChip tone={booksChip[0]}>{booksChip[1]}</StatusChip>}
+          {tmdbChip && <StatusChip tone={tmdbChip[0]}>{tmdbChip[1]}</StatusChip>}
+        </div>
+      )}
       {lookup?.ok === false && lookup.error && (
         <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
           last error: {lookup.error}

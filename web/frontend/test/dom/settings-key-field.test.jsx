@@ -116,6 +116,34 @@ describe('what the card no longer says', () => {
     expect(screen.queryByText('Custom key')).toBeNull()
   })
 
+  it('drops the chip that says everything is fine', async () => {
+    // The healthy state is the one state nobody needs told about, and a pill
+    // that ONLY appears when there is nothing to do is worse than silent: a
+    // reader learns to look there, and it is empty in every case that matters.
+    // The default STATUS in this file is a working lookup, so this is the
+    // ordinary render, not an edge case.
+    await page()
+    await waitFor(() => expect(screen.getByText('Built-in key')).toBeTruthy())
+    expect(screen.queryByText('OK')).toBeNull()
+  })
+
+  it('still speaks up when the last lookup failed', async () => {
+    // The half of the chip that was carrying its weight. Deleting the success
+    // state by widening the condition instead of narrowing it would take this
+    // with it and look identical on a healthy instance — which is every
+    // instance, until it is not.
+    STATUS = { tmdb: { source: 'custom' }, books_lookup: { ok: false, error: 'timed out' } }
+    await page()
+    await waitFor(() => expect(screen.getByText('Lookup failing')).toBeTruthy())
+    expect(screen.getByText(/timed out/)).toBeTruthy()
+  })
+
+  it('still says when no lookup has been tried since the server started', async () => {
+    STATUS = { tmdb: { source: 'custom' }, books_lookup: null }
+    await page()
+    await waitFor(() => expect(screen.getByText('Untested')).toBeTruthy())
+  })
+
   it('keeps the two a key field cannot report', async () => {
     // The built-in key is the case a key field is silent about: you have set
     // nothing and lookups work anyway. Deleting the chip along with the
