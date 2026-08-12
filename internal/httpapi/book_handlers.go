@@ -503,46 +503,17 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, b)
 }
 
+// handleDeleteBook bins the book and everything under it — its quotes, their tag
+// joins, their review schedule, its genre joins and its read log — then deletes it
+// (see trash.go). The cover is PARKED rather than removed, so a restore brings the
+// picture back too.
+//
+// Annotations still cascade with the book and the genres they held are still
+// garbage-collected; both happen after the snapshot, so the restore can put the
+// genre rows back by name.
 func (s *Server) handleDeleteBook(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r)
-	if !ok {
-		writeErr(w, http.StatusBadRequest, "invalid book id")
-		return
-	}
 	uid := userID(r)
-	olog.Tracef("[book] handleDeleteBook uid=%v id=%v", uid, id)
-	var cover sql.NullString
-	err := s.Store.DB.QueryRow(
-		`SELECT cover_path FROM books WHERE id = ? AND user_id = ?`, id, uid).Scan(&cover)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		writeErr(w, http.StatusNotFound, "book not found")
-		return
-	case err != nil:
-		internalError(w, r, "load book cover", err)
-		return
-	}
-	tx, err := s.Store.DB.Begin()
-	if err != nil {
-		internalError(w, r, "begin tx", err)
-		return
-	}
-	defer tx.Rollback()
-	// Annotations cascade with the book; GC the genres they held. Tags persist
-	// (managed vocabulary, §10) — only their join rows cascade away.
-	if _, err := tx.Exec(`DELETE FROM books WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		internalError(w, r, "delete book", err)
-		return
-	}
-	if err := gcGenres(tx, uid); err != nil {
-		internalError(w, r, "gc genres", err)
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		internalError(w, r, "commit tx", err)
-		return
-	}
-	s.removeCoverFile(cover.String) // best-effort
-	s.gcOrphanPeople(uid, "author") // last book by an author gone → drop its metadata
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	s.binDelete(w, r, "book", "book not found",
+		func(tx *sql.Tx) error { return gcGenres(tx, uid) },
+		func() { s.gcOrphanPeople(uid, "author") }) // last book by an author gone → drop its metadata
 }

@@ -393,24 +393,11 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, a)
 }
 
+// handleDeleteAnnotation bins the quote, then deletes it (see trash.go). Tag join
+// rows cascade and the item_reviews row goes with it via the 0015 trigger — both
+// are in the snapshot first, so a restore brings the tags and the review schedule
+// back with the words. The tags themselves persist either way (managed
+// vocabulary, §10).
 func (s *Server) handleDeleteAnnotation(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r)
-	if !ok {
-		writeErr(w, http.StatusBadRequest, "invalid annotation id")
-		return
-	}
-	olog.Tracef("[anno] handleDeleteAnnotation uid=%v id=%v", userID(r), id)
-	// Tag join rows cascade; the tags themselves persist (managed vocabulary, §10).
-	res, err := s.Store.DB.Exec(`
-		DELETE FROM annotations WHERE id = ?
-		AND book_id IN (SELECT id FROM books WHERE user_id = ?)`, id, userID(r))
-	if err != nil {
-		internalError(w, r, "delete annotation", err)
-		return
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		writeErr(w, http.StatusNotFound, "annotation not found")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	s.binDelete(w, r, "annotation", "annotation not found", nil, nil)
 }

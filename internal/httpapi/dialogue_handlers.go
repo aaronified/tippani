@@ -543,25 +543,13 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, d)
 }
 
+// handleDeleteDialogue bins the line, then deletes it (see trash.go).
 func (s *Server) handleDeleteDialogue(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r)
-	if !ok {
-		writeErr(w, http.StatusBadRequest, "invalid dialogue id")
-		return
-	}
-	olog.Tracef("[dlg] handleDeleteDialogue uid=%d id=%d", userID(r), id)
-	// Tag join rows cascade; the tags themselves persist (managed vocabulary, §10).
-	res, err := s.Store.DB.Exec(`
-		DELETE FROM dialogues WHERE id = ?
-		AND movie_id IN (SELECT id FROM movies WHERE user_id = ?)`, id, userID(r))
-	if err != nil {
-		internalError(w, r, "delete dialogue", err)
-		return
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		writeErr(w, http.StatusNotFound, "dialogue not found")
-		return
-	}
-	s.gcOrphanPeople(userID(r), "actor")
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	uid := userID(r)
+	s.binDelete(w, r, "dialogue", "dialogue not found", nil, func() {
+		// The last line an actor was credited on can leave their metadata behind.
+		// Deliberately NOT undone by a restore: a person row is a reference row
+		// that re-fetches, not part of the quote.
+		s.gcOrphanPeople(uid, "actor")
+	})
 }

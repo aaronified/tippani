@@ -87,6 +87,12 @@ const (
 	CodeImportApprove  Code = "TIP-IMPORT-003" // approving staged quotes failed; the transaction rolled back, so nothing entered the library
 	CodeImportStagedOp Code = "TIP-IMPORT-004" // a staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged
 
+	// TRASH — the bin (0031): a 30-day undo for anything deleted.
+	CodeTrashWrite   Code = "TIP-TRASH-001" // a delete could not be binned; the delete was refused rather than made final
+	CodeTrashFile    Code = "TIP-TRASH-002" // a binned image could not be parked, restored or purged
+	CodeTrashRestore Code = "TIP-TRASH-003" // a restore failed; the bin entry is left intact
+	CodeTrashPurge   Code = "TIP-TRASH-004" // the retention sweep failed; nothing was removed
+
 	// BACKUP — server-side backup & restore (Settings, admin).
 	CodeBackupSnapshot Code = "TIP-BACKUP-001" // database snapshot (VACUUM INTO) failed; no archive produced
 	CodeBackupArchive  Code = "TIP-BACKUP-002" // the backup archive could not be written/promoted
@@ -156,6 +162,11 @@ var Registry = map[Code]string{
 	CodeImportRowScan:  "A staged batch, work or quote row could not be scanned while listing the import queue; that row was left out of the response.",
 	CodeImportApprove:  "Approving staged quotes failed; the transaction rolled back, so nothing entered the library and the queue still holds them.",
 	CodeImportStagedOp: "A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged.",
+
+	CodeTrashWrite:   "A delete could not be written to the bin, so the delete was refused and nothing was removed.",
+	CodeTrashFile:    "A binned cover/poster could not be parked, restored or purged; the row itself is unaffected.",
+	CodeTrashRestore: "A restore from the bin failed and rolled back; the bin entry is still there to retry.",
+	CodeTrashPurge:   "The bin's retention sweep failed; expired entries and their files are still on disk.",
 
 	CodeBackupSnapshot: "The backup's database snapshot (VACUUM INTO) failed; no archive was produced.",
 	CodeBackupArchive:  "The backup archive could not be written or promoted into the backups directory.",

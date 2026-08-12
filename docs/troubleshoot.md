@@ -109,6 +109,20 @@ in a single transaction.
 | `TIP-META-014` | An on-demand book or movie lookup failed at the provider; the client saw a generic 502 ("lookup failed"). | Google Books / Open Library / TMDB / TheTVDB was unreachable, rejected the key, or is out of quota — the real cause is on the same `[error]` line. | Read the full `[error]` line: a `401` / "rejected the key" means fix the key in Settings → Metadata sources; a `429`/quota means retry later or add your own key; a connection error means the container can't reach the provider (check egress/DNS). |
 | `TIP-PEOPLE-003` | An on-demand person link/portrait lookup failed at the provider; the client saw a generic 502 ("lookup failed"). | For authors, Open Library was unreachable or errored; for actors/directors, TMDB was unreachable or rejected the key (including the built-in fallback key hitting its rate cap). The real cause is on the same `[error]` line. | Read the full `[error]` line: a TMDB `401` means fix/replace the key in Settings → Metadata sources; a `429` means retry later; a connection error means the container can't reach the provider. |
 
+## TRASH — the bin
+
+Deleting a book, film, quote or account writes a JSON snapshot of the whole
+subtree to the `trash` table first, then deletes the rows. A failure to write the
+snapshot REFUSES the delete: nothing is removed, which is the safe direction for
+a feature whose whole purpose is not losing things.
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-TRASH-001` | A delete could not be binned, so the delete was refused and nothing was removed. | A database write failed (disk full, or corruption — check for `TIP-STORE-002`). | Free disk space and retry. The item is still there; nothing is half-deleted. |
+| `TIP-TRASH-002` | A binned cover/poster could not be parked, restored or purged. | The `MediaCover` volume is not writable, or the file was already removed by hand. | Cosmetic: the row is unaffected. Parking fails towards KEEPING the file, so a stale image may sit in `MediaCover/` or `MediaCover/trash/`; both are collected by a later sweep. |
+| `TIP-TRASH-003` | A restore failed and rolled back; the bin entry is still there. | An id collision (should be impossible — see `id_floor`), a username already taken when restoring an account, or a write failure. | Read the full `[error]` line. The entry is intact, so retrying is safe. |
+| `TIP-TRASH-004` | The bin's retention sweep failed; expired entries and their files are still on disk. | A database or filesystem error during the sweep. | Harmless to data; the sweep runs again on the next start and once a day after. Disk use stays higher than the retention setting implies until it succeeds. |
+
 ## BACKUP — backup & restore
 
 | Code | Meaning | Likely cause | What to do |

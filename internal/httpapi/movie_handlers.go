@@ -787,45 +787,12 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	writeJSON(w, http.StatusOK, m)
 }
 
+// handleDeleteMovie bins the title with its lines, their tags, their review rows,
+// its genres and its watch log, then deletes it (see trash.go). The poster is
+// parked, not removed.
 func (s *Server) handleDeleteMovie(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r)
-	if !ok {
-		writeErr(w, http.StatusBadRequest, "invalid movie id")
-		return
-	}
 	uid := userID(r)
-	olog.Tracef("[movie] handleDeleteMovie uid=%v id=%v", uid, id)
-	var poster sql.NullString
-	err := s.Store.DB.QueryRow(
-		`SELECT poster_path FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&poster)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		writeErr(w, http.StatusNotFound, "movie not found")
-		return
-	case err != nil:
-		internalError(w, r, "delete movie: load poster", err)
-		return
-	}
-	tx, err := s.Store.DB.Begin()
-	if err != nil {
-		internalError(w, r, "delete movie: begin tx", err)
-		return
-	}
-	defer tx.Rollback()
-	// Dialogues cascade with the movie; GC the genres it held (tags persist, §10).
-	if _, err := tx.Exec(`DELETE FROM movies WHERE id = ? AND user_id = ?`, id, uid); err != nil {
-		internalError(w, r, "delete movie: delete row", err)
-		return
-	}
-	if err := gcGenres(tx, uid); err != nil {
-		internalError(w, r, "delete movie: gc genres", err)
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		internalError(w, r, "delete movie: commit", err)
-		return
-	}
-	s.removeCoverFile(poster.String) // best-effort
-	s.gcOrphanPeople(uid, "actor")   // cascaded-deleted dialogues can orphan actors
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	s.binDelete(w, r, "movie", "movie not found",
+		func(tx *sql.Tx) error { return gcGenres(tx, uid) },
+		func() { s.gcOrphanPeople(uid, "actor") }) // cascaded-deleted lines can orphan actors
 }

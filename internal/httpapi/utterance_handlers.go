@@ -392,26 +392,13 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, u)
 }
 
+// handleDeleteUtterance bins the quote, then deletes it (see trash.go).
+//
+// The tag rows and the item_reviews row still go with it — utterance_tags cascades
+// on the foreign key, and item_reviews is cleared by the 0026 AFTER DELETE trigger,
+// since a polymorphic table cannot hold a real foreign key to three parents. Both
+// are read into the snapshot before the delete for exactly that reason: a trigger
+// leaves nothing behind to find afterwards.
 func (s *Server) handleDeleteUtterance(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(r)
-	if !ok {
-		writeErr(w, http.StatusBadRequest, "invalid quote id")
-		return
-	}
-	uid := userID(r)
-	olog.Tracef("[utt] handleDeleteUtterance uid=%v id=%v", uid, id)
-	// Scoped in the DELETE for the same reason as the UPDATE. The tag rows and
-	// the item_reviews row go with it: utterance_tags cascades on the foreign
-	// key, and item_reviews is cleared by the 0026 AFTER DELETE trigger, since a
-	// polymorphic table cannot hold a real foreign key to three parents.
-	res, err := s.Store.DB.Exec(`DELETE FROM utterances WHERE id = ? AND user_id = ?`, id, uid)
-	if err != nil {
-		internalError(w, r, "delete utterance", err)
-		return
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		writeErr(w, http.StatusNotFound, "quote not found")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	s.binDelete(w, r, "quote", "quote not found", nil, nil)
 }
