@@ -771,8 +771,8 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Chapter" placeholder="Chapter 1" value={f.chapter} onChange={upd('chapter')} />
         <Field label="Location" placeholder="p.142" value={f.location} onChange={upd('location')} />
-        <Field label="Character" placeholder="Philip Marlowe" value={f.character} onChange={upd('character')} />
-        <Field label="Actor" placeholder="Elliott Gould" value={f.actor} onChange={upd('actor')} />
+        <Field label="Character" nameCase placeholder="Philip Marlowe" value={f.character} onChange={upd('character')} />
+        <Field label="Actor" nameCase placeholder="Elliott Gould" value={f.actor} onChange={upd('actor')} />
         <Field label="Season" placeholder="2 (shows only)" value={f.season} onChange={upd('season')} />
         <Field label="Episode" placeholder="5 (needs a season)" value={f.episode} onChange={upd('episode')} />
         <Field label="Timestamp" placeholder="01:02:03" value={f.timestamp} onChange={upd('timestamp')} />

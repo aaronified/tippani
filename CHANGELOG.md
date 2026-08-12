@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Names and titles capitalise as you type.** Every field that holds a name —
+  Title, Author, Director/Creator, Series/Collection, Character, Actor, Speaker,
+  the person rename box and your own display name — now upper-cases the first
+  letter of each word while you type it. What the field shows is exactly what
+  gets saved: the transform is on the input, not on the save path, so there is
+  no second rule hiding behind the Save button that the form disagrees with.
+
+  The rule **only promotes, and never lower-cases anything you typed**, which is
+  the opposite of how genre chips are normalised and deliberately so. A genre is
+  a word from a small vocabulary and can be re-cased end to end; a name cannot.
+  "McDonald", "O'Brien", "Ian McEwan", "The KLF" and "DeLillo" are correct as
+  typed, and a title-caser that lower-cases the rest of each word hands them back
+  as "Mcdonald", "O'brien" and "Mcewan" — corrupted, and then saved, because what
+  you see is what is stored. A word that already carries a capital anywhere is
+  left alone entirely, which is also what keeps "eBay" and "iRobot" intact.
+
+  Word boundaries are whitespace and nothing else. Promoting after a hyphen
+  would fix "jean-luc" and break "e-mail"; after an apostrophe it would fix
+  "o'brien" and turn "Schindler's List" into "Schindler'S List". Neither trade
+  is worth making automatically.
+
+  **And it yields.** The first time a change alters nothing but letter case —
+  selecting the capital and typing it lower — the field decides the casing is
+  yours and stops transforming for the rest of that edit. That is what makes
+  "bell hooks", "danah boyd" and "k.d. lang" typeable at all. A capitaliser with
+  no way to disagree with it would quietly rename the people whose names are the
+  point.
+
+  Description, quote, ISBN, ASIN, timestamp and the id fields are untouched —
+  capitalisation is opt-in per field, not a property of every text input.
+
 - **The TMDB and TheTVDB ids on a film or show can be typed, and steer the next
   search.** They were read-only, and the hint beside them said so: an id is what
   a re-sync pulls from, so it was written only by picking a match. That holds

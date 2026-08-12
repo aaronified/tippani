@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
@@ -1112,14 +1112,14 @@ function RemapRow({ label, cast, value, onChange }) {
       </select>
       {value?.custom && (
         <>
-          <input
+          <NameInput
             className="tp-input w-auto"
             style={{ maxWidth: 150 }}
             placeholder="Character"
             value={value.character}
             onChange={(e) => onChange({ ...value, character: e.target.value })}
           />
-          <input
+          <NameInput
             className="tp-input w-auto"
             style={{ maxWidth: 150 }}
             placeholder="Actor"

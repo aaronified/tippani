@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, Field, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, StickerButton, Tooltip } from './ui.jsx'
+import { Card, ErrorText, Field, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
@@ -100,8 +100,7 @@ function NameForm({ user, onUser }) {
     <form onSubmit={submit} className="space-y-2">
       <FieldLabel>Display name</FieldLabel>
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          className="tp-input"
+        <NameInput
           style={{ flex: 1, minWidth: 160 }}
           value={name}
           autoComplete="off"

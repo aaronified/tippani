@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, isPartialDate, Lightbox, MonoLabel, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -496,8 +496,7 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
       <div className="space-y-1.5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
         <MonoLabel>Rename across your library</MonoLabel>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            className="tp-input"
+          <NameInput
             style={{ flex: 1, minWidth: 160 }}
             value={renameTo}
             onChange={(e) => setRenameTo(e.target.value)}
@@ -533,6 +532,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
+
  const [person, setPerson] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)

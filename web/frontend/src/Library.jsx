@@ -413,8 +413,8 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-3">
-      <Field label="Title" value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
-      <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
+      <Field label="Title" nameCase value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
+      <Field label="Author" nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
@@ -865,8 +865,8 @@ export function EditBook({ book, onSaved, onCancel }) {
         />
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <Field label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
+        <Field label="Title" nameCase value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Field label="Author" nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
         <Field label="ASIN" value={asin} onChange={(e) => setAsin(e.target.value)} />
         <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
@@ -876,7 +876,7 @@ export function EditBook({ book, onSaved, onCancel }) {
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
       </label>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-        <Field label="Series" placeholder="e.g. Discworld" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <Field label="Series" nameCase placeholder="e.g. Discworld" value={series} onChange={(e) => setSeries(e.target.value)} />
         <Field
           label="Series #"
           inputMode="decimal"

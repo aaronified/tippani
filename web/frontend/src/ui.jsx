@@ -469,12 +469,39 @@ export function PageHeader({ title, counts, right }) {
 }
 
 // Field — mono label above a themed input (§8 form pattern).
-export function Field({ label, className = "", ...rest }) {
+// `nameCase` opts a field into as-you-type capitalisation (see useNameCasing).
+// It re-wraps the value in a synthetic event rather than changing the callback
+// shape, because every existing caller is written as
+// `onChange={(e) => setX(e.target.value)}` and a field that capitalises should
+// not be a field with a different signature from the one beside it.
+export function Field({ label, className = "", nameCase = false, onChange, ...rest }) {
+  const onName = useNameCasing(rest.value, (v) =>
+    onChange?.({ target: { value: v } }),
+  );
   return (
     <label className={"tp-field " + className}>
       <MonoLabel>{label}</MonoLabel>
-      <input className="tp-input" {...rest} />
+      <input
+        className="tp-input"
+        {...rest}
+        onChange={nameCase ? (e) => onName(e.target.value) : onChange}
+      />
     </label>
+  );
+}
+
+// NameInput is Field's bare twin for the forms that lay out their own inputs
+// rather than using a labelled Field — same casing behaviour, same event shape.
+export function NameInput({ onChange, ...rest }) {
+  const onName = useNameCasing(rest.value, (v) =>
+    onChange?.({ target: { value: v } }),
+  );
+  return (
+    <input
+      className="tp-input"
+      {...rest}
+      onChange={(e) => onName(e.target.value)}
+    />
   );
 }
 
@@ -1686,6 +1713,7 @@ export function TokenInput({
   placeholder = "add…",
   ariaLabel,
   transform,
+  nameCase = false,
 }) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
@@ -1693,6 +1721,11 @@ export function TokenInput({
   const boxRef = useRef(null);
   const inputRef = useRef(null);
   const norm = (t) => (transform ? transform(t) : t);
+  // `nameCase` capitalises the DRAFT rather than the committed token, which is
+  // what lets the override work: a transform applied on commit could never be
+  // disagreed with, because by then there is nothing left to type into.
+  const setTyped = useNameCasing(text, setText);
+  const onType = nameCase ? setTyped : setText;
   const q = text.trim().toLowerCase();
   const matches = suggestions
     .filter((s) => !value.includes(s) && (!q || s.toLowerCase().includes(q)))
@@ -1778,7 +1811,7 @@ export function TokenInput({
           aria-label={ariaLabel}
           autoComplete="off"
           onChange={(e) => {
-            setText(e.target.value);
+            onType(e.target.value);
             setOpen(true);
             setHi(0);
           }}
@@ -3000,9 +3033,14 @@ export function InlineField({
   busy = false,
   disabled = false,
   editLabel,
+  nameCase = false,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  // Names capitalise in the editor, so the row saves the string you can see —
+  // there is no second transform on the save path to disagree with it.
+  const onDraft = useNameCasing(draft, setDraft);
+  const setTyped = nameCase ? onDraft : setDraft;
   const ref = useRef(null);
   // A save elsewhere (adopting a lookup match) must be reflected at rest.
   useEffect(() => {
@@ -3101,7 +3139,7 @@ export function InlineField({
               className="tp-input"
               rows={4}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => setTyped(e.target.value)}
             />
           ) : (
             <input
@@ -3111,7 +3149,7 @@ export function InlineField({
               inputMode={inputMode}
               maxLength={maxLength}
               autoComplete="off"
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => setTyped(e.target.value)}
             />
           )}
         </div>
@@ -3314,6 +3352,58 @@ export function titleCaseGenre(s) {
     /\S+/g,
     (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
   );
+}
+
+// ---- name casing (1.7.8) ----------------------------------------------------
+
+// capitalizeNames upper-cases the first letter of each word and touches nothing
+// else. Promote-only is the entire rule, and it is not the same rule as
+// titleCaseGenre above: that one lower-cases the rest of the word, which is
+// right for a genre (a word from a small vocabulary) and destructive for a name
+// or a title. "McDonald" would come back "Mcdonald", "O'Brien" as "O'brien",
+// "eBay" as "Ebay" — all three typed correctly and then corrupted on save.
+//
+// A word starts at the beginning of the string or after whitespace, and nowhere
+// else. Promoting after a hyphen would fix "jean-luc" and break "e-mail"; after
+// an apostrophe it would fix "o'brien" and turn every possessive into
+// "Schindler'S List". Neither trade is worth making automatically, so the
+// narrow rule promotes what it is sure of and leaves the rest to be typed.
+//
+// A word that ALREADY carries a capital anywhere is left entirely alone. That
+// is what saves the names whose lower-case first letter is the point — "eBay",
+// "iRobot", "danah boyd" the moment the surname is typed — and it doubles as an
+// escape hatch you can reach without knowing the rule exists: put a capital
+// anywhere in the word and the word is yours.
+export function capitalizeNames(s) {
+  return String(s ?? "").replace(/\S+/gu, (w) =>
+    /\p{Lu}/u.test(w) ? w : w.replace(/\p{Ll}/u, (c) => c.toUpperCase()),
+  );
+}
+
+// useNameCasing wires a text field so names capitalise **as you type** — what
+// you see is what gets saved, with no second transform hiding on the save path.
+//
+// It also knows when to stop. A change that alters nothing but letter case can
+// only be someone deliberately re-casing what is already there, so the first
+// time that happens the field goes `free` and is never transformed again for
+// the rest of the edit. That is what makes "bell hooks", "danah boyd" and
+// "k.d. lang" typeable: select the capital, type it lower, and it stays. A
+// capitaliser with no way to disagree with it would quietly rename people whose
+// names are the point.
+//
+// Takes and returns plain values, not events, so it wraps an <input> or an
+// InlineField editor equally.
+export function useNameCasing(value, onChange) {
+  const [free, setFree] = useState(false);
+  return (next) => {
+    const s = String(next ?? "");
+    const now = String(value ?? "");
+    if (!free && s !== now && s.toLowerCase() === now.toLowerCase()) {
+      setFree(true); // a pure case edit — from here the casing is theirs
+      return onChange(s);
+    }
+    onChange(free ? s : capitalizeNames(s));
+  };
 }
 
 export function ErrorText({ children }) {

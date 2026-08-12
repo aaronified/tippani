@@ -60,6 +60,7 @@ import {
   Masonry,
   MobileSheet,
   MonoLabel,
+  NameInput,
   MoreMenu,
   mulberry32,
   PageHeader,
@@ -552,16 +553,15 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
   return (
     <form id={formId} onSubmit={submit} className="space-y-2.5">
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input
-          className="tp-input"
+        <NameInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <NameInput
           placeholder={isShow ? 'Creator' : 'Director'}
           value={director}
           onChange={(e) => setDirector(e.target.value)}
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
-        <input className="tp-input" placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <NameInput placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
           placeholder="Collection #"
@@ -1009,16 +1009,15 @@ export function EditMovie({ movie, onSaved, onCancel }) {
         </div>
       )}
       <div className="grid gap-2.5 sm:grid-cols-2">
-        <input className="tp-input" placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input
-          className="tp-input"
+        <NameInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <NameInput
           placeholder={isShow ? 'Creator' : 'Director'}
           value={director}
           onChange={(e) => setDirector(e.target.value)}
         />
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
-        <input className="tp-input" placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
+        <NameInput placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
           className="tp-input"
           placeholder="Collection #"
@@ -1864,6 +1863,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
           suggestions={charSuggestions}
           placeholder="add a character… (picks from the cast)"
           ariaLabel="Characters"
+          nameCase
         />
         {/* The cast maps each character to who plays them — shown here so the
             credit is what you see. Derived, not editable. */}

@@ -52,10 +52,10 @@ import {
 // went when it came off the hero.
 
 const BOOK_FIELDS = [
-  { key: 'title', label: 'Title' },
-  { key: 'author', label: 'Author', hint: 'Multiple authors can share one line — Settings decides which separators split them into distinct people.' },
+  { key: 'title', label: 'Title', nameCase: true },
+  { key: 'author', label: 'Author', nameCase: true, hint: 'Multiple authors can share one line — Settings decides which separators split them into distinct people.' },
   { key: 'published_year', label: 'Year', kind: 'year', circaKey: 'published_circa' },
-  { key: 'series', label: 'Series', hint: 'The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.' },
+  { key: 'series', label: 'Series', nameCase: true, hint: 'The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.' },
   { key: 'series_index', label: 'Series #', kind: 'number' },
   {
     key: 'isbn',
@@ -72,11 +72,11 @@ const BOOK_FIELDS = [
 ]
 
 const MOVIE_FIELDS = [
-  { key: 'title', label: 'Title' },
+  { key: 'title', label: 'Title', nameCase: true },
   { key: 'media_type', label: 'Type', kind: 'mediaType', hint: 'A show’s dialogue carries a season and episode; a film’s does not. Changing this does not move any lines you have already saved.' },
-  { key: 'director', label: 'Director', labelShow: 'Creator' },
+  { key: 'director', label: 'Director', labelShow: 'Creator', nameCase: true },
   { key: 'release_year', label: 'Year', kind: 'year', circaKey: 'release_circa' },
-  { key: 'series', label: 'Collection', hint: 'The franchise this title belongs to — the film side of a book’s series.' },
+  { key: 'series', label: 'Collection', nameCase: true, hint: 'The franchise this title belongs to — the film side of a book’s series.' },
   { key: 'series_index', label: 'Collection #', kind: 'number' },
   {
     key: 'tmdb_id',
@@ -544,6 +544,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
               value={value}
               hint={spec.hint}
               busy={!!busy}
+              nameCase={!!spec.nameCase}
               multiline={spec.kind === 'long'}
               inputMode={spec.kind === 'number' ? 'decimal' : undefined}
               maxLength={spec.kind === 'year' ? 12 : undefined}

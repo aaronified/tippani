@@ -209,7 +209,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <div className="cl-grid">
-        <Field label="Speaker" placeholder="who said it" value={speaker} onChange={(e) => setSpeaker(e.target.value)} />
+        <Field label="Speaker" nameCase placeholder="who said it" value={speaker} onChange={(e) => setSpeaker(e.target.value)} />
         <Field label="Occasion" placeholder="a speech, a letter…" value={occasion} onChange={(e) => setOccasion(e.target.value)} />
       </div>
       <div className="cl-grid">
