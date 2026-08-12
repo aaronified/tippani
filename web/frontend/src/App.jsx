@@ -893,7 +893,8 @@ function MobileBottomNav({ tab, selectTab, hidden }) {
 function Shell({ user, onLogout, onPreferences, onUser }) {
   const initial = parsePath(typeof window !== 'undefined' ? window.location.pathname : '/')
   // /import isn't a tab any more — start on Home and open the Add surface there.
-  const initialTab = initial.tab === 'import' ? 'home' : initial.tab
+  // Neither /import nor /capture is a tab: both are the Add surface over Home.
+  const initialTab = initial.tab === 'import' || initial.tab === 'capture' ? 'home' : initial.tab
   const [tab, setTab] = useState(initialTab)
   const [detail, setDetail] = useState(initial.detail) // {type: 'book' | 'movie', id}
   // Profile is one screen with everything in it now (see AccountOverlay), so
@@ -972,9 +973,35 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       if (r.ok) { setPending((r.data.items || []).length); setStreak(r.data.streak || 0) }
     })
     refreshPendingImport()
-    // An old /import link lands here — open the Add surface on Import.
+    // An old /import link lands here — open the Add surface on Import. /capture is
+    // the icon shortcut's URL and does the same for the capture section.
     if (initial.tab === 'import') openAdd('import')
+    if (initial.tab === 'capture') openAdd('quote')
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // THE INSTALLED APP'S ICON BADGE: cards due plus imports waiting, set by the
+  // client whenever either changes.
+  //
+  // NOTHING SCHEDULED, and that is the point of doing it this way. A real
+  // notification needs something that wakes up on its own — a service worker, a push
+  // subscription, a server that knows when your day starts — and every one of those
+  // is a background job this app does not have and will not add. A badge set on load
+  // carries most of the same value: you glance at the home screen, and it says
+  // whether there is anything to come back for.
+  //
+  // Best-effort by construction: the API exists on installed PWAs on some platforms
+  // and nowhere else, so the guard is the feature working where it can rather than a
+  // capability check the reader ever sees. Zero CLEARS the badge rather than showing
+  // a nought, which is what setAppBadge(0) means and why it is not simply skipped.
+  useEffect(() => {
+    const n = (pending || 0) + (pendingImport || 0)
+    try {
+      if (n > 0) navigator.setAppBadge?.(n)
+      else navigator.clearAppBadge?.()
+    } catch {
+      /* not installed, or a platform without it — nothing to report */
+    }
+  }, [pending, pendingImport])
 
   // Mirror tab/detail ↔ URL. popstate (back/forward) restores state from the
   // path; landing on an unknown path rewrites the bar to the canonical one.
@@ -997,6 +1024,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       const s = parsePath(window.location.pathname)
       // /import via back/forward opens the Add surface over Home (no import tab).
       if (s.tab === 'import') { setTab('home'); setDetail(null); openAdd('import'); return }
+      if (s.tab === 'capture') { setTab('home'); setDetail(null); openAdd('quote'); return }
       setTab(s.tab)
       setDetail(s.detail)
     }

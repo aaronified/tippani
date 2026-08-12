@@ -55,6 +55,7 @@ const SHELL_COMMON = [
 
 // Phone only: the drawer, the floating bottom bar, and the long-press label.
 const SHELL_TOUCH = [
+  { term: 'Installed app', what: 'Add Tippani to your home screen and three things come with it. Long-press the icon for Capture a quote, Daily quiz or Pending imports. Tap a .md, a My Clippings.txt or a Bookcision .json in your file manager and it opens straight into import staging, in the window you already have. And the icon carries a badge of cards due plus imports waiting — set when the app loads rather than by anything running in the background, because nothing here wakes up on its own.' },
   { term: 'Menu (☰)', icon: <IconMenu />, what: 'The drawer: every screen, your profile, and the pending-import queue. Its Add and Search are the deliberately context-free pair — they open with nothing pre-filled, whatever page you came from. Swipe it left or tap outside to close.' },
   { term: 'Bottom bar', what: 'Four thumb-reachable screens — Search, Home, Library, Catalogue. It slides away as you scroll down and comes back as you scroll up.' },
   { term: 'Long press', what: 'There is no hover on a phone, so holding any CONTROL for half a second shows its label beside it. The hold swallows the tap, so holding Delete to find out what it does never deletes anything. Holding a QUOTE CARD itself — anywhere that is not one of its buttons — opens that card’s menu instead: the same copy, share, edit and delete the row offers, wherever your thumb happens to be.' },

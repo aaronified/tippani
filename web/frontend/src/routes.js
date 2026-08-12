@@ -100,7 +100,14 @@ export function parsePath(pathname) {
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
   // /import is no longer a tab (§7 One "＋ Add"); an old link opens the Add
   // surface on its Import section over Home — handled by the Shell.
+  //
+  // /capture is the same trick for the other section, and it exists for the
+  // installed app's icon shortcut: a long press on the icon has to name a URL, and
+  // "capture a quote" is a surface rather than a screen. Neither is a tab, and
+  // neither is written back to the bar — the Shell swaps both for Home and opens
+  // the surface over it, so the URL you land on is the one you stay on.
   if (a === 'import') return { tab: 'import', detail: null }
+  if (a === 'capture') return { tab: 'capture', detail: null }
   if (a === 'pending') return { tab: 'staging', detail: null }
   if (ROUTE_TABS.includes(a)) return { tab: a, detail: null }
   return { tab: 'home', detail: null }
