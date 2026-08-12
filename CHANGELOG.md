@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-08-13
+
+### Added
+
+- **Quote cards answer a right-click.** Anywhere on a card that is not one of its
+  own buttons: right-click, or hold for half a second on a phone, or press
+  **Shift+F10** / the Menu key — and the card's own menu opens where you pressed,
+  with copy, share, edit and delete in it. Escape closes it and puts focus back.
+
+  It offers the same list the buttons do, because there is now one list: a menu that
+  quietly offered something the row did not would look completely normal on both.
+
+  Two deliberate refusals. On the card's own buttons the gesture does nothing —
+  holding the share glyph still shows you its label, which is what a hold means on a
+  control. And if you have selected text inside the card, **the browser's own menu
+  wins**: you wanted Copy, or Look Up, or Translate, and those are not ours to take
+  away in an app about quoting things.
+
+- **Standalone quotes can be bulk-edited**, and **any selection of quotes can be
+  recoloured.** Annotations and dialogues had a bulk endpoint; standalone quotes did
+  not, so a selection on the Quotes screen had nothing to act with. Colour became a
+  named category in 1.7.1 and none of the bulk paths could set it — which was the
+  most likely reason to select forty quotes in the first place.
+
+  Nothing on screen uses the second half yet; the selection UI it is for comes next.
+
+### Changed
+
+- **The API handshake reports revision 2**, and names three new capabilities for
+  native clients: `trash-bin` (so a client can offer its own Undo rather than
+  treating every delete as final), `bulk-quotes` and `bulk-colour`.
+
 ## [1.8.0] - 2026-08-13
 
 ### Added

@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and sixty-five entries, grouped by what they are about
+changed my mind. Four hundred and sixty-nine entries, grouped by what they are about
 rather than by when they happened.
 
 **Everything in this document was approved by me.** That statement covers every entry
@@ -4017,6 +4017,58 @@ That was true about a parent record and false about a destination. The quote liv
 **Why.** A web app that fights the operating system for a swipe loses, so the constraints have to exist before the list of gestures rather than as corrections to it. Every gesture being additive is simultaneously the accessibility requirement and the answer to how anyone discovers a gesture at all — the ⋯ overflow, the ♥ and the filter sheet all stay exactly as they are. The permanent rejection is the entry that earns its place: a screen-width horizontal gesture fights the back gesture at both edges and any horizontally scrollable content in between, and the bottom bar is already one tap away. Recording a *no* is worth as much as recording a yes, because without it I will have the same good-sounding idea again next year. Two more are held back until the bin lands, because a mis-swipe must be recoverable. Mine.
 
 <sub>`docs/roadmap.html`</sub>
+
+### One action registry, rendered by every surface
+
+**Decided.** `actions.jsx` holds `actionsFor(kind, item, ctx)` and `bulkActionsFor(kind, items, ctx)`. The card row, the ⋯ overflow and the context menu all render from the first; the search screen's bulk form renders from the second. An action carries its own placement (`row` or `overflow`), and one that does not generalise to a selection is marked `single`.
+
+**Why.** An action's definition used to live in whatever rendered it. Nothing knew the SET, so nothing could offer the set anywhere else — which is why there was no context menu, and why the bulk form offered tags-and-fields rather than "the things you can do to a quote". The moment there are two surfaces, two definitions diverge: a menu offering Delete beside a bar that does not looks completely normal on both, and nobody notices until somebody asks why they cannot do to forty what they just did to one.
+
+`single` rather than omission is the load-bearing detail. Edit genuinely does not generalise — editing forty quotes is a bulk field change with its own form, not this action forty times — and stating that with a flag makes it a decision. Absence would make it indistinguishable from drift, which is the thing this file exists to prevent.
+
+**Instead of** building the context menu with its own list and reconciling later. Reconciling later means noticing later.
+
+**Approved.** Mine, and I approved the ordering: the registry first, changing no behaviour, before anything read from it.
+
+<sub>1.9.0 — `web/frontend/src/actions.jsx` · `web/frontend/test/dom/actions-registry.test.jsx` · `CHANGELOG.md`</sub>
+
+### The card menu's long press is on the card BODY, because Tooltip already owns the control
+
+**Decided.** `useCardMenu` binds right-click, long-press and Shift+F10 to a card, and IGNORES any event whose target is inside `.tp-tip-wrap, button, a, input, textarea, select, label`. A press on a control gets that control's tooltip label; a press on the card gets the menu.
+
+**Why.** Long-press was already taken. Tooltip opens a label after 500ms on touch because a phone has no hover and the glyph-only buttons of 1.5.0 would otherwise be unlabelled — and a card CONTAINS those buttons. Bound to the whole card, every press on a glyph would race a tooltip against a menu, and the winner would depend on event order, which is the kind of bug that reproduces on one device and not the next.
+
+Three smaller ones came with it. A press that moves past `LONG_PRESS_SLOP` is a scroll (the existing constant, not a second one). The trailing click is eaten with the mechanism Tooltip already uses, or letting go opens the quote behind the menu you just asked for. And iOS raises its own callout over text, so `-webkit-touch-callout: none` — but NOT `user-select`, because selecting part of a quote by hand is a thing people do here.
+
+**Instead of** long-press-to-select and right-click-for-menu, which is what a file manager does. The menu is the more general gesture and it contains the selection entry, so it wins the collision.
+
+**Approved.** Mine.
+
+<sub>1.9.0 — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/card-menu.test.jsx`</sub>
+
+### A text selection inside a card gives the browser's menu right of way
+
+**Decided.** `onContextMenu` checks for a non-collapsed selection whose anchor is inside this card and, if there is one, does NOT `preventDefault` — so the platform menu opens instead of ours.
+
+**Why.** Somebody who has dragged across a quote and right-clicked wants Copy. They also have Look Up, Translate, Search With and Speak, none of which this app reimplements. Replacing that with a four-item menu in a note-keeping app is a straight downgrade at the exact moment the reader is doing the thing the app is for.
+
+Scoped to a selection INSIDE the card, because a selection in another card or in the search box is not this card's business and would suppress the menu everywhere.
+
+**Approved.** Mine, and this is the one I would defend hardest in the whole feature.
+
+<sub>1.9.0 — `web/frontend/src/ui.jsx` · `web/frontend/test/dom/card-menu.test.jsx`</sub>
+
+### `POST /quotes/bulk` is not a mirror of the other two
+
+**Decided.** The bulk quote kinds are a table of `{table, parentCol, parentTable}`, and the ownership query follows the shape: a child row is filtered through its parent, a standalone quote by `user_id` on the row. All three accept `color`; the two WORK endpoints do not, because a work has no colour.
+
+**Why.** The existing helper took a kind and swapped three names, which reads as parameterised — and both kinds it served were child rows. `utterances` is not one. Swapping the strings would have produced `WHERE user_id IN (SELECT id FROM utterances WHERE user_id = ?)`-shaped nonsense: a filter matching nothing, which is a bulk action that reports success and changes nothing at all.
+
+Both directions are tested because both fail silently and oppositely: matching nothing is a no-op with a confirmation, matching everything is somebody else's library.
+
+**Approved.** Mine, and I approved the table over the string swap specifically because the swap is the version that looks fine in review.
+
+<sub>1.9.0 — `internal/httpapi/bulk_handlers.go` · `internal/httpapi/bulk_quotes_test.go` · `internal/httpapi/capabilities_handler.go`</sub>
 
 ## 15. Appearance as Material: Skins, Texture, Type and Colour
 

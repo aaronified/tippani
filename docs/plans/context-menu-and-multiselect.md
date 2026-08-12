@@ -1,6 +1,22 @@
 # Plan — right-click actions, and multiselect, on works and quotes
 
-**Target: 1.9.0. Depends on [the bin](trash-and-undo.md) for its last commit.**
+**PART 1 AND PART 2 SHIPPED in 1.9.0** — the action registry, the generalised
+menu, the gesture, and the two bulk-endpoint commits (8 and 9), which the plan
+itself notes are independent of everything above them.
+
+**Part 3 (multiselect) is next**, as its own release rather than the tail of this
+one: it rewires how a click behaves on three boards, and shipping it half-wired
+would leave a mode nobody can get out of. The plan's own note applies — "cut it and
+nothing above it is weaker for its absence".
+
+Two departures from the plan so far, both in `docs/PLAN.md`:
+
+1. The menu is live on the three QUOTE-card surfaces (annotation, dialogue, Home
+   favourite). Work cards — Library and Catalogue tiles — come with Part 3, since
+   the selection entry points land on the same cards and one pass over them is
+   better than two.
+2. `ownedIDs` already existed as `ownedRowIDs`, so the kinds became a TABLE rather
+   than a second helper beside the first.
 
 Two features, written as one plan because they are one mechanism seen twice. A
 context menu asks "what can I do to *this*"; multiselect asks "what can I do to

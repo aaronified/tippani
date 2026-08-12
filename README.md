@@ -174,6 +174,12 @@ of that are spelled out in [`AI.md`](AI.md).
   colours and layout do not move, so what is left is the same app with the noise taken off. The
   textures are the whole point of the design and they are not free — the page grain is a fixed layer
   above *everything*, including every glyph and every input on the screen.
+- 🖱️ **A menu on every quote** — right-click a card, or hold it for half a second on a phone, or
+  press Shift+F10, and the card's own actions open where you pressed: copy, share, edit, delete. It
+  is the same list the buttons on the card offer, from one registry, so the two cannot drift apart.
+  Holding one of the card's own glyphs still shows that glyph's label instead, and if you have
+  selected text inside the card the browser's own menu wins — you wanted Copy or Look Up, and this
+  app is not going to take those away from you.
 - 🗑️ **A thirty-day bin** — every delete is recoverable. A book with all its quotes, a film
   with its lines, one highlight on its own, or a whole account: each goes to the bin as a single
   entry and comes back exactly as it was, with the same ids, the same tags and colours, the same
