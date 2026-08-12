@@ -824,7 +824,9 @@ func wantShapes() []tableShape {
 				{Name: "files", Type: "TEXT", NotNull: true, Default: "'[]'", HasDflt: true},
 			},
 			Checks: []string{
-				"kind IN ('book','movie','annotation','dialogue','quote','account')",
+				// 'selection' since 0032: a bulk delete is ONE entry holding every row
+				// from every item, so the bin shows one decision rather than forty.
+				"kind IN ('book','movie','annotation','dialogue','quote','account','selection')",
 			},
 			Indexes: []indexShape{
 				{Name: "trash_user_time", Origin: "c", Columns: []string{"user_id", "deleted_at"}},

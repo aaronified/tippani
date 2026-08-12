@@ -315,6 +315,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /annotations/bulk", s.requireAuth(s.handleBulkTagAnnotations))
 	mux.Handle("POST /dialogues/bulk", s.requireAuth(s.handleBulkTagDialogues))
 	mux.Handle("POST /quotes/bulk", s.requireAuth(s.handleBulkTagQuotes))
+	// Bulk delete is its own route per kind, never a flag on the bulk edit above: a
+	// body that can both retag and delete is a body where one typo does the wrong
+	// one. Each requires a typed phrase naming the count and the kind.
+	mux.Handle("POST /annotations/bulk/delete", s.requireAuth(s.handleBulkDeleteAnnotations))
+	mux.Handle("POST /dialogues/bulk/delete", s.requireAuth(s.handleBulkDeleteDialogues))
+	mux.Handle("POST /quotes/bulk/delete", s.requireAuth(s.handleBulkDeleteQuotes))
 
 	// The mux above owns every JSON + covers route. Mount it under /api so the
 	// root path space belongs to the client-side router (the SPA); a thin outer

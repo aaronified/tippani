@@ -8,6 +8,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { selectionClick } from './selection.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -997,7 +998,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation' }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
@@ -1033,7 +1034,32 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     edit: (row) => setEditingId(row.id),
     remove,
   })
-  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
+  // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
+  // and multiselect one feature rather than two: the gesture that asks "what can I
+  // do to this" is also how you start doing it to several.
+  const menuItems = acts.map((x) => ({ ...x, onClick: x.run }))
+  if (selection) {
+    menuItems.unshift({
+      id: 'select',
+      label: selection.isSelected(a.id) ? 'Deselect' : 'Select',
+      onClick: () => selection.toggle(a.id, selectKind),
+    })
+  }
+  const { cardProps, menuClass, menu } = useCardMenu(menuItems)
+  const picked = !!selection?.isSelected(a.id)
+  // Once a selection exists a plain click TOGGLES rather than opens, on every
+  // device. The mode is visible — the bar is up and the cards wear checkboxes — so
+  // the change of meaning is not a surprise, and clicking the last one off leaves it.
+  const onCardClick = selection
+    ? (e) => {
+        const what = selectionClick(e, selection)
+        if (what === 'open') return
+        e.preventDefault()
+        e.stopPropagation()
+        if (what === 'extend') selection.extendTo(a.id, selectKind)
+        else selection.toggle(a.id, selectKind)
+      }
+    : undefined
   // editInline renders the form in place of the card body — used inside the
   // search QuoteModal, which is itself a pop-up (avoids stacking two overlays).
   // Everywhere else the edit opens in a FormModal, the house style.
@@ -1047,7 +1073,30 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     )
   }
   return (
-    <HandCard variant={variant} colorBar={color} className={`px-5 py-4 ${menuClass}`} {...cardProps}>
+    <HandCard
+      variant={variant}
+      colorBar={color}
+      className={`px-5 py-4 ${menuClass}${picked ? ' is-picked' : ''}`}
+      {...cardProps}
+      onClickCapture={(e) => {
+        cardProps.onClickCapture?.(e)
+        onCardClick?.(e)
+      }}
+    >
+      {selection && (
+        /* The checkbox is a real input, in the card's corner, revealed on hover on a
+           desktop and standing on a phone (.card-pick). Ctrl/Cmd-click anywhere on
+           the card does the same thing — one affordance you find by accident, one you
+           already know from every file manager. */
+        <label className="card-pick" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={picked}
+            aria-label={picked ? 'Deselect this quote' : 'Select this quote'}
+            onChange={() => selection.toggle(a.id, selectKind)}
+          />
+        </label>
+      )}
       {!editInline && (
         <FormModal open={editing} onClose={() => setEditingId(null)} title="Edit quote">
           {editForm}

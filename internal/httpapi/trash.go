@@ -954,3 +954,105 @@ func (s *Server) binAccount(tx *sql.Tx, adminID, targetID int64, username string
 	}
 	return res.LastInsertId()
 }
+
+// ---------------------------------------------------------------------------
+// a selection
+// ---------------------------------------------------------------------------
+
+// binSelection deletes many quotes of one kind as ONE bin entry.
+//
+// Every item's subtree is collected exactly as a single delete collects it, and the
+// payloads are merged into one snapshot. That is what makes the restore free: it
+// walks the payload's tables in foreign-key order, and a payload holding forty
+// annotations is the same shape as one holding a single annotation.
+//
+// One entry rather than forty is the decision (see migration 0032). Forty entries
+// would be a wall of rows for a single act, and undoing that act would mean forty
+// restores that can each half-fail.
+func (s *Server) binSelection(tx *sql.Tx, uid int64, kind string, ids []int64) (int64, int, error) {
+	if !trashKinds[kind] {
+		return 0, 0, fmt.Errorf("trash: %q is not a binnable kind", kind)
+	}
+	merged := snapshot{}
+	var files []string
+	done := 0
+	for _, id := range ids {
+		got, err := collect(tx, uid, kind, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Not this user's, or gone between the ownership filter and here. Skipped
+			// rather than failing the batch: the filter already refused the ids that
+			// were never theirs, so this is a race, and a race should not cost
+			// somebody the other forty deletions they asked for.
+			continue
+		}
+		if err != nil {
+			return 0, 0, err
+		}
+		for table, rows := range got.Payload {
+			merged[table] = append(merged[table], rows...)
+		}
+		files = append(files, got.Files...)
+		if _, err := tx.Exec(`DELETE FROM `+trashTable[kind]+` WHERE id = ?`, id); err != nil {
+			return 0, 0, err
+		}
+		done++
+	}
+	if done == 0 {
+		return 0, 0, sql.ErrNoRows
+	}
+	payload, err := json.Marshal(merged)
+	if err != nil {
+		return 0, 0, err
+	}
+	fileJSON, err := json.Marshal(files)
+	if err != nil {
+		return 0, 0, err
+	}
+	res, err := tx.Exec(
+		`INSERT INTO trash (user_id, kind, label, child_count, payload, files)
+		 VALUES (?, 'selection', ?, ?, ?, ?)`,
+		uid, selectionLabel(kind, done), done, string(payload), string(fileJSON))
+	if err != nil {
+		return 0, 0, err
+	}
+	id, err := res.LastInsertId()
+	return id, done, err
+}
+
+// kindNoun is what a kind is called in a sentence a reader types or reads. The
+// server owns these words because the typed confirmation is checked here: a client
+// that phrased it differently would be unable to confirm anything.
+var kindNoun = map[string][2]string{
+	"annotation": {"highlight", "highlights"},
+	"dialogue":   {"film line", "film lines"},
+	"quote":      {"quote", "quotes"},
+	"book":       {"book", "books"},
+	"movie":      {"title", "titles"},
+}
+
+func nounFor(kind string, n int) string {
+	pair, ok := kindNoun[kind]
+	if !ok {
+		return "items"
+	}
+	if n == 1 {
+		return pair[0]
+	}
+	return pair[1]
+}
+
+// selectionLabel is what the bin row says: "41 quotes".
+func selectionLabel(kind string, n int) string {
+	return fmt.Sprintf("%d %s", n, nounFor(kind, n))
+}
+
+// bulkDeletePhrase is what somebody has to type to delete a selection, and the
+// server is where it is checked.
+//
+// A typed confirmation for something the bin makes recoverable looks like belt and
+// braces, and it is not: this is the one action in the app that removes many things
+// at once, and the friction is the point. It also cannot be reached by a gesture —
+// only by selecting, then pressing Delete in the bar.
+func bulkDeletePhrase(kind string, n int) string {
+	return fmt.Sprintf("delete %d %s", n, nounFor(kind, n))
+}

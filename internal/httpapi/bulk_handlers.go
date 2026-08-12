@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"tippani/internal/olog"
 )
@@ -292,4 +293,104 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"updated": len(owned)})
+}
+
+// ---- bulk delete ------------------------------------------------------------
+//
+// LAST, ALONE, AND UNREACHABLE BY GESTURE. It is the only path in the app that
+// removes many things at once, so it is reached only by selecting, then pressing
+// Delete in the selection bar, then typing what it will do. Never from the context
+// menu, never from a swipe.
+//
+// It routes every item through the same collect-then-delete the single deletes use,
+// and writes ONE bin entry for the whole selection — so the whole thing is one
+// Undo, recoverable for the retention window because 1.8.0 shipped first.
+
+// handleBulkDelete deletes a selection of one quote kind.
+func (s *Server) handleBulkDelete(w http.ResponseWriter, r *http.Request, kind string) {
+	var req struct {
+		IDs     []int64 `json:"ids"`
+		Confirm string  `json:"confirm"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if len(req.IDs) == 0 {
+		writeErr(w, http.StatusBadRequest, "nothing selected")
+		return
+	}
+	if len(req.IDs) > 5000 {
+		writeErr(w, http.StatusBadRequest, "too many items (max 5000)")
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[bulk] handleBulkDelete kind=%s uid=%v ids=%d", kind, uid, len(req.IDs))
+
+	spec, ok := quoteBulkKinds[kindKeyFor(kind)]
+	if !ok {
+		internalError(w, r, "bulk delete", fmt.Errorf("unknown kind %q", kind))
+		return
+	}
+	var owned []int64
+	var err error
+	if spec.ParentCol == "" {
+		owned, err = s.ownedRowIDs(spec.Table, uid, req.IDs)
+	} else {
+		owned, err = s.ownedChildIDs(spec.Table, spec.ParentCol, spec.ParentTable, uid, req.IDs)
+	}
+	if err != nil {
+		internalError(w, r, "bulk delete: ownership", err)
+		return
+	}
+	if len(owned) == 0 {
+		writeErr(w, http.StatusNotFound, "no matching items")
+		return
+	}
+	// THE COUNT IN THE PHRASE IS THE OWNED COUNT, not the requested one. Otherwise a
+	// selection holding one id that is not yours would refuse every phrase a reader
+	// could possibly type, with no way to find out why.
+	want := bulkDeletePhrase(kind, len(owned))
+	if !strings.EqualFold(strings.TrimSpace(req.Confirm), want) {
+		writeErr(w, http.StatusBadRequest, "type “"+want+"” to confirm")
+		return
+	}
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "bulk delete: begin", err)
+		return
+	}
+	defer tx.Rollback()
+	trashID, done, err := s.binSelection(tx, uid, kind, owned)
+	if err != nil {
+		olog.Warnf(olog.CodeTrashWrite, "[trash] could not bin a selection of %d %s: %v", len(owned), kind, err)
+		internalError(w, r, "bulk delete: bin it first", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "bulk delete: commit", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": done, "trash_id": trashID})
+}
+
+// kindKeyFor maps the bin's kind word to the bulk table key. The two vocabularies
+// differ by one word — the bin says 'quote' for a standalone quote and the bulk
+// tables say 'utterance', after the table — and this is the one place that has to
+// know it.
+func kindKeyFor(kind string) string {
+	if kind == "quote" {
+		return "utterance"
+	}
+	return kind
+}
+
+func (s *Server) handleBulkDeleteAnnotations(w http.ResponseWriter, r *http.Request) {
+	s.handleBulkDelete(w, r, "annotation")
+}
+func (s *Server) handleBulkDeleteDialogues(w http.ResponseWriter, r *http.Request) {
+	s.handleBulkDelete(w, r, "dialogue")
+}
+func (s *Server) handleBulkDeleteQuotes(w http.ResponseWriter, r *http.Request) {
+	s.handleBulkDelete(w, r, "quote")
 }

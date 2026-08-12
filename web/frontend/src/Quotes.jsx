@@ -19,6 +19,8 @@ import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
+import { useSelection } from './selection.jsx'
+import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
 import {
@@ -460,9 +462,20 @@ export default function QuotesPage({ creditSeparators }) {
       seps,
     })
 
+  // The selection is over `shown` — the visible, filtered, sorted list — so a
+  // filter change drops the ids that left the screen rather than leaving the bar
+  // reporting a number about rows nobody can see (see useSelection).
+  const selection = useSelection(shown.map((u) => u.id))
+  const afterBulk = () => {
+    selection.clear()
+    load()
+  }
+
   const card = (u, i) => (
     <AnnotationCard
       key={u.id}
+      selection={selection}
+      selectKind="quote"
       a={u}
       variant={i}
       meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: setPerson })}
@@ -597,6 +610,9 @@ export default function QuotesPage({ creditSeparators }) {
         </>
       }
     >
+      {selection.count > 0 && (
+        <SelectionBar selection={selection} onDone={afterBulk} tagSuggestions={Object.keys(tagMap)} />
+      )}
       {!rows ? (
         <Placeholder />
       ) : grouped ? (

@@ -1199,6 +1199,69 @@
     filter: drop-shadow(0 2px 3px rgba(20, 16, 12, .32));
   }
 
+  /* The selection checkbox in a card's corner, and the card that is picked.
+     Hover-revealed on a pointer, like the colour dots and the copy/share pair, and
+     STANDING once anything is selected — a checkbox you can only find by hovering is
+     no way to see what is currently picked. On a phone it stands always, because
+     there is no hover to reveal it with.
+
+     Absolutely positioned so it costs the card no layout: a checkbox in the flow
+     would re-wrap the quote on every board the moment selection mode existed. */
+  .card-pick {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 2;
+    display: inline-flex;
+    padding: 4px;
+    opacity: 0;
+    transition: opacity .18s ease;
+  }
+  .hand-card:hover .card-pick,
+  .hand-card:focus-within .card-pick,
+  .film-frame:hover .card-pick,
+  .film-frame:focus-within .card-pick,
+  .is-picked .card-pick { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .card-pick { transition: none; } }
+  /* The picked card. An accent RING rather than a fill: a quote card already carries
+     a colour bar that means something else entirely, and tinting the paper would
+     fight it — and on the film aesthetic it would fight the frame. */
+  .is-picked {
+    position: relative;
+    box-shadow: 0 0 0 2px var(--accent-ui), 0 10px 24px -18px rgba(0, 0, 0, .5);
+  }
+
+  /* The bar a selection puts up.
+     STICKY, and that is the feature rather than a flourish: selecting forty things
+     and scrolling to check one of them must not lose the controls, and the count is
+     the only thing on screen that says how many are picked.
+
+     z-index 30 sits under every overlay tier this app already has (the drawer and
+     sheets at 50, the grain at 60, toasts at 70) and above the boards it floats
+     over. `top: 0` is deliberate on a desktop — the page's own header scrolls away,
+     so there is nothing above it to clear — while the mobile shell keeps its top
+     bar, and the media query below hands the bar the space under it. */
+  .selection-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
+    border-radius: 10px;
+    /* Opaque, not translucent: cards scroll UNDER this and a see-through bar over a
+       wall of quotes is unreadable exactly when it matters most. */
+    background: color-mix(in srgb, var(--accent) 10%, var(--card-top));
+    box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .45);
+  }
+  /* The tag input takes the slack so the buttons keep their size, and never grows
+     past the point where the row wraps into three lines. */
+  .selection-tags { flex: 1 1 160px; min-width: 140px; max-width: 320px; }
+
   /* A card that answers a right-click or a long press (useCardMenu).
      ONE PROPERTY, deliberately: iOS raises its own callout menu (Copy / Look Up /
      Share) on a long press over text, which would land on top of ours. Everything
@@ -3584,6 +3647,13 @@ html[data-theme="dark"] .mobile-sheet-footer {
      wider cards, where the six DO show and 6×28 has room. */
   .hand-card .color-dot-btn,
   .film-frame .color-dot-btn { min-width: 28px; }
+  /* No hover to reveal it with. */
+  .card-pick { opacity: 1; }
+
+  /* Under the phone's own top bar rather than at the very top of the viewport,
+     which is where .mobile-topbar already is. */
+  .selection-bar { top: 54px; }
+
   /* No hover on a phone, so the quick-pick and the copy/share pair stand beside
      the ♥. Edit and delete still fold behind the ⋯. */
   .card-colors,

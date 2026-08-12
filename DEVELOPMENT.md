@@ -285,6 +285,7 @@ The shared modules do:
 | `stickers.jsx` · `flow.jsx` | The sticker library, and the layer that flows quote text around a dragged sticker while keeping it real selectable DOM. |
 | `undo.jsx` | One delete-with-Undo helper, so the seven screens that delete something cannot each forget the offer. |
 | `actions.jsx` | The one list of what can be done to a quote, per kind, and where each action sits. Read by the card row, the ⋯ overflow and the bulk bar, so they cannot offer different sets. |
+| `selection.jsx` · `SelectionBar.jsx` | Which cards are picked, and the sticky bar that acts on them. The hook drops ids that leave the visible list, so the count it reports is a count it can act on. |
 | `secret.js` | Password and passphrase rules, plus the backup header layout — **parsed by fixed byte offset against a Go-defined struct**, so the two must change together. |
 | `greetings.js` | The date line and greeting on Home, from the device's own clock and zone. |
 | `index.css` | The whole stylesheet: tokens, the paper/film material system, every component recipe the JSX names by class, and the mobile layout. |

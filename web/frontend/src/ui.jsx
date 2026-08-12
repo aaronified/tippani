@@ -2151,6 +2151,10 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel = "Confirm",
+  // Greyed until the dialog's own condition is met — a typed confirmation phrase,
+  // for the one action that asks for one. The button says so first rather than
+  // refusing after the click, which is the rule every Save in this app follows.
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }) {
@@ -2191,7 +2195,7 @@ export function ConfirmDialog({
         )}
         <div className="flex justify-end gap-2">
           <GhostButton onClick={onCancel}>Cancel</GhostButton>
-          <StickerButton onClick={onConfirm}>{confirmLabel}</StickerButton>
+          <StickerButton onClick={onConfirm} disabled={confirmDisabled}>{confirmLabel}</StickerButton>
         </div>
       </div>
     </div>
