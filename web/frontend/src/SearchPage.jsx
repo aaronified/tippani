@@ -15,14 +15,19 @@ import {
   CloseButton,
   EmptyState,
   ErrorText,
-  filterChipClass,
+  FilterChip,
   formatPartialDate,
   GhostButton,
   HandCard,
   HandNote,
   HighlightSpan,
+  IconBooks,
   IconClose,
+  IconDialogue,
+  IconHighlight,
   IconOpen,
+  IconQuote,
+  IconReel,
   IconSearch,
   Masonry,
   MonoLabel,
@@ -39,13 +44,26 @@ import {
   useBodyScrollLock,
 } from './ui.jsx'
 
+// SCOPES — where to look, and what each one looks like.
+//
+// EVERY CHIP CARRIES A GLYPH EXCEPT `All`, which carries `keepLabel` instead. On a
+// phone this row is six controls above a search box on a 320px screen, and six
+// words do not fit — so the chips lose their words to the same preference every
+// other button in the app answers (Settings → Appearance → Button labels, auto by
+// screen width). `All` is the default and the way back, and a glyph is a thing you
+// have to have learned already; three characters are cheaper than that.
+//
+// Books and Movies borrow the Library and Catalogue tabs' own glyphs, so the scope
+// looks like the screen it searches. Quotes borrows the Quotes tab's. The two
+// quote kinds that have no tab — a book's annotation, a film's line — are the two
+// new drawings: a page with a marker's nib, and two bubbles.
 const SCOPES = [
-  ['all', 'All'],
-  ['books', 'Books'],
-  ['annotations', 'Annotations'],
-  ['movies', 'Movies'],
-  ['dialogues', 'Dialogues'],
-  ['quotes', 'Quotes'],
+  ['all', 'All', null, true],
+  ['books', 'Books', <IconBooks />],
+  ['annotations', 'Annotations', <IconHighlight />],
+  ['movies', 'Movies', <IconReel />],
+  ['dialogues', 'Dialogues', <IconDialogue />],
+  ['quotes', 'Quotes', <IconQuote />],
 ]
 
 // SearchPage (§8.9, § sectioned search): one big Newsreader box + scope chips.
@@ -163,16 +181,16 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {SCOPES.map(([value, label]) => (
-          <button
+        {SCOPES.map(([value, label, icon, keepLabel]) => (
+          <FilterChip
             key={value}
-            type="button"
-            className={filterChipClass(scope === value)}
-            aria-pressed={scope === value}
+            active={scope === value}
+            icon={icon}
+            keepLabel={keepLabel}
+            label={label}
+            tooltip={value === 'all' ? 'Search everything' : `Search ${label.toLowerCase()} only`}
             onClick={() => setScope(value)}
-          >
-            {label}
-          </button>
+          />
         ))}
         {results && !empty && (
           <span className="ml-auto flex items-center gap-3 view-toggle-row">

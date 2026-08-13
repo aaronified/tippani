@@ -786,6 +786,27 @@
     padding-right: 0;
     gap: 0;
   }
+  /* A FILTER CHIP FOLLOWS THE SAME PREFERENCE (see FilterChip). One clip rule
+     already serves it — `.btn-label` above is not scoped to `.tp-btn`, which is
+     what lets a chip opt in by rendering the same two spans — so all a chip needs
+     of its own is the shape.
+
+     Not 44px: a chip is 34px at rest and squaring it to 44 would make the scope
+     row taller than the search box's own controls beside it. The phone block
+     below raises chips to 44 for the thumb, and this follows whatever that says
+     rather than restating a number. */
+  .tp-filter-chip.has-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  html[data-labels="off"] .tp-filter-chip.has-btn-icon {
+    width: 34px;
+    padding-left: 0;
+    padding-right: 0;
+    gap: 0;
+    justify-content: center;
+  }
   .btn-icon { display: inline-flex; align-items: center; flex: none; }
   .btn-icon svg { width: 18px; height: 18px; }
 
@@ -3794,6 +3815,8 @@ html[data-theme="dark"] .mobile-sheet-footer {
     min-height: 44px;
     padding: 8px 14px;
   }
+  /* A glyph-only chip is square at the thumb size, not 34px wide and 44 tall. */
+  html[data-labels="off"] .tp-filter-chip.has-btn-icon { width: 44px; }
   /* An ACTIONABLE chip is a button and needs the same hit height as the filter
      chips: the shelf-state tag and the ×N read counter on a work's detail, and
      the "Mark as read" rows inside the shelf-cap dialog, are all .tp-chip-btn.

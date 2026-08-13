@@ -3727,6 +3727,53 @@ export function filterChipClass(active) {
   return "tp-filter-chip tactile" + (active ? " active" : "");
 }
 
+// FilterChip — a filter chip that can carry a glyph and lose its words.
+//
+// IT REUSES THE BUTTON MECHANISM RATHER THAN INVENTING A SECOND ONE, and that is
+// the whole reason it exists. `.btn-icon` + `.btn-label` are what
+// html[data-labels="off"] clips, the resolution auto→on/off already happens once
+// in theme.js against the 768px breakpoint, and the preference already has a
+// control in Settings → Appearance. A chip row that collapsed on its own measured
+// width — or on a media query of its own — would be a second answer to "should
+// buttons show their words", drifting from the first the day either is touched.
+// So the chips answer the question the app has already asked.
+//
+// Clipped, not display:none, exactly as on a button: an icon-only scope row still
+// reads as "All, Books, Annotations…" to a screen reader with no aria-label to
+// bolt on and keep in sync. The Tooltip is what names it to everybody else —
+// required, not decorative, because a glyph with its words clipped is otherwise
+// unexplained on a phone, which is precisely where the clipping happens.
+//
+// `keepLabel` is the same opt-out it is on a button, and the same kind of chip
+// takes it: the one whose meaning must not have to be learned. On the search
+// scopes that is `All` — three characters, the default, and the way back.
+export function FilterChip({ active, icon, keepLabel, label, tooltip, onClick, ...rest }) {
+  const chip = (
+    <button
+      type="button"
+      className={filterChipClass(active) + (icon && !keepLabel ? " has-btn-icon" : "")}
+      // Coerced, so an unset `active` says "false" rather than dropping the
+      // attribute. A toggle that only announces its state in one of the two states
+      // is a toggle a screen reader reads as a plain button half the time.
+      aria-pressed={!!active}
+      onClick={onClick}
+      {...rest}
+    >
+      {icon ? (
+        <>
+          <span className="btn-icon">{icon}</span>
+          <span className={keepLabel ? "btn-label-fixed" : "btn-label"}>{label}</span>
+        </>
+      ) : (
+        label
+      )}
+    </button>
+  )
+  // A chip that can never lose its words needs no bubble to explain them.
+  if (!icon || keepLabel) return chip
+  return <Tooltip label={tooltip || label}>{chip}</Tooltip>
+}
+
 // GenreFilter — the shared genre picker used by Library + Catalogue so both
 // toolbars read identically: ONE dropdown holding every genre, with "All" as its
 // first option.
@@ -4212,6 +4259,37 @@ export function IconTag({ size = ICON_SIZE }) { return <svg {...iconStroke} widt
 // Library tab and the "you are reading this" cover badge were the same picture
 // meaning two different things, on screens that show both at once.
 export function IconBooks({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 4.5h3.5v15H4z"/><path d="M8.8 4.5h3.5v15H8.8z"/><path d="m14.2 5.4 3.4-.9 3.9 14.5-3.4.9z"/></svg> }
+// IconHighlight — a highlight taken out of a book: a page, and a marker's nib
+// drawn across it. An annotation is the book side of a saved line, and it is one
+// of the two search scopes with no tab of its own to borrow a glyph from.
+//
+// NOT a page with three lines of text. That is IconDetails, and a record card
+// with a line count is what Details means; the nib is what makes this one about
+// MARKING a page rather than reading one.
+export function IconHighlight({ size = ICON_SIZE }) {
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      <path d="M5 5.5A2 2 0 0 1 7 3.5h6.5a2 2 0 0 1 2 2v2.2"/>
+      <path d="M5 5.5v13a2 2 0 0 0 2 2h3.4"/>
+      <path d="M8.5 8.6h4"/>
+      <path d="m19.9 8.5-7.7 7.7-3.3 1 1-3.3 7.7-7.7a1.6 1.6 0 0 1 2.3 2.3Z"/>
+    </svg>
+  )
+}
+// IconDialogue — two bubbles, because a dialogue is two people. The film side of
+// a saved line, and told apart from IconQuote by the COUNT rather than by any
+// detail: one bubble carrying filled quote marks is a quotation, two bubbles are
+// an exchange. They never appear meaning the same thing — the search scope row is
+// the one place both are on screen at once, and there they are the two things
+// they look like.
+export function IconDialogue({ size = ICON_SIZE }) {
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      <path d="M3.5 6.5A2 2 0 0 1 5.5 4.5h6a2 2 0 0 1 2 2V9a2 2 0 0 1-2 2H7l-3.5 2.5V11z"/>
+      <path d="M16 10.5h2.5a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2H17l-3.5 2.5V17h-1a2 2 0 0 1-2-2v-.6"/>
+    </svg>
+  )
+}
 // IconReel — the Catalogue's film reel, salvaged from the retired cover-size
 // slider.
 export function IconReel({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="6.4" r="1"/><circle cx="17.6" cy="12" r="1"/><circle cx="12" cy="17.6" r="1"/><circle cx="6.4" cy="12" r="1"/></svg> }
