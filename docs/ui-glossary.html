@@ -1594,6 +1594,55 @@
   </section>
 
   <section class="g-section">
+    <h2>Selecting several <span class="g-tlabel">1.10.0 &middot; works and the long press 1.11.1</span></h2>
+    <p>One selection mechanism over five kinds of thing, entered three ways, acting through one registry. The tick and the ring are the whole of the visible mode &mdash; there is no &ldquo;selection mode&rdquo; button to get into or out of.</p>
+    <div class="g-grid">
+
+      <div class="g-item">
+        <div class="g-demo" style="display:block;padding:20px">
+          <div class="hand-card is-picked is-selecting" style="position:relative;padding:14px 16px;max-width:260px">
+            <label class="card-pick"><input type="checkbox" checked><span class="card-pick-mark" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span></label>
+            <p class="card-text" style="font-family:var(--font-display);font-style:italic;font-size:16px;margin:0">You cannot buy the revolution.</p>
+            <p class="microcopy" style="margin-top:8px">CH. 13 &middot; P.301</p>
+          </div>
+        </div>
+        <div class="g-name">PickMark &middot; is-picked</div>
+        <div class="g-src">PickMark &mdash; ui.jsx &middot; .card-pick / .card-pick-mark / .is-picked / .is-selecting &mdash; index.css</div>
+        <div class="g-desc">A drawn tick over a <b>real, visually-hidden checkbox</b> &mdash; role, checked state, label and tab order all kept, because a div with an onClick would look identical and announce nothing. One drawing for every board: a quote card, a book cover and a film poster are three very different rectangles, and a selection that looked like a checkbox on one and something else on another would be two affordances for one idea.<br><br><b>When it shows.</b> On hover on a pointer, like the colour dots and the copy/share pair, and standing on <em>every</em> card of a board with a selection running (<code>.is-selecting</code>) &mdash; the cards you have <em>not</em> picked are half the answer to &ldquo;what am I about to act on&rdquo;. It no longer stands permanently on a phone, which it used to: there was nothing to select with then, and a hollow circle on every cover for a mode nobody had entered is a lot of furniture for an affordance the long press now provides.<br><br><b>An accent RING rather than a fill</b> for the picked card: a quote card already carries a colour bar that means something else entirely, and tinting the paper would fight it &mdash; on the film aesthetic it would fight the frame. The ring is what you see from across the board; the tick is what you read up close.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo" style="display:block;padding:16px">
+          <div class="selection-bar" style="position:static;margin:0">
+            <span class="microcopy" style="font-family:var(--font-mono),monospace;color:var(--accent-ui)">12 books selected</span>
+            <span class="tp-btn tp-btn-ghost" style="pointer-events:none">Fill gaps</span>
+            <span class="tp-btn tp-btn-ghost" style="pointer-events:none">Skip in quiz</span>
+            <span class="tp-btn tp-btn-ghost tp-btn-danger" style="pointer-events:none">Delete</span>
+            <span class="tp-btn tp-btn-ghost" style="margin-left:auto;pointer-events:none">Clear</span>
+          </div>
+        </div>
+        <div class="g-name">SelectionBar</div>
+        <div class="g-src">SelectionBar.jsx &middot; bulkActionsFor &mdash; actions.jsx &middot; .selection-bar &mdash; index.css</div>
+        <div class="g-desc"><b>Sticky, and that is the feature rather than a flourish:</b> selecting forty things and scrolling to check one of them must not lose the controls. The count is the only thing on screen saying how many are picked, and it is a count the bar can act on &mdash; the selection drops ids that leave the visible list, so the bar goes with them rather than reporting a number about nothing.<br><br><b>One bar, two very different selections.</b> A quote gets colour, tags, one seal across the lot, favourite, the quiz toggle and delete; a book, film or show gets fill-the-gaps, a shelf, set-fields, the quiz toggle and delete. A colour category is a note about a <em>quote</em> and a work has never had one; a shelf is a fact about a <em>work</em> and a quote has none. Which appear is decided by which callbacks the bar passes for the kind in hand, from the same registry the card menu reads &mdash; a bar offering something the menu does not looks completely normal on both screens, and the divergence only surfaces when somebody wonders why they cannot do to forty what they just did to one.<br><br><b>Delete is last, danger-styled, and the only one that asks.</b> It is unreachable by gesture: select, press Delete, then type what it will do. Over works the dialog says plainly that the quotes go with them.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:16px">
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-family:var(--font-mono),monospace;font-size:11.5px;color:var(--soft)">
+            <div style="padding:10px;border:1px solid var(--line);border-radius:8px"><b style="color:var(--ink)">on a control</b><br>its label, for half a second</div>
+            <div style="padding:10px;border:1px solid var(--line);border-radius:8px"><b style="color:var(--ink)">on the words</b><br>nothing &mdash; the platform's own selection handles</div>
+            <div style="padding:10px;border:1px solid var(--line);border-radius:8px"><b style="color:var(--ink)">anywhere else</b><br>picks the card</div>
+          </div>
+        </div>
+        <div class="g-name">What a long press means <span class="g-tlabel">revised 1.11.1</span></div>
+        <div class="g-src">useCardMenu &mdash; ui.jsx &middot; .card-text / .card-menu-host &mdash; index.css</div>
+        <div class="g-desc">The plan this came from said &ldquo;long-press always means menu, with no exceptions&rdquo;, and put touch's way into a selection in a toolbar toggle. Both halves were wrong, and both only show up under a thumb. The menu on the press, plus <code>-webkit-touch-callout: none</code> on the card, meant a finger could not select half a sentence out of a quote &mdash; in a note-keeping app, which is the one gesture a phone has for reaching into text. And long-press-to-select is what every photo grid, file manager and mail app already does; a toolbar toggle is a thing you have to be told about.<br><br>So the press splits by <b>where it lands</b>. <code>.card-text</code> marks the quote and the note &mdash; set by ExpandableText, FlowQuote and HandNote rather than by each card, because those <em>are</em> the prose everywhere they appear, and a card that forgot the class would be a quote nobody could copy from with no visible sign of it. A cover tile carries no <code>.card-text</code> at all: a poster is a picture, so every press that is not on a control belongs to the card.<br><br>Right-click and Shift+F10 keep the menu, so nothing was lost &mdash; it gave up one of three triggers, and the two it keeps are the two a pointer and a keyboard use. A surface with no selection to enter (Home's favourites, the search modal) keeps the menu on the press too.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
     <h2>The bin <span class="g-tlabel">1.8.0</span></h2>
     <p>Every delete is recoverable for thirty days. The row is really deleted — a JSON snapshot of its whole subtree is parked instead — so nothing else in the app has to know the bin exists.</p>
     <div class="g-grid">

@@ -174,17 +174,30 @@ of that are spelled out in [`AI.md`](AI.md).
   colours and layout do not move, so what is left is the same app with the noise taken off. The
   textures are the whole point of the design and they are not free — the page grain is a fixed layer
   above *everything*, including every glyph and every input on the screen.
-- ☑️ **Multiselect on quotes** — tick a card, Ctrl-click one, or pick Select from its menu, and a
-  bar appears offering the lot: recolour, add tags, favourite, delete. Shift-click extends over the
-  order on screen, a plain click picks rather than opens while the mode is up, and changing a filter
-  drops whatever left the screen — the count in the bar is always a count it can act on. Deleting a
-  selection asks you to type what it will do, then goes to the bin as one entry with one Undo.
-- 🖱️ **A menu on every quote** — right-click a card, or hold it for half a second on a phone, or
-  press Shift+F10, and the card's own actions open where you pressed: copy, share, edit, delete. It
-  is the same list the buttons on the card offer, from one registry, so the two cannot drift apart.
-  Holding one of the card's own glyphs still shows that glyph's label instead, and if you have
-  selected text inside the card the browser's own menu wins — you wanted Copy or Look Up, and this
+- ☑️ **Multiselect on everything** — quotes, books, films and shows. Tick the mark in a card's
+  corner, Ctrl-click it, pick Select from its menu, or on a phone just hold it. A bar appears
+  offering the lot. Over **quotes**: recolour, add tags, set one sticker across all of them,
+  favourite, keep them out of the quiz, delete. Over **books, films and shows**: fill in whatever
+  metadata is missing, move them all to a shelf, keep them out of the quiz, delete. Shift-click
+  extends over the order on screen, a plain click picks rather than opens while the mode is up, and
+  changing a filter drops whatever left the screen — the count in the bar is always a count it can
+  act on. Deleting asks you to type what it will do; deleting a book says plainly that its quotes go
+  with it, and the whole lot lands in the bin as one entry with one Undo.
+- 👌 **A long press that knows what it is on.** Hold a control and you get its label — there is no
+  hover on a phone. Hold **the words of a quote** and nothing happens, on purpose: that is how your
+  phone selects text, and an app for keeping other people's sentences has no business taking that
+  gesture. Hold **anywhere else** on a card and you have selected it. On a desktop, right-click or
+  Shift+F10 opens the card's own menu — copy, share, edit, delete — where you pressed; it is the
+  same list the buttons offer, from one registry, so the two cannot drift apart. And if you have
+  selected text inside the card, the browser's own menu wins: you wanted Copy or Look Up, and this
   app is not going to take those away from you.
+- 😴 **Skip something in the quiz without deleting it** — a shopping list saved as a quote, a
+  reference manual whose highlights are all page numbers. Select and press *Skip in quiz*. Do it to
+  a book and it covers every highlight you add to that book afterwards, too.
+- 🩹 **Fill only the gaps** — over a selection of books or films, fetch each one's metadata and
+  write only the fields that are **empty**. A description you wrote, a year you corrected, a cover
+  you chose: never touched, which is why this one needs no preview. *Re-verify* is the other half —
+  it shows you every difference and waits for you to tick the ones you believe.
 - 🗑️ **A thirty-day bin** — every delete is recoverable. A book with all its quotes, a film
   with its lines, one highlight on its own, or a whole account: each goes to the bin as a single
   entry and comes back exactly as it was, with the same ids, the same tags and colours, the same

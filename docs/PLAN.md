@@ -4116,6 +4116,90 @@ A typed confirmation for something the bin makes recoverable looks like belt and
 
 <sub>1.10.0 — `internal/store/migrations/0032_trash_selection.sql` · `internal/httpapi/trash.go` · `internal/httpapi/bulk_handlers.go` · `internal/httpapi/bulk_delete_test.go` · `web/frontend/src/SelectionBar.jsx`</sub>
 
+### A long press means three different things, decided by where it lands
+
+**Decided.** REVERSED from 1.10.0. On a control it is still Tooltip's label. On `.card-text` — the quote and the note — it does nothing at all, so the platform's own text-selection handles come up. Anywhere else on a card it SELECTS that card. Right-click and Shift+F10 keep the menu; a surface with no selection to enter keeps the menu on the press too.
+
+**Why.** 1.10.0 decided "long-press always means menu, with no exceptions" and put touch's way into a selection in a toolbar toggle. Both halves were wrong, and both are only visible under a thumb.
+
+The menu on the press, plus `-webkit-touch-callout: none` on the card, meant a finger could not select half a sentence out of a quote. In an app whose entire purpose is keeping other people's sentences, spending the one gesture a phone has for reaching into text on a menu that already has a ⋯ button two inches away is the wrong trade — and I could not see it from a desktop, where dragging across the words has always worked.
+
+And long-press-to-select is what every photo grid, file manager and mail app on both platforms already does. A toolbar toggle is a mode you have to be told about; the press is a gesture people arrive already knowing.
+
+The region is MARKED rather than inferred. "Is this a text node" is not a question a pointer event can answer, and the two failure directions are not symmetric: too permissive gives you a card you cannot select, too strict gives you a quote you cannot copy out of. `.card-text` is set by `ExpandableText`, `FlowQuote` and `HandNote` rather than by each card, because those three ARE the prose everywhere they appear — a card that forgot the class would be a quote nobody could copy from, with nothing visibly wrong.
+
+A cover tile carries no `.card-text` at all: a poster is a picture, and the title under it is a label rather than prose.
+
+**Instead of.** Keeping the menu on the press and adding a Select toggle to each board's toolbar (the 1.10.0 decision — two mechanisms, one of them undiscoverable). Suppressing the callout everywhere and offering our own Copy in the card menu (reimplementing Look Up, Translate and Search With, badly, forever).
+
+**Approved.** Reversed on the reader's report from a phone. I approved marking the region over sniffing it, and recorded the reversal here rather than editing the 1.10.0 entry.
+
+<sub>1.11.1 — `web/frontend/src/ui.jsx` · `web/frontend/src/flow.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/card-menu.test.jsx`</sub>
+
+### Work cards select too, and the bar serves both kinds off one registry
+
+**Decided.** REVERSED from the multiselect plan, which left work-card selection out. Library and Catalogue tiles select by long press, Ctrl/Cmd-click or the tickmark, and the same `SelectionBar` serves both kinds: quotes get colour, tags, one seal, favourite, the quiz toggle and delete; works get fill-the-gaps, a shelf, set-fields, the quiz toggle and delete.
+
+**Why.** The plan's reason for leaving works out was that their bulk endpoints already had a home on the search screen. True, and beside the point: the boards where somebody actually looks at forty books are these two, and the search screen is where you go when you know what you are looking for.
+
+One bar rather than two, because the two selections having almost nothing in common is exactly the argument FOR the registry rather than against it. A colour category is a note about a quote and a work has never had one; a shelf is a fact about a work and a quote has none. Two components would have looked right on both screens and drifted within a release.
+
+**Two bugs this surfaced, both invisible to inspection and both caught by a test.** `useCardMenu` treated the whole tile as a control: a work tile IS a `<button>`, so `closest('button')` matched the card itself and the gesture did nothing at all on either board — quote cards are `div`s and never showed it. And the bar passed a bare `true` where the registry calls a function, as a presence flag for the actions whose control the bar draws itself; that held until something called `run` on one, which the new shelf dropdown did.
+
+**Instead of.** A second bar for works (drift). Selection on the search screen (rows vary in kind there, so one selection would span two registries).
+
+**Approved.** Mine, on the reader's request for the two boards.
+
+<sub>1.11.1 — `web/frontend/src/works.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/actions.jsx` · `web/frontend/test/dom/selection-works.test.jsx`</sub>
+
+### Keeping something out of the quiz is a column on the row, not a flag on the schedule
+
+**Decided.** Migration 0033 adds `review_excluded` to `books`, `movies`, `annotations`, `dialogues` and `utterances`. The rule lives in `reviewSource.where()`, the one string every deck query splices. The API says `review: true|false` — what the reader wants — and inverts it once, at the write.
+
+**Why.** `item_reviews` is where a scheduling fact looks like it belongs, and it is a trap: that table has NO ROW for a quote never reviewed, so excluding an unseen one means inserting a bare row — and four separate queries read "a row exists" as "this card has been seen". Excluding a quote and putting it back would silently promote it from never-seen to seen-and-overdue: a lie about the reader's own history, told by a preference they set for an unrelated reason. There is a test whose whole job is to assert that a round trip changes nothing.
+
+A column on the row also travels for free everywhere a quote already travels — the bin snapshots with `SELECT *`, the account backup does the same, the export carries the row — so three features support it without knowing it exists.
+
+**The flag is on the WORKS too**, because "this book is not for quizzing" is a fact about the book rather than about the forty highlights it has today: exclude a reference manual and the highlight added to it tomorrow is excluded as well, which is what somebody who excluded a manual meant. The deck already joins each child quote to its parent for ownership, so the parent's flag costs one term and no new join.
+
+`where()` is the choke point on purpose. FIVE queries splice it — three candidate fetches, the cards-left count, the status breakdown — and a rule reaching four of them is a badge counting a card the deck will never serve, which reads as the quiz being broken rather than as a filter being inconsistent.
+
+**Instead of.** A flag on `item_reviews` (invents review history). A separate `review_exclusions` table (a fourth polymorphic table with no foreign keys, three more delete triggers, and additions to the bin and the account snapshot — all to store one bit).
+
+**Approved.** Mine. This is the roadmap's "suspend a quote from rotation", built when the selection bar gave it somewhere to live.
+
+<sub>1.11.1 — `internal/store/migrations/0033_review_exclusion.sql` · `internal/httpapi/review_handlers.go` · `internal/httpapi/bulk_handlers.go` · `internal/httpapi/review_exclusion_test.go`</sub>
+
+### Fill the gaps writes only what is empty, which is what lets it skip the preview
+
+**Decided.** `POST /metadata/fill` runs the re-verify fetch, keeps only the diffs whose STORED side is empty, and applies them through the re-verify writer. The predicate decides by TYPE — empty string, zero, empty slice, nil — not by field name.
+
+**Why.** Re-verify asks "what changed?", shows every difference and waits for a human to tick the ones they believe. That is right, because a provider disagreeing with your library is not automatically the provider being correct — and it is completely unusable over forty books, where nobody will adjudicate two hundred diffs to recover a missing publication year.
+
+Writing only into emptiness is what makes the operation safe without a preview: a description you wrote is never touched, and a title is `NOT NULL` and therefore never missing, so it can never be rewritten. That safety is the whole reason this can be one button in a selection bar rather than a console with a diff table in it.
+
+Deciding by type rather than by field name means a field added to re-verify tomorrow gets the right treatment here without anybody remembering this file exists — and an unrecognised type answers "not missing", so the failure direction is "declined to fill" rather than "overwrote something".
+
+**Instead of.** A "fetch metadata for all" that applies everything (would silently overwrite hand-corrections, which is the one thing this app must never do). Extending re-verify with an "apply all" button (same overwrite, one click further away).
+
+**Approved.** Mine, and I approved the empty-only rule as the load-bearing part rather than the batching.
+
+<sub>1.11.1 — `internal/httpapi/metadata_fill.go` · `internal/httpapi/bulk_works_test.go`</sub>
+
+### Home's favourites reorder once per visit, not once per reload
+
+**Decided.** One seed drawn when Home mounts, spent through `shuffleSeeded`, which ranks each favourite from that seed and its OWN KEY rather than by walking the list. The clamp heights are seeded off the same draw.
+
+**Why.** The wall reordering is deliberate — it is a re-surfacing wall, not a feed — but it reordered on every LOAD, and every in-place edit reloads it. Recolouring one quote redealt the whole wall: the four tiles on screen became four different tiles and the card just acted on was gone, which reads as the app losing the change rather than saving it.
+
+A per-item rank rather than Fisher–Yates because that is the property that survives the list changing: drop one member from a walk-the-list shuffle and the permutation is entirely different, so un-hearting one tile would still redeal everything. Ranked independently, a removed card leaves a gap and everything else stays where the reader last saw it.
+
+**Instead of.** Shuffling once and caching the array (moves the problem to the next remount, and cannot place a newly-hearted quote). Not shuffling at all (loses the feature).
+
+**Approved.** Mine, on the reader's report.
+
+<sub>1.11.1 — `web/frontend/src/ui.jsx` · `web/frontend/src/Home.jsx` · `web/frontend/test/pure/seeded-shuffle.test.js`</sub>
+
 ## 15. Appearance as Material: Skins, Texture, Type and Colour
 
 The look is not decoration sitting on top of the app; it is a set of decisions with

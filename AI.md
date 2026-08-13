@@ -284,6 +284,39 @@ What that honestly does not cover:
   declare the table list and write down, in the migration, why the obvious
   approach is wrong — because the next person to touch it will reach for the FK
   walk for exactly the same good reasons.
+- **A rule that five queries splice belongs in the one string they share.** Keeping
+  a quote out of the Daily Quiz is a single condition, and it has to reach the three
+  candidate fetches, the count behind the cards-left badge, and the breakdown behind
+  "where you stand". Written into four of the five, the failure is not an error: it
+  is a badge counting a card the deck will never serve, which reads as the quiz
+  being broken rather than as a filter being inconsistent. `reviewSource.where()`
+  already existed as that shared string, and the whole feature is one clause added
+  to it — which is only obvious once you have gone looking for every place the
+  condition would otherwise have to be repeated.
+- **The obvious home for a flag can invent history.** "Not in the quiz" is a
+  scheduling fact, so `item_reviews` looks like where it belongs. But that table has
+  no row at all for a quote that has never been reviewed, and four separate queries
+  read "a row exists" as "this card has been seen" — so excluding a quote and
+  putting it back would quietly promote it from never-seen to seen-and-overdue. A
+  lie about the reader's own history, told by a preference they set for something
+  else entirely. The column went on the quote instead, where it also travels for
+  free through the bin, the account backup and the export, none of which had to learn
+  it exists.
+- **A presence flag is a function waiting to be called.** The selection bar draws
+  some of its own controls (the tag field, the sticker dialog, the delete confirm),
+  so for those it passed a bare `true` into the action registry purely to mean
+  "available". That read fine for two releases and broke the moment a new action
+  — a shelf dropdown — was one whose `run` the bar actually invoked: the action
+  appeared, the control rendered, and choosing a shelf threw. Nothing about the flag
+  was wrong; it was that a value in a slot typed as a callback will eventually be
+  called.
+- **A gesture bound to `closest('button')` breaks on the day the card IS a button.**
+  Long-press-to-select ignores presses that land on one of the card's own controls,
+  which is right, and it did it by asking whether the target had a button ancestor.
+  Quote cards are `div`s, so it worked. A cover tile is a `<button>` — the whole
+  cover is the thing you click to open the book — so every press on it matched, and
+  the gesture did nothing at all on two entire screens. Invisible to inspection,
+  invisible on a desktop, and caught only because the new board got its own test.
 - **A bug of omission needs a sweep, not a case.** Scrolling inside a popup also
   scrolled the page behind it. The fix is one CSS property, and the temptation is
   to add it to the popup that was reported — but the defect is not a wrong value
