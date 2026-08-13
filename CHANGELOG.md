@@ -5,6 +5,97 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1] - 2026-08-13
+
+### Added
+
+- **Books, films and shows can be selected too.** The Library and the Catalogue had
+  no way to act on more than one thing at a time, which is odd on the two screens
+  where you actually look at forty of them. Hold a cover on a phone, Ctrl/Cmd-click
+  it on a desktop, or tick the mark in its corner, and the same bar the quote boards
+  put up appears — offering what a *work* can do rather than what a quote can:
+
+  - **Fill gaps** — fetch each one's metadata and write only the fields that are
+    **empty**. A description you wrote, a year you corrected, a cover you chose:
+    never touched. That is what makes it safe with no preview, and why it can be one
+    button instead of a console. *Re-verify* is still the other half — it shows you
+    every difference and waits for you to tick the ones you believe.
+  - **Shelf** — move the lot to reading/watching, paused, abandoned or completed, or
+    clear it. Something already finished is passed over rather than refusing the
+    whole batch, and the read log comes along exactly as it does for one.
+  - **Skip in quiz** — see below.
+  - **Delete** — behind the same typed phrase, and the dialog says plainly that the
+    quotes saved from them go too. One bin entry for the whole selection, one Undo.
+
+- **Skip something in the quiz without deleting it.** Some things you keep are not
+  things to be tested on: a shopping list saved as a quote, a line kept for its
+  wording, a reference manual whose highlights are all page numbers. Select them and
+  press **Skip in quiz**. Do it to a **book, film or show** and it covers every quote
+  you save from it afterwards too — because "this manual is not for quizzing" is a
+  fact about the manual, not about the forty highlights it happens to have today.
+  The button reads **Add to quiz** when the selection is already skipped, so you can
+  always tell which way round it is.
+
+- **The quote boards on a book's or film's own page can select as well** — the one
+  place you look at forty highlights from one book was the one place you could not
+  act on forty of them. Their card views carry the bar; the table view does not,
+  because a row is already a row of controls.
+
+- **Two more things a selection of quotes can do:** set **one sticker across the
+  whole lot** (or take every seal off), and the quiz toggle above.
+
+### Changed
+
+- **A long press now means three different things, and which one is decided by what
+  is under your thumb.** On a **control** it still shows that control's label. On
+  the **words of a quote** it now does nothing at all — which is the point, because
+  that is how a phone selects text, and an app for keeping other people's sentences
+  had no business spending that gesture on a menu. **Anywhere else** on a card,
+  cover or poster — the empty space, the small print, the row the buttons sit in —
+  it picks that card.
+
+  This reverses a decision from 1.10.0, which said the press always meant the card's
+  menu. Both halves of that were wrong and both are only visible with a thumb: it
+  cost you text selection inside a quote, and it spent the gesture every photo grid
+  and file manager already uses for multiselect on a menu that has a ⋯ button two
+  inches away. Right-click and Shift+F10 keep the menu, so nothing was lost.
+
+- **The corner checkbox is a tickmark**, and one drawing serves every board — a
+  quote card, a book cover, a film poster. It stands on **every** card of a board
+  with a selection running, not only the picked ones: the cards you have *not* picked
+  are half the answer to what you are about to act on. It no longer sits permanently
+  on every card on a phone, where there is now a gesture to reveal it with.
+
+- The `go test` ceiling in CI rises from 10 to 20 minutes. The API suite alone runs
+  twelve, because almost every test signs a user up and a signup is a real password
+  hash; it had been sitting seconds under the old limit, where the next few tests
+  anybody wrote would have tipped it into a timeout that reads as a hung test.
+
+### Fixed
+
+- **The favourites wall on Home holds still while you work.** Recolouring or sharing
+  a favourite reloaded the list, and the list reshuffled on every load — so the four
+  tiles on screen became four different tiles and the card you had just acted on was
+  gone, which reads as the app losing your change rather than saving it. The wall
+  still reorders, but once per **visit**: arrive on Home and it deals a new one,
+  and nothing you do while standing on it deals another. Un-hearting one tile now
+  leaves every other one where it was.
+
+- The tile heights on that wall were re-rolled on every reload too, so a colour
+  change made every quote on screen change height even when none of them moved.
+
+### API
+
+- `api_revision` 3. New: `POST /books|movies/bulk/delete` (one bin entry for the
+  whole selection, quotes and all), `POST /books|movies/bulk/status`,
+  `POST /metadata/fill`. `sticker_id` and `review` on the three quote bulk bodies;
+  `review` on the two work bulk bodies. Every quote and work list row now carries
+  `review_excluded`. Features named: `bulk-works`, `review-exclusion`,
+  `metadata-fill`, `bulk-sticker`.
+
+- Migration `0033` adds `review_excluded` to `books`, `movies`, `annotations`,
+  `dialogues` and `utterances`. Five `ADD COLUMN`s, no table rebuilt.
+
 ## [1.11.0] - 2026-08-13
 
 ### Added
