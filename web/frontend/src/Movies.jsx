@@ -9,7 +9,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
-import { useSelection } from './selection.jsx'
+import { selectionClick, useSelection } from './selection.jsx'
 import { SelectionBar } from './SelectionBar.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
@@ -68,6 +68,7 @@ import {
   MoreMenu,
   mulberry32,
   PageHeader,
+  PickMark,
   Placeholder,
   QuoteActions,
   QuoteTools,
@@ -1175,6 +1176,14 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
   // one is open, so nothing reshuffles under the reader.
   const boardSeed = Number(movieId) || 1
   const clampLines = useMemo(() => clampSequence(items?.length || 0, mulberry32(boardSeed)), [items?.length, boardSeed])
+  // Over the visible order. The table view has no tickmarks — a row is already a
+  // row of controls — so this is offered on the strip and the tiles board, where a
+  // long press means something.
+  const dlgSelection = useSelection((items || []).map((d) => d.id))
+  const afterBulk = () => {
+    dlgSelection.clear()
+    load()
+  }
   const [expandedId, setExpandedId] = useState(null)
   const toggleExpanded = useCallback((id) => setExpandedId((cur) => (cur === id ? null : id)), [])
   // Keep expandedId honest: if the open dialogue leaves the set (filtered out via
@@ -1357,6 +1366,14 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
           {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — the ＋ in the bar above captures the first line.'}
         </EmptyState>
       )}
+      {dlgSelection.count > 0 && (
+        <SelectionBar
+          selection={dlgSelection}
+          rows={items || []}
+          onDone={afterBulk}
+          tagSuggestions={Object.keys(tagMap)}
+        />
+      )}
       {items && items.length > 0 && view === 'tiles' && (
         // Tiles read like the book board (§8.6): a masonry collage (1/2/3 cols by
         // width, seeded off the movie so it never wobbles) whose cards keep the
@@ -1393,6 +1410,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
                 quoteLines={clampLines[i]}
                 expanded={expandedId === d.id}
                 onToggleExpand={() => toggleExpanded(d.id)}
+                selection={dlgSelection}
               />
             ))}
           </Masonry>
@@ -1427,6 +1445,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
                 actorMap={actorMap}
                 seps={creditSeps}
                 quoteLines={5}
+                selection={dlgSelection}
               />
             </Fragment>
           ))}
@@ -1607,7 +1626,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
 // same dialogue on its film's page was "a textured card" versus "an untextured
 // rectangle". It is now "a torn-edged card" versus "a square lit panel", which
 // is a difference you can mean.
-export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand }) {
+export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, show = false, cast = [], onEdit, onCancelEdit, onSave, onPatch, onDelete, onCopy, onShare, onOpenPerson, actorMap = {}, seps, actionsAlwaysVisible = false, editInline = false, wrapClass = 'mx-4 my-1.5', quoteLines = 6, expanded, onToggleExpand, selection, selectKind = 'dialogue' }) {
   // wrapClass carries the frame's outer spacing: the strip (list) view indents
   // frames from the film edges (mx-4 my-1.5); the masonry (tiles) view drops it
   // so the card fills its column slot and the masonry gap does the spacing.
@@ -1620,9 +1639,33 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
     edit: onEdit && (() => onEdit()),
     remove: onDelete && (() => onDelete()),
   })
-  // The same list the row and the ⋯ render, on a right-click, a long press or
-  // Shift+F10 (useCardMenu).
-  const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
+  // The same list the row and the ⋯ render, on a right-click or Shift+F10; a long
+  // press on the frame's whitespace SELECTS it, and a long press on the line itself
+  // is left to the browser so a thumb can still pull a phrase out (useCardMenu).
+  const menuItems = acts.map((x) => ({ ...x, onClick: x.run }))
+  if (selection) {
+    // Select first, which is what makes the menu and multiselect one feature.
+    menuItems.unshift({
+      id: 'select',
+      label: selection.isSelected(d.id) ? 'Deselect' : 'Select',
+      onClick: () => selection.toggle(d.id, selectKind),
+    })
+  }
+  const { cardProps, menuClass, menu } = useCardMenu(
+    menuItems,
+    selection ? { onLongPress: () => selection.toggle(d.id, selectKind) } : undefined,
+  )
+  const picked = !!selection?.isSelected(d.id)
+  const onFrameClick = selection
+    ? (e) => {
+        const what = selectionClick(e, selection)
+        if (what === 'open') return
+        e.preventDefault()
+        e.stopPropagation()
+        if (what === 'extend') selection.extendTo(d.id, selectKind)
+        else selection.toggle(d.id, selectKind)
+      }
+    : undefined
   // The colour bar is the same affordance annotations get from HandCard's
   // colorBar — a dialogue is a quote like any other, so it wears its colour the
   // same way. Inline rather than a class because the frame's own borders are
@@ -1679,7 +1722,19 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       <FormModal open={editing} onClose={onCancelEdit} title="Edit dialogue">
         {editForm}
       </FormModal>
-    <article className={`${frameClass} ${menuClass}`} style={frameStyle} {...cardProps}>
+    <article
+      className={`${frameClass} ${menuClass}${picked ? ' is-picked' : ''}${selection?.active ? ' is-selecting' : ''}`}
+      style={frameStyle}
+      {...cardProps}
+      onClickCapture={(e) => {
+        // The press already acted; running the click too would toggle it back.
+        if (cardProps.onClickCapture?.(e)) return
+        onFrameClick?.(e)
+      }}
+    >
+      {selection && (
+        <PickMark picked={picked} label="this line" onChange={() => selection.toggle(d.id, selectKind)} />
+      )}
       {d.quote &&
         (sticker ? (
           <FlowQuote

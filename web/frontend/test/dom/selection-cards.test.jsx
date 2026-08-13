@@ -13,6 +13,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnnotationCard } from '../../src/Library.jsx'
+import { Frame } from '../../src/Movies.jsx'
 import { useSelection } from '../../src/selection.jsx'
 
 const QUOTES = [
@@ -238,5 +239,87 @@ describe('a board with no selection at all', () => {
     expect(screen.queryByRole('checkbox')).toBeNull()
     fireEvent.contextMenu(document.querySelector('.card-menu-host'), { clientX: 5, clientY: 5 })
     expect(within(screen.getByRole('menu')).queryByText('Select')).toBeNull()
+  })
+})
+
+// ---- the film-strip frame (1.11.1) -----------------------------------------
+//
+// A dialogue card is its own component — a lit panel rather than a torn-edged
+// card — so its selection wiring is hand-rolled beside the annotation card's, and
+// hand-rolled twice is how two cards come to behave differently on the same
+// gesture. Asserted separately for that reason.
+
+describe('a dialogue frame', () => {
+  const LINES = [
+    { id: 11, quote: "here's looking at you, kid", color: 'yellow', tags: [] },
+    { id: 12, quote: 'round up the usual suspects', color: 'blue', tags: [] },
+  ]
+
+  function Strip() {
+    const selection = useSelection(LINES.map((d) => d.id))
+    return (
+      <div>
+        <span data-testid="count">{selection.count}</span>
+        {LINES.map((d) => (
+          <Frame
+            key={d.id}
+            d={d}
+            tagMap={{}}
+            editing={false}
+            onEdit={() => {}}
+            onCancelEdit={() => {}}
+            onSave={() => {}}
+            onPatch={() => {}}
+            onDelete={() => {}}
+            onCopy={() => {}}
+            onShare={() => {}}
+            selection={selection}
+            actionsAlwaysVisible
+          />
+        ))}
+      </div>
+    )
+  }
+
+  const frames = () => [...document.querySelectorAll('.film-frame')]
+
+  it('wears the same tick as every other card', () => {
+    render(<Strip />)
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+    expect(screen.getAllByRole('checkbox')[0].getAttribute('aria-label')).toBe('Select this line')
+  })
+
+  it('selects on a long press over the whitespace, and rings the frame', async () => {
+    vi.useFakeTimers()
+    render(<Strip />)
+    fireEvent.pointerDown(frames()[0], { pointerType: 'touch', clientX: 20, clientY: 20 })
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(Number(screen.getByTestId('count').textContent)).toBe(1)
+    expect(frames()[0].className).toContain('is-picked')
+    vi.useRealTimers()
+  })
+
+  it('leaves the line itself to the browser', async () => {
+    vi.useFakeTimers()
+    render(<Strip />)
+    fireEvent.pointerDown(screen.getByText('round up the usual suspects'), {
+      pointerType: 'touch',
+      clientX: 20,
+      clientY: 20,
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(Number(screen.getByTestId('count').textContent)).toBe(0)
+    vi.useRealTimers()
+  })
+
+  it('offers Select first in its menu, like the annotation card', () => {
+    render(<Strip />)
+    fireEvent.contextMenu(frames()[0], { clientX: 10, clientY: 10 })
+    const labels = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
+    expect(labels[0]).toBe('Select')
   })
 })

@@ -1341,6 +1341,15 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
   // top. sortedRows already returns a server-order copy of items for non-table
   // views, so this is the single source of truth for all three.
   const displayRows = useMemo(() => pinToTop(sortedRows, pinned), [sortedRows, pinned])
+  // Over the visible order, so changing a filter drops the ids that left the board.
+  // The table view has no tickmarks — a row is already a row of controls — so the
+  // selection is offered on the two CARD views, which is where a long press means
+  // anything.
+  const selection = useSelection(displayRows.map((a) => a.id))
+  const afterBulk = () => {
+    selection.clear()
+    load()
+  }
   // Tiles are a height-packed masonry (1/2/3 cols by width). Newly-added quotes
   // (the pinned prefix of displayRows) stay glued to the top of the board.
   const tileCols = useColumnsAt(BOARD_COLUMNS)
@@ -1546,6 +1555,14 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
           {filtering ? 'no annotations match the filters' : 'no annotations yet — the ＋ in the bar above captures your first'}
         </EmptyState>
       )}
+      {selection.count > 0 && (
+        <SelectionBar
+          selection={selection}
+          rows={displayRows}
+          onDone={afterBulk}
+          tagSuggestions={Object.keys(tagMap)}
+        />
+      )}
       {items && items.length > 0 && view === 'table' && (
         <AnnotationTable
           rows={displayRows}
@@ -1582,6 +1599,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
               onShare={setShareTarget}
               quoteLines={5}
               tagSuggestions={Object.keys(tagMap)}
+              selection={selection}
             />
           ))}
         </div>
@@ -1616,6 +1634,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
               tagSuggestions={Object.keys(tagMap)}
               expanded={expandedId === a.id}
               onToggleExpand={() => toggleExpanded(a.id)}
+              selection={selection}
             />
           ))}
         </Masonry>
