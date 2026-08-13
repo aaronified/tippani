@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -447,8 +447,13 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
       {initial?.image_path && !clearImage && (
         <div className="flex items-center gap-3">
           <img src={personImgURL(initial.image_path)} alt="" className="w-16 rounded object-cover" style={{ aspectRatio: '3 / 4' }} />
-          <button type="button" className="tp-link tp-link-danger" onClick={() => setClearImage(true)}>
-            remove photo
+          <button
+            type="button"
+            className="tp-link tp-link-danger tp-link-icon"
+            onClick={() => setClearImage(true)}
+          >
+            <IconDelete />
+            <span>remove photo</span>
           </button>
         </div>
       )}
@@ -471,11 +476,15 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
               image URL). */}
           <button
             type="button"
-            className="tp-link"
+            className="tp-link tp-link-icon"
             style={{ fontSize: 11 }}
             onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + ' ' + kind)}`, '_blank', 'noopener')}
           >
-            search images ↗
+            {/* The magnifier, not IconOpen: the ACTION is a search, and the ↗ this
+                replaces was carrying "opens a tab" — which every other outbound
+                chip in this modal states with no arrow at all. */}
+            <IconSearch />
+            <span>search images</span>
           </button>
         </div>
         <input
@@ -502,7 +511,15 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
             onChange={(e) => setRenameTo(e.target.value)}
             placeholder={name}
           />
-          <GhostButton type="button" disabled={renaming || !renameTo.trim() || renameTo.trim() === name} onClick={rename}>
+          {/* keepLabel: renaming a name across the whole library is not a thing
+              anybody should have to have learned a glyph for. */}
+          <GhostButton
+            type="button"
+            icon={<IconMerge />}
+            keepLabel
+            disabled={renaming || !renameTo.trim() || renameTo.trim() === name}
+            onClick={rename}
+          >
             {renaming ? 'Renaming…' : 'Rename everywhere'}
           </GhostButton>
         </div>
@@ -703,7 +720,9 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
               <>
                 <p className="microcopy">nothing saved yet</p>
                 <div className="flex justify-end">
-                  <button className={PRIMARY} onClick={() => setEditing(true)}>Add details</button>
+                  <button className={PRIMARY + ' inline-flex items-center gap-1.5'} onClick={() => setEditing(true)}>
+                    <IconPlus /> Add details
+                  </button>
                 </div>
               </>
             )}
@@ -711,8 +730,9 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
                 lookup failed or found a namesake. */}
             {fetching && <p className="microcopy">looking up reference pages…</p>}
             {!fetching && fetchNote && <p className="microcopy">{fetchNote}</p>}
-            <button className="tp-link" disabled={fetching} onClick={() => fetchLinks(person)}>
-              refetch links
+            <button className="tp-link tp-link-icon" disabled={fetching} onClick={() => fetchLinks(person)}>
+              <IconRefresh />
+              <span>refetch links</span>
             </button>
           </div>
         )}

@@ -2623,6 +2623,31 @@
   .tp-link:hover { color: var(--ink); }
   .tp-link-danger { color: var(--error); }
   .tp-link-danger:hover { color: var(--error); }
+  /* A TEXT LINK THAT CARRIES A GLYPH.
+     Two problems, and the second is the reason this is a class rather than a
+     `.tp-link svg` rule on its own:
+
+     1. SIZE. The icon set is drawn at 24px and a link is 12.5px type. Some
+        glyphs take a `size` prop and some never did, so the sizing lives here
+        where a call site cannot forget it — in `em`, because the links that
+        carry one are not all one size (the Photo URL search sets 11px) and the
+        glyph should ride the type rather than a fixed pixel.
+     2. THE UNDERLINE. `.tp-link` underlines the whole control, and text
+        decoration cannot be cancelled by a descendant — a rule drawn under the
+        glyph as well reads as a strikethrough across the button. So the
+        container drops the underline and the WORDS carry it, which is why this
+        pattern wraps its label in a span. */
+  .tp-link-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .tp-link-icon svg { width: 1.15em; height: 1.15em; flex: none; }
+  .tp-link-icon > span {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 
   /* Progressive disclosure on quote cards (§7 declutter). The copy/share pair is
      invisible + non-interactive at rest so a resting card shows only its

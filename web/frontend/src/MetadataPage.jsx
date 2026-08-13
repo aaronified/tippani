@@ -1211,7 +1211,9 @@ function DupCard({ group, kind, rowsByName, onMerged }) {
         ))}
       </div>
       <div className="mt-2 flex items-center gap-3">
-        <GhostButton type="button" disabled={busy} onClick={merge}>
+        {/* Same glyph and the same keepLabel as the book merge above: one act,
+            two consoles, and it rewrites names across the library either way. */}
+        <GhostButton type="button" icon={<IconMerge />} keepLabel disabled={busy} onClick={merge}>
           {busy ? 'Merging…' : `Merge into “${keep}”`}
         </GhostButton>
         <ErrorText>{err}</ErrorText>
@@ -1339,11 +1341,17 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
             </button>
           ))}
           {!compact && <input className="tp-input w-auto" placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} />}
-          <GhostButton disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
+          {/* IconMetadata, the same arrow-landing-in-a-record the covers console
+              uses: this fills fields on rows that already exist, which is what
+              that drawing says and what tells it apart from IconExport. */}
+          <GhostButton icon={<IconMetadata />} disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
             Fetch missing{missing.length > 0 ? ` (${missing.length})` : ''}
           </GhostButton>
           {!compact && onReverify && (
+            /* IconRefresh, matching the re-verify button on the works bulk bar
+               above — the same act against a different kind of row. */
             <GhostButton
+              icon={<IconRefresh />}
               disabled={!!bulk || !(rows || []).some((p) => p.saved)}
               title="Re-check every saved person's identity, links and portrait against the live sources — review before anything is applied"
               onClick={() => onReverify((rows || []).filter((p) => p.saved).map((p) => ({ kind, name: p.name })))}
@@ -1415,8 +1423,19 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
                       </td>
                       <td><ProviderChips links={p.links} /></td>
                       <td className="col-actions">
-                        <button className="tp-link" disabled={busyName === p.name || !!bulk} onClick={() => fetchRow(p)}>
-                          {busyName === p.name ? 'fetching…' : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image) ? 'refetch' : 'fetch'}
+                        {/* ONE glyph for both words. `fetch` and `refetch` are the
+                            same act — go and get this person's photo and links —
+                            and the label flips only because the row already has
+                            some. Two drawings for that would say the acts differ. */}
+                        <button
+                          className="tp-link tp-link-icon"
+                          disabled={busyName === p.name || !!bulk}
+                          onClick={() => fetchRow(p)}
+                        >
+                          <IconRefresh />
+                          <span>
+                            {busyName === p.name ? 'fetching…' : (Object.keys(parseLinks(p.links).known).length > 0 || p.has_image) ? 'refetch' : 'fetch'}
+                          </span>
                         </button>
                       </td>
                     </tr>
