@@ -1199,14 +1199,21 @@
     filter: drop-shadow(0 2px 3px rgba(20, 16, 12, .32));
   }
 
-  /* The selection checkbox in a card's corner, and the card that is picked.
-     Hover-revealed on a pointer, like the colour dots and the copy/share pair, and
-     STANDING once anything is selected — a checkbox you can only find by hovering is
-     no way to see what is currently picked. On a phone it stands always, because
-     there is no hover to reveal it with.
+  /* The TICKMARK in a card's corner, and the card that is picked.
 
-     Absolutely positioned so it costs the card no layout: a checkbox in the flow
-     would re-wrap the quote on every board the moment selection mode existed. */
+     WHEN IT SHOWS. Hover-revealed on a pointer, like the colour dots and the
+     copy/share pair — and standing on EVERY card of a board that has a selection
+     running (.is-selecting), because a mark you can only find by hovering is no way
+     to see what is currently picked, and because the cards you have NOT picked are
+     half of that answer.
+
+     It no longer stands on a phone at rest, which it used to. There was nothing to
+     select with then; there is now — a long press on the card — and a hollow circle
+     on every book cover in the Library, permanently, for a mode nobody had entered
+     is a lot of furniture for an affordance the gesture already provides.
+
+     Absolutely positioned so it costs the card no layout: a mark in the flow would
+     re-wrap the quote on every board the moment selection mode existed. */
   .card-pick {
     position: absolute;
     top: 6px;
@@ -1214,21 +1221,78 @@
     z-index: 2;
     display: inline-flex;
     padding: 4px;
+    cursor: pointer;
     opacity: 0;
     transition: opacity .18s ease;
+  }
+  /* Visually hidden, NOT display:none — it is still the control. Clipped to a
+     pixel rather than moved off-screen, so focusing it by keyboard cannot scroll
+     the board sideways. */
+  .card-pick input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .card-pick-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 1.5px solid color-mix(in srgb, var(--ink) 34%, transparent);
+    /* Opaque, because it sits over a cover: a translucent circle on a dark poster
+       is a smudge, and on a pale one it is invisible. */
+    background: var(--card);
+    color: transparent; /* the tick is drawn in currentColor — hidden until picked */
+    box-shadow: 0 1px 3px rgba(41, 38, 29, .28);
+    transition: background .14s ease, border-color .14s ease, color .14s ease;
+  }
+  .card-pick-mark svg { width: 15px; height: 15px; }
+  .card-pick input:checked + .card-pick-mark {
+    background: var(--accent-ui);
+    border-color: var(--accent-ui);
+    color: var(--on-accent);
+  }
+  /* Keyboard only. A tap focuses too, and a ring under a thumb is noise. */
+  .card-pick input:focus-visible + .card-pick-mark {
+    outline: 2px solid var(--accent-ui);
+    outline-offset: 2px;
   }
   .hand-card:hover .card-pick,
   .hand-card:focus-within .card-pick,
   .film-frame:hover .card-pick,
   .film-frame:focus-within .card-pick,
+  .cover-tile:hover .card-pick,
+  .cover-tile:focus-within .card-pick,
+  .is-selecting .card-pick,
   .is-picked .card-pick { opacity: 1; }
-  @media (prefers-reduced-motion: reduce) { .card-pick { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .card-pick,
+    .card-pick-mark { transition: none; }
+  }
   /* The picked card. An accent RING rather than a fill: a quote card already carries
      a colour bar that means something else entirely, and tinting the paper would
-     fight it — and on the film aesthetic it would fight the frame. */
+     fight it — and on the film aesthetic it would fight the frame. The ring is what
+     you see from across the board; the tick is what you read up close. */
   .is-picked {
     position: relative;
     box-shadow: 0 0 0 2px var(--accent-ui), 0 10px 24px -18px rgba(0, 0, 0, .5);
+  }
+
+  /* The quote itself, and the note under it — the region a long press must NOT
+     take, because reaching into text is the one thing a thumb has no other way to
+     do. `.card-menu-host` below turns the platform callout off for the card; this
+     hands it back exactly here, together with the selection the card's own
+     material otherwise suppresses. See useCardMenu. */
+  .card-menu-host .card-text {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   /* The line above the sign-in box. Display italic and --faint: it is an epigraph,
@@ -3663,8 +3727,10 @@ html[data-theme="dark"] .mobile-sheet-footer {
      wider cards, where the six DO show and 6×28 has room. */
   .hand-card .color-dot-btn,
   .film-frame .color-dot-btn { min-width: 28px; }
-  /* No hover to reveal it with. */
-  .card-pick { opacity: 1; }
+  /* No hover to reveal it with — but no permanent circle on every card either.
+     The long press is the way in on a phone, and once one card is picked the board
+     wears .is-selecting and every mark stands (see .card-pick). */
+  .card-pick { padding: 7px; }
 
   /* Under the phone's own top bar rather than at the very top of the viewport,
      which is where .mobile-topbar already is. */

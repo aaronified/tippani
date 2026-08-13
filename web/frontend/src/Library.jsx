@@ -60,6 +60,7 @@ import {
   MoreMenu,
   mulberry32,
   PageHeader,
+  PickMark,
   QuoteActions,
   QuoteTools,
   ReviewDot,
@@ -1045,7 +1046,13 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
       onClick: () => selection.toggle(a.id, selectKind),
     })
   }
-  const { cardProps, menuClass, menu } = useCardMenu(menuItems)
+  // A long press on the card's WHITESPACE selects it; a long press on the quote
+  // itself is left to the browser, so a thumb can still pull a phrase out of it.
+  // Where there is no selection to enter, the press keeps opening the menu.
+  const { cardProps, menuClass, menu } = useCardMenu(
+    menuItems,
+    selection ? { onLongPress: () => selection.toggle(a.id, selectKind) } : undefined,
+  )
   const picked = !!selection?.isSelected(a.id)
   // Once a selection exists a plain click TOGGLES rather than opens, on every
   // device. The mode is visible — the bar is up and the cards wear checkboxes — so
@@ -1076,26 +1083,26 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     <HandCard
       variant={variant}
       colorBar={color}
-      className={`px-5 py-4 ${menuClass}${picked ? ' is-picked' : ''}`}
+      className={`px-5 py-4 ${menuClass}${picked ? ' is-picked' : ''}${selection?.active ? ' is-selecting' : ''}`}
       {...cardProps}
       onClickCapture={(e) => {
-        cardProps.onClickCapture?.(e)
+        // The press already acted. Running the click handler too would toggle a
+        // second time and undo the long press — see useCardMenu.
+        if (cardProps.onClickCapture?.(e)) return
         onCardClick?.(e)
       }}
     >
       {selection && (
-        /* The checkbox is a real input, in the card's corner, revealed on hover on a
-           desktop and standing on a phone (.card-pick). Ctrl/Cmd-click anywhere on
-           the card does the same thing — one affordance you find by accident, one you
-           already know from every file manager. */
-        <label className="card-pick" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={picked}
-            aria-label={picked ? 'Deselect this quote' : 'Select this quote'}
-            onChange={() => selection.toggle(a.id, selectKind)}
-          />
-        </label>
+        /* The tickmark: a real checkbox under a drawn tick, in the card's corner,
+           revealed on hover on a desktop and standing on every card once a selection
+           is running. Long-press, Ctrl/Cmd-click and this are three doors into the
+           same mode — one you already know from a phone, one from a file manager,
+           one you find by looking. */
+        <PickMark
+          picked={picked}
+          label="this quote"
+          onChange={() => selection.toggle(a.id, selectKind)}
+        />
       )}
       {!editInline && (
         <FormModal open={editing} onClose={() => setEditingId(null)} title="Edit quote">

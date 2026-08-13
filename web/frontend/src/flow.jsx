@@ -237,7 +237,9 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   return (
     <div
       ref={ref}
-      className={`flow ${canToggle ? 'clampable is-clickable' : ''} ${className}`.trim()}
+      // card-text: a stickered quote is still a quote, and a long press over it
+      // belongs to the browser's text selection. See ExpandableText in ui.jsx.
+      className={`flow card-text ${canToggle ? 'clampable is-clickable' : ''} ${className}`.trim()}
       style={{ position: 'relative', ...quoteStyle }}
       role={canToggle ? 'button' : undefined}
       tabIndex={canToggle ? 0 : undefined}

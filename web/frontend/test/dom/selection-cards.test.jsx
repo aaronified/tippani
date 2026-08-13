@@ -11,7 +11,7 @@
 // "what can I do to this" is also how you begin doing it to several.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnnotationCard } from '../../src/Library.jsx'
 import { useSelection } from '../../src/selection.jsx'
 
@@ -121,6 +121,74 @@ describe('picking cards', () => {
     fireEvent.click(boxes()[0])
     fireEvent.click(cards()[2], { shiftKey: true })
     expect(count()).toBe(3)
+  })
+})
+
+describe('the tickmark', () => {
+  it('is a drawn tick over a real checkbox, not a bare box', () => {
+    // The control stays a checkbox — role, checked state, label, tab order — and
+    // the tick is what you see. A div with an onClick would look identical and
+    // announce nothing.
+    render(<Board />)
+    const mark = document.querySelectorAll('.card-pick-mark')
+    expect(mark).toHaveLength(3)
+    expect(mark[0].querySelector('svg'), 'the tick is a glyph').toBeTruthy()
+    expect(boxes()[0].type).toBe('checkbox')
+  })
+
+  it('stands on every card of a board that has a selection running', () => {
+    // Not only on the picked ones. The cards you have NOT picked are half the
+    // answer to "what am I about to act on", and on a phone there is no hover to
+    // reveal them with.
+    render(<Board />)
+    expect(cards()[2].className).not.toContain('is-selecting')
+    fireEvent.click(boxes()[0])
+    for (const c of cards()) expect(c.className).toContain('is-selecting')
+  })
+})
+
+describe('a long press', () => {
+  const press = (el) => fireEvent.pointerDown(el, { pointerType: 'touch', clientX: 40, clientY: 40 })
+  const hold = async (ms = 500) => {
+    await act(async () => {
+      vi.advanceTimersByTime(ms)
+    })
+  }
+
+  it('selects the card when it lands anywhere but the quote', async () => {
+    // The phone's way in. Every photo grid and file manager on both platforms
+    // enters multiselect exactly this way; the plan's toolbar toggle was a thing
+    // you had to be told about.
+    vi.useFakeTimers()
+    render(<Board />)
+    press(cards()[1])
+    await hold()
+    expect(count()).toBe(1)
+    expect(cards()[1].className).toContain('is-picked')
+    vi.useRealTimers()
+  })
+
+  it('leaves the quote itself to the browser, so a thumb can still copy a phrase', async () => {
+    // THE REASON THE PRESS SPLITS AT ALL. A note-keeping app where you cannot
+    // select half a sentence with a finger has spent the gesture badly.
+    vi.useFakeTimers()
+    render(<Board />)
+    press(screen.getByText('the second line'))
+    await hold()
+    expect(count()).toBe(0)
+    vi.useRealTimers()
+  })
+
+  it('does not then undo itself on the click that trails it', async () => {
+    vi.useFakeTimers()
+    render(<Board />)
+    press(cards()[0])
+    await hold()
+    fireEvent.pointerUp(cards()[0])
+    fireEvent.click(cards()[0])
+    expect(count()).toBe(1)
+    expect(opened, 'and it must not open the quote either').toEqual([])
+    vi.useRealTimers()
   })
 })
 

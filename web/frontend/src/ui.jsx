@@ -826,7 +826,9 @@ export function HighlightSpan({ children }) {
 // HandNote — Caveat + accent tick on paper; Newsreader italic on film (§3/§6).
 export function HandNote({ className = "", children }) {
   return (
-    <p className={"hand-note " + className}>
+    // card-text: the margin note is prose too, and a long press over it selects
+    // words rather than the card. See ExpandableText.
+    <p className={"hand-note card-text " + className}>
       <span className="tick" aria-hidden="true">
         ▍
       </span>
@@ -1233,7 +1235,12 @@ export function ExpandableText({ text, lines = 5, style, className = "", open: o
       };
   return (
     <div
-      className={`clampable${canToggle ? " is-clickable" : ""} ${className}`.trim()}
+      // `card-text` is the region a card's long-press hands to the browser, so a
+      // thumb can select words out of a quote (useCardMenu). It belongs on this
+      // component rather than on each card that renders one: this IS the quote,
+      // everywhere it appears, and a card that forgot the class would be a quote
+      // nobody could copy from with no visible sign of it.
+      className={`clampable card-text${canToggle ? " is-clickable" : ""} ${className}`.trim()}
       aria-expanded={canToggle ? open : undefined}
       {...clampProps(canToggle, toggle)}
     >
@@ -4423,15 +4430,50 @@ export function MoreMenu({ items }) {
 //   - The card must not also fire its click. Tooltip already solves that with a
 //     suppress-then-eat-the-click ref, so this copies the mechanism rather than
 //     re-deriving it.
+//
+// ---- WHAT A LONG PRESS MEANS, REVISED (1.11.1) ------------------------------
+//
+// The plan this came from said "long-press always means menu, with no exceptions",
+// and put touch's way into a selection in a toolbar toggle instead. That was
+// wrong twice over, and both are things you only find with a thumb:
+//
+//   1. THE THUMB HAD NO WAY TO SELECT TEXT. `-webkit-touch-callout: none` plus a
+//      menu on the press means holding a finger on a quote in a note-keeping app
+//      could not copy half a sentence out of it. The one gesture every phone has
+//      for reaching into text was spent on a menu that already had a ⋯ button.
+//   2. LONG-PRESS-TO-SELECT IS WHAT PHONES ACTUALLY DO. Every photo grid, file
+//      manager and mail app on both platforms enters multiselect that way. A
+//      toolbar toggle is a thing you have to be told about.
+//
+// So the press now splits by WHERE it lands, and the card says which is which:
+//
+//   on .card-text     nothing at all — the browser's own selection handles take
+//                     over, which is the whole point. Hands off, no preventDefault,
+//                     and the stylesheet gives the region its callout back.
+//   on a control      Tooltip's label, exactly as before.
+//   anywhere else     `onLongPress`, i.e. select this card. The whitespace, the
+//                     meta line, the padding, the gaps in the bottom bar.
+//
+// A surface with no selection to enter (Home's favourites, the search modal)
+// passes no `onLongPress` and keeps the menu on the press, because there the menu
+// is the only thing a press could usefully do.
 const MENU_IGNORE_SELECTOR = ".tp-tip-wrap, button, a, input, textarea, select, label";
+// The quote itself, and the note under it. Marked by the cards rather than
+// inferred, because "is this a text node" is not a question a pointer event can
+// answer — and getting it wrong in the permissive direction means a card you
+// cannot select, while getting it wrong the other way means a quote you cannot
+// copy out of.
+const CARD_TEXT_SELECTOR = ".card-text";
 
-export function useCardMenu(items = []) {
+export function useCardMenu(items = [], { onLongPress } = {}) {
   const [at, setAt] = useState(null); // the point the menu is open at, or null
   const cardRef = useRef(null);
   const timer = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false); // a press fired: eat the click that trails it
-  const enabled = items.length > 0;
+  const hasMenu = items.length > 0;
+  const selectsOnPress = typeof onLongPress === "function";
+  const enabled = hasMenu || selectsOnPress;
 
   const clear = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -4443,6 +4485,9 @@ export function useCardMenu(items = []) {
   // A right-click or a press inside one of the card's own controls belongs to that
   // control, not to the card.
   const onControl = (target) => !!target?.closest?.(MENU_IGNORE_SELECTOR);
+  // A press inside the quote belongs to the BROWSER: it is how a phone reaches
+  // into text at all.
+  const onText = (target) => !!target?.closest?.(CARD_TEXT_SELECTOR);
 
   // Somebody who has dragged across a quote and right-clicked wants Copy — and
   // Look Up, and Translate, and Search With, none of which this menu offers. Taking
@@ -4456,7 +4501,7 @@ export function useCardMenu(items = []) {
   };
 
   const onContextMenu = (e) => {
-    if (!enabled || onControl(e.target)) return;
+    if (!hasMenu || onControl(e.target)) return;
     if (hasSelectionInside(cardRef.current)) return; // the browser's menu wins
     e.preventDefault();
     setAt({ x: e.clientX, y: e.clientY });
@@ -4464,14 +4509,18 @@ export function useCardMenu(items = []) {
 
   const onPointerDown = (e) => {
     if (!enabled || e.pointerType !== "touch" || onControl(e.target)) return;
+    // The quote is the browser's. Not even a timer is started: an armed press
+    // that is cancelled later still has to decide when, and the finger is already
+    // dragging a selection handle by then.
+    if (selectsOnPress && onText(e.target)) return;
     fired.current = false;
-    origin.current = { x: e.clientX, y: e.clientY };
     clear();
     origin.current = { x: e.clientX, y: e.clientY };
     const { clientX: x, clientY: y } = e;
     timer.current = setTimeout(() => {
       fired.current = true;
-      setAt({ x, y });
+      if (selectsOnPress) onLongPress({ x, y });
+      else setAt({ x, y });
     }, LONG_PRESS_MS);
   };
 
@@ -4490,7 +4539,7 @@ export function useCardMenu(items = []) {
   // there — hence a rect, not a point, which is what ActionMenu's element anchoring
   // is already for.
   const onKeyDown = (e) => {
-    if (!enabled) return;
+    if (!hasMenu) return;
     const wants = e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
     if (!wants) return;
     e.preventDefault();
@@ -4498,11 +4547,17 @@ export function useCardMenu(items = []) {
     setAt(r ? { x: r.left + 12, y: r.top + 12 } : { x: 0, y: 0 });
   };
 
+  // RETURNS WHETHER IT ATE THE CLICK, and callers must honour that. A card that
+  // composes its own onClickCapture on top of this one (every board that also
+  // selects on click) would otherwise run its handler after the press already
+  // acted — long-pressing to select would select, then the trailing click would
+  // deselect, and the gesture would appear to do nothing at all.
   const onClickCapture = (e) => {
-    if (!fired.current) return;
+    if (!fired.current) return false;
     fired.current = false;
     e.preventDefault();
     e.stopPropagation();
+    return true;
   };
 
   // `cardProps` carries NO className, and `menuClass` is returned separately, so a
@@ -4523,11 +4578,45 @@ export function useCardMenu(items = []) {
       }
     : { ref: cardRef };
 
-  const menu = (
+  const menu = hasMenu ? (
     <ActionMenu open={!!at} at={at} items={items} onClose={close} returnFocusTo={cardRef} />
-  );
+  ) : null;
 
   return { cardProps, menuClass: enabled ? "card-menu-host" : "", menu, open: !!at, close };
+}
+
+// PickMark — the tick in a card's corner that says whether the card is selected.
+//
+// ONE DRAWING FOR EVERY BOARD. A quote card, a book cover and a film poster are
+// three very different rectangles, and a selection that looked like a checkbox on
+// one and a ring on another would be three affordances for one idea.
+//
+// It is a REAL CHECKBOX under the tick — visually hidden, not display:none, so it
+// keeps its role, its checked state, its label and its place in the tab order. The
+// span beside it is the thing you see. A div with an onClick would have looked
+// identical and told a screen reader nothing.
+//
+// `label` completes "Select …" / "Deselect …", so the announcement names what is
+// being picked rather than saying "checkbox" forty times down a board.
+export function PickMark({ picked, onChange, label = "this" }) {
+  return (
+    <label
+      className="card-pick"
+      // The card underneath selects on click too. Without this, ticking the box
+      // toggles once for the input and once for the card, i.e. never.
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        checked={picked}
+        aria-label={`${picked ? "Deselect" : "Select"} ${label}`}
+        onChange={onChange}
+      />
+      <span className="card-pick-mark" aria-hidden="true">
+        <IconCheck />
+      </span>
+    </label>
+  );
 }
 
 // TableActions — the actions cell at the end of a table row.

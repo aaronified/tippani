@@ -210,3 +210,131 @@ describe('a card with no actions', () => {
     expect(menu()).toBeNull()
   })
 })
+
+// ---- where the press lands (1.11.1) ----------------------------------------
+//
+// The plan this feature came from said "long-press always means menu, with no
+// exceptions". That cost the thumb the only gesture a phone has for reaching into
+// text: with the callout suppressed and a menu on the hold, you could not select
+// half a sentence out of a quote in a note-keeping app. And it spent the gesture
+// every photo grid and file manager uses for multiselect on a menu that already
+// had a ⋯ button two inches away.
+//
+// So the press now splits by where it lands, and these are the three landings.
+
+// A card on a board that can select: the quote is marked .card-text, and the rest
+// of the card is not.
+function SelectableCard({ onLongPress = vi.fn(), items = ITEMS(), onOpen = () => {} }) {
+  const { cardProps, menuClass, menu } = useCardMenu(items, { onLongPress })
+  return (
+    <>
+      <div
+        {...cardProps}
+        className={menuClass}
+        data-testid="card"
+        onClickCapture={(e) => {
+          if (cardProps.onClickCapture?.(e)) return
+          onOpen(e)
+        }}
+      >
+        <p className="card-text">The margins are where the reader answers back.</p>
+        <p data-testid="meta">CH. 4 · P.112</p>
+        <Tooltip label="Share this quote">
+          <button type="button" aria-label="Share">
+            s
+          </button>
+        </Tooltip>
+      </div>
+      {menu}
+    </>
+  )
+}
+
+describe('a long press on a board that can select', () => {
+  it('selects the card when it lands on whitespace', async () => {
+    vi.useFakeTimers()
+    const onLongPress = vi.fn()
+    render(<SelectableCard onLongPress={onLongPress} />)
+    press(screen.getByTestId('meta'))
+    await wait()
+    expect(onLongPress).toHaveBeenCalled()
+    // And NOT the menu — two things happening on one gesture is the failure this
+    // whole split exists to avoid.
+    expect(menu()).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('leaves the quote itself to the browser', async () => {
+    // THE ONE THE FEATURE IS FOR. A hold over the words must raise the platform's
+    // own selection handles, which means this hook does nothing at all: no
+    // preventDefault, no selection, no menu.
+    vi.useFakeTimers()
+    const onLongPress = vi.fn()
+    render(<SelectableCard onLongPress={onLongPress} />)
+    press(screen.getByText(/The margins are where/))
+    await wait()
+    expect(onLongPress).not.toHaveBeenCalled()
+    expect(menu()).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('still leaves the card’s own buttons to their tooltips', async () => {
+    vi.useFakeTimers()
+    const onLongPress = vi.fn()
+    render(<SelectableCard onLongPress={onLongPress} />)
+    press(screen.getByRole('button', { name: 'Share' }))
+    await wait()
+    expect(onLongPress).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('is still cancelled by a drag', async () => {
+    vi.useFakeTimers()
+    const onLongPress = vi.fn()
+    render(<SelectableCard onLongPress={onLongPress} />)
+    press(screen.getByTestId('meta'), { x: 50, y: 50 })
+    fireEvent.pointerMove(card(), { clientX: 50, clientY: 90 })
+    await wait()
+    expect(onLongPress).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('eats the trailing click, so the press does not immediately undo itself', async () => {
+    // Without this the hold selects and the click that follows deselects, and the
+    // gesture reads as doing nothing whatsoever.
+    vi.useFakeTimers()
+    const onLongPress = vi.fn()
+    const onOpen = vi.fn()
+    render(<SelectableCard onLongPress={onLongPress} onOpen={onOpen} />)
+    press(screen.getByTestId('meta'))
+    await wait()
+    fireEvent.pointerUp(card())
+    fireEvent.click(card())
+    expect(onLongPress).toHaveBeenCalledTimes(1)
+    expect(onOpen).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('lets an ordinary tap through to the card', async () => {
+    vi.useFakeTimers()
+    const onOpen = vi.fn()
+    render(<SelectableCard onOpen={onOpen} />)
+    press(screen.getByTestId('meta'))
+    await wait(120)
+    fireEvent.pointerUp(card())
+    fireEvent.click(card())
+    expect(onOpen).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('keeps the menu on right-click and Shift+F10', async () => {
+    // The menu did not go away; it lost ONE of its three triggers, and the two it
+    // keeps are the two a pointer and a keyboard use.
+    render(<SelectableCard />)
+    fireEvent.contextMenu(screen.getByTestId('meta'), { clientX: 30, clientY: 30 })
+    expect(await screen.findByRole('menu')).toBeTruthy()
+    fireEvent.keyDown(card(), { key: 'Escape' })
+    fireEvent.keyDown(card(), { key: 'F10', shiftKey: true })
+    expect(await screen.findByRole('menu')).toBeTruthy()
+  })
+})
