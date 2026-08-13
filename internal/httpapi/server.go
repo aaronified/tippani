@@ -324,6 +324,18 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /annotations/bulk/delete", s.requireAuth(s.handleBulkDeleteAnnotations))
 	mux.Handle("POST /dialogues/bulk/delete", s.requireAuth(s.handleBulkDeleteDialogues))
 	mux.Handle("POST /quotes/bulk/delete", s.requireAuth(s.handleBulkDeleteQuotes))
+	// Deleting works is the heaviest of the five: a book carries its highlights,
+	// their tags, their review schedules, its genres and its read log, and all of
+	// it lands in one bin entry.
+	mux.Handle("POST /books/bulk/delete", s.requireAuth(s.handleBulkDeleteBooks))
+	mux.Handle("POST /movies/bulk/delete", s.requireAuth(s.handleBulkDeleteMovies))
+	// Shelf state over a selection ("I finished these four"). Status only, no
+	// position: "page 143" is not a fact about forty books.
+	mux.Handle("POST /books/bulk/status", s.requireAuth(s.handleBulkStatusBooks))
+	mux.Handle("POST /movies/bulk/status", s.requireAuth(s.handleBulkStatusMovies))
+	// Fill in what is MISSING from a selection's metadata, and touch nothing that
+	// is already there. The unattended half of re-verify — see metadata_fill.go.
+	mux.Handle("POST /metadata/fill", s.requireAuth(s.handleMetadataFill))
 
 	// The mux above owns every JSON + covers route. Mount it under /api so the
 	// root path space belongs to the client-side router (the SPA); a thin outer

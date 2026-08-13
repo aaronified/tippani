@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -93,6 +94,22 @@ var quoteBulkKinds = map[string]quoteBulkKind{
 	"annotation": {Table: "annotations", ParentCol: "book_id", ParentTable: "books"},
 	"dialogue":   {Table: "dialogues", ParentCol: "movie_id", ParentTable: "movies"},
 	"utterance":  {Table: "utterances"},
+}
+
+// binnableKinds is every kind bulk DELETE serves, keyed by the bin's own word for
+// it — the three quote kinds plus the two works. It is a second table rather than
+// an addition to the one above because the two answer different questions: that
+// one says how to TAG a quote kind (and a book has no colour and no tag of its
+// own), this one says how to establish ownership before binning a row.
+//
+// A work is owned directly, like a standalone quote, so both come out as a bare
+// table name. The bin already knows how to snapshot all five (see trashKinds).
+var binnableKinds = map[string]quoteBulkKind{
+	"annotation": {Table: "annotations", ParentCol: "book_id", ParentTable: "books"},
+	"dialogue":   {Table: "dialogues", ParentCol: "movie_id", ParentTable: "movies"},
+	"quote":      {Table: "utterances"},
+	"book":       {Table: "books"},
+	"movie":      {Table: "movies"},
 }
 
 // bulkTag applies a bulkTagReq to owned rows of `kind`
@@ -374,7 +391,7 @@ func (s *Server) handleBulkDelete(w http.ResponseWriter, r *http.Request, kind s
 	uid := userID(r)
 	olog.Tracef("[bulk] handleBulkDelete kind=%s uid=%v ids=%d", kind, uid, len(req.IDs))
 
-	spec, ok := quoteBulkKinds[kindKeyFor(kind)]
+	spec, ok := binnableKinds[kind]
 	if !ok {
 		internalError(w, r, "bulk delete", fmt.Errorf("unknown kind %q", kind))
 		return
@@ -441,4 +458,113 @@ func (s *Server) handleBulkDeleteDialogues(w http.ResponseWriter, r *http.Reques
 }
 func (s *Server) handleBulkDeleteQuotes(w http.ResponseWriter, r *http.Request) {
 	s.handleBulkDelete(w, r, "quote")
+}
+
+// A work carries its quotes with it, which makes this the heaviest delete in the
+// app: five selected books can be four hundred highlights, their tags, their
+// review schedules, their genres and their read logs. All of it goes into ONE bin
+// entry and comes back together — the same collect-then-delete a single work
+// delete already used, so there is no second path that could put a book back
+// without its quotes.
+func (s *Server) handleBulkDeleteBooks(w http.ResponseWriter, r *http.Request) {
+	s.handleBulkDelete(w, r, "book")
+}
+func (s *Server) handleBulkDeleteMovies(w http.ResponseWriter, r *http.Request) {
+	s.handleBulkDelete(w, r, "movie")
+}
+
+// ---- bulk shelf state -------------------------------------------------------
+//
+// "I finished these four" and "I've abandoned this shelf" are the two things a
+// selection of works is most often FOR, and until now each was one dialog per
+// title. It routes every item through applyStatusChange — the same function the
+// single PUT uses — so the read log cannot drift from the status: a move into
+// reading/watching opens a read, a move into completed/abandoned closes it, and
+// nothing here knows any of that.
+//
+// NO POSITION, deliberately. The single endpoint takes a page or an episode
+// because it is about one work; "page 143" across forty books is not a fact about
+// anything. Progress therefore comes only from the status itself.
+//
+// A COMPLETED WORK IS SKIPPED RATHER THAN REFUSED. The lifecycle's one rule is
+// that completed is settled and can only be started again, and a selection of
+// forty holding one finished book must not refuse the other thirty-nine — that
+// would be a bulk action whose success depends on a property of its least
+// convenient member. The response says how many were passed over so the toast can.
+func (s *Server) bulkSetStatus(w http.ResponseWriter, r *http.Request, kind string) {
+	var req struct {
+		IDs    []int64 `json:"ids"`
+		Status string  `json:"status"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if len(req.IDs) == 0 {
+		writeErr(w, http.StatusBadRequest, "nothing selected")
+		return
+	}
+	if len(req.IDs) > 2000 {
+		writeErr(w, http.StatusBadRequest, "too many titles (max 2000)")
+		return
+	}
+	if msg := normalizeStatus(kind, &req.Status); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[bulk] bulkSetStatus kind=%s uid=%v ids=%d status=%q", kind, uid, len(req.IDs), req.Status)
+
+	table := "books"
+	if kind == "movie" {
+		table = "movies"
+	}
+	owned, err := s.ownedRowIDs(table, uid, req.IDs)
+	if err != nil {
+		internalError(w, r, "bulk status: ownership", err)
+		return
+	}
+	if len(owned) == 0 {
+		writeErr(w, http.StatusNotFound, "no matching titles")
+		return
+	}
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "bulk status: begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	updated, skipped := 0, 0
+	for _, id := range owned {
+		var from string
+		if err := tx.QueryRow(`SELECT status FROM `+table+` WHERE id = ? AND user_id = ?`, id, uid).Scan(&from); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue // raced away between the ownership filter and here
+			}
+			internalError(w, r, "bulk status: load", err)
+			return
+		}
+		if !statusTransitionAllowed(kind, from, req.Status) {
+			skipped++
+			continue
+		}
+		if err := applyStatusChange(tx, kind, uid, id, from, statusChange{Status: req.Status}); err != nil {
+			internalError(w, r, "bulk status: apply", err)
+			return
+		}
+		updated++
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "bulk status: commit", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"updated": updated, "skipped": skipped})
+}
+
+func (s *Server) handleBulkStatusBooks(w http.ResponseWriter, r *http.Request) {
+	s.bulkSetStatus(w, r, "book")
+}
+func (s *Server) handleBulkStatusMovies(w http.ResponseWriter, r *http.Request) {
+	s.bulkSetStatus(w, r, "movie")
 }

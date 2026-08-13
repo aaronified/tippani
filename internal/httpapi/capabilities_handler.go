@@ -28,7 +28,12 @@ import (
 // 2 — the bin: every content delete answers with a `trash_id`, and /trash lists,
 //     reads, restores and empties. Plus the fifth bulk endpoint (/quotes/bulk) and
 //     colour on all three quote bulk bodies.
-const apiRevision = 2
+// 3 — what a selection can do. Quotes gained `sticker_id` and `review` on their
+//     bulk bodies; works gained `review`, bulk delete (one bin entry for the whole
+//     selection, quotes and all), bulk shelf state, and POST /metadata/fill, which
+//     writes only the fields that were empty. Every list response carries
+//     `review_excluded`.
+const apiRevision = 3
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -48,6 +53,18 @@ var apiFeatures = []string{
 	// all three accept `color`.
 	"bulk-quotes", // POST /quotes/bulk
 	"bulk-colour", // `color` on the annotation/dialogue/quote bulk bodies
+	// What a selection of works can do. Named separately from the quote bulk
+	// features because a client can perfectly well offer one board's selection and
+	// not the other's — the Library and the Quotes screen are different screens.
+	"bulk-works", // POST /books|movies/bulk/delete and /bulk/status
+	// Stop the quiz asking about something without deleting it: `review` on all five
+	// bulk bodies, and `review_excluded` on every list row.
+	"review-exclusion",
+	// Fetch only what is MISSING from a selection's metadata and touch nothing that
+	// is already there — the unattended half of re-verify.
+	"metadata-fill", // POST /metadata/fill
+	// A selection can be sealed or unsealed at once. 0 clears.
+	"bulk-sticker", // `sticker_id` on the three quote bulk bodies
 }
 
 // minClientRevision is the oldest client API revision this server still serves
