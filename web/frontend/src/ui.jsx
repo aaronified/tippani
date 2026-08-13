@@ -4509,6 +4509,28 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
     return !!(anchor && node?.contains?.(anchor));
   };
 
+  // A FIRED PRESS LEAVES NO HIGHLIGHT BEHIND IT.
+  //
+  // The 500ms hold means two things to two different systems, and both are right:
+  // to this hook it is the gesture, and to the browser it is the start of a text
+  // selection. So the card came up picked with a stray word highlighted under the
+  // menu — nothing was broken, and it looked broken.
+  //
+  // The stylesheet takes `user-select` away on a touch screen, which stops the
+  // highlight ever appearing on the hardware this happens on. This is the other
+  // half, for the hardware that rule cannot reach: a hybrid laptop answers
+  // `hover: hover` and keeps its selection, and any browser that latches a word
+  // BEFORE the timer fires has already drawn it by the time we are called. Both
+  // are cheap to fix from here, once, at the moment the press becomes a gesture.
+  //
+  // Only ever called after a press has fired, so it cannot eat a selection
+  // somebody made on purpose: a press that starts on `.card-text` never arms a
+  // timer at all, and a press that turns into a drag is cleared before this runs.
+  const dropSelection = () => {
+    const sel = typeof window !== "undefined" ? window.getSelection?.() : null;
+    if (sel && !sel.isCollapsed) sel.removeAllRanges?.();
+  };
+
   const onContextMenu = (e) => {
     if (!hasMenu || onControl(e.target)) return;
     if (hasSelectionInside(cardRef.current)) return; // the browser's menu wins
@@ -4528,6 +4550,7 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
     const { clientX: x, clientY: y } = e;
     timer.current = setTimeout(() => {
       fired.current = true;
+      dropSelection();
       if (selectsOnPress) onLongPress({ x, y });
       else setAt({ x, y });
     }, LONG_PRESS_MS);

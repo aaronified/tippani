@@ -1352,15 +1352,41 @@
   .selection-tags { flex: 1 1 160px; min-width: 140px; max-width: 320px; }
 
   /* A card that answers a right-click or a long press (useCardMenu).
-     ONE PROPERTY, deliberately: iOS raises its own callout menu (Copy / Look Up /
-     Share) on a long press over text, which would land on top of ours. Everything
-     else about the card — background, border, material, padding — belongs to the
-     card's own class, because this wrapper goes around cards that already have one.
+     iOS raises its own callout menu (Copy / Look Up / Share) on a long press over
+     text, which would land on top of ours. Everything else about the card —
+     background, border, material, padding — belongs to the card's own class,
+     because this wrapper goes around cards that already have one.
 
-     `user-select` is NOT touched. Selecting a quote to copy part of it by hand is a
-     thing people do in a note-keeping app, and the menu already stands aside when
-     there is a selection. */
+     `user-select` is untouched HERE, at every width, and is taken away on a touch
+     screen alone in the block below. Selecting a quote to copy part of it by hand
+     is a thing people do in a note-keeping app, and on a desktop a drag is the
+     only way to do it — there is no long press to confuse it with. */
   .card-menu-host { -webkit-touch-callout: none; }
+
+  /* A LONG PRESS MUST NOT ALSO HIGHLIGHT WORDS.
+     Hold a finger on a card's whitespace or its meta line and two things used to
+     happen at once: the gesture fired (select the card, or open the menu) and the
+     browser started its own text-selection sweep under it, so the card came up
+     picked with a stray word highlighted behind the menu. Both are correct
+     behaviours of the same 500ms hold, which is why neither side gives way on its
+     own.
+
+     Gated on the POINTER, not the width. A tablet at 900px has the gesture and a
+     narrow desktop window does not, so `max-width` is the wrong question — and
+     the answer must not change when somebody drags a window. The one case this
+     misses is a hybrid laptop (touch AND a mouse, so `hover: hover` wins), where
+     useCardMenu drops the range in JS when the press fires; belt and braces,
+     because the two mechanisms fail on opposite hardware.
+
+     `.card-text` — the quote and the note — is exempt above, and stays exempt:
+     reaching into text is the one thing a thumb has no other way to do, and the
+     press does not even arm a timer there. */
+  @media (hover: none) and (pointer: coarse) {
+    .card-menu-host {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+  }
 
   /* The bin (Settings → The bin). A list of summary rows, each expandable to the
      quotes it is holding. Hairlines between rows rather than cards inside a card:

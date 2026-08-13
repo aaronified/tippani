@@ -15,7 +15,9 @@
 // The first two are the ones a person would find and file as a bug. The last two
 // are the ones they would feel and never be able to describe.
 
-import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { Tooltip, useCardMenu } from '../../src/ui.jsx'
 
@@ -336,5 +338,131 @@ describe('a long press on a board that can select', () => {
     fireEvent.keyDown(card(), { key: 'Escape' })
     fireEvent.keyDown(card(), { key: 'F10', shiftKey: true })
     expect(await screen.findByRole('menu')).toBeTruthy()
+  })
+})
+
+// ---- the highlight the press used to leave behind (1.11.2) -------------------
+//
+// The 500ms hold means two things to two systems and both are right: to this hook
+// it is the gesture, to the browser it is the start of a text selection. So a
+// press on a card's whitespace fired correctly AND came up with a stray word
+// highlighted under the menu. Nothing was broken and it looked broken.
+//
+// Two mechanisms, because they fail on opposite hardware. The stylesheet takes
+// `user-select` away behind `(hover: none) and (pointer: coarse)`, which stops the
+// highlight ever being drawn on a phone or tablet; the hook drops any range that
+// exists at the moment the press fires, which is what covers a hybrid laptop
+// (`hover: hover`, so the CSS never applies) and any browser that latches a word
+// before the timer.
+//
+// The bail-outs are asserted harder than the action, as everywhere else in this
+// file: a clear that runs on a tap or on a press over the quote would be eating a
+// selection somebody made deliberately, which is a worse bug than the one being
+// fixed.
+
+// withSelection installs a non-collapsed selection and hands back the spy that
+// says whether it was cleared. anchorNode is inside the card, which is what the
+// contextmenu bail-out reads — the same fake serves both.
+function withSelection(node) {
+  const removeAllRanges = vi.fn()
+  vi.spyOn(window, 'getSelection').mockReturnValue({
+    isCollapsed: false,
+    rangeCount: 1,
+    anchorNode: node ?? document.body,
+    removeAllRanges,
+  })
+  return removeAllRanges
+}
+
+describe('a long press does not leave a text selection behind it', () => {
+  afterEach(() => {
+    window.getSelection.mockRestore?.()
+    vi.useRealTimers()
+  })
+
+  it('drops the range when the press opens the menu', async () => {
+    vi.useFakeTimers()
+    render(<Card />)
+    const cleared = withSelection(card())
+    press(card())
+    await wait()
+    expect(menu()).not.toBeNull()
+    expect(cleared).toHaveBeenCalled()
+  })
+
+  it('drops it when the press selects the card instead', async () => {
+    vi.useFakeTimers()
+    const onLongPress = vi.fn()
+    render(<SelectableCard onLongPress={onLongPress} />)
+    const cleared = withSelection(screen.getByTestId('meta'))
+    press(screen.getByTestId('meta'))
+    await wait()
+    expect(onLongPress).toHaveBeenCalled()
+    expect(cleared).toHaveBeenCalled()
+  })
+
+  it('leaves a selection alone when the press lands on the quote', async () => {
+    // The press does not even arm a timer there, so there is nothing to clear —
+    // and this is the case where a clear would destroy the very thing the split
+    // was built to allow.
+    vi.useFakeTimers()
+    render(<SelectableCard />)
+    const text = screen.getByText(/The margins are where/)
+    const cleared = withSelection(text)
+    press(text)
+    await wait()
+    expect(cleared).not.toHaveBeenCalled()
+  })
+
+  it('leaves it alone on an ordinary tap', async () => {
+    vi.useFakeTimers()
+    render(<SelectableCard />)
+    const cleared = withSelection(screen.getByTestId('meta'))
+    press(screen.getByTestId('meta'))
+    await wait(120) // let go before the hold fires
+    fireEvent.pointerUp(card())
+    expect(cleared).not.toHaveBeenCalled()
+  })
+
+  it('leaves it alone after a drag, because the press was a scroll', async () => {
+    vi.useFakeTimers()
+    render(<SelectableCard />)
+    const cleared = withSelection(screen.getByTestId('meta'))
+    press(screen.getByTestId('meta'), { x: 50, y: 50 })
+    fireEvent.pointerMove(card(), { clientX: 50, clientY: 90 })
+    await wait()
+    expect(cleared).not.toHaveBeenCalled()
+  })
+
+  it('leaves it alone on a right-click, where it is the reason we stand aside', async () => {
+    // Somebody who dragged across a quote and right-clicked wants Copy. Clearing
+    // their selection on the way to declining the menu would be the worst of both.
+    render(<Card />)
+    const cleared = withSelection(card())
+    fireEvent.contextMenu(card(), { clientX: 10, clientY: 10 })
+    expect(menu()).toBeNull()
+    expect(cleared).not.toHaveBeenCalled()
+  })
+})
+
+describe('the stylesheet half of the same rule', () => {
+  const css = readFileSync(join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
+
+  it('takes user-select off the card body behind a pointer query', () => {
+    // Gated on the POINTER, not the width: a tablet at 900px has the gesture and
+    // a narrow desktop window does not, so `max-width` is the wrong question —
+    // and the answer must not change when somebody drags a window.
+    const block = css.match(/@media \(hover: none\) and \(pointer: coarse\) \{[\s\S]*?\n {2}\}/g) || []
+    const host = block.find((b) => b.includes('.card-menu-host'))
+    expect(host, 'no pointer-gated .card-menu-host block').toBeTruthy()
+    expect(host).toMatch(/user-select:\s*none/)
+    // Not behind a width query, which is the mistake this replaces.
+    expect(css).not.toMatch(/@media \(max-width[^)]*\)\s*\{[^@]*\.card-menu-host\s*\{[^}]*user-select:\s*none/)
+  })
+
+  it('keeps the quote itself selectable, at a specificity that wins', () => {
+    // `.card-menu-host .card-text` is two classes to the host rule's one, so it
+    // wins wherever it sits in the file — but only while it is still there.
+    expect(css).toMatch(/\.card-menu-host \.card-text \{[^}]*user-select:\s*text/)
   })
 })
