@@ -50,6 +50,37 @@ describe('the favourites loader', () => {
   })
 })
 
+describe('the wall reorders on arrival, not on every edit', () => {
+  // Recolouring a favourite reloads the list, and the list used to reshuffle on
+  // load — so the four tiles on screen became four different tiles and the card
+  // you had just recoloured was gone. seeded-shuffle.test.js owns the property
+  // that fixes it; these assert Home actually spends it, since the whole bug was
+  // one call to Math.random in the wrong place.
+
+  it('draws its seed once per mount, and from nothing', () => {
+    // `useMemo(..., [])` is the entire feature: a dependency here would be a
+    // reason to redeal that nobody would notice until they hit it.
+    expect(src).toMatch(/const favSeed = useMemo\(\(\) => .*Math\.random\(\).*, \[\]\)/)
+  })
+
+  it('shuffles by that seed rather than walking the list', () => {
+    expect(loadFavs).toContain('shuffleSeeded(list, favSeed)')
+  })
+
+  it('leaves no loose shuffle in the loader', () => {
+    // The Fisher–Yates that was here. A second shuffle anywhere in this function
+    // would undo the whole thing silently.
+    expect(loadFavs).not.toContain('Math.random')
+  })
+
+  it('seeds the clamp heights off it too', () => {
+    // The order holding still is not enough on its own: clamp lines drawn from
+    // Math.random re-rolled on every reload, so every tile on screen changed
+    // HEIGHT after a colour change even though none of them moved.
+    expect(src).toContain('clampSequence(favs.length, mulberry32(favSeed))')
+  })
+})
+
 describe('the kind table', () => {
   const table = src.slice(src.indexOf('const FAV_KINDS'), src.indexOf('export default function Home'))
 

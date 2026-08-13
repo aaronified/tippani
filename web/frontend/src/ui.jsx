@@ -1317,6 +1317,43 @@ export function clampSequence(count, rng, min = 3, max = 5) {
   return out;
 }
 
+// shuffleSeeded orders a list at random and KEEPS THAT ORDER while the list
+// changes under it.
+//
+// The bug it exists for: Home's favourites were shuffled with Fisher–Yates on
+// every load, and every in-place edit reloads them — so recolouring one quote,
+// or hearting one, redealt the whole wall and the four tiles on screen became
+// four different tiles. The reader had acted on a card and the card left.
+//
+// The fix is not "shuffle less often", which only moves the problem to whichever
+// reload is left. It is to draw each item's position from its OWN KEY rather than
+// from a walk over the list: same seed + same key ⇒ same rank, forever, whatever
+// else is in the list. Fisher–Yates cannot do that — drop one member and the
+// permutation is entirely different — while a per-item rank means a removed card
+// simply leaves a gap and every other card stays where the reader last saw it.
+//
+// The seed is the caller's to draw, and WHEN it draws one is the whole feature:
+// once per visit to the screen gives a wall that reorders when you arrive and
+// holds still while you work.
+export function shuffleSeeded(items, seed, keyOf = (x) => x.key) {
+  return items
+    .map((item, i) => {
+      const key = String(keyOf(item) ?? i);
+      // FNV-1a over the key, seeded, then one draw — so neighbouring keys
+      // ("quote:11", "quote:12") land nowhere near each other.
+      let h = (seed >>> 0) ^ 0x811c9dc5;
+      for (let j = 0; j < key.length; j++) {
+        h ^= key.charCodeAt(j);
+        h = Math.imul(h, 0x01000193);
+      }
+      return { item, key, rank: mulberry32(h)() };
+    })
+    // The key breaks a rank tie, so two colliding hashes still order the same way
+    // on every call rather than however the sort happened to run.
+    .sort((a, b) => a.rank - b.rank || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map((x) => x.item);
+}
+
 // Masonry — packs heterogeneous-height cards into `columns` equal-width columns.
 // Two placement orders (`order`):
 //   • "height" (default) — an organic collage: sort tallest-first, nudge ~20% of

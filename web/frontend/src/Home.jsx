@@ -43,9 +43,11 @@ import {
   IconButton,
   Masonry,
   MonoLabel,
+  mulberry32,
   NavIcon,
   QuoteActions,
   QuoteTools,
+  shuffleSeeded,
   STATUS_META,
   toast,
   Tooltip,
@@ -848,6 +850,17 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   // again, which is exactly the intent.
   const hello = useMemo(() => greetingFor(user?.username), [user?.username])
   const today = useMemo(() => dateLine(), [])
+  // THE ORDER OF THE FAVOURITES WALL, drawn once per visit to Home and not again.
+  //
+  // The section is a re-surfacing wall rather than a feed, so it reorders — but it
+  // used to reorder on every LOAD, and every in-place edit reloads it. Recolour a
+  // quote and the four tiles on screen became four different tiles; the card you
+  // had just acted on was gone, which reads as the app losing your change. Sharing
+  // one had the same shape.
+  //
+  // One seed per mount, spent through shuffleSeeded, fixes both ends: arriving on
+  // Home deals a new wall, and nothing you do while standing on it deals another.
+  const favSeed = useMemo(() => (Math.random() * 0xffffffff) >>> 0, [])
 
   // Favourites across all THREE kinds — book highlights, film dialogue and
   // standalone quotes — merged and shuffled. A few show as tiles; the rest wait
@@ -880,13 +893,11 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       if (rd.ok && rd.data) for (const d of rd.data.dialogues || []) list.push(screenFav(d, movieMap))
       // The response key is `utterances` — the table, not the route.
       if (rq.ok && rq.data) for (const u of rq.data.utterances || []) list.push(quoteFav(u))
-      // Favourites shuffle on every load (Fisher–Yates) — the section is a
-      // re-surfacing wall, not a chronological feed, so each visit reorders it.
-      for (let i = list.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[list[i], list[j]] = [list[j], list[i]]
-      }
-      setFavs(list)
+      // Shuffled by favSeed, which was drawn once when Home mounted: each VISIT
+      // reorders the wall, and the reloads an edit triggers leave it exactly as it
+      // was. Ranking each favourite off its own key rather than walking the list is
+      // what makes that true even when a tile has just been un-hearted away.
+      setFavs(shuffleSeeded(list, favSeed))
     }).catch((e) => {
       console.error('favourites load failed', e)
     })
@@ -899,10 +910,12 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Per-load clamp sizes (3–5 lines, no three-in-a-row). Favourites are shuffled
-  // each load and laid out in that (source) order, so the clamps land in the same
-  // order the reader sees. Recomputed each load (favs identity changes).
-  const favClamps = useMemo(() => clampSequence(favs.length, Math.random), [favs])
+  // Clamp sizes (3–5 lines, no three-in-a-row), laid out in the wall's own order
+  // so the no-three-in-a-row rule reads that way on the board. Seeded off favSeed
+  // for the same reason the order is: drawn from Math.random these re-rolled on
+  // every reload, so a colour change made every tile on screen change height even
+  // when the order held.
+  const favClamps = useMemo(() => clampSequence(favs.length, mulberry32(favSeed)), [favs.length, favSeed])
 
   // Share/edit/delete mirror the handlers in Library/Movies/SearchPage: PUTs
   // are full-state (annotationState/dialogueState carry every field), deletes
