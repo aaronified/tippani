@@ -11,6 +11,7 @@ import SearchPage from './SearchPage.jsx'
 import StagingPage from './StagingPage.jsx'
 import StatsPage from './StatsPage.jsx'
 import Settings from './Settings.jsx'
+import BinPage from './BinPage.jsx'
 import { applyColors, applyTheme } from './theme.js'
 import {
   BOTTOM_TABS,
@@ -1307,7 +1308,16 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               update={update}
               onUpdateInfo={setUpdate}
               onStartTour={(step) => setTourState({ step })}
+              onOpenBin={() => go('bin', null)}
             />
+          </div>
+        )}
+        {/* The bin is in no tab list — see ROUTE_TABS. It routes so that it
+            bookmarks and survives a refresh, and its only door in is the tile in
+            Settings, which is where its Back goes. */}
+        {tab === 'bin' && (
+          <div data-screen-label="bin">
+            <BinPage onClose={() => go('settings', null)} />
           </div>
         )}
         </div>

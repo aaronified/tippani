@@ -9,7 +9,16 @@
 
 // The tabs whose URL is just their own name. Anything with a different slug, a
 // detail id, or a legacy alias is spelled out in parsePath/statePath below.
-export const ROUTE_TABS = ['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging']
+//
+// `bin` IS A ROUTE AND NOT A NAV TAB, and the asymmetry is the point. Nothing
+// about the bin is a place you go: it is a place you are sent, by the tile in
+// Settings or by an Undo that expired before you noticed it. A ninth entry in the
+// strip for "things you have deleted" would put a permanent invitation to browse
+// your deletions beside Library and Stats. But it is a real page rather than a
+// modal, so it bookmarks and survives a refresh — which is what a route buys and
+// a nav entry does not. The nav contract in routes.test.js runs one way only:
+// every nav tab must have a URL; a URL is free not to be a tab.
+export const ROUTE_TABS = ['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin']
 
 // ---- the nav contract ----
 //

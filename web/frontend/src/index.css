@@ -1463,6 +1463,25 @@
      is wrong: you came here to put something back, and a control that appears only
      when you find it is a control you have to hunt for while wondering whether the
      feature exists at all. */
+  /* The bin's way back, and it NAMES where it goes. A page that nothing in the nav
+     points at has exactly one door, and a bare back arrow on it leaves you guessing
+     which screen is behind you — the browser's own Back is the only other answer
+     and it is not on the page. Sits above the page header rather than inside it,
+     so the title line keeps its own shape. */
+  .bin-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 4px 0;
+    border: none;
+    background: none;
+    color: var(--soft);
+    cursor: pointer;
+  }
+  .bin-back:hover { color: var(--ink); }
+  .bin-back svg { width: 17px; height: 17px; }
+
   .trash-list {
     display: flex;
     flex-direction: column;
@@ -1498,6 +1517,17 @@
     border: none;
     background: none;
   }
+  /* The kind's own glyph, at the size the mono label beside it is set in — a book
+     is a book everywhere in the app, and a row that says so in a picture is read
+     before it is read. --faint rather than --ink: it is the row's category, not its
+     subject, and the title beside it is the thing to look at. */
+  .trash-kind {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    color: var(--faint);
+  }
+  .trash-kind svg { width: 15px; height: 15px; }
   .trash-contents {
     margin: 6px 0 2px;
     padding: 0;

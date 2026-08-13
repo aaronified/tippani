@@ -46,7 +46,7 @@ describe('parsePath', () => {
   // nothing would fail. This is the only test protecting that table, so it has
   // to state the expected contents rather than read them.
   it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging'])
+    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin'])
   })
 
   it('routes every plain tab by name', () => {
@@ -57,6 +57,7 @@ describe('parsePath', () => {
     expect(parsePath('/stats')).toEqual({ tab: 'stats', detail: null })
     expect(parsePath('/settings')).toEqual({ tab: 'settings', detail: null })
     expect(parsePath('/staging')).toEqual({ tab: 'staging', detail: null })
+    expect(parsePath('/bin')).toEqual({ tab: 'bin', detail: null })
   })
 
   // /quotes is a LIST, not a work prefix: there is no /quotes/:id to open,
@@ -167,6 +168,7 @@ describe('the round trip', () => {
     ['metadata', null],
     ['stats', null],
     ['settings', null],
+    ['bin', null],
     ['library', { type: 'book', id: 42 }],
     ['movies', { type: 'movie', id: 7 }],
   ]
@@ -266,6 +268,17 @@ describe('the nav contract', () => {
     // and a key in both would light up as active in both.
     const util = new Set(keys(UTILITY_TABS))
     for (const key of keys(CONTENT_TABS)) expect(util.has(key)).toBe(false)
+  })
+
+  // The asymmetry the bin depends on, asserted in the direction that could
+  // silently stop being true: `bin` is a route with no nav entry anywhere, so a
+  // later tidy-up that "completes" the tab lists by adding every route to them
+  // would put a permanent invitation to browse your deletions in the strip.
+  it('keeps the bin out of every nav list while keeping its URL', () => {
+    const all = new Set([...keys(CONTENT_TABS), ...keys(UTILITY_TABS), ...keys(DRAWER_TABS), ...keys(BOTTOM_TABS)])
+    expect(ROUTE_TABS).toContain('bin')
+    expect(all.has('bin')).toBe(false)
+    expect(parsePath(statePath('bin', null))).toEqual({ tab: 'bin', detail: null })
   })
 
   it('gives every nav tab a URL that survives a hard refresh', () => {

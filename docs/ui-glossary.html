@@ -1675,8 +1675,8 @@
   </section>
 
   <section>
-    <h2>The bin <span class="g-tlabel">1.8.0</span></h2>
-    <p>Every delete is recoverable for thirty days. The row is really deleted — a JSON snapshot of its whole subtree is parked instead — so nothing else in the app has to know the bin exists.</p>
+    <h2>The bin <span class="g-tlabel">1.8.0 &middot; a page of its own 1.11.2</span></h2>
+    <p>Every delete is recoverable for thirty days. The row is really deleted — a JSON snapshot of its whole subtree is parked instead — so nothing else in the app has to know the bin exists. Since 1.11.2 it is a page at <code>/bin</code> rather than a card in Settings, reachable from the Settings tile and from nowhere else.</p>
     <div class="g-grid">
 
       <div class="g-item wide">
@@ -1684,14 +1684,14 @@
           <ul class="trash-list">
             <li class="trash-row">
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px">
-                <span class="trash-expand"><span class="microcopy" style="font-family:var(--font-mono),monospace">Book</span></span>
+                <span class="trash-expand"><span class="trash-kind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h3.5v15H4z"/><path d="M8.8 4.5h3.5v15H8.8z"/><path d="m14.2 5.4 3.4-.9 3.9 14.5-3.4.9z"/></svg></span><span class="microcopy" style="font-family:var(--font-mono),monospace">Book</span></span>
                 <span class="trash-label">The Dispossessed</span>
                 <span style="margin-left:auto;display:flex;gap:4px">
                   <span class="field-icon-btn">↺</span>
                   <span class="field-icon-btn field-icon-btn-danger">✕</span>
                 </span>
               </div>
-              <p class="microcopy">deleted 1 Aug · 40 quotes · picture kept</p>
+              <p class="microcopy">deleted 1 Aug &middot; 40 quotes &middot; picture kept &middot; due to go 31 Aug</p>
               <ul class="trash-contents">
                 <li style="border-left-color:var(--hl-2)">You cannot buy the revolution</li>
                 <li style="border-left-color:var(--hl-1)">Where does a thought come from</li>
@@ -1700,8 +1700,8 @@
           </ul>
         </div>
         <div class="g-name">bin row</div>
-        <div class="g-src">TrashCard — Settings.jsx · .trash-list / .trash-row / .trash-label / .trash-expand / .trash-contents — index.css</div>
-        <div class="g-desc">One row per DELETED THING, not per deleted row: a book and its forty quotes are one entry, restored whole. Anatomy: the kind as a mono label (doubling as the disclosure control where there is something inside), the title, and the two acts pinned right — <b>put it back</b> and <b>remove for good</b>. Under it, when it went, how many quotes travel with it, and whether a cover is being kept. Expanding lists the held quotes read-only, each keeping its own colour bar, straight from the snapshot the delete already wrote. <b>The two buttons do not hide until hover</b>, unlike every other repeated row in the app: this is the screen you open because something has already gone wrong, and a control you have to find by pointing at it is one you hunt for while wondering whether the feature exists.</div>
+        <div class="g-src">BinPage.jsx (BinTile &mdash; Settings.jsx) &middot; .trash-list / .trash-row / .trash-label / .trash-expand / .trash-kind / .trash-contents / .bin-back &mdash; index.css</div>
+        <div class="g-desc">One row per DELETED THING, not per deleted row: a book and its forty quotes are one entry, restored whole. Anatomy: the kind as a mono label (doubling as the disclosure control where there is something inside), the title, and the two acts pinned right — <b>put it back</b> and <b>remove for good</b>. Under it, when it went, how many quotes travel with it, and whether a cover is being kept. Expanding lists the held quotes read-only, each keeping its own colour bar, straight from the snapshot the delete already wrote. <b>The two buttons do not hide until hover</b>, unlike every other repeated row in the app: this is the screen you open because something has already gone wrong, and a control you have to find by pointing at it is one you hunt for while wondering whether the feature exists.<br><br><b>Why it is a page now (1.11.2).</b> It was a card in a three-column grid, and a card is a control panel: a label, a control, done. This is a LIST of unbounded length whose rows expand, and in a ~300px grid column beside Devices and Updates it had to say what an entry was, when it went, what travelled with it, and when it is due to go for good &mdash; so it said three of those and dropped the fourth. The page carries all four, adds the kind's own glyph beside the mono label, and gains kind-filter chips once there is more than one kind to tell apart (the same FilterChip the search scopes use, so they lose their words to the same preference).<br><br><b>It is in no tab list, on purpose.</b> Nothing about the bin is a place you go; it is a place you are sent &mdash; by the tile in Settings, or by an Undo that expired before you noticed it. A ninth entry in the strip for &ldquo;things you have deleted&rdquo; would be a standing invitation to browse your deletions beside Library and Stats. But <code>/bin</code> is a real route, so it bookmarks and survives a refresh, which is what a page buys over a modal. <code>routes.test.js</code> asserts that asymmetry in the direction that could silently stop being true: <code>bin</code> is in ROUTE_TABS and in none of the four nav lists.<br><br><b>Still read-only, and the due date is still a DATE.</b> The server's <code>snapshotContents</code> flattens a payload to the quotes a reader would recognise rather than shipping every column of every row, and a page instead of a card is not a reason to hand over a database dump because somebody clicked a chevron. The expiry is printed as a date rather than a countdown because the purge clock runs on server time and only while the server is up: an instance switched off for a week has not spent a week of anybody's thirty days, so &ldquo;gone in 3 days&rdquo; would be a promise nothing here can keep.</div>
       </div>
 
     </div>
