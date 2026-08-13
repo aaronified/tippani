@@ -8,7 +8,8 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
-import { selectionClick } from './selection.jsx'
+import { selectionClick, useSelection } from './selection.jsx'
+import { SelectionBar } from './SelectionBar.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -160,12 +161,16 @@ async function setBookStatus(id, body) {
 }
 
 // BookGrid is the cover-tile board, shared by the flat list and each group.
-function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps }) {
+//
+// `selection` is threaded through rather than held here, because the board is what
+// knows the visible ORDER — Shift-click extends over that, and a per-group hook
+// would extend over one bucket while the reader saw the whole board.
+function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection }) {
   return (
     <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
       {books.map((b, i) => (
         <li key={b.id}>
-          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} />
+          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} selection={selection} />
         </li>
       ))}
     </ul>
@@ -241,6 +246,14 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     return list
   }, [books, genre, series, fav, tagged, noted, states, wish, sort])
 
+  // Over `shown` — the visible, filtered, sorted list — so changing a filter drops
+  // the ids that left the screen rather than leaving the bar reporting a number
+  // about books nobody can see (see useSelection).
+  const selection = useSelection(shown.map((b) => b.id))
+  const afterBulk = () => {
+    selection.clear()
+    load()
+  }
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const grouped = useMemo(
     () =>
@@ -342,6 +355,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         )
       }
     >
+      {selection.count > 0 && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
       {grouped ? (
         <div className="space-y-10">
           {grouped.map((g) => {
@@ -355,13 +369,13 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
                   person={isAuthor ? authors.map[g.label] : null}
                   onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                 />
-                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
+                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} />
               </section>
             )
           })}
         </div>
       ) : (
-        <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} />
+        <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} />
       )}
     </WorkListScaffold>
   )

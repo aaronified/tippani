@@ -9,6 +9,8 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { useSelection } from './selection.jsx'
+import { SelectionBar } from './SelectionBar.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
   ACTIVE_STATUS,
@@ -285,6 +287,13 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     return list
   }, [movies, mediaType, genre, series, fav, tagged, noted, states, wish, sort])
 
+  // Over `shown`, the visible order — see the Library board and useSelection.
+  const selection = useSelection(shown.map((m) => m.id))
+  const afterBulk = () => {
+    selection.clear()
+    load()
+  }
+
   // Grouping only buckets the view — a title still appears in the flat list, and
   // because media_type lives on the same row as series, one collection can hold
   // a film and a show together (Twin Peaks and Fire Walk With Me).
@@ -409,6 +418,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
         />
       }
     >
+      {selection.count > 0 && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
       {grouped ? (
         <div className="space-y-10">
           {grouped.map((g) => (
@@ -419,7 +429,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
                 style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
               >
                 {g.items.map((m) => (
-                  <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
+                  <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} />
                 ))}
               </div>
             </section>
@@ -431,7 +441,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
         >
           {shown.map((m) => (
-            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} />
+            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} />
           ))}
         </Reveal>
       )}

@@ -1263,12 +1263,21 @@
     outline: 2px solid var(--accent-ui);
     outline-offset: 2px;
   }
+  /* A work tile: the cover button, with the tick laid over it rather than inside
+     it. A <label> wrapping an <input> inside a <button> is invalid HTML and the
+     browsers disagree about which of the two nested controls a tap belongs to, so
+     the tile stays a plain button and this is the positioned host that lets the
+     mark sit on top of it. See WorkCard. */
+  .work-tile { position: relative; }
+  /* The mark rides on the ARTWORK, not the caption under it: `top` clears nothing
+     because the poster starts at the top of the tile. */
+  .work-tile > .card-pick { top: 6px; right: 8px; }
   .hand-card:hover .card-pick,
   .hand-card:focus-within .card-pick,
   .film-frame:hover .card-pick,
   .film-frame:focus-within .card-pick,
-  .cover-tile:hover .card-pick,
-  .cover-tile:focus-within .card-pick,
+  .work-tile:hover .card-pick,
+  .work-tile:focus-within .card-pick,
   .is-selecting .card-pick,
   .is-picked .card-pick { opacity: 1; }
   @media (prefers-reduced-motion: reduce) {

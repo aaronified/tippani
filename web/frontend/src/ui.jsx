@@ -4484,7 +4484,16 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
 
   // A right-click or a press inside one of the card's own controls belongs to that
   // control, not to the card.
-  const onControl = (target) => !!target?.closest?.(MENU_IGNORE_SELECTOR);
+  //
+  // THE CARD ITSELF DOES NOT COUNT, even when it matches. A work tile IS a
+  // <button> — the whole cover is the thing you click to open the book — so a bare
+  // `closest('button')` said "this is a control" about every press on it and the
+  // gesture did nothing at all on the Library and the Catalogue. Quote cards are
+  // divs and never showed it.
+  const onControl = (target) => {
+    const hit = target?.closest?.(MENU_IGNORE_SELECTOR);
+    return !!hit && hit !== cardRef.current;
+  };
   // A press inside the quote belongs to the BROWSER: it is how a phone reaches
   // into text at all.
   const onText = (target) => !!target?.closest?.(CARD_TEXT_SELECTOR);

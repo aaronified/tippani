@@ -611,7 +611,7 @@ export default function QuotesPage({ creditSeparators }) {
       }
     >
       {selection.count > 0 && (
-        <SelectionBar selection={selection} onDone={afterBulk} tagSuggestions={Object.keys(tagMap)} />
+        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} tagSuggestions={Object.keys(tagMap)} />
       )}
       {!rows ? (
         <Placeholder />

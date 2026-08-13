@@ -25,6 +25,7 @@ import {
   MultiSelect,
   PageHeader,
   PartialDateField,
+  PickMark,
   Placeholder,
   SHELF_META,
   Select,
@@ -39,7 +40,9 @@ import {
   formatPartialDate,
   seriesLabel,
   shelfLabel,
+  useCardMenu,
 } from './ui.jsx'
+import { selectionClick } from './selection.jsx'
 
 // ---- shelf state (§3f) -----------------------------------------------------
 // A work has one shelf state, and everything visual keys off it: the colour bar
@@ -756,7 +759,7 @@ export function moveLabel(kind, from, to) {
 // hand-drawn card frame + "quotes" vs the film's plain poster + "dialogues".
 // The book grid (Library) and poster grid (Movies) both deal these; each keeps
 // its own <ul>/grid wrapper and gap, sharing only the tile.
-export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
+export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, selection, selectKind = kind }) {
   const isBook = kind === 'book'
   const isShow = !isBook && (item.media_type || 'movie') === 'show'
   const credit = isBook ? item.author : item.director
@@ -787,9 +790,57 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
   // stripe floating below it — and the artwork stays completely unobscured,
   // which is the whole point of a bar over a badge. That was already the book
   // branch's reasoning; it was never poster-specific.
-  return (
-    <button type="button" onClick={() => onOpen(item.id)} className="cover-tile block w-full text-left" title={item.title}>
-      <HandCard variant={index % 4} className="relative overflow-hidden cover-lift">
+  // ---- selecting a work (1.11.1) --------------------------------------------
+  //
+  // Long-press, Ctrl/Cmd-click, or the tickmark in the corner — the same three
+  // doors a quote card has, and the same tick, because a selection that looked
+  // like a checkbox on one board and something else on another would be two
+  // affordances for one idea.
+  //
+  // THERE IS NO .card-text HERE, and that is the whole difference from a quote
+  // card. A cover is a picture: there is nothing on this tile a thumb could
+  // usefully select, so every press that is not on a control belongs to the card.
+  // The title and the credit line under the artwork are labels rather than prose.
+  //
+  // No context menu (an empty `items` list) — a work's actions live in its detail
+  // header and in the selection bar, and a menu that opened on a gesture and
+  // offered nothing would teach the gesture and then refuse it.
+  const picked = !!selection?.isSelected(item.id)
+  const { cardProps, menuClass } = useCardMenu(
+    [],
+    selection ? { onLongPress: () => selection.toggle(item.id, selectKind) } : undefined,
+  )
+  const onClick = (e) => {
+    // The press already acted; running the click too would toggle it straight back.
+    if (cardProps.onClickCapture?.(e)) return
+    if (!selection) return onOpen(item.id)
+    const what = selectionClick(e, selection)
+    if (what === 'open') return onOpen(item.id)
+    e.preventDefault()
+    if (what === 'extend') selection.extendTo(item.id, selectKind)
+    else selection.toggle(item.id, selectKind)
+  }
+  // The tick sits OUTSIDE the button, over it. A <label> wrapping an <input>
+  // inside a <button> is invalid HTML and the browsers disagree about which of
+  // the two nested controls a tap belongs to — so the tile stays a plain button
+  // and the checkbox is a sibling positioned on top of it. `.work-tile` is the
+  // positioned host, and the reason the hover rule keys off it rather than off
+  // the tile.
+  const tile = (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`cover-tile block w-full text-left ${menuClass}`}
+      title={item.title}
+      {...cardProps}
+      // The tile IS a button, so useCardMenu's onClickCapture cannot be spread on
+      // as-is — onClick above calls it first and honours what it says.
+      onClickCapture={undefined}
+    >
+      <HandCard
+        variant={index % 4}
+        className={`relative overflow-hidden cover-lift${picked ? ' is-picked' : ''}`}
+      >
         {image}
         {state && <StatusBar state={state} progress={item.progress} />}
         {isShow && (
@@ -830,6 +881,17 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps }) {
         )}
       </div>
     </button>
+  )
+  if (!selection) return tile
+  return (
+    <div className={`work-tile${selection.active ? ' is-selecting' : ''}`}>
+      {tile}
+      <PickMark
+        picked={picked}
+        label={isBook ? 'this book' : isShow ? 'this show' : 'this film'}
+        onChange={() => selection.toggle(item.id, selectKind)}
+      />
+    </div>
   )
 }
 

@@ -130,3 +130,78 @@ describe('what you can do to a selection', () => {
     expect(ctx.addTags).toHaveBeenCalledWith([ITEM], values)
   })
 })
+
+// ---- two selections, one registry (1.11.1) ---------------------------------
+//
+// A selection of quotes and a selection of works have almost nothing in common: a
+// book has no colour and no tag of its own, a quote has no shelf and nothing to
+// look up. That could have been two components; it is one registry and a kind,
+// and these are the assertions that keep it honest.
+
+const everything = () => ({
+  ...full(),
+  setColour: vi.fn(),
+  setSticker: vi.fn(),
+  favourite: vi.fn(),
+  fillGaps: vi.fn(),
+  setShelf: vi.fn(),
+  setReview: vi.fn(),
+})
+
+describe('what a selection of quotes can do', () => {
+  it.each(['annotation', 'dialogue', 'quote'])('%s: colour, tags, seal, favourite, quiz, delete', (kind) => {
+    const ids = bulkActionsFor(kind, [ITEM], everything()).map((a) => a.id)
+    expect(ids).toEqual(['colour', 'add-tags', 'sticker', 'favourite', 'review', 'delete'])
+  })
+
+  it('leads with colour and ends with delete', () => {
+    // Colour first because it is the single most plausible reason to select forty
+    // quotes and needs no typing; delete last, and never adjacent to a control that
+    // merely sets a field.
+    const ids = bulkActionsFor('quote', [ITEM], everything()).map((a) => a.id)
+    expect(ids[0]).toBe('colour')
+    expect(ids[ids.length - 1]).toBe('delete')
+  })
+})
+
+describe('what a selection of works can do', () => {
+  it.each(['book', 'movie'])('%s: fill, shelf, fields, quiz, delete — and no colour or seal', (kind) => {
+    const ids = bulkActionsFor(kind, [ITEM], everything()).map((a) => a.id)
+    expect(ids).toContain('fill')
+    expect(ids).toContain('shelf')
+    expect(ids).toContain('set-fields')
+    expect(ids).toContain('review')
+    expect(ids[ids.length - 1]).toBe('delete')
+    // A colour category is a note about a quote, and a work has never had one.
+    expect(ids).not.toContain('colour')
+    expect(ids).not.toContain('sticker')
+    expect(ids).not.toContain('favourite')
+  })
+})
+
+describe('the quiz toggle', () => {
+  it('names the action, not the state, and flips', () => {
+    // A bar that always said "Skip in quiz" over a selection that is already
+    // skipped is a control whose state you cannot read.
+    const inQuiz = bulkActionsFor('quote', [ITEM], { ...everything(), excluded: false })
+    const skipped = bulkActionsFor('quote', [ITEM], { ...everything(), excluded: true })
+    expect(inQuiz.find((a) => a.id === 'review').label).toBe('Skip in quiz')
+    expect(skipped.find((a) => a.id === 'review').label).toBe('Add to quiz')
+  })
+
+  it('passes the state it read, so the caller sends the opposite', () => {
+    const ctx = { ...everything(), excluded: true }
+    bulkActionsFor('quote', [ITEM], ctx).find((a) => a.id === 'review').run()
+    expect(ctx.setReview).toHaveBeenCalledWith([ITEM], true)
+  })
+})
+
+describe('every bulk action still says which form it needs', () => {
+  it.each(KINDS)('%s', (kind) => {
+    // BULK_NONE is the empty string rather than null, so "needs nothing" and
+    // "nobody said" cannot be confused for one another.
+    for (const a of bulkActionsFor(kind, [ITEM], everything())) {
+      expect(typeof a.form, a.id).toBe('string')
+    }
+  })
+})

@@ -95,22 +95,49 @@ export const atOverflow = (actions) => actions.filter((a) => a.where === OVERFLO
 // bulk
 // ---------------------------------------------------------------------------
 
-// BULK_FORMS name the input a bulk action needs. `null` means it needs nothing —
-// a favourite or a delete acts on the selection as it stands, while add-tags and
-// set-fields need something typed first. The bar renders the form; the registry
-// only says which one.
+// BULK_* name the input a bulk action needs, so the bar renders the right control
+// and the registry never has to know what a control looks like. BULK_NONE is the
+// empty string rather than null: every action answers "which form?" with a string,
+// and a null would make "needs nothing" indistinguishable from "nobody said".
+export const BULK_NONE = ''
 export const BULK_TAGS = 'tags'
 export const BULK_FIELDS = 'fields'
+export const BULK_COLOUR = 'colour'
+export const BULK_STICKER = 'sticker'
+export const BULK_SHELF = 'shelf'
+export const BULK_CONFIRM = 'confirm'
 
-// bulkActionsFor lists what can be done to a selection of one kind.
+// WORK_KINDS — a book, a film or a show, as against the three kinds of quote.
+// The split matters more here than anywhere else in the registry, because the two
+// selections have almost nothing in common: a book has no colour and no tag of
+// its own, and a quote has no shelf and nothing to look up.
+export const isWorkKind = (kind) => kind === 'book' || kind === 'movie'
+
+// bulkActionsFor lists what can be done to a selection of one kind, in the order
+// a bar should show it: the harmless and frequent first, the destructive last and
+// never adjacent to anything that merely sets a field.
 //
-// It is deliberately the same shape as actionsFor, and deliberately NOT the same
-// list: what a selection can do is a subset plus the field edits, and the
-// difference is stated by `single` on the item side rather than by two unrelated
-// lists that happen to overlap.
+// It is deliberately the same shape as actionsFor and deliberately NOT the same
+// list. What a selection can do is a subset of what one item can do, plus the
+// things that only make sense over several — and the difference is stated by
+// `single` on the item side rather than by two unrelated lists that overlap.
+//
+// An action whose callback is absent is absent, which is how one bar serves five
+// kinds and two screens without a prop that says which.
 export function bulkActionsFor(kind, items, ctx = {}) {
-  const isWork = kind === 'book' || kind === 'movie'
+  const isWork = isWorkKind(kind)
   const all = [
+    // ---- a selection of quotes ---------------------------------------------
+    {
+      id: 'colour',
+      label: 'Colour',
+      form: BULK_COLOUR,
+      // First, and with no menu item in front of it: colour is the single most
+      // plausible reason to select forty quotes, and it needs no typing. A "Set
+      // colour" that then asks which one is one tap too many for exactly that.
+      available: !isWork && !!ctx.setColour,
+      run: (values) => ctx.setColour(items, values),
+    },
     {
       id: 'add-tags',
       label: 'Add tags',
@@ -119,13 +146,66 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       run: (values) => ctx.addTags(items, values),
     },
     {
+      id: 'sticker',
+      label: 'Seal',
+      form: BULK_STICKER,
+      // The one bulk action with an image in it, so it asks in a dialog rather
+      // than in the bar — a strip of stickers is wider than a sticky row.
+      available: !isWork && !!ctx.setSticker,
+      run: (values) => ctx.setSticker(items, values),
+    },
+    {
+      id: 'favourite',
+      label: 'Favourite',
+      form: BULK_NONE,
+      available: !isWork && !!ctx.favourite,
+      run: () => ctx.favourite(items),
+    },
+    // ---- a selection of works ----------------------------------------------
+    {
+      id: 'fill',
+      label: 'Fill gaps',
+      form: BULK_NONE,
+      // Fetch what is MISSING and touch nothing else, which is what makes it safe
+      // to be a button rather than a console with a diff table. See metadata_fill.go.
+      available: isWork && !!ctx.fillGaps,
+      run: () => ctx.fillGaps(items),
+    },
+    {
+      id: 'shelf',
+      label: 'Shelf',
+      form: BULK_SHELF,
+      available: isWork && !!ctx.setShelf,
+      run: (values) => ctx.setShelf(items, values),
+    },
+    {
       id: 'set-fields',
       label: isWork ? 'Set fields' : null,
       form: BULK_FIELDS,
-      // Only a work has an author/director and a series to set. A quote's
-      // equivalent is its colour, which arrives in its own commit.
+      // Only a work has an author/director and a series to set.
       available: isWork && !!ctx.setFields,
       run: (values) => ctx.setFields(items, values),
+    },
+    // ---- both ---------------------------------------------------------------
+    {
+      id: 'review',
+      // The label is the ACTION, not the state, and it flips — a bar that always
+      // said "Exclude" over a selection that already is excluded is a control
+      // nobody can read the state of. `ctx.excluded` is what the rows say.
+      label: ctx.excluded ? 'Add to quiz' : 'Skip in quiz',
+      form: BULK_NONE,
+      available: !!ctx.setReview,
+      run: () => ctx.setReview(items, !!ctx.excluded),
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      form: BULK_CONFIRM,
+      danger: true,
+      // Last, always, and the only one that asks. Never adjacent to the controls
+      // that merely change a field.
+      available: !!ctx.remove,
+      run: (values) => ctx.remove(items, values),
     },
   ]
   return all.filter((a) => a.available)
