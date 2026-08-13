@@ -17,7 +17,13 @@ jobs:
         with:
           go-version: "1.26"
       - run: go vet ./...
-      - run: go test -timeout 10m ./...
+      # 20m, not 10m. The httpapi suite alone runs 12 minutes on a dev machine and
+      # the reason is deliberate: almost every test signs a user up, and a signup
+      # is a real bcrypt hash. It had been sitting a few seconds under the old
+      # ceiling, so the next handful of tests anybody wrote would have tipped it —
+      # and a timeout reads as a hung test rather than as a budget, which is a
+      # confusing morning for whoever's commit lands on it.
+      - run: go test -timeout 20m ./...
 
       # Smoke-test the `healthcheck` subcommand against a real running server
       # (the container HEALTHCHECK depends on it). Runs on the CI runner.

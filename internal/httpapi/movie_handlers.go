@@ -435,6 +435,9 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		// likewise derived from dialogue_count == 0 and so needs no field.
 		TaggedCount int `json:"tagged_count"`
 		NotedCount  int `json:"noted_count"`
+		// 0033. Whether the quiz draws on this work's quotes at all. On the WORK
+		// rather than only on its quotes, so a highlight added tomorrow inherits it.
+		ReviewExcluded bool `json:"review_excluded"`
 	}
 	uid := userID(r)
 	olog.Tracef("[movie] handleListMovies uid=%v", uid)
@@ -446,7 +449,8 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
 		          AND EXISTS (SELECT 1 FROM dialogue_tags dt WHERE dt.dialogue_id = d.id)),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
-		          AND d.note IS NOT NULL AND TRIM(d.note) <> '')
+		          AND d.note IS NOT NULL AND TRIM(d.note) <> ''),
+		       m.review_excluded
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`
 	args := []any{uid}
@@ -464,7 +468,8 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear, &it.ReleaseCirca,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Status, &it.Progress, &it.DialogueCount, &it.TaggedCount, &it.NotedCount); err != nil {
+			&it.Favorite, &it.Status, &it.Progress, &it.DialogueCount, &it.TaggedCount, &it.NotedCount,
+			&it.ReviewExcluded); err != nil {
 			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
 			continue
 		}

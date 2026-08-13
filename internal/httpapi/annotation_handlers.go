@@ -70,11 +70,13 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite,
-		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at
+		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
+		       a.review_excluded
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
 		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt)
+			&a.Chapter, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
+			&a.ReviewExcluded)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +226,8 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
-		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')
+		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
+		       a.review_excluded
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		LEFT JOIN item_reviews r ON r.kind = 'book' AND r.item_id = a.id
 		WHERE b.user_id = ?`
@@ -268,7 +271,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		a.Tags = []string{}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
 			&a.Chapter, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
-			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult); err != nil {
+			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult, &a.ReviewExcluded); err != nil {
 			// Never silently drop a row: a scan error means the SELECT and the
 			// annotationRow struct drifted apart (e.g. a migration added a column),
 			// which would otherwise show up as a mysteriously short/empty list with a

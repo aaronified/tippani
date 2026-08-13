@@ -65,6 +65,15 @@ type bulkTagReq struct {
 	// could not set it. Validated against the same allowlist validColor uses, so a
 	// colour the API accepts is a colour the CHECK constraint accepts.
 	Color *string `json:"color"`
+	// The seal on the card. 0 is a real value here and means "take the sticker
+	// off", which is why it is a pointer to an int rather than an int: `0` and
+	// "not sent" are the same JSON at a number, and a selection recoloured in one
+	// call must not lose its stickers as a side effect.
+	StickerID *int64 `json:"sticker_id"`
+	// 0033. TRUE means "put these back in the deck", false means "stop asking me
+	// about these" — stated as the thing a reader wants rather than as the column,
+	// which is the negative of it.
+	Review *bool `json:"review"`
 }
 
 // quoteBulkKind describes one binnable quote kind for the bulk path: its table,
@@ -112,6 +121,14 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		return
 	}
 	uid := userID(r)
+	// A sticker is a per-user row, so a borrowed id has to be refused rather than
+	// written: sticker_id is ON DELETE SET NULL and the FK alone is not user-scoped,
+	// so it would happily hold somebody else's seal. Same guard the single-quote
+	// writes use. 0 clears, and clearing needs no ownership.
+	if req.StickerID != nil && *req.StickerID != 0 && !s.stickerOwned(uid, req.StickerID) {
+		writeErr(w, http.StatusNotFound, "no such sticker")
+		return
+	}
 	// The ownership query follows the shape of the kind, not a swapped table name:
 	// a child row is reached through its parent, a standalone quote is not. Both
 	// directions get a test, because an ownership filter that matches nothing is a
@@ -158,6 +175,28 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.Color != nil {
 		if err := bulkSetChild(tx, table, "color", *req.Color, owned); err != nil {
 			internalError(w, r, "bulk tag: color", err)
+			return
+		}
+	}
+	if req.StickerID != nil {
+		// 0 is the clear. Written as a real NULL rather than a zero, because
+		// sticker_id is a nullable FK and a 0 in it points at no sticker that can
+		// ever exist — a row the join would silently drop instead of a row with no
+		// sticker.
+		var val any
+		if *req.StickerID != 0 {
+			val = *req.StickerID
+		}
+		if err := bulkSetChild(tx, table, "sticker_id", val, owned); err != nil {
+			internalError(w, r, "bulk tag: sticker", err)
+			return
+		}
+	}
+	if req.Review != nil {
+		// The body says what the reader wants ("put these back in the deck"); the
+		// column stores the opposite. Inverted in exactly one place, here.
+		if err := bulkSetChild(tx, table, "review_excluded", boolToInt(!*req.Review), owned); err != nil {
+			internalError(w, r, "bulk tag: review", err)
 			return
 		}
 	}
@@ -218,6 +257,9 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		Series      *string  `json:"series"`
 		SeriesIndex *float64 `json:"series_index"`
 		AddGenres   []string `json:"add_genres"`
+		// 0033, mirroring books: a property of the film or show, inherited by the
+		// lines saved from it afterwards.
+		Review *bool `json:"review"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -272,6 +314,12 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 	if req.SeriesIndex != nil {
 		if err := set("series_index", nullableFloat(*req.SeriesIndex)); err != nil {
 			internalError(w, r, "bulk movies: series_index", err)
+			return
+		}
+	}
+	if req.Review != nil {
+		if err := set("review_excluded", boolToInt(!*req.Review)); err != nil {
+			internalError(w, r, "bulk movies: review", err)
 			return
 		}
 	}

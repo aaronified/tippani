@@ -257,6 +257,9 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		// the wishlist, so the board derives it from the count it already draws.
 		TaggedCount int `json:"tagged_count"`
 		NotedCount  int `json:"noted_count"`
+		// 0033. Whether the quiz draws on this work's quotes at all. On the WORK
+		// rather than only on its quotes, so a highlight added tomorrow inherits it.
+		ReviewExcluded bool `json:"review_excluded"`
 	}
 	uid := userID(r)
 	olog.Tracef("[book] handleListBooks uid=%v", uid)
@@ -268,7 +271,8 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
 		          AND EXISTS (SELECT 1 FROM annotation_tags at WHERE at.annotation_id = a.id)),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
-		          AND a.note IS NOT NULL AND TRIM(a.note) <> '')
+		          AND a.note IS NOT NULL AND TRIM(a.note) <> ''),
+		       b.review_excluded
 		FROM books b WHERE b.user_id = ?
 		ORDER BY b.created_at DESC, b.id DESC`
 	args := []any{uid}
@@ -288,7 +292,8 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
 			&it.PublishedYear, &it.PublishedCirca, &it.CoverPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Status, &it.Progress, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount); err != nil {
+			&it.Favorite, &it.Status, &it.Progress, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount,
+			&it.ReviewExcluded); err != nil {
 			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
 			continue
 		}

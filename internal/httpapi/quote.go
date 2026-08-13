@@ -109,6 +109,11 @@ type quoteRow struct {
 	Stability      float64 `json:"stability"`
 	LastReviewedAt string  `json:"last_reviewed_at"`
 	LastResult     string  `json:"last_result"` // "got" | "forgot" | ""
+	// 0033. Kept out of the deck on purpose. Reported so the card can say so and
+	// the selection bar can offer the right one of the two words — a bar that
+	// always says "Exclude" over a selection that is already excluded is a control
+	// nobody can tell the state of.
+	ReviewExcluded bool `json:"review_excluded"`
 }
 
 // annotationColors is the colour set, in slot order. Adding to it is not a code

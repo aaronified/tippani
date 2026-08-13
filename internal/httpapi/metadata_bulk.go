@@ -98,6 +98,10 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		Series      *string  `json:"series"`       // set series (nil = leave; "" = clear)
 		SeriesIndex *float64 `json:"series_index"` // set reading/watch-order index
 		AddGenres   []string `json:"add_genres"`   // union these genres into each book
+		// 0033. true = quiz me on these books' highlights, false = stop. A property
+		// of the BOOK, so a highlight added to it tomorrow inherits the answer —
+		// which is what somebody excluding a reference manual meant.
+		Review *bool `json:"review"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -144,6 +148,13 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 	if req.SeriesIndex != nil {
 		if err := bulkSetBooks(tx, "series_index", nullableFloat(*req.SeriesIndex), owned, uid); err != nil {
 			internalError(w, r, "bulk books: series_index", err)
+			return
+		}
+	}
+	if req.Review != nil {
+		// The body says what the reader wants; the column stores its negative.
+		if err := bulkSetBooks(tx, "review_excluded", boolToInt(!*req.Review), owned, uid); err != nil {
+			internalError(w, r, "bulk books: review", err)
 			return
 		}
 	}

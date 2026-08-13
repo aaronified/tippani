@@ -191,3 +191,93 @@ func TestBulkQuotesGuards(t *testing.T) {
 	}
 	c.mustDo("POST", "/quotes/bulk", map[string]any{"ids": many, "color": "blue"}, http.StatusBadRequest)
 }
+
+// Two more fields on the same three endpoints (1.11.1): the seal, and whether the
+// quiz draws on the quote at all.
+//
+// The sticker is the one with a trap in it. `0` means "take the seal off", and at
+// a bare int `0` and "not sent" are the same JSON — so a selection recoloured in
+// one call would silently lose every sticker on it. Hence a pointer, and hence a
+// test that recolouring alone leaves the seals alone.
+
+func TestBulkStickerOnASelection(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	seal := makeSticker(t, srv, 1, "heart")
+
+	bookID := createBook(t, c, "Ficciones")
+	var ids []int64
+	for _, q := range []string{"the garden of forking paths", "a labyrinth of symbols"} {
+		ids = append(ids, idOf(t, c.mustDo("POST", "/annotations",
+			map[string]any{"book_id": bookID, "quote": q}, http.StatusCreated).Body.Bytes()))
+	}
+
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": ids, "sticker_id": seal}, 200)
+	read := func() []annotationRow {
+		return decode[struct {
+			Annotations []annotationRow `json:"annotations"`
+		}](t, c.mustDo("GET", "/annotations?book_id="+itoa(bookID), nil, 200)).Annotations
+	}
+	for _, a := range read() {
+		if a.StickerID == nil || *a.StickerID != seal {
+			t.Errorf("annotation %d: sticker_id = %v, want %d", a.ID, a.StickerID, seal)
+		}
+	}
+
+	// A colour change must not be a sticker change. This is the pointer earning
+	// its keep: at a bare int this call would clear every seal.
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": ids, "color": "blue"}, 200)
+	for _, a := range read() {
+		if a.StickerID == nil {
+			t.Errorf("annotation %d lost its seal to a colour change", a.ID)
+		}
+	}
+
+	// 0 is the clear, and it has to land as a real NULL rather than a 0 pointing
+	// at a sticker that can never exist.
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": ids, "sticker_id": 0}, 200)
+	for _, a := range read() {
+		if a.StickerID != nil {
+			t.Errorf("annotation %d: sticker_id = %v, want nil after a clear", a.ID, *a.StickerID)
+		}
+	}
+}
+
+func TestBulkStickerRefusesSomebodyElsesSeal(t *testing.T) {
+	// sticker_id is ON DELETE SET NULL and the FK alone is not user-scoped, so
+	// without the check a guessed integer attaches another account's sticker —
+	// which is a private image served on your own card.
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+
+	_ = alice
+	aliceSeal := makeSticker(t, srv, 1, "alice's heart") // user 1 is the admin
+
+	bookID := createBook(t, bob, "Bob's book")
+	id := idOf(t, bob.mustDo("POST", "/annotations",
+		map[string]any{"book_id": bookID, "quote": "bob's highlight"}, http.StatusCreated).Body.Bytes())
+
+	bob.mustDo("POST", "/annotations/bulk",
+		map[string]any{"ids": []int64{id}, "sticker_id": aliceSeal}, http.StatusNotFound)
+}
+
+// makeSticker inserts one sticker row for a user. The upload path needs a real
+// image and a writable cover directory; the ownership rule under test needs
+// neither, so the fixture goes in at the table.
+func makeSticker(t *testing.T, srv *Server, userID int64, name string) int64 {
+	t.Helper()
+	res, err := srv.Store.DB.Exec(`INSERT INTO stickers (user_id, name, path) VALUES (?, ?, ?)`,
+		userID, name, name+".svg")
+	if err != nil {
+		t.Fatalf("insert sticker: %v", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Fatalf("sticker id: %v", err)
+	}
+	return id
+}

@@ -104,7 +104,8 @@ type utteranceRow struct {
 const utteranceCols = `u.id, u.quote, COALESCE(u.note, ''), u.color, u.favorite,
 	u.speaker, u.occasion, u.occasion_date, u.place, u.medium,
 	COALESCE(u.noted_at, ''), u.sticker_id, u.sticker_x, u.sticker_y, u.created_at, u.updated_at,
-	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, '')`
+	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
+	u.review_excluded`
 
 const utteranceReviewJoin = ` LEFT JOIN item_reviews r ON r.kind = 'utterance' AND r.item_id = u.id`
 
@@ -113,7 +114,7 @@ func scanUtterance(sc interface{ Scan(...any) error }) (utteranceRow, error) {
 	err := sc.Scan(&u.ID, &u.Quote, &u.Note, &u.Color, &u.Favorite,
 		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium,
 		&u.NotedAt, &u.StickerID, &u.StickerX, &u.StickerY, &u.CreatedAt, &u.UpdatedAt,
-		&u.Reviewed, &u.Stability, &u.LastReviewedAt, &u.LastResult)
+		&u.Reviewed, &u.Stability, &u.LastReviewedAt, &u.LastResult, &u.ReviewExcluded)
 	u.Tags = []string{}
 	return u, err
 }

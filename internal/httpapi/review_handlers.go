@@ -471,10 +471,25 @@ func (rs reviewSource) reviewJoin() string {
 	return "LEFT JOIN item_reviews r ON r.kind = '" + rs.kind + "' AND r.item_id = x.id"
 }
 
-// where is the eligibility rule: owned by the caller, has words, and whatever
-// else the kind requires. The `?` takes the user id.
+// where is the eligibility rule: owned by the caller, has words, not opted out,
+// and whatever else the kind requires. The `?` takes the user id.
+//
+// THIS IS THE ONE CHOKE POINT, and that is why the exclusion goes here rather
+// than into each query. Five callers splice this string — the three candidate
+// fetches, dailyRemaining's count and reviewStates' breakdown — and a rule added
+// to four of them is a deck that will not serve a card the badge is still
+// counting, which reads as the quiz being broken rather than as a filter being
+// inconsistent.
 func (rs reviewSource) where() string {
-	return "WHERE " + rs.ownerCol() + " = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '') " + rs.eligible
+	w := "WHERE " + rs.ownerCol() + " = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '')" +
+		// 0033. The quote's own opt-out.
+		" AND COALESCE(x.review_excluded,0) = 0"
+	if rs.parent != "" {
+		// And its work's, so excluding a reference manual also excludes the
+		// highlight added to it tomorrow. A standalone quote has no parent.
+		w += " AND COALESCE(p.review_excluded,0) = 0"
+	}
+	return w + " " + rs.eligible
 }
 
 // dueSQL is when a scheduled card comes back round. It floors the stored

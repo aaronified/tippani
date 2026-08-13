@@ -701,6 +701,11 @@ func wantShapes() []tableShape {
 				{Name: "sticker_x", Type: "REAL"},
 				{Name: "sticker_y", Type: "REAL"},
 				{Name: "sticker_id", Type: "INTEGER"},
+				// 0033. Not in the quiz, on purpose. A column on the row rather than a
+				// flag on item_reviews, because item_reviews has no row at all for a
+				// quote that has never been reviewed and inserting a bare one would
+				// read as "seen" in four separate queries. See the migration.
+				{Name: "review_excluded", Type: "INTEGER", NotNull: true, Default: "0", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -759,6 +764,11 @@ func wantShapes() []tableShape {
 				// so these must stay nullable rather than 0-means-none. See 0025.
 				{Name: "season", Type: "INTEGER"},
 				{Name: "episode", Type: "INTEGER"},
+				// 0033. Not in the quiz, on purpose. A column on the row rather than a
+				// flag on item_reviews, because item_reviews has no row at all for a
+				// quote that has never been reviewed and inserting a bare one would
+				// read as "seen" in four separate queries. See the migration.
+				{Name: "review_excluded", Type: "INTEGER", NotNull: true, Default: "0", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
