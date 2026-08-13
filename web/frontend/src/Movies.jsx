@@ -15,6 +15,7 @@ import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, sp
 import {
   ACTIVE_STATUS,
   GroupHeading,
+  HeroCounts,
   InProgressCapDialog,
   MobileDetailBar,
   SHELF_CAPS,
@@ -24,6 +25,7 @@ import {
   WorkHero,
   WorkListScaffold,
   capKeyFor,
+  countQuotes,
   groupWorks,
   isActive,
   moveLabel,
@@ -614,7 +616,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const [person, setPerson] = useState(null)
   // Live unfiltered dialogue count, reported up by <Dialogues>: it decides the
   // Wishlist tag, so the first dialogue retracts the tag straight away.
-  const [lineCount, setLineCount] = useState(null)
+  // Live unfiltered dialogue counts, reported up by <Dialogues> — total, plus how
+  // many are favourited / noted / tagged. The total decides the Wishlist tag; all
+  // four print in the hero (see HeroCounts). null until the lines land, and a hero
+  // with no counts prints none rather than printing zeroes.
+  const [lineStats, setLineStats] = useState(null)
+  const lineCount = lineStats?.total ?? null
   // Shelf machinery, mirroring the Library's: `pending` is a transition waiting
   // on its date, `capPool` the titles already watching while the cap dialog is up.
   const [pending, setPending] = useState(null) // { status, date }
@@ -634,7 +641,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   useEffect(() => {
     setMovie(null)
     setEditing(false)
-    setLineCount(null)
+    setLineStats(null)
     load()
   }, [id])
 
@@ -830,6 +837,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                 </div>
               )
             }
+            // What this title is HOLDING, above the fold. Amber rather than the
+            // app accent, because the credit line directly above it is amber and
+            // two accents on one card read as two unrelated systems.
+            counts={<HeroCounts counts={lineStats} noun={['line', 'lines']} tone="amber" />}
             favorite={movie.favorite}
             onFavorite={(v) => patch({ favorite: v })}
             // Shelf state beside the hearts: the state chip (transitions and, while
@@ -913,7 +924,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
         onCancel={() => setPending(null)}
         onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
       />
-      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onCount={setLineCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
+      {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onStats={setLineStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help — see the Library twin. */}
       <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
@@ -1124,7 +1135,7 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
-function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
+function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
   // Only a series carries an episode locator: a film is one runtime, so its
   // timestamp already says where a line is. Drives the form fields, the Episode
   // column, and nothing else — the credit line reads the row's own numbers, so a
@@ -1223,11 +1234,12 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
   useEffect(() => {
     loadTags()
   }, [movieId])
-  // Report the unfiltered dialogue count up to the detail (it decides the Wishlist
-  // tag). Only while nothing is filtered — a filtered view would otherwise report
-  // a zero that means "none match", not "none exist".
+  // Report the unfiltered dialogue counts up to the detail: the total decides the
+  // Wishlist tag, and all four print in the hero. Only while nothing is filtered —
+  // a filtered view would otherwise report a zero that means "none match", not
+  // "none exist" — so under a filter these hold their last unfiltered values.
   useEffect(() => {
-    if (items && !tag && !fav && !color) onCount?.(items.length)
+    if (items && !tag && !fav && !color) onStats?.(countQuotes(items))
   }, [items, tag, fav, color])
 
   async function save(id, fields) {

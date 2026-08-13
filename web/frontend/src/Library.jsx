@@ -14,6 +14,7 @@ import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredit
 import {
   ACTIVE_STATUS,
   GroupHeading,
+  HeroCounts,
   InProgressCapDialog,
   MobileDetailBar,
   SHELF_CAPS,
@@ -22,8 +23,10 @@ import {
   WorkCard,
   WorkHero,
   WorkListScaffold,
+  countQuotes,
   groupWorks,
   isActive,
+  minusQuote,
   moveLabel,
   pinInProgress,
   statusFilter,
@@ -459,10 +462,13 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const [error, setError] = useState('')
   const [person, setPerson] = useState(null) // author metadata panel
   const [mobileFilter, setMobileFilter] = useState(false)
-  // Live unfiltered quote count, reported up by <Annotations>. It drives the
-  // Wishlist tag, so adding this book's first quote retracts the tag on the spot
-  // rather than at the next visit. null until the quotes land.
-  const [quoteCount, setQuoteCount] = useState(null)
+  // Live unfiltered quote counts, reported up by <Annotations> — total, plus how
+  // many are favourited / noted / tagged. The total drives the Wishlist tag, so
+  // adding this book's first quote retracts the tag on the spot rather than at the
+  // next visit; all four print in the hero (see HeroCounts). null until the quotes
+  // land, and a hero with no counts prints none rather than printing zeroes.
+  const [quoteStats, setQuoteStats] = useState(null)
+  const quoteCount = quoteStats?.total ?? null
   // Shelf machinery. `pending` is a transition waiting on its date prompt;
   // `capPool` the books already reading, held while the cap dialog is open.
   const [pending, setPending] = useState(null) // { status, date }
@@ -482,7 +488,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   useEffect(() => {
     setBook(null)
     setEditing(false)
-    setQuoteCount(null)
+    setQuoteStats(null)
     load()
   }, [id])
 
@@ -658,6 +664,11 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                 </div>
               )
             }
+            // What this book is HOLDING, above the fold. The board's own toolbar
+            // count is past the description on a desktop and inside the filter
+            // sheet on a phone, which is a scroll away on the page whose entire
+            // subject is how much you have kept out of this book.
+            counts={<HeroCounts counts={quoteStats} noun={['quote', 'quotes']} />}
             favorite={book.favorite}
             onFavorite={(v) => patch({ favorite: v })}
             // Shelf state, beside the hearts: the state chip (its popover holds
@@ -748,7 +759,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
         onCancel={() => setPending(null)}
         onConfirm={() => { const p = pending; setPending(null); save(p.status, p.date) }}
       />
-      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onCount={setQuoteCount} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
+      {book && <Annotations bookId={book.id} book={book} authorMap={authorMap} seps={parseCreditSeps(creditSeparators)} onStats={setQuoteStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help: the sticky bar has no room
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
@@ -1264,7 +1275,7 @@ function pinToTop(arr, pinnedIds) {
   return [...top, ...arr.filter((x) => !pset.has(x.id))]
 }
 
-function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
+function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce }) {
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // annotation being shared
@@ -1273,6 +1284,11 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
   const [fav, setFav] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [total, setTotal] = useState(null) // unfiltered count for "N quotes · M shown"
+  // The same unfiltered set, counted four ways for the hero (see countQuotes).
+  // Kept beside `total` rather than replacing it: this toolbar's label pairs the
+  // unfiltered total with the number SHOWN, which is a fact about the filter, and
+  // the hero's line is a fact about the book. Two labels, two jobs, one fetch.
+  const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:annview', 'tiles') // list | tiles | table
   const [sort, setSort] = useState({ col: 'default', dir: 'asc' }) // table only; default = server (recent)
@@ -1295,12 +1311,13 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataNonce])
 
-  // Report the unfiltered quote count up to the detail: it is what decides the
-  // Wishlist tag, and `total` is already kept live through adds and deletes, so
-  // adding this book's first quote retracts the tag on the spot.
+  // Report the unfiltered quote counts up to the detail: the total decides the
+  // Wishlist tag, and all four print in the hero. `stats` is only recomputed on an
+  // unfiltered load (see load()), for the same reason `total` always was — a
+  // colour filter must not make a book look emptier than it is.
   useEffect(() => {
-    if (total != null) onCount?.(total)
-  }, [total])
+    if (stats) onStats?.(stats)
+  }, [stats])
 
   const { stickers, reload: reloadStickers } = useStickers()
   const filtering = Boolean(color || tag || fav)
@@ -1402,7 +1419,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
     if (seq !== reqSeq.current) return
     if (r.ok) {
       setItems(r.data.annotations)
-      if (!color && !tag && !fav) setTotal(r.data.annotations.length)
+      if (!color && !tag && !fav) {
+        setTotal(r.data.annotations.length)
+        setStats(countQuotes(r.data.annotations))
+      }
     } else setError(errText(r))
   }
   useEffect(() => {
@@ -1430,6 +1450,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
     const r = await deleteWithUndo(`/annotations/${a.id}`, { reload: load })
     if (r.ok) {
       setTotal((t) => (t == null ? t : t - 1))
+      // The hero's counts go down with it, subtracting what THIS row contributed
+      // rather than only the total — see minusQuote. Without it the hero sits one
+      // ahead of the toolbar for as long as a filter is on.
+      setStats((s) => minusQuote(s, a))
       setExpandedId(null) // collapse before the shorter set re-packs
       load()
     } else setError(errText(r))

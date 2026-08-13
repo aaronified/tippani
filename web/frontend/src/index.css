@@ -1338,6 +1338,32 @@
     color: var(--faint);
   }
 
+  /* HERO COUNTS — what a work is holding, stated at the top of its own page.
+     Mono, because it is a tally and the credit line above it is already mono; the
+     total carries the accent and the rest sit back in --soft, so the number you
+     came for is the one you see first and the breakdown is there when you look.
+
+     Wraps, and the separators are siblings rather than borders precisely because
+     of that: a border-left would leave a hairline dangling at the start of the
+     second line on a 320px screen. */
+  .hero-counts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 2px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: .08em;
+    color: var(--soft);
+  }
+  .hero-counts-total { color: var(--accent-ui); }
+  .hero-counts-sep { margin: 0 8px; color: var(--faint); }
+  /* The film side asks for amber by prop rather than by inheriting a page class,
+     because there is no page class to inherit — the Catalogue's credit line sets
+     amber inline, and a terracotta total under an amber credit would read as two
+     unrelated systems on one card. See HeroCounts' `tone`. */
+  .hero-counts-amber .hero-counts-total { color: var(--amber); }
+
   /* The bar a selection puts up.
      STICKY, and that is the feature rather than a flourish: selecting forty things
      and scrolling to check one of them must not lose the controls, and the count is

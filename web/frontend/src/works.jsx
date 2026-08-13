@@ -964,12 +964,111 @@ export function MobileDetailBar({ onClose, title, meta, actions }) {
   )
 }
 
+// countQuotes — the four numbers HeroCounts prints, off one list of quotes.
+//
+// ONE FUNCTION FOR BOTH SIDES, because a highlight and a film line answer these
+// questions identically and two copies would drift on the day a fifth number is
+// added. `tags` is an array on both (absent on neither, but defended anyway: a
+// row that arrives mid-save without it should not crash a hero).
+//
+// It must be handed the UNFILTERED list. Both callers only recompute on an
+// unfiltered load, for the same reason the wishlist count already worked that way
+// — a colour filter that made a book look emptier than it is would be a lie told
+// by the one line on the page whose whole job is the tally.
+export function countQuotes(list = []) {
+  let favourites = 0
+  let noted = 0
+  let tagged = 0
+  for (const q of list) {
+    if (q.favorite) favourites++
+    if ((q.note || '').trim()) noted++
+    if ((q.tags || []).length > 0) tagged++
+  }
+  return { total: list.length, favourites, noted, tagged }
+}
+
+// minusQuote takes one row back out of a count, subtracting exactly what that row
+// contributed rather than only the total.
+//
+// It exists for the optimistic path a single delete already takes: the board
+// decrements its own total on the spot so the number does not lag the card
+// disappearing, and a hero left one ahead of the toolbar is precisely the stale
+// number this line was added to replace.
+//
+// WHAT NEITHER OF THESE COVERS, stated rather than discovered: a mutation made
+// while a FILTER is on. The list in hand is not the whole set then, so the counts
+// cannot be recomputed from it, and they hold their last unfiltered values until
+// the filter clears. That is exactly how the toolbar's own unfiltered total has
+// always behaved — and because both numbers come from the same state, they are
+// stale together and can never disagree with each other, which is the property
+// worth having. Two counts on one screen quietly contradicting each other is a
+// worse bug than one count briefly behind.
+export function minusQuote(stats, q) {
+  if (!stats) return stats
+  const less = (n, yes) => Math.max(0, n - (yes ? 1 : 0))
+  return {
+    total: Math.max(0, stats.total - 1),
+    favourites: less(stats.favourites, q?.favorite),
+    noted: less(stats.noted, (q?.note || '').trim()),
+    tagged: less(stats.tagged, (q?.tags || []).length > 0),
+  }
+}
+
+// HeroCounts — what this work is holding, at the top of its own page.
+//
+// WHY IT IS HERE AND NOT ONLY DOWN THERE. The board below has always printed a
+// count in its toolbar, and that toolbar is the wrong place to learn it from: on
+// a phone it is inside the filter sheet, and on a desktop it is past the
+// description, so "how much have I got out of this book" was a scroll away on the
+// page whose entire subject is the answer. The hero is where the identity of the
+// work is stated, and how much of it you have kept is part of that identity.
+//
+// FOUR NUMBERS, AND THREE OF THEM ARE ALLOWED TO BE ABSENT. The total always
+// shows — a zero total is the wishlist state and saying "no quotes yet" out loud
+// is better than an empty space where a count goes. The other three are omitted
+// at zero rather than printed as "0 favourites", because a row of zeroes reads as
+// a report of failure and there is nothing to act on in it.
+//
+// It is deliberately NOT the same numbers as the board toolbar. That one says how
+// many are on screen under the current filter, which is a fact about the filter;
+// this one is a fact about the work, and it is computed off the unfiltered set
+// (see the load() in Annotations / Dialogues) so a colour filter cannot make a
+// book look emptier than it is.
+// `tone` is 'accent' or 'amber'. A prop rather than a page class it could inherit,
+// because there is no page class to inherit: the Catalogue's credit line sets amber
+// inline, and a terracotta total under an amber credit reads as two unrelated
+// systems on one card.
+export function HeroCounts({ counts, noun = ['quote', 'quotes'], tone = 'accent' }) {
+  if (!counts) return null // still loading: no count is better than a wrong one
+  const { total = 0, favourites = 0, noted = 0, tagged = 0 } = counts
+  const parts = [
+    total === 0 ? `no ${noun[1]} yet` : `${total} ${total === 1 ? noun[0] : noun[1]}`,
+    favourites > 0 && `${favourites} favourite${favourites === 1 ? '' : 's'}`,
+    noted > 0 && `${noted} noted`,
+    tagged > 0 && `${tagged} tagged`,
+  ].filter(Boolean)
+  return (
+    <div className={`hero-counts${tone === 'amber' ? ' hero-counts-amber' : ''}`}>
+      {parts.map((p, i) => (
+        <span key={i}>
+          {/* The separator is a sibling rather than a border, because the row
+              wraps on a phone and a border-left would leave a hairline hanging at
+              the start of the second line. */}
+          {i > 0 && <span aria-hidden="true" className="hero-counts-sep">·</span>}
+          <span className={i === 0 ? 'hero-counts-total' : undefined}>{p}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // WorkHero — the desktop detail hero shared by books and films: cover/poster
-// column (drop-shadowed), an info column (title · meta slot · favourite hearts ·
-// genre chips · description), and an actions column. Returns the three columns
-// as a fragment so the caller owns the flex container (a plain div for books, a
-// Reveal for films). Divergent bits are slots: `cover` (Cover vs Poster), `meta`
-// (the mono/amber credit line), `actions` (Export/Edit/Delete), `tags` (the
+// column (drop-shadowed), an info column (title · meta slot · counts · favourite
+// hearts · genre chips · description), and an actions column. Returns the three
+// columns as a fragment so the caller owns the flex container (a plain div for
+// books, a Reveal for films). Divergent bits are slots: `cover` (Cover vs
+// Poster), `meta` (the mono/amber credit line), `counts` (what the work is
+// holding — see HeroCounts), `actions` (Export/Edit/Delete), `tags` (the
 // shelf-state chips, which sit on the hearts row so a work's two pieces of
 // personal state — favourite, and what shelf it is on — read together).
 export function WorkHero({
@@ -979,6 +1078,7 @@ export function WorkHero({
   titleSize = 28,
   titleStyle,
   meta,
+  counts,
   favorite,
   onFavorite,
   tags,
@@ -1015,6 +1115,10 @@ export function WorkHero({
               {title}
             </h1>
             {meta && <div className="mt-1.5">{meta}</div>}
+            {/* Inside the top band, under the credit — this is the one place on a
+                phone where it is legible without opening the filter sheet, and it
+                belongs to the work rather than to the shelf row below. */}
+            {counts && <div className="mt-1.5">{counts}</div>}
           </div>
         </div>
         {(tags || onFavorite) && (
@@ -1061,6 +1165,7 @@ export function WorkHero({
         {title}
       </h1>
       {meta && <div className="mt-2.5">{meta}</div>}
+      {counts && <div className="mt-2">{counts}</div>}
       <div className="mt-2.5 flex flex-wrap items-center gap-3">
         <Hearts value={!!favorite} onChange={onFavorite} />
         {tags}

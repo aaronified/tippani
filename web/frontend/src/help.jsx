@@ -111,6 +111,7 @@ export const HELP = {
     title: 'Book',
     entries: [
       { term: 'Details', icon: <IconDetails />, what: 'Every stored field — title, author, year, series, ISBN, ASIN, genres, description, cover. Read it there, edit any one field with its pencil, or fetch fresh metadata and choose field by field what to take.' },
+      { term: 'Counts', what: 'Under the author, what this book is holding: how many quotes, and how many of those are favourites, carry a note, or are tagged. The three breakdowns only appear when there is something in them — a row of zeroes is nothing to act on — and a book with nothing saved yet says so plainly, because that is the same state the Wishlist tag reports. They count everything on the book, not what a filter has left on screen, so narrowing to one colour cannot make the book look emptier than it is. The board’s own count below is the other question: how many are showing right now.' },
       { term: 'Hearts', what: 'Mark the book a favourite. It is stored per user.' },
       { term: 'State chip', what: 'The shelf: start reading, pause, abandon, finish — and, while reading, your page or percentage. A finished book keeps a ×N re-read count.' },
       { term: 'Add annotation', icon: <IconPlus />, what: 'Capture a highlight: the quote, an optional note, chapter and location, a colour and tags.' },
@@ -125,6 +126,7 @@ export const HELP = {
     title: 'Film or show',
     entries: [
       { term: 'Details', icon: <IconDetails />, what: 'Every stored field — title, director or creator, year, collection, TMDB and TheTVDB ids, genres, description, poster. Edit one field at a time, or re-sync from the source and choose what to take. The two ids can be typed as well as fetched, and once set every later search fetches that exact record first.' },
+      { term: 'Counts', what: 'Under the credit, what this title is holding: how many lines, and how many of those are favourites, carry a note, or are tagged. The breakdowns appear only when there is something in them, and a title with nothing saved says so — the same state the Wishlist tag reports. They count every line on the title rather than what a filter has left on screen.' },
       { term: 'State chip', what: 'The shelf: start watching, pause, abandon, finish — with a ×N re-watch count.' },
       { term: 'Add dialogue', icon: <IconPlus />, what: 'A line with its timestamp, the character, and the actor auto-filled from the cast. Shows also take season and episode.' },
       { term: 'Cast', what: 'Pulled from the source when you fetch metadata; it is what fills the actor on a new line.' },
