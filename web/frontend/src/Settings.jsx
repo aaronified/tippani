@@ -12,15 +12,19 @@ import {
   filterChipClass,
   frameCode,
   GhostButton,
+  IconArchive,
   IconCheck,
   IconClose,
   IconCopy,
   IconDelete,
   IconDevice,
   IconEdit,
+  IconExport,
+  IconKey,
   IconRefresh,
   IconRestore,
   IconRevert,
+  IconUpload,
   IconUserPlus,
   InfoDot,
   MobileSheet,
@@ -1084,10 +1088,16 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
         </label>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <StickerButton disabled={!!missing || !!busyLabel} title={missing || undefined}>
+        {/* keepLabel on both, and here it is not a style choice: this button
+            replaces every user, library and setting on the server and logs
+            everyone out. Nothing about that is to be found out by pressing a
+            glyph you half-recognise. */}
+        <StickerButton icon={<IconRestore />} keepLabel disabled={!!missing || !!busyLabel} title={missing || undefined}>
           {busyLabel || 'Restore'}
         </StickerButton>
-        <GhostButton type="button" disabled={!!busyLabel} onClick={onCancel}>Cancel</GhostButton>
+        <GhostButton type="button" icon={<IconClose />} keepLabel disabled={!!busyLabel} onClick={onCancel}>
+          Cancel
+        </GhostButton>
       </div>
       {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
     </form>
@@ -1244,14 +1254,24 @@ function BackupPrompt({ me, busy, onCancel, onConfirm }) {
           <p className="microcopy">Not tied to any account — and not recoverable. Lose it and the archive is lost.</p>
         </label>
       )}
-      <button type="button" className="tp-link block" onClick={() => setUsePhrase((v) => !v)}>
-        {usePhrase ? 'Use my account password instead' : 'Set a separate passphrase instead'}
+      {/* The key this archive will be sealed with is the single most consequential
+          choice on this form, so the control that switches it wears the key. */}
+      <button type="button" className="tp-link tp-link-icon" onClick={() => setUsePhrase((v) => !v)}>
+        <IconKey />
+        <span>{usePhrase ? 'Use my account password instead' : 'Set a separate passphrase instead'}</span>
       </button>
       <div className="flex flex-wrap items-center gap-2">
-        <StickerButton disabled={!!missing || busy} title={missing || undefined}>
-          {busy ? 'Backing up…' : 'Back up & download'}
+        {/* "Back up" — not "Back up & download", which is what it used to say and
+            used to do. The archive is kept on the server; taking a copy is a
+            separate act, offered by the toast and by the button on the card. A
+            label naming two acts for a button that should only do one is how the
+            second one got welded on in the first place. */}
+        <StickerButton icon={<IconArchive />} keepLabel disabled={!!missing || busy} title={missing || undefined}>
+          {busy ? 'Backing up…' : 'Back up'}
         </StickerButton>
-        <GhostButton type="button" disabled={busy} onClick={onCancel}>Cancel</GhostButton>
+        <GhostButton type="button" icon={<IconClose />} keepLabel disabled={busy} onClick={onCancel}>
+          Cancel
+        </GhostButton>
       </div>
       {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{missing}.</p>}
     </form>
@@ -1318,6 +1338,13 @@ function BackupCard({ user }) {
     setFileKey(f ? await sniffArchiveKey(f) : null)
   }
 
+  // download is the ONE way the archive leaves the server, and it is now only ever
+  // reached by asking. Cookie-authed same-origin GET: the browser streams the file
+  // itself, which is why this is a location assignment and not a fetch.
+  const download = () => {
+    window.location.href = apiURL('/admin/backup/download')
+  }
+
   async function create(creds) {
     setBusy(true)
     const r = await json('POST', '/admin/backup', creds)
@@ -1325,9 +1352,23 @@ function BackupCard({ user }) {
     if (!r.ok) return toast(errText(r, 'backup failed'))
     setAsking(false)
     setBackup(r.data.backup)
-    toast('backup created — downloading')
-    // Cookie-authed same-origin GET: the browser streams the file itself.
-    window.location.href = apiURL('/admin/backup/download')
+    // IT NO LONGER DOWNLOADS ITSELF. Making a backup and taking a copy of it are
+    // two different acts, and welding them together got both of them wrong:
+    //
+    //   - The archive is KEPT on the server. That is the point of the feature —
+    //     one dated archive, ready to restore from, and the restore reads it from
+    //     there. Somebody who wanted that got a multi-megabyte file in their
+    //     Downloads folder as well, every time, unasked.
+    //   - On a phone the navigation is worse than untidy: assigning
+    //     window.location while a dialog is closing takes the browser off the page
+    //     mid-transition, and what comes back is a download shelf over a Settings
+    //     screen that has lost its scroll position.
+    //   - And it happened on the FAILURE path's twin — a backup that succeeded but
+    //     that you only wanted server-side still cost you the bandwidth.
+    //
+    // So the toast offers it instead. One tap if you want the copy, nothing if you
+    // do not, and the button on the card is there either way.
+    toast('backup created', { label: 'Download', onClick: download })
   }
 
   // The archive the restore prompt is about, and therefore which credential it
@@ -1392,12 +1433,29 @@ function BackupCard({ user }) {
       </SectionTitle>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
-          <GhostButton onClick={() => setAsking(true)} disabled={busy || phase !== 'idle'}>
+          <GhostButton
+            icon={<IconArchive />}
+            keepLabel
+            onClick={() => setAsking(true)}
+            disabled={busy || phase !== 'idle'}
+          >
             {busy ? 'Backing up…' : 'Back up now'}
           </GhostButton>
+          {/* THE DOWNLOAD IS A CONTROL NOW, not a `download` word in the corner.
+              It was a bare tp-link beside a button, which read as a footnote to the
+              backup rather than the other half of it — and it mattered less while
+              creating one downloaded it anyway. Now that it does not, this is how a
+              copy is taken, so it is the same size and shape as the button beside
+              it. Still an anchor rather than a button: a real href is what gives it
+              middle-click, "save link as", and a URL you can read before you
+              commit to a multi-megabyte file. */}
           {backup && (
-            <a className="tp-link" href={apiURL('/admin/backup/download')}>
-              download
+            <a
+              className="tp-btn tp-btn-ghost tactile inline-flex items-center gap-2"
+              href={apiURL('/admin/backup/download')}
+            >
+              <IconExport />
+              Download the last one
             </a>
           )}
         </div>
@@ -1405,7 +1463,8 @@ function BackupCard({ user }) {
           <p className="microcopy">
             {backup ? (
               <>
-                last backup: <b>{fmtWhen(backup.created)}</b> · {fmtSize(backup.size)}
+                last backup: <b>{fmtWhen(backup.created)}</b> · {fmtSize(backup.size)} · kept on this server until the
+                next one replaces it
               </>
             ) : (
               'no backup on this server yet'
@@ -1445,7 +1504,14 @@ function BackupCard({ user }) {
                 onChange={(e) => chooseFile(e.target.files?.[0] || null)}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <GhostButton onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
+                {/* IconUpload: this file is going TO the server, which is the one
+                    thing that tells it apart from the download beside it. */}
+                <GhostButton
+                  icon={<IconUpload />}
+                  keepLabel
+                  onClick={() => fileRef.current?.click()}
+                  disabled={phase !== 'idle'}
+                >
                   {file ? 'Choose a different file…' : 'Choose file…'}
                 </GhostButton>
                 <span className="microcopy">{file ? `${file.name} · ${fmtSize(file.size)}` : 'no file chosen'}</span>
