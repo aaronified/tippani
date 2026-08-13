@@ -57,16 +57,16 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 332 |
-| Commits with an AI co-author trailer | **328** |
-| Period | 2026-07-02 → 2026-08-09 |
+| Commits in the repository | 447 |
+| Commits with an AI co-author trailer | **443** |
+| Period | 2026-07-02 → 2026-08-14 |
 
 Models used, by commit count:
 
 | Model | Commits |
 | :-- | --: |
+| Claude Opus 5 | 227 |
 | Claude Opus 4.8 | 151 |
-| Claude Opus 5 | 112 |
 | Claude Fable 5 | 55 |
 | Claude Haiku 4.5 | 5 |
 | Claude Sonnet 5 | 4 |
@@ -103,7 +103,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **577 Go test functions and 977 frontend tests, across 150 test files** — the
+- **645 Go test functions and 1,293 frontend tests, across 180 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated: `grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l`
   for the first, and `npm test` in `web/frontend` prints the rest. A number in a

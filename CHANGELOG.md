@@ -5,6 +5,116 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.2] - 2026-08-14
+
+### Added
+
+- **A book, film or show now says what it is holding, at the top of its own page.**
+  How many quotes, and how many of those are favourites, carry a note, or are
+  tagged. The board below has always printed a count in its toolbar, and that
+  toolbar is the wrong place to learn it from: on a phone it is inside the filter
+  sheet, and on a desktop it is past the description — so "how much have I got out
+  of this book" was a scroll away on the page whose entire subject is the answer.
+
+  The three breakdowns appear only when there is something in them, because "0
+  favourites · 0 noted · 0 tagged" is a row of failures to report with nothing in it
+  to act on. The total always shows, because a zero total *is* the wishlist state
+  and saying "no quotes yet" out loud beats an empty gap where a number goes. And
+  they count everything on the work rather than what a filter has left on screen: a
+  colour filter must not be able to make a book look emptier than it is.
+
+- **The bin is a page of its own** (`/bin`), reached from the tile in Settings and
+  from nowhere else. It was a card in a three-column grid, and a card is a control
+  panel — a label, a control, done. The bin is a list of unbounded length whose rows
+  expand, and in a ~300px column it had to say what an entry was, when it went, what
+  travelled with it, and when it is due to go for good, so it said three of those
+  and dropped the fourth.
+
+  The page carries all four. Each row names its kind with the app's own glyph for
+  that thing, and once there is more than one kind in the bin, chips appear to show
+  just one of them. **When something is due to go is a date, not a countdown** — the
+  purge clock runs on server time and only while the server is up, so an instance
+  switched off for a week has not spent a week of anybody's thirty days, and "gone
+  in 3 days" would be a promise nothing here can keep.
+
+  It is deliberately in no menu. Nothing about the bin is a place you go; it is a
+  place you are sent, by that tile or by an Undo that expired before you noticed it.
+  A permanent tab for things you have deleted would be a standing invitation to
+  browse them. It is still a real page rather than a modal, so it bookmarks and
+  survives a refresh.
+
+- **The search scope chips carry glyphs**, and lose their words to the same
+  Appearance → *Button labels* preference every other control in the app answers —
+  which on a phone is the difference between six chips fitting above the search box
+  and not. Books, films and quotes wear their own tabs' marks, so a scope looks like
+  the screen it searches; the two quote kinds with no tab of their own get two new
+  drawings. *All* keeps its word at every width: it is the default and the way back,
+  and a glyph is a thing you have to have learned already.
+
+### Changed
+
+- **The selection bar holds until you dismiss it.** It used to render on "something
+  is picked", so tapping the last card off tore the controls off the screen
+  mid-task: deciding those were the wrong four books cost a fresh long press to
+  start again. It now holds with nothing picked, reading *no books selected* with
+  its actions greyed. **Deselect all** empties the selection and leaves it standing;
+  the ✕ beside it — or Escape — ends the mode.
+
+  One consequence worth stating rather than discovering: a plain click keeps picking
+  cards after the last one is taken off, where it used to hand back to opening. It
+  has to, because the board plainly says it is selecting, and a click that opened a
+  book instead would be the surprise.
+
+- **Making a backup no longer downloads it.** The archive is *kept* on the server —
+  that is the point of the feature, and the restore reads it from there — but
+  creating one also pushed a multi-megabyte file into your downloads, every time,
+  unasked. On a phone it was worse than untidy: the navigation happened while the
+  dialog was closing, so what came back was a download shelf over a Settings screen
+  that had lost its place. The toast offers the copy instead, and the card has a
+  proper **Download the last one** control where it used to have the word
+  `download` in a corner as a footnote.
+
+- **Every control on the author and actor metadata screens carries a glyph.** The
+  People console and the person panel were the last screens whose buttons were words
+  alone, while every card, table and bulk bar in the app had moved to
+  glyph-plus-label. The per-row action takes **one** glyph across both its words:
+  `fetch` and `refetch` are the same act, and the label flips only because the row
+  already has something, so two drawings would claim the acts differ.
+
+  `search images ↗` loses the arrow — a glyph's job done by a character, and the
+  outbound chips two inches above it say the same thing with nothing at all.
+
+- Every control on the Backup card and in both its prompts keeps its words at every
+  width. That is not a style choice there: one of them writes a multi-megabyte file
+  and another replaces every user, library and setting on the server and logs
+  everyone out. Neither is a thing to find out by pressing a glyph you
+  half-recognise.
+
+### Fixed
+
+- **A long press no longer highlights a word under your thumb.** The same 500ms hold
+  means two things to two systems and both are right: to the app it is the gesture,
+  to the browser it is the start of a text selection. So a press on a card's
+  whitespace fired correctly *and* came up with a stray word shaded behind the menu.
+  Nothing was broken, which is why it stayed — it only ever looked broken. Fixed in
+  two places at once, because they fail on opposite hardware: the stylesheet stops
+  the highlight being drawn on a touch screen, and the gesture drops any live
+  selection the moment it fires, which is what covers a laptop with both a mouse and
+  a touchscreen.
+
+- **A selection dot no longer stays lit on the card you long-pressed.** A tap leaves
+  focus on the card it landed on, and focus was one of the things that revealed the
+  mark — so after deselecting everything, one card went on saying it was selected
+  until the screen was reloaded. On a touch screen the running selection is now the
+  only thing that stands a mark up, which makes the whole rule one sentence: the
+  ticks are up while the bar is up.
+
+- The glossary had been rendering a retired component. `person-link-row` is in
+  neither the source nor the stylesheet — the redirect-menu view it belonged to was
+  replaced by the details view — so that sample had been an unstyled `div`, and the
+  person panel's entry described a screen the app has not had for releases. Both are
+  rewritten against what the code actually renders.
+
 ## [1.11.1] - 2026-08-13
 
 ### Added
