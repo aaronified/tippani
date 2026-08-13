@@ -10,6 +10,8 @@
 // context menu and multiselect one feature instead of two: the gesture that asks
 // "what can I do to this" is also how you begin doing it to several.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnnotationCard } from '../../src/Library.jsx'
@@ -107,14 +109,18 @@ describe('picking cards', () => {
     expect(opened, 'no quote should have opened').toEqual([])
   })
 
-  it('leaves selection mode when the last one is clicked off', () => {
+  it('stays in selection mode when the last one is clicked off', () => {
+    // INVERTED IN 1.11.2. It used to leave the mode here, and taking the bar down
+    // on the way to picking a different four was the bug: the controls vanished
+    // mid-task and the gesture had to be found again. So a plain click still picks,
+    // and Dismiss (or Escape) is the way out.
     render(<Board />)
     fireEvent.click(boxes()[0])
     fireEvent.click(cards()[0])
     expect(count()).toBe(0)
-    // And an ordinary click opens again, without any Cancel button in between.
     fireEvent.click(cards()[2])
-    expect(opened).toEqual([3])
+    expect(opened).toEqual([])
+    expect(count()).toBe(1)
   })
 
   it('extends with shift over the board’s own order', () => {
@@ -145,6 +151,33 @@ describe('the tickmark', () => {
     expect(cards()[2].className).not.toContain('is-selecting')
     fireEvent.click(boxes()[0])
     for (const c of cards()) expect(c.className).toContain('is-selecting')
+  })
+
+  it('keeps standing when the last pick is taken off, and goes on dismiss', () => {
+    // `.is-selecting` is the MODE since 1.11.2, not the count. It used to come off
+    // the instant the selection emptied, which was half of the reported bug: the
+    // bar went, and the mark on the long-pressed card stayed.
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[0])
+    expect(count()).toBe(0)
+    for (const c of cards()) expect(c.className).toContain('is-selecting')
+  })
+
+  it('reveals on a touch screen ONLY through the mode', () => {
+    // The other half of the reported bug, and it is a stylesheet bug, so it is read
+    // out of the stylesheet. A tap leaves :focus-within on the card it landed on,
+    // so a hover/focus reveal that applies on a phone keeps that one card's dot lit
+    // after everything is deselected — until a reload, which is the only thing that
+    // drops the focus. Nothing was selected and one card said it was.
+    const css = readFileSync(join(process.env.TIPPANI_SRC, 'index.css'), 'utf8')
+    const gate = css.match(/@media \(hover: hover\) \{[\s\S]*?\n {2}\}/g) || []
+    const reveal = gate.find((b) => b.includes('.card-pick'))
+    expect(reveal, 'the hover/focus reveal is not behind a hover query').toBeTruthy()
+    expect(reveal).toMatch(/:focus-within \.card-pick/)
+    // And the mode's own reveal is NOT gated — it has to work on every device,
+    // because on a phone it is the only one there is.
+    expect(css).toMatch(/\.is-selecting \.card-pick,\s*\n\s*\.is-picked \.card-pick \{ opacity: 1; \}/)
   })
 })
 

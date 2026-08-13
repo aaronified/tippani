@@ -419,7 +419,8 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
         />
       }
     >
-      {selection.count > 0 && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
+      {/* The MODE, not the count — see useSelection. */}
+      {selection.open && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
       {grouped ? (
         <div className="space-y-10">
           {grouped.map((g) => (
@@ -1366,7 +1367,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onCount, mobileFilterOpen
           {filtering ? 'No dialogues match the filters.' : 'No dialogues yet — the ＋ in the bar above captures the first line.'}
         </EmptyState>
       )}
-      {dlgSelection.count > 0 && (
+      {dlgSelection.open && (
         <SelectionBar
           selection={dlgSelection}
           rows={items || []}

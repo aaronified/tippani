@@ -1947,6 +1947,10 @@ export function Select({
   placeholder = "Select…",
   className = "",
   width,
+  // Same caller and same reason as ColorSwatches' `disabled`: the selection bar
+  // holds its shape with nothing picked, and a live "move to…" over an empty
+  // selection is a control that can only fail.
+  disabled = false,
 }) {
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0); // highlighted row (hover / keyboard)
@@ -2116,6 +2120,7 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        disabled={disabled}
         onClick={() => {
           // A drag released over the trigger must not re-open the panel.
           if (suppressClick.current) {
@@ -3886,7 +3891,11 @@ export function FavoriteStar({ value, onChange }) {
 //
 // `showAll` renders every slot regardless — Settings needs to show the one you
 // are in the middle of hiding.
-export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false, collapsible = false }) {
+// `disabled` exists for one caller: the selection bar holding a mode with nothing
+// picked in it (see useSelection). Six live dots over an empty selection is a
+// control whose every outcome is an error from the server, and greying a row of
+// dots is the only way a radiogroup can say so.
+export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false, collapsible = false, disabled = false }) {
   const ref = useRef(null);
   const offered = showAll
     ? ANNOTATION_COLORS
@@ -3925,6 +3934,7 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
             aria-checked={value === c}
             aria-label={categoryName(c)}
             tabIndex={i === focusIndex ? 0 : -1}
+            disabled={disabled}
             onClick={() => onChange(c)}
             className="color-dot-btn"
           >
@@ -3943,7 +3953,7 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
     <>
       <span className="cs-full">{dots}</span>
       <span className="cs-mini">
-        <ColorMenu value={value} offered={offered} onChange={onChange} ariaLabel={ariaLabel} />
+        <ColorMenu value={value} offered={offered} onChange={onChange} ariaLabel={ariaLabel} disabled={disabled} />
       </span>
     </>
   );
@@ -3964,7 +3974,7 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
 // neighbouring card no matter what z-index it carries, so a menu that opened
 // past the card's edge would slide UNDER the card beside it. Anchoring to the
 // viewport puts it where a popup belongs and flips it when there is no room.
-function ColorMenu({ value, offered, onChange, ariaLabel }) {
+function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   // Above by preference: this control sits low on a card, so a list that
@@ -3984,6 +3994,7 @@ function ColorMenu({ value, offered, onChange, ariaLabel }) {
           aria-haspopup="true"
           aria-expanded={open}
           aria-label={ariaLabel}
+          disabled={disabled}
           onClick={() => setOpen((v) => !v)}
         >
           <span className={"color-dot " + (colorDotClass[value] || "") + (value ? " active" : "")} />

@@ -1212,6 +1212,10 @@
      on every book cover in the Library, permanently, for a mode nobody had entered
      is a lot of furniture for an affordance the gesture already provides.
 
+     And on a touch screen the mode is now the ONLY thing that reveals it. See the
+     gate below: hover and focus were leaving one card's mark lit after the
+     selection had been emptied, because a tap leaves :focus-within behind it.
+
      Absolutely positioned so it costs the card no layout: a mark in the flow would
      re-wrap the quote on every board the moment selection mode existed. */
   .card-pick {
@@ -1272,14 +1276,28 @@
   /* The mark rides on the ARTWORK, not the caption under it: `top` clears nothing
      because the poster starts at the top of the tile. */
   .work-tile > .card-pick { top: 6px; right: 8px; }
-  .hand-card:hover .card-pick,
-  .hand-card:focus-within .card-pick,
-  .film-frame:hover .card-pick,
-  .film-frame:focus-within .card-pick,
-  .work-tile:hover .card-pick,
-  .work-tile:focus-within .card-pick,
+  /* THE MODE REVEALS EVERY MARK, at every width, and nothing else does on a touch
+     screen. `.is-selecting` is the bar being up (see useSelection: it tracks the
+     MODE now, not the count), so the rule a person can actually hold is "the ticks
+     are up while the bar is up" — and dismissing puts all of them away together. */
   .is-selecting .card-pick,
   .is-picked .card-pick { opacity: 1; }
+  /* Hover and focus reveal one card's mark, and are gated on having a pointer that
+     can hover. THIS IS THE BUG THAT WAS LEFT LIT: on a touch screen the tile keeps
+     :focus-within after the tap that long-pressed it, so the dot on that one card
+     stayed up after the selection was emptied — until a reload, which is the only
+     thing that dropped the focus. Nothing was selected and one card said it was.
+
+     `:focus-within` is not lost by gating it: it is here for a keyboard tabbing
+     down the board, and a keyboard comes with a pointer that hovers. */
+  @media (hover: hover) {
+    .hand-card:hover .card-pick,
+    .hand-card:focus-within .card-pick,
+    .film-frame:hover .card-pick,
+    .film-frame:focus-within .card-pick,
+    .work-tile:hover .card-pick,
+    .work-tile:focus-within .card-pick { opacity: 1; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .card-pick,
     .card-pick-mark { transition: none; }

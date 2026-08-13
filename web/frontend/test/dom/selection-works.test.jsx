@@ -43,7 +43,10 @@ function Board({ items = BOOKS, kind = 'book' }) {
     <div>
       <span data-testid="count">{selection.count}</span>
       <span data-testid="kind">{String(selection.kind)}</span>
-      {selection.count > 0 && <SelectionBar selection={selection} rows={items} onDone={() => {}} />}
+      {/* `open`, not `count`, exactly as the boards wire it — the bar has to be
+          able to stand over an empty selection or none of the mode cases below
+          are testing what the app does. */}
+      {selection.open && <SelectionBar selection={selection} rows={items} onDone={() => {}} />}
       {items.map((b, i) => (
         <WorkCard key={b.id} kind={kind} item={b} index={i} onOpen={(id) => opened.push(id)} selection={selection} />
       ))}
@@ -158,7 +161,9 @@ describe('the bar over a selection of works', () => {
     // The whole point of the split. A colour category is a note about a QUOTE and a
     // book has never had one; a shelf is a fact about a work and a quote has none.
     open()
-    for (const name of ['Fill gaps', 'Skip in quiz', 'Delete', 'Clear']) {
+    // `Clear` is `Deselect all` since 1.11.2, and it no longer takes the bar down
+    // with it — `Dismiss the selection` is the control that does.
+    for (const name of ['Fill gaps', 'Skip in quiz', 'Delete', 'Deselect all', 'Dismiss the selection']) {
       expect(screen.getByRole('button', { name }), name).toBeTruthy()
     }
     expect(screen.getByLabelText(/Move the 1 selected to a shelf/)).toBeTruthy()
@@ -258,5 +263,101 @@ describe('the quiz toggle reads the rows, not a guess', () => {
     fireEvent.click(boxes()[0])
     fireEvent.click(boxes()[1])
     expect(screen.getByRole('button', { name: 'Skip in quiz' })).toBeTruthy()
+  })
+})
+
+// ---- the mode outlives the picks (1.11.2) -----------------------------------
+//
+// The bug, as reported: long-press a book, then deselect everything — the bar
+// disappeared, and the tick stayed lit on the book that had been long-pressed
+// until the screen was reloaded. Two halves of one wrong idea, that "the mode is
+// running" and "something is picked" are the same question.
+//
+// The bar now holds until it is dismissed, and dismissing is what puts every mark
+// away. What is asserted here is the pairing, because that is the rule a person
+// can hold: the ticks are up while the bar is up.
+
+describe('the bar holds until it is dismissed', () => {
+  const openMode = () => {
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+  }
+  const bar = () => document.querySelector('.selection-bar')
+
+  it('stands with nothing picked, and says so in words rather than a zero', () => {
+    openMode()
+    fireEvent.click(boxes()[0]) // off again
+    expect(count()).toBe(0)
+    expect(bar(), 'the bar went with the last pick').toBeTruthy()
+    expect(screen.getByText('no books selected')).toBeTruthy()
+  })
+
+  it('keeps the kind, so the empty bar is still a BOOK bar', () => {
+    // With the kind dropped at zero the bar would render the quote actions over a
+    // selection of books, because isWorkKind(null) is false. That is invisible
+    // until somebody taps Seal on a book.
+    openMode()
+    fireEvent.click(boxes()[0])
+    expect(screen.getByRole('button', { name: 'Fill gaps' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Seal' })).toBeNull()
+  })
+
+  it('disables every action while nothing is picked', () => {
+    // An enabled Delete over zero rows is a button whose only possible outcome is
+    // an error from the server.
+    openMode()
+    fireEvent.click(boxes()[0])
+    for (const name of ['Fill gaps', 'Skip in quiz', 'Delete', 'Deselect all']) {
+      expect(screen.getByRole('button', { name }).disabled, name).toBe(true)
+    }
+    expect(screen.getByLabelText(/Move the 0 selected to a shelf/).disabled).toBe(true)
+    // The way out is never disabled. A mode you cannot leave is the worse bug.
+    expect(screen.getByRole('button', { name: 'Dismiss the selection' }).disabled).toBe(false)
+  })
+
+  it('re-enables them the moment something is picked again', () => {
+    openMode()
+    fireEvent.click(boxes()[0])
+    fireEvent.click(boxes()[2])
+    expect(screen.getByRole('button', { name: 'Delete' }).disabled).toBe(false)
+    expect(screen.getByText('1 book selected')).toBeTruthy()
+  })
+
+  it('Deselect all empties it and leaves the bar standing', () => {
+    openMode()
+    fireEvent.click(boxes()[1])
+    expect(count()).toBe(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }))
+    expect(count()).toBe(0)
+    expect(bar()).toBeTruthy()
+  })
+
+  it('Dismiss takes the bar down and every tick with it', () => {
+    openMode()
+    expect(tiles()[0].className).toContain('is-selecting')
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss the selection' }))
+    expect(bar()).toBeNull()
+    expect(count()).toBe(0)
+    // THE MARK THAT WAS LEFT LIT. `.is-selecting` is what stands the ticks up on
+    // every card of the board, and it has to come off all three of them together —
+    // the un-picked cards are half the answer to "what am I about to act on", so a
+    // board that keeps saying it mid-nothing is a board lying about its own state.
+    for (const t of tiles()) expect(t.className).not.toContain('is-selecting')
+    expect(document.querySelector('.is-picked')).toBeNull()
+    for (const b of boxes()) expect(b.checked).toBe(false)
+  })
+
+  it('leaves on Escape, because a mode needs a keyboard way out', () => {
+    openMode()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(bar()).toBeNull()
+    expect(count()).toBe(0)
+  })
+
+  it('hands plain clicks back to opening once it is dismissed', () => {
+    openMode()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss the selection' }))
+    fireEvent.click(tiles()[2].querySelector('button'))
+    expect(opened).toEqual([3])
   })
 })

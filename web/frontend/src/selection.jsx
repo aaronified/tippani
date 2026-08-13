@@ -17,9 +17,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 //
 // NOTHING IS PERSISTED. Resuming a selection after a reload is a way to act on a
 // library that changed while you were away.
+//
+// ---- THE MODE OUTLIVES THE PICKS (1.11.2) -----------------------------------
+//
+// `open` is selection MODE, and it is deliberately not the same question as "is
+// anything picked". Until now it was: the bar rendered on `count > 0`, so
+// deselecting the last card tore the bar off the screen mid-task.
+//
+// That is wrong in a way you only feel by using it. Long-press a book, look at
+// what the bar offers, decide those are the wrong four books and tap them off —
+// and the controls vanish, so re-picking means finding the long press again. The
+// mode is a mode: you leave it when you say so, not when the count happens to
+// touch zero on the way to a different four.
+//
+// It also left a mark behind. The dot on the card you long-pressed stayed lit
+// until a reload, because on a touch screen the tile keeps :focus-within after
+// the tap and that is one of the things the stylesheet reveals a mark for. With
+// `open` driving `.is-selecting` and the hover/focus reveal now gated behind
+// `(hover: hover)`, dismissing the mode is what puts every mark away — which is
+// the only rule a person can hold: the ticks are up while the bar is up.
+//
+// So: `dismiss()` closes the mode and empties it, `deselectAll()` empties it and
+// leaves it open, and `count === 0` while open is a real, reachable state that
+// the bar has to render — with its actions disabled, because acting on nothing
+// is not something to offer.
 export function useSelection(orderedIds = []) {
   const [kind, setKind] = useState(null)
   const [ids, setIds] = useState(() => new Set())
+  const [open, setOpen] = useState(false)
   // The last id toggled, which is what Shift extends FROM. Kept in a ref rather
   // than state: it changes on every toggle and nothing renders differently for it.
   const anchor = useRef(null)
@@ -47,13 +72,28 @@ export function useSelection(orderedIds = []) {
     })
   }, [visible])
 
-  useEffect(() => {
-    if (ids.size === 0 && kind !== null) setKind(null)
-  }, [ids, kind])
+  // NOTE what is NOT here any more: an effect nulling `kind` the moment the
+  // selection emptied. It existed so that after deselecting everything you could
+  // start a fresh selection of a different kind — but `toggle` has always handled
+  // a kind mismatch explicitly, by replacing the selection, so the effect was
+  // never what made that work. Keeping the kind is what lets the bar hold its
+  // shape at zero: without it, an empty selection of books would render the
+  // quote actions, because `isWorkKind(null)` is false.
 
-  const clear = useCallback(() => {
+  // dismiss ends the mode: nothing picked, no kind, no marks anywhere. The one
+  // way out, and the only thing that puts the ticks away.
+  const dismiss = useCallback(() => {
     setIds(new Set())
     setKind(null)
+    setOpen(false)
+    anchor.current = null
+  }, [])
+
+  // deselectAll empties the selection and STAYS in the mode. The bar holds, with
+  // its actions disabled, so picking a different four is picking a different four
+  // rather than starting again from the gesture.
+  const deselectAll = useCallback(() => {
+    setIds(new Set())
     anchor.current = null
   }, [])
 
@@ -61,6 +101,7 @@ export function useSelection(orderedIds = []) {
   // different kind replaces the selection rather than joining it.
   const toggle = useCallback(
     (id, itemKind) => {
+      setOpen(true)
       setKind((k) => {
         if (k && itemKind && k !== itemKind) {
           setIds(new Set([id]))
@@ -91,6 +132,7 @@ export function useSelection(orderedIds = []) {
       const b = visible.indexOf(id)
       if (a < 0 || b < 0) return toggle(id, itemKind)
       const [lo, hi] = a < b ? [a, b] : [b, a]
+      setOpen(true)
       setKind(itemKind || null)
       setIds((prev) => {
         const next = new Set(prev)
@@ -104,6 +146,7 @@ export function useSelection(orderedIds = []) {
 
   const selectAll = useCallback(
     (itemKind) => {
+      setOpen(true)
       setKind(itemKind || null)
       setIds(new Set(visible))
     },
@@ -115,21 +158,41 @@ export function useSelection(orderedIds = []) {
     selected: ids,
     ids: [...ids],
     count: ids.size,
-    active: ids.size > 0,
+    // `open` is the mode; `active` is the same question and is what every board
+    // already reads for `.is-selecting`, so it is an alias rather than a second
+    // concept. It used to mean `count > 0`, which is why the marks came and went
+    // with the count instead of with the bar.
+    open,
+    active: open,
+    // Whether anything is actually picked, which is what an ACTION has to ask.
+    // The two were one boolean until the mode outlived the picks, and every place
+    // that reads the wrong one of them is a bug you can see: `active` on a button
+    // offers to recolour nothing, `open` on a mark hides the ticks mid-task.
+    any: ids.size > 0,
     isSelected: (id) => ids.has(id),
     toggle,
     extendTo,
     selectAll,
-    clear,
+    deselectAll,
+    dismiss,
+    // `clear` is what the boards call after a bulk action lands, and it should end
+    // the mode: the thing you selected forty books to do is done. Kept under its
+    // old name because that is what those call sites mean by it.
+    clear: dismiss,
   }
 }
 
 // selectionClick reads a click's modifiers and says what it means.
 //
-// A plain click keeps opening the thing UNTIL a selection exists; once one does, a
+// A plain click keeps opening the thing UNTIL the mode is entered; from then on a
 // plain click toggles. The mode is visible — the bar is up and the cards wear
-// checkboxes — so the change of meaning is not a surprise, and clicking the last
-// item off leaves it again.
+// checkboxes — so the change of meaning is not a surprise.
+//
+// `active` is now the MODE rather than `count > 0`, and that changes one thing
+// here: clicking the last card off used to hand plain clicks back to opening, and
+// now it does not. It cannot, and that is the point — the bar is still up, the
+// ticks are still standing, and a click that opened a book while the board plainly
+// said it was selecting would be the surprise. Dismiss (or Escape) is the way out.
 //
 // Ctrl/Cmd-click always selects, which is the gesture every file manager has
 // taught, and Shift extends.

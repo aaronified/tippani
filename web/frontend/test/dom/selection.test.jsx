@@ -1,12 +1,22 @@
-// A selection, and the two rules that keep its count honest.
+// A selection, and the rules that keep its count honest.
 //
-// The bar says "12 selected" and then acts on twelve things. Everything here is
+// The bar says "12 selected" and then acts on twelve things. Most of this file is
 // about that sentence being true — which is not obvious, because a board's visible
 // list changes under a selection all the time: a filter flips, a patch reloads the
 // list, a search narrows. A selection holding ids that are no longer on screen is a
 // number about nothing, and acting on it acts on things nobody could check.
 //
 // The bin makes that recoverable. It does not make it honest.
+//
+// ---- and the mode, which is a SECOND question (1.11.2) ----------------------
+//
+// `open` is whether the mode is running; `count` is how much is picked in it. They
+// were one boolean, and three of the cases in this file used to assert the
+// consequence: emptying the selection left the mode, which tore the bar off the
+// screen mid-task and left the tick lit on the card that had been long-pressed.
+//
+// Those cases are still here, inverted, because the inversion is the fix and a
+// test that quietly stopped asserting either way would be worse than both.
 
 import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
@@ -15,25 +25,33 @@ import { selectionClick, useSelection } from '../../src/selection.jsx'
 const ids = (n) => Array.from({ length: n }, (_, i) => i + 1)
 
 describe('picking things', () => {
-  it('starts empty and inactive', () => {
+  it('starts empty and outside the mode', () => {
     const { result } = renderHook(() => useSelection(ids(5)))
     expect(result.current.count).toBe(0)
+    expect(result.current.open).toBe(false)
     expect(result.current.active).toBe(false)
+    expect(result.current.any).toBe(false)
     expect(result.current.kind).toBeNull()
   })
 
-  it('toggles one on and off, and remembers the kind', () => {
+  it('toggles one on and off, and stays in the mode with nothing picked', () => {
     const { result } = renderHook(() => useSelection(ids(5)))
     act(() => result.current.toggle(2, 'annotation'))
     expect(result.current.ids).toEqual([2])
     expect(result.current.kind).toBe('annotation')
     expect(result.current.isSelected(2)).toBe(true)
+    expect(result.current.open).toBe(true)
     act(() => result.current.toggle(2, 'annotation'))
     expect(result.current.count).toBe(0)
-    // Clicking the last one off leaves selection mode, which is what makes the mode
-    // escapable without a Cancel button.
-    expect(result.current.active).toBe(false)
-    expect(result.current.kind).toBeNull()
+    // THE INVERSION. Clicking the last one off used to leave the mode, which took
+    // the bar with it — so "these are the wrong four" cost a fresh long press. The
+    // mode now ends when you say so, and only then.
+    expect(result.current.open).toBe(true)
+    expect(result.current.any).toBe(false)
+    // And the kind is KEPT, which is what lets the bar hold its shape at zero: an
+    // empty selection with kind null would render the quote actions over books,
+    // because isWorkKind(null) is false.
+    expect(result.current.kind).toBe('annotation')
   })
 
   it('extends over the VISIBLE order, not the numeric one', () => {
@@ -109,28 +127,81 @@ describe('the count cannot lie', () => {
     expect(result.current.ids.sort()).toEqual([1, 3])
   })
 
-  it('leaves selection mode when the last visible id goes away', () => {
+  it('empties, but does not leave the mode, when the last visible id goes away', () => {
+    // The count still cannot lie — that rule is untouched, and it is the whole
+    // reason the id is dropped. What changed is that emptying the selection no
+    // longer tears the controls off the screen: the bar holds, reading "no quotes
+    // selected" with every action disabled, and the way out is still one tap.
     const { result, rerender } = renderHook(({ list }) => useSelection(list), {
       initialProps: { list: [1, 2] },
     })
     act(() => result.current.toggle(2, 'quote'))
     rerender({ list: [1] })
     expect(result.current.count).toBe(0)
-    expect(result.current.active).toBe(false)
+    expect(result.current.open).toBe(true)
+    expect(result.current.any).toBe(false)
+    expect(result.current.kind).toBe('quote')
+  })
+})
+
+describe('leaving the mode', () => {
+  it('dismiss ends it, and takes the kind with it', () => {
+    const { result } = renderHook(() => useSelection(ids(4)))
+    act(() => result.current.selectAll('book'))
+    act(() => result.current.dismiss())
+    expect(result.current.count).toBe(0)
+    expect(result.current.open).toBe(false)
     expect(result.current.kind).toBeNull()
   })
 
-  it('clears on request', () => {
+  it('deselectAll empties it and leaves it standing', () => {
+    // The distinction the two right-hand controls on the bar are: one is "these
+    // are the wrong four", the other is "I am done selecting".
+    const { result } = renderHook(() => useSelection(ids(4)))
+    act(() => result.current.selectAll('book'))
+    act(() => result.current.deselectAll())
+    expect(result.current.count).toBe(0)
+    expect(result.current.open).toBe(true)
+    expect(result.current.kind).toBe('book')
+  })
+
+  it('clear is dismiss, because that is what the boards mean by it', () => {
+    // Every board calls selection.clear() after a bulk action lands, and the thing
+    // forty books were selected for is done — so it must end the mode, not leave an
+    // empty bar over a list that just reloaded.
     const { result } = renderHook(() => useSelection(ids(4)))
     act(() => result.current.selectAll('book'))
     act(() => result.current.clear())
-    expect(result.current.count).toBe(0)
+    expect(result.current.open).toBe(false)
     expect(result.current.kind).toBeNull()
+  })
+
+  it('re-enters cleanly, with a different kind if that is what was picked', () => {
+    const { result } = renderHook(() => useSelection(ids(4)))
+    act(() => result.current.toggle(1, 'book'))
+    act(() => result.current.dismiss())
+    act(() => result.current.toggle(2, 'quote'))
+    expect(result.current.open).toBe(true)
+    expect(result.current.kind).toBe('quote')
+    expect(result.current.ids).toEqual([2])
+  })
+
+  it('still replaces the selection when a second kind is picked mid-mode', () => {
+    // ONE KIND AT A TIME, and this is the rule the removed kind-reset effect was
+    // never what enforced: toggle has always handled the mismatch itself.
+    const { result } = renderHook(() => useSelection(ids(4)))
+    act(() => result.current.toggle(1, 'book'))
+    act(() => result.current.toggle(2, 'quote'))
+    expect(result.current.kind).toBe('quote')
+    expect(result.current.ids).toEqual([2])
   })
 })
 
 describe('what a click means', () => {
-  it('opens the thing until a selection exists, then toggles', () => {
+  it('opens the thing until the mode is entered, then toggles', () => {
+    // `active` is the MODE now, so a plain click keeps toggling while the bar is
+    // up even with nothing picked. It has to: the board plainly says it is
+    // selecting, and a click that opened a book instead would be the surprise.
     expect(selectionClick({}, { active: false })).toBe('open')
     expect(selectionClick({}, { active: true })).toBe('toggle')
   })

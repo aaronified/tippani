@@ -355,7 +355,9 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         )
       }
     >
-      {selection.count > 0 && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
+      {/* The MODE, not the count: emptying the selection leaves the bar standing
+          so picking a different four does not cost a fresh gesture. */}
+      {selection.open && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
       {grouped ? (
         <div className="space-y-10">
           {grouped.map((g) => {
@@ -1555,7 +1557,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onCount, mobileFilter
           {filtering ? 'no annotations match the filters' : 'no annotations yet — the ＋ in the bar above captures your first'}
         </EmptyState>
       )}
-      {selection.count > 0 && (
+      {selection.open && (
         <SelectionBar
           selection={selection}
           rows={displayRows}

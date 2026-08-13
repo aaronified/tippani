@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
 import { BULK_TAGS, bulkActionsFor, isWorkKind } from './actions.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
@@ -7,8 +7,10 @@ import {
   ConfirmDialog,
   FormModal,
   GhostButton,
+  IconClose,
   MonoLabel,
   Select,
+  Tooltip,
   TokenInput,
   toast,
 } from './ui.jsx'
@@ -77,10 +79,32 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const [typed, setTyped] = useState('')
   const [sealing, setSealing] = useState(false)
   const { kind, ids, count } = selection
+  // The mode, not the count — see useSelection. Deselecting the last card used to
+  // tear the bar off the screen, so re-picking meant finding the long press again.
+  const open = selection.open ?? count > 0
 
-  if (!count || !kind || !KIND_ROUTES[kind]) return null
+  // ESCAPE LEAVES THE MODE, because a mode you can only leave by finding a button
+  // is a mode. Skipped while either of this bar's own dialogs is up: there Escape
+  // belongs to the dialog, and dismissing the selection underneath it would answer
+  // a question nobody asked.
+  useEffect(() => {
+    if (!open || asking || sealing) return
+    const k = (e) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      selection.dismiss?.()
+    }
+    document.addEventListener('keydown', k)
+    return () => document.removeEventListener('keydown', k)
+  }, [open, asking, sealing, selection])
+
+  if (!open || !kind || !KIND_ROUTES[kind]) return null
   const routes = KIND_ROUTES[kind]
   const isWork = isWorkKind(kind)
+  // Nothing picked, mode still running. Every action is disabled and says so by
+  // being disabled — an enabled Delete over zero rows is a button whose only
+  // possible outcome is an error from the server.
+  const none = count === 0
 
   // Whether the selection is ALREADY out of the quiz, which is what decides the
   // word on the button. Every-not-some on purpose: over a mixed selection the
@@ -198,14 +222,17 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 
   return (
     <div className="selection-bar">
-      <MonoLabel style={{ color: 'var(--accent-ui)' }}>
-        {count} {count === 1 ? routes.noun[0] : routes.noun[1]} selected
+      {/* "no books selected" rather than "0 books selected": the state is real and
+          reachable now, and a zero in a count reads as a thing that went wrong. */}
+      <MonoLabel style={{ color: none ? 'var(--soft)' : 'var(--accent-ui)' }}>
+        {none ? `no ${routes.noun[1]} selected` : `${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
       </MonoLabel>
 
       {byID.colour && (
-        <span className="shrink-0">
+        <span className="shrink-0" aria-disabled={none || undefined}>
           <ColorSwatches
             collapsible
+            disabled={none}
             value=""
             onChange={(c) => byID.colour.run(c)}
             ariaLabel={`Recolour the ${count} selected`}
@@ -225,18 +252,18 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         </span>
       )}
       {canTag && (
-        <GhostButton onClick={applyTags} disabled={busy || tags.length === 0}>
+        <GhostButton onClick={applyTags} disabled={busy || none || tags.length === 0}>
           Add tags
         </GhostButton>
       )}
 
       {byID.sticker && (
-        <GhostButton onClick={() => setSealing(true)} disabled={busy}>
+        <GhostButton onClick={() => setSealing(true)} disabled={busy || none}>
           {byID.sticker.label}
         </GhostButton>
       )}
       {byID.favourite && (
-        <GhostButton onClick={() => byID.favourite.run()} disabled={busy}>
+        <GhostButton onClick={() => byID.favourite.run()} disabled={busy || none}>
           {byID.favourite.label}
         </GhostButton>
       )}
@@ -251,6 +278,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
             // control like the colour swatches beside it, not a field with a value:
             // the selection has forty shelf states and this has one label.
             value={null}
+            disabled={none}
             placeholder="move to…"
             options={SHELF_CHOICES(kind)}
             onChange={(v) => byID.shelf.run(v)}
@@ -258,13 +286,13 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         </label>
       )}
       {byID.fill && (
-        <GhostButton onClick={() => byID.fill.run()} disabled={busy}>
+        <GhostButton onClick={() => byID.fill.run()} disabled={busy || none}>
           {busy ? 'Fetching…' : byID.fill.label}
         </GhostButton>
       )}
 
       {byID.review && (
-        <GhostButton onClick={() => byID.review.run()} disabled={busy}>
+        <GhostButton onClick={() => byID.review.run()} disabled={busy || none}>
           {byID.review.label}
         </GhostButton>
       )}
@@ -272,14 +300,38 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
       {/* Delete is last, danger-styled, and never adjacent to the controls that
           merely change a field. It is also the only one that asks. */}
       {byID.delete && (
-        <GhostButton className="tp-btn-danger" onClick={() => setAsking(true)} disabled={busy}>
+        <GhostButton className="tp-btn-danger" onClick={() => setAsking(true)} disabled={busy || none}>
           {byID.delete.label}
         </GhostButton>
       )}
 
-      <GhostButton className="ml-auto" onClick={selection.clear}>
-        Clear
+      {/* TWO CONTROLS AT THIS END, and the difference between them is the whole
+          point of the mode outliving the picks.
+
+          `Deselect all` empties the selection and leaves the bar standing, so
+          "these four are the wrong four" costs one tap rather than a fresh
+          gesture. It is the button that used to be labelled `Clear` and used to
+          take the bar down with it.
+
+          `✕` ends the mode: the bar goes, and every tick on the board goes with
+          it. That pairing is the only rule that can be held in the head — the
+          marks are up while the bar is up — and it is what stopped a dot being
+          left lit on the card you long-pressed. Drawn as the icon button BulkBar
+          already uses for the same act, rather than a fourth ghost button, so the
+          way out does not look like one more thing to do to the selection. */}
+      <GhostButton className="ml-auto" onClick={() => selection.deselectAll?.()} disabled={busy || none}>
+        Deselect all
       </GhostButton>
+      <Tooltip label="Dismiss the selection">
+        <button
+          type="button"
+          className="field-icon-btn tactile"
+          aria-label="Dismiss the selection"
+          onClick={() => selection.dismiss?.()}
+        >
+          <IconClose />
+        </button>
+      </Tooltip>
 
       {/* Mounted only while it is open, which is what keeps the sticker list from
           being fetched the moment somebody selects one quote. A sticky bar that
