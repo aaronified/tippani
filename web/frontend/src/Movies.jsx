@@ -798,10 +798,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
           meta={detailMeta}
           actions={
             <>
-              <IconButton icon={<IconFilter />} ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
+              <IconButton icon={<IconFilter />} label="Filter"
+            ariaLabel="Filter dialogues" onClick={() => setMobileFilter(true)} />
               {/* The shell's one Add surface, opened on Capture with this title
                   already the target — not a second add form of its own. */}
-              <IconButton icon={<IconPlus />} ariaLabel="Capture a line" onClick={() => onAdd?.('quote', { type: 'movie', id })} />
+              <IconButton icon={<IconPlus />} label="Capture"
+            ariaLabel="Capture a line" onClick={() => onAdd?.('quote', { type: 'movie', id })} />
               <MoreMenu
                 items={[
                   {
@@ -890,15 +892,18 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                   {!DEMO && (
                     <IconButton
                         icon={<IconExport />}
-                        ariaLabel="Export as Markdown"
+                        label="Export"
+            ariaLabel="Export as Markdown"
                         onClick={() => (window.location.href = `/api/movies/${movie.id}/export`)}
                       tooltip="Export as Markdown"
                     />
                   )}
-                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
+                  <IconButton icon={<IconDetails />} label="Details"
+            ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
                   <IconButton
                       icon={<IconDelete />}
-                      ariaLabel="Delete this title"
+                      label="Delete"
+            ariaLabel="Delete this title"
                       onClick={remove}
                       danger
                     tooltip="Delete this title"

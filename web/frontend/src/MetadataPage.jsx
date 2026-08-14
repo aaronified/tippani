@@ -131,7 +131,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
                 user?.is_admin && (
                   <IconButton
                     icon={<IconMetadata />}
-                    ariaLabel="Fetch missing covers and metadata"
+                    label="Fetch"
+            ariaLabel="Fetch missing covers and metadata"
                     tooltip="Fill missing covers and metadata"
                     tipSide="bottom"
                     onClick={() => fetchMissingCovers(false)}

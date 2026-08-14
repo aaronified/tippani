@@ -1433,7 +1433,8 @@ export function WorkListScaffold({
             <>
               {mobile && (
                 <div className="flex items-center gap-2">
-                  <IconButton icon={<IconFilter />} ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+                  <IconButton icon={<IconFilter />} label="Filters"
+            ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
                   {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export', onClick: onExport }]} />}
                 </div>
               )}
@@ -1448,7 +1449,8 @@ export function WorkListScaffold({
                   survivor of the whole-collection export it replaced, and it
                   contradicted the dialog directly above the button you press. */}
               {!mobile && !DEMO && (
-                <IconButton icon={<IconExport />} ariaLabel="Export" onClick={onExport} tooltip="Export what is shown" />
+                <IconButton icon={<IconExport />} label="Export"
+            ariaLabel="Export" onClick={onExport} tooltip="Export what is shown" />
               )}
             </>
           }

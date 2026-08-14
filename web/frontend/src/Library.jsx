@@ -724,10 +724,12 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
           meta={detailAuthor}
           actions={
             <>
-              <IconButton icon={<IconFilter />} ariaLabel="Filter annotations" onClick={() => setMobileFilter(true)} />
+              <IconButton icon={<IconFilter />} label="Filter"
+            ariaLabel="Filter annotations" onClick={() => setMobileFilter(true)} />
               {/* The shell's one Add surface, opened on Capture with this book
                   already the target — not a second add form of its own. */}
-              <IconButton icon={<IconPlus />} ariaLabel="Capture a quote" onClick={() => onAdd?.('quote', { type: 'book', id })} />
+              <IconButton icon={<IconPlus />} label="Capture"
+            ariaLabel="Capture a quote" onClick={() => onAdd?.('quote', { type: 'book', id })} />
               <MoreMenu
                 items={[
                   {
@@ -822,15 +824,18 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                   {!DEMO && (
                     <IconButton
                         icon={<IconExport />}
-                        ariaLabel="Export as Markdown"
+                        label="Export"
+            ariaLabel="Export as Markdown"
                         onClick={() => (window.location.href = `/api/books/${book.id}/export`)}
                       tooltip="Export as Markdown"
                     />
                   )}
-                  <IconButton icon={<IconDetails />} ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
+                  <IconButton icon={<IconDetails />} label="Details"
+            ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
                   <IconButton
                       icon={<IconDelete />}
-                      ariaLabel="Delete this book"
+                      label="Delete"
+            ariaLabel="Delete this book"
                       onClick={remove}
                       danger
                     tooltip="Delete this book"
