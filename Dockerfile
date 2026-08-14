@@ -1,10 +1,37 @@
 # ---- frontend ----
+#
+# THE LOCKFILE COMES WITH THE MANIFEST, AND THE INSTALL IS `npm ci`.
+#
+# This stage used to copy package.json alone and run `npm install`, which
+# resolves every `^` range afresh at image-build time. Every dependency here is a
+# caret range — react ^19, vite ^6, tailwindcss ^4 — so the bundle in the image
+# was built against whatever minor versions npm happened to resolve that minute,
+# and two builds of the identical commit could differ.
+#
+# It held for seventy releases and then did exactly what it was always going to
+# do: the SPA in :latest stopped booting while the Go binary, whose dependencies
+# ARE locked by go.sum, came up perfectly healthy. A container passing its own
+# healthcheck and serving a dead page is the worst shape this failure has.
+#
+# And CI could not catch it, which is the part worth fixing rather than just
+# patching. ci.yml and pages.yml both run `npm ci` — locked — so the suite was
+# green against one set of versions while the image shipped a bundle nobody had
+# ever run. The two paths now install the same way, so a dependency that breaks
+# the build breaks it in CI first.
+#
+# `npm ci` also refuses to start when package.json and the lockfile disagree,
+# which turns "somebody edited a version by hand" into a failed build instead of
+# a silent resolution.
 FROM node:22-alpine AS frontend
 WORKDIR /src/web/frontend
-COPY web/frontend/package.json ./
-RUN npm install
+COPY web/frontend/package.json web/frontend/package-lock.json ./
+RUN npm ci
 COPY web/frontend/ ./
 RUN npm run build   # -> /src/web/dist
+# The bundle is what the whole image exists to serve, so a build that "succeeded"
+# without emitting one must not become an image. index.html is written last, so
+# its absence is the honest test.
+RUN test -s /src/web/dist/index.html || (echo "frontend build produced no index.html" && exit 1)
 
 # ---- backend ----
 # Build on the native BUILDPLATFORM and cross-compile to the target arch. The

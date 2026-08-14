@@ -11,8 +11,11 @@ build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/tippani
 
 ## frontend: build the SPA into web/dist (needs Node on the DEV machine only)
+## `npm ci`, not `npm install`: the committed dist is what a non-Docker deploy
+## serves, so it has to be built from the same locked versions CI and the image
+## use. An unlocked install here is how a bundle nobody has run reaches a user.
 frontend:
-	cd web/frontend && npm install && npm run build
+	cd web/frontend && npm ci && npm run build
 
 ## changelog: refresh the copy the binary embeds (//go:embed cannot reach the
 ## repo root, so the app shows internal/changelog/CHANGELOG.md — a drift test
