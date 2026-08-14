@@ -608,6 +608,54 @@ export function decadeLabel(start) {
   return start < 0 ? `${-start}s BCE` : `${start}s`
 }
 
+// yearLabel writes a single year: "1994", "380 BCE".
+export function yearLabel(start) {
+  return start < 0 ? `${-start} BCE` : `${start}`
+}
+
+// bucketLabel names a timeline bucket AT ITS OWN SCALE, which is the part the
+// chart had wrong. decadeLabel was labelling all three scales, so switching to
+// Years drew a tick reading "1994s" under every column — a decade that does not
+// exist, on the axis whose whole job is to say when.
+//
+// Centuries keep the decade's form ("1900s" for 1900–1999). It is conventional
+// English for a century, the scale selector sits directly above the chart saying
+// "Centuries", and the tooltip on every column gives the span in full. What it is
+// NOT is precise enough to hand to a search — see bucketQuery.
+export function bucketLabel(start, size) {
+  return size === 1 ? yearLabel(start) : decadeLabel(start)
+}
+
+// bucketQuery is the search this bucket can be clicked through to, or null when
+// there is no honest one. The chart offers the click exactly where this answers.
+//
+// Only a decade has one. The reason is worth writing down, because "make them all
+// clickable" is the obvious wrong answer:
+//
+//   - A DECADE is exact. The server has understood "1990s" since the decade facet
+//     shipped, and it answers with the works published or released in those ten
+//     years — precisely the column that was clicked.
+//   - A YEAR cannot go through the query box. "1984" is a book people own, and
+//     teaching search to read a bare four-digit number as a year would take that
+//     search away to give this click. The click is worth less than the search.
+//   - A CENTURY would be answered WRONG rather than not at all: "1900s" parses as
+//     the decade, so clicking a column covering 1900–1999 would return the ten
+//     years 1900–1909 and look like a complete answer. A wrong result is worse
+//     than a dead control, because nothing tells you it is wrong.
+export function bucketQuery(start, size) {
+  if (size !== 10) return null
+  // BCE keeps the spoken form: the era in the query is what stops the server
+  // reading "80s" as a shorthand, so "80s BCE" is already unambiguous.
+  if (start < 0) return decadeLabel(start)
+  // ZERO-PADDED, and this is the whole reason the query is not just the label.
+  // "90s" is shorthand for the 1990s to anyone typing it, and the server honours
+  // that — so a column for the 50s CE, which a library holding a gospel really
+  // has, would link to the 1950s and return a page of confident, wrong results.
+  // Four digits cannot be a shorthand. The facet still reports itself as "50s",
+  // because the server labels the range rather than echoing the query.
+  return `${String(start).padStart(4, '0')}s`
+}
+
 // topDecade finds the decade holding the most quotes.
 //
 // Derived from the timeline rather than asked of the server, because the server
@@ -918,7 +966,7 @@ export function dotCount(value, unit) {
 // overscroll-behavior-x is contained, following the 1.7.2 sweep: a sideways
 // scroller that runs off its end otherwise hands the gesture to the browser's
 // back navigation, which on a stats page means leaving it.
-function TimelineCard({ timeline }) {
+function TimelineCard({ timeline, onSearch }) {
   const [scale, setScale] = usePersistedState('tippani:stats:timelineScale', 'decade')
   const meta = TIMELINE_SCALES.find((x) => x.key === scale) || TIMELINE_SCALES[0]
   const buckets = bucketTimeline(timeline, meta.size)
@@ -953,7 +1001,27 @@ function TimelineCard({ timeline }) {
               (() => {
                 const b = seg.bucket
                 const total = b.works + b.quotes
-                const reading = `${decadeLabel(b.start)}: ${b.works} works, ${b.quotes} quotes`
+                const label = bucketLabel(b.start, meta.size)
+                const reading = `${label}: ${b.works} works, ${b.quotes} quotes`
+                // The tick is the doorway, and only when there is something to
+                // walk through to: a bucket with an exact search (bucketQuery) and
+                // something in it. An empty column has nothing to show and would
+                // send you to a page reading "no results" — which is a true answer
+                // to a question nobody asked.
+                const query = total > 0 ? bucketQuery(b.start, meta.size) : null
+                const tick = query && onSearch ? (
+                  <button
+                    type="button"
+                    className="tl-tick tl-tick-link"
+                    title={`${label} — view in search`}
+                    aria-label={`${label} — view in search`}
+                    onClick={() => onSearch(query)}
+                  >
+                    {label}
+                  </button>
+                ) : (
+                  <div className="tl-tick">{total ? label : ''}</div>
+                )
                 return (
                   <Tooltip key={b.start} label={reading} side="top">
                     {/* Two columns from one floor. An empty bucket draws no dots
@@ -964,7 +1032,7 @@ function TimelineCard({ timeline }) {
                         <DotStack n={dotCount(b.quotes, unit)} kind="quotes" />
                         <DotStack n={dotCount(b.works, unit)} kind="works" />
                       </div>
-                      <div className="tl-tick">{total ? decadeLabel(b.start) : ''}</div>
+                      {tick}
                     </div>
                   </Tooltip>
                 )
@@ -1003,8 +1071,8 @@ function TimelineGap({ gap, size }) {
   const width = gapWidth(gap.span)
   const markers = gapMarkers(gap, size)
   const lines = gapLines(gap, width)
-  const from = decadeLabel(gap.start)
-  const to = decadeLabel(gap.end)
+  const from = bucketLabel(gap.start, size)
+  const to = bucketLabel(gap.end, size)
   const reading = `${from} to ${to}: nothing`
   return (
     <div className="tl-gap" style={{ width }} aria-label={reading}>
@@ -1015,7 +1083,7 @@ function TimelineGap({ gap, size }) {
       <div className="tl-gap-plot">
         {markers.map((m) => (
           <span key={m.offset} className="tl-gap-mark" style={{ left: `${(m.offset / gap.span) * 100}%` }}>
-            {decadeLabel(m.start)}
+            {bucketLabel(m.start, size)}
           </span>
         ))}
         {/* One caption per slot, spread across the emptiness. A single line cannot
@@ -1140,7 +1208,12 @@ function Superlatives({ s, personMaps, onSearch }) {
         <SuperTile label="Most quoted film/show" title={s.most_quoted?.title} count={s.most_quoted?.count} cover={s.most_quoted?.cover_path} onOpen={open(s.most_quoted?.title)} />
         <SuperTile label="Most quoted person" title={topPerson?.name} count={topPerson?.quotes} person={face(topPerson?.name)} onOpen={open(topPerson?.name)} />
         <SuperTile label="Most favourited person" title={s.favourite_person?.title} count={s.favourite_person?.count} person={face(s.favourite_person?.title)} onOpen={open(s.favourite_person?.title)} />
-        <SuperTile label="Most quoted decade" title={decade?.label} count={decade ? `${decade.quotes} quotes` : null} amber />
+        {/* The one superlative that never opened, though the server has answered
+            "1990s" since the decade facet shipped. Every other tile here is a
+            doorway; this one named a decade and did nothing with it.
+            It searches bucketQuery rather than its own label, for the shorthand
+            reason written there — the tile shows "50s" and asks for "0050s". */}
+        <SuperTile label="Most quoted decade" title={decade?.label} count={decade ? `${decade.quotes} quotes` : null} amber onOpen={decade && onSearch ? () => onSearch(bucketQuery(decade.start, 10)) : undefined} />
         <SuperTile label="Busiest month" title={s.busiest_month ? formatMonth(s.busiest_month.month) : null} count={s.busiest_month ? `${s.busiest_month.count} saved` : null} amber />
         <SuperTile label="Best remembered" title={remembered?.name} count={remembered ? `${remembered.remembered} of ${remembered.quotes}` : null} person={face(remembered?.name)} onOpen={open(remembered?.name)} />
         <SuperTile label="Most forgotten" title={forgotten?.name} count={forgotten ? `${forgotten.probably_forgotten} of ${forgotten.quotes}` : null} person={face(forgotten?.name)} onOpen={open(forgotten?.name)} />
@@ -1201,7 +1274,7 @@ export default function StatsPage({ onSearch }) {
               column beside the tall Breakdown); Colours + Top tags stack in
               the Breakdown's second column instead. */}
           <Superlatives s={s} personMaps={personMaps} onSearch={onSearch} />
-          <TimelineCard timeline={s.timeline} />
+          <TimelineCard timeline={s.timeline} onSearch={onSearch} />
           <div style={twoCol}>
             <BreakdownCard breakdown={s.breakdown} personMaps={personMaps} onSearch={onSearch} />
             <div className="space-y-6">

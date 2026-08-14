@@ -375,18 +375,31 @@ func groupByCredit[T any](hits []T, credit func(T) string, seps metadata.CreditS
 
 // ---- structured facets: decade + date added ---------------------------------
 
-// searchDecadeRe matches a decade query: "1990s", "90s", "90's".
-var searchDecadeRe = regexp.MustCompile(`^(\d{2}|\d{4})['’]?s$`)
+// searchDecadeRe matches a decade query: "1990s", "90s", "90's", "380s BCE".
+//
+// BCE IS HERE BECAUSE THE STATS TIMELINE WRITES IT. That chart labels a decade
+// before the common era "380s BCE" and its ticks are now doors into this facet, so
+// a form the app itself produces has to be a form this reads — otherwise the one
+// column holding the oldest thing in a library is the one that leads nowhere.
+// Nothing is titled "380s BCE", so there is no search this takes away.
+var searchDecadeRe = regexp.MustCompile(`^(\d{1,4})['’]?s(\s*bce?)?$`)
 
-// parseDecade turns "1990s" / "90s" into its year range. Two-digit decades map
-// to the 1900s except 00s–20s, which read as the 2000s.
+// parseDecade turns "1990s" / "90s" / "380s BCE" into its year range. Two-digit
+// decades map to the 1900s except 00s–20s, which read as the 2000s.
+//
+// A BCE decade is spoken by the higher absolute year — the 380s BCE runs from 389
+// to 380 — so the range is [-389, -380] and the label keeps the era, because
+// "380s" and "380s BCE" are two different decades two and a half millennia apart.
+// That is also why the two-digit shorthand does not apply here: "80s BCE" would
+// have to mean both the 80s BCE and 1980s, and only one of them can win.
 func parseDecade(q string) (label string, from, to int, ok bool) {
 	m := searchDecadeRe.FindStringSubmatch(strings.ToLower(strings.TrimSpace(q)))
 	if m == nil {
 		return "", 0, 0, false
 	}
 	n, _ := strconv.Atoi(m[1])
-	if len(m[1]) == 2 {
+	bce := m[2] != ""
+	if len(m[1]) == 2 && !bce {
 		if n <= 20 {
 			n += 2000
 		} else {
@@ -394,6 +407,12 @@ func parseDecade(q string) (label string, from, to int, ok bool) {
 		}
 	}
 	n -= n % 10
+	if bce {
+		if n == 0 {
+			return "", 0, 0, false // "0s BCE" is not a decade anyone means
+		}
+		return strconv.Itoa(n) + "s BCE", -(n + 9), -n, true
+	}
 	return strconv.Itoa(n) + "s", n, n + 9, true
 }
 

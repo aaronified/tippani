@@ -277,7 +277,8 @@ of that are spelled out in [`AI.md`](AI.md).
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, authors, directors, genres,
   **series**, quotes, notes, tags, and dialogue (find a line by its text, its character, or its
   actor). Results come back **sectioned by what matched** — books · movies · authors · directors ·
-  actors · speakers · annotations · dialogues · quotes · notes · tags · genres — plus a **decade** query ("1990s") and
+  actors · speakers · annotations · dialogues · quotes · notes · tags · genres — plus a **decade** query
+  ("1990s", "90s", "380s BCE", where the Stats timeline's decade ticks link) and
   a **date-added** query ("2026-07-14", where the Stats calendar dots link). View as tiles, a
   list, or sortable tables; **group by** the same axes as the Library; **open any quote in place**
   to share/edit/delete; **select results** for a bulk tag or field edit — and your last search is

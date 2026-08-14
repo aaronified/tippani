@@ -4213,6 +4213,27 @@ html[data-theme="dark"] .mobile-sheet-footer {
   height: 58px;
   overflow: hidden;
 }
+/* A tick that jumps to that decade's works on the Search page — the same
+   affordance .cal-dot gives an activity day, drawn the same way: nothing until
+   the pointer or the keyboard arrives, then the accent and an underline.
+   `font: inherit` is not optional on a <button>; without it the UA sheet takes
+   the face back and this tick alone would return to the default at 13px. */
+.tl-tick-link {
+  font: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.08s ease;
+}
+.tl-tick-link:hover,
+.tl-tick-link:focus-visible {
+  color: var(--accent-ui);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  outline: none;
+}
 
 /* ---- a long empty stretch (1.12.0) ----
    A run of empty buckets, drawn once at exactly the width the columns it stands
