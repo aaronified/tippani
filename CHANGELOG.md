@@ -5,6 +5,95 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.2] - 2026-08-15
+
+### Fixed
+
+- **The Quotes screen threw on sight, and had since 1.13.0.** "Can't access lexical
+  declaration before initialisation", the whole page replaced by the error boundary,
+  on every library — empty or full, on both servers. Not a data bug and not an edge
+  case: every single render.
+
+  The board that partitions quotes into Proverbs, Speeches and Others was written
+  below the three lists that name it in their dependency arrays. A dependency array
+  is not a closure — it is built the moment the line runs — so the board was read
+  inside its own temporal dead zone. The code reads perfectly. It is fatal on the
+  first render.
+
+  **Ten tests covered that file and not one could have caught it**, for a reason
+  worth stating plainly: every one of them imported a FUNCTION out of it. Pulling
+  the grouping, the save shape, the meta line and the year parser out of the
+  component so they could be tested without rendering a screen is the right
+  instinct, and it is exactly what left the screen itself never once executed. A
+  page can be wholly broken while every extracted piece of it is green — and the
+  greener those pieces are, the more convincing the illusion.
+
+  So the test that closes this is not a deeper test of Quotes. It is a shallow one
+  over **all thirteen screens**, asserting only that each can be put on a page,
+  driven by the app's own route labels so a new screen cannot go uncovered. It
+  mounts them with every request refused, which needs no invented response shapes
+  and exercises the state nobody tests by hand: the server said no. Login and the
+  first-run screen are in it too — they are the two whose failure nobody can route
+  around.
+
+- **The timeline's year labels, which 1.13.0 said it had fixed.** 8 and 0 were still
+  one shape, because that release changed the wrong labels: it moved the landmarks
+  *inside* a folded gap off the mono face, wrote a long comment about why, and left
+  the ticks under every column — the labels anyone actually reads — at mono 9px.
+
+  Those were the worse case all along. The ticks are rotated, so a digit is read by
+  its outline alone, which is what survives least at that size; and Plex Mono draws
+  its own 0 with a slash. That slash is the typeface's zero rather than a setting,
+  so no CSS property can lift it and changing the face is the only fix there is.
+
+  **And that release made the gap markers worse.** It set `slashed-zero` on them as
+  a free enhancement — inert if the font subset had dropped the feature, clearer if
+  it kept it. It kept it, so a face chosen *because* its 0 and 8 differ by outline
+  had a stroke put back through the 0. A typographic setting whose effect you cannot
+  see is not free; it is an untested change carrying a comment about why it needs no
+  test.
+
+  The tick row also grew, which "480s BCE" had needed all along — eight glyphs never
+  fitted the old height at any readable size, so the oldest label in a library was
+  the one being clipped. The chart grew by the same amount, so the dots keep their
+  full column.
+
+- **A tick at Years scale said "1994s"** — a decade that does not exist, on the axis
+  whose only job is to say when. One function was labelling all three scales.
+
+### Added
+
+- **A decade on the timeline opens that decade's works in Search**, and so does the
+  "Most quoted decade" superlative, which named a decade and did nothing with it.
+  Every other number on that page already opened the rows behind it; the chart
+  answering "when is my library from" answered it and stopped.
+
+  **Years and centuries deliberately do not.** A bare year cannot go through the
+  query box at all — "1984" is a book people own, and teaching search to read four
+  digits as a span would take that search away to pay for this click. A century is
+  worse than unsupported: "1900s" *parses*, as the decade, so a column covering a
+  hundred years would return ten of them and look like a complete answer. A control
+  that returns a confident wrong answer is worse than one that is not there, because
+  nothing on the wrong page tells you so.
+
+  The same reasoning fixed a case nobody would have reported: "90s" means the 1990s
+  to the search, rightly, for anyone typing it — which would have sent a column for
+  the 50s CE, as a library holding a gospel really has, to a shelf of mid-century
+  paperbacks. The chart asks with a zero-padded year, which cannot be a shorthand,
+  and the results still name themselves "50s".
+
+- **"380s BCE" is a search.** The timeline writes that label, and its ticks are doors
+  now, so a form the app produces itself had to be a form it can read — otherwise
+  the one column holding the oldest thing on a shelf is the one leading nowhere.
+
+### Changed
+
+- **Four of the timeline's numbers now agree by test rather than by comment.** The
+  column pitch a folded gap is measured in, the room the dots need, the two tick
+  heights that are one row, and the year labels' face and size. Every one of them
+  fails silently today: a gap drawn at the wrong width still draws, and a clipped
+  twelfth dot looks exactly like a column that only had eleven.
+
 ## [1.13.1] - 2026-08-14
 
 ### Fixed

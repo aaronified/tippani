@@ -4387,6 +4387,42 @@ Embedded wins on the thing this app is actually for. The promise is stated in th
 
 <sub>1.12.0 — `internal/changelog/changelog.go` · `internal/httpapi/changelog_handlers.go` · `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/changelog-dialog.test.jsx`</sub>
 
+### A timeline label is a year, and a year has to be readable and honest about its scale
+
+**Decided.** The column ticks move off `--font-mono` to `--font-ui` at 10.5/500, the tick row grows 46 → 58px with `.tl-row` growing by the same 12 so the plot keeps its 110px, `slashed-zero` is removed from the gap markers, and `bucketLabel(start, size)` replaces `decadeLabel` everywhere the scale is not a decade. `test/pure/timeline-metrics.test.js` holds the stylesheet against `StatsPage.jsx`.
+
+**Why.** 1.13.0 was asked to fix "8 and 0 look exactly the same" on this chart. It changed the year markers *inside* a folded gap, wrote a long comment about why the mono face was wrong for them, and left the ticks under every column — the labels anyone actually reads, one per bucket — at mono 9px. The report came back unchanged, correctly. Fixing an instance of a problem and describing it as the class is the failure worth naming here: the comment I wrote made the remaining case harder to find, because it read as though the work was done.
+
+**The ticks were the worse of the two cases all along.** `writing-mode: vertical-rl` turns every glyph on its side, so a digit is read by outline alone, which is what survives least at 9px. Plex Mono also draws its own 0 with a slash. That slash is the typeface's zero rather than a setting, so no `font-variant-numeric` can lift it — changing the face is the only fix that exists.
+
+**And the release made the gap markers worse.** It set `font-variant-numeric: slashed-zero` there as a free enhancement: inert if the `@fontsource` subset had dropped the `zero` feature, clearer if it kept it. It kept it, so a face chosen *because* its 0 and 8 differ by outline had a stroke put back through the 0. The general lesson, since it cost a release: a typographic setting whose effect you cannot see is not free. It is an untested change carrying a comment about why it needs no test.
+
+**The height was a clip nobody had reported.** 46px never fitted "480s BCE" at any readable size, so the oldest label in a library was the one being cut off. `.tl-row` grows in step because the plot's height is the remainder — 172 − 58 − 4 = 110px, which is what `TIMELINE_MAX_DOTS` = 12 at a 9px pitch means. Raise one number alone and the twelfth dot is clipped, which looks exactly like a column that had eleven.
+
+**Four numbers now agree by test rather than by comment.** The column pitch a folded gap is measured in (`TL_COL_PX` against `.tl-col`'s min-width — a gap drawn at the wrong width still draws, and the chart starts lying about time with nothing looking broken), the room the dots need, the two tick heights that are one row, and the year labels' face and size. Every one of them fails silently.
+
+**Approved.** The reader's, in the form "the timeline font is not fixed. 8 and 0 are still identical. i think that is because you are using a font that uses a slanted slash for 0" — which named the slash I had added.
+
+<sub>1.13.2 — `web/frontend/src/index.css` · `web/frontend/src/StatsPage.jsx` · `web/frontend/test/pure/timeline-metrics.test.js`</sub>
+
+### A decade is a door; a year and a century are deliberately not
+
+**Decided.** A decade tick with something under it is a button opening that decade's works in Search, as is the "Most quoted decade" superlative. `bucketQuery(start, size)` returns the query or `null`, and it returns `null` at year and century scale. The chart asks with a zero-padded year (`0050s`); `parseDecade` learns BCE.
+
+**Why.** Every other number on the Stats page opens the rows behind it — a breakdown row, a day on the activity calendar, seven of the eight superlatives. The chart answering "when is my library FROM" answered it and stopped, and the eighth tile named a decade and did nothing with it, though the server has understood `1990s` since the decade facet shipped. Nothing on the page ever asked it.
+
+**The refusals are the design.** A bare year cannot go through the query box at all: `1984` is a book people own, and teaching search to read four digits as a span would take that search away to pay for this click — the search is worth more. A century is worse than unsupported, because `1900s` *parses*, as the decade: a column covering a hundred years would return ten of them and look like a complete answer. **A control that returns a confident wrong answer is worse than one that is not there**, because nothing on the wrong page says so. So the door exists exactly where the server can answer the column that was clicked.
+
+**The shorthand would have misfiled the oldest thing in a library.** `90s` means the 1990s to the server, rightly, for somebody typing it. That makes the label unsafe to send: a column for the 50s CE — which a library holding a gospel really has — would have opened a shelf of mid-century paperbacks. The query is zero-padded because four digits cannot be a shorthand, and the facet still reports itself as `50s` because the server labels the range rather than echoing the query. The label is for reading and the query is for the server, and for a short year they are deliberately different strings.
+
+**The parser learns BCE because the chart writes it.** A form the app produces itself and cannot read is a control that leads nowhere, and the one column it would have failed on is the one holding the oldest thing on the shelf. Nothing is titled "380s BCE", so no search is lost. The era also suppresses the two-digit shorthand on its own, since "80s BCE" cannot also mean the 1980s.
+
+**Instead of.** Making every tick clickable (the century case would have been wrong, not empty). Adding a `year:` query syntax (a vocabulary to learn, for one click). Generalising the facet to any span (the bare-year collision survives it).
+
+**Approved.** The reader's, in the form "and clicking on a decade should search for it as well."
+
+<sub>1.13.2 — `web/frontend/src/StatsPage.jsx` · `internal/httpapi/search_handler.go` · `internal/httpapi/search_decade_test.go` · `web/frontend/test/dom/stats-timeline-link.test.jsx`</sub>
+
 ## 15. Appearance as Material: Skins, Texture, Type and Colour
 
 The look is not decoration sitting on top of the app; it is a set of decisions with
@@ -5200,3 +5236,23 @@ This code was written almost entirely by AI, which fails differently: it compile
 **Approved.** My call, and I approved fixing the copy rather than the source on the grounds of who the primary consumer is.
 
 <sub>1.7.6 — `.github/workflows/pages.yml` · `CHANGELOG.md`</sub>
+
+### Every screen is mounted by a test, because extracting the logic left the screen unexecuted
+
+**Decided.** `test/dom/screens-mount.test.jsx` renders all thirteen screens and asserts none throws. The list is checked against the `data-screen-label` attributes in `App.jsx`, so a screen App can route to and this file does not name is a failure. `Login` and `Onboarding` are exported from `App.jsx` for it. The api is mocked to REFUSE every request.
+
+**Why.** 1.13.0 shipped a Quotes screen that threw on sight — `board` was read in three dependency arrays written above its own `const`, and a dependency array is not a closure, so it was evaluated inside its own temporal dead zone. Every render, every library, empty or full, replaced by the error boundary. It survived a release, a point release, and two servers.
+
+**The reason no test caught it is the part worth keeping.** Ten tests covered that file and every one of them imported a FUNCTION out of it — `groupUtterances`, `utteranceState`, `utteranceMeta`, `utteranceYear`. Extracting logic from a component so it can be tested without rendering a screen is right, and it is precisely what left the screen itself never once executed. **A page can be wholly broken while every extracted piece of it is green**, and the greener the pure tests are, the more convincing the illusion. So the coverage this adds is not depth, it is the one assertion those ten could not make.
+
+**Shallow on purpose.** It claims only that a screen can be put on a page. The screens with behaviour worth pinning have their own files; a smoke test that starts asserting content becomes a second, worse copy of them and rots.
+
+**Refusing every request rather than returning empty collections.** A failed load needs no invented payload shapes, so this file cannot quietly become the place where thirteen response formats are guessed at and left to drift. It also exercises the state every screen must survive and nobody tests by hand: the server said no. A first-render throw happens before any fetch settles, so the mock's answer is irrelevant to catching the class of bug that prompted it.
+
+**Driven by the source rather than by a list.** The same shape as the FTS-sweep completeness test: a table maintained beside a file is a table that rots, so `App.jsx`'s own screen labels are the authority and adding a screen without covering it fails.
+
+**Verified by reverting the fix** — the quotes case fails with `Cannot access 'board' before initialization` and passes with it. A regression test never watched to fail is a test of nothing.
+
+**Approved.** The reader's, in the form of the report: "quote screen now shows: can't access lexical declaration 'Se' before initialisation", later confirmed on a second server with quotes already in it.
+
+<sub>1.13.2 — `web/frontend/test/dom/screens-mount.test.jsx` · `web/frontend/src/Quotes.jsx` · `web/frontend/src/App.jsx`</sub>
