@@ -136,7 +136,7 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			continue
 		}
 		val = strings.TrimSpace(val)
-		switch strings.TrimSpace(key) {
+		switch bindingKey(key) {
 		case "title":
 			res.Book.Title = val
 		case "author":
@@ -201,7 +201,7 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			}
 			inQuote = false
 			val = strings.TrimSpace(val)
-			switch strings.TrimSpace(key) { // repeated key: last wins
+			switch bindingKey(key) { // repeated key: last wins
 			case "note":
 				cur.Note = val
 			case "color", "colour":
@@ -283,4 +283,18 @@ func parseReadest(lines []string) (*Result, error) {
 		return nil, errors.New("markdown: missing title heading")
 	}
 	return res, nil
+}
+
+// bindingKey normalises a "- key: value" key for matching.
+//
+// KEYS WERE CASE-SENSITIVE IN EVERY PARSER, and each of them accepts a file a person
+// may have typed by hand. `- Speaker: Bose` silently did nothing: the line parsed,
+// the key did not match any case, and the value was dropped without a warning — a
+// quote that imported successfully and simply lost its speaker.
+//
+// Lowercasing here rather than at each of the eight switches, so the three formats
+// cannot drift apart on what a key IS. Values are untouched: a key is a keyword and a
+// value is content, and folding "Bose" would be a different and much worse bug.
+func bindingKey(k string) string {
+	return strings.ToLower(strings.TrimSpace(k))
 }

@@ -124,7 +124,7 @@ func QuoteMarkdownAll(r io.Reader) ([]Utterance, error) {
 			}
 			inQuote = false
 			val = strings.TrimSpace(val)
-			switch strings.TrimSpace(key) { // repeated key: last wins
+			switch bindingKey(key) { // repeated key: last wins
 			case "speaker", "said by", "by":
 				cur.Speaker = val
 			case "occasion":

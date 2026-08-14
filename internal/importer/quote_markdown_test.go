@@ -128,3 +128,50 @@ func TestQuoteMarkdownJoinsWrappedLines(t *testing.T) {
 		t.Fatalf("wrapped lines did not join: %+v", us)
 	}
 }
+
+// A HAND-WRITTEN FILE CAPITALISES ITS KEYS, and every parser used to ignore that
+// silently: the line parsed, the key matched no case, and the value was dropped with
+// no warning — an import that reported success and quietly lost the speaker.
+//
+// Checked here for the quote format and asserted across the shared helper, since
+// bindingKey is what the book and film parsers call too.
+func TestBindingKeysIgnoreCase(t *testing.T) {
+	md := "---\ntype: quotes\n---\n\n> Give me blood\n" +
+		"- Speaker: Subhas Chandra Bose\n" +
+		"- OCCASION: Burma Radio broadcast\n" +
+		"- Occasion_Date: 1944\n" +
+		"- Category: proverb\n"
+	us, err := QuoteMarkdownAll(strings.NewReader(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(us) != 1 {
+		t.Fatalf("expected one quote, got %d", len(us))
+	}
+	u := us[0]
+	if u.Speaker != "Subhas Chandra Bose" {
+		t.Errorf("Speaker: %q", u.Speaker)
+	}
+	if u.Occasion != "Burma Radio broadcast" {
+		t.Errorf("OCCASION: %q", u.Occasion)
+	}
+	if u.OccasionDate != "1944" {
+		t.Errorf("Occasion_Date: %q", u.OccasionDate)
+	}
+	if u.Category != "proverb" {
+		t.Errorf("Category: %q", u.Category)
+	}
+}
+
+// The VALUE keeps its case. A key is a keyword; a value is content, and folding it
+// would be a different and much worse bug — every speaker arriving in lower case.
+func TestBindingValuesKeepTheirCase(t *testing.T) {
+	md := "---\ntype: quotes\n---\n\n> A line\n- speaker: Subhas Chandra Bose\n"
+	us, err := QuoteMarkdownAll(strings.NewReader(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if us[0].Speaker != "Subhas Chandra Bose" {
+		t.Fatalf("value was folded: %q", us[0].Speaker)
+	}
+}

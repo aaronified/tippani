@@ -167,7 +167,7 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			continue
 		}
 		val = strings.TrimSpace(val)
-		switch strings.TrimSpace(key) {
+		switch bindingKey(key) {
 		case "title":
 			res.Movie.Title = val
 		case "director", "creator", "created by":
@@ -238,7 +238,7 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			}
 			inQuote = false
 			val = strings.TrimSpace(val)
-			switch strings.TrimSpace(key) {
+			switch bindingKey(key) {
 			case "character":
 				cur.Character = val
 			case "actor":
