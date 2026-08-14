@@ -4096,6 +4096,77 @@ html[data-theme="dark"] .mobile-sheet-footer {
   overflow: hidden;
 }
 
+/* ---- a long empty stretch (1.12.0) ----
+   A run of empty buckets, drawn once at exactly the width the columns it stands
+   in for would have had. The width is set inline from JS (gapWidth) because it
+   is N × the column pitch and CSS does not know N — and it MUST be that width:
+   fold the run to a fixed band and the chart starts lying about time, which is
+   the failure the empty buckets exist to prevent. This compresses the drawing,
+   never the scale.
+
+   flex: 0 0 auto so the flex row honours the width instead of distributing it. */
+.tl-gap {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  flex: 0 0 auto;
+  height: 100%;
+  min-width: 0;
+}
+.tl-gap-plot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  /* A hairline floor running the length of the emptiness, so the gap reads as a
+     stretch of the same axis rather than as a hole cut in the chart. Dashed
+     because it is carrying no data — a solid rule here would look like a series
+     sitting at zero, which is a different claim from "nothing recorded". */
+  border-bottom: 1px dashed var(--line);
+}
+/* The years, riding INSIDE the emptiness rather than on the tick row under it.
+   On the tick row they would read as the labels of the columns either side —
+   the one thing a marker in here must not do. */
+.tl-gap-mark {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--faint);
+  white-space: nowrap;
+  padding-bottom: 3px;
+  border-left: 1px solid var(--line);
+  padding-left: 4px;
+  line-height: 1.1;
+}
+.tl-gap-line {
+  margin: 0;
+  max-width: 100%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--faint);
+  /* Two lines at most. A caption that grew to four would push the markers off
+     the floor and turn a gap in a chart into a paragraph in a chart. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tl-gap-tick {
+  writing-mode: horizontal-tb;
+  height: 46px;
+  text-align: center;
+  color: var(--faint);
+}
+
 /* ---- the in-card colour picker, at six categories -------------------------
    The row is ♥ + the colours + ⋯, and it has to fit a card in a masonry
    column. The rule below it used to read "four blobs … measures at 232px";

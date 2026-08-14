@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -680,6 +680,137 @@ export function bucketTimeline(timeline, size) {
   return out
 }
 
+// ---- the long empty stretches ---------------------------------------------
+//
+// The gaps were already the point: 0024's chart draws every empty bucket so that
+// 380 BCE and 1600 CE read as two millennia apart rather than as two adjacent
+// bars. What it did not do was make them WORTH the width. A library holding
+// Meditations and then a shelf of 2020 paperbacks draws about a hundred and
+// eighty identical blank columns, and a hundred and eighty blank columns is not a
+// silence you read — it is a stretch of nothing you scroll past looking for the
+// next dot, and it teaches you to skip the axis.
+//
+// So an empty run long enough to bother with becomes ONE element, keeping exactly
+// the width the columns it replaces would have had (the gap stays as wide as it
+// was long — that rule is the whole reason empties are drawn), and carrying two
+// things a blank cannot: the years going by, and a line about the fact that
+// nothing in all of that is on your shelf.
+//
+// TIMELINE_GAP_MIN is the shortest run worth folding. Below it the blanks read
+// perfectly well as blanks, and a caption in a four-column gap would be a caption
+// squeezed into a space too small for it — which is worse than the space.
+export const TIMELINE_GAP_MIN = 6
+// The closest two year markers may ever be, in buckets. "Occasional" is the
+// requirement: a marker every ten decades in a gap of a hundred and eighty is
+// eighteen labels, which is an axis, not a signpost.
+export const TIMELINE_MARKER_MIN = 10
+// And how many a gap may carry however long it is. Past four or five the markers
+// stop being landmarks and start being the thing you are reading.
+export const TIMELINE_MARKER_MAX = 5
+
+// timelineSegments folds the runs of empty buckets, returning what to DRAW:
+// either a bucket (one column) or a gap standing in for `span` of them.
+//
+// It is a pure function over the bucket list on purpose. Where the gaps fall is a
+// property of the library at a given scale — switch decades to centuries and a
+// hundred and eighty empties become eighteen, which is under the threshold and
+// draws as plain columns again. That is the correct behaviour and it is worth
+// being able to assert without rendering a chart.
+export function timelineSegments(buckets, minGap = TIMELINE_GAP_MIN) {
+  const out = []
+  let run = []
+  const flush = () => {
+    if (run.length === 0) return
+    // A short run is not a gap. It is some empty columns, and it already reads
+    // like some empty columns.
+    if (run.length < minGap) out.push(...run.map((b) => ({ type: 'bucket', bucket: b })))
+    else out.push({ type: 'gap', span: run.length, start: run[0].start, end: run[run.length - 1].start })
+    run = []
+  }
+  for (const b of buckets || []) {
+    if ((b.works || 0) === 0 && (b.quotes || 0) === 0) run.push(b)
+    else {
+      flush()
+      out.push({ type: 'bucket', bucket: b })
+    }
+  }
+  flush()
+  return out
+}
+
+// gapMarkers picks the years to label inside a gap: never closer together than
+// TIMELINE_MARKER_MIN buckets, never more than TIMELINE_MARKER_MAX of them, and
+// never on the very first or last bucket of the run — a marker hard against the
+// column beside it reads as that column's own label, which is the one thing a
+// marker in here must not do.
+export function gapMarkers(gap, size, { minStep = TIMELINE_MARKER_MIN, max = TIMELINE_MARKER_MAX } = {}) {
+  if (!gap || gap.span < minStep * 2) return []
+  // Enough steps to stay under `max`, and at least the minimum. Both bounds bind
+  // at different gap lengths, which is why it is a max of the two rather than one
+  // rule with the other as a comment.
+  const step = Math.max(minStep, Math.ceil(gap.span / (max + 1)))
+  const out = []
+  for (let i = step; i < gap.span - 1; i += step) {
+    out.push({ offset: i, start: gap.start + i * size })
+  }
+  return out
+}
+
+// The lines. Sorted by length because that is how they are chosen: the widest one
+// that fits, so a two-century gap gets a sentence and a sixty-year one gets three
+// words rather than an ellipsis.
+//
+// UNATTRIBUTED, and written for the app rather than borrowed. A chart that put a
+// famous name under a witticism in an app whose entire subject is quoting people
+// accurately would be the one place in it inventing an attribution — and there is
+// no field here to record a source in even if it were real.
+export const TIMELINE_GAP_LINES = [
+  'a long quiet.',
+  'nothing quoted here.',
+  'the shelf skips this.',
+  'plenty was written. none of it is here.',
+  'a gap this wide is not history’s fault.',
+  'centuries pass. the shelf does not notice.',
+  'history happened. you were reading something else.',
+  'somebody was writing through all of this. you kept none of it.',
+  'no quotes, no covers, no year worth marking — which says more about the reading than about the era.',
+  'the width of this gap is measured in centuries. the reason for it is measured in evenings.',
+  'every year in here had its writers, its arguments and its best sentence. your copy of that sentence is missing.',
+  'this stretch is not empty because nothing was written in it. it is empty because you have not got round to any of it yet.',
+].sort((a, b) => a.length - b.length)
+
+// GAP_CHAR_PX — how wide a character of the caption runs at its size, near enough.
+// Measuring would mean a ResizeObserver per gap for a decision that only has to be
+// right enough to keep a sentence off two lines, and the chart's whole width story
+// is CSS for exactly that reason.
+const GAP_CHAR_PX = 6.1
+
+// gapLine picks a line for a gap: the longest that fits the width, chosen from the
+// seed so that the same gap keeps the same line across re-renders and two gaps on
+// one chart do not say the same thing. Returns '' when nothing fits, and the gap
+// draws as bare width — which is honest, and better than a clipped sentence.
+export function gapLine(gap, widthPx, lines = TIMELINE_GAP_LINES) {
+  // Two lines of caption, minus the padding either side. Two rather than one
+  // because a gap wide enough for a sentence is usually not wide enough for it in
+  // a single run, and a caption is allowed to wrap where a year label is not.
+  const room = Math.max(0, (widthPx - 24) * 2)
+  const fits = lines.filter((l) => l.length * GAP_CHAR_PX <= room)
+  if (fits.length === 0) return ''
+  // Among the longest few rather than always the single longest, so a chart with
+  // three wide gaps does not print the same sentence three times.
+  const band = fits.slice(Math.max(0, fits.length - 3))
+  const rng = mulberry32((gap.start >>> 0) ^ (gap.span * 2654435761))
+  return band[Math.floor(rng() * band.length) % band.length]
+}
+
+// TL_COL_PX / TL_GAP_PX mirror .tl-col's min-width and .tl-row's gap. Duplicated
+// from the stylesheet on purpose and named so the duplication is findable: a gap
+// standing in for N columns has to be as wide as N columns, and CSS cannot do that
+// arithmetic without knowing N, which only JS knows.
+const TL_COL_PX = 30
+const TL_GAP_PX = 4
+export const gapWidth = (span) => span * (TL_COL_PX + TL_GAP_PX) - TL_GAP_PX
+
 // ---- the timeline as a dot plot -------------------------------------------
 //
 // It was one stacked bar per bucket: works at the foot, quotes on top, the pair
@@ -736,6 +867,7 @@ function TimelineCard({ timeline }) {
   const meta = TIMELINE_SCALES.find((x) => x.key === scale) || TIMELINE_SCALES[0]
   const buckets = bucketTimeline(timeline, meta.size)
   const unit = dotUnit(buckets)
+  const segments = timelineSegments(buckets)
   if (!timeline || timeline.length === 0) {
     return (
       <Card>
@@ -758,24 +890,31 @@ function TimelineCard({ timeline }) {
       </div>
       <div className="tl-scroll">
         <div className="tl-row">
-          {buckets.map((b) => {
-            const total = b.works + b.quotes
-            const reading = `${decadeLabel(b.start)}: ${b.works} works, ${b.quotes} quotes`
-            return (
-              <Tooltip key={b.start} label={reading} side="top">
-                {/* Two columns from one floor. An empty bucket draws no dots at
-                    all, which is what a gap in time looks like — and it keeps
-                    its width, so the gap is as wide as it was long. */}
-                <div className="tl-col" aria-label={reading}>
-                  <div className="tl-plot">
-                    <DotStack n={dotCount(b.quotes, unit)} kind="quotes" />
-                    <DotStack n={dotCount(b.works, unit)} kind="works" />
-                  </div>
-                  <div className="tl-tick">{total ? decadeLabel(b.start) : ''}</div>
-                </div>
-              </Tooltip>
-            )
-          })}
+          {segments.map((seg) =>
+            seg.type === 'gap' ? (
+              <TimelineGap key={`gap${seg.start}`} gap={seg} size={meta.size} />
+            ) : (
+              (() => {
+                const b = seg.bucket
+                const total = b.works + b.quotes
+                const reading = `${decadeLabel(b.start)}: ${b.works} works, ${b.quotes} quotes`
+                return (
+                  <Tooltip key={b.start} label={reading} side="top">
+                    {/* Two columns from one floor. An empty bucket draws no dots
+                        at all, which is what a gap in time looks like — and it
+                        keeps its width, so the gap is as wide as it was long. */}
+                    <div className="tl-col" aria-label={reading}>
+                      <div className="tl-plot">
+                        <DotStack n={dotCount(b.quotes, unit)} kind="quotes" />
+                        <DotStack n={dotCount(b.works, unit)} kind="works" />
+                      </div>
+                      <div className="tl-tick">{total ? decadeLabel(b.start) : ''}</div>
+                    </div>
+                  </Tooltip>
+                )
+              })()
+            ),
+          )}
         </div>
       </div>
       {/* Two series, so a legend is not optional — identity must never be
@@ -790,6 +929,43 @@ function TimelineCard({ timeline }) {
         )}
       </div>
     </Card>
+  )
+}
+
+// TimelineGap — a run of empty buckets, standing in for all of them at exactly
+// the width they would have had.
+//
+// The width is the load-bearing part. Fold the run to a fixed band and the chart
+// starts lying about time — two millennia and two centuries would draw the same,
+// which is the failure the empty buckets were introduced to prevent. So this is a
+// COMPRESSION OF THE DRAWING, not of the scale.
+//
+// What it adds is what a blank could not carry: the years going past, so the eye
+// has something to measure the distance against, and one line about the fact that
+// nothing in all of it is on your shelf.
+function TimelineGap({ gap, size }) {
+  const width = gapWidth(gap.span)
+  const markers = gapMarkers(gap, size)
+  const line = gapLine(gap, width)
+  const from = decadeLabel(gap.start)
+  const to = decadeLabel(gap.end)
+  const reading = `${from} to ${to}: nothing`
+  return (
+    <div className="tl-gap" style={{ width }} aria-label={reading}>
+      {/* The markers ride on the plot area rather than on the tick row, so they
+          read as landmarks INSIDE the emptiness rather than as an axis under it —
+          which is what would make them look like the labels of the columns
+          either side. */}
+      <div className="tl-gap-plot">
+        {markers.map((m) => (
+          <span key={m.offset} className="tl-gap-mark" style={{ left: `${(m.offset / gap.span) * 100}%` }}>
+            {decadeLabel(m.start)}
+          </span>
+        ))}
+        {line && <p className="tl-gap-line">{line}</p>}
+      </div>
+      <div className="tl-tick tl-gap-tick">{`${from}–${to}`}</div>
+    </div>
   )
 }
 
