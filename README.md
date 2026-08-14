@@ -418,8 +418,10 @@ set `TIPPANI_COOKIE_SECURE=1`.
 > closes and all routes require a login.
 
 > **Platforms:** published as a multi-arch image — `linux/amd64` is the tested arch; `linux/arm64`
-> is built and published too (pure Go, cross-compiles cleanly) but is **untested**. arm64 NAS
-> owners (Synology/QNAP/Pi): give it a try and report back.
+> is built and published too but is **untested**. arm64 NAS owners (Synology/QNAP/Pi): give it a
+> try and report back. Neither arch is emulated to build: the binary is pure Go and cross-compiles,
+> and the frontend bundle is built once on the native runner, so both images serve byte-identical
+> assets. What is untested on arm64 is the binary, not the page.
 
 ## Build from source
 

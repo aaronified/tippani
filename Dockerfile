@@ -22,7 +22,27 @@
 # `npm ci` also refuses to start when package.json and the lockfile disagree,
 # which turns "somebody edited a version by hand" into a failed build instead of
 # a silent resolution.
-FROM node:22-alpine AS frontend
+#
+# THE PIN TO $BUILDPLATFORM IS LOAD-BEARING, AND IT IS A PERFORMANCE FIX.
+#
+# Unpinned, buildx builds this stage once per entry in `platforms:`, so the
+# linux/arm64 pass ran node under QEMU on an amd64 runner. That was survivable
+# only by accident: the install layer was keyed on package.json alone, and
+# package.json had not changed in dozens of releases, so the emulated install was
+# a cache hit every single time and never actually ran. Adding the lockfile to
+# the COPY above — correctly — changed the layer's key, the emulated `npm ci`
+# finally ran for real, and 1.12.0 took 15 minutes to publish instead of 2.
+#
+# Emulating it was never worth doing, cached or not. This stage emits static
+# JS/CSS/HTML; there is nothing architecture-specific in a bundle. Pinned to the
+# native platform it builds ONCE and both target images copy the same bytes,
+# which is also the only way the two arches are guaranteed to serve an identical
+# frontend. The backend stage below has always done this; this one was missed.
+#
+# The cost of getting it wrong is paid twice over, because the 231-package tree
+# here carries native musl-arm64 binaries — @tailwindcss/oxide (Rust), esbuild
+# (Go), rollup — that QEMU is at its worst on.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 WORKDIR /src/web/frontend
 COPY web/frontend/package.json web/frontend/package-lock.json ./
 RUN npm ci
