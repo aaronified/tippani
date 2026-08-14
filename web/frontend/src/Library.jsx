@@ -144,6 +144,11 @@ function bookState(b) {
   return {
     title: b.title,
     author: b.author || '',
+    // The other two credits (1.12.0). Missing from here, the ♥ on the detail
+    // header — a one-field change that sends the whole book — would clear the
+    // translator of every book anybody favourited.
+    translator: b.translator || '',
+    editor: b.editor || '',
     isbn: b.isbn || '',
     asin: b.asin || '',
     description: b.description || '',
@@ -559,6 +564,10 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const [capError, setCapError] = useState('')
   const [shelfBusy, setShelfBusy] = useState(false)
   const { map: authorMap } = usePeople('author') // name→metadata, for author face icons
+  // The two other book credits (1.12.0). Loaded on the BOOK PAGE only — the
+  // Library board never draws them, so it never pays for them either.
+  const { map: translatorMap } = usePeople('translator')
+  const { map: editorMap } = usePeople('editor')
   const reveal = useReveal()
   const mobile = useIsMobileScreen()
 
@@ -670,11 +679,34 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   // plumbing — nobody reads a book page to check its ISBN — and they cost the
   // credit line two segments above the quotes you came for. Both live in the
   // Details panel now, each with an InfoDot saying what it is for.
+  //
+  // THE OTHER TWO CREDITS APPEAR HERE AND NOWHERE ELSE (1.12.0). A translator and
+  // an editor are real people with portraits and pages, and this is the one screen
+  // where the question "whose English is this?" is being asked. They are
+  // deliberately absent from the Library board and from a quote's credit chips: a
+  // tile has room for one credit, and a quote is attributed to whoever wrote it.
+  //
+  // ROLE-LABELLED, unlike the author. On a book's own page an unlabelled name is
+  // read as the author, so a bare second face would say the book has two authors.
+  const credited = (kind, value, map) =>
+    splitCredits(value || '', parseCreditSeps(creditSeparators)).map((n) => (
+      <PersonCredit key={`${kind}-${n}`} kind={kind} name={n} person={map[n]} size={28} onOpen={setPerson} />
+    ))
+  const roleCredits = (kind, label, value, map) => {
+    const people = credited(kind, value, map)
+    if (people.length === 0) return null
+    return (
+      <span key={kind} className="inline-flex items-center gap-1.5">
+        <MonoLabel style={{ color: 'var(--faint)' }}>{label}</MonoLabel>
+        {people}
+      </span>
+    )
+  }
   const metaParts = book
     ? [
-        ...splitCredits(book.author, parseCreditSeps(creditSeparators)).map((a) => (
-          <PersonCredit key={`author-${a}`} kind="author" name={a} person={authorMap[a]} size={28} onOpen={setPerson} />
-        )),
+        ...credited('author', book.author, authorMap),
+        roleCredits('translator', 'tr.', book.translator, translatorMap),
+        roleCredits('editor', 'ed.', book.editor, editorMap),
         formatYear(book.published_year, book.published_circa) || null,
         seriesLabel(book) || null,
       ].filter(Boolean)
@@ -883,6 +915,8 @@ function EditWorkModal({ kind, id, title, onDone, onCancel }) {
 export function EditBook({ book, onSaved, onCancel }) {
   const [title, setTitle] = useState(book.title || '')
   const [author, setAuthor] = useState(book.author || '')
+  const [translator, setTranslator] = useState(book.translator || '')
+  const [editor, setEditor] = useState(book.editor || '')
   const [isbn, setIsbn] = useState(book.isbn || '')
   const [asin, setAsin] = useState(book.asin || '')
   const [year, setYear] = useState(formatYear(book.published_year, book.published_circa))
@@ -950,6 +984,8 @@ export function EditBook({ book, onSaved, onCancel }) {
     const r = await json('PUT', `/books/${book.id}`, {
       title: title.trim(),
       author: author.trim(),
+      translator: translator.trim(),
+      editor: editor.trim(),
       isbn: isbn.trim(),
       asin: asin.trim(),
       published_year: publishedYear,
@@ -1015,6 +1051,11 @@ export function EditBook({ book, onSaved, onCancel }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Title" nameCase value={title} onChange={(e) => setTitle(e.target.value)} />
         <Field label="Author" nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
+        {/* Below the author, above the identifiers: they are credits, and they
+            belong with the credit rather than filed among the catalogue numbers.
+            Both split on the same separators the author line uses. */}
+        <Field label="Translator" nameCase placeholder="whose English this is" value={translator} onChange={(e) => setTranslator(e.target.value)} />
+        <Field label="Editor" nameCase placeholder="who chose what is in it" value={editor} onChange={(e) => setEditor(e.target.value)} />
         <Field label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
         <Field label="ASIN" value={asin} onChange={(e) => setAsin(e.target.value)} />
         <Field label="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />

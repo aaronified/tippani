@@ -14,8 +14,13 @@ import (
 
 // Book is the book header parsed from an import file.
 type Book struct {
-	Title       string
-	Author      string
+	Title  string
+	Author string
+	// The other two credits (0034). Read from Tippani's own frontmatter only —
+	// no third-party importer has a source for either, which is also why they are
+	// absent from the staging queue.
+	Translator  string
+	Editor      string
 	ISBN        string // as found in the file; callers normalize to ISBN-13
 	ASIN        string
 	Series      string  // series name, when the file carries one
@@ -228,13 +233,13 @@ type Dialogue struct {
 	// Shows only: which episode the line is from. Pointers because nil ("the file
 	// didn't say") and 0 are different facts — season 0 is where a series keeps
 	// its specials, so it has to survive a round trip as a number.
-	Season  *int
-	Episode *int
-	Note      string
-	Color     string // "" = the importer leaves it to the server default (yellow)
-	Tags      []string
-	Favorite  bool
-	NotedAt   string // as for Annotation. No file format carries a date for a
+	Season   *int
+	Episode  *int
+	Note     string
+	Color    string // "" = the importer leaves it to the server default (yellow)
+	Tags     []string
+	Favorite bool
+	NotedAt  string // as for Annotation. No file format carries a date for a
 	// dialogue yet, so no parser sets this; it exists so that retargeting staged
 	// book highlights (which do carry Kindle dates) onto a film keeps them
 	// instead of silently dropping the field on the way across.

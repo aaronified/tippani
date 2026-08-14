@@ -37,7 +37,12 @@ func TestOrphanRefQueryHasNoDefault(t *testing.T) {
 	// in §24 and these tests failed the moment it did, rather than the mapping
 	// silently inheriting the books query. The examples are kinds that are still
 	// not accepted — including AUTHOR, because the match is case-sensitive.
-	for _, kind := range []string{"", "narrator", "composer", "translator", "AUTHOR"} {
+	// "translator" USED TO BE one of these, and 0034 made it real — which is the
+	// same thing that happened to "speaker" before it, and the same way round: the
+	// test failed rather than the mapping silently inheriting the books query.
+	// "illustrator" takes its place as the next plausible book credit nobody has
+	// added yet.
+	for _, kind := range []string{"", "narrator", "composer", "illustrator", "AUTHOR"} {
 		if q := orphanRefQuery(kind); q != "" {
 			t.Errorf("orphanRefQuery(%q) returned a query; an unknown kind must sweep nothing.\n"+
 				"Inheriting another kind's query deletes people and unlinks their portraits.\ngot: %s", kind, q)
@@ -52,7 +57,7 @@ func TestOrphanRefQueryHasNoDefault(t *testing.T) {
 func TestEveryValidKindHasAReferenceQuery(t *testing.T) {
 	// Kept in step with validPersonKind by construction: any kind it accepts has
 	// to appear here, and the loop below proves each one is mapped.
-	kinds := []string{"author", "actor", "director", "speaker", "narrator", "composer"}
+	kinds := []string{"author", "actor", "director", "speaker", "translator", "editor", "narrator", "composer"}
 	for _, k := range kinds {
 		if !validPersonKind(k) {
 			continue // not accepted yet; nothing to map
@@ -71,7 +76,7 @@ func TestEveryValidKindHasAReferenceQuery(t *testing.T) {
 // rewrite the author line of every book credited to anyone called Bose — in
 // place, library-wide, with no undo.
 func TestPersonCreditSQLHasNoDefault(t *testing.T) {
-	for _, kind := range []string{"", "narrator", "translator", "AUTHOR"} {
+	for _, kind := range []string{"", "narrator", "illustrator", "AUTHOR"} {
 		scan, update, ok := personCreditSQL(kind)
 		if ok || scan != "" || update != "" {
 			t.Errorf("personCreditSQL(%q) returned statements; an unmapped kind must not be renameable.\n"+
@@ -85,7 +90,13 @@ func TestPersonCreditSQLHasNoDefault(t *testing.T) {
 // books arm — they could disagree with each other, scanning every book's author
 // and stamping the rewritten strings onto dialogue rows by matching id.
 func TestPersonCreditSQLScanAndUpdateAgreeOnTheTable(t *testing.T) {
-	table := map[string]string{"author": "books", "actor": "dialogues", "director": "movies"}
+	// translator and editor both read and write `books`, which is exactly the pair
+	// this test exists to check: three of the five arms now name the same table, so
+	// "did the scan and the update agree" stops being obvious by inspection.
+	table := map[string]string{
+		"author": "books", "actor": "dialogues", "director": "movies",
+		"translator": "books", "editor": "books",
+	}
 	for kind, want := range table {
 		scan, update, ok := personCreditSQL(kind)
 		if !ok {

@@ -291,10 +291,11 @@ func stageBookWork(tx *sql.Tx, batchID int64, b importer.Book) (int64, error) {
 		return 0, err
 	}
 	res, err := tx.Exec(
-		`INSERT INTO staged_works (batch_id, kind, title, author, isbn, asin, series, series_index,
+		`INSERT INTO staged_works (batch_id, kind, title, author, translator, editor, isbn, asin, series, series_index,
 		                           status, progress, pos_json, reads_json)
-		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		batchID, b.Title, nullable(b.Author), nullable(b.ISBN), nullable(b.ASIN),
+		 VALUES (?, 'book', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		batchID, b.Title, nullable(b.Author), nullable(b.Translator), nullable(b.Editor),
+		nullable(b.ISBN), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex),
 		b.Status, b.Progress, encodePos(bookShelf(b).Pos), encodeReads(b.Reads))
 	if err != nil {
@@ -1034,10 +1035,18 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 // stagedWorkForApproval is a staged work plus the batch's source, everything the
 // write path needs.
 type stagedWorkForApproval struct {
-	ID          int64
-	Kind        string
-	Title       string
-	Author      string
+	ID     int64
+	Kind   string
+	Title  string
+	Author string
+	// Books only, and in practice only ever from Tippani's own Markdown (0034).
+	// Carried through the queue rather than dropped in it because staging sits in
+	// the MIDDLE of the export/import round trip: parsed out of the file, into
+	// staged_works, and back out here into the importer.Book that approval writes.
+	// A gap at any one of those four points loses the field silently, with a
+	// successful import and matching counts to say nothing happened.
+	Translator  string
+	Editor      string
 	ISBN        string
 	ASIN        string
 	Series      string
@@ -1057,7 +1066,8 @@ type stagedWorkForApproval struct {
 
 func (w stagedWorkForApproval) book() importer.Book {
 	return importer.Book{
-		Title: w.Title, Author: w.Author, ISBN: w.ISBN, ASIN: w.ASIN,
+		Title: w.Title, Author: w.Author, Translator: w.Translator, Editor: w.Editor,
+		ISBN: w.ISBN, ASIN: w.ASIN,
 		Series: w.Series, SeriesIndex: w.SeriesIndex,
 		Status: w.Status, Progress: w.Progress, Reads: w.Reads,
 		Pos: w.Pos.Pos, PosTotal: w.Pos.PosTotal,
@@ -1088,7 +1098,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 	seen := map[int64]bool{}
 	err := chunkIDs(picked.WorkIDs, func(batch []int64) error {
 		rows, err := tx.Query(`
-			SELECT w.id, w.kind, w.title, COALESCE(w.author, ''), COALESCE(w.isbn, ''),
+			SELECT w.id, w.kind, w.title, COALESCE(w.author, ''),
+			       COALESCE(w.translator, ''), COALESCE(w.editor, ''), COALESCE(w.isbn, ''),
 			       COALESCE(w.asin, ''), COALESCE(w.series, ''), COALESCE(w.series_index, 0),
 			       COALESCE(w.release_year, 0), COALESCE(w.imdb_id, ''), COALESCE(w.director, ''),
 			       COALESCE(w.genres, ''), w.status, w.progress, w.pos_json, w.reads_json,
@@ -1104,7 +1115,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 		for rows.Next() {
 			var wk stagedWorkForApproval
 			var genres, posJSON, readsJSON string
-			if err := rows.Scan(&wk.ID, &wk.Kind, &wk.Title, &wk.Author, &wk.ISBN, &wk.ASIN,
+			if err := rows.Scan(&wk.ID, &wk.Kind, &wk.Title, &wk.Author,
+				&wk.Translator, &wk.Editor, &wk.ISBN, &wk.ASIN,
 				&wk.Series, &wk.SeriesIndex, &wk.ReleaseYear, &wk.IMDbID, &wk.Director,
 				&genres, &wk.Status, &wk.Progress, &posJSON, &readsJSON,
 				&wk.TargetKind, &wk.TargetID, &wk.Source); err != nil {

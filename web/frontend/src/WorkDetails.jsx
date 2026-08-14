@@ -54,6 +54,18 @@ import {
 const BOOK_FIELDS = [
   { key: 'title', label: 'Title', nameCase: true },
   { key: 'author', label: 'Author', nameCase: true, hint: 'Multiple authors can share one line — Settings decides which separators split them into distinct people.' },
+  {
+    key: 'translator',
+    label: 'Translator',
+    nameCase: true,
+    hint: 'Who brought it into this language. They get a portrait and a page like an author does, and they appear on this book’s own page — but never on the Library board or on a quote, where one credit is the whole point of the line.',
+  },
+  {
+    key: 'editor',
+    label: 'Editor',
+    nameCase: true,
+    hint: 'Who chose what is in it — the credit an anthology or a collected edition is often bought for. Same separators as the author line.',
+  },
   { key: 'published_year', label: 'Year', kind: 'year', circaKey: 'published_circa' },
   { key: 'series', label: 'Series', nameCase: true, hint: 'The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.' },
   { key: 'series_index', label: 'Series #', kind: 'number' },
@@ -106,6 +118,8 @@ function fullState(kind, it) {
     return {
       title: it.title,
       author: it.author || '',
+      translator: it.translator || '',
+      editor: it.editor || '',
       isbn: it.isbn || '',
       asin: it.asin || '',
       description: it.description || '',

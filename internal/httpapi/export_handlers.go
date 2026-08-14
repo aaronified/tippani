@@ -253,6 +253,11 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	writeFrontmatter(&sb,
 		kv{"title", b.Title},
 		kv{"author", b.Author},
+		// writeFrontmatter drops an empty value, so a book with neither of these
+		// exports byte-for-byte as it did before 0034 — which is what keeps the
+		// existing export fixtures honest rather than merely updated.
+		kv{"translator", b.Translator},
+		kv{"editor", b.Editor},
 		kv{"isbn", b.ISBN},
 		kv{"year", zeroBlank(b.PublishedYear)},
 		kv{"genres", strings.Join(b.Genres, ", ")},

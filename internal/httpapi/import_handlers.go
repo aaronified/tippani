@@ -357,11 +357,19 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		// rather than fails if another row already owns this isbn/asin (partial
 		// unique indexes on (user_id, isbn/asin)).
 		if _, err := tx.Exec(
+			// translator/editor are NOT NULL DEFAULT '' (0034), so COALESCE cannot
+			// express fill-empty-only for them — COALESCE('', x) is ''. NULLIF turns
+			// the stored empty string back into the NULL that COALESCE understands,
+			// which keeps the rule identical to the four columns above it: what is
+			// already there always wins, and an import can only fill a blank.
 			`UPDATE OR IGNORE books SET isbn = COALESCE(isbn, ?), asin = COALESCE(asin, ?),
 			                            author = COALESCE(author, ?), series = COALESCE(series, ?),
-			                            series_index = COALESCE(series_index, ?) WHERE id = ?`,
+			                            series_index = COALESCE(series_index, ?),
+			                            translator = COALESCE(NULLIF(translator, ''), ?),
+			                            editor = COALESCE(NULLIF(editor, ''), ?) WHERE id = ?`,
 			nullable(isbn), nullable(b.ASIN), nullable(b.Author),
-			nullable(b.Series), nullableFloat(b.SeriesIndex), id); err != nil {
+			nullable(b.Series), nullableFloat(b.SeriesIndex),
+			b.Translator, b.Editor, id); err != nil {
 			return 0, false, err
 		}
 		// Shelf state is its own backfill (fill-empty-only, never clearing) so a
@@ -378,9 +386,9 @@ func upsertImportBook(tx *sql.Tx, uid int64, b importer.Book) (int64, bool, erro
 		return 0, false, err
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO books (id, updated_at, user_id, title, author, isbn, asin, series, series_index)
-		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)`,
-		id, uid, b.Title, nullable(b.Author), nullable(isbn), nullable(b.ASIN),
+		`INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, series, series_index)
+		 VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, uid, b.Title, nullable(b.Author), b.Translator, b.Editor, nullable(isbn), nullable(b.ASIN),
 		nullable(b.Series), nullableFloat(b.SeriesIndex)); err != nil {
 		return 0, false, err
 	}

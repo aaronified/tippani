@@ -132,7 +132,8 @@ func (s *Server) personKindsOf(personID int64) []string {
 }
 
 func validPersonKind(k string) bool {
-	return k == "author" || k == "actor" || k == "director" || k == "speaker"
+	return k == "author" || k == "actor" || k == "director" || k == "speaker" ||
+		k == "translator" || k == "editor"
 }
 
 // personKindsList names the accepted kinds in the order the 400 messages list
@@ -140,7 +141,7 @@ func validPersonKind(k string) bool {
 // "creators") are sourced from movies.director, the way authors come from
 // books.author, actors from dialogues.actor and speakers from
 // utterances.speaker.
-const personKindsList = "author, actor, director or speaker"
+const personKindsList = "author, actor, director, speaker, translator or editor"
 
 // creditSeps loads the caller's separator configuration for multi-author
 // splitting (the creditSeparators preference). Best-effort: a prefs load
@@ -188,6 +189,14 @@ func orphanRefQuery(kind string) string {
 		// No parent join: an utterance carries its own user_id (0026).
 		return `SELECT TRIM(speaker) FROM utterances
 		        WHERE user_id = ? AND TRIM(speaker) <> ''`
+	case "translator":
+		// NOT NULL DEFAULT '' (0034), so no IS NOT NULL term — but the TRIM(...)
+		// <> '' one still matters, because '' is the overwhelmingly common value.
+		return `SELECT TRIM(translator) FROM books
+		        WHERE user_id = ? AND TRIM(translator) <> ''`
+	case "editor":
+		return `SELECT TRIM(editor) FROM books
+		        WHERE user_id = ? AND TRIM(editor) <> ''`
 	}
 	return ""
 }
@@ -233,6 +242,17 @@ func personCreditSQL(kind string) (scan, update string, ok bool) {
 		return `SELECT id, TRIM(speaker) FROM utterances
 		        WHERE user_id = ? AND TRIM(speaker) <> ''`,
 			`UPDATE utterances SET speaker = ?, updated_at = datetime('now') WHERE id = ?`, true
+	case "translator":
+		// books.translator is NOT NULL DEFAULT '' (0034), hence no IS NOT NULL
+		// term. It is NOT in books_fts — see 0034's header for why — so unlike
+		// the director and speaker arms there is no index to re-sync here.
+		return `SELECT id, TRIM(translator) FROM books
+		        WHERE user_id = ? AND TRIM(translator) <> ''`,
+			`UPDATE books SET translator = ?, updated_at = datetime('now') WHERE id = ?`, true
+	case "editor":
+		return `SELECT id, TRIM(editor) FROM books
+		        WHERE user_id = ? AND TRIM(editor) <> ''`,
+			`UPDATE books SET editor = ?, updated_at = datetime('now') WHERE id = ?`, true
 	}
 	return "", "", false
 }
@@ -582,10 +602,34 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	s.gcOrphanPeople(uid, kind)
 	// Each credit row carries its work count (books for authors, distinct
 	// titles for actors) so the console can show per-person tallies.
-	q := `SELECT TRIM(author), COUNT(*) FROM books
-		WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''
-		GROUP BY TRIM(author)`
+	//
+	// AN EXPLICIT CASE PER KIND, WITH NO DEFAULT. This was `q :=` the books.author
+	// query followed by a switch that overrode it for the other three — the exact
+	// default-plus-overrides shape orphanRefQuery's header warns about, still live
+	// here because nobody had added a kind since. 0034 added two, and under the old
+	// shape `?kind=translator` would have answered with every book AUTHOR, tallied,
+	// named as translators, and offered for renaming. Silent, plausible, and wrong.
+	//
+	// An unmapped kind now leaves `q` empty and is refused below rather than
+	// inheriting somebody else's query. validPersonKind has already run, so
+	// reaching that line means the two lists disagree — which is a bug in this
+	// file, and says so.
+	q := ""
 	switch kind {
+	case "author":
+		q = `SELECT TRIM(author), COUNT(*) FROM books
+			WHERE user_id = ? AND author IS NOT NULL AND TRIM(author) != ''
+			GROUP BY TRIM(author)`
+	case "translator":
+		// NOT NULL DEFAULT '' (0034) — no IS NOT NULL term, and the count is
+		// books-they-translated, the same question the author arm answers.
+		q = `SELECT TRIM(translator), COUNT(*) FROM books
+			WHERE user_id = ? AND TRIM(translator) != ''
+			GROUP BY TRIM(translator)`
+	case "editor":
+		q = `SELECT TRIM(editor), COUNT(*) FROM books
+			WHERE user_id = ? AND TRIM(editor) != ''
+			GROUP BY TRIM(editor)`
 	case "actor":
 		q = `SELECT TRIM(d.actor), COUNT(DISTINCT d.movie_id) FROM dialogues d
 			JOIN movies m ON m.id = d.movie_id
@@ -604,6 +648,13 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 		q = `SELECT TRIM(speaker), COUNT(*) FROM utterances
 			WHERE user_id = ? AND TRIM(speaker) != ''
 			GROUP BY TRIM(speaker)`
+	}
+	if q == "" {
+		// Unreachable unless validPersonKind and this switch have drifted apart,
+		// which is precisely the drift worth reporting rather than papering over.
+		olog.Errorf(olog.CodePeopleLookupFailed, "[people] no names query for valid kind %q", kind)
+		writeErr(w, http.StatusInternalServerError, "cannot list names for that kind")
+		return
 	}
 	rows, err := s.Store.DB.Query(q, uid)
 	if err != nil {
@@ -716,10 +767,18 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[people] handlePersonLookup kind=%s name=%q", req.Kind, req.Name)
 	var links map[string]string
 	var err error
-	if req.Kind == "author" {
+	// WHICH PROVIDER IS A QUESTION ABOUT THE MEDIUM, NOT ABOUT THE ROLE, and
+	// writing it as `author` vs everything-else was only correct while author was
+	// the sole book-side kind. Translators and editors are book people (0034):
+	// sent down the else-branch they would be looked up in a FILM database, which
+	// does not fail — it either answers with an actor who happens to share the
+	// name, or answers with nothing behind an error telling somebody chasing a
+	// literary translator to go and add a TMDB key.
+	switch req.Kind {
+	case "author", "translator", "editor":
 		links, err = s.authorLinks(r.Context(), req.Name)
-	} else {
-		// Actors and directors are both TMDB people, resolved by name.
+	default:
+		// Actors, directors and speakers are TMDB people, resolved by name.
 		tmdb, _ := s.resolveTMDB()
 		if tmdb == nil {
 			writeErr(w, http.StatusServiceUnavailable,

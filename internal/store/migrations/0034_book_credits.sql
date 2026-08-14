@@ -1,0 +1,83 @@
+-- 0034: the other two people a book is by.
+--
+-- A book has carried exactly one credit since 0001 — `author` — and for a
+-- library built around reading in translation that is the wrong number. The
+-- roadmap has said so for a while ("translator matters more than you would
+-- expect to anyone reading literature in translation"): the Garnett Dostoevsky
+-- and the Pevear Dostoevsky are different books to read and identical books to
+-- this schema. An anthology's editor is the same gap facing the other way — the
+-- person who chose what is in it is often the reason you own it, and there was
+-- nowhere to say so.
+--
+-- TWO COLUMNS, NOT A CREDITS TABLE. A `book_credits (book_id, role, name)` join
+-- is the textbook shape and was rejected: `author` would stay where it is
+-- (forty query sites read books.author, and search's FTS index is built on it),
+-- so the result is one credit in a column and two in a table — two mechanisms
+-- for one idea, and the join table is the one that would rot, being the one
+-- nothing else in the app reads. If a third role ever arrives the argument
+-- changes; two does not carry it.
+--
+-- NOT NULL DEFAULT '' rather than nullable TEXT, which is what `author` is.
+-- author's nullability is a 0001 artefact and every read of it is wrapped in
+-- COALESCE to undo it. A new column has no such history and no NULL/'' pair to
+-- keep straight, so it takes the shape 0026 settled on for utterances.speaker.
+--
+-- ---------------------------------------------------------------- the people
+--
+-- Both are `people` kinds — translator and editor join author, actor, director
+-- and speaker — which is what gives them bios and portraits for free. Four
+-- places in people_handlers.go must learn each new kind, and the file's own
+-- comments say what happens if one is missed: validPersonKind gates writes,
+-- orphanRefQuery decides whether a saved person is still referenced (a missing
+-- case sweeps nothing, which is clutter; a WRONG case deletes a bio and unlinks
+-- a portrait), and personCreditSQL is the scan/update pair a rename uses, where
+-- a wrong case rewrites the wrong table's credits in place with no undo.
+--
+-- person_kinds has NO CHECK on `kind` (0027 records why: a CHECK is evaluated
+-- against existing rows, so one unexpected value turns a migration into a failed
+-- startup), so there is nothing to alter here for the two new roles.
+--
+-- ------------------------------------------------------------------- search
+--
+-- DELIBERATELY NOT IN books_fts, and this is the one thing here worth arguing
+-- with later. Adding a column to an FTS5 external-content table is not an ALTER;
+-- it is a DROP and CREATE of the virtual table, its three sync triggers and its
+-- fts5vocab shadow, followed by a full reindex of every book in the database —
+-- and store.Recover()'s table copy and rebuildFTSTable's trigger discovery both
+-- match FTS objects by NAME pattern, so a rebuild has to land exactly on the old
+-- names or it breaks a repair path nobody exercises until they need it.
+--
+-- That is a real risk taken for a feature nobody asked for. Searching by
+-- translator has a home already: they are `people`, so the People console finds
+-- them, and the work's own page lists them. If free-text search for a translator
+-- is wanted later it is its own migration with its own test, not a rider on this
+-- one.
+--
+-- --------------------------------------------------------------- staged_works
+--
+-- PRESENT, and the reasoning that said otherwise is worth recording because it
+-- was nearly convincing. No third-party importer carries a translator or an
+-- editor — not Goodreads, Hardcover, Kindle, Bookcision or IMDb — so a column on
+-- the approval queue looks like a column that can only ever move an empty
+-- string.
+--
+-- Except that TIPPANI'S OWN MARKDOWN EXPORT writes both keys, its parser reads
+-- them, and EVERY import is staged first (0023): the file is parsed into
+-- staged_works, and approval calls upsertImportBook with an importer.Book rebuilt
+-- from the staged row. A column missing anywhere on that path is a field that
+-- survives the export, survives the parse, and is dropped on the way into the
+-- queue — so exporting a library and importing it back would silently lose every
+-- translator in it. That is the one failure this schema is most careful about,
+-- and it is invisible: the import succeeds, the counts match, and the field is
+-- simply gone.
+--
+-- Nullable TEXT here rather than NOT NULL DEFAULT '', matching the staging
+-- table's own convention for `author` — its writes go through nullable(), and one
+-- column in that INSERT behaving differently from the eight beside it is a trap
+-- for whoever edits the statement next.
+
+ALTER TABLE books ADD COLUMN translator TEXT NOT NULL DEFAULT '';
+ALTER TABLE books ADD COLUMN editor     TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE staged_works ADD COLUMN translator TEXT;
+ALTER TABLE staged_works ADD COLUMN editor     TEXT;

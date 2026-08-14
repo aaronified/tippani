@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -51,7 +52,10 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	req.Kind = strings.TrimSpace(req.Kind)
 	req.Name = strings.TrimSpace(req.Name)
 	if !validPersonKind(req.Kind) {
-		writeErr(w, http.StatusBadRequest, "kind must be author or actor")
+		// Was the literal "kind must be author or actor", stale since director and
+		// speaker landed and wrong again the moment 0034 added two more. The const
+		// is the one place that list lives.
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
 		return
 	}
 	if req.Name == "" {
@@ -152,7 +156,19 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 		source, sourceID, imageURL, bio, born, died = s.resolveDirectorMeta(ctx, uid, name)
 		return source, sourceID, imageURL, bio, born, died, links, nil
 	}
-	titles, terr := s.authorBookTitles(uid, name)
+	// Everything else falls to the Open Library author path, and WHICH COLUMN
+	// disambiguates it is the whole question. The titles are what turn a name into
+	// one person rather than a list of namesakes, so a translator looked up against
+	// books whose AUTHOR matches their name gets an empty title list and resolves
+	// undisambiguated — the first thing that happens when anybody opens a
+	// translator chip, and it would look like the provider simply having no record
+	// of them.
+	col := "author"
+	switch kind {
+	case "translator", "editor":
+		col = kind
+	}
+	titles, terr := s.creditBookTitles(uid, col, name)
 	if terr != nil {
 		return "", "", "", "", "", "", links, terr
 	}
@@ -364,11 +380,24 @@ func (s *Server) directorPortraitFromCrew(uid int64, name string) (source, perso
 
 // authorBookTitles returns the titles of the caller's books whose author field
 // mentions the name — the cross-check corpus that disambiguates namesakes.
-func (s *Server) authorBookTitles(uid int64, name string) ([]string, error) {
+// creditBookTitles lists the caller's books crediting `name` in ONE column, for
+// the disambiguation the Open Library lookup needs.
+//
+// `col` is interpolated, which is the one thing this function has to be careful
+// about — it is a column name and SQL has no placeholder for one. Every caller
+// passes a literal from resolvePersonPortrait's own switch, never anything that
+// reached the process from outside; that is the contract, and it is why the
+// switch is there rather than `col := kind`.
+func (s *Server) creditBookTitles(uid int64, col, name string) ([]string, error) {
+	switch col {
+	case "author", "translator", "editor":
+	default:
+		return nil, errors.New("creditBookTitles: not a credit column: " + col)
+	}
 	rows, err := s.Store.DB.Query(`
 		SELECT title FROM books
-		WHERE user_id = ? AND author IS NOT NULL
-		  AND LOWER(author) LIKE '%' || LOWER(?) || '%'`, uid, name)
+		WHERE user_id = ? AND `+col+` IS NOT NULL
+		  AND LOWER(`+col+`) LIKE '%' || LOWER(?) || '%'`, uid, name)
 	if err != nil {
 		return nil, err
 	}

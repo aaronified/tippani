@@ -284,6 +284,25 @@ What that honestly does not cover:
   declare the table list and write down, in the migration, why the obvious
   approach is wrong — because the next person to touch it will reach for the FK
   walk for exactly the same good reasons.
+- **"No importer can fill this column" is not a reason to leave it out of the
+  import path.** Adding a translator to books made the staging queue look
+  irrelevant: no third-party format carries one, so a column on the approval queue
+  could only ever move an empty string. The step that argument skips is that the
+  app's OWN Markdown export is an importer's source, and every import is staged —
+  so the field survived the export, survived the parse, and was dropped on the way
+  into the queue. Exporting a library and importing it back would have lost every
+  translator in it, with a successful import and matching counts saying nothing had
+  happened. The question is never "can a source fill this", it is "does anything on
+  the round trip have to carry it".
+- **A switch written as a default plus overrides is a bomb with the fuse in the
+  next feature.** `handlePeopleNames` read `q := <the books.author query>` and then
+  overrode `q` for actor, director and speaker. Correct for exactly as long as
+  author was the only book-side role — and the moment translator became valid,
+  asking for translators answered with every AUTHOR in the library, tallied, named
+  as translators and offered for renaming. The same file already carried a
+  twenty-line comment explaining this hazard about two OTHER functions, which had
+  been fixed; this third one had been missed. Knowing the shape is not the same as
+  having swept for it.
 - **A control strip that grows one button per release has no moment where it
   breaks.** The selection bar shipped with four word-buttons and left 1.11.1 with
   eleven controls, every one of them added for a good reason and none of them the

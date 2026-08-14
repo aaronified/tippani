@@ -141,6 +141,10 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			res.Book.Title = val
 		case "author":
 			res.Book.Author = val
+		case "translator":
+			res.Book.Translator = val
+		case "editor":
+			res.Book.Editor = val
 		case "isbn":
 			res.Book.ISBN = val
 		case "series":

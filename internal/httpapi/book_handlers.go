@@ -13,8 +13,13 @@ import (
 )
 
 type bookReq struct {
-	Title          string   `json:"title"`
-	Author         string   `json:"author"`
+	Title  string `json:"title"`
+	Author string `json:"author"`
+	// The other two people a book is by (0034). Verbatim credit strings like
+	// `author`, so "Richard Pevear, Larissa Volokhonsky" splits into two people
+	// through the same separator preference the author line uses.
+	Translator     string   `json:"translator"`
+	Editor         string   `json:"editor"`
 	ISBN           string   `json:"isbn"`
 	ASIN           string   `json:"asin"`
 	Description    string   `json:"description"`
@@ -40,6 +45,8 @@ type bookReq struct {
 func (b *bookReq) validate() string {
 	b.Title = strings.TrimSpace(b.Title)
 	b.Author = strings.TrimSpace(b.Author)
+	b.Translator = strings.TrimSpace(b.Translator)
+	b.Editor = strings.TrimSpace(b.Editor)
 	b.ASIN = strings.TrimSpace(b.ASIN)
 	b.Description = strings.TrimSpace(b.Description)
 	b.Series = strings.TrimSpace(b.Series)
@@ -64,9 +71,13 @@ func (b *bookReq) validate() string {
 // read log consistent with each other. A full-state PUT that carried them would
 // let an ordinary Edit-form save silently rewrite reading history.
 type bookDetail struct {
-	ID             int64     `json:"id"`
-	Title          string    `json:"title"`
-	Author         string    `json:"author"`
+	ID     int64  `json:"id"`
+	Title  string `json:"title"`
+	Author string `json:"author"`
+	// Present HERE and absent from the list row on purpose — see the list
+	// handler's own note. This is the shape the work's own page reads.
+	Translator     string    `json:"translator"`
+	Editor         string    `json:"editor"`
 	ISBN           string    `json:"isbn"`
 	ASIN           string    `json:"asin"`
 	Description    string    `json:"description"`
@@ -87,12 +98,12 @@ type bookDetail struct {
 func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 	var b bookDetail
 	err := s.Store.DB.QueryRow(`
-		SELECT id, title, COALESCE(author, ''), COALESCE(isbn, ''), COALESCE(asin, ''),
+		SELECT id, title, COALESCE(author, ''), translator, editor, COALESCE(isbn, ''), COALESCE(asin, ''),
 		       COALESCE(description, ''), COALESCE(published_year, 0), published_circa, COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, created_at
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&b.ID, &b.Title, &b.Author, &b.ISBN, &b.ASIN,
+		Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Editor, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.PublishedCirca, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
 			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
@@ -191,11 +202,11 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := tx.Exec(`
-		INSERT INTO books (id, updated_at, user_id, title, author, isbn, asin, cover_path,
+		INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, cover_path,
 		                   description, published_year, published_circa, google_id, openlibrary_id, source_metadata,
 		                   series, series_index, favorite)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		id, uid, req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		id, uid, req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		googleID, openlibraryID, sourceMeta,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite)
@@ -449,10 +460,11 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	res, err := tx.Exec(`
-		UPDATE books SET title = ?, author = ?, isbn = ?, asin = ?, description = ?, published_year = ?, published_circa = ?,
+		UPDATE books SET title = ?, author = ?, translator = ?, editor = ?, isbn = ?, asin = ?,
+		                 description = ?, published_year = ?, published_circa = ?,
 		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
-		req.Title, nullable(req.Author), nullable(req.ISBN), nullable(req.ASIN),
+		req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
 	if err != nil {

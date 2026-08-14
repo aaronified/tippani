@@ -33,7 +33,12 @@ import (
 //     selection, quotes and all), bulk shelf state, and POST /metadata/fill, which
 //     writes only the fields that were empty. Every list response carries
 //     `review_excluded`.
-const apiRevision = 3
+// 4 — a book has three credits. `translator` and `editor` on the single-book
+//     shape (create, read, update) and in the Markdown frontmatter, and both are
+//     `people` kinds, so they take portraits, bios, links, renames and the orphan
+//     sweep exactly as an author does. Absent from the LIST row on purpose: the
+//     Library tile shows one credit and always has.
+const apiRevision = 4
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -65,6 +70,11 @@ var apiFeatures = []string{
 	"metadata-fill", // POST /metadata/fill
 	// A selection can be sealed or unsealed at once. 0 clears.
 	"bulk-sticker", // `sticker_id` on the three quote bulk bodies
+	// The other two people a book is by. Named as one feature rather than two
+	// because they arrived together and no client would sensibly support one:
+	// `translator`/`editor` on the book shape, and both accepted wherever a person
+	// kind is (people, portraits, rename, lookup).
+	"book-credits",
 }
 
 // minClientRevision is the oldest client API revision this server still serves

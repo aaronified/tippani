@@ -197,6 +197,13 @@ of that are spelled out in [`AI.md`](AI.md).
   changing a filter drops whatever left the screen — the count in the bar is always a count it can
   act on. Deleting asks you to type what it will do; deleting a book says plainly that its quotes go
   with it, and the whole lot lands in the bin as one entry with one Undo.
+- 🈯 **Translator and editor**, beside the author. The Garnett Dostoevsky and the Pevear
+  Dostoevsky are different books to read, and until now they were the same book to this app. Both
+  new credits are **real people** — portrait, life, links, their own page, renameable across the
+  whole library — and one human can be an author on one book and a translator on another without
+  becoming two records. They appear on the **book's own page** and deliberately nowhere else: not
+  on the Library board, where a tile has room for one credit; not on a quote, which belongs to
+  whoever wrote it; not as new categories in the stats.
 - 👌 **A long press that knows what it is on.** Hold a control and you get its label — there is no
   hover on a phone. Hold **the words of a quote** and nothing happens, on purpose: that is how your
   phone selects text, and an app for keeping other people's sentences has no business taking that
