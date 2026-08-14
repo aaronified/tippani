@@ -34,6 +34,7 @@ import {
   PartialDateField,
   Placeholder,
   Select,
+  Toggle,
   TokenInput,
   formatPartialDate,
   isPartialDate,
@@ -53,6 +54,60 @@ const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
 //
 // `??` rather than `||` on the sticker fields: 0 is a legal coordinate and the
 // top-left corner would otherwise reset to unplaced.
+// StarterProverbs — the offer on an empty Proverbs board.
+//
+// Nothing arrives unasked: the server has no boot hook and no backfill for these,
+// deliberately, because a proverb is CONTENT and seeding content nobody chose is the
+// app writing in their collection. So this is the only way in, it names the language
+// before you commit, and it appears only on a board that is actually empty.
+//
+// The counts come from the server rather than being hardcoded here, so the number on
+// the button and the set that lands cannot drift apart.
+function StarterProverbs({ onDone }) {
+  const [offers, setOffers] = useState(null)
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    json('GET', '/quotes/starters').then((r) => setOffers(r.ok ? r.data.languages || [] : []))
+  }, [])
+
+  async function take(language) {
+    setBusy(language)
+    setMsg('')
+    const r = await json('POST', '/quotes/starters', { language })
+    setBusy('')
+    if (!r.ok) return setMsg(errText(r, 'could not add them'))
+    // `skipped` is the honest half: asking twice reports nothing added rather than
+    // implying it wrote a second copy.
+    setMsg(r.data.added > 0 ? `added ${r.data.added}` : 'already there')
+    await onDone()
+  }
+
+  if (!offers || offers.length === 0) return null
+  return (
+    <div className="starter-proverbs">
+      <MonoLabel className="block">start with a curated set</MonoLabel>
+      <p className="microcopy" style={{ margin: '4px 0 10px' }}>
+        Ten each, unattributed, with an English translation where the words are not in English.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        {offers.map((o) => (
+          <GhostButton
+            key={o.language}
+            type="button"
+            disabled={!!busy}
+            onClick={() => take(o.language)}
+          >
+            {busy === o.language ? 'Adding…' : `Add ${o.count} ${o.language}`}
+          </GhostButton>
+        ))}
+        {msg && <MonoLabel style={{ color: 'var(--soft)' }}>{msg}</MonoLabel>}
+      </div>
+    </div>
+  )
+}
+
 export function utteranceState(u) {
   return {
     quote: u.quote || '',
@@ -65,6 +120,15 @@ export function utteranceState(u) {
     occasion_date: u.occasion_date || '',
     place: u.place || '',
     medium: u.medium || '',
+    // 0035, AND THIS IS A SILENT-LOSS SITE. Every PUT here is full-state, so a field
+    // missing from this object is a field CLEARED by the request. The ♥ on a card,
+    // the colour dots and the selection bar all save through it — so omitting these
+    // three would mean recolouring a Bengali proverb quietly threw away its
+    // category, its language and its English. 0034 records the same trap catching
+    // `translator` on bookState.
+    category: u.category || 'other',
+    language: u.language || '',
+    translation: u.translation || '',
     sticker_id: u.sticker_id ?? null,
     sticker_x: u.sticker_x ?? null,
     sticker_y: u.sticker_y ?? null,
@@ -113,12 +177,18 @@ const SPEAKER_LINK = {
 // element is ALWAYS truthy — so a proverb (no speaker, no occasion, nothing)
 // would otherwise get an empty label and the spacing that comes with it.
 export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {}) {
-  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium].filter(Boolean)
+  // 0035. The language joins the strip because for a PROVERB it is often the only
+  // locator there is — no speaker, no occasion, no date, no place — so without it a
+  // Bengali proverb's meta line is empty and the card says nothing about itself.
+  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, u.medium, u.language].filter(Boolean)
+  // The string forms feed the share image and the group headings, where a second
+  // line has nowhere to go. They stay one line; only the rich form below grows.
   if (omitSpeaker) return rest.join(' · ')
   if (!onOpenPerson) return [u.speaker, ...rest].filter(Boolean).join(' · ')
+  const tr = (u.translation || '').trim()
 
   const names = u.speaker ? splitCredits(u.speaker, seps || DEFAULT_CREDIT_SEPS) : []
-  if (names.length === 0 && rest.length === 0) return ''
+  if (names.length === 0 && rest.length === 0 && !tr) return ''
   return (
     <>
       {names.length > 0 && (
@@ -134,8 +204,27 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
       )}
       {names.length > 0 && rest.length > 0 && ' · '}
       {rest.join(' · ')}
+      {/* WHAT THE LINE SAYS, when the words are not in a language the reader has.
+          A block span inside the meta label rather than a new slot on
+          AnnotationCard: the card takes `meta` as a node, so this buys a second line
+          without touching the component three screens share. In the display italic
+          rather than the mono voice around it, because it is prose — the same words
+          in another language, not another locator. */}
+      {tr && <span style={TRANSLATION_LINE}>{tr}</span>}
     </>
   )
+}
+
+// The translation's own voice: prose, not the mono meta strip it sits inside.
+const TRANSLATION_LINE = {
+  display: 'block',
+  marginTop: 3,
+  fontFamily: 'var(--font-display)',
+  fontStyle: 'italic',
+  fontSize: '13px',
+  textTransform: 'none',
+  letterSpacing: 'normal',
+  color: 'var(--soft)',
 }
 
 // UtteranceForm follows the house form contract: {initial, onSubmit, onCancel,
@@ -149,6 +238,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   const [occasionDate, setOccasionDate] = useState(initial?.occasion_date || '')
   const [place, setPlace] = useState(initial?.place || '')
   const [medium, setMedium] = useState(initial?.medium || '')
+  // 0035. Which board this belongs on, and — for a line not in the reader's own
+  // language — what it says. Editable by hand because nothing else sets them: the
+  // starter proverbs arrive categorised, and anything you type arrives as 'other'.
+  const [category, setCategory] = useState(initial?.category || 'other')
+  const [language, setLanguage] = useState(initial?.language || '')
+  const [translation, setTranslation] = useState(initial?.translation || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
@@ -180,6 +275,9 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       occasion_date: occasionDate.trim(),
       place: place.trim(),
       medium: medium.trim(),
+      category,
+      language: language.trim(),
+      translation: translation.trim(),
       color,
       tags,
       // favorite is edited on the card, not here — but PUT is full-state, so
@@ -222,6 +320,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         <Field label="Place" placeholder="where" value={place} onChange={(e) => setPlace(e.target.value)} />
       </div>
       <Field label="Medium" placeholder="radio, speech, letter…" value={medium} onChange={(e) => setMedium(e.target.value)} />
+      <label className="block">
+        <MonoLabel className="mb-1 block">Kind</MonoLabel>
+        <Select ariaLabel="Kind of quote" value={category} onChange={setCategory} options={CATEGORY_OPTIONS} />
+      </label>
+      <Field label="Language" placeholder="Bengali, Hindi…" value={language} onChange={(e) => setLanguage(e.target.value)} />
+      <Field label="Translation" placeholder="what it says in English" value={translation} onChange={(e) => setTranslation(e.target.value)} />
       <label className="block">
         <MonoLabel className="mb-1.5 block">Tags</MonoLabel>
         <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="add a tag…" ariaLabel="Tags" />
@@ -276,6 +380,22 @@ const GROUP_OPTIONS = [
   ['decade', 'Decade'],
 ]
 const GROUP_RESIDUAL = { medium: 'No medium', place: 'No place' }
+
+// THE THREE BOARDS (0035). One page, three boards — not three nav tabs: a phone's
+// bottom bar holds four content screens and turning one of them into three would put
+// six glyphs on a row a thumb has to hit.
+//
+// 'other' is last and is the default, because it is the residual bucket and what
+// every quote in an existing library already is. The order is the order the control
+// draws, and it is the order of specificity: a proverb is the most particular thing
+// here, an 'other' the least.
+export const CATEGORY_OPTIONS = [
+  ['proverb', 'Proverbs'],
+  ['speech', 'Speeches'],
+  ['other', 'Others'],
+]
+// The singular, for the empty state and the counts.
+const CATEGORY_NOUN = { proverb: 'proverb', speech: 'speech', other: 'quote' }
 
 // groupUtterances buckets quotes for the group-by view. Extracted from the
 // component so the four dimensions can be checked without rendering a screen —
@@ -341,6 +461,14 @@ export default function QuotesPage({ creditSeparators }) {
   const [tag, setTag] = usePersistedState('tippani:quotes:tag', '')
   const [speaker, setSpeaker] = usePersistedState('tippani:quotes:speaker', '')
   const [medium, setMedium] = usePersistedState('tippani:quotes:medium', '')
+  // THE BOARD, not a filter — one of the three, always exactly one.
+  //
+  // It defaults to 'other', which is what every quote already in a library IS: 0035
+  // set that column default rather than guessing a category from `medium`, so this
+  // default shows an existing library precisely what it showed before the split.
+  // Persisted, so the board you work in is the one you come back to.
+  const [category, setCategory] = usePersistedState('tippani:quotes:category', 'other')
+  const [language, setLanguage] = usePersistedState('tippani:quotes:language', '')
   const [sort, setSort] = usePersistedState('tippani:quotes:sort', 'recent')
   const [groupBy, setGroupBy] = usePersistedState('tippani:quotes:group', 'none')
   const { stickers, reload: reloadStickers } = useStickers()
@@ -384,17 +512,33 @@ export default function QuotesPage({ creditSeparators }) {
   // Built from every row, never from the filtered view — see the note above.
   const speakers = useMemo(() => {
     const seen = new Set()
-    for (const u of rows || []) for (const n of splitCredits(u.speaker || '', seps)) seen.add(n)
+    for (const u of board) for (const n of splitCredits(u.speaker || '', seps)) seen.add(n)
     return [...seen].sort((a, b) => a.localeCompare(b))
-  }, [rows, seps])
+  }, [board, seps])
   const mediums = useMemo(() => {
     const seen = new Set()
-    for (const u of rows || []) if (u.medium) seen.add(u.medium)
+    for (const u of board) if (u.medium) seen.add(u.medium)
     return [...seen].sort((a, b) => a.localeCompare(b))
-  }, [rows])
+  }, [board])
+  // Free text in 0035, so the only honest list is the one in use — the same rule
+  // `mediums` follows. Offered only when the board actually holds more than one.
+  const languages = useMemo(() => {
+    const seen = new Set()
+    for (const u of board) if (u.language) seen.add(u.language)
+    return [...seen].sort((a, b) => a.localeCompare(b))
+  }, [board])
+
+  // THE BOARD PARTITIONS FIRST, and every list derived from it follows — the
+  // speaker and medium options, the language options, the counts, the empty state.
+  // Deriving them from `rows` instead would offer a filter for a speaker who is not
+  // on this board and then show nothing when you picked them.
+  const board = useMemo(
+    () => (rows || []).filter((u) => (u.category || 'other') === category),
+    [rows, category],
+  )
 
   const shown = useMemo(() => {
-    let list = rows || []
+    let list = board
     if (color) list = list.filter((u) => u.color === color)
     if (favOnly) list = list.filter((u) => u.favorite)
     if (tagged) list = list.filter((u) => (u.tags || []).length > 0)
@@ -405,6 +549,7 @@ export default function QuotesPage({ creditSeparators }) {
     // use to decide who is credited.
     if (speaker) list = list.filter((u) => splitCredits(u.speaker || '', seps).includes(speaker))
     if (medium) list = list.filter((u) => u.medium === medium)
+    if (language) list = list.filter((u) => u.language === language)
     if (sort === 'recent') return list
     list = [...list]
     if (sort === 'speaker') list.sort((a, b) => (a.speaker || '').localeCompare(b.speaker || ''))
@@ -413,7 +558,7 @@ export default function QuotesPage({ creditSeparators }) {
     // big-endian: '1944' < '1944-08' < '1945'. Undated sinks rather than leading.
     else if (sort === 'said') list.sort((a, b) => (a.occasion_date || '\uffff').localeCompare(b.occasion_date || '\uffff'))
     return list
-  }, [rows, color, favOnly, tagged, noted, tag, speaker, medium, sort, seps])
+  }, [board, color, favOnly, tagged, noted, tag, speaker, medium, language, sort, seps])
 
   const grouped = useMemo(
     () => (groupBy === 'none' ? null : groupUtterances(shown, groupBy, seps)),
@@ -502,29 +647,58 @@ export default function QuotesPage({ creditSeparators }) {
   const colourFilter = (
     <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} ariaLabel="Filter by category" />
   )
+  // A Toggle rather than a Select: three boards is a segmented control, and the one
+  // you are on should be readable without opening anything. Changing board clears
+  // the filters that belong to the board you are leaving — a speaker who is only on
+  // Speeches would otherwise follow you to Proverbs and show an empty shelf that
+  // looks like a bug.
+  const boardToggle = (
+    <Toggle
+      ariaLabel="Which quotes"
+      value={category}
+      onChange={(v) => {
+        setCategory(v)
+        setSpeaker('')
+        setMedium('')
+        setLanguage('')
+      }}
+      options={CATEGORY_OPTIONS}
+    />
+  )
   const selects = [
     tags.length > 0 && ['tag', 'Filter by tag', tag, setTag, [['', 'all tags'], ...tags.map((t) => [t.name, t.name])]],
     speakers.length > 0 && ['speaker', 'Filter by speaker', speaker, setSpeaker, [['', 'all speakers'], ...speakers.map((n) => [n, n])]],
     mediums.length > 0 && ['medium', 'Filter by medium', medium, setMedium, [['', 'all media'], ...mediums.map((m) => [m, m])]],
+    languages.length > 1 && ['language', 'Filter by language', language, setLanguage, [['', 'all languages'], ...languages.map((l) => [l, l])]],
   ].filter(Boolean)
 
   const groupSelect = (
     <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
   )
 
+  // Above the scaffold rather than inside it: the grid slot does not render when a
+  // board is empty, and an empty Proverbs board is exactly when this has to show.
+  const starters = category === 'proverb' && rows != null && board.length === 0
+    ? <StarterProverbs onDone={load} />
+    : null
+
   return (
-    <WorkListScaffold
+    <>
+      {starters}
+      <WorkListScaffold
       mobile={mobile}
       title="Quotes"
-      counts={rows ? `${rows.length} quote${rows.length === 1 ? '' : 's'} · from no book and no film` : ''}
+      counts={rows ? `${board.length} ${CATEGORY_NOUN[category]}${board.length === 1 ? '' : 's'} · from no book and no film` : ''}
       error={error}
       onExport={() => setExporting(true)}
       loaded={rows != null}
-      hasItems={!!(rows && rows.length > 0)}
+      hasItems={!!(rows && board.length > 0)}
       shownCount={shown.length}
-      emptyText="nothing here yet — the ＋ in the top bar saves a line from anywhere"
+      emptyText={category === 'proverb'
+        ? 'no proverbs yet — the ＋ saves one, or take a starter set below'
+        : 'nothing here yet — the ＋ in the top bar saves a line from anywhere'}
       noMatchText="no quotes match these filters"
-      noun="quote"
+      noun={CATEGORY_NOUN[category]}
       fav={favOnly}
       setFav={setFavOnly}
       tagged={tagged}
@@ -534,12 +708,23 @@ export default function QuotesPage({ creditSeparators }) {
       sort={sort}
       setSort={setSort}
       sortOptions={SORT_OPTIONS}
-      leading={colourFilter}
-      leadingMobile={
-        <div>
-          <MonoLabel className="mb-2 block">colour</MonoLabel>
+      leading={
+        <>
+          {boardToggle}
           {colourFilter}
-        </div>
+        </>
+      }
+      leadingMobile={
+        <>
+          <div>
+            <MonoLabel className="mb-2 block">which quotes</MonoLabel>
+            {boardToggle}
+          </div>
+          <div>
+            <MonoLabel className="mb-2 block">colour</MonoLabel>
+            {colourFilter}
+          </div>
+        </>
       }
       trailing={
         <>
@@ -639,5 +824,6 @@ export default function QuotesPage({ creditSeparators }) {
         <Masonry columns={columns}>{shown.map(card)}</Masonry>
       )}
     </WorkListScaffold>
+    </>
   )
 }

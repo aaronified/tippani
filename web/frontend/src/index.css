@@ -1412,6 +1412,17 @@
      that vanishes when you clear the picks takes the bar's own explanation with it. */
   .tp-btn:disabled .selection-count { color: var(--soft); }
 
+  /* The starter-proverb offer, above an empty Proverbs board. Quiet: it is an
+     invitation, not a warning, and it disappears the moment the board has anything
+     in it. */
+  .starter-proverbs {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+
   .selection-bar {
     position: sticky;
     top: 0;
