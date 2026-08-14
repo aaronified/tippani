@@ -506,10 +506,27 @@ export default function QuotesPage({ creditSeparators }) {
   const tagMap = useMemo(() => Object.fromEntries(tags.map((t) => [t.name, t])), [tags])
   const stickerMap = useMemo(() => Object.fromEntries(stickers.map((s) => [s.id, s])), [stickers])
 
+  // THE BOARD PARTITIONS FIRST, and every list derived from it follows — the
+  // speaker and medium options, the language options, the counts, the empty state.
+  // Deriving them from `rows` instead would offer a filter for a speaker who is not
+  // on this board and then show nothing when you picked them.
+  //
+  // AND IT HAS TO BE DECLARED FIRST, physically, above its readers. A dependency
+  // array is not a closure: `useMemo(fn, [board])` builds that array the moment the
+  // line runs, so a `const board` further down the body is read inside its own
+  // temporal dead zone and the whole screen throws ReferenceError on its first
+  // render. 1.13.0 shipped exactly that — this memo was added below the three that
+  // consume it, which reads fine and is fatal. The body is ordered by data flow for
+  // that reason, not for tidiness.
+  const board = useMemo(
+    () => (rows || []).filter((u) => (u.category || 'other') === category),
+    [rows, category],
+  )
+
   // Filter options come from what is actually saved rather than from the People
   // console or a fixed vocabulary: an unenriched speaker is still a speaker, and
   // `medium` is a free-text field, so the only honest list is the one in use.
-  // Built from every row, never from the filtered view — see the note above.
+  // Built from every row on the board, never from the filtered view.
   const speakers = useMemo(() => {
     const seen = new Set()
     for (const u of board) for (const n of splitCredits(u.speaker || '', seps)) seen.add(n)
@@ -527,15 +544,6 @@ export default function QuotesPage({ creditSeparators }) {
     for (const u of board) if (u.language) seen.add(u.language)
     return [...seen].sort((a, b) => a.localeCompare(b))
   }, [board])
-
-  // THE BOARD PARTITIONS FIRST, and every list derived from it follows — the
-  // speaker and medium options, the language options, the counts, the empty state.
-  // Deriving them from `rows` instead would offer a filter for a speaker who is not
-  // on this board and then show nothing when you picked them.
-  const board = useMemo(
-    () => (rows || []).filter((u) => (u.category || 'other') === category),
-    [rows, category],
-  )
 
   const shown = useMemo(() => {
     let list = board

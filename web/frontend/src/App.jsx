@@ -240,7 +240,11 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
 // The two restore cards are one card with a source picker now, mirroring the
 // Settings twin. Two nearly identical cards, each with its own paragraph, was the
 // first thing a new operator saw.
-function Onboarding({ onDone, backup }) {
+// Exported for the mount smoke test only — see test/dom/screens-mount.test.jsx.
+// These two are the screens with the widest blast radius in the app (a throw here
+// locks everybody out, including the operator who would fix it) and they were the
+// only two that no test could reach.
+export function Onboarding({ onDone, backup }) {
   const [source, setSource] = useState(backup ? 'server' : 'file')
   const [file, setFile] = useState(null)
   const [fileKey, setFileKey] = useState(null)
@@ -416,7 +420,8 @@ function Onboarding({ onDone, backup }) {
 }
 
 // Login — film-dark strip with sprockets + frame code + Bengali subtitle (§8.2).
-function Login({ onLogin }) {
+// Exported for the same reason as Onboarding, above.
+export function Login({ onLogin }) {
   useEffect(() => {
     applyTheme({ aesthetic: 'film', theme: 'dark' })
   }, [])
