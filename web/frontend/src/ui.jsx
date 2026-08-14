@@ -4095,19 +4095,48 @@ const ICON_SIZE = 24
 // caller doing that had to restate all four sizing properties or lose the 44px
 // box. `style` is merged now rather than replaced, so a partial override is a
 // partial override.
-export function IconButton({ icon, ariaLabel, tooltip, tipSide = "top", danger = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
-  const label = tooltip === undefined ? ariaLabel : tooltip
+// `label` OPTS THIS BUTTON INTO THE Button labels PREFERENCE, and without it
+// nothing changes.
+//
+// IconButton was glyph-only by construction: one child, a fixed 44px square, and
+// no .btn-label span anywhere. So `Button labels: Show` could not reveal a name it
+// never rendered and `Hide` could not clip one — a whole family of controls sat
+// outside a preference that claims to govern the app. The selection bar was built
+// entirely from that family, which is why it ignored the setting in both
+// directions.
+//
+// Passing `label` renders the same two spans Button does, so the existing CSS does
+// all of it: .btn-label is clipped under data-labels="off" (that rule is
+// deliberately not scoped to .tp-btn, which is what lets other controls opt in),
+// and .tp-btn.has-btn-icon squares back to 44px — the same 44px this button uses
+// when it has no label, so a labelled row and an unlabelled one line up.
+//
+// The inline width is dropped ONLY when there is a label, because an inline width
+// would beat the stylesheet and pin the pill shut. Height stays: a 44px row is a
+// 44px row either way.
+export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", danger = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
+  const tip = tooltip === undefined ? ariaLabel : tooltip
+  const named = label != null && label !== ""
   return (
-    <Tooltip label={label} side={tipSide} className={wrapClassName}>
+    <Tooltip label={tip} side={tipSide} className={wrapClassName}>
       <button
         type="button"
-        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${danger ? " tp-btn-danger" : ""} ${className}`}
-        style={{ width: 44, height: 44, padding: 0, flexShrink: 0, ...style }}
+        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${named ? " has-btn-icon" : ""}${danger ? " tp-btn-danger" : ""} ${className}`}
+        style={named
+          ? { height: 44, flexShrink: 0, ...style }
+          : { width: 44, height: 44, padding: 0, flexShrink: 0, ...style }}
         aria-label={ariaLabel}
         onClick={onClick}
         {...rest}
       >
-        {icon}
+        {named ? (
+          <>
+            <span className="btn-icon">{icon}</span>
+            <span className="btn-label">{label}</span>
+          </>
+        ) : (
+          icon
+        )}
       </button>
     </Tooltip>
   )
@@ -4517,13 +4546,18 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
 // building it as a Select meant a dropdown with a placeholder pretending to be a
 // value the selection does not have. The default is still the ⋯, so every card row
 // is untouched.
-export function MoreMenu({ items, icon, ariaLabel = "More actions", tooltip, disabled = false }) {
+export function MoreMenu({ items, icon, label, ariaLabel = "More actions", tooltip, disabled = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <div className="relative" ref={ref}>
+      {/* `label` rides straight through to IconButton, so a menu trigger follows
+          the Button labels preference like any other control. Left unset it is the
+          bare glyph it has always been — which is right for the ⋯ itself, whose
+          whole job is to be the thing with no name. */}
       <IconButton
         icon={icon || <IconMore />}
+        label={label}
         ariaLabel={ariaLabel}
         tooltip={tooltip}
         disabled={disabled}

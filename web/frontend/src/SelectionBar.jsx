@@ -256,11 +256,38 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 
   return (
     <div className="selection-bar">
-      {/* "no books selected" rather than "0 books selected": the state is real and
-          reachable now, and a zero in a count reads as a thing that went wrong. */}
-      <MonoLabel style={{ color: none ? 'var(--soft)' : 'var(--accent-ui)' }}>
-        {none ? `no ${routes.noun[1]} selected` : `${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
-      </MonoLabel>
+      {/* THE COUNT IS THE CONTROL. It was a MonoLabel reading "3 books selected"
+          beside a worded `Deselect all` at the far end — two items for one idea, on
+          the bar that has least room for either. The number now sits in the glyph
+          slot of a real button, so it wears the same round 44px border as every
+          other control in the row and clearing the picks is the obvious thing to
+          tap.
+
+          `label` is what makes it follow the Button labels preference: the words
+          stand beside the number on a desktop and clip away on a phone, leaving the
+          badge. That is the same mechanism every other control here now uses rather
+          than a second rule about widths.
+
+          It empties the selection and leaves the bar standing — "these three are the
+          wrong three" costs one tap. The ✕ at the other end ends the mode and takes
+          every tick with it. Two jobs, two controls.
+
+          The accessible name carries the count as well as the action, because with
+          the words clipped the badge alone would announce as "Deselect all" and drop
+          the one fact it is drawn to show. Zero is still spoken as "no books
+          selected": a bare 0 in a count reads as something having gone wrong. */}
+      <IconButton
+        icon={<span className="selection-count">{count}</span>}
+        label="Deselect all"
+        ariaLabel={none
+          ? `no ${routes.noun[1]} selected`
+          : `Deselect all, ${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
+        tooltip={none
+          ? `no ${routes.noun[1]} selected`
+          : `${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
+        disabled={busy || none}
+        onClick={() => selection.deselectAll?.()}
+      />
 
       {/* The three that stand in the row, in the order the registry lists them.
           Two of them are not plain buttons — colour opens six dots and the shelf
@@ -286,6 +313,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
             <MoreMenu
               key={a.id}
               icon={a.icon}
+              label={a.label}
               ariaLabel={`Move the ${count} selected to a shelf`}
               tooltip="Move to a shelf"
               disabled={none || busy}
@@ -301,9 +329,16 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
           <IconButton
             key={a.id}
             icon={a.icon}
-            // The label IS the tooltip and the accessible name, so the flipping
-            // quiz toggle stays readable with no words on screen: a long press
-            // (or a hover) says which way round it currently is.
+            // `label` PUTS THE WORDS BACK, under the preference rather than
+            // unconditionally. This bar was built from glyph-only controls, so
+            // `Button labels: Show` had no name to reveal and `Hide` had none to
+            // clip — the one row in the app that ignored the setting in both
+            // directions. The registry already carries the word for each action;
+            // it just was not being rendered.
+            label={a.label}
+            // Still the tooltip and the accessible name, which is what keeps the
+            // flipping quiz toggle readable once the words are clipped: a hover or
+            // a long press says which way round the selection currently is.
             ariaLabel={a.label}
             tooltip={a.id === 'fill' && busy ? 'Fetching…' : a.label}
             disabled={none || busy}
@@ -323,24 +358,19 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         />
       )}
 
-      {/* TWO CONTROLS AT THIS END, and the difference between them is the whole
-          point of the mode outliving the picks.
+      {/* `✕` ENDS THE MODE: the bar goes, and every tick on the board goes with it.
+          That pairing is the only rule that can be held in the head — the marks are
+          up while the bar is up — and it is what stopped a dot being left lit on the
+          card you long-pressed.
 
-          `Deselect all` empties the selection and leaves the bar standing, so
-          "these four are the wrong four" costs one tap rather than a fresh
-          gesture. It keeps its WORDS while everything to its left became a glyph,
-          and that is deliberate: it is not a thing you do to the selection, it is
-          a thing you do to the selecting, and drawing it as a fourth glyph would
-          file it with the actions.
-
-          `✕` ends the mode: the bar goes, and every tick on the board goes with
-          it. That pairing is the only rule that can be held in the head — the
-          marks are up while the bar is up — and it is what stopped a dot being
-          left lit on the card you long-pressed. */}
-      <GhostButton className="ml-auto" onClick={() => selection.deselectAll?.()} disabled={busy || none}>
-        Deselect all
-      </GhostButton>
-      <Tooltip label="Dismiss the selection">
+          Its partner is the count badge at the far left, which empties the picks and
+          leaves the bar standing. The two used to sit next to each other down here,
+          which was the worse arrangement: `Deselect all` and `✕` side by side look
+          like the same control twice, and the one that ends the mode is the one you
+          reach for by accident. Now the destructive-to-the-mode one is alone at this
+          end, and clearing the picks lives on the thing that shows how many there
+          are. */}
+      <Tooltip label="Dismiss the selection" className="ml-auto">
         <button
           type="button"
           className="field-icon-btn tactile"

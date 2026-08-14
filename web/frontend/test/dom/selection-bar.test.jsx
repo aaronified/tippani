@@ -70,14 +70,27 @@ const openMore = () => fireEvent.click(screen.getByRole('button', { name: /More 
 const item = (name) => screen.getByRole('menuitem', { name })
 
 describe('what the bar says', () => {
-  it('names the count and the kind', () => {
+  // THE COUNT IS A BADGE, not a sentence. It sits in the glyph slot of the
+  // deselect button, so what is on screen is the number — and the phrase moved to
+  // the accessible name, which is where it has to be: with the words clipped on a
+  // phone the badge alone would announce as "Deselect all" and drop the one fact it
+  // is drawn to show.
+  it('shows the count as the badge', () => {
     bar()
-    expect(screen.getByText('3 quotes selected')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /3 quotes selected/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /3 quotes selected/ }).textContent).toContain('3')
   })
 
   it('says it in the singular for one', () => {
     bar(selection({ ids: [1], count: 1 }))
-    expect(screen.getByText('1 quote selected')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /1 quote selected/ })).toBeTruthy()
+  })
+
+  // The badge carries the ACTION as well as the count, because it is a button: it
+  // empties the picks and leaves the bar standing.
+  it('names the action too, not only the count', () => {
+    bar()
+    expect(screen.getByRole('button', { name: /Deselect all/ })).toBeTruthy()
   })
 
   it('renders nothing at all with nothing selected', () => {
@@ -237,7 +250,9 @@ describe('the shape of the bar', () => {
 
   it('disables every control while nothing is picked, rather than hiding the bar', () => {
     bar(selection({ ids: [], count: 0, open: true }))
-    expect(screen.getByText('no quotes selected')).toBeTruthy()
+    // Still SAID rather than shown as a bare zero — the badge reads 0 and is
+    // disabled, and the name is what tells you why.
+    expect(screen.getByRole('button', { name: 'no quotes selected' }).disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'Favourite' }).disabled).toBe(true)
     expect(screen.getByRole('button', { name: /More for the/ }).disabled).toBe(true)
   })
@@ -264,5 +279,51 @@ describe('editing the one', () => {
     bar(selection({ ids: [9], count: 1 }))
     openMore()
     expect(screen.queryByRole('menuitem', { name: 'Edit' })).toBeNull()
+  })
+})
+
+// THE REGRESSION TEST FOR "Show icon labels does nothing here".
+//
+// The bar shipped built entirely from glyph-only controls — IconButton and
+// MoreMenu, neither of which rendered a .btn-label span. So `Button labels: Show`
+// had no name to reveal and `Hide` had none to clip: the one row in the app that
+// ignored the setting in both directions, on the surface with the least room,
+// where the preference matters most.
+//
+// Nothing failed. The bar looked correct on a desktop, which is where it was built,
+// and the setting silently did not apply. What is asserted here is the MECHANISM
+// rather than the appearance: the words are in the DOM, in the span the stylesheet
+// clips, on a button carrying the class that squares it. Whether they are visible
+// is then CSS and the user's choice, neither of which a jsdom test can see.
+describe('following the Button labels preference', () => {
+  const labelOf = (btn) => btn.querySelector('.btn-label')?.textContent
+
+  it('renders every row action’s word in the span the stylesheet clips', () => {
+    bar()
+    for (const name of ['Favourite', 'Skip in quiz']) {
+      const btn = screen.getByRole('button', { name })
+      expect(labelOf(btn), `${name} has no .btn-label, so Show cannot reveal it`).toBe(name)
+      // has-btn-icon is what collapses the button back to 44px under
+      // data-labels="off". Without it the words clip and leave a wide empty pill.
+      expect(btn.className, name).toContain('has-btn-icon')
+    }
+  })
+
+  it('gives the count badge the action as its word', () => {
+    bar()
+    const badge = screen.getByRole('button', { name: /Deselect all/ })
+    expect(labelOf(badge)).toBe('Deselect all')
+    // And the number is the glyph, so the badge still says how many with the words
+    // clipped away on a phone.
+    expect(badge.querySelector('.btn-icon').textContent).toBe('3')
+  })
+
+  it('leaves the ⋯ nameless on purpose', () => {
+    // The overflow trigger is the one control whose job is to have no name — a
+    // "More" label beside three dots is the same thing said twice. It is reachable
+    // by its accessible name either way, which the assertion above relies on.
+    bar()
+    const more = screen.getByRole('button', { name: /More for the/ })
+    expect(more.querySelector('.btn-label')).toBeNull()
   })
 })

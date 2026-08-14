@@ -150,15 +150,17 @@ describe('the bar over a selection of works', () => {
     fireEvent.click(boxes()[0])
   }
 
+  // The count is the badge on the deselect button now; the phrase lives in its
+  // accessible name, which is what a screen reader gets once the words are clipped.
   it('says what it is holding, in the right word', () => {
     open()
-    expect(screen.getByText('1 book selected')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /1 book selected/ })).toBeTruthy()
   })
 
   it('calls a film a “title”, which is the word the delete phrase uses', () => {
     render(<Board kind="movie" items={[{ id: 1, title: 'Casablanca' }]} />)
     fireEvent.click(boxes()[0])
-    expect(screen.getByText('1 title selected')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /1 title selected/ })).toBeTruthy()
   })
 
   it('offers the four a work selection has, and none of the quote ones', () => {
@@ -167,9 +169,10 @@ describe('the bar over a selection of works', () => {
     open()
     // `Clear` is `Deselect all` since 1.11.2, and it no longer takes the bar down
     // with it — `Dismiss the selection` is the control that does.
-    for (const name of ['Fill gaps', 'Skip in quiz', 'Deselect all', 'Dismiss the selection']) {
+    for (const name of ['Fill gaps', 'Skip in quiz', 'Dismiss the selection']) {
       expect(screen.getByRole('button', { name }), name).toBeTruthy()
     }
+    expect(screen.getByRole('button', { name: /Deselect all/ })).toBeTruthy()
     expect(screen.getByLabelText(/Move the 1 selected to a shelf/)).toBeTruthy()
     // Delete folded behind the ⋯ in 1.12.0, along with everything else that needs
     // something more from you before it can run.
@@ -298,7 +301,7 @@ describe('the bar holds until it is dismissed', () => {
     fireEvent.click(boxes()[0]) // off again
     expect(count()).toBe(0)
     expect(bar(), 'the bar went with the last pick').toBeTruthy()
-    expect(screen.getByText('no books selected')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'no books selected' })).toBeTruthy()
   })
 
   it('keeps the kind, so the empty bar is still a BOOK bar', () => {
@@ -316,9 +319,12 @@ describe('the bar holds until it is dismissed', () => {
     // an error from the server.
     openMode()
     fireEvent.click(boxes()[0])
-    for (const name of ['Fill gaps', 'Skip in quiz', 'Deselect all']) {
+    for (const name of ['Fill gaps', 'Skip in quiz']) {
       expect(screen.getByRole('button', { name }).disabled, name).toBe(true)
     }
+    // The count badge IS the deselect control, and at zero it has nothing to clear,
+    // so it is disabled and named for the state rather than for the action.
+    expect(screen.getByRole('button', { name: 'no books selected' }).disabled).toBe(true)
     expect(screen.getByLabelText(/Move the 0 selected to a shelf/).disabled).toBe(true)
     // The overflow holds Delete, so disabling the ⋯ is what disables Delete.
     expect(screen.getByRole('button', { name: /More for the/ }).disabled).toBe(true)
@@ -331,14 +337,14 @@ describe('the bar holds until it is dismissed', () => {
     fireEvent.click(boxes()[0])
     fireEvent.click(boxes()[2])
     expect(screen.getByRole('button', { name: /More for the/ }).disabled).toBe(false)
-    expect(screen.getByText('1 book selected')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /1 book selected/ })).toBeTruthy()
   })
 
   it('Deselect all empties it and leaves the bar standing', () => {
     openMode()
     fireEvent.click(boxes()[1])
     expect(count()).toBe(2)
-    fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }))
+    fireEvent.click(screen.getByRole('button', { name: /Deselect all/ }))
     expect(count()).toBe(0)
     expect(bar()).toBeTruthy()
   })

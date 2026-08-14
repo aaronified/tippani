@@ -1395,6 +1395,23 @@
      over. `top: 0` is deliberate on a desktop — the page's own header scrolls away,
      so there is nothing above it to clear — while the mobile shell keeps its top
      bar, and the media query below hands the bar the space under it. */
+  /* THE SELECTION COUNT, drawn as a glyph.
+     It rides in IconButton's icon slot, so it inherits that button's round 44px
+     border and lines up with every other control in the row. Mono and tabular so
+     the badge does not change width between 3 and 8 — a control that resizes as
+     you tick things is a control that moves under your thumb. */
+  .selection-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent-ui);
+  }
+  /* Dimmed rather than hidden at zero: the button is disabled there, and a badge
+     that vanishes when you clear the picks takes the bar's own explanation with it. */
+  .tp-btn:disabled .selection-count { color: var(--soft); }
+
   .selection-bar {
     position: sticky;
     top: 0;
