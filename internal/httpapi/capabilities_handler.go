@@ -38,7 +38,15 @@ import (
 //     `people` kinds, so they take portraits, bios, links, renames and the orphan
 //     sweep exactly as an author does. Absent from the LIST row on purpose: the
 //     Library tile shows one credit and always has.
-const apiRevision = 4
+// 5 — a standalone quote knows what kind it is. `category` (proverb · speech ·
+//     other), `language` and `translation` on the quote shape and on its LIST
+//     row, `?category=` and `?language=` filters, and both carried through the
+//     Markdown round trip. Present on the list row, unlike the book credits
+//     above: the category IS the board, so a client cannot draw the board
+//     without it. Plus `GET`/`POST /quotes/starters` — ten curated proverbs per
+//     language, written only when asked, because a proverb is content and
+//     seeding content nobody chose is the app writing in their collection.
+const apiRevision = 5
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -78,6 +86,16 @@ var apiFeatures = []string{
 	// `translator`/`editor` on the book shape, and both accepted wherever a person
 	// kind is (people, portraits, rename, lookup).
 	"book-credits",
+	// A standalone quote's category, language and translation — and therefore the
+	// three boards. One feature name for the three fields because they are one
+	// idea and no client would support the category without the language: a
+	// Proverbs board with no way to say which language is the board 0035 exists to
+	// replace.
+	"quote-categories", // category/language/translation + ?category=/?language=
+	// Ten curated proverbs per language, written only when asked for. Named
+	// separately from quote-categories because it is genuinely optional: a client
+	// can show the three boards perfectly well and never offer to fill one.
+	"proverb-starters", // GET/POST /quotes/starters
 }
 
 // minClientRevision is the oldest client API revision this server still serves

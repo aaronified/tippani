@@ -262,6 +262,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /quotes", s.requireAuth(s.handleListUtterances))
 	mux.Handle("PUT /quotes/{id}", s.requireAuth(s.handleUpdateUtterance))
 	mux.Handle("DELETE /quotes/{id}", s.requireAuth(s.handleDeleteUtterance))
+	// The starter proverbs (0035), offered on an empty Proverbs board and written
+	// only when asked — one language at a time. A literal path beats the {id}
+	// wildcard above under Go's pattern precedence, the same way /quotes/bulk
+	// already does.
+	mux.Handle("GET /quotes/starters", s.requireAuth(s.handleListProverbStarters))
+	mux.Handle("POST /quotes/starters", s.requireAuth(s.handleSeedProverbs))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
 	// Tags are a managed vocabulary with colour + style (§10).
