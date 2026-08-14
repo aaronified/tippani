@@ -5,6 +5,184 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-08-14
+
+### Fixed
+
+- **1.11.2's container came up healthy and served a dead page. This release is
+  what fixes it, and everything else here is incidental to that.**
+
+  The Docker frontend stage copied `package.json` alone and ran `npm install`, so
+  every `^` range was resolved afresh at image-build time. Every dependency in
+  this app is a caret range, and four of the six had already moved past the
+  lockfile: React and React DOM from 19.2.7 to 19.2.8, Tailwind and its Vite
+  plugin from 4.3.2 to 4.3.3, and Vite to whatever the newest 6.x happened to be.
+  So the image shipped a bundle that no test, and nobody at all, had ever run.
+
+  The Go binary was unaffected — its dependencies are locked by `go.sum` — which
+  is exactly why the healthcheck passed while the page did not. A container
+  reporting itself healthy and serving nothing is the worst shape this failure
+  has.
+
+  **CI could not have caught it, and that is the part that is actually fixed.**
+  `ci.yml` and `pages.yml` both run `npm ci` against the lockfile, so the suite
+  was green against one set of versions while the image was built from another.
+  There was no build anywhere in the pipeline that used the versions the image
+  used. Both paths now install the same way, so a dependency that breaks the
+  build breaks it on a pull request instead of on somebody's NAS. `npm ci` also
+  refuses to run when `package.json` and the lockfile disagree, which turns a
+  hand-edited version into a failed build rather than a silent resolution. The
+  frontend stage now also fails if the build emitted no `index.html`: a build that
+  "succeeded" without producing a bundle must not become an image.
+
+  This line dated from the initial commit and had held for seventy releases,
+  which is how long it took an upstream patch release to land in the wrong place.
+
+- **A missing asset is a 404 now, instead of the app with a 200 — which is why
+  the above was invisible.** The SPA fallback answers unknown paths with
+  `index.html`, and that is right for the client-side router: `/library` and
+  `/quotes/12` are not files and never will be. It was applied to *everything*
+  missing, so a request for a bundle that was not in the image came back as
+  `index.html` with `Content-Type: text/html`, and the browser declined to
+  execute HTML as a module and rendered nothing. No error in the log, no failing
+  healthcheck, nothing in the status code.
+
+  A path with an extension is a claim about a file; if the file is absent, say so.
+  A broken build now shows up red in the network tab, which is where somebody
+  looking at a blank page starts. There is also a test asserting the committed
+  `web/dist` is self-consistent — every hashed asset `index.html` names is
+  actually present and non-empty — because that is the artifact a non-Docker
+  deploy serves and nothing had ever looked at it.
+
+- **The test suite stopped depending on how busy the machine was.** A handful of
+  DOM files render a whole screen — Settings alone mounts eight cards that each
+  fetch on mount — and jsdom does that an order of magnitude slower than a
+  browser. Alone they finish in well under a second; run as one of seventy files
+  across every core, the slowest crossed the 5-second default and failed with
+  "Test timed out". A different subset each run, and every one of them passing on
+  its own. Twenty seconds for the DOM project: a genuine hang still fails, just
+  later, and the margin between "this code is wrong" and "this laptop was busy"
+  stops being red.
+
+- **The favourites wall on Home holds still while you work.** Recolouring or
+  sharing a favourite reloaded the list, and the list reshuffled on every load —
+  so the four tiles on screen became four different tiles and the card you had
+  just acted on was gone, which reads as the app losing your change rather than
+  saving it. The wall still reorders, but once per **visit**. Un-hearting one tile
+  now leaves every other one where it was, and the tile heights stopped
+  re-rolling too.
+
+### Added
+
+- **The changelog is in the app.** Settings → Updates → **Changelog**: every
+  release, newest first, with the build you are actually running marked — the one
+  thing a link to GitHub cannot tell you. Only the newest is open; the rest fold.
+
+  It comes out of the **binary**, not off the internet, so it works on a LAN-only
+  box, behind a firewall, and with the network unplugged. That is not a
+  limitation, it is the point: a changelog is a fact about the binary you are
+  running. The releases link on the card stays, because "what is in a version I
+  have *not* installed" is a different question and that link answers it.
+
+- **A translator and an editor, beside the author.** The Garnett Dostoevsky and
+  the Pevear Dostoevsky are different books to read, and until now they were the
+  same book to this app. Both are **real people** — portrait, life, links, their
+  own page, renameable across the whole library — and one human can be an author
+  on one book and a translator on another without becoming two records with two
+  bios.
+
+  They appear on the **book's own page**, marked `tr.` and `ed.` so a second face
+  is never mistaken for a second author, and deliberately nowhere else: not on the
+  Library board, where a tile has room for one credit; not on a quote, which
+  belongs to whoever wrote it; not as new categories in the stats. Nothing fetches
+  them either — no provider reliably carries a translator, so what is there is
+  what you typed.
+
+- **An optional folder for the unopened shelf.** A library that keeps quotes
+  accumulates books it has nothing from yet, and forty unopened covers scattered
+  through a grid of books you have actually read is forty tiles of noise between
+  the ones you are looking for. **Fold wishlist** in the filter row puts them all
+  into one tile at the front of the board, wearing a collage of the first four
+  covers.
+
+  The folder holds nothing: opening it is the `wishlist` chip that already
+  existed, so nothing moves, nothing is stored, and a book leaves by itself the
+  moment you save a quote from it. Off until you turn it on, and then it stays on.
+
+- **A long silence on the stats timeline says something.** A library holding
+  *Meditations* and then a shelf of 2020 paperbacks drew about a hundred and
+  eighty identical blank columns — which is not a silence you read, it is a
+  stretch of nothing you scroll past, and it teaches you to stop reading the axis.
+  A long empty run is now drawn once, carrying the years going past and a line
+  about the fact that nothing in all of it is on your shelf.
+
+  It keeps **exactly** the width those blank columns would have taken. Folding it
+  to a neat little band would make two millennia and two centuries draw the same,
+  which is the whole failure the empty columns exist to prevent.
+
+### Changed
+
+- **The bar a selection puts up is three glyphs and a `⋯`, instead of eleven
+  words.** It shipped with four buttons and left 1.11.1 with eleven controls —
+  colour dots, a tag field, a tag button, Seal, Favourite, a shelf dropdown, Fill
+  gaps, Skip in quiz, Delete, Deselect all, ✕. Every one was added for a good
+  reason and none of them is the one that broke it, because nothing broke: it
+  became, on a phone where the bar is pinned under the header at a fixed height, a
+  strip wider than the phone, one release at a time.
+
+  Three stand in the row — for quotes the colour, the ♥ and the quiz toggle; for
+  books and films fill-the-gaps, the shelf and the quiz toggle — and the rest fold
+  away, Delete included. Which three is decided in the action registry rather than
+  by the component that draws them, and a test asserts it is exactly three: a
+  fourth fits on a desktop and pushes the count off the screen on a phone,
+  silently.
+
+  The three that fold have one thing in common — each needs something *more* from
+  you before it can run. Tags need a keyboard, the seal needs a picture chosen,
+  Delete needs a phrase typed. The tag field standing open in the row was the
+  widest control in the strip and was open on every selection whether or not
+  anybody meant to type into it; it asks in a dialog now.
+
+  The quiz toggle's **picture** flips with its label, which stopped being optional
+  the moment the words came off: "Skip in quiz" / "Add to quiz" was naming the
+  action *and* reporting which way round the selection is, and a fixed glyph keeps
+  the first and silently drops the second.
+
+- **Edit joins the bar when exactly one thing is picked**, opening the same form
+  the card's own `⋯` opens. Pick a second and it is gone rather than greyed,
+  because a disabled item in a menu is a thing to wonder about. Over works, *Set
+  fields* is its mirror — two upwards only — so a selection never shows two ways
+  to change the same fields. The card's own `⋯` is untouched: multiselect is an
+  added way in, not a replacement.
+
+- The README carries the app's own mark above its name.
+
+### API
+
+- `api_revision` 4. `translator` and `editor` on the single-book shape (create,
+  read, update) and in the Markdown frontmatter; both accepted wherever a person
+  kind is, so they take portraits, bios, links, renames and the orphan sweep.
+  Absent from the book LIST row on purpose. New: `GET /changelog`. Features named:
+  `book-credits`, `changelog`.
+
+- Migration `0034` adds `translator` and `editor` to `books` **and to
+  `staged_works`** — the second is the one that mattered. No third-party importer
+  carries a translator, so the staging queue looked irrelevant; but this app's own
+  export is an importer's source and every import is staged, so without it the
+  field survived the export, survived the parse, and was dropped on the way into
+  the queue. Exporting a library and importing it back would have lost every
+  translator in it, with a successful import and matching counts saying nothing
+  had happened.
+
+- Migration `0035` is groundwork, with no feature reading it yet: a standalone
+  quote gains a `category` (proverb · speech · other), a `language`, and an
+  optional `translation`, and `utterances_fts` is rebuilt to index the
+  translation. Every existing row keeps meaning exactly what it meant — the
+  default is `other`, rather than guessing from `medium` and reclassifying
+  somebody's library on upgrade. None of the three folds into the dedupe hash: the
+  occasion is part of what a quote *is*, while the category is where you have
+  decided to file it. The three screens that read it come next.
+
 ## [1.11.2] - 2026-08-14
 
 ### Added
