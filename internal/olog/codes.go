@@ -74,6 +74,11 @@ const (
 	CodeMetaReverifyApply Code = "TIP-META-012" // an approved re-verify write failed for one item
 	CodeMetaReverifyImage Code = "TIP-META-013" // an approved cover/poster/portrait fetch failed on apply (text fields kept)
 	CodeMetaFillField     Code = "TIP-META-015" // one fetched field could not be encoded during a fill-the-gaps run (field skipped)
+	// An ensemble dialogue whose character and actor lists do not line up, so a
+	// remap rewrote the character and deliberately left the actor alone. Logged
+	// because the alternative — guessing a slot — would pair the wrong actor with
+	// the wrong character invisibly, and the user would read it as their own data.
+	CodeMetaRemapUnaligned Code = "TIP-META-016"
 
 	// On-demand provider lookups (book/movie/person) that failed and were
 	// surfaced to the client as a 502. The client only ever sees a generic

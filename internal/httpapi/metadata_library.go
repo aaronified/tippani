@@ -163,13 +163,27 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRemapSpeakers bulk-remaps a movie's dialogue speaker labels: each mapping
-// renames every dialogue whose character equals `from` to `character` and sets
-// `actor` (auto-filled from the cast when the mapping leaves it blank). This is
-// how an imported label ("Evey Hammond") gets reconciled with the supplier's
-// cast character ("Evey") so the actor fills in. `refill` additionally re-runs
-// the cast auto-fill across the whole movie for any still-empty actors.
+// renames the character COMPONENT matching `from` to `character` and sets `actor`
+// (auto-filled from the cast when the mapping leaves it blank). This is how an
+// imported label ("Evey Hammond") gets reconciled with the supplier's cast
+// character ("Evey") so the actor fills in. `refill` additionally re-runs the cast
+// auto-fill across the whole movie for any still-empty actors.
 //
-// Matching is done against each dialogue's ORIGINAL character (read once up
+// COMPONENT, not whole label. A line spoken by two characters is stored as
+// "V, Evey", and matching the whole string meant mapping "V" changed nothing while
+// reporting success. An ensemble is now rewritten in place through
+// metadata.ReplaceCredit, so separators, spacing and co-credits survive byte for
+// byte and only the matched name moves. A single-speaker line keeps the old
+// behaviour exactly: both fields are set outright, which is the path that fills a
+// missing actor from the cast.
+//
+// On an ensemble the actor is spliced at the SAME INDEX as the character it
+// belongs to, and only when the two lists line up. Imported rows routinely carry a
+// different number of actors than characters, or carry them in another order, with
+// nothing in the row to say which is which — so an unaligned row keeps its actor
+// rather than pairing the wrong actor with the wrong character invisibly.
+//
+// Matching is done against each dialogue's ORIGINAL components (read once up
 // front), so chained renames (A→B, B→C) can't cascade.
 func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
@@ -248,20 +262,23 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Snapshot (id, original character) before any write.
+	// Snapshot (id, original character, original actor) before any write. The actor
+	// is read now because an ENSEMBLE line needs it: splicing one name into a
+	// compound actor string requires knowing what the other slots hold.
 	type dlg struct {
-		id int64
-		ch string
+		id    int64
+		ch    string
+		actor string
 	}
 	var dials []dlg
-	rows, err := tx.Query(`SELECT id, COALESCE(character, '') FROM dialogues WHERE movie_id = ?`, id)
+	rows, err := tx.Query(`SELECT id, COALESCE(character, ''), COALESCE(actor, '') FROM dialogues WHERE movie_id = ?`, id)
 	if err != nil {
 		internalError(w, r, "remap speakers: scan dialogues", err)
 		return
 	}
 	for rows.Next() {
 		var d dlg
-		if err := rows.Scan(&d.id, &d.ch); err != nil {
+		if err := rows.Scan(&d.id, &d.ch, &d.actor); err != nil {
 			rows.Close()
 			internalError(w, r, "remap speakers: scan dialogue", err)
 			return
@@ -274,15 +291,78 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// AN ENSEMBLE LINE IS REMAPPED COMPONENT BY COMPONENT.
+	//
+	// This used to be `lookup[strings.TrimSpace(d.ch)]` — an exact match against the
+	// WHOLE stored label. A line spoken by two characters is stored as "V, Evey", so
+	// mapping "V" matched nothing and the remap reported success having changed no
+	// rows. The screen offering "V, Evey" as one remappable label was the visible
+	// half of the same bug; listing the individuals without this would have made the
+	// silence worse, because then the label you picked would look right and still do
+	// nothing.
+	//
+	// metadata.ReplaceCredit is the existing in-place component rewrite — the one
+	// the person rename uses. It keeps separators, spacing and every co-credit
+	// byte-for-byte, which is the whole requirement here: "V, Evey" must come back
+	// as "V, Evey" with only the matched part touched.
+	seps := s.creditSeps(uid)
 	remapped := 0
 	for _, d := range dials {
-		t, ok := lookup[strings.TrimSpace(d.ch)]
-		if !ok {
+		charParts := metadata.SplitCredits(d.ch, seps)
+		newChar, newActor := d.ch, d.actor
+		hit := false
+
+		if len(charParts) <= 1 {
+			// The single-speaker case, unchanged from before: both fields are set
+			// outright. This is the common path and the one that fills in a missing
+			// actor from the cast, so it must not acquire the compound rules below.
+			if t, ok := lookup[strings.TrimSpace(d.ch)]; ok {
+				newChar, newActor, hit = t.character, t.actor, true
+			}
+		} else {
+			// Matching is against the ORIGINAL components, read once, so a chained
+			// rename (A→B, B→C) cannot cascade — the same guarantee the whole-string
+			// version gave.
+			actorParts := metadata.SplitCredits(d.actor, seps)
+			aligned := len(actorParts) == len(charParts)
+			for i, part := range charParts {
+				t, ok := lookup[strings.TrimSpace(part)]
+				if !ok {
+					continue
+				}
+				rewritten, changed := metadata.ReplaceCredit(newChar, part, t.character, seps)
+				if !changed {
+					continue
+				}
+				newChar = rewritten
+				hit = true
+				// THE ACTOR IS SPLICED AT THE SAME POSITION, and only when the two
+				// lists line up. Imported data routinely carries a different number
+				// of actors than characters, or carries them in another order, and
+				// there is nothing in the row that says which is which — so an
+				// unaligned row leaves the actor exactly as it was rather than
+				// pairing the wrong actor with the wrong character silently. That
+				// failure would be invisible and would look like data you had
+				// entered yourself.
+				if t.actor == "" || !aligned || i >= len(actorParts) || strings.TrimSpace(actorParts[i]) == "" {
+					if t.actor != "" && !aligned {
+						olog.Warnf(olog.CodeMetaRemapUnaligned,
+							"[meta] remap movie %d dialogue %d: %d characters vs %d actors, leaving the actor alone",
+							id, d.id, len(charParts), len(actorParts))
+					}
+					continue
+				}
+				if spliced, ok := metadata.ReplaceCredit(newActor, actorParts[i], t.actor, seps); ok {
+					newActor = spliced
+				}
+			}
+		}
+		if !hit || (newChar == d.ch && newActor == d.actor) {
 			continue
 		}
 		if _, err := tx.Exec(
 			`UPDATE dialogues SET character = ?, actor = ?, updated_at = datetime('now') WHERE id = ?`,
-			nullable(t.character), nullable(t.actor), d.id); err != nil {
+			nullable(newChar), nullable(newActor), d.id); err != nil {
 			internalError(w, r, "remap speakers: update", err)
 			return
 		}

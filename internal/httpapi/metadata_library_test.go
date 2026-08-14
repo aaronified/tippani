@@ -169,3 +169,135 @@ func TestRemapSpeakers(t *testing.T) {
 		t.Fatalf("refill should have filled the V actor: %+v", res2)
 	}
 }
+
+// ---- ensembles ------------------------------------------------------------
+//
+// A line spoken by two characters is stored as one label, "V, Evey". The remap
+// matched the WHOLE stored string, so a mapping for "V" matched nothing — and
+// answered 200 with a remapped count of 0, which reads as "there was nothing to
+// do" rather than "I could not do it". The screen offering "V, Evey" as a single
+// remappable row was the visible half of the same bug.
+//
+// These pin the component behaviour, including the case where the fix must
+// deliberately NOT act.
+
+func vendetta(t *testing.T, srv *Server, c *testClient) movieDetail {
+	t.Helper()
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "V for Vendetta"}, http.StatusCreated))
+	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
+		`[{"character":"Evey","actor":"Natalie Portman"},{"character":"V","actor":"Hugo Weaving"}]`, m.ID); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+// setDialogue writes character/actor directly, because the point is a row that
+// arrived from an import already carrying a compound label.
+func setDialogue(t *testing.T, srv *Server, id int64, character, actor string) {
+	t.Helper()
+	if _, err := srv.Store.DB.Exec(`UPDATE dialogues SET character = ?, actor = ? WHERE id = ?`,
+		character, actor, id); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemapRewritesOneNameInsideAnEnsemble(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	m := vendetta(t, srv, c)
+
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": m.ID, "quote": "Beneath this mask.", "character": "x"}, http.StatusCreated))
+	setDialogue(t, srv, d.ID, "V Codename, Evey Hammond", "Hugo Weaving, Natalie Portman")
+
+	res := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "V Codename", "character": "V", "actor": "Hugo Weaving"}},
+	}, 200))
+	if res.Remapped != 1 {
+		t.Fatalf("remapped = %d, want 1 — an ensemble line must be reachable", res.Remapped)
+	}
+	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
+	// Only the matched component moved. The co-credit and the separator survive
+	// exactly, which is what metadata.ReplaceCredit is for.
+	if got.Character != "V, Evey Hammond" {
+		t.Fatalf("character = %q, want \"V, Evey Hammond\"", got.Character)
+	}
+	if got.Actor != "Hugo Weaving, Natalie Portman" {
+		t.Fatalf("actor = %q — the spliced slot should match and the other stay", got.Actor)
+	}
+}
+
+// The actor is spliced AT THE SAME INDEX, not appended and not overwritten.
+func TestRemapSplicesTheActorAtTheMatchingPosition(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	m := vendetta(t, srv, c)
+
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": m.ID, "quote": "Remember, remember.", "character": "x"}, http.StatusCreated))
+	setDialogue(t, srv, d.ID, "V, Evey Hammond", "Hugo Weaving, WRONG NAME")
+
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "Evey Hammond", "character": "Evey", "actor": "Natalie Portman"}},
+	}, 200)
+
+	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
+	if got.Character != "V, Evey" {
+		t.Fatalf("character = %q", got.Character)
+	}
+	// Slot 1 replaced, slot 0 untouched. Getting this backwards would credit
+	// Natalie Portman with V's line.
+	if got.Actor != "Hugo Weaving, Natalie Portman" {
+		t.Fatalf("actor = %q, want the SECOND slot replaced", got.Actor)
+	}
+}
+
+// WHEN THE LISTS DO NOT LINE UP, THE ACTOR IS LEFT ALONE. Imported rows carry a
+// different number of actors than characters often enough that guessing a slot is
+// the wrong default: a wrong pairing is invisible and would be read as data the
+// user entered. The character rename still happens — that part is unambiguous.
+func TestRemapLeavesTheActorAloneWhenItCannotTellWhichIsWhich(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	m := vendetta(t, srv, c)
+
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": m.ID, "quote": "Ideas are bulletproof.", "character": "x"}, http.StatusCreated))
+	// Three characters, one actor: nothing in the row says which one it belongs to.
+	setDialogue(t, srv, d.ID, "V, Evey Hammond, Finch", "Hugo Weaving")
+
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "Evey Hammond", "character": "Evey", "actor": "Natalie Portman"}},
+	}, 200)
+
+	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
+	if got.Character != "V, Evey, Finch" {
+		t.Fatalf("the character rename must still happen: %q", got.Character)
+	}
+	if got.Actor != "Hugo Weaving" {
+		t.Fatalf("actor = %q, want it untouched rather than guessed", got.Actor)
+	}
+}
+
+// The single-speaker path is the common one and must be unchanged: both fields set
+// outright, which is what fills a missing actor from the cast.
+func TestRemapStillSetsBothFieldsForOneSpeaker(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	m := vendetta(t, srv, c)
+
+	c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": m.ID, "quote": "People should not be afraid.", "character": "Evey Hammond"}, http.StatusCreated)
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "Evey Hammond", "character": "Evey", "actor": ""}},
+	}, 200)
+
+	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
+	if got.Character != "Evey" || got.Actor != "Natalie Portman" {
+		t.Fatalf("single speaker: %+v", got)
+	}
+}

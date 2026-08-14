@@ -4,7 +4,7 @@ import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
-import { PersonModal, PersonName, ProviderChips, mergeLinks, parseLinks } from './people.jsx'
+import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
@@ -190,7 +190,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
             }
           />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
-          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
+          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
           <PeopleConsole onFlash={setFlash} compact />
           <StatsLines stats={stats} />
         </>
@@ -212,7 +212,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch }
           />
           <DuplicatesPanel onDone={load} onFlash={setFlash} />
           <PeopleConsole onFlash={setFlash} onReverify={(people) => setReverify({ people })} onSearch={onSearch} />
-          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} />
+          <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
         </>
       )}
       {reverify && (
@@ -956,7 +956,43 @@ function DuplicateGroup({ group, busy, onMerge }) {
 
 // ---- per-title speaker remap ----
 
-function SpeakerRemap({ movies, onDone }) {
+// remapLabels turns a movie's dialogue rows into the remappable speaker labels.
+//
+// AN ENSEMBLE IS NOT A REMAPPABLE LABEL. A line spoken by two characters is stored
+// as one string, "V, Evey", and offering that whole string as a row asked you to map
+// an ensemble onto a single cast member — which is not a thing. It contributes its
+// INDIVIDUALS instead, "V" and "Evey".
+//
+// The count is the number of LINES the name appears in, so it matches what applying
+// the mapping will touch. A line reading "V, V" therefore counts once for V, not
+// twice — hence the Set.
+//
+// splitCredits is the app's own splitter on the reader's own separator preference,
+// the same pair that turns "Gaiman & Pratchett" into two people. A second splitter
+// here would be a second thing to keep in step with the server, which rewrites
+// exactly these components through metadata.ReplaceCredit.
+//
+// Exported and pure so the rule can be tested without mounting a screen that fetches
+// two endpoints on mount — it was previously inline in that fetch, which is why
+// nothing checked it.
+export function remapLabels(dialogues, seps) {
+  const counts = {}
+  for (const d of dialogues || []) {
+    const names = new Set(
+      splitCredits((d.character || '').trim(), seps)
+        .map((n) => n.trim())
+        .filter(Boolean),
+    )
+    for (const n of names) counts[n] = (counts[n] || 0) + 1
+  }
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    // Commonest first, then alphabetical, so the order is stable rather than
+    // whatever the object happened to enumerate.
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+}
+
+function SpeakerRemap({ movies, onDone, user }) {
   const [movieId, setMovieId] = useState('')
   const [cast, setCast] = useState([])
   const [labels, setLabels] = useState([])
@@ -977,16 +1013,7 @@ function SpeakerRemap({ movies, onDone }) {
     const [mr, dr] = await Promise.all([json('GET', `/movies/${id}`), json('GET', `/dialogues?movie_id=${id}`)])
     setCast((mr.ok && mr.data.cast) || [])
     if (dr.ok) {
-      const counts = {}
-      for (const d of dr.data.dialogues) {
-        const k = (d.character || '').trim()
-        if (k) counts[k] = (counts[k] || 0) + 1
-      }
-      setLabels(
-        Object.entries(counts)
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count),
-      )
+      setLabels(remapLabels(dr.data.dialogues, parseCreditSeps(user?.preferences?.creditSeparators)))
     }
   }
   useEffect(() => {
