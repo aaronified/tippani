@@ -4171,6 +4171,84 @@ export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", d
   )
 }
 
+// FieldIconButton — the OTHER icon size, 34px, and until now the only primitive
+// in this app that was never a component.
+//
+// It was a class string: `field-icon-btn tactile`, hand-written at 46 call sites
+// across 13 files, with `-ok`, `-danger` and `-boxed` variants and two latches
+// (`is-active`, `is-busy`) spelled out by hand at each one. The audit that found
+// it was looking for sloppiness and did not find much — all 46 carried an
+// aria-label, all 46 were wrapped in a Tooltip, and exactly one had drifted
+// (Home.jsx was missing `tactile`, so one button in the app did not press when you
+// pushed it). Copy-paste held for a remarkably long time.
+//
+// It still had to become this, for the reason the drift is not the point:
+//
+//   A CLASS STRING CANNOT MAKE A DECISION. `IconButton` gained an opt-in `label`
+//   in 1.13.0 so the 44px family could honour the Button labels preference. The
+//   34px family could not opt into anything, because there was no place to put the
+//   opting. Forty-six buttons sat outside a preference that claims to govern the
+//   app, not by a decision but by never having been asked.
+//
+// THE ANSWER IS THAT THIS SIZE IS NAMELESS, AND THERE IS DELIBERATELY NO `label`
+// PROP. 34px exists precisely because it sits inside a row that already spends its
+// width on something else — a text input with a ✓ and a ✕ after it, a cover's
+// control cluster, a card's action row that already wraps at six colour dots. A
+// word beside the glyph is the one thing there is no room for. That is why the
+// second size exists at all, and adding words here would collapse the distinction
+// between the two families rather than complete it.
+//
+// So the rule the app now has is two sizes and two rules:
+//
+//   44px IconButton  — can be named, opts in with `label`, honours the preference.
+//   34px this        — nameless by construction; the name lives in the tooltip
+//                      and the accessible name, both of which this guarantees.
+//
+// Written down once, in a component, instead of remembered 46 times.
+//
+// The Tooltip is carried here for the same reason IconButton carries its own: a
+// button with no words has to say what it is on every device, and threading a
+// wrapper through forty-six call sites is how a handful end up without one. That
+// the old sites all had one is luck this no longer depends on.
+export function FieldIconButton({
+  icon,
+  ariaLabel,
+  tooltip,
+  tipSide = "top",
+  ok = false,
+  danger = false,
+  boxed = false,
+  active = false,
+  busy = false,
+  className = "",
+  wrapClassName = "",
+  onClick,
+  ...rest
+}) {
+  const tip = tooltip === undefined ? ariaLabel : tooltip
+  return (
+    <Tooltip label={tip} side={tipSide} className={wrapClassName}>
+      <button
+        type="button"
+        className={
+          "field-icon-btn tactile" +
+          (ok ? " field-icon-btn-ok" : "") +
+          (danger ? " field-icon-btn-danger" : "") +
+          (boxed ? " field-icon-btn-boxed" : "") +
+          (active ? " is-active" : "") +
+          (busy ? " is-busy" : "") +
+          (className ? ` ${className}` : "")
+        }
+        aria-label={ariaLabel}
+        onClick={onClick}
+        {...rest}
+      >
+        {icon}
+      </button>
+    </Tooltip>
+  )
+}
+
 const iconStroke = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.85, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }
 
 export function IconBack() { return <svg {...iconStroke}><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg> }
