@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.1] - 2026-08-14
+
+### Fixed
+
+- **A character named "V" was being swallowed by the rule that keeps "Martin Luther
+  King, Jr." in one piece.** When a comma split leaves a lone token behind, that token
+  re-attaches to the name before it — and the set of such tokens included the Roman
+  numerals, for "Henry Ford II". So a dialogue line stored as "Evey, V" came back as
+  one label that nobody could remap, while "V, Evey" split correctly, because the rule
+  only ever looks backwards.
+
+  **The generational marker is a number now** — "Henry Ford, 2", "Elizabeth, 2nd" —
+  and the Roman numerals are gone from the set. A bare number cannot be a name, where
+  a single letter plainly can. The consequence is worth stating: "Henry Ford, II" now
+  splits into two components. That is the right way round, because a wrongly-split
+  credit is visible and fixable in the People console while a wrongly-merged one hides
+  a whole person and gives you no way to find them.
+
+  Changed on **both** sides in the same release. The client and the server split the
+  same strings, and a disagreement about what a component IS would show up as a rename
+  that touches one and not the other.
+
+- **The standalone-quote search index was never integrity-checked.** Every FTS index
+  is verified at startup and rebuilt when it comes back corrupt — except that
+  `utterances_fts` was missing from the list the sweep reads, from the migration that
+  created it until now. Nothing failed and nothing was logged: the repair path existed
+  and worked, it was simply never pointed at that index, so corruption there survived
+  every restart while searching your quotes returned wrong or missing rows with no
+  explanation. An unchecked index is indistinguishable from a healthy one right until
+  it is not.
+
+  A hand-maintained list beside a schema is the shape that rots, so the schema is the
+  authority now: a test reads every `*_fts` table out of the database and fails if one
+  of them is not swept. It also fails if the list names a table that no longer exists,
+  which would log an error on every boot.
+
+- **A hand-written import file lost any binding whose key was capitalised.** `- Speaker:
+  Bose` parsed fine, matched no case in any of the three Markdown parsers, and was
+  dropped — an import that reported success and quietly discarded the speaker. Keys are
+  matched case-insensitively now, in one shared helper rather than at each of the eight
+  switches, so the book, film and quote formats cannot drift apart about what a key is.
+  Values keep their case exactly: a key is a keyword, a value is content, and folding a
+  value would be a worse bug than the one being fixed.
+
+### Changed
+
+- **More of the app follows "Button labels".** 1.13.0 taught the primitives to carry a
+  name and fixed the selection bar; this carries the remaining nameable controls over —
+  the filter, capture, export, details and delete buttons on a book's and a film's own
+  page, the metadata console's fetch, and the shared list header.
+
+  Each gets a **short** word rather than its tooltip. The tooltip is a sentence ("Fetch
+  missing covers and metadata") and putting that beside a glyph in a header row would be
+  worse than no words at all — so the word is on screen and the sentence stays on hover.
+
+  Every `✕` and every `⋯` is deliberately left alone. Those are the two affordances
+  whose whole job is to have no name, and "More" beside three dots is the same thing
+  said twice.
+
 ## [1.13.0] - 2026-08-14
 
 ### Added
