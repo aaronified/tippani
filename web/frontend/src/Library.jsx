@@ -257,6 +257,11 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     selection.clear()
     load()
   }
+  // Edit one book from the bar, when exactly one is picked (1.12.0). The id
+  // rather than the row: what this board holds is a LIST row, and the list
+  // endpoint does not carry the description or the genres. Handing that to a
+  // full-state form would save blanks over the two fields it never had.
+  const [editWork, setEditWork] = useState(null)
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const grouped = useMemo(
     () =>
@@ -353,14 +358,30 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         />
       }
       extraModals={
-        person && (
-          <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
-        )
+        <>
+          {person && (
+            <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
+          )}
+          {editWork != null && (
+            <EditWorkModal
+              kind="books"
+              id={editWork}
+              title="Edit book"
+              onDone={() => {
+                setEditWork(null)
+                afterBulk()
+              }}
+              onCancel={() => setEditWork(null)}
+            />
+          )}
+        </>
       }
     >
       {/* The MODE, not the count: emptying the selection leaves the bar standing
           so picking a different four does not cost a fresh gesture. */}
-      {selection.open && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
+      {selection.open && (
+        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} onEdit={setEditWork} />
+      )}
       {grouped ? (
         <div className="space-y-10">
           {grouped.map((g) => {
@@ -765,6 +786,36 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
       <ScreenHelpSheet screen="book-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
     </section>
+  )
+}
+
+
+// EditWorkModal — the work's own edit form, opened from the selection bar when
+// exactly ONE work is picked.
+//
+// It FETCHES the row rather than taking the one the board is already holding.
+// The list endpoints send a summary — no description, no genres — and every form
+// in this app is full-state, so handing a summary to one would write two empty
+// fields over two real ones on the next Save. The console's InlineEdit made the
+// same call for the same reason; this is that shape in a dialog.
+function EditWorkModal({ kind, id, title, onDone, onCancel }) {
+  const [row, setRow] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    setRow(null)
+    setErr('')
+    json('GET', `/${kind}/${id}`).then((r) => (r.ok ? setRow(r.data) : setErr(errText(r))))
+  }, [kind, id])
+  return (
+    <FormModal open onClose={onCancel} title={title}>
+      {err ? (
+        <ErrorText>{err}</ErrorText>
+      ) : !row ? (
+        <p className="microcopy">loading…</p>
+      ) : (
+        <EditBook book={row} onSaved={onDone} onCancel={onCancel} />
+      )}
+    </FormModal>
   )
 }
 
@@ -1587,6 +1638,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           rows={displayRows}
           onDone={afterBulk}
           tagSuggestions={Object.keys(tagMap)}
+          onEdit={setEditingId}
         />
       )}
       {items && items.length > 0 && view === 'table' && (

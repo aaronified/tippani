@@ -3942,7 +3942,7 @@ export function FavoriteStar({ value, onChange }) {
 // picked in it (see useSelection). Six live dots over an empty selection is a
 // control whose every outcome is an error from the server, and greying a row of
 // dots is the only way a radiogroup can say so.
-export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false, collapsible = false, disabled = false }) {
+export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll = false, collapsible = false, mini = false, disabled = false }) {
   const ref = useRef(null);
   const offered = showAll
     ? ANNOTATION_COLORS
@@ -3991,6 +3991,12 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
       ))}
     </span>
   );
+  // `mini` skips the container query and always draws the single trigger. The
+  // selection bar wants that unconditionally: it is a strip of glyphs, and six
+  // dots in the middle of it would be the one control wide enough to push the
+  // others off a phone. `collapsible` is the card's version of the same idea —
+  // decide by width — and the two must not be confused.
+  if (mini) return <ColorMenu value={value} offered={offered} onChange={onChange} ariaLabel={ariaLabel} disabled={disabled} />;
   if (!collapsible) return dots;
   // Both forms are rendered and a container query picks one. The alternative is
   // measuring, and measuring a control that lives inside a masonry cell means a
@@ -4304,6 +4310,36 @@ export function IconSliders({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 // the arrow arrives somewhere or leaves.
 export function IconImport({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 13.5V17a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 17v-3.5"/><path d="M12 4v9"/><path d="m8.5 9.5 3.5 3.5 3.5-3.5"/></svg> }
 
+// ---- what a selection can do, as pictures (1.12.0) ------------------------
+//
+// The selection bar was a row of words and is a row of glyphs. Five of the things
+// it offers had no drawing yet; the rest were already here and are reused rather
+// than redrawn — IconMetadata fills the gaps, IconMoveTo moves a shelf, IconTag
+// adds tags, IconEdit edits the one, IconDetails sets fields, IconDelete deletes
+// the lot. Reuse is the point: a glyph that means "fetch metadata" on the console
+// must mean the same thing in a bar.
+
+// IconHeart — favourite. The card has drawn a heart since the beginning; this is
+// that mark promoted into the set, so the bar and the card cannot end up with two.
+export function IconHeart({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 20.2c-1.6-1.2-7.5-5-7.5-9.9A4 4 0 0 1 12 8.1a4 4 0 0 1 7.5 2.2c0 4.9-5.9 8.7-7.5 9.9Z"/></svg> }
+// IconPalette — set the colour category. A drop of ink rather than an artist's
+// palette, because the control it opens is six coloured dots and the glyph should
+// promise the same thing it delivers.
+export function IconPalette({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M12 3.4c3.6 4.2 5.6 6.9 5.6 9.4a5.6 5.6 0 1 1-11.2 0c0-2.5 2-5.2 5.6-9.4Z"/></svg> }
+// IconQuiz / IconQuizSkip — in the Daily Quiz and out of it, and A PAIR ON
+// PURPOSE. This is one button whose label flips: it reads "Skip in quiz" over a
+// selection that is in and "Add to quiz" over one that is out. A single glyph for
+// both would leave the state unreadable the moment the words came off, which is
+// exactly what turning the bar into icons does. So the picture flips too.
+//
+// A flash card, because that is what the quiz puts in front of you.
+export function IconQuiz({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M9.9 10.2a2.2 2.2 0 1 1 2.7 2.1c-.42.13-.63.42-.63.85v.5"/><path d="M11.97 16.1v.01"/></svg> }
+export function IconQuizSkip({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="m6.6 17.4 10.8-10.8"/></svg> }
+// IconSeal — one sticker across a whole selection. A medal rather than a sticker
+// sheet: the act is SEALING a set of quotes with a single mark, and a sheet would
+// promise a choice per card.
+export function IconSeal({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="9.2" r="5.7"/><path d="m8.4 14.2-1.4 6.3 5-2.8 5 2.8-1.4-6.3"/></svg> }
+
 // NavIcon — the glyph for a nav tab, keyed by the tab key the four lists in
 // routes.js use.
 //
@@ -4474,14 +4510,27 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
 }
 
 // MoreMenu — the ⋯ trigger, and the menu it opens. The pairing every card row uses.
-export function MoreMenu({ items }) {
+//
+// The FACE is a prop (1.12.0), because the pattern turned out to be "a glyph that
+// opens a list of things to do" rather than "the ⋯ specifically". The selection
+// bar's shelf control is exactly this — press it, choose one of five states — and
+// building it as a Select meant a dropdown with a placeholder pretending to be a
+// value the selection does not have. The default is still the ⋯, so every card row
+// is untouched.
+export function MoreMenu({ items, icon, ariaLabel = "More actions", tooltip, disabled = false }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   return (
     <div className="relative" ref={ref}>
-      <IconButton icon={<IconMore />} ariaLabel="More actions" onClick={() => setOpen((o) => !o)} />
+      <IconButton
+        icon={icon || <IconMore />}
+        ariaLabel={ariaLabel}
+        tooltip={tooltip}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+      />
       <ActionMenu
-        open={open}
+        open={open && !disabled}
         items={items}
         anchorRef={ref}
         onClose={() => setOpen(false)}

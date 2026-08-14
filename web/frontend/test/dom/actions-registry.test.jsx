@@ -25,6 +25,10 @@ import {
 } from '../../src/actions.jsx'
 
 const ITEM = { id: 7, quote: 'Only in silence the word' }
+// A selection of two. Some actions mean something over a SELECTION and nothing
+// over one item that happens to be in one — see the cardinality block at the foot
+// of this file — so the length of the list is now load-bearing.
+const TWO = [ITEM, { id: 8, quote: 'The unread shelf' }]
 
 // Every callback a screen can own, so nothing is filtered out for being absent.
 const full = () => ({
@@ -109,11 +113,15 @@ describe('what you can do to a selection', () => {
     // An author and a series belong to a work. A quote's equivalent is its colour,
     // which is a later commit — and until then its absence here is deliberate
     // rather than forgotten.
+    //
+    // TWO items rather than one: over a single work Set fields is strictly worse
+    // than the work's own form beside it, so 1.12.0 offers it only from two
+    // upwards. See the cardinality block at the foot of this file.
     for (const kind of ['book', 'movie']) {
-      expect(bulkActionsFor(kind, [ITEM], full()).map((a) => a.id)).toContain('set-fields')
+      expect(bulkActionsFor(kind, TWO, full()).map((a) => a.id)).toContain('set-fields')
     }
     for (const kind of ['annotation', 'dialogue', 'quote']) {
-      expect(bulkActionsFor(kind, [ITEM], full()).map((a) => a.id)).not.toContain('set-fields')
+      expect(bulkActionsFor(kind, TWO, full()).map((a) => a.id)).not.toContain('set-fields')
     }
   })
 
@@ -150,7 +158,7 @@ const everything = () => ({
 
 describe('what a selection of quotes can do', () => {
   it.each(['annotation', 'dialogue', 'quote'])('%s: colour, tags, seal, favourite, quiz, delete', (kind) => {
-    const ids = bulkActionsFor(kind, [ITEM], everything()).map((a) => a.id)
+    const ids = bulkActionsFor(kind, TWO, everything()).map((a) => a.id)
     expect(ids).toEqual(['colour', 'add-tags', 'sticker', 'favourite', 'review', 'delete'])
   })
 
@@ -158,7 +166,7 @@ describe('what a selection of quotes can do', () => {
     // Colour first because it is the single most plausible reason to select forty
     // quotes and needs no typing; delete last, and never adjacent to a control that
     // merely sets a field.
-    const ids = bulkActionsFor('quote', [ITEM], everything()).map((a) => a.id)
+    const ids = bulkActionsFor('quote', TWO, everything()).map((a) => a.id)
     expect(ids[0]).toBe('colour')
     expect(ids[ids.length - 1]).toBe('delete')
   })
@@ -166,7 +174,7 @@ describe('what a selection of quotes can do', () => {
 
 describe('what a selection of works can do', () => {
   it.each(['book', 'movie'])('%s: fill, shelf, fields, quiz, delete — and no colour or seal', (kind) => {
-    const ids = bulkActionsFor(kind, [ITEM], everything()).map((a) => a.id)
+    const ids = bulkActionsFor(kind, TWO, everything()).map((a) => a.id)
     expect(ids).toContain('fill')
     expect(ids).toContain('shelf')
     expect(ids).toContain('set-fields')
@@ -203,5 +211,85 @@ describe('every bulk action still says which form it needs', () => {
     for (const a of bulkActionsFor(kind, [ITEM], everything())) {
       expect(typeof a.form, a.id).toBe('string')
     }
+  })
+})
+
+// ---- where an action sits, and how many it takes (1.12.0) -----------------
+//
+// The bar became three glyphs and an overflow. Both halves of that are decided
+// here rather than in the component that draws them: WHICH three (`where`), and
+// WHETHER an action means anything at this count. A component holding the second
+// opinion is how a bar and a menu drift, which is the whole reason this file
+// exists.
+
+describe('where a bulk action sits', () => {
+  it.each(KINDS)('%s: every one has a placement and a picture', (kind) => {
+    for (const a of bulkActionsFor(kind, TWO, everything())) {
+      expect([ROW, OVERFLOW], a.id + ' sits nowhere').toContain(a.where)
+      expect(a.icon, a.id + ' has no glyph').toBeTruthy()
+    }
+  })
+
+  it.each(['annotation', 'dialogue', 'quote'])('%s: colour, favourite and the quiz stand in the row', (kind) => {
+    const acts = bulkActionsFor(kind, TWO, everything())
+    expect(atRow(acts).map((a) => a.id)).toEqual(['colour', 'favourite', 'review'])
+    expect(atOverflow(acts).map((a) => a.id)).toEqual(['add-tags', 'sticker', 'delete'])
+  })
+
+  it.each(['book', 'movie'])('%s: fill, shelf and the quiz stand in the row', (kind) => {
+    const acts = bulkActionsFor(kind, TWO, everything())
+    expect(atRow(acts).map((a) => a.id)).toEqual(['fill', 'shelf', 'review'])
+  })
+
+  it.each(KINDS)('%s: exactly three stand in the row', (kind) => {
+    // THE INVARIANT THE STRIP IS SIZED FOR. A fourth fits on a desktop and pushes
+    // the count off the screen on a phone, where the bar is pinned under the
+    // header at a fixed height — and it does it silently.
+    expect(atRow(bulkActionsFor(kind, TWO, everything())).length).toBe(3)
+  })
+
+  it('keeps delete in the overflow, and it is still the last thing there', () => {
+    const over = atOverflow(bulkActionsFor('quote', TWO, everything()))
+    expect(over[over.length - 1].id).toBe('delete')
+    expect(over.find((a) => a.id === 'delete').danger).toBe(true)
+  })
+
+  it('flips the quiz glyph with the quiz label, because a picture carries no state', () => {
+    const skip = bulkActionsFor('quote', TWO, { ...everything(), excluded: false }).find((a) => a.id === 'review')
+    const add = bulkActionsFor('quote', TWO, { ...everything(), excluded: true }).find((a) => a.id === 'review')
+    expect(skip.icon.type).not.toBe(add.icon.type)
+  })
+})
+
+describe('the actions that depend on how many are picked', () => {
+  it('offers Edit over exactly one, and runs it on that one', () => {
+    const ctx = everything()
+    const edit = bulkActionsFor('quote', [ITEM], ctx).find((a) => a.id === 'edit')
+    expect(edit).toBeTruthy()
+    edit.run()
+    // The ITEM itself, not the list — this is editing the one thing in the
+    // selection, which is why the item list still marks it `single`.
+    expect(ctx.edit).toHaveBeenCalledWith(ITEM)
+  })
+
+  it('drops Edit the moment a second is picked', () => {
+    expect(bulkActionsFor('quote', TWO, everything()).map((a) => a.id)).not.toContain('edit')
+  })
+
+  it('is the mirror image for Set fields, so the two are never offered together', () => {
+    // Over one work the full form beside it is strictly better; over several there
+    // is no single form to open. Neither is ever a dead control, and a selection
+    // never shows two ways to change the same fields.
+    const one = bulkActionsFor('book', [ITEM], everything()).map((a) => a.id)
+    const two = bulkActionsFor('book', TWO, everything()).map((a) => a.id)
+    expect(one).toContain('edit')
+    expect(one).not.toContain('set-fields')
+    expect(two).toContain('set-fields')
+    expect(two).not.toContain('edit')
+  })
+
+  it('offers neither where the screen passes no callback for it', () => {
+    const ids = bulkActionsFor('book', [ITEM], { remove: vi.fn() }).map((a) => a.id)
+    expect(ids).toEqual(['delete'])
   })
 })

@@ -186,10 +186,11 @@ of that are spelled out in [`AI.md`](AI.md).
   textures are the whole point of the design and they are not free — the page grain is a fixed layer
   above *everything*, including every glyph and every input on the screen.
 - ☑️ **Multiselect on everything** — quotes, books, films and shows. Tick the mark in a card's
-  corner, Ctrl-click it, pick Select from its menu, or on a phone just hold it. A bar appears
-  offering the lot. Over **quotes**: recolour, add tags, set one sticker across all of them,
-  favourite, keep them out of the quiz, delete. Over **books, films and shows**: fill in whatever
-  metadata is missing, move them all to a shelf, keep them out of the quiz, delete. Shift-click
+  corner, Ctrl-click it, pick Select from its menu, or on a phone just hold it. A bar of glyphs appears
+  offering the lot — three in the row and the rest behind a ⋯. Over **quotes**: the colour, the
+  ♥ and the quiz toggle, with tags, one sticker across all of them, and delete folded away. Over
+  **books, films and shows**: fill in whatever metadata is missing, move them all to a shelf, the
+  quiz toggle, and delete behind the ⋯. Pick exactly one and the ⋯ offers Edit as well. Shift-click
   extends over the order on screen, a plain click picks rather than opens while the mode is up, and
   changing a filter drops whatever left the screen — the count in the bar is always a count it can
   act on. Deleting asks you to type what it will do; deleting a book says plainly that its quotes go

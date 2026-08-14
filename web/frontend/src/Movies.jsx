@@ -296,6 +296,9 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     selection.clear()
     load()
   }
+  // Edit one title from the bar — see the Library board for why this is an id
+  // rather than the row it already has on screen.
+  const [editWork, setEditWork] = useState(null)
 
   // Grouping only buckets the view — a title still appears in the flat list, and
   // because media_type lives on the same row as series, one collection can hold
@@ -422,7 +425,21 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       }
     >
       {/* The MODE, not the count — see useSelection. */}
-      {selection.open && <SelectionBar selection={selection} rows={shown} onDone={afterBulk} />}
+      {selection.open && (
+        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} onEdit={setEditWork} />
+      )}
+      {editWork != null && (
+        <EditWorkModal
+          kind="movies"
+          id={editWork}
+          title="Edit title"
+          onDone={() => {
+            setEditWork(null)
+            afterBulk()
+          }}
+          onCancel={() => setEditWork(null)}
+        />
+      )}
       {grouped ? (
         <div className="space-y-10">
           {grouped.map((g) => (
@@ -932,6 +949,36 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   )
 }
 
+
+// EditWorkModal — the work's own edit form, opened from the selection bar when
+// exactly ONE work is picked.
+//
+// It FETCHES the row rather than taking the one the board is already holding.
+// The list endpoints send a summary — no description, no genres — and every form
+// in this app is full-state, so handing a summary to one would write two empty
+// fields over two real ones on the next Save. The console's InlineEdit made the
+// same call for the same reason; this is that shape in a dialog.
+function EditWorkModal({ kind, id, title, onDone, onCancel }) {
+  const [row, setRow] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    setRow(null)
+    setErr('')
+    json('GET', `/${kind}/${id}`).then((r) => (r.ok ? setRow(r.data) : setErr(errText(r))))
+  }, [kind, id])
+  return (
+    <FormModal open onClose={onCancel} title={title}>
+      {err ? (
+        <ErrorText>{err}</ErrorText>
+      ) : !row ? (
+        <p className="microcopy">loading…</p>
+      ) : (
+        <EditMovie movie={row} onSaved={onDone} onCancel={onCancel} />
+      )}
+    </FormModal>
+  )
+}
+
 export function EditMovie({ movie, onSaved, onCancel }) {
   const [title, setTitle] = useState(movie.title || '')
   const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
@@ -1385,6 +1432,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
           rows={items || []}
           onDone={afterBulk}
           tagSuggestions={Object.keys(tagMap)}
+          onEdit={setEditingId}
         />
       )}
       {items && items.length > 0 && view === 'tiles' && (

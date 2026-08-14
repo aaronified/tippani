@@ -1,4 +1,18 @@
-import { IconCopy, IconDelete, IconEdit, IconShare } from './ui.jsx'
+import {
+  IconCopy,
+  IconDelete,
+  IconDetails,
+  IconEdit,
+  IconHeart,
+  IconMetadata,
+  IconMoveTo,
+  IconPalette,
+  IconQuiz,
+  IconQuizSkip,
+  IconSeal,
+  IconShare,
+  IconTag,
+} from './ui.jsx'
 
 // One list of the things you can do to a quote.
 //
@@ -124,15 +138,32 @@ export const isWorkKind = (kind) => kind === 'book' || kind === 'movie'
 //
 // An action whose callback is absent is absent, which is how one bar serves five
 // kinds and two screens without a prop that says which.
+//
+// EVERY BULK ACTION NOW CARRIES A PLACEMENT AND A PICTURE (1.12.0), the same two
+// fields the item list has carried since the card grew a ⋯. The bar was a row of
+// words that grew one word per release and had run out of room on a phone; it is
+// three glyphs and an overflow now, and WHICH three is a decision that belongs
+// here beside the actions rather than in the component that draws them. ROW and
+// OVERFLOW are the same two constants the card uses, on purpose: "where does this
+// action sit" is one question, and answering it twice in two vocabularies is how
+// a bar and a menu start disagreeing about what is important.
 export function bulkActionsFor(kind, items, ctx = {}) {
   const isWork = isWorkKind(kind)
+  // A selection of exactly one is the only selection some actions mean anything
+  // over. Edit is the obvious case — editing forty quotes at once is a bulk FIELD
+  // change with its own form, not this action forty times — and Set fields is its
+  // mirror: over a single work it is strictly worse than the full form beside it.
+  // So the two are never offered together, and neither is ever a dead control.
+  const one = items.length === 1
   const all = [
     // ---- a selection of quotes ---------------------------------------------
     {
       id: 'colour',
       label: 'Colour',
+      where: ROW,
+      icon: <IconPalette />,
       form: BULK_COLOUR,
-      // First, and with no menu item in front of it: colour is the single most
+      // First, and in the row rather than the menu: colour is the single most
       // plausible reason to select forty quotes, and it needs no typing. A "Set
       // colour" that then asks which one is one tap too many for exactly that.
       available: !isWork && !!ctx.setColour,
@@ -141,6 +172,12 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     {
       id: 'add-tags',
       label: 'Add tags',
+      // Behind the ⋯ because it is the one quote action that needs a KEYBOARD.
+      // Standing open in the row, its text field was the widest thing in a strip
+      // that has to fit on a phone, and it was open on every selection whether or
+      // not anybody meant to type.
+      where: OVERFLOW,
+      icon: <IconTag />,
       form: BULK_TAGS,
       available: !!ctx.addTags,
       run: (values) => ctx.addTags(items, values),
@@ -148,6 +185,8 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     {
       id: 'sticker',
       label: 'Seal',
+      where: OVERFLOW,
+      icon: <IconSeal />,
       form: BULK_STICKER,
       // The one bulk action with an image in it, so it asks in a dialog rather
       // than in the bar — a strip of stickers is wider than a sticky row.
@@ -157,6 +196,8 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     {
       id: 'favourite',
       label: 'Favourite',
+      where: ROW,
+      icon: <IconHeart />,
       form: BULK_NONE,
       available: !isWork && !!ctx.favourite,
       run: () => ctx.favourite(items),
@@ -165,6 +206,8 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     {
       id: 'fill',
       label: 'Fill gaps',
+      where: ROW,
+      icon: <IconMetadata />,
       form: BULK_NONE,
       // Fetch what is MISSING and touch nothing else, which is what makes it safe
       // to be a button rather than a console with a diff table. See metadata_fill.go.
@@ -174,6 +217,8 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     {
       id: 'shelf',
       label: 'Shelf',
+      where: ROW,
+      icon: <IconMoveTo />,
       form: BULK_SHELF,
       available: isWork && !!ctx.setShelf,
       run: (values) => ctx.setShelf(items, values),
@@ -181,9 +226,12 @@ export function bulkActionsFor(kind, items, ctx = {}) {
     {
       id: 'set-fields',
       label: isWork ? 'Set fields' : null,
+      where: OVERFLOW,
+      icon: <IconDetails />,
       form: BULK_FIELDS,
-      // Only a work has an author/director and a series to set.
-      available: isWork && !!ctx.setFields,
+      // Only a work has an author/director and a series to set — and only a
+      // selection of SEVERAL wants this rather than the work's own form.
+      available: isWork && !!ctx.setFields && !one,
       run: (values) => ctx.setFields(items, values),
     },
     // ---- both ---------------------------------------------------------------
@@ -192,18 +240,41 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       // The label is the ACTION, not the state, and it flips — a bar that always
       // said "Exclude" over a selection that already is excluded is a control
       // nobody can read the state of. `ctx.excluded` is what the rows say.
+      //
+      // THE PICTURE FLIPS WITH IT, which stopped being optional the moment the
+      // bar became glyphs: a label carries state and a fixed glyph does not.
       label: ctx.excluded ? 'Add to quiz' : 'Skip in quiz',
+      where: ROW,
+      icon: ctx.excluded ? <IconQuiz /> : <IconQuizSkip />,
       form: BULK_NONE,
       available: !!ctx.setReview,
       run: () => ctx.setReview(items, !!ctx.excluded),
     },
     {
+      id: 'edit',
+      label: 'Edit',
+      where: OVERFLOW,
+      icon: <IconEdit />,
+      form: BULK_NONE,
+      // The item list marks this `single`, and it still is: this is not editing a
+      // selection, it is editing the one thing in it. Offered only at exactly one
+      // so it can never be a control that means something different from the count
+      // beside it — pick a second card and it is gone rather than greyed, because a
+      // disabled item in a menu is a thing to wonder about.
+      available: !!ctx.edit && one,
+      run: () => ctx.edit(items[0]),
+    },
+    {
       id: 'delete',
       label: 'Delete',
+      where: OVERFLOW,
+      icon: <IconDelete />,
       form: BULK_CONFIRM,
       danger: true,
-      // Last, always, and the only one that asks. Never adjacent to the controls
-      // that merely change a field.
+      // Last, always, and the only one that asks. Behind the ⋯ rather than in the
+      // row: an unreachable-by-accident Delete is worth two taps, and a red glyph
+      // sitting one thumb-width from Favourite is not a row anybody should have to
+      // aim at.
       available: !!ctx.remove,
       run: (values) => ctx.remove(items, values),
     },

@@ -140,6 +140,10 @@ describe('picking a cover', () => {
   })
 })
 
+// The overflow, opened by its accessible name rather than by the glyph: a reader
+// hears the words, and a test that clicked "⋯" would be asserting the drawing.
+const openMore = () => fireEvent.click(screen.getByRole('button', { name: /More for the/ }))
+
 describe('the bar over a selection of works', () => {
   const open = () => {
     render(<Board />)
@@ -163,13 +167,17 @@ describe('the bar over a selection of works', () => {
     open()
     // `Clear` is `Deselect all` since 1.11.2, and it no longer takes the bar down
     // with it — `Dismiss the selection` is the control that does.
-    for (const name of ['Fill gaps', 'Skip in quiz', 'Delete', 'Deselect all', 'Dismiss the selection']) {
+    for (const name of ['Fill gaps', 'Skip in quiz', 'Deselect all', 'Dismiss the selection']) {
       expect(screen.getByRole('button', { name }), name).toBeTruthy()
     }
     expect(screen.getByLabelText(/Move the 1 selected to a shelf/)).toBeTruthy()
+    // Delete folded behind the ⋯ in 1.12.0, along with everything else that needs
+    // something more from you before it can run.
+    openMore()
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy()
     expect(screen.queryByRole('radiogroup', { name: /Recolour/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Add tags' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Seal' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Add tags' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Seal' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Favourite' })).toBeNull()
   })
 
@@ -210,7 +218,8 @@ describe('the bar over a selection of works', () => {
 
   it('warns that deleting a work takes its quotes with it', () => {
     open()
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    openMore()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
     expect(screen.getByText('Delete 1 book?')).toBeTruthy()
     expect(screen.getByText('delete 1 book')).toBeTruthy()
     expect(screen.getByText(/every quote saved from them/)).toBeTruthy()
@@ -307,10 +316,12 @@ describe('the bar holds until it is dismissed', () => {
     // an error from the server.
     openMode()
     fireEvent.click(boxes()[0])
-    for (const name of ['Fill gaps', 'Skip in quiz', 'Delete', 'Deselect all']) {
+    for (const name of ['Fill gaps', 'Skip in quiz', 'Deselect all']) {
       expect(screen.getByRole('button', { name }).disabled, name).toBe(true)
     }
     expect(screen.getByLabelText(/Move the 0 selected to a shelf/).disabled).toBe(true)
+    // The overflow holds Delete, so disabling the ⋯ is what disables Delete.
+    expect(screen.getByRole('button', { name: /More for the/ }).disabled).toBe(true)
     // The way out is never disabled. A mode you cannot leave is the worse bug.
     expect(screen.getByRole('button', { name: 'Dismiss the selection' }).disabled).toBe(false)
   })
@@ -319,7 +330,7 @@ describe('the bar holds until it is dismissed', () => {
     openMode()
     fireEvent.click(boxes()[0])
     fireEvent.click(boxes()[2])
-    expect(screen.getByRole('button', { name: 'Delete' }).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: /More for the/ }).disabled).toBe(false)
     expect(screen.getByText('1 book selected')).toBeTruthy()
   })
 

@@ -284,6 +284,21 @@ What that honestly does not cover:
   declare the table list and write down, in the migration, why the obvious
   approach is wrong — because the next person to touch it will reach for the FK
   walk for exactly the same good reasons.
+- **A control strip that grows one button per release has no moment where it
+  breaks.** The selection bar shipped with four word-buttons and left 1.11.1 with
+  eleven controls, every one of them added for a good reason and none of them the
+  one that broke it — because nothing broke. It simply became, on a phone, a strip
+  wider than the phone, one release at a time. The fix was not smaller buttons but
+  a decision the bar had never been asked to make: WHICH THREE matter, with the
+  rest behind a ⋯. Worth noticing that the failure had no error, no test and no
+  screenshot — the only signal was a reader saying it looked crowded.
+- **Turning words into glyphs takes the state off the screen with them.** The quiz
+  toggle reads “Skip in quiz” or “Add to quiz”, and that label was doing two jobs:
+  naming the action and reporting which way round the selection currently is. A
+  single glyph would have kept the first and silently dropped the second, and the
+  loss is invisible in review because the button still works. So the picture flips
+  with the label — two glyphs drawn as a pair, which is the only reason the set has
+  two drawings that are nearly the same picture on purpose.
 - **A rule that five queries splice belongs in the one string they share.** Keeping
   a quote out of the Daily Quiz is a single condition, and it has to reach the three
   candidate fetches, the count behind the cards-left badge, and the breakdown behind

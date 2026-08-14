@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
-import { BULK_TAGS, bulkActionsFor, isWorkKind } from './actions.jsx'
+import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
   FormModal,
   GhostButton,
+  IconButton,
   IconClose,
   MonoLabel,
-  Select,
+  MoreMenu,
   Tooltip,
   TokenInput,
   toast,
@@ -34,6 +35,24 @@ import {
 // keeps that from becoming two components that drift. Which actions appear is
 // decided by which callbacks this file passes for the kind in hand, and nothing
 // here branches on the kind twice.
+//
+// A ROW OF GLYPHS, NOT A ROW OF WORDS (1.12.0). It was one ghost button per
+// action, and it grew one button per release: colour dots, a tag field, a tag
+// button, Seal, Favourite, a shelf dropdown, Fill gaps, Skip in quiz, Delete,
+// Deselect all, ✕. Eleven controls across a strip that on a phone is pinned under
+// the header at a fixed height, most of them carrying a word wide enough to wrap
+// it. Three glyphs stand in the row now and everything else folds behind a ⋯.
+//
+// WHICH three is decided in actions.jsx, not here (`where: ROW | OVERFLOW`), for
+// the same reason the action list itself is: this component would otherwise be the
+// second place with an opinion about what matters, and the two would drift the
+// first time somebody added an action to one of them.
+//
+// The three that fold out have one thing in common — each needs something MORE
+// from you before it can run. Tags need a keyboard, the seal needs a picture
+// chosen, Delete needs a phrase typed. Standing open in the row, the tag field was
+// the widest control in it and was open on every selection whether or not anybody
+// meant to type into it.
 
 // KIND_ROUTES maps a selection's kind to its endpoints and to the word a reader
 // types. The bulk vocabulary and the URLs differ by one word — a standalone quote
@@ -72,23 +91,24 @@ const SHELF_CHOICES = (kind) => [
 // the re-verify console already uses.
 const FILL_CHUNK = 15
 
-export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = [] }) {
-  const [tags, setTags] = useState([])
+export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = [], onEdit }) {
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false)
   const [typed, setTyped] = useState('')
   const [sealing, setSealing] = useState(false)
+  const [tagging, setTagging] = useState(false)
   const { kind, ids, count } = selection
   // The mode, not the count — see useSelection. Deselecting the last card used to
   // tear the bar off the screen, so re-picking meant finding the long press again.
   const open = selection.open ?? count > 0
 
   // ESCAPE LEAVES THE MODE, because a mode you can only leave by finding a button
-  // is a mode. Skipped while either of this bar's own dialogs is up: there Escape
+  // is a mode. Skipped while any of this bar's own dialogs is up: there Escape
   // belongs to the dialog, and dismissing the selection underneath it would answer
   // a question nobody asked.
+  const inDialog = asking || sealing || tagging
   useEffect(() => {
-    if (!open || asking || sealing) return
+    if (!open || inDialog) return
     const k = (e) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
@@ -96,7 +116,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     }
     document.addEventListener('keydown', k)
     return () => document.removeEventListener('keydown', k)
-  }, [open, asking, sealing, selection])
+  }, [open, inDialog, selection])
 
   if (!open || !kind || !KIND_ROUTES[kind]) return null
   const routes = KIND_ROUTES[kind]
@@ -107,9 +127,9 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const none = count === 0
 
   // Whether the selection is ALREADY out of the quiz, which is what decides the
-  // word on the button. Every-not-some on purpose: over a mixed selection the
-  // button should do the thing that changes something, and "skip these" changes
-  // something unless they are all skipped already.
+  // word (and now the glyph) on the button. Every-not-some on purpose: over a
+  // mixed selection the button should do the thing that changes something, and
+  // "skip these" changes something unless they are all skipped already.
   const picked = rows.filter((r) => selection.isSelected(r.id))
   const allExcluded = picked.length > 0 && picked.every((r) => r.review_excluded)
 
@@ -173,19 +193,20 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     // Works.
     fillGaps: isWork ? fillGaps : undefined,
     setShelf: isWork ? (_, status) => post(routes.status, { status }, `moved ${count}`) : undefined,
-    // Both.
+    // Both. `edit` is filtered to a selection of exactly one by the registry, so
+    // there is no count test here — and a screen with no inline form for one row
+    // simply does not pass onEdit, which is how the action stays absent rather
+    // than dead.
+    edit: onEdit ? (id) => onEdit(id) : undefined,
     excluded: allExcluded,
     setReview: (_, wasExcluded) =>
       post(routes.bulk, { review: wasExcluded }, wasExcluded ? 'back in the quiz' : `skipping ${count}`),
     remove: () => confirmedDelete(),
   })
   const byID = Object.fromEntries(acts.map((a) => [a.id, a]))
-  const canTag = acts.some((a) => a.form === BULK_TAGS)
 
-  const applyTags = () => {
-    const names = tags.map((t) => t.trim()).filter(Boolean)
-    if (!names.length) return toast('type a tag first')
-    setTags([])
+  const applyTags = (names) => {
+    setTagging(false)
     byID['add-tags'].run(names)
   }
 
@@ -220,6 +241,19 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     onDone?.()
   }
 
+  // ASK, rather than run, for the three that need something more from you first.
+  // Everything else in the overflow runs on the press — the menu is not a place
+  // where every item opens a second window.
+  const ASKS = {
+    'add-tags': () => setTagging(true),
+    sticker: () => setSealing(true),
+    delete: () => setAsking(true),
+  }
+  const overflow = atOverflow(acts).map((a) => ({
+    ...a,
+    onClick: ASKS[a.id] || (() => a.run()),
+  }))
+
   return (
     <div className="selection-bar">
       {/* "no books selected" rather than "0 books selected": the state is real and
@@ -228,81 +262,65 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         {none ? `no ${routes.noun[1]} selected` : `${count} ${count === 1 ? routes.noun[0] : routes.noun[1]} selected`}
       </MonoLabel>
 
-      {byID.colour && (
-        <span className="shrink-0" aria-disabled={none || undefined}>
-          <ColorSwatches
-            collapsible
-            disabled={none}
-            value=""
-            onChange={(c) => byID.colour.run(c)}
-            ariaLabel={`Recolour the ${count} selected`}
+      {/* The three that stand in the row, in the order the registry lists them.
+          Two of them are not plain buttons — colour opens six dots and the shelf
+          opens five states — so those two are named here and everything else is a
+          glyph that just runs. A third special case would be the sign that this
+          should be a lookup rather than two ifs. */}
+      {atRow(acts).map((a) => {
+        if (a.id === 'colour') {
+          return (
+            <span key={a.id} className="shrink-0" aria-disabled={none || undefined}>
+              <ColorSwatches
+                mini
+                disabled={none || busy}
+                value=""
+                onChange={(c) => a.run(c)}
+                ariaLabel={`Recolour the ${count} selected`}
+              />
+            </span>
+          )
+        }
+        if (a.id === 'shelf') {
+          return (
+            <MoreMenu
+              key={a.id}
+              icon={a.icon}
+              ariaLabel={`Move the ${count} selected to a shelf`}
+              tooltip="Move to a shelf"
+              disabled={none || busy}
+              items={SHELF_CHOICES(kind).map(([value, label]) => ({
+                id: value || 'clear',
+                label,
+                onClick: () => a.run(value),
+              }))}
+            />
+          )
+        }
+        return (
+          <IconButton
+            key={a.id}
+            icon={a.icon}
+            // The label IS the tooltip and the accessible name, so the flipping
+            // quiz toggle stays readable with no words on screen: a long press
+            // (or a hover) says which way round it currently is.
+            ariaLabel={a.label}
+            tooltip={a.id === 'fill' && busy ? 'Fetching…' : a.label}
+            disabled={none || busy}
+            onClick={() => a.run()}
           />
-        </span>
-      )}
+        )
+      })}
 
-      {canTag && (
-        <span className="selection-tags">
-          <TokenInput
-            value={tags}
-            onChange={setTags}
-            suggestions={tagSuggestions}
-            placeholder="add tags"
-            ariaLabel="Tags to add to the selection"
-          />
-        </span>
-      )}
-      {canTag && (
-        <GhostButton onClick={applyTags} disabled={busy || none || tags.length === 0}>
-          Add tags
-        </GhostButton>
-      )}
-
-      {byID.sticker && (
-        <GhostButton onClick={() => setSealing(true)} disabled={busy || none}>
-          {byID.sticker.label}
-        </GhostButton>
-      )}
-      {byID.favourite && (
-        <GhostButton onClick={() => byID.favourite.run()} disabled={busy || none}>
-          {byID.favourite.label}
-        </GhostButton>
-      )}
-
-      {byID.shelf && (
-        <label className="flex items-center gap-2">
-          <MonoLabel>shelf</MonoLabel>
-          <Select
-            ariaLabel={`Move the ${count} selected to a shelf`}
-            // null matches no option, so the trigger reads "move to…" rather than
-            // naming whichever state happens to be first. It is a fire-and-forget
-            // control like the colour swatches beside it, not a field with a value:
-            // the selection has forty shelf states and this has one label.
-            value={null}
-            disabled={none}
-            placeholder="move to…"
-            options={SHELF_CHOICES(kind)}
-            onChange={(v) => byID.shelf.run(v)}
-          />
-        </label>
-      )}
-      {byID.fill && (
-        <GhostButton onClick={() => byID.fill.run()} disabled={busy || none}>
-          {busy ? 'Fetching…' : byID.fill.label}
-        </GhostButton>
-      )}
-
-      {byID.review && (
-        <GhostButton onClick={() => byID.review.run()} disabled={busy || none}>
-          {byID.review.label}
-        </GhostButton>
-      )}
-
-      {/* Delete is last, danger-styled, and never adjacent to the controls that
-          merely change a field. It is also the only one that asks. */}
-      {byID.delete && (
-        <GhostButton className="tp-btn-danger" onClick={() => setAsking(true)} disabled={busy || none}>
-          {byID.delete.label}
-        </GhostButton>
+      {/* Everything else. Danger styling rides through from the registry, so
+          Delete is red in here without this component knowing which one it is. */}
+      {overflow.length > 0 && (
+        <MoreMenu
+          items={overflow}
+          ariaLabel={`More for the ${count} selected`}
+          tooltip="More actions"
+          disabled={none || busy}
+        />
       )}
 
       {/* TWO CONTROLS AT THIS END, and the difference between them is the whole
@@ -310,15 +328,15 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 
           `Deselect all` empties the selection and leaves the bar standing, so
           "these four are the wrong four" costs one tap rather than a fresh
-          gesture. It is the button that used to be labelled `Clear` and used to
-          take the bar down with it.
+          gesture. It keeps its WORDS while everything to its left became a glyph,
+          and that is deliberate: it is not a thing you do to the selection, it is
+          a thing you do to the selecting, and drawing it as a fourth glyph would
+          file it with the actions.
 
           `✕` ends the mode: the bar goes, and every tick on the board goes with
           it. That pairing is the only rule that can be held in the head — the
           marks are up while the bar is up — and it is what stopped a dot being
-          left lit on the card you long-pressed. Drawn as the icon button BulkBar
-          already uses for the same act, rather than a fourth ghost button, so the
-          way out does not look like one more thing to do to the selection. */}
+          left lit on the card you long-pressed. */}
       <GhostButton className="ml-auto" onClick={() => selection.deselectAll?.()} disabled={busy || none}>
         Deselect all
       </GhostButton>
@@ -333,9 +351,13 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         </button>
       </Tooltip>
 
-      {/* Mounted only while it is open, which is what keeps the sticker list from
-          being fetched the moment somebody selects one quote. A sticky bar that
-          appears on every selection must not do work for a dialog nobody opened. */}
+      {/* Each mounted only while it is open, which is what keeps the sticker list
+          from being fetched the moment somebody selects one quote. A sticky bar
+          that appears on every selection must not do work for a dialog nobody
+          opened. */}
+      {tagging && (
+        <TagsDialog count={count} busy={busy} suggestions={tagSuggestions} onApply={applyTags} onClose={() => setTagging(false)} />
+      )}
       {sealing && <SealDialog count={count} busy={busy} onApply={applySeal} onClose={() => setSealing(false)} />}
 
       <ConfirmDialog
@@ -368,6 +390,34 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         }}
       />
     </div>
+  )
+}
+
+// TagsDialog asks which tags. It was a text field standing open in the bar, which
+// made the widest control in the strip the one nobody had asked for yet — and on a
+// phone an always-present text field is a keyboard one stray tap away.
+//
+// Its own component for the same reason SealDialog is: the state belongs to the
+// question, not to the bar, so closing it cannot leave half a tag behind.
+function TagsDialog({ count, busy, suggestions, onApply, onClose }) {
+  const [tags, setTags] = useState([])
+  const names = tags.map((t) => t.trim()).filter(Boolean)
+  return (
+    <FormModal open onClose={onClose} title={`Tag ${count}`}>
+      <div className="space-y-3">
+        <p className="microcopy">Every tag here is ADDED to all {count}. Nothing already on them is removed.</p>
+        <TokenInput
+          value={tags}
+          onChange={setTags}
+          suggestions={suggestions}
+          placeholder="add tags"
+          ariaLabel="Tags to add to the selection"
+        />
+        <GhostButton onClick={() => onApply(names)} disabled={busy || names.length === 0}>
+          Add tags
+        </GhostButton>
+      </div>
+    </FormModal>
   )
 }
 
