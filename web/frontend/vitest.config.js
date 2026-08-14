@@ -19,9 +19,16 @@ import { fileURLToPath } from 'node:url'
 // hand-rolled check scripts could only ever cover greetings.js and secret.js —
 // they are the only modules with no imports at all.
 //
-// TZ and locale are pinned. Five places format dates through toLocaleDateString
-// with an undefined locale, so without this the same test passes here and fails
-// on a runner set to anything else.
+// TZ is pinned here. THE LOCALE IS PINNED TOO, and not here — see
+// test/pin-locale.js, imported by both setup files.
+//
+// The split is forced rather than chosen. An env var reaches the workers and is all
+// TZ needs; the locale ignores env vars on Windows, so it has to be pinned inside
+// the environment the tests run in. This comment used to claim both were done on
+// this line, and only TZ ever was — which is how four date assertions shipped
+// depending on the author's machine and went red on CI the day the runner's default
+// moved. A comment claiming a guarantee nothing implements is worse than no comment:
+// the next person reads it and stops looking.
 process.env.TZ = 'UTC'
 
 // Where the source lives, as an absolute path, for the handful of tests that

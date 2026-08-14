@@ -15,6 +15,13 @@
 // Deliberately minimal: matchMedia and nothing else. If a test needs more of
 // the DOM than this, it is a component test and belongs in test/dom.
 
+// The default locale, pinned — see pin-locale.js. vitest.config.js pins TZ with an
+// env var; the locale cannot be done that way and has to be pinned in the
+// environment the tests actually run in, which is here.
+import { pinLocale } from './pin-locale.js'
+
+pinLocale()
+
 if (typeof globalThis.window === 'undefined') {
   const noopMedia = {
     matches: false,

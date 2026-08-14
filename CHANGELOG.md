@@ -109,6 +109,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only thing that stands a mark up, which makes the whole rule one sentence: the
   ticks are up while the bar is up.
 
+- **The test suite no longer depends on which machine it runs on.** Several places
+  format a date through `toLocaleDateString` with an undefined locale, which is
+  right — a date should be written the way the *reader* writes dates — and which also
+  means the rendered string follows the host. `vitest.config.js` had a comment
+  claiming TZ *and* the locale were pinned, above a line that pinned only TZ, so four
+  assertions in the bin's suite were passing on the author's machine (`1 Aug`) and
+  went red on CI the day the runner's default moved to `Aug 1`. The locale is pinned
+  now, in the environment the tests actually run in, because an env var cannot do it:
+  ICU reads `LANG`/`LC_ALL` on Linux and ignores them on Windows, so pinning that way
+  would fix CI and leave the authoring machine disagreeing instead. Both harness
+  files assert the pin is in effect, so removing it fails with a sentence rather than
+  as four cryptic date mismatches. `localeCompare` is pinned with it — every
+  by-title and by-author sort in the app goes through it, and collation is
+  host-dependent in exactly the same way for anything but plain ASCII.
+
 - The glossary had been rendering a retired component. `person-link-row` is in
   neither the source nor the stylesheet — the redirect-menu view it belonged to was
   replaced by the details view — so that sample had been an unstyled `div`, and the

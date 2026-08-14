@@ -9,6 +9,13 @@
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 
+// The default locale, pinned — see pin-locale.js. vitest.config.js pins TZ with an
+// env var; the locale cannot be done that way and has to be pinned in the
+// environment the tests actually run in, which is here.
+import { pinLocale } from './pin-locale.js'
+
+pinLocale()
+
 // ---- matchMedia: jsdom has none, and theme.js calls it at import time ----
 if (!window.matchMedia) {
   window.matchMedia = (media) => ({
