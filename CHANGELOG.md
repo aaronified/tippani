@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2026-08-14
+
+### Fixed
+
+- **1.12.0 has no image. This release is the one that publishes, and the reason
+  1.12.0 did not is the whole of it.**
+
+  Publishing the image took two and a half minutes for seventy releases. On 1.12.0
+  it passed twenty-five minutes with no output, on the `main` build and the tag
+  build at once, and I cancelled both — so the tag and the GitHub Release for
+  1.12.0 exist while the container for it never did. If you pin `1.12.0` you will
+  find nothing there. `latest`, `1.12` and `1.12.1` all resolve to this release.
+
+  The Docker frontend stage carried no platform pin, so Buildx built it once per
+  published architecture and the `linux/arm64` pass ran Node under QEMU emulation
+  on an x86 runner. That has been true since the first commit in this repository,
+  and it survived on luck: the install layer was keyed on `package.json` alone,
+  `package.json` had not changed in dozens of releases, so the emulated install was
+  a cache hit every single time and never actually ran.
+
+  1.12.0's own fix — installing from the lockfile with `npm ci`, so the image stops
+  shipping a bundle nobody has run — added the lockfile to that layer's inputs. It
+  was the right change and it did exactly what it should have. It also changed the
+  layer's key, so the emulated install finally ran for real: 231 packages under
+  emulation, several of them native binaries that have to be unpacked and checked
+  — Tailwind's engine is Rust, esbuild is Go, Rollup ships bindings per platform.
+  That is the workload emulation is worst at, and it is why a correct fix looked
+  like a broken pipeline.
+
+  **Emulating that stage was never worth doing, cached or not.** It emits
+  JavaScript, CSS and HTML, and there is nothing architecture-specific in a bundle
+  — the arm64 pass spent all that time producing bytes identical to the amd64 pass.
+  Pinned to the build platform it runs once, natively, and both images copy the
+  same output. So this is a correctness fix as much as a speed one: it is now
+  *guaranteed* that the two architectures serve the same frontend, where before
+  they were two independent builds that merely ought to agree. The Go stage has
+  been pinned this way all along and says why in its own comment; the frontend
+  stage was simply missed, and the cache hid it for seventy releases.
+
+  The README said arm64 was safe to publish because the binary is pure Go and
+  cross-compiles. That was half of it, and the other half is true now too — so
+  what remains untested on arm64 is the binary, not the page.
+
+### Internal
+
+- **A publish that hangs now fails in thirty minutes instead of six hours.** The
+  job had no timeout, so it inherited GitHub's 360-minute default. While 1.12.0 sat
+  at "Build and push" emitting nothing, there was no way to tell a slow build from
+  a hung one and five and a half hours of runner time left to spend on each of the
+  two concurrent builds. Thirty minutes is about ten times what a native build
+  costs, so anything that trips it is a fault and not a busy runner, and it fails
+  while somebody is still watching.
+
+- **The test counts in `AI.md` were recounted**, having drifted from 645 Go test
+  functions, 1,293 frontend tests and 180 files to the actual 671, 1,380 and 187.
+  That file's own instruction is to recount rather than trust the number, and it
+  gave a command for the Go figure but none for the file count — the one that had
+  drifted furthest. All four now sit together, each next to the number it produces.
+
 ## [1.12.0] - 2026-08-14
 
 ### Fixed
