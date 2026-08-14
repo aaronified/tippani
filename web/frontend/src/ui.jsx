@@ -3996,7 +3996,11 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
   // dots in the middle of it would be the one control wide enough to push the
   // others off a phone. `collapsible` is the card's version of the same idea —
   // decide by width — and the two must not be confused.
-  if (mini) return <ColorMenu value={value} offered={offered} onChange={onChange} ariaLabel={ariaLabel} disabled={disabled} />;
+  // framed with mini, because the two callers differ in exactly this way: `mini` is
+  // the selection bar asking for the collapsed trigger among bordered buttons, while
+  // the `.cs-mini` wrapper below is a card deciding by width, where a frame would be
+  // furniture. Same component, two rooms.
+  if (mini) return <ColorMenu value={value} offered={offered} onChange={onChange} ariaLabel={ariaLabel} disabled={disabled} framed />;
   if (!collapsible) return dots;
   // Both forms are rendered and a container query picks one. The alternative is
   // measuring, and measuring a control that lives inside a masonry cell means a
@@ -4027,7 +4031,21 @@ export function ColorSwatches({ value, onChange, ariaLabel = "Colour", showAll =
 // neighbouring card no matter what z-index it carries, so a menu that opened
 // past the card's edge would slide UNDER the card beside it. Anchoring to the
 // viewport puts it where a popup belongs and flips it when there is no room.
-function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false }) {
+// `framed` DRESSES THE TRIGGER AS AN ORDINARY BUTTON, for the selection bar.
+//
+// Bare, this control was the least visible thing in that row and the one people
+// looked for first. Two reasons, and both had to go. `.cs-menu-btn` sets
+// `border: none; background: none`, which is right on a card — the picker sits in a
+// row of dots and a frame around one of them would be furniture — and wrong in a
+// bar where every neighbour is a bordered 44px circle. And the bar passes
+// `value=""`, because a selection of forty quotes has no one current colour, so the
+// dot rendered EMPTY at 65% opacity: a faint grey ring on a faint background.
+//
+// So framed borrows the real `tp-btn tp-btn-ghost` classes rather than restating
+// their look in a scoped rule. That way it inherits the theme and aesthetic
+// variants — the paper radius, the dark-mode shadow — instead of drifting from them
+// the first time either changes.
+function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false, framed = false }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   // Above by preference: this control sits low on a card, so a list that
@@ -4043,15 +4061,26 @@ function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false }) {
       <Tooltip label={value ? `Colour: ${categoryName(value)}` : "Pick a colour"}>
         <button
           type="button"
-          className="cs-menu-btn"
+          className={"cs-menu-btn" + (framed ? " cs-menu-btn-framed tp-btn tp-btn-ghost tactile" : "")}
           aria-haspopup="true"
           aria-expanded={open}
           aria-label={ariaLabel}
           disabled={disabled}
           onClick={() => setOpen((v) => !v)}
         >
-          <span className={"color-dot " + (colorDotClass[value] || "") + (value ? " active" : "")} />
-          <IconChevron open={open} size={14} />
+          {/* An empty dot says nothing, so the framed trigger shows the palette
+              glyph until a colour is actually chosen — which in the selection bar
+              is never, because a bulk action has no current value. The chevron goes
+              with it: in a row of single-glyph buttons a second mark on one of them
+              reads as a different KIND of control. */}
+          {framed && !value ? (
+            <IconPalette />
+          ) : (
+            <>
+              <span className={"color-dot " + (colorDotClass[value] || "") + (value ? " active" : "")} />
+              <IconChevron open={open} size={14} />
+            </>
+          )}
         </button>
       </Tooltip>
       {open && createPortal(

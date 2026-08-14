@@ -614,7 +614,7 @@ function PracticeCard({ onStates, userId }) {
           <MonoLabel style={{ color: 'var(--accent-ui)' }}>Practice</MonoLabel>
           <InfoDot
             title="Practice"
-            text="Free retrieval practice across your whole library — recall the source of a quote, or a quote from a work. Unlimited and skippable, and it won’t touch your review schedule unless you turn that on in Settings. It keeps its own score, which you can reset without losing any learning history."
+            text="Unlimited, skippable recall practice across your whole library. It leaves your review schedule alone unless you turn that on in Settings, and its own score resets without losing any learning history."
           />
         </span>
         {phase === 'active' && <span className="mono-label" style={{ letterSpacing: '.06em' }}>unlimited</span>}

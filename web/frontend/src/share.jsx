@@ -723,10 +723,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
           onChange={setImageTheme}
           options={IMAGE_THEMES}
         />
-        <InfoDot
-          title="Image theme"
-          text="Which of the four skins the picture is drawn in — paper or film, light or dark. It is the picture's skin only: choosing one here never changes what the app looks like, because the card you post and the app you read in are two different rooms. It starts on whatever the app is showing now, so the first share matches what you were just looking at."
-        />
+        <InfoDot title="Image theme" text="The picture's look — paper or film, light or dark. Choosing one here never changes the app's own theme. Starts on whatever the app is showing now." />
       </div>
       {canPortrait && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -737,10 +734,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
             onChange={(v) => setPortrait(v === "backdrop")}
             options={[["chip", "Chip"], ["backdrop", "Backdrop"]]}
           />
-          <InfoDot
-            title="Portrait"
-            text="How the credited person appears. Chip is the small round photo beside their name. Backdrop bleeds the same photo in from the card's edge, tinted with the quote's colour and faded out before the words start — one name enters from the left; two or more, and the first two take a side each with the quote between them, which is the shape a conversation has. It is one or the other, never both: a thumbnail crop of the same photograph beside a full-height version of it reads as a mistake. Either way it rides the same Author / Actor / Speaker tick as the credit itself, so turning that off takes the portrait with it, and neither is offered when nobody credited has a saved photo."
-          />
+          <InfoDot title="Portrait" text="How a credited person appears. Chip is a small round photo beside their name; Backdrop bleeds the same photo in from the edge. One or the other, never both, and only when someone credited has a saved photo." />
         </div>
       )}
       {canColor && (
@@ -752,10 +746,7 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
             onChange={(v) => setUseColor(v === "on")}
             options={[["off", "Off"], ["on", "On"]]}
           />
-          <InfoDot
-            title="Quote colour"
-            text="Whether this quote's highlight colour appears in the picture. One switch for both kinds of card, because it is one decision: on a plain card the colour is the stripe beside the words, and on a backdrop card it is the hue of the portrait. It is never both at once — a stripe next to a portrait already wearing the colour is the same thing said twice, the second time louder. It starts off, because a colour category is a note to yourself about what kind of thought this is, and the person you send the picture to has no idea the scheme exists. Turning it on or off changes nothing about the quote itself."
-          />
+          <InfoDot title="Quote colour" text="Shows this quote's colour in the picture — a stripe on a plain card, the portrait's tint on a backdrop. Off by default: the colour is your own filing and means nothing to whoever you send it to." />
         </div>
       )}
       <MonoLabel className="mb-1.5 block">preview</MonoLabel>

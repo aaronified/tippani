@@ -155,18 +155,7 @@ function PasswordForm() {
     <form onSubmit={submit} className="space-y-3">
       <span className="flex items-center gap-1.5">
         <FieldLabel>Change password</FieldLabel>
-        <InfoDot
-          title="Change password"
-          text={
-            `${PASSWORD_MIN}–${PASSWORD_MAX} characters — letters, digits and punctuation, no accents or non-Latin script. ` +
-            'That alphabet is narrow on purpose: your password doubles as the key to your backup archives, so it has to be typeable ' +
-            'on another machine months later, and an accented character that arrives as different bytes would leave an archive that will not open. ' +
-            'Changing it signs out every other browser session. Paired phones are deliberately left alone, so a routine password change can’t ' +
-            'silently unpair a device you can’t easily get to — and since 1.4.2 it no longer orphans your backups either: on this server your ' +
-            'current password opens every archive this server made, whichever password sealed it. Carried to another machine, an archive still ' +
-            'wants the password it was sealed with.'
-          }
-        />
+        <InfoDot title="Change password" text={`${PASSWORD_MIN}–${PASSWORD_MAX} characters: letters, digits and punctuation, no accents. It doubles as the key to your backup archives, so it must be typeable on another machine. Changing it signs out other browsers; paired phones stay.`} />
       </span>
       <input className="tp-input" placeholder="current password" type="password" value={current} autoComplete="current-password" maxLength={PASSWORD_MAX} onChange={(e) => setCurrent(e.target.value)} />
       <input className="tp-input" placeholder={`new password (${PASSWORD_MIN}–${PASSWORD_MAX})`} type="password" value={next} autoComplete="new-password" maxLength={PASSWORD_MAX} onChange={(e) => setNext(e.target.value)} />
@@ -232,10 +221,7 @@ function SwitchAccount({ me }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <p className="text-sm font-semibold">Switch account</p>
-          <InfoDot
-            title="Switch account"
-            text="Signs you in as another user on this server — each account has a fully separate library, so nothing is shared or merged. It is a real sign-in rather than an impersonation: it asks for that account’s password every time, there is no stored list of accounts to click through, and being an admin does not let you in without one. Getting it wrong changes nothing, which is why it can live one tap inside your profile."
-          />
+          <InfoDot title="Switch account" text="Sign in as another user on this server. Each account has a fully separate library, so nothing is shared. It asks for that account's password every time, admin or not." />
         </div>
         {!open && (
           <GhostButton icon={<IconSwitchUser />} keepLabel onClick={() => setOpen(true)}>
@@ -364,7 +350,7 @@ function MaintenanceCard() {
             </p>
             <InfoDot
               title="Reset all data"
-              text="Permanently deletes everything — every account, all books, films, quotes, dialogue, tags, people, stickers, saved covers, metadata keys and preferences — and restarts Tippani at first-run admin-account creation. This cannot be undone, and there is no backup taken on the way."
+              text="Permanently deletes everything — every account, all works, quotes, tags, people, stickers, covers, keys and preferences — and restarts Tippani at first-run setup. No backup is taken, and this cannot be undone."
             />
           </div>
           {!showReset ? (
@@ -437,7 +423,7 @@ export function Profile({ user, onUser, logout }) {
         <Card pad="p-5">
           <span className="flex items-center gap-1.5">
             <FieldLabel>Users on this server</FieldLabel>
-            <InfoDot title="User management" text="Every user gets a fully separate library — books, quotes, tags, stickers and preferences are never shared. Handing over admin is two halves and they belong to two people: you make someone an admin, and they step down or you do. Nobody can take another admin’s rights away, and nobody can delete another admin’s account either. The last remaining admin cannot step down, so the instance always has one." />
+            <InfoDot title="User management" text="Every user gets a fully separate library — nothing is shared. You can make someone an admin, but only they can step down: nobody can remove another admin's rights or delete their account. The last admin cannot step down." />
           </span>
           <UserManagement me={user} />
         </Card>

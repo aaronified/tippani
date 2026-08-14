@@ -218,7 +218,7 @@ function CreditSeparators({ user, onPreferences }) {
     <div className="settings-subsection">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <MonoLabel>Multi-author credits</MonoLabel>
-        <InfoDot title="Multi-author credits" text="A credit like “Gaiman & Pratchett” lists as two people — in group-by headings and the People console — split on the separators picked here. The author line stored on each book stays untouched, so this is safe to change at any time. Turn the comma off if your library stores authors as “Last, First”." />
+        <InfoDot title="Multi-author credits" text="Splits a credit like “Gaiman & Pratchett” into two people, on the separators you pick. The author line stored on each book is untouched, so this is safe to change at any time. Turn the comma off if you store authors as “Last, First”." />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {CREDIT_SEP_OPTIONS.map(([key, label]) => (
@@ -349,10 +349,7 @@ function ColourCategoriesCard({ prefs, onSaved }) {
               {row.fixed ? (
                 <div className="min-w-0 flex-1">
                   <span style={{ fontWeight: 600 }}>{UNSET_LABEL}</span>
-                  <InfoDot
-                    title="Why this one has no name"
-                    text="This is the colour a quote gets when nobody picks one — it is the column default, and an import with no colour written in it lands here too. So a quote is this colour either because you chose it or because nothing was ever chosen, and those cannot be told apart. Naming it would put a label on every unmarked quote you have imported. Its colour is still yours to change."
-                  />
+                  <InfoDot title="Why this one has no name" text="The colour a quote gets when nobody picks one, and where an import with no colour lands. A name here would label every unmarked quote you have imported. Its colour is still yours to change." />
                 </div>
               ) : (
                 <input
@@ -501,10 +498,7 @@ export function ReviewScope({ value, onChange }) {
     <div>
       <div className="mb-2 flex items-center gap-1.5">
         <MonoLabel>Review covers</MonoLabel>
-        <InfoDot
-          title="Review covers"
-          text="Which of the three kinds of quote the Daily Quiz and Practice draw from. They are independent: you can review books and standalone quotes without film dialogue, which the old three-way switch could not say. A quote with no speaker and no occasion never joins the deck whatever this says — there is nothing to recall but the words already in front of you — and nothing you have saved in the last week does either."
-        />
+        <InfoDot title="Review covers" text="Which kinds of quote the Daily Quiz and Practice draw from, independently. A quote with no speaker and no occasion never joins the deck — there is nothing to recall but the words. Nor does anything saved in the last week." />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {REVIEW_MEDIA.map(([key, label, hint]) => {
@@ -547,7 +541,7 @@ function SRSettings({ user, onPreferences }) {
     <Card>
       <SectionTitle
         right={
-          <InfoDot text="These settings drive both the Daily Quiz and Practice. A card's review interval climbs a fixed ladder — 7, 30, then 100 days — one step per correct recall; one lapse drops it straight back to 7. Every quote carries a status dot — remembered, forgetting or probably forgotten — with its half-life on hover." />
+          <InfoDot text="These drive both the Daily Quiz and Practice. A card's interval climbs a fixed ladder — 7, 30, then 100 days — one step per correct recall, and one lapse drops it straight back to 7." />
         }
       >
         Daily quiz &amp; practice
@@ -2050,10 +2044,7 @@ export function LabelDensity() {
     <div>
       <div className="mb-2 flex items-center gap-1.5">
         <MonoLabel>Button labels</MonoLabel>
-        <InfoDot
-          title="Button labels"
-          text="Buttons that carry a glyph can show their words beside it or drop them for the glyph alone. Auto shows them on a desktop and hides them on a phone, where the row genuinely stops fitting. Hiding the words never hides them from a screen reader, and every glyph still names itself on hover or long-press — so this trades a little learning for a lot of room, and nothing else."
-        />
+        <InfoDot title="Button labels" text="Buttons with a glyph can show their words or drop them. Auto shows them on a desktop and hides them on a phone. Hidden words are still read aloud by screen readers, and every glyph names itself on hover or long-press." />
       </div>
       <Toggle
         ariaLabel="Button labels"

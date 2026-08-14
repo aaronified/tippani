@@ -204,6 +204,8 @@ describe('the prose in the share dialog', () => {
     expect(logicOf('A picture of the quote')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'More information: Image' })) // close
     fireEvent.click(screen.getByRole('button', { name: 'More information: Image theme' }))
-    expect(logicOf('Which of the four skins')).not.toBeNull()
+    // Matched on the opening words rather than the whole sentence, so trimming the
+    // copy to its budget does not fail a test about whether the dot OPENS.
+    expect(logicOf('The picture')).not.toBeNull()
   })
 })

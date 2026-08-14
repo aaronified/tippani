@@ -898,10 +898,7 @@ function DuplicatesPanel({ onDone, onFlash }) {
     <HandCard className="space-y-3 p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>Duplicate books</h2>
-        <InfoDot
-          title="Duplicate books"
-          text="Finds books whose titles and authors match closely enough to be the same book entered twice — usually one from an import and one added by hand. Merging moves every quote onto the copy you keep and deletes the others; the keeper defaults to whichever has the most quotes, so the default choice loses nothing."
-        />
+        <InfoDot title="Duplicate books" text="Finds books whose title and author match closely enough to be the same book twice — usually one imported, one added by hand. Merging moves every quote onto the copy you keep and deletes the rest, defaulting to the one with most quotes." />
         {groups && <MonoLabel>{groups.length} group{groups.length === 1 ? '' : 's'}</MonoLabel>}
         <IconButton
             icon={<IconSearch />}
@@ -1024,10 +1021,7 @@ function SpeakerRemap({ movies, onDone }) {
     <HandCard className="space-y-3 p-5">
       <div className="flex items-center gap-1.5">
         <h2 style={H2}>Speaker &amp; character remap</h2>
-        <InfoDot
-          title="Speaker & character remap"
-          text="Imported dialogue arrives with whatever speaker label the source used — “RICK”, “Rick Blaine”, “Bogart”. This maps each label onto a real cast member across the whole title at once, and can then fill in the actor on every line from the cast. A title with no cast has nothing to map onto: look it up first."
-        />
+        <InfoDot title="Speaker & character remap" text="Imported dialogue arrives with whatever label the source used — RICK, Rick Blaine, Bogart. This maps each onto a real cast member across the title, then fills in the actor on every line. A title with no cast must be looked up first." />
       </div>
       <select className="tp-input w-auto" value={movieId} onChange={(e) => setMovieId(e.target.value)}>
         <option value="">— choose a title —</option>
@@ -1332,7 +1326,7 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>People</h2>
         {/* §4: the verbose "what this fetches" copy now lives in a tooltip. */}
-        <InfoDot text="Photos + reference pages (IMDb · TMDB · TheTVDB · Wikipedia · Open Library), matched to the right person — an author by the books they wrote, an actor from the film's cast, a director from the film's crew. Actor and director photos and links need a TMDB key (Settings); author photos are keyless." />
+        <InfoDot text="Photos and reference pages, matched to the right person — an author by their books, an actor or director from the film's credits. Actor and director photos need a TMDB key (Settings); author photos need none." />
         {!compact && <MonoLabel>{shown.length} shown</MonoLabel>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {[['author', 'Authors'], ['actor', 'Actors'], ['director', 'Directors'], ['speaker', 'Speakers']].map(([k, label]) => (

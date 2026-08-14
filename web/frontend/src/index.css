@@ -4337,6 +4337,28 @@ html[data-theme="dark"] .mobile-sheet-footer {
    keeps its ring, which is the case the ring was drawn for.
    Unlayered, so it wins over `.color-dot.active` in @layer components. */
 .cs-menu-btn .color-dot.active { outline: none; outline-offset: 0; }
+/* THE FRAMED TRIGGER — the selection bar's colour control (ColorMenu `framed`).
+   It has to be the same object as the buttons either side of it, so the classes come
+   from tp-btn/tp-btn-ghost in the JSX and only the SHAPE is set here. Restating the
+   ghost look in this rule would drift from it the first time the theme changes.
+   `border` is respecified because .cs-menu-btn above sets `border: none`, which wins
+   on source order over .tp-btn's own border. */
+.cs-menu-btn-framed {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  border: 1px solid var(--ink-border);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+/* Full opacity in here. On a card the dots sit at .65 so the chosen one can stand
+   out against the other five; in the bar there is only ever this one, so the
+   dimming had nothing to be dim against and just made it hard to see. */
+.cs-menu-btn-framed .color-dot { opacity: 1; }
+.cs-menu-btn-framed svg { width: 18px; height: 18px; }
 /* Fixed, and portalled to <body> — see ColorMenu in ui.jsx for why a card's
    own stacking context makes an absolutely-positioned list unliftable.
 
