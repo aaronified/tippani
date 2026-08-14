@@ -31,6 +31,31 @@ import (
 // embedded anonymously so the JSON stays flat, and colours, tags, notes,
 // favourites, stickers and the review dot all behave identically.
 
+// quoteCategories is what KIND of standalone quote a row is (0035), in the order
+// the screens are offered. Unlike annotationColors this is NOT append-only for a
+// schema reason — the CHECK is on one column of one table — but it is still a
+// migration to widen, so a fourth value is a schema change and not a code one.
+//
+// 'other' is last and is the default: it is the residual bucket, and a value a
+// client omitted has to land somewhere that claims nothing about the quote.
+var quoteCategories = []string{"proverb", "speech", "other"}
+
+func validQuoteCategory(c string) bool {
+	for _, v := range quoteCategories {
+		if c == v {
+			return true
+		}
+	}
+	return false
+}
+
+// quoteCategoryList is the human list for an error message, built from the set
+// for the reason colorList is — one place to forget when the set grows.
+func quoteCategoryList() string {
+	return strings.Join(quoteCategories[:len(quoteCategories)-1], ", ") +
+		" or " + quoteCategories[len(quoteCategories)-1]
+}
+
 // utteranceReq is quoteReq plus the occasion — this kind's locator.
 type utteranceReq struct {
 	quoteReq
@@ -39,6 +64,20 @@ type utteranceReq struct {
 	OccasionDate string `json:"occasion_date"` // PARTIAL: YYYY | YYYY-MM | YYYY-MM-DD
 	Place        string `json:"place"`
 	Medium       string `json:"medium"` // radio, speech, letter, interview, song
+	// 0035. Which of the three boards this quote lives on, and — for a line that
+	// is not in the reader's own language — what it says.
+	//
+	// Category is where you FILED it, not what it is, which is why it stays out of
+	// the dedupe hash: the same words filed as a proverb and as an other are one
+	// saved line somebody moved. See 0035's header for the full argument.
+	Category string `json:"category"` // "" -> "other"
+	// A plain language name ('Bengali'), not a BCP-47 tag, and free text rather
+	// than an enum — the set of languages is the reader's, not this schema's.
+	Language string `json:"language"`
+	// What the line says, when the words are not in a language the reader has.
+	// Uncapped, like Quote and Note: it is the same kind of content, and a
+	// translation is routinely longer than its original.
+	Translation string `json:"translation"`
 }
 
 // validate runs the shared rules, then this kind's own.
@@ -55,12 +94,25 @@ func (u *utteranceReq) validate() string {
 		{"occasion", &u.Occasion, 200},
 		{"place", &u.Place, 200},
 		{"medium", &u.Medium, 100},
+		{"language", &u.Language, 100},
 	} {
 		s, ok := trimCap(*f.v, f.max)
 		if !ok {
 			return f.name + " is too long"
 		}
 		*f.v = s
+	}
+	// Trimmed but not capped, for the reason on the field: it holds prose.
+	u.Translation = strings.TrimSpace(u.Translation)
+
+	// An omitted category is 'other' rather than a 400, matching the column
+	// default — an older client that has never heard of 0035 goes on saving
+	// quotes, and they land in the bucket that claims nothing.
+	if u.Category == "" {
+		u.Category = "other"
+	}
+	if !validQuoteCategory(u.Category) {
+		return "category must be " + quoteCategoryList()
 	}
 
 	// A quote with no words is not a quote by anything the word could mean. An
@@ -97,12 +149,19 @@ type utteranceRow struct {
 	OccasionDate string `json:"occasion_date"`
 	Place        string `json:"place"`
 	Medium       string `json:"medium"`
+	// 0035. On the LIST row as well as the single read, unlike book credits: the
+	// board a quote belongs on is what the client needs in order to draw the
+	// board at all, and the translation is on the card.
+	Category    string `json:"category"`
+	Language    string `json:"language"`
+	Translation string `json:"translation"`
 }
 
 // utteranceCols includes the LEFT-JOINed spaced-repetition state; every SELECT
 // using it must add utteranceReviewJoin.
 const utteranceCols = `u.id, u.quote, COALESCE(u.note, ''), u.color, u.favorite,
 	u.speaker, u.occasion, u.occasion_date, u.place, u.medium,
+	u.category, u.language, u.translation,
 	COALESCE(u.noted_at, ''), u.sticker_id, u.sticker_x, u.sticker_y, u.created_at, u.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
 	u.review_excluded`
@@ -113,6 +172,7 @@ func scanUtterance(sc interface{ Scan(...any) error }) (utteranceRow, error) {
 	var u utteranceRow
 	err := sc.Scan(&u.ID, &u.Quote, &u.Note, &u.Color, &u.Favorite,
 		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium,
+		&u.Category, &u.Language, &u.Translation,
 		&u.NotedAt, &u.StickerID, &u.StickerX, &u.StickerY, &u.CreatedAt, &u.UpdatedAt,
 		&u.Reviewed, &u.Stability, &u.LastReviewedAt, &u.LastResult, &u.ReviewExcluded)
 	u.Tags = []string{}
@@ -176,11 +236,13 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		INSERT INTO utterances (id, user_id, quote, note, color, favorite,
 		                        speaker, occasion, occasion_date, place, medium,
+		                        category, language, translation,
 		                        source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
 		ON CONFLICT DO NOTHING`,
 		id, uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
+		req.Category, req.Language, req.Translation,
 		req.Source, req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert utterance", err)
@@ -244,6 +306,23 @@ func (s *Server) handleListUtterances(w http.ResponseWriter, r *http.Request) {
 	args := []any{uid}
 	if v := strings.TrimSpace(r.URL.Query().Get("speaker")); v != "" {
 		q += ` AND u.speaker = ?`
+		args = append(args, v)
+	}
+	// 0035. ?category= is what makes the three boards three boards, so a bad value
+	// is a 400 rather than an empty list: a client asking for a category that does
+	// not exist has a bug, and an empty board hides it.
+	if v := strings.TrimSpace(r.URL.Query().Get("category")); v != "" {
+		if !validQuoteCategory(v) {
+			writeErr(w, http.StatusBadRequest, "category must be "+quoteCategoryList())
+			return
+		}
+		q += ` AND u.category = ?`
+		args = append(args, v)
+	}
+	// ?language= is free text and therefore NOT validated — the set is whatever
+	// has been typed, so an unknown value is legitimately an empty board.
+	if v := strings.TrimSpace(r.URL.Query().Get("language")); v != "" {
+		q += ` AND u.language = ?`
 		args = append(args, v)
 	}
 	if !colorFilter(w, r, "u", &q, &args) {
@@ -354,14 +433,20 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	// The hash is recomputed because editing the words or the occasion changes
 	// what this quote IS. source and noted_at are create-only — a capture's
 	// origin does not change when you fix a typo in it.
+	//
+	// Recategorising, by contrast, does NOT change the hash and must not: moving a
+	// line from Others to Proverbs is the same saved line under a different
+	// heading. See 0035.
 	res, err := tx.Exec(`
 		UPDATE utterances SET quote = ?, note = ?, color = ?, favorite = ?,
 		       speaker = ?, occasion = ?, occasion_date = ?, place = ?, medium = ?,
+		       category = ?, language = ?, translation = ?,
 		       dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?,
 		       updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
+		req.Category, req.Language, req.Translation,
 		req.hash(), req.StickerID, req.StickerX, req.StickerY, id, uid)
 	if err != nil {
 		internalError(w, r, "update utterance", err)

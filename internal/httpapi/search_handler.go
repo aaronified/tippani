@@ -73,6 +73,13 @@ type utteranceHit struct {
 	OccasionDate string `json:"occasion_date"`
 	Place        string `json:"place"`
 	Medium       string `json:"medium"`
+	// 0035. The category is on the HIT and not only on the list row, because a hit
+	// is a link: with three boards, "open this quote" needs to know which board it
+	// opens. Translation rides along because it is what matched — a result whose
+	// search term appears in nothing the card shows reads as a wrong result.
+	Category    string `json:"category"`
+	Language    string `json:"language"`
+	Translation string `json:"translation"`
 }
 
 type dialogueHit struct {
@@ -222,7 +229,8 @@ const (
 		COALESCE(m.media_type, 'movie')`
 	utteranceHitCols = `u.id, u.quote, COALESCE(u.note, ''), u.color,
 		COALESCE(u.speaker, ''), COALESCE(u.occasion, ''), COALESCE(u.occasion_date, ''),
-		COALESCE(u.place, ''), COALESCE(u.medium, '')`
+		COALESCE(u.place, ''), COALESCE(u.medium, ''),
+		u.category, u.language, u.translation`
 )
 
 func scanBookHit(rows *sql.Rows) (bookHit, error) {
@@ -255,7 +263,8 @@ func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 func scanUtteranceHit(rows *sql.Rows) (utteranceHit, error) {
 	var h utteranceHit
 	err := rows.Scan(&h.ID, &h.Quote, &h.Note, &h.Color, &h.Speaker, &h.Occasion,
-		&h.OccasionDate, &h.Place, &h.Medium)
+		&h.OccasionDate, &h.Place, &h.Medium,
+		&h.Category, &h.Language, &h.Translation)
 	return h, err
 }
 
@@ -885,10 +894,17 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if sc.utterances {
-			// Quote and occasion share one section, because for a standalone quote
-			// they are the two halves of the same thing: the words, and where they
-			// were said. There is no separate list of speeches to send them to the
-			// way a book title goes to Books.
+			// Quote, occasion and translation share one section, because for a
+			// standalone quote they are three halves of the same thing: the words,
+			// where they were said, and — for a line not in a language the reader
+			// has — what the words mean. There is no separate list of speeches to
+			// send them to the way a book title goes to Books.
+			//
+			// TRANSLATION IS IN THIS BUCKET AND NOT ITS OWN. Somebody searching a
+			// shelf of Bengali proverbs for "the thief's mother" is searching the
+			// English because the English is the half they can type, and the hit
+			// they want back is the proverb — not a "translations" section holding
+			// the same card under a second heading. See 0035.
 			//
 			// The user scope is on the row here (0026), not on a joined parent, so
 			// each of these three carries its own WHERE — a missing one is a
@@ -896,7 +912,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			hits, err := hitQuery(s, "utterances_fts", "quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
 				JOIN utterances u ON u.id = utterances_fts.rowid
 				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
-				scanUtteranceHit, search.ColumnPrefixQuery("quote occasion", qq), uid, limit)
+				scanUtteranceHit, search.ColumnPrefixQuery("quote occasion translation", qq), uid, limit)
 			if err != nil {
 				return 0, err
 			}
