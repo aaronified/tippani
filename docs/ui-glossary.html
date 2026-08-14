@@ -1331,6 +1331,39 @@
       </div>
 
       <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:16px">
+          <div class="cl-list" style="max-height:none">
+            <section class="cl-release">
+              <span class="cl-head" style="pointer-events:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 14.5 12 8.5l6 6"/></svg>
+                <span class="cl-version">1.12.0</span>
+                <span class="cl-date">2026-08-14</span>
+                <span class="cl-running">running</span>
+              </span>
+              <div class="cl-body">
+                <div class="cl-section">
+                  <span class="mono-label">Added</span>
+                  <ul>
+                    <li class="cl-entry"><p><b>A translator and an editor</b>, beside the author. Both live in <code>internal/changelog</code>.</p><p>And a second paragraph, under the same bullet.</p></li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+            <section class="cl-release">
+              <span class="cl-head" style="pointer-events:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9.5 12 15.5l6-6"/></svg>
+                <span class="cl-version">1.11.2</span>
+                <span class="cl-date">2026-08-14</span>
+              </span>
+            </section>
+          </div>
+        </div>
+        <div class="g-name">Changelog dialog <span class="g-tlabel">1.12.0</span></div>
+        <div class="g-src">ChangelogDialog / inlineMarkdown &mdash; Settings.jsx &middot; .cl-* &mdash; index.css &middot; internal/changelog</div>
+        <div class="g-desc"><b>Out of the binary, not off the internet.</b> The Updates card has always linked to GitHub's releases page, and that link stays &mdash; it answers &ldquo;what is in a version I have not installed&rdquo;. This answers the other question, &ldquo;what is in the one I am running&rdquo;, and answers it with no network at all. On the hardware this app is built for &mdash; a NAS on a LAN, behind Tailscale, sometimes genuinely offline &mdash; that is the difference between a dialog and an empty dialog. It is also the only version of this feature that keeps the promise stated in three places: <em>nothing external is required to run</em>.<br><br><b>The running build is marked</b>, which is the one thing the GitHub link cannot tell you. A build made outside a release says so in a line at the foot rather than silently marking nothing.<br><br><b>Only the newest is open.</b> Seventy releases expanded is a scroll bar with no landmarks in it, and the one people came for is at the top. The whole heading row is the fold's click target &mdash; a chevron alone is a 16px target on a 640px row &mdash; and the bullet is drawn by <code>::before</code> rather than <code>list-style</code>, so a two-paragraph entry keeps one mark at the top instead of a marker floating beside its middle.<br><br><b>Thirty lines of renderer, and it must not grow.</b> There is no markdown dependency in this frontend and no <code>dangerouslySetInnerHTML</code> anywhere in it. <code>inlineMarkdown</code> handles the three forms the file actually uses &mdash; bold, code, links &mdash; and shows anything else verbatim, which for a changelog is an honest failure: you see the asterisks. Links are refused unless they are http(s), by rule rather than by trust, because the rule costs a line. The multi-paragraph structure is preserved by the SERVER parser, since a naive line-splitter flattens a bullet's continuation paragraphs into it or drops them &mdash; silently, so the dialog just quietly says less than the file does.</div>
+      </div>
+
+      <div class="g-item wide">
         <div class="g-demo" style="display:block;padding:18px">
           <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:13.5px;color:var(--soft)">
             <span style="display:inline-flex;align-items:center;gap:6px">

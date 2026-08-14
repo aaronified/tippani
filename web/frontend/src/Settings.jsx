@@ -9,6 +9,7 @@ import {
   CloseButton,
   ConfirmDialog,
   ErrorText,
+  IconChevron,
   filterChipClass,
   frameCode,
   GhostButton,
@@ -584,6 +585,7 @@ function SRSettings({ user, onPreferences }) {
 // via a one-shot Watchtower), and otherwise shows the manual command to run.
 function UpdatesCard({ user, update, onUpdateInfo }) {
   const current = user?.version || 'dev'
+  const [logOpen, setLogOpen] = useState(false)
   const [info, setInfo] = useState(update || null) // check result (seeded from the shared session cache)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState('')
@@ -671,6 +673,11 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
               <GhostButton onClick={check} disabled={busy || phase === 'applying'}>
                 {busy ? 'Checking…' : 'Check for updates'}
               </GhostButton>
+              {/* Beside the check, not instead of the GitHub link above it: the
+                  link answers "what is in a version I have not installed", this
+                  answers "what is in the one I am running". Different questions,
+                  and only the second one works with the network off. */}
+              <GhostButton onClick={() => setLogOpen(true)}>Changelog</GhostButton>
               {info && !info.update_available && !info.check_error && (
                 <MonoLabel style={{ color: 'var(--ok)' }}>✓ up to date</MonoLabel>
               )}
@@ -743,7 +750,167 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
           </>
         )}
       </div>
+      {/* Mounted only while open: the history is a quarter of a megabyte of
+          markdown, and a card that fetched it on render would spend that on every
+          visit to Settings for a dialog nobody opened. */}
+      {logOpen && <ChangelogDialog current={current} onClose={() => setLogOpen(false)} />}
     </Card>
+  )
+}
+
+// ---- the changelog --------------------------------------------------------
+//
+// The release history the running binary was BUILT FROM, out of the binary. See
+// internal/changelog for why it is embedded rather than fetched: a changelog that
+// is blank on a LAN-only NAS is blank in exactly the situation this app is for.
+
+// MD_SPAN matches the three inline forms this file actually uses — **bold**,
+// `code` and [text](url) — in one pass, so the renderer below never has to
+// re-scan a string it has already split.
+//
+// This is deliberately NOT a markdown parser and must not grow into one. There is
+// no markdown dependency in this frontend and no dangerouslySetInnerHTML anywhere
+// in it; both would be a poor trade for a dialog opened twice a month. Anything
+// this does not recognise is shown verbatim, which for a changelog is a perfectly
+// honest failure — you see the asterisks.
+const MD_SPAN = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
+
+function inlineMarkdown(text) {
+  return text.split(MD_SPAN).map((part, i) => {
+    if (!part) return null
+    if (part.startsWith('**') && part.endsWith('**')) return <b key={i}>{part.slice(2, -2)}</b>
+    if (part.startsWith('`') && part.endsWith('`')) return <code key={i}>{part.slice(1, -1)}</code>
+    const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part)
+    if (link) {
+      // Only http(s). A changelog is trusted content — it ships inside the binary
+      // — but a link scheme is one of those things worth refusing by rule rather
+      // than by trust, since the rule costs a line and the trust costs an audit.
+      const href = /^https?:\/\//.test(link[2]) ? link[2] : null
+      return href ? (
+        <a key={i} className="tp-link" href={href} target="_blank" rel="noopener noreferrer">{link[1]}</a>
+      ) : (
+        <span key={i}>{link[1]}</span>
+      )
+    }
+    return <span key={i}>{part}</span>
+  })
+}
+
+// ChangelogEntry — one bullet, whose paragraphs the server kept together.
+function ChangelogEntry({ text }) {
+  return (
+    <li className="cl-entry">
+      {text.split('\n\n').map((para, i) => (
+        <p key={i}>{inlineMarkdown(para)}</p>
+      ))}
+    </li>
+  )
+}
+
+function ChangelogDialog({ current, onClose }) {
+  const mobile = useIsMobileScreen()
+  const [data, setData] = useState(null)
+  const [error, setError] = useState('')
+  // Only the newest is open on arrival. Seventy releases expanded is a scroll bar
+  // with no landmarks in it, and the one people came for is at the top anyway.
+  const [open, setOpen] = useState(() => new Set())
+
+  useEffect(() => {
+    json('GET', '/changelog').then((r) => {
+      if (!r.ok) return setError(errText(r, 'could not load the changelog'))
+      setData(r.data)
+      const first = r.data?.releases?.[0]?.version
+      if (first) setOpen(new Set([first]))
+    })
+  }, [])
+
+  const toggle = (v) =>
+    setOpen((prev) => {
+      const next = new Set(prev)
+      if (next.has(v)) next.delete(v)
+      else next.add(v)
+      return next
+    })
+
+  const body = error ? (
+    <ErrorText>{error}</ErrorText>
+  ) : !data ? (
+    <p className="microcopy">loading…</p>
+  ) : (
+    <div className="cl-list">
+      {data.releases.map((rel) => {
+        const isOpen = open.has(rel.version)
+        const running = rel.version === data.current
+        return (
+          <section key={rel.version} className={'cl-release' + (running ? ' is-running' : '')}>
+            <button
+              type="button"
+              className="cl-head"
+              aria-expanded={isOpen}
+              onClick={() => toggle(rel.version)}
+            >
+              <IconChevron open={isOpen} size={16} />
+              <span className="cl-version">{rel.version}</span>
+              {rel.date && <span className="cl-date">{rel.date}</span>}
+              {/* Which one you are actually running. The whole point of an
+                  in-app changelog over a link to GitHub is that it can say so. */}
+              {running && <span className="cl-running">running</span>}
+            </button>
+            {isOpen && (
+              <div className="cl-body">
+                {rel.sections.map((sec) => (
+                  <div key={sec.title} className="cl-section">
+                    <MonoLabel>{sec.title}</MonoLabel>
+                    <ul>
+                      {sec.entries.map((e, i) => (
+                        <ChangelogEntry key={i} text={e} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )
+      })}
+      {data.current_listed === false && (
+        <p className="microcopy" style={{ color: 'var(--faint)' }}>
+          You are running <b>{current}</b>, which is not one of the versions above — a build
+          made outside a release.
+        </p>
+      )}
+    </div>
+  )
+
+  if (mobile) {
+    return createPortal(
+      <MobileSheet open onClose={onClose} title="Changelog">
+        {body}
+      </MobileSheet>,
+      document.body,
+    )
+  }
+  return createPortal(
+    <div
+      className="tp-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-10"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Changelog"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="hand-card hc-r2 w-full" style={{ maxWidth: 640, padding: '18px 20px 20px' }}>
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="display-title flex-1" style={{ fontSize: 19 }}>Changelog</h2>
+          <Tooltip label="Close" side="bottom">
+            <CloseButton onClick={onClose} tooltip="Close the changelog" />
+          </Tooltip>
+        </div>
+        {body}
+      </div>
+    </div>,
+    document.body,
   )
 }
 

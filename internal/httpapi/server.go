@@ -172,6 +172,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/restore/upload", s.requireAdmin(s.handleRestoreUpload))
 	// Updates (admin): check GitHub for a newer release, and (Docker socket
 	// permitting) pull it and recreate this container in one click.
+	// The release history is READ-ONLY and public knowledge, so it is behind
+	// requireAuth rather than requireAdmin even though the button that opens it
+	// sits on the admin-only Updates card. See handleChangelog.
+	mux.Handle("GET /changelog", s.requireAuth(s.handleChangelog))
 	mux.Handle("GET /admin/update/check", s.requireAdmin(s.handleUpdateCheck))
 	mux.Handle("POST /admin/update/apply", s.requireAdmin(s.handleUpdateApply))
 

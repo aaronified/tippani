@@ -4289,6 +4289,26 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 <sub>1.12.0 — `internal/store/migrations/0034_book_credits.sql` · `internal/httpapi/people_handlers.go` · `internal/httpapi/portrait_handlers.go` · `internal/httpapi/import_staging.go` · `internal/httpapi/book_credits_test.go`</sub>
 
+### The changelog ships inside the binary rather than being fetched
+
+**Decided.** `internal/changelog` embeds a copy of `CHANGELOG.md`, parses it into releases → sections → entries, and `GET /changelog` serves it. A dialog on the Updates card shows it newest first, with the running build marked. Entries stay as markdown and the client renders the three inline spans by hand.
+
+**Why.** The request was "fetch it from git", and the shipped artifact cannot: the image is `distroless/static` with one binary in it, no git and no shell, `.git` and the docs are outside the build context, and the CSP has no `connect-src` so the browser cannot call GitHub either. The two real sources are the embedded file and GitHub's HTTP API.
+
+Embedded wins on the thing this app is actually for. The promise is stated in three places and is load-bearing — "zero background jobs", "nothing external is required to run", and §193's "Tippani never contacts the network on its own", whose own justification is that it is the honest reading of self-hosted. A changelog that is blank on a LAN-only NAS, behind a firewall, or after the update check has spent the hour's 60 unauthenticated GitHub requests is blank in exactly the situation the product optimises for. And a changelog is a fact about the binary you are RUNNING, not about the internet: the embedded copy answers that exactly, forever, offline. Notes for a version you have not installed are a different question, and the card already answers it with a link — which stays.
+
+**The copy is the cost, and the drift test is the price paid for it.** `//go:embed` cannot reach outside its package and there is no Go package at the repo root, so the canonical file cannot be embedded from `internal/changelog`. Two copies of anything is a drift surface and this repo already lost that fight once with `web/dist`. So the alarm shipped in the same commit as the copy: a test reads `../../CHANGELOG.md` and fails with the fix in its message, `make changelog` does the copy, and the release checklist gained a step.
+
+**Parsed in Go, rendered in React.** The structure — where a release starts, which section a bullet is in, and crucially which continuation paragraphs belong to which bullet — is done server-side, because a naive line-splitter flattens or drops those paragraphs and the failure is silent. The inline spans are done client-side in thirty lines, because there is no markdown dependency in this frontend and no `dangerouslySetInnerHTML` anywhere in it, and adding either for a dialog opened twice a month is a poor trade. Anything the renderer does not know is shown verbatim: for a changelog that is honest, you just see the asterisks.
+
+**Not admin-gated**, though the button is on the admin-only Updates card. Release history is published on the internet; gating the endpoint would stop a second user on the same instance ever being shown what changed.
+
+**Instead of.** Proxying GitHub's `/releases` (elegant — `release.yml` already puts each version's section in the release body, so it arrives pre-split — but empty offline, and it widens a claim the docs make). Shelling out to git (impossible in the image). A markdown library in the frontend (a dependency and an HTML-injection surface for one dialog).
+
+**Approved.** The reader chose embedded, having been shown that "from git" is not literally possible in the shipped artifact and what each real source costs.
+
+<sub>1.12.0 — `internal/changelog/changelog.go` · `internal/httpapi/changelog_handlers.go` · `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/changelog-dialog.test.jsx`</sub>
+
 ## 15. Appearance as Material: Skins, Texture, Type and Colour
 
 The look is not decoration sitting on top of the app; it is a set of decisions with

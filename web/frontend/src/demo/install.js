@@ -713,6 +713,31 @@ export function route(method, path, params, body) {
     case path === '/auth/status': return [200, { needs_onboarding: false }]
     case path === '/admin/update/check':
       return [200, { current: 'demo', image: 'ghcr.io/aaronified/tippani', socket: false, can_self_update: false, update_available: false, guided_command: 'docker compose up -d --pull always --force-recreate' }]
+    // The demo has no backend, so a missed case here shows an empty dialog on the
+    // published Pages build rather than failing loudly. Three releases is enough
+    // to show the shape: newest first, the running one marked, the rest folded.
+    case path === '/changelog':
+      return [200, {
+        current: 'demo',
+        current_listed: false,
+        releases: [
+          {
+            version: '1.12.0', date: '2026-08-14',
+            sections: [
+              { title: 'Added', entries: ['**A translator and an editor**, beside the author. Both are real people \u2014 portrait, life, links, their own page.'] },
+              { title: 'Changed', entries: ['The bar a selection puts up is **three glyphs and a `\u22ef`**, instead of eleven words.'] },
+            ],
+          },
+          {
+            version: '1.11.2', date: '2026-08-14',
+            sections: [{ title: 'Fixed', entries: ['Making a backup no longer downloads it.'] }],
+          },
+          {
+            version: '1.11.1', date: '2026-08-13',
+            sections: [{ title: 'Changed', entries: ['A long press now means three different things, decided by what is under your thumb.'] }],
+          },
+        ],
+      }]
     case path === '/review/daily': return [200, reviewDeck()]
     case path === '/review/practice': return [200, practiceDeck()]
     case path === '/review/scores': return [200, reviewScores()]

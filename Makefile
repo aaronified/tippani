@@ -4,7 +4,7 @@ BINARY  := bin/tippani
 VERSION ?= dev
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION)
 
-.PHONY: build frontend test run clean
+.PHONY: build frontend changelog test run clean
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -13,6 +13,12 @@ build:
 ## frontend: build the SPA into web/dist (needs Node on the DEV machine only)
 frontend:
 	cd web/frontend && npm install && npm run build
+
+## changelog: refresh the copy the binary embeds (//go:embed cannot reach the
+## repo root, so the app shows internal/changelog/CHANGELOG.md — a drift test
+## fails the build when it falls behind the real one)
+changelog:
+	cp CHANGELOG.md internal/changelog/CHANGELOG.md
 
 test:
 	go test ./...

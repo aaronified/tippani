@@ -164,6 +164,7 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 | `internal/auth/` | Password hashing, cookie sessions, bearer device tokens, and the login rate limiter. |
 | `internal/olog/` | Operational logging, and the registry of stable `TIP-*` operator codes. |
 | `internal/updater/` | The in-app self-update: the GitHub release check, and the Docker Engine calls that pull and recreate. |
+| `internal/changelog/` | The release history, embedded and parsed. Holds a **copy** of the root `CHANGELOG.md` because `//go:embed` cannot reach outside its own package; a drift test fails when the two differ. |
 | `internal/buildinfo/` | The running build's identity — version from ldflags, plus the repo and image the update check queries. Three constants a fork overrides. |
 
 #### `internal/httpapi/` — the convention, then the files that carry rules
@@ -662,8 +663,14 @@ Releases are tag-driven. There is no version constant to bump: it is stamped fro
 1. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`. Match the
    house style of the entries above it: the user-visible symptom first, then the
    reasoning, then what was rejected.
-2. Commit as `chore(release): X.Y.Z`.
-3. Tag and push — **the tag by name, never `--tags`**:
+2. Copy it into the binary: `cp CHANGELOG.md internal/changelog/CHANGELOG.md`.
+   The app shows the EMBEDDED copy (`//go:embed` cannot reach the repo root), so a
+   release that skips this ships the previous version's notes to everyone who opens
+   Settings → Changelog. `make changelog` does it, and the drift test in
+   `internal/changelog` fails the build if you forget — this step is the reminder,
+   not the guarantee.
+3. Commit as `chore(release): X.Y.Z`.
+4. Tag and push — **the tag by name, never `--tags`**:
 
    ```bash
    git tag vX.Y.Z
@@ -677,7 +684,7 @@ Releases are tag-driven. There is no version constant to bump: it is stamped fro
    alongside the one I meant. That is not hypothetical: on 2026-08-09 an orphaned
    `v1.3.0` went up beside `v1.7.2`, built more slowly, finished second, and took
    `:latest` with it. Naming the tag pushes exactly one thing.
-4. Watch it land: `gh run list --limit 5`, and check the release page and the GHCR tags.
+5. Watch it land: `gh run list --limit 5`, and check the release page and the GHCR tags.
 
 `release.yml` cuts the GitHub Release using that version's changelog section as the notes,
 and `docker-publish.yml` builds and pushes the GHCR image on the same tag. Both are also

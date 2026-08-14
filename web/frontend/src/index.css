@@ -4018,6 +4018,68 @@ html[data-theme="dark"] .mobile-sheet-footer {
   right: 1px;
 }
 
+/* ---- the changelog dialog (1.12.0) ----
+   Seventy releases in one scroller, so the release HEADINGS are the landmarks
+   and everything else is quiet. Each heading is the full-width click target for
+   its own fold — a chevron alone is a 16px target for a row that is 640px wide. */
+.cl-list { display: flex; flex-direction: column; max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
+.cl-release { border-top: 1px solid var(--line); }
+.cl-release:first-child { border-top: 0; }
+.cl-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 2px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+}
+.cl-head:hover .cl-version { color: var(--accent-ui); }
+.cl-version { font-family: var(--font-mono), monospace; font-weight: 600; font-size: 13.5px; }
+.cl-date { font-family: var(--font-mono), monospace; font-size: 10.5px; color: var(--faint); }
+/* The build in front of you. The whole reason an in-app changelog beats a link
+   to the releases page is that it can say which one you are on. */
+.cl-running {
+  margin-left: auto;
+  font-family: var(--font-mono), monospace;
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent-ui);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.cl-body { padding: 2px 2px 14px 24px; }
+.cl-section + .cl-section { margin-top: 12px; }
+.cl-section ul { margin: 5px 0 0; padding: 0; list-style: none; }
+.cl-entry {
+  position: relative;
+  padding-left: 14px;
+  margin-top: 7px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--soft);
+}
+/* A drawn bullet rather than list-style, so a multi-paragraph entry keeps ONE
+   mark at the top instead of the marker floating beside the middle of it. */
+.cl-entry::before { content: "2"; position: absolute; left: 2px; top: 0; color: var(--faint); }
+.cl-entry p { margin: 0; }
+.cl-entry p + p { margin-top: 7px; }
+.cl-entry b { color: var(--ink); font-weight: 600; }
+.cl-entry code {
+  font-family: var(--font-mono), monospace;
+  font-size: 11.5px;
+  background: var(--card-2, rgba(128,128,128,.12));
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+/* A full-screen sheet IS the screen, so it scrolls itself. */
+.mobile-sheet .cl-list { max-height: none; overflow: visible; }
+
 /* ---- Stats timeline ------------------------------------------------------
    A band of stacked bars, one per bucket. The width rule is entirely CSS: a
    minimum bar width plus a sideways scroller IS "show as many as are legible

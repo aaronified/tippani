@@ -70,6 +70,9 @@ var apiFeatures = []string{
 	"metadata-fill", // POST /metadata/fill
 	// A selection can be sealed or unsealed at once. 0 clears.
 	"bulk-sticker", // `sticker_id` on the three quote bulk bodies
+	// The release history, served from the binary rather than from GitHub. A client
+	// that knows this string can show what changed without a network.
+	"changelog", // GET /changelog
 	// The other two people a book is by. Named as one feature rather than two
 	// because they arrived together and no client would sensibly support one:
 	// `translator`/`editor` on the book shape, and both accepted wherever a person

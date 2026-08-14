@@ -284,6 +284,15 @@ What that honestly does not cover:
   declare the table list and write down, in the migration, why the obvious
   approach is wrong — because the next person to touch it will reach for the FK
   walk for exactly the same good reasons.
+- **A feature request names a mechanism; the thing worth building is the need
+  underneath it.** "Show the changelog by fetching it from git" cannot be done by
+  the shipped artifact at all — the image is distroless, there is no git and no
+  shell in it, the docs are outside the build context, and the CSP stops the
+  browser calling GitHub. Taking the mechanism literally leads to a dead end;
+  taking the NEED — "stop sending me to a website to find out what changed" —
+  leads to embedding the file, which is better on the hardware this runs on
+  because it also works with the network off. Worth saying out loud to whoever
+  asked, though, rather than quietly building something else.
 - **"No importer can fill this column" is not a reason to leave it out of the
   import path.** Adding a translator to books made the staging queue look
   irrelevant: no third-party format carries one, so a column on the approval queue
