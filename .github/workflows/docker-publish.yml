@@ -14,6 +14,16 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # A native build of this image takes 2-3 minutes. Without a cap the job
+    # inherits GitHub's 360-minute default, and on 2026-08-14 that is what a
+    # broken build actually did: an unpinned frontend stage started building
+    # under QEMU, sat at "Build and push" with no progress output for half an
+    # hour, and had five and a half hours of runner time left to burn on both
+    # the main and the tag build at once. There was no way to tell a slow build
+    # from a hung one. 30 minutes is ~10x the real cost, so anything that trips
+    # it is a fault rather than a busy runner, and it fails while somebody is
+    # still watching.
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
