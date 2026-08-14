@@ -4262,6 +4262,84 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 <sub>1.12.0 — `web/frontend/src/StatsPage.jsx` · `web/frontend/src/index.css` · `web/frontend/test/pure/timeline-gaps.test.js`</sub>
 
+### The Quotes page splits three ways, on one tab rather than three
+
+**Decided.** Migration 0035 gives a standalone quote a `category` (proverb · speech · other), a `language` and an optional `translation`. The Quotes page becomes three boards behind a segmented control, keeping its single nav tab and its `/quotes` URL. `api_revision` 5, features `quote-categories` and `proverb-starters`.
+
+**Why.** 0026 built one table for "a line from a speech, a letter, an interview, a song, a proverb, something a friend said" and one board to show them in. That is right for one kind of thing and wrong for three: a proverb has no speaker, no occasion, no date and no place, so it lands in the residual bucket of every grouping the screen offers, and a shelf of proverbs sits mixed into a shelf of speeches with nothing to tell them apart.
+
+**One tab, not three, and the phone decided it.** Three top-level tabs was the first plan, and `routes.test.js` asserts `BOTTOM_TABS` equals `CONTENT_TABS` — an invariant that exists because 1.5.0 shipped Quotes missing from the drawer. So three boards as tabs necessarily means six glyphs in the phone's bottom bar, about 52px each at 360px. The reader rejected it in those terms. A segmented control inside the page costs no nav surface, no new URLs and no routing, and every bookmark, the drawer, the ＋ and the PWA shortcut keep working.
+
+**The default is `other`, and that is a migration decision rather than a UI one.** It is the column default 0035 chose over guessing from `medium`, so the board opens showing an existing library exactly what it showed before the split. Promoting anything whose medium says "speech" would reclassify somebody's library on upgrade, silently, with no way to see what it moved.
+
+**None of the three folds into the dedupe hash.** The occasion is part of what a quote IS — the same words on two occasions are two quotes, which is 0026's own inversion of the usual rule — while the category is where you decided to file it. A line moved from Others to Proverbs is one saved line under a different heading. The cost settles it either way: the hash is a SHA computed in Go, so folding category in would stale every hash on disk and need a Migrate-time backfill over `utterances` and `staged_quotes` plus four call-site changes, one of them the rehash that runs after a speaker rename.
+
+**`translation` is indexed; `category` and `language` are not.** Somebody searching a shelf of Bengali proverbs types the English, because the English is the half they can type. The other two are filter values rather than prose — indexing them would let a search for "proverb" return every proverb, above the quote actually about proverbs.
+
+**`?category=` is validated and `?language=` is not**, which reads like an inconsistency and is the point: the three categories are a closed set, so asking for a fourth is a client bug an empty board would hide, whereas the set of languages is the reader's and an unknown one is legitimately empty.
+
+**The silent-loss site, found before it shipped.** `utteranceState` builds a full-state PUT and feeds the ♥, the colour dots and the selection bar. Without the three new fields in it, recolouring a Bengali proverb would have cleared its category, its language and its English, with a successful save and no error — the identical trap 1.12.0 records catching `translator` on `bookState`. Four tests hold that object shut, asserted field by field.
+
+**Instead of.** Three nav tabs (above). A free-text "kind" field (unfilterable, unsplittable). Reusing `medium` (it answers a different question, and a proverb has no medium).
+
+**Approved.** The reader's, including the correction from three tabs to one page after being shown what six bottom-bar buttons would cost.
+
+<sub>1.13.0 — `internal/store/migrations/0035_quote_categories.sql` · `internal/httpapi/utterance_handlers.go` · `internal/httpapi/seed_proverbs.go` · `web/frontend/src/Quotes.jsx` · `web/frontend/test/pure/remap-labels.test.js`</sub>
+
+### Starter proverbs are opt-in, per language, and that is the whole design
+
+**Decided.** Thirty curated proverbs ship in the binary — ten Bengali, ten Hindi, ten English — behind `GET`/`POST /quotes/starters`. They are written only when asked for, one language at a time, from an offer that appears on an empty Proverbs board.
+
+**Why the restraint is the feature.** Every other seeder here — `seedDefaultStickers`, the starter tags — has a boot hook, a backfill for existing accounts and a settings flag marking the one-shot done. This has none of the three, deliberately. A starter sticker is a TOOL: five marks to put beside a line, and handing them to everyone costs nothing because nobody's library is a library of stickers. A proverb is CONTENT. Putting thirty lines somebody never chose into a collection they have kept for a year is not a friendly default, it is the app writing in their book — and the Bengali board then opens onto a shelf that is entirely mine and none of theirs.
+
+**Idempotent through the ordinary dedupe hash, not a flag.** They are plain `utterances` rows, so asking twice adds nothing and the count says "already there" rather than implying a second copy. The consequence is written down rather than left to be discovered: a starter proverb you deleted comes back if you ask for that language again, which is the honest behaviour for a button that says "add the Bengali ten" and is only ever reachable by asking.
+
+**Every seeded line is unattributed, and that is enforced.** A proverb with an author is somebody's aphorism, and the review deck reads exactly that absence — no speaker and no occasion — to keep these out of the quiz, where there would be nothing to recall but the words on the card. A test refuses any curated line shaped like a byline, and another refuses a set that is not ten distinct non-empty lines with an English translation on everything not already English.
+
+**The offer is served, not hardcoded.** The count on the button and the set that actually lands would otherwise be two lists to keep in step, and the one that drifts is the one nobody tests.
+
+**Instead of.** Seeding on signup (content nobody chose). Seeding all three languages at once (asking for Bengali is not asking for Hindi). Shipping them as a Markdown file to import (an import is staged, reviewed and approved — three steps for a button).
+
+**Approved.** The reader chose opt-in per language over both a signup seed and a single all-languages button.
+
+<sub>1.13.0 — `internal/httpapi/seed_proverbs.go` · `internal/httpapi/seed_proverbs_test.go` · `web/frontend/src/Quotes.jsx`</sub>
+
+### One control family, so "Button labels" governs the whole app
+
+**Decided.** `IconButton` and `MoreMenu` take an optional `label` and render the same `.btn-icon` + `.btn-label` pair `Button` does. The selection bar's actions carry their words, and its count became a button whose glyph is the number and whose label is "Deselect all".
+
+**Why.** The setting claimed to govern the app and governed a minority. Controls split into two families and membership was accidental: `Button`, `StickerButton`, `FilmButton` and `FilterChip` emit the span the stylesheet clips; `IconButton`, `MoreMenu`, `CloseButton` and an icon-less `GhostButton` emit no span at all, so there was nothing for Show to reveal and nothing for Hide to clip. Counted: 31 of ~123 primitive uses honoured the preference, 78 could not, and 213 raw `<button>` elements bypass every primitive — 44 of them inside `ui.jsx`. The selection bar was built entirely from the family that cannot, which is the row with the least room and the one where the preference matters most.
+
+**No new CSS was needed, and that is the sign the seam was already right.** `.btn-label` is deliberately not scoped to `.tp-btn` — that is what lets another control opt in — and `.tp-btn.has-btn-icon` squares back to the same 44px `IconButton` uses unlabelled, so a labelled row lines up with an unlabelled one. The label is opt-in, so all 25 existing uses are byte-identical.
+
+**The count is the control.** A sentence saying "12 books selected" beside a worded `Deselect all` was one idea drawn twice, on the bar least able to afford either. Merging them also separated the two that were adjacent: `Deselect all` and `✕` side by side read as the same control twice, and the one that ends the mode is the one you reach for by accident.
+
+**Zero is spoken rather than shown.** The badge reads `0`, dimmed and disabled, and its accessible name is "no books selected". The older rule — that a zero in a count reads as something having gone wrong — still holds for a bare number in prose, but the reason has to live where it survives the words being clipped.
+
+**The test pins the mechanism, not the appearance.** Whether a word is visible is CSS and a preference, neither of which jsdom can see, so the assertion is that the word is in the span the stylesheet clips, on a button carrying the class that squares it. The `⋯` is asserted to have no label: "More" beside three dots is the same thing said twice.
+
+**Not done here.** The remaining ~75 non-participating controls and the 213 raw `<button>` elements. Named as a known gap rather than left implied.
+
+**Approved.** The reader chose one family over fixing the selection bar alone, having been shown the count.
+
+<sub>1.13.0 — `web/frontend/src/ui.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/test/dom/selection-bar.test.jsx`</sub>
+
+### Info dots are what the control does plus one consequence, and it is enforced
+
+**Decided.** An info dot's copy is capped at 240 characters and three sentences per branch, checked by `test/pure/infodot-copy.test.js`. Seventeen were rewritten; the longest went from 988 characters to 281.
+
+**Why.** The five-word rule works — of 162 tooltip labels only five exceed it, each by one word — but it has an unbounded consequence nobody had noticed: longer copy was told to go and live in an info dot, and nothing ever constrained an info dot. They grew to 400, 700, nearly a thousand characters, and what filled them was consistently RATIONALE rather than instruction. One spent 680 characters on a switch whose behaviour takes 90.
+
+**That reasoning already has a home — this file.** `docs/PLAN.md` exists to hold it at whatever length it needs. A popover attached to a control is not that place: it is read once, standing up, while the reader is deciding whether to press the thing.
+
+**Mechanical, like the icon-geometry check, because "is this line necessary" is a judgement that quietly stops being made once nothing checks it.** Measured per BRANCH so a ternary whose book and film cases differ is not penalised for doing the right thing, and the suite asserts it found more than 25 dots — an extraction that silently matched nothing would turn the whole file into a no-op reporting success. It caught one of the rewrites at four sentences.
+
+**Instead of.** Tightening the prose without removing any line (the padding IS the rationale, so it would not have fixed the feel). One sentence, hard stop (a few genuinely load-bearing warnings, like the password doubling as the backup key, would have had to move to the help screen rather than vanish).
+
+**Approved.** The reader's, in the form "every line must pass a rigour test — is it absolutely necessary for the understanding?"
+
+<sub>1.13.0 — `web/frontend/test/pure/infodot-copy.test.js` · `web/frontend/src/share.jsx` · `web/frontend/src/Account.jsx` · `web/frontend/src/Settings.jsx`</sub>
+
 ### A book has three credits, and the other two are people rather than strings
 
 **Decided.** Migration 0034 adds `translator` and `editor` to `books` (and to `staged_works`). Both are `people` kinds alongside author, actor, director and speaker, so they carry portraits, bios, links, renames and the orphan sweep. They appear on the book's own page, role-labelled `tr.` and `ed.`, and on no other screen. `api_revision` 4, feature `book-credits`.

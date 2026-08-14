@@ -5,6 +5,134 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-08-14
+
+### Added
+
+- **A quote knows what kind it is, and the Quotes page is three boards instead of
+  one.** Proverbs, Speeches, Others, switched by a segmented control at the top. 0026
+  built one table for "a line from a speech, a letter, an interview, a song, a
+  proverb, something a friend said", and one board to show them all in. That is right
+  for one kind of thing and wrong for three: a proverb has no speaker, no occasion, no
+  date and no place, so it fell into the residual bucket of every grouping the screen
+  offered, and a shelf of proverbs sat mixed into a shelf of speeches with nothing to
+  tell them apart.
+
+  **One page, not three tabs.** Three top-level tabs was the first plan and it is
+  wrong on a phone: the bottom bar holds four content screens, and splitting one into
+  three puts six glyphs on a row a thumb has to hit, at about 52px each. Quotes keeps
+  its tab and its URL, so every bookmark, the drawer, the plus button and the
+  installed app's shortcut are untouched.
+
+  **Nobody's shelf moves on upgrade.** The board opens on Others, which is what every
+  quote already in a library IS — the migration set that default rather than guessing a
+  category from `medium`, because promoting anything whose medium says "speech"
+  reclassifies somebody's library silently, with no way to see what it moved.
+
+- **Thirty proverbs in the box — ten Bengali, ten Hindi, ten English — and none of
+  them arrive uninvited.** A Proverbs board on a library that has never filed one is an
+  empty screen with a plus on it: a feature you have to go and think of ten proverbs
+  for before you can see what it does. Speeches and Others fill up from the same
+  capture flow as everything else; nobody sits down and types in proverbs.
+
+  So the offer sits on an empty board, names the language, and does nothing until it is
+  asked. **This is deliberately unlike every other seeder here.** The starter stickers
+  have a boot hook, a backfill and a settings flag; this has none of the three, because
+  a sticker is a TOOL and a proverb is CONTENT. Putting thirty lines somebody never
+  chose into a collection they have kept for a year is not a friendly default, it is
+  the app writing in their book — and the Bengali board would then open onto a shelf
+  that is entirely mine and none of theirs. Asking for Bengali is not asking for Hindi.
+
+  Asking twice adds nothing and says so. The consequence, stated rather than left to be
+  discovered: a starter proverb you deleted comes back if you ask for that language
+  again, which is the honest behaviour for a button that says "add the Bengali ten".
+
+- **What a line says, for the ones not in a language you have.** An optional English
+  translation, shown on the card in the reading face rather than in the mono strip
+  beside the date — it is prose, the same words in another language, not another
+  locator. It is searchable too, and lands in the same results section as the quote:
+  somebody searching a shelf of Bengali proverbs types the English, because the English
+  is the half they can type, and what they want back is the proverb, not a second
+  heading holding the same card.
+
+### Fixed
+
+- **"Button labels: Show" did nothing to the selection bar, and Hide did nothing
+  either.** Reported as three separate faults; it was one, and structural. The app's
+  controls split into two families and membership was accidental: `Button`,
+  `StickerButton` and `FilterChip` render their words in the span the stylesheet clips,
+  while `IconButton`, `MoreMenu`, `CloseButton` and an unadorned `GhostButton` render
+  no such span at all. Counted across the app, 31 of about 123 primitive uses honoured
+  the preference and 78 could not. The selection bar was built entirely from the family
+  that cannot — the row with the least room, where the setting matters most, was the one
+  outside it.
+
+  Both primitives take a label now and render the same two spans, so the existing
+  collapse rule does all of it and no new CSS was needed. **The count became the
+  control:** the number sits in a real button's glyph slot wearing the same round
+  border as its neighbours, tapping it clears the picks, and its word collapses on a
+  phone. That merged two items into one — a sentence saying how many and a worded button
+  undoing it were one idea drawn twice — and separated the two that were adjacent,
+  because "Deselect all" beside the close mark reads as the same control twice, and the
+  one that ends the mode is the one you hit by accident.
+
+- **The colour picker in that bar was close to invisible.** Two reasons, both real: it
+  is drawn borderless, which is right on a card where it sits among dots and wrong in a
+  row of bordered circles; and a selection of forty quotes has no one current colour,
+  so it rendered an EMPTY dot at 65% opacity — a faint grey ring on a faint background.
+  It wears the button frame now and shows the palette mark.
+
+- **8 and 0 were the same shape on the stats timeline.** The year markers inside a long
+  gap were mono at 9px in the faintest ink: Plex Mono draws 0 as a plain oval and 8 as
+  a narrow-waisted figure of the same width, and at that size the waist and the counter
+  both close up. These are years — a misread digit moves the landmark by eight
+  centuries, which is worse than having no marker at all. The face was the fix, and
+  mono was buying nothing: each marker is centred on its own year, so there is no
+  column for tabular figures to line up with.
+
+- **A very wide gap on that timeline had one small sentence adrift in it.** The gap
+  keeps the true width of the columns it replaces — that is the whole reason it is not
+  collapsed to a neat band — so two millennia is over a thousand pixels, and the longest
+  line available is about 120 characters. It carries up to three now, each sized to its
+  own share and none repeated.
+
+- **The tooltips had grown into essays.** The five-word rule keeps every label short
+  and it works: of 162 labels only five exceed it, each by one word. But it had an
+  unbounded consequence — longer copy was told to go and live in an info dot, and
+  nothing ever constrained an info dot. They reached 400, 700, nearly a thousand
+  characters, and what filled them was reasoning rather than instruction; one spent 680
+  characters on a switch whose behaviour takes 90. Seventeen are rewritten to what the
+  control does plus at most one consequence worth knowing. The reasoning has a home
+  already, and a popover read standing up while deciding whether to press something is
+  not it.
+
+- **The speaker remap offered ensembles.** A line spoken by two characters is stored as
+  "V, Evey", and the screen asked you to map that whole string onto a single cast
+  member. It could not have worked either: the server compared the entire stored label,
+  so a mapping for "V" matched nothing and reported success having changed no rows.
+  Individuals are listed now, counted by the lines they appear in, and an ensemble is
+  rewritten in place so separators and co-credits survive exactly. The actor is spliced
+  at the matching position, and left alone when the two lists do not line up — imported
+  rows often carry a different number of actors than characters, and pairing the wrong
+  one would be invisible and read as your own data.
+
+### API
+
+- `api_revision` 5. `category` (proverb, speech, other), `language` and `translation`
+  on the quote shape, on the single read and **on the list row** — unlike the book
+  credits added in 1.12.0, because the category IS the board and a client cannot draw
+  the board without it. `?category=` and `?language=` filters, both carried through the
+  Markdown round trip and the staging queue. New: `GET`/`POST /quotes/starters`.
+  Features named: `quote-categories`, `proverb-starters`.
+
+- Recategorising does not change a quote's dedupe hash, and must not: the occasion is
+  part of what a quote IS, while the category is where you decided to file it, so a
+  line moved from Others to Proverbs is one saved line under a different heading rather
+  than a second row.
+
+- An unknown category is refused **at staging**, where a mistake in a file is still
+  cheap to fix, rather than becoming a failed write after the import has been approved.
+
 ## [1.12.1] - 2026-08-14
 
 ### Fixed

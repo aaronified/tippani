@@ -137,8 +137,17 @@ of that are spelled out in [`AI.md`](AI.md).
   point back at their source. **A show's lines also carry the episode** — a timestamp is the whole
   answer for a film and no answer at all for a series — so they read as *S2E6* and sort through the
   run rather than by the clock alone. Season 0 is a real season, so your specials keep their place.
-- 💬 **Quotes from anywhere else** — a line from a speech, a letter, an interview, a song, a
-  proverb, something a friend said. The third kind of quote, and the first with no work behind it:
+- 💬 **Quotes from anywhere else, on three boards** — a line from a speech, a letter, an interview,
+  a song, a proverb, something a friend said. **Proverbs · Speeches · Others**, switched at the top
+  of the one Quotes page: a proverb has no speaker, no occasion, no date and no place, so on a
+  single board it fell into the residual bucket of every grouping the screen offered and sat mixed
+  in with the speeches. A proverb can carry the **language** it belongs to and an **English
+  translation**, and the translation is searchable — you search the English because the English is
+  the half you can type. **Thirty curated proverbs** come in the box, ten each in Bengali, Hindi and
+  English, and none of them arrive uninvited: the offer sits on an empty Proverbs board, names the
+  language, and does nothing until you ask. A proverb is content, not furniture, and a library you
+  have kept for a year should not acquire thirty lines you never chose.
+  The third kind of quote, and the first with no work behind it:
   instead of a chapter and a page it carries the **occasion** — who said it, on what occasion, when,
   where, and through what medium. The occasion is also the locator, and unlike a page number it
   **tells two quotes apart**: the same words said on two occasions are two quotes, not one. A quote
