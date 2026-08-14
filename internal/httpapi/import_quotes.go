@@ -86,6 +86,28 @@ func (s *Server) stageQuotesFile(w http.ResponseWriter, r *http.Request, source,
 	})
 }
 
+// importCategory normalises a file's `category` binding into one of the three
+// (0035), or refuses it.
+//
+// Empty is 'other', not an error: a file written before the boards existed named
+// no category, and every line in it goes on meaning exactly what it meant. Case
+// is folded because a file is hand-written as often as it is exported, and
+// "Proverb" is the same answer as "proverb".
+//
+// An unknown value IS refused, and the refusal is an importClientError so it
+// reaches the person as a 400 naming the bad word rather than as a 500 from the
+// CHECK three steps later.
+func importCategory(raw string) (string, error) {
+	c := strings.ToLower(strings.TrimSpace(raw))
+	if c == "" {
+		return "other", nil
+	}
+	if !validQuoteCategory(c) {
+		return "", importClientError{fmt.Sprintf("invalid category %q (expected %s)", raw, quoteCategoryList())}
+	}
+	return c, nil
+}
+
 // stageQuotesWork creates (or reuses) the batch's one synthetic group.
 func stageQuotesWork(tx *sql.Tx, batchID int64) (int64, error) {
 	var id int64
@@ -121,8 +143,9 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, color, favorite, tags, noted_at,
-		   speaker, occasion, occasion_date, place, medium, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   speaker, occasion, occasion_date, place, medium,
+		   category, language, translation, dedupe_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -131,6 +154,14 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		}
 		if !validColor(color) {
 			return 0, importClientError{fmt.Sprintf("invalid color %q", color)}
+		}
+		// 0035. Refused HERE rather than at approval, and that is the point of
+		// checking it at all: a file naming a category that does not exist is a
+		// mistake in the file, and the queue is where a mistake in the file is
+		// still cheap to fix. Approving it later would be a 500 from the CHECK.
+		category, err := importCategory(u.Category)
+		if err != nil {
+			return 0, err
 		}
 		text := u.Quote
 		if text == "" {
@@ -141,6 +172,7 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			joinTags(u.Tags), nullable(u.NotedAt),
 			strings.TrimSpace(u.Speaker), strings.TrimSpace(u.Occasion),
 			strings.TrimSpace(u.OccasionDate), strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
+			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
 			hash)
 		if err != nil {
 			return 0, err
@@ -176,6 +208,10 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		if !validColor(color) {
 			return added, importClientError{fmt.Sprintf("invalid color %q", color)}
 		}
+		category, err := importCategory(u.Category)
+		if err != nil {
+			return added, err
+		}
 		occDate := strings.TrimSpace(u.OccasionDate)
 		if occDate != "" {
 			if msg := normalizePartialDate("occasion date", &occDate); msg != "" {
@@ -202,11 +238,12 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
 			  (id, user_id, quote, note, color, favorite, speaker, occasion, occasion_date,
-			   place, medium, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
+			   place, medium, category, language, translation, source, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
 			id, uid, strings.TrimSpace(u.Quote), nullable(u.Note), color, u.Favorite,
 			speaker, occasion, occDate,
 			strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
+			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
 			hash, nullable(u.NotedAt))
 		if err != nil {
 			return added, err

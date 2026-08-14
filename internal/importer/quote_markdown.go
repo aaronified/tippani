@@ -37,6 +37,13 @@ type Utterance struct {
 	Tags         []string
 	Favorite     bool
 	NotedAt      string // when YOU saved it, as the file's `date` binding said
+	// 0035. Which board the quote belongs on, the language it is in, and what it
+	// says. Category "" -> caller defaults to 'other', matching the column: a file
+	// written before the three boards existed named no category, and every line in
+	// it goes on meaning exactly what it meant.
+	Category    string
+	Language    string
+	Translation string
 }
 
 // QuoteMarkdownAll parses a standalone-quote export. It returns a flat list
@@ -134,6 +141,18 @@ func QuoteMarkdownAll(r io.Reader) ([]Utterance, error) {
 				cur.Note = val
 			case "color", "colour":
 				cur.Color = val
+			// 0035. `kind` and `type` are accepted as aliases because a
+			// hand-written file is as likely to reach for either, and neither can
+			// collide here: `type` lives in the frontmatter, which this loop never
+			// sees.
+			case "category", "kind", "type":
+				cur.Category = strings.ToLower(val)
+			case "language", "lang":
+				cur.Language = val
+			// The English half of a line not in English. NOT folded into `note`:
+			// a note is what you thought, a translation is what the line says.
+			case "translation", "translated", "english":
+				cur.Translation = val
 			// `date` is when YOU saved it, matching the book export. When it was
 			// SAID is occasion_date above — the two are different facts, and a
 			// parser that folded them together would date a 1944 speech to the

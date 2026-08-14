@@ -537,14 +537,22 @@ type stagedQuoteRow struct {
 	Episode       *int   `json:"episode"` // (season 0 is a real season — see 0025)
 	// The occasion (§24), the third kind's locator. Empty on every book and
 	// film row, as chapter/character are on this one.
-	Speaker      string   `json:"speaker"`
-	Occasion     string   `json:"occasion"`
-	OccasionDate string   `json:"occasion_date"`
-	Place        string   `json:"place"`
-	Medium       string   `json:"medium"`
-	Tags         []string `json:"tags"`
-	NotedAt      string   `json:"noted_at"`
-	CreatedAt    string   `json:"created_at"`
+	Speaker      string `json:"speaker"`
+	Occasion     string `json:"occasion"`
+	OccasionDate string `json:"occasion_date"`
+	Place        string `json:"place"`
+	Medium       string `json:"medium"`
+	// 0035, and carried through the queue for the reason 0034 records about
+	// translator: this app's own export is an importer's source and every import
+	// is staged, so a field the queue does not hold is a field that survives the
+	// export, survives the parse and is dropped on the way in — with a successful
+	// import and matching counts saying nothing happened.
+	Category    string   `json:"category"`
+	Language    string   `json:"language"`
+	Translation string   `json:"translation"`
+	Tags        []string `json:"tags"`
+	NotedAt     string   `json:"noted_at"`
+	CreatedAt   string   `json:"created_at"`
 }
 
 // handleListStaged answers the pending queue: every batch, every work, and the
@@ -821,7 +829,9 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             COALESCE(q.tags, ''),
 	             COALESCE(q.noted_at, ''), q.created_at,
 	             COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
-	             COALESCE(q.place, ''), COALESCE(q.medium, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
+	             COALESCE(q.place, ''), COALESCE(q.medium, ''),
+	             COALESCE(q.category, 'other'), COALESCE(q.language, ''),
+	             COALESCE(q.translation, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
 	if !applyPaging(w, r, &q, &args) {
 		return nil, 0, nil
 	}
@@ -837,7 +847,8 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 		if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.BatchID, &sq.Quote, &sq.Note, &sq.Color,
 			&sq.Favorite, &sq.Chapter, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
 			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt,
-			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium); err != nil {
+			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
+			&sq.Category, &sq.Language, &sq.Translation); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
 			continue
 		}
@@ -1145,7 +1156,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode, COALESCE(q.tags, ''),
 			       COALESCE(q.noted_at, ''),
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
-			       COALESCE(q.place, ''), COALESCE(q.medium, '')
+			       COALESCE(q.place, ''), COALESCE(q.medium, ''),
+			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, '')
 			  FROM staged_quotes q
 			 WHERE q.id IN (`+inClause(len(batch))+`)
 			 ORDER BY q.id`, int64sAsAny(batch)...)
@@ -1159,7 +1171,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
 				&sq.Chapter, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
 				&sq.Season, &sq.Episode, &tags, &sq.NotedAt,
-				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium); err != nil {
+				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
+				&sq.Category, &sq.Language, &sq.Translation); err != nil {
 				return err
 			}
 			sq.Tags = splitStoredList(tags)
@@ -1238,6 +1251,7 @@ func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
 		out = append(out, importer.Utterance{
 			Quote: q.Quote, Note: q.Note, Speaker: q.Speaker, Occasion: q.Occasion,
 			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium,
+			Category: q.Category, Language: q.Language, Translation: q.Translation,
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 		})
 	}
