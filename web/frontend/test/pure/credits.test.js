@@ -94,12 +94,17 @@ describe('splitCredits — ported from internal/metadata/credits_test.go', () =>
   // People console.
   it('re-attaches every recognised suffix rather than splitting it off', () => {
     const cases = [
-      ['Cordwainer Smith, III', ['Cordwainer Smith, III']],
+      // A ROMAN NUMERAL IS NO LONGER A SUFFIX — the generational marker is a number.
+      // "V" is a real character name, so while ii/iii/iv/v were suffixes a dialogue
+      // line stored as "Evey, V" lost its second speaker to the first.
+      ['Cordwainer Smith, III', ['Cordwainer Smith', 'III']],
+      ['Cordwainer Smith, 3rd', ['Cordwainer Smith, 3rd']],
+      ['Henry Ford, 2', ['Henry Ford, 2']],
       ['Dale Carnegie, Sr.', ['Dale Carnegie, Sr.']],
       ['Penguin Books, Ltd.', ['Penguin Books, Ltd.']],
       ['Acme Holdings, LLC', ['Acme Holdings, LLC']],
       ['Smith, Co.', ['Smith, Co.']],
-      ['Henry Ford, II', ['Henry Ford, II']],
+      ['Henry Ford, II', ['Henry Ford', 'II']],
     ]
     for (const [input, want] of cases) expect(splitCredits(input, def)).toEqual(want)
   })

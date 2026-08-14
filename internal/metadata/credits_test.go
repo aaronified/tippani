@@ -42,10 +42,21 @@ func TestSplitCredits(t *testing.T) {
 		// the (?i) on both patterns is for.
 		{"Neil Gaiman AND Terry Pratchett", def, []string{"Neil Gaiman", "Terry Pratchett"}},
 		{"Smith, Jones, And Lee", def, []string{"Smith", "Jones", "Lee"}},
-		// Only jr. and inc. were exercised, so the other fourteen suffixes could
-		// be dropped freely — and a lost suffix turns one publisher into two
-		// people in the People console.
-		{"Cordwainer Smith, III", def, []string{"Cordwainer Smith, III"}},
+		// Only jr. and inc. were exercised, so the other suffixes could be dropped
+		// freely — and a lost suffix turns one publisher into two people in the
+		// People console.
+		//
+		// A ROMAN NUMERAL IS NO LONGER A SUFFIX, and this asserts the new answer
+		// rather than deleting the old case. "V" is a real character name (V for
+		// Vendetta), so while ii/iii/iv/v were suffixes a dialogue line stored as
+		// "Evey, V" had its second speaker swallowed onto the first and became one
+		// label nobody could remap. A single letter is a plausible name and a
+		// terrible suffix, so the generational marker is a NUMBER now.
+		{"Cordwainer Smith, III", def, []string{"Cordwainer Smith", "III"}},
+		{"Cordwainer Smith, 3rd", def, []string{"Cordwainer Smith, 3rd"}},
+		{"Henry Ford, 2", def, []string{"Henry Ford, 2"}},
+		// Anchored, so a number that is part of a title is not a suffix.
+		{"Ocean, 2 Fast", def, []string{"Ocean", "2 Fast"}},
 		{"Penguin Books, Ltd.", def, []string{"Penguin Books, Ltd."}},
 		{"Acme Holdings, LLC", def, []string{"Acme Holdings, LLC"}},
 		// "et al" drops with or without the full stop.

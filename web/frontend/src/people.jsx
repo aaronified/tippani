@@ -35,10 +35,31 @@ export function parseCreditSeps(pref) {
   return seen ? seps : DEFAULT_CREDIT_SEPS
 }
 
+// ROMAN NUMERALS ARE NOT IN HERE, and their absence is the decision. This set has
+// to match internal/metadata/credits.go exactly — the two split the same strings and
+// a disagreement about what a component IS shows up as a rename that touches one
+// side and not the other.
+//
+// It used to carry ii/iii/iv/v for "Henry Ford II". The cost appeared the moment
+// characters were split the same way: "V" is a real character name, so a dialogue
+// line stored as "Evey, V" had its second speaker swallowed onto the first and came
+// out as one label nobody could remap. A single letter is a plausible name and a
+// terrible suffix.
+//
+// Numbers take their place: a bare number, with or without an ordinal ending, is a
+// generational marker rather than a person. It cannot collide with a name.
+//
+// The consequence, stated rather than discovered: "Henry Ford, II" now splits in two.
+// That is the right way round — a wrongly-split credit is visible and fixable, a
+// wrongly-merged one hides a whole person.
 const CREDIT_SUFFIXES = new Set([
-  'jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v',
+  'jr', 'jr.', 'sr', 'sr.',
   'inc', 'inc.', 'ltd', 'ltd.', 'llc', 'llc.', 'co', 'co.',
 ])
+// 2, 2nd, 3rd, 4th, with an optional trailing dot. Anchored, so "2 Fast 2 Furious"
+// is not a suffix.
+const CREDIT_NUMBER_SUFFIX_RE = /^[0-9]+(st|nd|rd|th)?\.?$/
+const isCreditSuffix = (low) => CREDIT_SUFFIXES.has(low) || CREDIT_NUMBER_SUFFIX_RE.test(low)
 const CREDIT_AND_RE = /\s+and\s+/i
 const CREDIT_LEADING_AND_RE = /^and\s+/i
 const MAX_CREDIT_COMPONENTS = 8
@@ -96,7 +117,7 @@ export function splitCredits(s, seps = DEFAULT_CREDIT_SEPS) {
     if (!p) continue
     const low = p.toLowerCase()
     if (low === 'et al' || low === 'et al.') continue
-    if (CREDIT_SUFFIXES.has(low) && merged.length > 0) {
+    if (isCreditSuffix(low) && merged.length > 0) {
       merged[merged.length - 1] += ', ' + p
       continue
     }

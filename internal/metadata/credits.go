@@ -60,11 +60,36 @@ func ParseCreditSeps(pref string) CreditSeps {
 
 // creditSuffixes are tokens that belong to the PREVIOUS component when a comma
 // split isolates them ("Martin Luther King, Jr." must stay one person).
+//
+// ROMAN NUMERALS ARE NOT IN HERE, and their absence is the decision.
+//
+// The set used to carry ii/iii/iv/v for "Henry Ford II". The cost showed up the
+// moment characters were split the same way: "V" is a real character name — the one
+// in V for Vendetta — so a dialogue line stored as "Evey, V" had its second speaker
+// swallowed back onto the first and came out as a single label nobody could remap.
+// A single letter is a plausible name; it is a terrible suffix.
+//
+// Numbers take their place. A component that is a bare number, with or without an
+// ordinal ending, is a generational marker rather than a person: "Henry Ford 2",
+// "Elizabeth 2nd". That cannot collide with a name, which is the whole point.
+//
+// The consequence, stated rather than discovered: "Henry Ford, II" now splits into
+// two components. That is the trade the reader chose, and it is the right way round
+// — a wrongly-split credit is visible and fixable, while a wrongly-merged one hides
+// a whole person.
 var creditSuffixes = map[string]bool{
 	"jr": true, "jr.": true, "sr": true, "sr.": true,
-	"ii": true, "iii": true, "iv": true, "v": true,
 	"inc": true, "inc.": true, "ltd": true, "ltd.": true,
 	"llc": true, "llc.": true, "co": true, "co.": true,
+}
+
+// creditNumberSuffixRe matches a generational number: 2, 2nd, 3rd, 4th, with an
+// optional trailing dot. Anchored, so "2 Fast 2 Furious" is not a suffix.
+var creditNumberSuffixRe = regexp.MustCompile(`^[0-9]+(st|nd|rd|th)?\.?$`)
+
+// isCreditSuffix reports whether a lone component re-attaches to the name before it.
+func isCreditSuffix(low string) bool {
+	return creditSuffixes[low] || creditNumberSuffixRe.MatchString(low)
 }
 
 var (
@@ -138,7 +163,7 @@ func SplitCredits(s string, seps CreditSeps) []string {
 		if low == "et al" || low == "et al." {
 			continue
 		}
-		if creditSuffixes[low] && len(merged) > 0 {
+		if isCreditSuffix(low) && len(merged) > 0 {
 			merged[len(merged)-1] += ", " + p
 			continue
 		}
@@ -288,7 +313,7 @@ func creditSpans(s string, seps CreditSeps) []creditSpan {
 	var merged []creditSpan
 	for _, sp := range spans {
 		low := strings.ToLower(sp.text)
-		if creditSuffixes[low] && len(merged) > 0 {
+		if isCreditSuffix(low) && len(merged) > 0 {
 			prev := &merged[len(merged)-1]
 			prev.end = sp.end
 			prev.text = strings.TrimSpace(s[prev.start:prev.end])

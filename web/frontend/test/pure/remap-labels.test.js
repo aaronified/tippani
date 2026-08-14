@@ -54,22 +54,29 @@ describe('the remappable speaker labels', () => {
       .toEqual(['Eric Finch', 'Evey Hammond'])
   })
 
-  // KNOWN LIMITATION, pinned rather than hidden.
+  // THE "V" COLLISION, fixed in 1.13.1 by changing what a suffix IS.
   //
-  // The shared splitter merges a trailing component that is a credit SUFFIX back
-  // onto the name before it, so "Ursula Le Guin, Jr" stays one person. Roman
-  // numerals are in that set, for "Henry V" and "Elizabeth II" — and a character
-  // actually named "V" collides with it head-on: "Evey, V" comes back as one label.
+  // The shared splitter merges a trailing component that is a credit SUFFIX back onto
+  // the name before it, so "Le Guin, Jr" stays one person. Roman numerals used to be
+  // in that set, for "Henry V" — and a character actually named "V" collided with it
+  // head-on: "Evey, V" came back as one label nobody could remap, while "V, Evey"
+  // split fine, because the rule only looks backwards.
   //
-  // Not worked around here. The suffix rule is right for the authors it was written
-  // for, and the server splits with the same set, so a client-only exception would
-  // make the two disagree about what a component IS — which is the class of bug this
-  // whole change exists to remove. Fixing it means teaching BOTH sides that a
-  // character list has no suffixes.
-  it('merges a name that is also a credit suffix (V, II) — known limitation', () => {
-    expect(names(remapLabels(lines('Evey, V'), seps))).toEqual(['Evey, V'])
-    // The other order is unaffected, because the suffix rule only looks backwards.
+  // The fix was not an exception for characters. A client-only exception would have
+  // made the two sides disagree about what a component IS, which is the class of bug
+  // the ensemble work exists to remove. Instead the generational marker became a
+  // NUMBER on both sides: a bare number cannot be a name, where a single letter
+  // plainly can.
+  it('splits a character named V out of an ensemble, in either order', () => {
+    expect(names(remapLabels(lines('Evey, V'), seps))).toEqual(['Evey', 'V'])
     expect(names(remapLabels(lines('V, Evey'), seps))).toEqual(['Evey', 'V'])
+  })
+
+  it('still keeps a real suffix attached', () => {
+    // The rule the set exists for has to survive the change: a generational number
+    // and the honorifics stay glued to the name before them.
+    expect(names(remapLabels(lines('Henry Ford, 2'), seps))).toEqual(['Henry Ford, 2'])
+    expect(names(remapLabels(lines('Dale Carnegie, Sr.'), seps))).toEqual(['Dale Carnegie, Sr.'])
   })
 
   it('leaves a single name exactly as it is', () => {
