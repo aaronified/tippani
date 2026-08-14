@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -741,12 +742,30 @@ func writeConflictExisting(w http.ResponseWriter, msg string, existing any) {
 func (s *Server) spaHandler() http.Handler {
 	fileServer := http.FileServerFS(s.Static)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/")
-		if path == "" {
-			path = "index.html"
+		p := strings.TrimPrefix(r.URL.Path, "/")
+		if p == "" {
+			p = "index.html"
 		}
-		if _, err := fs.Stat(s.Static, path); err != nil {
-			// SPA fallback: unknown paths get index.html.
+		if _, err := fs.Stat(s.Static, p); err != nil {
+			// A MISSING FILE IS A 404, AND ONLY A ROUTE FALLS BACK.
+			//
+			// The fallback exists for the client-side router: /library, /quotes,
+			// /library/12 are not files and have to be answered with the app. It was
+			// applied to EVERYTHING missing, which meant a request for
+			// /assets/index-abc123.js that was not in the bundle got index.html —
+			// 200, Content-Type text/html — and the browser refused to execute HTML
+			// as a module and rendered nothing. No error in the log, no failing
+			// health check, no clue in the response status. A blank page.
+			//
+			// That is what a broken frontend build looked like from the outside, and
+			// the fallback is why it looked like nothing at all. A path with an
+			// extension is a claim about a file: if the file is absent, say so.
+			// None of this app's routes contain a dot (see routes.js), so the test
+			// is safe as well as cheap.
+			if path.Ext(p) != "" {
+				http.NotFound(w, r)
+				return
+			}
 			r2 := r.Clone(r.Context())
 			r2.URL.Path = "/"
 			fileServer.ServeHTTP(w, r2)
