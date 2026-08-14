@@ -103,12 +103,21 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **645 Go test functions and 1,293 frontend tests, across 180 test files** — the
+- **671 Go test functions and 1,380 frontend tests, across 187 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
-  Counted, not estimated: `grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l`
-  for the first, and `npm test` in `web/frontend` prints the rest. A number in a
-  file like this one is stale the moment it is written, so recount rather than
-  trust it.
+  Counted, not estimated, and every number here has a command that reproduces it:
+
+  ```bash
+  grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
+  cd web/frontend && npm test                                            # frontend tests
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 116 Go files
+  find ./web/frontend -path '*/node_modules' -prune -o \
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 71 frontend
+  ```
+
+  A number in a file like this one is stale the moment it is written, so recount
+  rather than trust it — these three were themselves last recounted at 1.12.0,
+  having drifted from 645 / 1,293 / 180 without anyone noticing.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
   generated regions still match the data files they come from, a check that the
