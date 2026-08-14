@@ -1,3 +1,14 @@
+<p align="center">
+  <!-- The app's own mark, from web/frontend/public/ rather than a copy under docs/img:
+       the favicon, the installed app's icon and this are one drawing, and a second
+       copy is a drawing that goes stale the next time the first one changes. The two
+       files differ only in the terracotta — #B4482D on paper, #D8613D on dark. -->
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/frontend/public/mark-dark.svg">
+    <img src="web/frontend/public/mark.svg" alt="" width="104" height="104">
+  </picture>
+</p>
+
 <h1 align="center">Tippani</h1>
 
 <p align="center"><em>ṭippaṇī · टिप्पणी · টিপ্পনী — a marginal annotation</em></p>
