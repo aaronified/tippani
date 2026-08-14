@@ -857,8 +857,12 @@ export function gapLines(gap, widthPx, lines = TIMELINE_GAP_LINES) {
 // from the stylesheet on purpose and named so the duplication is findable: a gap
 // standing in for N columns has to be as wide as N columns, and CSS cannot do that
 // arithmetic without knowing N, which only JS knows.
-const TL_COL_PX = 30
-const TL_GAP_PX = 4
+// Exported so timeline-metrics.test.js can hold them against the stylesheet.
+// Duplication that nothing checks is duplication that drifts, and the drift here
+// is silent: the gap keeps being drawn, just at the wrong width, and the chart
+// starts lying about time without anything looking broken.
+export const TL_COL_PX = 30
+export const TL_GAP_PX = 4
 export const gapWidth = (span) => span * (TL_COL_PX + TL_GAP_PX) - TL_GAP_PX
 
 // ---- the timeline as a dot plot -------------------------------------------
@@ -882,7 +886,9 @@ export const gapWidth = (span) => span * (TL_COL_PX + TL_GAP_PX) - TL_GAP_PX
 // (the taller of the two peaks), because two scales in one frame is two charts
 // wearing a disguise.
 
-const TIMELINE_MAX_DOTS = 12
+// Exported for the same reason as TL_COL_PX: the number is only true if the CSS
+// gives .tl-plot enough room for that many dots, and nothing but a test can say so.
+export const TIMELINE_MAX_DOTS = 12
 
 // dotUnit — how many items one dot stands for, so the tallest column lands on
 // TIMELINE_MAX_DOTS. Always at least 1: fewer items than dots means one dot each,

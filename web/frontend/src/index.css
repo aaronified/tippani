@@ -4123,15 +4123,19 @@ html[data-theme="dark"] .mobile-sheet-footer {
   overscroll-behavior-x: contain;
   padding-bottom: 4px;
 }
-/* 160px, up from 132: the plot area is now a stack of discrete dots rather than
-   a continuous bar, so the height has to divide by the dot pitch. 110px of plot
-   at a 9px pitch is the 12 dots TIMELINE_MAX_DOTS promises. */
+/* 172px. The plot area is a stack of discrete dots rather than a continuous bar,
+   so the height has to divide by the dot pitch: 110px of plot at a 9px pitch is
+   the 12 dots TIMELINE_MAX_DOTS promises, and this row is that plus the tick row
+   plus the gap between them. It was 160 with a 46px tick row; the tick row is 58px
+   now (see .tl-tick for why) and this went up by the same 12 so the plot still
+   gets its 110. The three numbers are one sum — 172 − 58 − 4 = 110 — and changing
+   any of them alone costs a dot. */
 .tl-row {
   display: flex;
   align-items: flex-end;
   gap: 4px;
   min-width: min-content;
-  height: 160px;
+  height: 172px;
 }
 .tl-col {
   display: flex;
@@ -4176,13 +4180,37 @@ html[data-theme="dark"] .mobile-sheet-footer {
    works fill, is the hairline colour and all but vanished against the card. */
 .tl-dots-quotes { color: var(--accent); }
 .tl-dots-works { color: var(--soft); }
+/* THE COLUMN LABELS, and the ones 1.13.0 missed.
+
+   That release moved the gap markers off Plex Mono because 8 and 0 could not be
+   told apart in them, wrote a long comment about why, and left THESE — which are
+   the labels anyone actually reads, one under every column — at mono 9px. So the
+   report came back unchanged, correctly.
+
+   Worse than 9px mono: 9px mono ROTATED. writing-mode turns every glyph on its
+   side, and a digit read sideways is read by its outline, which is the one thing
+   that survives least at that size. Plex Mono also draws its 0 with a slash, and a
+   slashed 0 sideways at 9px in --soft is an 8. The slash is not a setting here —
+   it is the typeface's own zero, so no font-variant-numeric can remove it, and
+   changing the face is the only fix available.
+
+   Hanken Grotesk at 10.5/500 with the letters loosened: a plain round bowl for the
+   0, a visibly narrower waist on the 8, and enough weight to survive the rotation.
+
+   THE HEIGHT AND .tl-row's HEIGHT MOVE TOGETHER, +12px each. 46px was already
+   clipping "480s BCE" — eight glyphs do not fit in 46 at any size worth reading —
+   and the plot's budget is what is left over, which the note on .tl-row spends
+   exactly: 172 − 58 − 4 = 110px, the same 12 dots at a 9px pitch as before. Raise
+   one without the other and the chart silently loses a dot off the top. */
 .tl-tick {
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--soft);
   white-space: nowrap;
   writing-mode: vertical-rl;
-  height: 46px;
+  height: 58px;
   overflow: hidden;
 }
 
@@ -4238,9 +4266,18 @@ html[data-theme="dark"] .mobile-sheet-footer {
    furniture is mono, not because this label needed it.
 
    The size and weight still go up: 11px at 500 keeps the strokes alive at
-   var(--faint), which is deliberately low-contrast. `slashed-zero` is NOT relied
-   on — whether the @fontsource subset kept the `zero` feature is not something
-   this can verify, so it is an enhancement that costs nothing if it is inert. */
+   var(--faint), which is deliberately low-contrast.
+
+   `slashed-zero` WAS SET HERE AND MADE IT WORSE. It was added as a free
+   enhancement — inert if the @fontsource subset dropped the `zero` feature, a
+   clearer 0 if it kept it. The subset kept it, and a slashed zero is exactly the
+   shape being avoided: a diagonal through a small bowl closes into the same
+   silhouette as an 8's waist. The whole point of moving to this face was that its
+   0 and 8 differ by OUTLINE; putting a stroke back through the 0 undoes that.
+
+   The general lesson, since it cost a release: a typographic setting whose effect
+   you cannot see is not free. It is an untested change with a comment explaining
+   why it does not need testing. */
 .tl-gap-mark {
   position: absolute;
   bottom: 0;
@@ -4248,8 +4285,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
   font-family: var(--font-ui);
   font-size: 11px;
   font-weight: 500;
-  font-variant-numeric: slashed-zero;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.04em;
   color: var(--faint);
   white-space: nowrap;
   padding-bottom: 3px;
@@ -4288,9 +4324,11 @@ html[data-theme="dark"] .mobile-sheet-footer {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Height in step with .tl-tick, because the two ARE one tick row: a gap whose
+   caption sits 12px lower than its neighbours' reads as a misaligned chart. */
 .tl-gap-tick {
   writing-mode: horizontal-tb;
-  height: 46px;
+  height: 58px;
   text-align: center;
   color: var(--faint);
 }
