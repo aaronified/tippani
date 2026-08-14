@@ -63,6 +63,27 @@ export default defineConfig({
           environment: 'jsdom',
           include: ['test/dom/**/*.test.{js,jsx}'],
           setupFiles: ['./test/setup-dom.js'],
+          // THE DEFAULT 5s IS A MEASUREMENT OF THE MACHINE, NOT OF THE CODE.
+          //
+          // A handful of these files render a whole screen — Settings mounts
+          // eight cards and each fetches on mount — and jsdom does that an order
+          // of magnitude slower than a browser. Alone, they finish in well under
+          // a second. Run as one of forty files across every core at once, the
+          // slowest of them crossed 5s and failed with "Test timed out", which
+          // reads exactly like a hung await and is nothing of the sort: the same
+          // file passes on its own, and WHICH files fail changes between runs.
+          //
+          // That is the worst shape a failure can have. It is not reproducible on
+          // the machine you would debug it on, it moves when you add an unrelated
+          // test file (which is how it surfaced — a 70th file changed the worker
+          // scheduling), and the obvious reading of the message sends you looking
+          // for a promise that never settles.
+          //
+          // 20s is not slack for slow tests to hide in; a genuine hang still fails,
+          // just twenty seconds later. It is the margin between "this code is
+          // wrong" and "this laptop was busy", and only the first is worth a red
+          // suite.
+          testTimeout: 20000,
         },
       },
     ],
