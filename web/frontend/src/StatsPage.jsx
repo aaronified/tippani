@@ -803,6 +803,56 @@ export function gapLine(gap, widthPx, lines = TIMELINE_GAP_LINES) {
   return band[Math.floor(rng() * band.length) % band.length]
 }
 
+// GAP_LINE_MAX_PX — how wide one caption is allowed to run before a second one is
+// the better answer.
+//
+// ONE LINE CANNOT COVER AN ARBITRARILY WIDE GAP. A two-millennium stretch is over a
+// thousand pixels of emptiness, and the longest line here is about 120 characters —
+// so the caption sat as a small island in the middle with a great deal of nothing
+// either side, which reads as a rendering failure rather than as a silence. The gap
+// keeps its true width on purpose (that is the whole point of not collapsing it), so
+// the copy has to scale to the width instead.
+//
+// 360px is roughly a comfortable measure for a line of this size — about ten columns
+// of the chart. Past that a reader is tracking a sentence across a distance that a
+// second sentence would fill better.
+const GAP_LINE_MAX_PX = 360
+// Three at most. A gap carrying four captions is a paragraph in a chart, and the
+// markers still have to be readable between them.
+const GAP_LINE_SLOTS_MAX = 3
+
+// gapLines picks one caption per slot for a gap, left to right.
+//
+// Distinct from each other, because the same sentence printed twice inside one gap
+// is worse than one sentence with space around it. Seeded from the gap the way
+// gapLine is, so a gap keeps its set across re-renders, and each slot is sized to
+// its own share of the width rather than to the whole — a narrow slot gets three
+// words where a wide one gets a sentence.
+//
+// Returns [] when nothing fits even once, and the gap draws as bare width. That is
+// honest, and better than a clipped sentence.
+export function gapLines(gap, widthPx, lines = TIMELINE_GAP_LINES) {
+  const slots = Math.max(1, Math.min(GAP_LINE_SLOTS_MAX, Math.floor(widthPx / GAP_LINE_MAX_PX)))
+  if (slots === 1) {
+    const one = gapLine(gap, widthPx, lines)
+    return one ? [one] : []
+  }
+  const share = widthPx / slots
+  const room = Math.max(0, (share - 24) * 2)
+  const rng = mulberry32((gap.start >>> 0) ^ (gap.span * 2654435761))
+  const out = []
+  const used = new Set()
+  for (let i = 0; i < slots; i++) {
+    const fits = lines.filter((l) => l.length * GAP_CHAR_PX <= room && !used.has(l))
+    if (fits.length === 0) break
+    const band = fits.slice(Math.max(0, fits.length - 3))
+    const pick = band[Math.floor(rng() * band.length) % band.length]
+    used.add(pick)
+    out.push(pick)
+  }
+  return out
+}
+
 // TL_COL_PX / TL_GAP_PX mirror .tl-col's min-width and .tl-row's gap. Duplicated
 // from the stylesheet on purpose and named so the duplication is findable: a gap
 // standing in for N columns has to be as wide as N columns, and CSS cannot do that
@@ -946,7 +996,7 @@ function TimelineCard({ timeline }) {
 function TimelineGap({ gap, size }) {
   const width = gapWidth(gap.span)
   const markers = gapMarkers(gap, size)
-  const line = gapLine(gap, width)
+  const lines = gapLines(gap, width)
   const from = decadeLabel(gap.start)
   const to = decadeLabel(gap.end)
   const reading = `${from} to ${to}: nothing`
@@ -962,7 +1012,18 @@ function TimelineGap({ gap, size }) {
             {decadeLabel(m.start)}
           </span>
         ))}
-        {line && <p className="tl-gap-line">{line}</p>}
+        {/* One caption per slot, spread across the emptiness. A single line cannot
+            cover a two-millennium gap — it sits as a small island with a great deal
+            of nothing either side, which reads as a rendering failure rather than as
+            a silence. The gap keeps its true width by design, so the copy scales to
+            the width instead of the width shrinking to the copy. */}
+        {lines.length > 0 && (
+          <div className="tl-gap-lines">
+            {lines.map((l) => (
+              <p key={l} className="tl-gap-line">{l}</p>
+            ))}
+          </div>
+        )}
       </div>
       <div className="tl-tick tl-gap-tick">{`${from}–${to}`}</div>
     </div>

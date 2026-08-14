@@ -4210,12 +4210,35 @@ html[data-theme="dark"] .mobile-sheet-footer {
 /* The years, riding INSIDE the emptiness rather than on the tick row under it.
    On the tick row they would read as the labels of the columns either side —
    the one thing a marker in here must not do. */
+/* 8 AND 0 HAVE TO BE TELLABLE APART, and in Plex Mono at 9px they were not.
+   These are YEARS. A misread digit here is not cosmetic — it moves the landmark by
+   eight centuries, which is worse than having no marker at all.
+
+   THE FACE IS THE FIX, and mono was the wrong face for this. Plex Mono's 0 is a
+   plain oval and its 8 a narrow-waisted figure of the same width and weight; at a
+   faint colour and 9px the waist and the counter both close up and the two become
+   one shape. Hanken Grotesk (the UI face) draws them at different widths with a
+   visibly rounder bowl, so they are distinct by outline rather than by detail that
+   survives only at size.
+
+   Mono was buying nothing here anyway: each marker is absolutely positioned and
+   centred on its own year, so there is no column for tabular figures to line up
+   with. That is the tell — mono was chosen because the rest of the chart's
+   furniture is mono, not because this label needed it.
+
+   The size and weight still go up: 11px at 500 keeps the strokes alive at
+   var(--faint), which is deliberately low-contrast. `slashed-zero` is NOT relied
+   on — whether the @fontsource subset kept the `zero` feature is not something
+   this can verify, so it is an enhancement that costs nothing if it is inert. */
 .tl-gap-mark {
   position: absolute;
   bottom: 0;
   transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: slashed-zero;
+  letter-spacing: 0.01em;
   color: var(--faint);
   white-space: nowrap;
   padding-bottom: 3px;
@@ -4223,8 +4246,23 @@ html[data-theme="dark"] .mobile-sheet-footer {
   padding-left: 4px;
   line-height: 1.1;
 }
+/* The captions, spread across the emptiness rather than stacked in the middle.
+   space-around rather than space-between so the outermost line does not collide
+   with the year marker at either end of the gap. */
+.tl-gap-lines {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 16px;
+  width: 100%;
+}
 .tl-gap-line {
   margin: 0;
+  /* Each caption owns its share of the width, which is what gapLines sized it
+     against. Without this a long line in one slot would steal room from a short
+     line in the next and the two would sit off-centre. */
+  flex: 1 1 0;
+  min-width: 0;
   max-width: 100%;
   text-align: center;
   font-family: var(--font-display);

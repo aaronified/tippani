@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest'
 import {
   bucketTimeline,
   gapLine,
+  gapLines,
   gapMarkers,
   gapWidth,
   TIMELINE_GAP_LINES,
@@ -226,6 +227,81 @@ describe('the line in the gap', () => {
     for (const l of TIMELINE_GAP_LINES) {
       expect(l).not.toMatch(/[—–-]\s*[A-Z]/)
       expect(l).not.toMatch(/\bby [A-Z]/)
+    }
+  })
+})
+
+// ---- one caption cannot cover an arbitrarily wide gap -----------------------
+//
+// The gap keeps the true width of the columns it replaces — that is the whole
+// reason it is not collapsed to a neat band — so a two-millennium stretch is over
+// a thousand pixels of emptiness. A single line there sat as a small island with a
+// great deal of nothing either side, which reads as a rendering failure rather
+// than as a silence. The copy scales to the width instead.
+describe('filling a wide gap with more than one line', () => {
+  const gap = (start, span) => ({ start, span, end: start + span - 1 })
+
+  it('gives a narrow gap exactly one line, as before', () => {
+    // Under one slot's worth of width, this must behave identically to gapLine —
+    // the single-line case is the common one and is not what changed.
+    const g = gap(1000, 8)
+    const w = gapWidth(g.span)
+    expect(w).toBeLessThan(360)
+    expect(gapLines(g, w)).toEqual([gapLine(g, w)].filter(Boolean))
+  })
+
+  it('gives a wider gap more lines', () => {
+    const narrow = gap(1000, 10)
+    const wide = gap(1000, 60)
+    expect(gapWidth(wide.span)).toBeGreaterThan(gapWidth(narrow.span))
+    expect(gapLines(wide, gapWidth(wide.span)).length)
+      .toBeGreaterThan(gapLines(narrow, gapWidth(narrow.span)).length)
+  })
+
+  it('never prints the same line twice inside one gap', () => {
+    // The same sentence twice in one stretch is worse than one sentence with space
+    // around it.
+    for (const span of [30, 60, 90, 120, 200]) {
+      const g = gap(500, span)
+      const out = gapLines(g, gapWidth(span))
+      expect(new Set(out).size, `span ${span}`).toBe(out.length)
+    }
+  })
+
+  it('stops at three, so a gap never becomes a paragraph', () => {
+    const g = gap(1, 2000)
+    expect(gapLines(g, gapWidth(g.span)).length).toBeLessThanOrEqual(3)
+  })
+
+  it('keeps the same set across re-renders', () => {
+    // Seeded off the gap, like gapLine: a chart that reshuffled its captions on
+    // every render would make the page feel unstable for no information gained.
+    const g = gap(742, 90)
+    const w = gapWidth(g.span)
+    expect(gapLines(g, w)).toEqual(gapLines(g, w))
+  })
+
+  it('gives two different gaps different sets', () => {
+    const a = gapLines(gap(200, 90), gapWidth(90))
+    const b = gapLines(gap(1500, 90), gapWidth(90))
+    expect(a.length).toBeGreaterThan(0)
+    expect(a).not.toEqual(b)
+  })
+
+  it('returns nothing rather than a clipped line when nothing fits', () => {
+    expect(gapLines(gap(1000, 1), 10)).toEqual([])
+  })
+
+  it('sizes each line to its own share, not to the whole width', () => {
+    // A slot is narrower than the gap, so the longest line that fits the GAP must
+    // not be chosen for a SLOT. Every line returned has to fit the share it is
+    // drawn in, or it clips.
+    const g = gap(1000, 60)
+    const w = gapWidth(g.span)
+    const out = gapLines(g, w)
+    const share = w / out.length
+    for (const l of out) {
+      expect(l.length * 6.1, l).toBeLessThanOrEqual((share - 24) * 2)
     }
   })
 })
