@@ -10,10 +10,21 @@ import (
 )
 
 // ftsTables are the external-content FTS5 indexes. Their rows are *derived* from
-// the base tables (books, annotations, movies, dialogues), so a corrupt index
-// ("database disk image is malformed") loses nothing recoverable — it can always
-// be rebuilt from the content it mirrors.
-var ftsTables = []string{"books_fts", "annotations_fts", "movies_fts", "dialogues_fts"}
+// the base tables (books, annotations, movies, dialogues, utterances), so a corrupt
+// index ("database disk image is malformed") loses nothing recoverable — it can
+// always be rebuilt from the content it mirrors.
+//
+// utterances_fts WAS MISSING FROM THIS LIST, from 0026 until 1.13.1, and the whole
+// cost of that is invisible. Every index here is integrity-checked at startup and
+// rebuilt when it comes back broken; one that is not listed is simply never checked,
+// so a corrupt standalone-quote index survives every restart and search over quotes
+// keeps returning wrong or missing rows with nothing in the log to say why. The
+// repair path existed and worked — it was just never pointed at this index.
+//
+// A list like this is the shape that rots: adding a fifth FTS index is two edits and
+// only one of them fails a test, so store/schema_test.go now asserts that every
+// *_fts table in the schema appears here.
+var ftsTables = []string{"books_fts", "annotations_fts", "movies_fts", "dialogues_fts", "utterances_fts"}
 
 // CheckIntegrity runs SQLite's own quick_check over the whole database file and
 // logs the outcome to stdout+stderr. "ok" = structurally sound; anything else is

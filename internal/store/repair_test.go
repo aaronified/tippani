@@ -321,3 +321,70 @@ func TestReset(t *testing.T) {
 		t.Fatalf("insert into fresh db: %v", err)
 	}
 }
+
+// EVERY FTS INDEX IN THE SCHEMA MUST BE IN ftsTables, and this is the only thing
+// that makes that true.
+//
+// utterances_fts was missing from the list from 0026 until 1.13.1. Nothing failed:
+// the repair path existed and worked, it was simply never pointed at that index, so
+// a corrupt standalone-quote index survived every restart while search over quotes
+// returned wrong or missing rows with nothing in the log to explain it. An unchecked
+// index is indistinguishable from a healthy one right up until it isn't.
+//
+// The list is the shape that rots — adding an index is two edits and only one of
+// them used to be enforced — so the schema itself is the source of truth here.
+func TestEveryFTSIndexIsIntegrityChecked(t *testing.T) {
+	st, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := st.DB.Query(
+		`SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%\_fts' ESCAPE '\' ORDER BY name`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var inSchema []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		inSchema = append(inSchema, n)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	// A guard on the guard: if the pattern stops matching, this test would pass by
+	// finding nothing and the rot it exists to prevent would be back.
+	if len(inSchema) < 4 {
+		t.Fatalf("only %d FTS tables found (%v) — the query is wrong, not the schema", len(inSchema), inSchema)
+	}
+
+	listed := map[string]bool{}
+	for _, n := range ftsTables {
+		listed[n] = true
+	}
+	for _, n := range inSchema {
+		if !listed[n] {
+			t.Errorf("%s is an FTS index in the schema and is NOT in ftsTables, so it is never "+
+				"integrity-checked or rebuilt — corruption in it would survive every restart", n)
+		}
+	}
+	// And the other direction: a name in the list that no longer exists means the
+	// repair sweep is checking a table that is gone, which logs an error every boot.
+	have := map[string]bool{}
+	for _, n := range inSchema {
+		have[n] = true
+	}
+	for _, n := range ftsTables {
+		if !have[n] {
+			t.Errorf("ftsTables names %q, which is not in the schema", n)
+		}
+	}
+}
