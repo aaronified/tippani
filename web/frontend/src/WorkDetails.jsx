@@ -25,6 +25,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { BookLookupPicker, CoverControls, CoverPreview, MovieLookupPicker, hiResPoster, idNum } from './CoverPicker.jsx'
 import {
   ErrorText,
+  FieldIconButton,
   FormModal,
   GhostButton,
   IconBack,
@@ -379,11 +380,11 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       {view === 'lookup' && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Tooltip label="Back to the fields">
-              <button type="button" className="field-icon-btn tactile" aria-label="Back to the fields" onClick={() => setView('fields')}>
-                <IconBack />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconBack />}
+              ariaLabel="Back to the fields"
+              onClick={() => setView('fields')}
+            />
             <MonoLabel>pick the closest match</MonoLabel>
             <InfoDot
               title="Fetch metadata"
@@ -465,16 +466,12 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
         />
         <span className="flex-1" />
         {onDelete && (
-          <Tooltip label={`Delete this ${kind === 'book' ? 'book' : 'title'}`}>
-            <button
-              type="button"
-              className="field-icon-btn field-icon-btn-danger tactile"
-              aria-label={`Delete this ${kind === 'book' ? 'book' : 'title'}`}
-              onClick={onDelete}
-            >
-              <IconDelete />
-            </button>
-          </Tooltip>
+          <FieldIconButton
+            icon={<IconDelete />}
+            ariaLabel={`Delete this ${kind === 'book' ? 'book' : 'title'}`}
+            onClick={onDelete}
+            danger
+          />
         )}
       </div>
 
@@ -591,27 +588,29 @@ function MergeScreen({ kind, rows, candidate, busy, onBack, onApply, onResync })
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Tooltip label="Back to the matches">
-          <button type="button" className="field-icon-btn tactile" aria-label="Back to the matches" onClick={onBack}>
-            <IconBack />
-          </button>
-        </Tooltip>
+        <FieldIconButton
+          icon={<IconBack />}
+          ariaLabel="Back to the matches"
+          onClick={onBack}
+        />
         <MonoLabel>{sourceLabel}</MonoLabel>
         <InfoDot
           title="Choose what to keep"
           text="Fields you have nothing in are ticked for you — filling a blank costs nothing. Anything already filled starts unticked, so a match can never quietly overwrite something you typed."
         />
         <span className="flex-1" />
-        <Tooltip label="Take everything">
-          <button type="button" className="field-icon-btn tactile" aria-label="Take every field" onClick={() => setAll(true)}>
-            <IconCheck />
-          </button>
-        </Tooltip>
-        <Tooltip label="Take nothing">
-          <button type="button" className="field-icon-btn tactile" aria-label="Take no fields" onClick={() => setAll(false)}>
-            <IconClose />
-          </button>
-        </Tooltip>
+        <FieldIconButton
+          icon={<IconCheck />}
+          ariaLabel="Take every field"
+          onClick={() => setAll(true)}
+          tooltip="Take everything"
+        />
+        <FieldIconButton
+          icon={<IconClose />}
+          ariaLabel="Take no fields"
+          onClick={() => setAll(false)}
+          tooltip="Take nothing"
+        />
       </div>
 
       {state.length === 0 && (

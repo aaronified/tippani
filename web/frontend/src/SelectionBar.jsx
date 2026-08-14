@@ -5,13 +5,13 @@ import { StickerPicker, useStickers } from './stickers.jsx'
 import {
   ColorSwatches,
   ConfirmDialog,
+  FieldIconButton,
   FormModal,
   GhostButton,
   IconButton,
   IconClose,
   MonoLabel,
   MoreMenu,
-  Tooltip,
   TokenInput,
   toast,
 } from './ui.jsx'
@@ -370,16 +370,12 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
           reach for by accident. Now the destructive-to-the-mode one is alone at this
           end, and clearing the picks lives on the thing that shows how many there
           are. */}
-      <Tooltip label="Dismiss the selection" className="ml-auto">
-        <button
-          type="button"
-          className="field-icon-btn tactile"
-          aria-label="Dismiss the selection"
-          onClick={() => selection.dismiss?.()}
-        >
-          <IconClose />
-        </button>
-      </Tooltip>
+      <FieldIconButton
+        icon={<IconClose />}
+        ariaLabel="Dismiss the selection"
+        onClick={() => selection.dismiss?.()}
+        wrapClassName="ml-auto"
+      />
 
       {/* Each mounted only while it is open, which is what keeps the sticker list
           from being fetched the moment somebody selects one quote. A sticky bar

@@ -759,6 +759,18 @@
     border-color: color-mix(in srgb, var(--error) 55%, var(--line));
     background: color-mix(in srgb, var(--error) 9%, transparent);
   }
+  /* The affirmative twin, and it exists because its absence was being worked
+     around: the Add sheet's ✓ is a 44px IconButton and it wore
+     `.field-icon-btn-ok` — the 34px family's colour class — to go green, because
+     this family had a `danger` and no `ok`. One family reaching into another's
+     stylesheet for a colour is how two families become indistinguishable.
+     Tint only, for the reason above: a green slab would read as the row's
+     primary action, and ✓ already is one. */
+  .tp-btn-ok { color: var(--ok); }
+  .tp-btn-ok:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
+    background: color-mix(in srgb, var(--ok) 9%, transparent);
+  }
 
   /* ---- label collapse (html[data-labels], theme.js) ----------------------
      A button given an `icon` prop renders <span class="btn-icon"> + <span

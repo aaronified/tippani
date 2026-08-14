@@ -11,6 +11,7 @@ import {
   EmptyState,
   ErrorText,
   Field,
+  FieldIconButton,
   FormModal,
   GhostButton,
   HandCard,
@@ -490,11 +491,13 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
           </div>
         )}
       </div>
-      <Tooltip label="Edit this quote">
-        <button type="button" className="field-icon-btn tactile shrink-0" aria-label="Edit" onClick={onEdit}>
-          <IconEdit />
-        </button>
-      </Tooltip>
+      <FieldIconButton
+        icon={<IconEdit />}
+        ariaLabel="Edit"
+        onClick={onEdit}
+        tooltip="Edit this quote"
+        className="shrink-0"
+      />
     </div>
   )
 }

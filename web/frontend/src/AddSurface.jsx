@@ -978,7 +978,7 @@ export default function AddSurface({
       icon={<IconCheck />}
       ariaLabel="Save"
       tooltip={saveState.busy ? 'Saving…' : saveState.canSave ? 'Save' : saveState.why || 'Fill the required fields'}
-      className="field-icon-btn-ok"
+      ok
       disabled={!saveState.canSave || saveState.busy}
       onClick={() => saveState.save()}
     />

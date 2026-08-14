@@ -371,11 +371,12 @@ export function BulkBar({ n, onClear, children }) {
     >
       <MonoLabel style={{ color: "var(--accent-ui)" }}>{n} selected</MonoLabel>
       {children}
-      <Tooltip label="Clear the selection" className="ml-auto">
-        <button type="button" className="field-icon-btn tactile" aria-label="Clear the selection" onClick={onClear}>
-          <IconClose />
-        </button>
-      </Tooltip>
+      <FieldIconButton
+        icon={<IconClose />}
+        ariaLabel="Clear the selection"
+        onClick={onClear}
+        wrapClassName="ml-auto"
+      />
     </div>
   );
 }
@@ -3157,41 +3158,28 @@ export function InlineField({
         {hint && <InfoDot text={hint} title={label} />}
         <span className="flex-1" />
         {!editing && !disabled && (
-          <Tooltip label={editLabel || `Edit ${String(label).toLowerCase()}`}>
-            <button
-              type="button"
-              className="field-icon-btn tactile"
-              aria-label={editLabel || `Edit ${String(label).toLowerCase()}`}
-              onClick={() => setEditing(true)}
-            >
-              <IconEdit />
-            </button>
-          </Tooltip>
+          <FieldIconButton
+            icon={<IconEdit />}
+            ariaLabel={editLabel || `Edit ${String(label).toLowerCase()}`}
+            onClick={() => setEditing(true)}
+          />
         )}
         {editing && (
           <>
-            <Tooltip label="Save">
-              <button
-                type="button"
-                className="field-icon-btn field-icon-btn-ok tactile"
-                aria-label={`Save ${String(label).toLowerCase()}`}
-                disabled={busy}
-                onClick={commit}
-              >
-                <IconCheck />
-              </button>
-            </Tooltip>
-            <Tooltip label="Cancel">
-              <button
-                type="button"
-                className="field-icon-btn tactile"
-                aria-label="Cancel"
-                disabled={busy}
-                onClick={cancel}
-              >
-                <IconClose />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconCheck />}
+              ariaLabel={`Save ${String(label).toLowerCase()}`}
+              disabled={busy}
+              onClick={commit}
+              tooltip="Save"
+              ok
+            />
+            <FieldIconButton
+              icon={<IconClose />}
+              ariaLabel="Cancel"
+              disabled={busy}
+              onClick={cancel}
+            />
           </>
         )}
       </div>
@@ -4143,14 +4131,18 @@ const ICON_SIZE = 24
 // The inline width is dropped ONLY when there is a label, because an inline width
 // would beat the stylesheet and pin the pill shut. Height stays: a 44px row is a
 // 44px row either way.
-export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", danger = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
+// `ok` is the affirmative twin of `danger`, added because its absence was being
+// worked around: the Add sheet's ✓ is one of these and wore `.field-icon-btn-ok`,
+// the 34px family's colour class, to go green. One family borrowing another's
+// stylesheet for a colour is how two families stop being two families.
+export function IconButton({ icon, label, ariaLabel, tooltip, tipSide = "top", danger = false, ok = false, className = "", wrapClassName = "", onClick, style, ...rest }) {
   const tip = tooltip === undefined ? ariaLabel : tooltip
   const named = label != null && label !== ""
   return (
     <Tooltip label={tip} side={tipSide} className={wrapClassName}>
       <button
         type="button"
-        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${named ? " has-btn-icon" : ""}${danger ? " tp-btn-danger" : ""} ${className}`}
+        className={`tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full${named ? " has-btn-icon" : ""}${danger ? " tp-btn-danger" : ""}${ok ? " tp-btn-ok" : ""} ${className}`}
         style={named
           ? { height: 44, flexShrink: 0, ...style }
           : { width: 44, height: 44, padding: 0, flexShrink: 0, ...style }}
@@ -4952,34 +4944,10 @@ export function PickMark({ picked, onChange, label = "this" }) {
 export function TableActions({ onCopy, onShare, onEdit, onDelete, noun = "row" }) {
   return (
     <span className="flex items-center justify-end gap-1">
-      {onCopy && (
-        <Tooltip label={`Copy this ${noun}`}>
-          <button type="button" className="field-icon-btn tactile" aria-label="Copy" onClick={onCopy}>
-            <IconCopy />
-          </button>
-        </Tooltip>
-      )}
-      {onShare && (
-        <Tooltip label={`Share this ${noun}`}>
-          <button type="button" className="field-icon-btn tactile" aria-label="Share" onClick={onShare}>
-            <IconShare />
-          </button>
-        </Tooltip>
-      )}
-      {onEdit && (
-        <Tooltip label={`Edit this ${noun}`}>
-          <button type="button" className="field-icon-btn tactile" aria-label="Edit" onClick={onEdit}>
-            <IconEdit />
-          </button>
-        </Tooltip>
-      )}
-      {onDelete && (
-        <Tooltip label={`Delete this ${noun}`}>
-          <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Delete" onClick={onDelete}>
-            <IconDelete />
-          </button>
-        </Tooltip>
-      )}
+      {onCopy && <FieldIconButton icon={<IconCopy />} ariaLabel="Copy" onClick={onCopy} tooltip={`Copy this ${noun}`} />}
+      {onShare && <FieldIconButton icon={<IconShare />} ariaLabel="Share" onClick={onShare} tooltip={`Share this ${noun}`} />}
+      {onEdit && <FieldIconButton icon={<IconEdit />} ariaLabel="Edit" onClick={onEdit} tooltip={`Edit this ${noun}`} />}
+      {onDelete && <FieldIconButton icon={<IconDelete />} ariaLabel="Delete" onClick={onDelete} tooltip={`Delete this ${noun}`} danger />}
     </span>
   )
 }
@@ -5002,17 +4970,14 @@ export function TableActions({ onCopy, onShare, onEdit, onDelete, noun = "row" }
 // instead of five for one.
 export function CloseButton({ onClick, label = "Close", tooltip, disabled = false, className = "" }) {
   return (
-    <Tooltip label={tooltip || `${label} this window`}>
-      <button
-        type="button"
-        className={`field-icon-btn tactile ${className}`}
-        aria-label={label}
-        onClick={onClick}
-        disabled={disabled}
-      >
-        <IconClose />
-      </button>
-    </Tooltip>
+    <FieldIconButton
+      icon={<IconClose />}
+      ariaLabel={label}
+      onClick={onClick}
+      disabled={disabled}
+      tooltip={tooltip || `${label} this window`}
+      className={className}
+    />
   )
 }
 
@@ -5040,16 +5005,14 @@ export function QuoteTools({ actions = [], alwaysVisible = false }) {
   return (
     <span className={"card-tools" + (alwaysVisible ? " is-visible" : "")}>
       {actions.map((a) => (
-        <Tooltip key={a.id} label={a.tooltip || a.label}>
-          <button
-            type="button"
-            className={"field-icon-btn tactile" + (a.danger ? " field-icon-btn-danger" : "")}
-            aria-label={a.label}
-            onClick={a.run}
-          >
-            {a.icon}
-          </button>
-        </Tooltip>
+        <FieldIconButton
+          key={a.id}
+          icon={a.icon}
+          ariaLabel={a.label}
+          onClick={a.run}
+          tooltip={a.tooltip || a.label}
+          danger={!!a.danger}
+        />
       ))}
     </span>
   );
@@ -5118,11 +5081,7 @@ export function SheetFooter({ count, onReset, onDone }) {
   return (
     <>
       {onReset && (
-        <Tooltip label="Reset every filter">
-          <button type="button" className="field-icon-btn tactile" aria-label="Reset every filter" onClick={onReset}>
-            <IconRevert />
-          </button>
-        </Tooltip>
+        <FieldIconButton icon={<IconRevert />} ariaLabel="Reset every filter" onClick={onReset} />
       )}
       {count != null && <span className="microcopy">{count}</span>}
       <button type="button" className="tp-btn tp-btn-primary ml-auto" style={{ minWidth: 110 }} onClick={onDone}>

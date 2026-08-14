@@ -3,7 +3,7 @@ import { json, errText } from './api.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 
@@ -653,34 +653,29 @@ function InlineEdit({ kind, id, onDone, onCancel }) {
 function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun }) {
   return (
     <span className="flex items-center gap-1">
-      <Tooltip label={editing ? 'Close the editor' : `Edit this ${noun}`}>
-        <button
-          type="button"
-          className={'field-icon-btn tactile' + (editing ? ' is-active' : '')}
-          aria-label={editing ? 'Close the editor' : 'Edit'}
-          aria-pressed={editing}
-          onClick={onEdit}
-        >
-          <IconEdit />
-        </button>
-      </Tooltip>
-      <Tooltip label={lookingUp ? 'Close the look-up' : 'Look up the sources'}>
-        <button
-          type="button"
-          className={'field-icon-btn tactile' + (lookingUp ? ' is-active' : '')}
-          aria-label={lookingUp ? 'Close the look-up' : 'Look up'}
-          aria-pressed={lookingUp}
-          onClick={onLookup}
-        >
-          <IconSearch />
-        </button>
-      </Tooltip>
+      <FieldIconButton
+        icon={<IconEdit />}
+        ariaLabel={editing ? 'Close the editor' : 'Edit'}
+        aria-pressed={editing}
+        onClick={onEdit}
+        tooltip={editing ? 'Close the editor' : `Edit this ${noun}`}
+        active={editing}
+      />
+      <FieldIconButton
+        icon={<IconSearch />}
+        ariaLabel={lookingUp ? 'Close the look-up' : 'Look up'}
+        aria-pressed={lookingUp}
+        onClick={onLookup}
+        tooltip={lookingUp ? 'Close the look-up' : 'Look up the sources'}
+        active={lookingUp}
+      />
       {onOpen && (
-        <Tooltip label={`Open this ${noun}`}>
-          <button type="button" className="field-icon-btn tactile" aria-label="Open" onClick={onOpen}>
-            <IconOpen />
-          </button>
-        </Tooltip>
+        <FieldIconButton
+          icon={<IconOpen />}
+          ariaLabel="Open"
+          onClick={onOpen}
+          tooltip={`Open this ${noun}`}
+        />
       )}
     </span>
   )

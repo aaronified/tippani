@@ -32,6 +32,7 @@ import {
   ColorSwatches,
   clampSequence,
   ErrorText,
+  FieldIconButton,
   formatPartialDate,
   FormModal,
   GhostButton,
@@ -173,17 +174,13 @@ function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style }) 
       {/* Only when there is something hidden. A control that is always there but
           does nothing three times out of four teaches you to ignore it. */}
       {(clipped || open) && (
-        <Tooltip label={open ? 'Show less' : 'Show the whole quote'}>
-          <button
-            type="button"
-            className="field-icon-btn"
-            aria-label={open ? 'Collapse this option' : 'Expand this option'}
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-          >
-            <ClampMore open={open} />
-          </button>
-        </Tooltip>
+        <FieldIconButton
+          icon={<ClampMore open={open} />}
+          ariaLabel={open ? 'Collapse this option' : 'Expand this option'}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          tooltip={open ? 'Show less' : 'Show the whole quote'}
+        />
       )}
     </div>
   )
@@ -631,16 +628,12 @@ function PracticeCard({ onStates, userId }) {
                 <MonoLabel style={{ fontSize: 10.5 }}>
                   {score.answered} answered · {Math.round(score.accuracy * 100)}% recalled
                 </MonoLabel>
-                <Tooltip label="Reset the practice score">
-                  <button
-                    type="button"
-                    className="field-icon-btn tactile"
-                    aria-label="Reset practice score"
-                    onClick={reset}
-                  >
-                    <IconDelete />
-                  </button>
-                </Tooltip>
+                <FieldIconButton
+                  icon={<IconDelete />}
+                  ariaLabel="Reset practice score"
+                  onClick={reset}
+                  tooltip="Reset the practice score"
+                />
               </>
             )}
           </div>

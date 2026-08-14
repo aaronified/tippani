@@ -4,6 +4,7 @@ import {
   Card,
   ConfirmDialog,
   EmptyState,
+  FieldIconButton,
   FilterChip,
   GhostButton,
   IconBack,
@@ -335,28 +336,21 @@ export default function BinPage({ onClose }) {
                     )}
                     <span className="trash-label">{e.label || 'untitled'}</span>
                     <span className="ml-auto flex items-center gap-1">
-                      <Tooltip label="Put this back">
-                        <button
-                          type="button"
-                          className="field-icon-btn tactile"
-                          aria-label={`Restore ${e.label || 'this'}`}
-                          disabled={busy}
-                          onClick={() => putBack(e)}
-                        >
-                          <IconRevert />
-                        </button>
-                      </Tooltip>
-                      <Tooltip label="Remove for good">
-                        <button
-                          type="button"
-                          className="field-icon-btn field-icon-btn-danger tactile"
-                          aria-label={`Remove ${e.label || 'this'} for good`}
-                          disabled={busy}
-                          onClick={() => forget(e)}
-                        >
-                          <IconDelete />
-                        </button>
-                      </Tooltip>
+                      <FieldIconButton
+                        icon={<IconRevert />}
+                        ariaLabel={`Restore ${e.label || 'this'}`}
+                        disabled={busy}
+                        onClick={() => putBack(e)}
+                        tooltip="Put this back"
+                      />
+                      <FieldIconButton
+                        icon={<IconDelete />}
+                        ariaLabel={`Remove ${e.label || 'this'} for good`}
+                        disabled={busy}
+                        onClick={() => forget(e)}
+                        tooltip="Remove for good"
+                        danger
+                      />
                     </span>
                   </div>
                   {/* Every fact the entry has, which is what the card could not fit

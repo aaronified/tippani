@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import {
   ErrorText,
+  FieldIconButton,
   GhostButton,
   IconCheck,
   IconChevron,
@@ -210,55 +211,44 @@ export function CoverControls({
             </label>
           </Tooltip>
           {onFetchMeta && (
-            <Tooltip label="Fetch metadata by edition">
-              <button
-                type="button"
-                className={'field-icon-btn field-icon-btn-boxed tactile' + (fetchMetaOpen ? ' is-active' : '')}
-                aria-label="Fetch metadata"
-                aria-pressed={!!fetchMetaOpen}
-                onClick={onFetchMeta}
-              >
-                <IconMetadata />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconMetadata />}
+              ariaLabel="Fetch metadata"
+              aria-pressed={!!fetchMetaOpen}
+              onClick={onFetchMeta}
+              tooltip="Fetch metadata by edition"
+              boxed
+              active={!!fetchMetaOpen}
+            />
           )}
-          <Tooltip label="Paste an image URL">
-            <button
-              type="button"
-              className={'field-icon-btn field-icon-btn-boxed tactile' + (urlOpen ? ' is-active' : '')}
-              aria-label="Paste image URL"
-              aria-pressed={urlOpen}
-              onClick={() => setUrlOpen((v) => !v)}
-            >
-              <IconLink />
-            </button>
-          </Tooltip>
-          <Tooltip
-            label={kind === 'movies'
+          <FieldIconButton
+            icon={<IconLink />}
+            ariaLabel="Paste image URL"
+            aria-pressed={urlOpen}
+            onClick={() => setUrlOpen((v) => !v)}
+            tooltip="Paste an image URL"
+            boxed
+            active={urlOpen}
+          />
+          <FieldIconButton
+            icon={<IconSearch />}
+            ariaLabel={`Search ${label.toLowerCase()}s`}
+            onClick={searchCovers}
+            disabled={searching}
+            tooltip={kind === 'movies'
               ? 'Search TMDB & TheTVDB'
               : 'Search Books, Library & Amazon'}
-          >
-            <button
-              type="button"
-              className={'field-icon-btn field-icon-btn-boxed tactile' + (searching ? ' is-busy' : '')}
-              aria-label={`Search ${label.toLowerCase()}s`}
-              onClick={searchCovers}
-              disabled={searching}
-            >
-              <IconSearch />
-            </button>
-          </Tooltip>
+            boxed
+            busy={searching}
+          />
           {(currentPath || coverUrl) && !clearCover && (
-            <Tooltip label={`Remove ${label.toLowerCase()}`}>
-              <button
-                type="button"
-                className="field-icon-btn field-icon-btn-boxed field-icon-btn-danger tactile"
-                aria-label={`Remove ${label.toLowerCase()}`}
-                onClick={onClear}
-              >
-                <IconDelete />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconDelete />}
+              ariaLabel={`Remove ${label.toLowerCase()}`}
+              onClick={onClear}
+              boxed
+              danger
+            />
           )}
         </div>
         {urlOpen && (
@@ -269,20 +259,18 @@ export function CoverControls({
               value={urlText}
               onChange={(e) => setUrlText(e.target.value)}
             />
-            <Tooltip label="Use this image">
-              <button
-                type="button"
-                className="field-icon-btn field-icon-btn-ok tactile shrink-0"
-                aria-label="Use this image URL"
-                onClick={() => {
+            <FieldIconButton
+              icon={<IconCheck />}
+              ariaLabel="Use this image URL"
+              onClick={() => {
                   if (urlText.trim()) onSetUrl(urlText.trim())
                   setUrlOpen(false)
                   setUrlText('')
                 }}
-              >
-                <IconCheck />
-              </button>
-            </Tooltip>
+              tooltip="Use this image"
+              ok
+              className="shrink-0"
+            />
           </div>
         )}
         {covers && (
@@ -475,11 +463,11 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
             {busy ? 'finding editions…' : 'pick the right edition — replaces the fields below'}
           </MonoLabel>
           {onClose && (
-            <Tooltip label="Close the picker">
-              <button type="button" className="field-icon-btn tactile" aria-label="Close the picker" onClick={onClose}>
-                <IconClose />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconClose />}
+              ariaLabel="Close the picker"
+              onClick={onClose}
+            />
           )}
         </div>
       ) : (
@@ -511,16 +499,14 @@ export function BookLookupPicker({ isbn, title, author, asin, onPick, auto = fal
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="tp-chip shrink-0" style={{ fontSize: 9.5 }}>{(c.source || '').toUpperCase()}</span>
-                <Tooltip label={`Use: ${c.title}`}>
-                  <button
-                    type="button"
-                    className="field-icon-btn field-icon-btn-ok tactile shrink-0"
-                    aria-label={`Use ${c.title}`}
-                    onClick={() => onPick(c)}
-                  >
-                    <IconCheck />
-                  </button>
-                </Tooltip>
+                <FieldIconButton
+                  icon={<IconCheck />}
+                  ariaLabel={`Use ${c.title}`}
+                  onClick={() => onPick(c)}
+                  tooltip={`Use: ${c.title}`}
+                  ok
+                  className="shrink-0"
+                />
               </div>
             </li>
           ))}
@@ -585,17 +571,14 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
       <div className="flex gap-2">
         <input className="tp-input" placeholder="Title" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onEnter} />
         <input className="tp-input w-24 shrink-0" placeholder="Year" inputMode="numeric" value={yr} onChange={(e) => setYr(e.target.value)} onKeyDown={onEnter} />
-        <Tooltip label="Search TMDB & TheTVDB">
-          <button
-            type="button"
-            className="field-icon-btn tactile shrink-0"
-            aria-label="Search"
-            onClick={look}
-            disabled={busy}
-          >
-            <IconSearch />
-          </button>
-        </Tooltip>
+        <FieldIconButton
+          icon={<IconSearch />}
+          ariaLabel="Search"
+          onClick={look}
+          disabled={busy}
+          tooltip="Search TMDB & TheTVDB"
+          className="shrink-0"
+        />
       </div>
       {/* Says why a match you did not search for is sitting at the top. */}
       {pinned.length > 0 && <MonoLabel className="block">searching by id · {pinned.join(' · ')}</MonoLabel>}
@@ -618,16 +601,14 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
                 <span className="tp-chip shrink-0" style={{ color: 'var(--amber)', fontSize: 9.5 }}>
                   {(c.source || 'tmdb').toUpperCase()}
                 </span>
-                <Tooltip label={`Use: ${c.title}`}>
-                  <button
-                    type="button"
-                    className="field-icon-btn field-icon-btn-ok tactile shrink-0"
-                    aria-label={`Use ${c.title}`}
-                    onClick={() => onPick(c)}
-                  >
-                    <IconCheck />
-                  </button>
-                </Tooltip>
+                <FieldIconButton
+                  icon={<IconCheck />}
+                  ariaLabel={`Use ${c.title}`}
+                  onClick={() => onPick(c)}
+                  tooltip={`Use: ${c.title}`}
+                  ok
+                  className="shrink-0"
+                />
               </div>
             </li>
           ))}

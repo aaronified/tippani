@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, Field, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip } from './ui.jsx'
+import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
@@ -59,11 +59,13 @@ function AvatarRow({ user, onUser }) {
           </label>
           <InfoDot title="Profile photo" text="Shown as your avatar chip in the top bar, the drawer and the user list. A square image reads best; up to 5 MB." />
           {user.avatar_path && (
-            <Tooltip label="Remove the photo">
-              <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Remove photo" onClick={remove}>
-                <IconDelete />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconDelete />}
+              ariaLabel="Remove photo"
+              onClick={remove}
+              tooltip="Remove the photo"
+              danger
+            />
           )}
         </div>
         <ErrorText>{err}</ErrorText>

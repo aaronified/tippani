@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, Tooltip, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, readTheme } from "./quoteImage.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { categoryHex, paletteTheme } from "./theme.js";
@@ -863,16 +863,12 @@ export function ShareDialog({ share, seen, onClose }) {
           <h2 className="display-title text-xl">Share</h2>
           <span className="flex items-center gap-1">
             {isImage && (
-              <Tooltip label="Share this picture">
-                <button
-                  type="button"
-                  className="field-icon-btn tactile"
-                  aria-label="Share picture"
-                  onClick={() => shareImage.current?.()}
-                >
-                  <IconShare />
-                </button>
-              </Tooltip>
+              <FieldIconButton
+                icon={<IconShare />}
+                ariaLabel="Share picture"
+                onClick={() => shareImage.current?.()}
+                tooltip="Share this picture"
+              />
             )}
             <CloseButton onClick={onClose} />
           </span>

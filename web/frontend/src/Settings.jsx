@@ -9,6 +9,7 @@ import {
   CloseButton,
   ConfirmDialog,
   ErrorText,
+  FieldIconButton,
   IconChevron,
   filterChipClass,
   frameCode,
@@ -365,30 +366,23 @@ function ColourCategoriesCard({ prefs, onSaved }) {
                 />
               )}
               {!row.fixed && (
-                <Tooltip label={row.hidden ? 'Offer this again' : visible <= 2 ? 'Keep two categories' : 'Stop offering this'}>
-                  <button
-                    type="button"
-                    className={'field-icon-btn tactile' + (row.hidden ? ' is-active' : '')}
-                    aria-label={row.hidden ? 'Offer this category' : 'Hide this category'}
-                    aria-pressed={row.hidden}
-                    disabled={!row.hidden && visible <= 2}
-                    onClick={() => save({ [`catHidden${row.slot}`]: !row.hidden })}
-                  >
-                    {row.hidden ? <IconEyeOff /> : <IconEye />}
-                  </button>
-                </Tooltip>
+                <FieldIconButton
+                  icon={row.hidden ? <IconEyeOff /> : <IconEye />}
+                  ariaLabel={row.hidden ? 'Offer this category' : 'Hide this category'}
+                  aria-pressed={row.hidden}
+                  disabled={!row.hidden && visible <= 2}
+                  onClick={() => save({ [`catHidden${row.slot}`]: !row.hidden })}
+                  tooltip={row.hidden ? 'Offer this again' : visible <= 2 ? 'Keep two categories' : 'Stop offering this'}
+                  active={row.hidden}
+                />
               )}
               {row.custom && (
-                <Tooltip label="Back to the original">
-                  <button
-                    type="button"
-                    className="field-icon-btn tactile"
-                    aria-label="Reset this colour"
-                    onClick={() => save({ [`catColor${row.slot}`]: '' })}
-                  >
-                    <IconRevert />
-                  </button>
-                </Tooltip>
+                <FieldIconButton
+                  icon={<IconRevert />}
+                  ariaLabel="Reset this colour"
+                  onClick={() => save({ [`catColor${row.slot}`]: '' })}
+                  tooltip="Back to the original"
+                />
               )}
             </div>
             {picking === row.slot && (
@@ -1065,24 +1059,22 @@ function DevicesCard() {
             {pair.code}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Tooltip label="Copy the code">
-              <button type="button" className="field-icon-btn tactile" aria-label="Copy the pairing code" onClick={() => copyText(pair.code)}>
-                <IconCopy />
-              </button>
-            </Tooltip>
-            <Tooltip label="Done">
-              <button
-                type="button"
-                className="field-icon-btn field-icon-btn-ok tactile"
-                aria-label="Done pairing"
-                onClick={() => {
+            <FieldIconButton
+              icon={<IconCopy />}
+              ariaLabel="Copy the pairing code"
+              onClick={() => copyText(pair.code)}
+              tooltip="Copy the code"
+            />
+            <FieldIconButton
+              icon={<IconCheck />}
+              ariaLabel="Done pairing"
+              onClick={() => {
                   setPair(null)
                   load()
                 }}
-              >
-                <IconCheck />
-              </button>
-            </Tooltip>
+              tooltip="Done"
+              ok
+            />
           </div>
         </div>
       ) : (
@@ -1091,11 +1083,12 @@ function DevicesCard() {
             Pair a device
           </StickerButton>
           {devices?.length > 0 && (
-            <Tooltip label="Unpair every device">
-              <button type="button" className="field-icon-btn field-icon-btn-danger tactile" aria-label="Unpair every device" onClick={revokeAll}>
-                <IconDelete />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconDelete />}
+              ariaLabel="Unpair every device"
+              onClick={revokeAll}
+              danger
+            />
           )}
         </div>
       )}
@@ -1112,16 +1105,12 @@ function DevicesCard() {
                 </span>
               </span>
               <span className="ml-auto">
-                <Tooltip label={`Unpair ${d.name}`}>
-                  <button
-                    type="button"
-                    className="field-icon-btn field-icon-btn-danger tactile"
-                    aria-label={`Unpair ${d.name}`}
-                    onClick={() => revoke(d)}
-                  >
-                    <IconClose />
-                  </button>
-                </Tooltip>
+                <FieldIconButton
+                  icon={<IconClose />}
+                  ariaLabel={`Unpair ${d.name}`}
+                  onClick={() => revoke(d)}
+                  danger
+                />
               </span>
             </li>
           ))}
@@ -2132,40 +2121,27 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
           </Tooltip>
         )}
         {!editing ? (
-          <Tooltip label={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}>
-            <button
-              type="button"
-              className="field-icon-btn tactile"
-              aria-label={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}
-              onClick={() => setEditing(true)}
-            >
-              <IconEdit />
-            </button>
-          </Tooltip>
+          <FieldIconButton
+            icon={<IconEdit />}
+            ariaLabel={set ? `Replace the ${label.toLowerCase()}` : `Add a ${label.toLowerCase()}`}
+            onClick={() => setEditing(true)}
+          />
         ) : (
           <>
-            <Tooltip label={draft.trim() ? 'Save' : 'Save blank — clears this key'}>
-              <button
-                type="button"
-                className="field-icon-btn field-icon-btn-ok tactile"
-                aria-label={`Save ${label.toLowerCase()}`}
-                disabled={busy}
-                onClick={commit}
-              >
-                <IconCheck />
-              </button>
-            </Tooltip>
-            <Tooltip label="Cancel">
-              <button
-                type="button"
-                className="field-icon-btn tactile"
-                aria-label="Cancel"
-                disabled={busy}
-                onClick={() => { setEditing(false); setDraft(secret ? '' : value) }}
-              >
-                <IconClose />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconCheck />}
+              ariaLabel={`Save ${label.toLowerCase()}`}
+              disabled={busy}
+              onClick={commit}
+              tooltip={draft.trim() ? 'Save' : 'Save blank — clears this key'}
+              ok
+            />
+            <FieldIconButton
+              icon={<IconClose />}
+              ariaLabel="Cancel"
+              disabled={busy}
+              onClick={() => { setEditing(false); setDraft(secret ? '' : value) }}
+            />
           </>
         )}
       </div>

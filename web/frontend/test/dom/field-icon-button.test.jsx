@@ -21,9 +21,13 @@
 // that adding `label` here later is a decision somebody has to argue with rather
 // than a patch that slips through.
 
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { FieldIconButton, IconEdit } from '../../src/ui.jsx'
+
+const SRC = process.env.TIPPANI_SRC
 
 const btn = (ui) => {
   const { container } = render(ui)
@@ -100,6 +104,60 @@ describe('the variants compose', () => {
 
   it('still takes a caller class, for the odd shrink-0', () => {
     expect(btn(<FieldIconButton ariaLabel="Edit" className="shrink-0" />).className).toContain('shrink-0')
+  })
+})
+
+// ---- and nobody writes the class by hand any more -------------------------
+//
+// The migration moved 46 sites. Without this, the 47th is a copy-paste away and
+// the primitive becomes one of two ways to draw the same button — which is worse
+// than the class string was, because now there are two.
+//
+// It counts rather than forbids, because the primitive itself has to emit the
+// class. One <button> in the SPA may carry it, and it is that one.
+describe('the class belongs to the primitive', () => {
+  // Read the <button ...> tags out of a file, brace-aware so a JSX expression
+  // containing '>' does not end a tag early.
+  const buttonTags = (src) => {
+    const out = []
+    const re = /<button(?=[\s/>])/g
+    let m
+    while ((m = re.exec(src))) {
+      let i = m.index + m[0].length
+      let depth = 0
+      for (; i < src.length; i++) {
+        const c = src[i]
+        if (c === '{') depth++
+        else if (c === '}') depth--
+        else if (c === '>' && depth === 0) break
+      }
+      out.push(src.slice(m.index, i + 1))
+    }
+    return out
+  }
+
+  const sources = readdirSync(SRC)
+    .filter((f) => (f.endsWith('.jsx') || f.endsWith('.js')) && !f.includes('.test.'))
+    .map((f) => [f, readFileSync(join(SRC, f), 'utf8')])
+
+  it('is emitted by exactly one button, in ui.jsx', () => {
+    const wearers = sources.flatMap(([file, src]) =>
+      buttonTags(src).filter((t) => t.includes('field-icon-btn')).map(() => file),
+    )
+    expect(wearers).toEqual(['ui.jsx'])
+  })
+
+  // The one non-button that wears it, named so the count above cannot be met by
+  // quietly turning a button into something else. A file picker HAS to be a
+  // <label> wrapping an <input type="file"> — a button cannot open the dialog —
+  // so it borrows the look on purpose and is not a candidate for the primitive.
+  it('is worn by one <label>, the file picker, and nothing else', () => {
+    const others = sources.flatMap(([file, src]) =>
+      [...src.matchAll(/<(\w+)[^>]*?field-icon-btn/g)]
+        .map((m) => `${file}:${m[1]}`)
+        .filter((x) => !x.endsWith(':button')),
+    )
+    expect(others).toEqual(['CoverPicker.jsx:label'])
   })
 })
 

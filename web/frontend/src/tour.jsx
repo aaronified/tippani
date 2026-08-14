@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json } from './api.js'
-import { IconBack, InfoDot, MonoLabel, StickerButton, Tooltip, toast, useIsMobileScreen } from './ui.jsx'
+import { FieldIconButton, IconBack, InfoDot, MonoLabel, StickerButton, toast, useIsMobileScreen } from './ui.jsx'
 
 // The guided feature tour (Settings → Onboarding). It auto-opens once per user
 // on their first launch (App.jsx checks preferences.tour === ''), and can be
@@ -483,11 +483,11 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
           <button type="button" className="tp-link" onClick={skip}>skip tour</button>
           <span className="flex-1" />
           {i > 0 && (
-            <Tooltip label="Previous step">
-              <button type="button" className="field-icon-btn tactile" aria-label="Previous step" onClick={back}>
-                <IconBack />
-              </button>
-            </Tooltip>
+            <FieldIconButton
+              icon={<IconBack />}
+              ariaLabel="Previous step"
+              onClick={back}
+            />
           )}
           <StickerButton onClick={next}>{i >= steps.length - 1 ? 'Finish' : 'Next'}</StickerButton>
         </div>
