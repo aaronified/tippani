@@ -157,7 +157,9 @@ of that are spelled out in [`AI.md`](AI.md).
   and filled to your progress, amber held, red given up, green done. Whatever you're on with right
   now pins to the **top of the default sort** and wears an open-book (or ▶) mark. Anything you
   haven't quoted from yet is automatically on the **Wishlist** — no bookkeeping, it clears itself the
-  moment you add a quote — and the filter row's `all · wishlist · annotated` chips let you browse
+  moment you add a quote — **Fold wishlist** puts the whole unopened shelf into one tile at the
+  front of the board, wearing a collage of the first four covers, so forty books you have nothing
+  from yet stop sitting between the ones you have — and the filter row's `all · wishlist · annotated` chips let you browse
   just those, or hide them and see only what you've actually marked up.
 
   Progress is yours to keep, in the units the thing is made of: a **percentage**, or the **page

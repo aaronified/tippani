@@ -22,6 +22,7 @@ import {
   ShelfDateDialog,
   WorkCard,
   WorkHero,
+  WishlistFolder,
   WorkListScaffold,
   countQuotes,
   groupWorks,
@@ -43,6 +44,7 @@ import {
   ErrorText,
   ExpandableText,
   Field,
+  FilterChip,
   filterChipClass,
   FormModal,
   GenreFilter,
@@ -168,9 +170,13 @@ async function setBookStatus(id, body) {
 // `selection` is threaded through rather than held here, because the board is what
 // knows the visible ORDER — Shift-click extends over that, and a per-group hook
 // would extend over one bucket while the reader saw the whole board.
-function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection }) {
+function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, leadingTile }) {
   return (
     <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
+      {/* FIRST, not last. The folder is the pile you are not looking at, and a
+          pile you have to scroll past forty covers to find is a pile you will
+          never open. It also keeps its place as the board is filtered. */}
+      {leadingTile && <li>{leadingTile}</li>}
       {books.map((b, i) => (
         <li key={b.id}>
           <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} selection={selection} />
@@ -190,6 +196,15 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const [tagged, setTagged] = useState(false) // has at least one tagged quote
   const [noted, setNoted] = useState(false) // has at least one quote with a note
   const [wish, setWish] = useState('') // '' = all | 'wishlist' | 'annotated'
+  // Fold the wishlist into one tile. PERSISTED, unlike every filter beside it and
+  // unlike `groupBy`, because it is not a question about this visit — it is how you
+  // want your board to look, in the same class as the cover size. Which is also why
+  // `Reset` leaves it alone: reset clears what you were asking of the library, not
+  // how the library is drawn.
+  //
+  // OFF by default. Turning it on is one tap and reversible; a grid that silently
+  // rearranged itself on upgrade is a library that looks like it lost books.
+  const [wishFolder, setWishFolder] = usePersistedState('tippani:books:wishFolder', false)
   const [states, setStates] = useState([]) // shelf states kept; [] = every state
   const [sort, setSort] = useState('recent')
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
@@ -249,10 +264,22 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     return list
   }, [books, genre, series, fav, tagged, noted, states, wish, sort])
 
-  // Over `shown` — the visible, filtered, sorted list — so changing a filter drops
-  // the ids that left the screen rather than leaving the bar reporting a number
-  // about books nobody can see (see useSelection).
-  const selection = useSelection(shown.map((b) => b.id))
+  // Folding, and the two piles it makes. Only on the FLAT, unscoped board: inside
+  // the wishlist chip there is nothing to fold away from, and a "Wishlist" folder
+  // sitting inside the bucket for one author or one series would be a folder that
+  // meant something different in every group it appeared in.
+  const foldWish = wishFolder && wish === '' && groupBy === 'none'
+  const unquoted = (b) => (b.annotation_count || 0) === 0
+  const wishBooks = useMemo(() => (foldWish ? shown.filter(unquoted) : []), [foldWish, shown])
+  const boardBooks = useMemo(() => (foldWish ? shown.filter((b) => !unquoted(b)) : shown), [foldWish, shown])
+
+  // Over `boardBooks` — what is actually on screen as a tile — so changing a
+  // filter, or folding the wishlist away, drops the ids that left rather than
+  // leaving the bar reporting a number about books nobody can see (see
+  // useSelection). The folder itself is not selectable: a tick on it would have to
+  // mean "select the twelve behind it", which is a different act from every other
+  // tick on the board and one the bar cannot report a count for.
+  const selection = useSelection(boardBooks.map((b) => b.id))
   const afterBulk = () => {
     selection.clear()
     load()
@@ -263,6 +290,18 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   // full-state form would save blanks over the two fields it never had.
   const [editWork, setEditWork] = useState(null)
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
+  // Named for what it DOES rather than for what it is: "Fold wishlist" is an
+  // instruction, and the chip beside it that reads "wishlist" is a scope. Two
+  // controls with the same word meaning two different things on one row is exactly
+  // the confusion this board does not need.
+  const wishChip = (
+    <FilterChip
+      active={wishFolder}
+      label="Fold wishlist"
+      tooltip="Fold the unquoted into one tile"
+      onClick={() => setWishFolder((v) => !v)}
+    />
+  )
   const grouped = useMemo(
     () =>
       groupBy === 'none'
@@ -317,26 +356,32 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       setSort={setSort}
       sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['author', 'Author'], ['series', 'Series'], ['read', 'Last read']]}
       trailing={
-        <label className="flex items-center gap-2">
-          <MonoLabel>group</MonoLabel>
-          <Select
-            ariaLabel="Group by"
-            value={groupBy}
-            onChange={setGroupBy}
-            options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
-          />
-        </label>
+        <>
+          {wishChip}
+          <label className="flex items-center gap-2">
+            <MonoLabel>group</MonoLabel>
+            <Select
+              ariaLabel="Group by"
+              value={groupBy}
+              onChange={setGroupBy}
+              options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+            />
+          </label>
+        </>
       }
       trailingMobile={
-        <div>
-          <MonoLabel className="mb-2 block">group</MonoLabel>
-          <Select
-            ariaLabel="Group by"
-            value={groupBy}
-            onChange={setGroupBy}
-            options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
-          />
-        </div>
+        <>
+          <div>{wishChip}</div>
+          <div>
+            <MonoLabel className="mb-2 block">group</MonoLabel>
+            <Select
+              ariaLabel="Group by"
+              value={groupBy}
+              onChange={setGroupBy}
+              options={[['none', 'Books'], ['series', 'Series'], ['author', 'Author'], ['decade', 'Decade'], ['genre', 'Genre']]}
+            />
+          </div>
+        </>
       }
       onReset={() => { setGenre(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
       exportDialog={
@@ -380,7 +425,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       {/* The MODE, not the count: emptying the selection leaves the bar standing
           so picking a different four does not cost a fresh gesture. */}
       {selection.open && (
-        <SelectionBar selection={selection} rows={shown} onDone={afterBulk} onEdit={setEditWork} />
+        <SelectionBar selection={selection} rows={boardBooks} onDone={afterBulk} onEdit={setEditWork} />
       )}
       {grouped ? (
         <div className="space-y-10">
@@ -401,7 +446,23 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
           })}
         </div>
       ) : (
-        <BookGrid books={shown} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} />
+        <BookGrid
+          books={boardBooks}
+          coverSize={coverSize}
+          onOpen={onOpen}
+          authorMap={authors.map}
+          seps={creditSeps}
+          selection={selection}
+          leadingTile={
+            wishBooks.length > 0 ? (
+              // Opening it is switching to the chip that already exists. The folder
+              // is a DOOR to a filter rather than a place things live: nothing
+              // moves, nothing is stored, and there is no state that can disagree
+              // with the count printed on a cover.
+              <WishlistFolder kind="book" items={wishBooks} onOpen={() => setWish('wishlist')} />
+            ) : null
+          }
+        />
       )}
     </WorkListScaffold>
   )

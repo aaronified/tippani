@@ -1310,6 +1310,28 @@
 
       <div class="g-item">
         <div class="g-demo center">
+          <div style="width:120px">
+            <div class="hand-card" style="position:relative;overflow:hidden">
+              <span class="wish-collage">
+                <span class="wish-cell" style="background:#8a5a3c"></span>
+                <span class="wish-cell" style="background:#4a5d6e"></span>
+                <span class="wish-cell" style="background:#6e5a7a"></span>
+                <span class="wish-cell" style="background:#7a6a4a"></span>
+              </span>
+              <span class="wish-folder-tag tp-scrim-deep">Wishlist</span>
+            </div>
+            <p style="margin-top:9px;font-family:var(--font-display);font-weight:600;font-size:15.5px;color:var(--ink)">Wishlist</p>
+            <p style="font-size:13px;color:var(--soft)">nothing quoted yet</p>
+            <span class="mono-label" style="color:var(--accent-ui)">12 books</span>
+          </div>
+        </div>
+        <div class="g-name">Wishlist folder <span class="g-tlabel">1.12.0</span></div>
+        <div class="g-src">WishlistFolder &mdash; works.jsx &middot; .wish-collage / .wish-cell / .wish-folder-tag &mdash; index.css</div>
+        <div class="g-desc">A library that keeps quotes accumulates books it has nothing from yet: a shelf photographed at a friend's house, an import that brought the titles and not the highlights, everything bought and not started. The triplet above already let you <em>browse</em> them. What was missing was a way to get them <b>out of the way</b> &mdash; forty unopened covers scattered through a grid of books you have actually read is forty tiles of noise between the ones you are looking for, and a chip only helps when the wishlist is what you came for.<br><br><b>It is a DOOR, not a place.</b> Opening it is the <code>wishlist</code> chip that already exists. Nothing moves, nothing is stored, and there is no membership that could disagree with the count printed on a cover &mdash; which is the same reason the wishlist has no column: a second source of truth for something already computable. A book leaves the folder by itself the moment you save a quote from it.<br><br><b>Drawn as a WorkCard is drawn</b>, at the same width and the same 2/3 aspect, because a folder wearing a different material reads as a control that wandered into the board rather than as one of its tiles. The collage adapts to how many covers there are (one spans the box, two split it, three make an L): a 2&times;2 holding one cover and three blanks reads as a broken image rather than as a wishlist with one thing on it. A cover-less book gets an empty cell rather than the &ldquo;COVER&rdquo; placeholder &mdash; that placeholder carries its own word, and four of them inside one tile is the word printed four times at quarter size.<br><br><b>Not selectable.</b> A tick in its corner would have to mean &ldquo;select the twelve behind it&rdquo;, which is a different act from every other tick on the board and one the bar has no way to report a count for. <b>Flat board only</b>: inside the wishlist chip there is nothing to fold away from, and a Wishlist folder inside the bucket for one author would mean something different in every group it appeared in. <b>Off until you turn it on</b>, and then it stays on &mdash; a grid that silently rearranged itself on upgrade is a library that looks like it lost books.</div>
+      </div>
+
+      <div class="g-item">
+        <div class="g-demo center">
           <div class="tp-filter-row" style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="tp-filter-chip is-on tactile">all</button>
             <button class="tp-filter-chip tactile">wishlist</button>

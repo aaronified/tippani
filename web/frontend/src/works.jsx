@@ -895,6 +895,91 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   )
 }
 
+// ---- the wishlist, folded into one tile (1.12.0) --------------------------
+//
+// A library that keeps quotes accumulates books it has nothing from yet: a
+// shelf photographed at a friend's house, an import that brought the titles and
+// not the highlights, everything bought and not started. They are the wishlist —
+// derived, with no column and no bookkeeping (a work with zero quotes IS the
+// wishlist, and it clears itself the moment you add one). The board already had
+// a chip triplet to browse them.
+//
+// What it did not have was a way to get them OUT OF THE WAY. Forty unopened
+// covers scattered through a grid of books you have actually read is forty tiles
+// of noise between the ones you are looking for, and the chip only helps if what
+// you want is the wishlist rather than everything else.
+//
+// So: one tile, opening the chip that already exists. The folder is a DOOR to a
+// filter rather than a new place things live — nothing moves, nothing is stored,
+// and there is no state that can disagree with the count on a cover.
+//
+// COLLAGE_SPANS decides the layout for one to four covers, because a 2×2 grid
+// holding one cover and three blanks reads as a broken image rather than as a
+// wishlist with one thing on it. Four or more is the plain quartet; fewer, and
+// the covers there are fill the box between them.
+const COLLAGE_SPANS = {
+  1: ['span 2 / span 2'],
+  2: ['span 2 / span 1', 'span 2 / span 1'],
+  3: ['span 2 / span 1', 'span 1 / span 1', 'span 1 / span 1'],
+}
+
+// WishlistFolder — the tile. Drawn as a WorkCard is drawn, deliberately: it sits
+// in the same grid at the same width, and a folder that wore a different material
+// would read as a control that had wandered into the board rather than as one of
+// its tiles.
+//
+// It is NOT selectable. A selection acts on rows, and this is not a row — a tick
+// in its corner would have to mean "select the twelve behind it", which is a
+// different act from every other tick on the board and one the bar has no way to
+// report a count for.
+export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
+  const isBook = kind === 'book'
+  const n = items.length
+  // The first four, in the board's own order, so what the folder shows is what
+  // opening it shows first.
+  const covers = items.slice(0, 4).map((it) => (isBook ? it.cover_path : it.poster_path))
+  const spans = COLLAGE_SPANS[covers.length] || []
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="cover-tile block w-full text-left"
+      title={`The ${n} you have nothing from yet`}
+    >
+      <HandCard variant={0} className="relative overflow-hidden cover-lift">
+        <span className="wish-collage" aria-hidden="true">
+          {covers.map((path, i) => (
+            <span key={i} className="wish-cell" style={{ gridArea: spans[i] }}>
+              {path ? <img src={coverImgURL(path)} alt="" /> : null}
+            </span>
+          ))}
+        </span>
+        {/* The word, over the collage. Without it a quartet of covers is just four
+            covers at quarter size, and the one thing this tile has to say is what
+            it is. */}
+        <span className="wish-folder-tag tp-scrim-deep">Wishlist</span>
+      </HandCard>
+      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>
+        Wishlist
+      </p>
+      <div className="flex items-center gap-1.5">
+        <p className="min-w-0 truncate text-[13px]" style={{ color: 'var(--soft)' }}>
+          nothing quoted yet
+        </p>
+      </div>
+      <div className="mt-0.5 flex items-center gap-2">
+        {isBook ? (
+          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{`${n} book${n === 1 ? '' : 's'}`}</MonoLabel>
+        ) : (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--amber)' }}>
+            {n} title{n === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+    </button>
+  )
+}
+
 // GroupHeading — the label above one bucket of a "group by" view. Shared by the
 // Library (books by series / author / decade / genre) and the Catalogue (films
 // and shows by collection), so the two boards read identically; `noun` is what

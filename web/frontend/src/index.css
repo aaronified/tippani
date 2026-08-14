@@ -2518,6 +2518,43 @@
     .cover-tile:hover .cover-lift, .cover-tile:active .cover-lift, .cover-tile:focus-visible .cover-lift { transform: none; filter: none; }
   }
 
+  /* ---- the wishlist folder (1.12.0) ----
+     Four covers in the space of one, at the SAME 2/3 aspect the board's tiles
+     keep — a folder that was a different shape would break the grid's rhythm on
+     the one row it appeared in. The cells are laid out by grid-area from JS
+     (COLLAGE_SPANS), because one cover in a 2x2 reads as a broken image rather
+     than as a wishlist with one thing on it.
+
+     A hairline between the quarters and nothing else: the covers are the picture,
+     and any more chrome would make the tile look like a control. */
+  .wish-collage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    aspect-ratio: 2 / 3;
+    width: 100%;
+    background: var(--line);
+  }
+  .wish-cell { overflow: hidden; background: var(--card-2, var(--card)); display: block; }
+  .wish-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Over the collage rather than under it. Four covers at quarter size are just
+     four covers; the one thing this tile has to say is what it is. */
+  .wish-folder-tag {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--on-scrim);
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
   /* Settings preset cards: real material grain on the mini-callout (paper fibre /
      brushed metal), so each combo previews its own texture. */
   .preset-callout { position: relative; isolation: isolate; overflow: hidden; }
