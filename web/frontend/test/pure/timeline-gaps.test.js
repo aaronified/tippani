@@ -18,6 +18,8 @@ import {
   gapLine,
   gapLines,
   gapMarkers,
+  makeGapPicker,
+  TIMELINE_GAP_BANDS,
   gapWidth,
   TIMELINE_GAP_LINES,
   TIMELINE_GAP_MIN,
@@ -303,5 +305,59 @@ describe('filling a wide gap with more than one line', () => {
     for (const l of out) {
       expect(l.length * 6.1, l).toBeLessThanOrEqual((share - 24) * 2)
     }
+  })
+})
+
+// ---- the caption pool, and drawing from it -------------------------------
+//
+// Twelve lines sorted by length looked like plenty until you noticed how they
+// are chosen: by how much room the slot has. So the depth that matters is per
+// WIDTH, and the middle band had two lines in it — a chart of similar gaps
+// printed the same sentence beside itself and read as though the app had one
+// joke.
+describe('the gap captions', () => {
+  it('offers at least three at every length', () => {
+    for (const [i, band] of TIMELINE_GAP_BANDS.entries()) {
+      expect(band.length, `band ${i} has only ${band.length}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  it('keeps each band genuinely within one size, so a pick fits its slot', () => {
+    // Bands must not overlap in length, or "the widest band that fits" picks a
+    // band whose other members do not.
+    const spans = TIMELINE_GAP_BANDS.map((b) => [Math.min(...b.map((l) => l.length)), Math.max(...b.map((l) => l.length))])
+    for (let i = 1; i < spans.length; i++) {
+      expect(spans[i][0], `band ${i} starts before band ${i - 1} ends`).toBeGreaterThan(spans[i - 1][1])
+    }
+  })
+
+  it('has no duplicates', () => {
+    const all = TIMELINE_GAP_BANDS.flat()
+    expect(new Set(all).size).toBe(all.length)
+  })
+})
+
+describe('the picker draws without replacement', () => {
+  // THE RULE: no repeat until the band is used up. An independent random draw is
+  // not that — with four lines it repeats within three picks about half the time,
+  // which is exactly what a reader sees as "it keeps saying the same thing".
+  it('exhausts a band before repeating anything in it', () => {
+    const band = TIMELINE_GAP_BANDS[0]
+    const room = Math.max(...band.map((l) => l.length)) * 6.1 + 1
+    const bag = makeGapPicker(7)
+    const first = Array.from({ length: band.length }, () => bag.pick(room))
+    expect(new Set(first).size, `repeated inside one pass: ${first.join(' | ')}`).toBe(band.length)
+    // And it refills rather than running dry.
+    expect(band).toContain(bag.pick(room))
+  })
+
+  it('is stable for the same seed, so a re-render redraws the same chart', () => {
+    const room = 400
+    const a = Array.from({ length: 6 }, () => makeGapPicker(42).pick(room))
+    expect(new Set(a).size).toBe(1)
+  })
+
+  it('gives nothing when nothing fits, rather than a clipped line', () => {
+    expect(makeGapPicker(1).pick(10)).toBe('')
   })
 })

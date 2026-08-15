@@ -812,20 +812,46 @@ export function gapMarkers(gap, size, { minStep = TIMELINE_MARKER_MIN, max = TIM
 // famous name under a witticism in an app whose entire subject is quoting people
 // accurately would be the one place in it inventing an attribution — and there is
 // no field here to record a source in even if it were real.
-export const TIMELINE_GAP_LINES = [
-  'a long quiet.',
-  'nothing quoted here.',
-  'the shelf skips this.',
-  'plenty was written. none of it is here.',
-  'a gap this wide is not history’s fault.',
-  'centuries pass. the shelf does not notice.',
-  'history happened. you were reading something else.',
-  'somebody was writing through all of this. you kept none of it.',
-  'no quotes, no covers, no year worth marking — which says more about the reading than about the era.',
-  'the width of this gap is measured in centuries. the reason for it is measured in evenings.',
-  'every year in here had its writers, its arguments and its best sentence. your copy of that sentence is missing.',
-  'this stretch is not empty because nothing was written in it. it is empty because you have not got round to any of it yet.',
-].sort((a, b) => a.length - b.length)
+// THE CAPTIONS, IN LENGTH BANDS OF THREE OR MORE.
+//
+// A caption is chosen by how much room the slot has, so the pool has to be deep at
+// every WIDTH rather than deep overall. It was twelve lines sorted by length, which
+// looks like plenty until you notice the picker takes the longest few that fit: a
+// chart of narrow gaps had two candidates to choose between and printed the same
+// sentence beside itself, and the widest band had four while the middle had two.
+//
+// Four bands, four lines each, so every width has real variety — and the picker
+// below draws WITHOUT REPLACEMENT, so a band is exhausted before anything repeats.
+export const TIMELINE_GAP_BANDS = [
+  [
+    'a long quiet.',
+    'nothing quoted here.',
+    'the shelf skips this.',
+    'no lines from in here.',
+  ],
+  [
+    'plenty was written. none of it is here.',
+    'a gap this wide is not history’s fault.',
+    'centuries pass. the shelf does not notice.',
+    'the years go by. the shelf has nothing to say.',
+  ],
+  [
+    'history happened. you were reading something else.',
+    'somebody was writing through all of this. you kept none of it.',
+    'a stretch with no quotes in it is still a stretch you lived past.',
+    'the era had its arguments. none of them are on this shelf.',
+  ],
+  [
+    'no quotes, no covers, no year worth marking — which says more about the reading than about the era.',
+    'the width of this gap is measured in centuries. the reason for it is measured in evenings.',
+    'every year in here had its writers, its arguments and its best sentence. your copy of that sentence is missing.',
+    'this stretch is not empty because nothing was written in it. it is empty because you have not got round to any of it yet.',
+  ],
+]
+
+// Flattened and sorted, for the callers that only want "the lines" — the width
+// test and anything measuring the pool.
+export const TIMELINE_GAP_LINES = TIMELINE_GAP_BANDS.flat().sort((a, b) => a.length - b.length)
 
 // GAP_CHAR_PX — how wide a character of the caption runs at its size, near enough.
 // Measuring would mean a ResizeObserver per gap for a decision that only has to be
@@ -837,6 +863,52 @@ const GAP_CHAR_PX = 6.1
 // seed so that the same gap keeps the same line across re-renders and two gaps on
 // one chart do not say the same thing. Returns '' when nothing fits, and the gap
 // draws as bare width — which is honest, and better than a clipped sentence.
+// makeGapPicker — one draw-without-replacement bag per length band, for one
+// render of one chart.
+//
+// THE RULE IS "NO REPEAT UNTIL THE BAND IS USED UP". Choosing at random each time
+// is not that: with four lines in a band, an independent draw repeats within three
+// picks about half the time, which on a chart of several gaps reads as the app
+// having one joke. So each band is shuffled once and consumed in order, and only
+// refilled when it runs out.
+//
+// The bag lives for a render rather than for the app, because the alternative is
+// state that makes the same chart draw differently on a re-render for no reason
+// the reader can see. Seeded, so it does not.
+export function makeGapPicker(seed = 1, bands = TIMELINE_GAP_BANDS) {
+  const rng = mulberry32(seed >>> 0)
+  const bags = bands.map(() => [])
+  const refill = (i) => {
+    const deck = bands[i].slice()
+    // Fisher-Yates against the seeded rng, so the order is stable per chart.
+    for (let j = deck.length - 1; j > 0; j--) {
+      const k = Math.floor(rng() * (j + 1))
+      ;[deck[j], deck[k]] = [deck[k], deck[j]]
+    }
+    bags[i] = deck
+  }
+  return {
+    // The widest band whose lines all fit the room, so a slot gets the longest
+    // copy it can hold rather than the longest single line that happens to fit.
+    pick(room, avoid) {
+      for (let i = bands.length - 1; i >= 0; i--) {
+        if (bands[i].some((l) => l.length * GAP_CHAR_PX > room)) continue
+        if (bags[i].length === 0) refill(i)
+        let out = bags[i].pop()
+        // Only inside one gap: two slots side by side saying the same thing is
+        // the one repeat that is unmistakable.
+        if (avoid && avoid.has(out) && bags[i].length > 0) {
+          const alt = bags[i].pop()
+          bags[i].unshift(out)
+          out = alt
+        }
+        return out || ''
+      }
+      return ''
+    },
+  }
+}
+
 export function gapLine(gap, widthPx, lines = TIMELINE_GAP_LINES) {
   // Two lines of caption, minus the padding either side. Two rather than one
   // because a gap wide enough for a sentence is usually not wide enough for it in
@@ -879,22 +951,19 @@ const GAP_LINE_SLOTS_MAX = 3
 //
 // Returns [] when nothing fits even once, and the gap draws as bare width. That is
 // honest, and better than a clipped sentence.
-export function gapLines(gap, widthPx, lines = TIMELINE_GAP_LINES) {
+export function gapLines(gap, widthPx, bag = makeGapPicker(gap?.start ?? 1)) {
   const slots = Math.max(1, Math.min(GAP_LINE_SLOTS_MAX, Math.floor(widthPx / GAP_LINE_MAX_PX)))
   if (slots === 1) {
-    const one = gapLine(gap, widthPx, lines)
+    const one = bag.pick(Math.max(0, (widthPx - 24) * 2))
     return one ? [one] : []
   }
   const share = widthPx / slots
   const room = Math.max(0, (share - 24) * 2)
-  const rng = mulberry32((gap.start >>> 0) ^ (gap.span * 2654435761))
   const out = []
   const used = new Set()
   for (let i = 0; i < slots; i++) {
-    const fits = lines.filter((l) => l.length * GAP_CHAR_PX <= room && !used.has(l))
-    if (fits.length === 0) break
-    const band = fits.slice(Math.max(0, fits.length - 3))
-    const pick = band[Math.floor(rng() * band.length) % band.length]
+    const pick = bag.pick(room, used)
+    if (!pick) break
     used.add(pick)
     out.push(pick)
   }
@@ -972,6 +1041,10 @@ function TimelineCard({ timeline, onSearch }) {
   const buckets = bucketTimeline(timeline, meta.size)
   const unit = dotUnit(buckets)
   const segments = timelineSegments(buckets)
+  // ONE BAG FOR THE WHOLE CHART. Per-gap bags would let two gaps draw the same
+  // line, which is the repeat a reader actually notices. Seeded from the scale so
+  // a re-render redraws the same chart rather than reshuffling under the pointer.
+  const bag = makeGapPicker(buckets.length * 2654435761 + meta.size)
   if (!timeline || timeline.length === 0) {
     return (
       <Card>
@@ -996,7 +1069,7 @@ function TimelineCard({ timeline, onSearch }) {
         <div className="tl-row">
           {segments.map((seg) =>
             seg.type === 'gap' ? (
-              <TimelineGap key={`gap${seg.start}`} gap={seg} size={meta.size} />
+              <TimelineGap key={`gap${seg.start}`} gap={seg} size={meta.size} bag={bag} />
             ) : (
               (() => {
                 const b = seg.bucket
@@ -1067,10 +1140,10 @@ function TimelineCard({ timeline, onSearch }) {
 // What it adds is what a blank could not carry: the years going past, so the eye
 // has something to measure the distance against, and one line about the fact that
 // nothing in all of it is on your shelf.
-function TimelineGap({ gap, size }) {
+function TimelineGap({ gap, size, bag }) {
   const width = gapWidth(gap.span)
   const markers = gapMarkers(gap, size)
-  const lines = gapLines(gap, width)
+  const lines = gapLines(gap, width, bag)
   const from = bucketLabel(gap.start, size)
   const to = bucketLabel(gap.end, size)
   const reading = `${from} to ${to}: nothing`
