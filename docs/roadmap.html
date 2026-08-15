@@ -616,7 +616,29 @@
       coming back to the shelf is the shape of it.
       <span class="mono">Shipped in 1.15.0.</span>
     </li>
-    <li><strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly when you notice the typo, the missing tag, or that you love it — and it is currently the one screen from which you can do nothing about any of that.</li>
+    <li>
+      <strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly
+      when you notice the typo, the missing tag, or that you love it — and it
+      was the one screen from which you could do nothing about any of that. One
+      panel now does all three.
+      <br><br>
+      <strong>It opens only after the card is graded</strong>, and that gate is
+      the feature rather than a nicety. An edit form carries the quote, the title
+      and the credit: on a &ldquo;which book?&rdquo; card that <em>is</em> the
+      answer, and on a cloze card it is the masked words in full. A pencil beside
+      an unanswered question would be a way to read the answer without answering
+      it. With the confirm step on there is a real interval between choosing and
+      committing, and the gate holds across it too.
+      <br><br>
+      The panel reads the whole row (<code>?id=</code> on the three quote lists,
+      added for this) and sends the whole row back, because every one of those
+      PUTs is full-state — a field left out of the payload is a field an edit to
+      the words silently blanks. What folds back onto the card is a short list on
+      purpose: the note always, the quote unless the card is a cloze one whose
+      text is the server&rsquo;s mask, and the options never. They were the
+      question.
+      <span class="mono">Shipped in 1.15.0.</span>
+    </li>
     <li>
       <strong>Leech handling</strong> — <code>lapse_count</code> was already
       stored and nothing read it. At five lapses the card now says so once you

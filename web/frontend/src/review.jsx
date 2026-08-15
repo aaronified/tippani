@@ -15,7 +15,7 @@
 // it is defined, below.
 import { useEffect, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
-import { json } from './api.js'
+import { errText, json } from './api.js'
 import { episodeLabel } from './text.js'
 import { DEFAULT_CREDIT_SEPS, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
@@ -26,6 +26,8 @@ import {
   FieldIconButton,
   FormModal,
   HandNote,
+  IconEdit,
+  IconHeart,
   MonoLabel,
   toast,
 } from './ui.jsx'
@@ -304,6 +306,154 @@ function SourceLines({ card, maps = {} }) {
   )
 }
 
+// ---- in-card actions (ROADMAP §2) -----------------------------------------
+//
+// “Review is exactly when you notice the typo, the missing tag, or that you
+// love it, and it is the one screen from which you can do nothing about any of
+// that.” Three things, one panel.
+//
+// IT OPENS ONLY AFTER THE CARD IS GRADED, and that is not a nicety — it is what
+// makes the whole feature safe. An edit form carries the quote, the title and the
+// credit, which on a “source” card IS the answer, and on a cloze card is the
+// masked words in full. A pencil beside an unanswered question would be a way to
+// read the answer without answering. The gate is one line in QuizRunner, beside
+// the other things that wait for `answered`.
+//
+// That gate also disposes of two bugs the specification pass flagged as living
+// between features: folding an edited row back onto a card was going to un-mask a
+// cloze card, and to write a film title into the answer slot of a speaker card
+// whose options are actor names. Both were about revealing something early. Once
+// nothing folds back before the grade, the remaining rule is small enough to
+// state in one place — see foldEdit.
+
+// CARD_ROWS crosses from the schedule's kind vocabulary to the CRUD routes, one
+// row per kind: where to read the full row, and what that list calls its rows.
+// REVIEW_BULK_KIND already crosses to the bulk routes and deliberately stays
+// separate — one is “which list”, the other is “which bulk endpoint”, and a
+// single map claiming to be both is how a rename breaks the half nobody was
+// looking at.
+const CARD_ROWS = {
+  book: { list: '/annotations', rows: 'annotations' },
+  screen: { list: '/dialogues', rows: 'dialogues' },
+  utterance: { list: '/quotes', rows: 'utterances' },
+}
+
+// foldEdit puts a saved row back onto the card on screen, and it is deliberately
+// a SHORT list rather than a merge.
+//
+// The note folds. The quote folds unless this is a cloze card, whose text is the
+// server's mask and not the row's words — re-deriving the blank here would be a
+// second implementation of clozeSpan in another language, and folding the raw
+// quote in would print the answer over the question that was just asked.
+//
+// The options and the answer index NEVER fold. They were the question. Rewriting
+// the chosen option after grading would leave the mark sitting on different words
+// from the ones the reader picked, and on a speaker card the answer slot holds an
+// actor's name — nothing an edit to the quote has any business writing.
+function foldEdit(card, row) {
+  return {
+    ...card,
+    note: row.note ?? card.note,
+    quote: isClozeCard(card) ? card.quote : (row.quote ?? card.quote),
+  }
+}
+
+function CardTools({ card, onPatch }) {
+  const src = CARD_ROWS[card.kind]
+  const [open, setOpen] = useState(false)
+  const [row, setRow] = useState(null) // the full row; null while loading
+  const [quote, setQuote] = useState('')
+  const [note, setNote] = useState('')
+  const [tags, setTags] = useState('')
+  const [fav, setFav] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  // Fetched when the panel OPENS, not when the card is answered. A deck of
+  // twelve would otherwise make twelve requests for rows nobody looked at.
+  useEffect(() => {
+    if (!open || !src) return
+    let live = true
+    setRow(null)
+    setErr('')
+    json('GET', `${src.list}?id=${card.id}`).then((r) => {
+      if (!live) return
+      const found = r.ok ? (r.data?.[src.rows] || [])[0] : null
+      if (!found) return setErr('couldn’t load this quote')
+      setRow(found)
+      setQuote(found.quote || '')
+      setNote(found.note || '')
+      setTags((found.tags || []).join(', '))
+      setFav(!!found.favorite)
+    })
+    return () => { live = false }
+  }, [open, card.kind, card.id])
+
+  // FULL STATE, FROM THE ROW ITSELF. The PUT is full-state for every kind, and
+  // the row carries every field of it under the same names — so the payload is
+  // the row with the edited fields over it, rather than a hand-built object that
+  // has to remember `board_id` on a standalone quote and the sticker's
+  // coordinates on all three. A field forgotten here is a field silently blanked.
+  async function save() {
+    if (!row || busy) return
+    setBusy(true)
+    setErr('')
+    const r = await json('PUT', `${src.list}/${card.id}`, {
+      ...row,
+      quote,
+      note,
+      favorite: fav,
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+    }).catch(() => ({ ok: false }))
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, 'couldn’t save'))
+    onPatch(foldEdit(card, { quote, note }))
+    setOpen(false)
+    toast('saved')
+  }
+
+  if (!src) return null
+  return (
+    <div className="mt-3" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+      {!open ? (
+        <button type="button" className="tp-link tp-link-icon" onClick={() => setOpen(true)}>
+          <IconEdit />
+          <span>fix or tag this</span>
+        </button>
+      ) : row == null && !err ? (
+        <MonoLabel style={{ color: 'var(--faint)' }}>loading…</MonoLabel>
+      ) : (
+        <div className="space-y-2">
+          <Field label="Quote" value={quote} onChange={(e) => setQuote(e.target.value)} />
+          <Field label="Note" value={note} onChange={(e) => setNote(e.target.value)} />
+          {/* The WHOLE set, comma separated, because the PUT is full-state and
+              this is re-tagging rather than adding — taking a wrong tag off has to
+              be possible from the same box that puts one on. */}
+          <Field label="Tags" value={tags} placeholder="comma separated" onChange={(e) => setTags(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="tp-btn tactile inline-flex items-center gap-1.5"
+              aria-pressed={fav}
+              style={fav ? { color: 'var(--accent-ui)', borderColor: 'var(--accent-ui)' } : undefined}
+              onClick={() => setFav((v) => !v)}
+            >
+              <IconHeart /> {fav ? 'Favourited' : 'Favourite'}
+            </button>
+            <span className="ml-auto flex items-center gap-2">
+              <button type="button" className="tp-link" onClick={() => setOpen(false)}>Cancel</button>
+              <button type="button" className="tp-btn tp-btn-primary tactile" disabled={busy || !row} onClick={save}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+            </span>
+          </div>
+        </div>
+      )}
+      {err && <div className="mt-2"><ErrorText>{err}</ErrorText></div>}
+    </div>
+  )
+}
+
 // QuizRunner — the shared multiple-choice flow. The caller supplies the deck
 // and whether skipping is allowed (Practice only) and is told each result — a
 // correct pick counts as "got", a wrong one as "forgot" — so the quiz feeds the
@@ -347,8 +497,13 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const { map: actorMap } = usePeople('actor')
   const { map: directorMap } = usePeople('director')
   const personMaps = { author: authorMap, actor: actorMap, director: directorMap }
-  const card = cards[i]
-  if (!card) return null
+  // What an in-card edit changed, keyed by position. The deck belongs to the host
+  // — and Practice persists it to localStorage — so a card fixed here is patched
+  // over the one that was handed in rather than written back into it.
+  const [patched, setPatched] = useState({})
+  const base = cards[i]
+  if (!base) return null
+  const card = patched[i] || base
 
   // The three facts every handler and every reveal below is written against.
   // Declared together, above them, because they answer one question between
@@ -681,6 +836,8 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           )}
         </div>
       )}
+      {/* AFTER THE ANSWER, never instead of it — see CardTools. */}
+      {answered && <CardTools card={card} onPatch={(next) => setPatched((p) => ({ ...p, [i]: next }))} />}
       {answered ? (
         <div className="mt-3 flex items-center justify-between gap-3">
           {/* A flip card was not right or wrong — it was recalled or it was not,
