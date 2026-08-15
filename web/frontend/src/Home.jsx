@@ -33,6 +33,7 @@ import {
   ColorSwatches,
   clampSequence,
   ErrorText,
+  Field,
   FieldIconButton,
   formatPartialDate,
   FormModal,
@@ -90,6 +91,8 @@ function askLine(card) {
       return `Which ${workNoun(card)} is this quote from?`
     case 'quote':
       return `Which quote is from this ${workNoun(card)}?`
+    case 'cloze':
+      return 'Fill in the blank'
     default:
       // Flip, and any direction a newer server sends that this client has never
       // heard of. Both are asked the same way, because both are answered the
@@ -97,6 +100,13 @@ function askLine(card) {
       return 'Where is this from?'
   }
 }
+
+// CLOZE_BLANK — the character the server leaves where the words were. The client
+// splits on it rather than searching for underscores, which could be the quote's
+// own punctuation.
+const CLOZE_BLANK = '￼'
+
+const isClozeCard = (card) => (card.quote || card.note || '').includes(CLOZE_BLANK)
 
 // isFlipCard — a card the reader grades themselves.
 //
@@ -106,7 +116,7 @@ function askLine(card) {
 // nothing to choose. A card with options is a question this client understands
 // how to grade; a card without them is not.
 function isFlipCard(card) {
-  return !(card.options || []).length
+  return !isClozeCard(card) && !(card.options || []).length
 }
 
 // QuoteBlock — the quote side of a card (used as prompt for "source", as the
@@ -129,10 +139,36 @@ function QuoteBlock({ card }) {
           whiteSpace: 'pre-wrap', // honour the quote's own line breaks / paragraphs
         }}
       >
-        {card.quote || card.note}
+        {ClozeText(card.quote || card.note)}
       </p>
       {card.note && card.quote && <HandNote className="mt-2">{card.note}</HandNote>}
     </blockquote>
+  )
+}
+
+// ClozeText renders the masked quote with the blank drawn as a gap rather than
+// as a stray glyph nobody's font has. Split on the mark, not on underscores: the
+// quote's own punctuation is not ours to reinterpret.
+function ClozeText(text) {
+  const s = text || ''
+  if (!s.includes(CLOZE_BLANK)) return s
+  const parts = s.split(CLOZE_BLANK)
+  return parts.flatMap((part, i) =>
+    i === 0
+      ? [part]
+      : [
+          <span
+            key={i}
+            aria-label="blank"
+            style={{
+              display: 'inline-block',
+              minWidth: 84,
+              borderBottom: '2px solid var(--accent-ui)',
+              verticalAlign: 'baseline',
+            }}
+          />,
+          part,
+        ],
   )
 }
 
@@ -296,6 +332,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // real interval between the two, and every reveal in the body has to read the
   // commit rather than the selection. `picked != null` used to mean both.
   const [committedFlag, setCommittedFlag] = useState(false)
+  const [attempt, setAttempt] = useState('') // what was typed into a cloze blank
   const [dismissed, setDismissed] = useState(false) // "Keep asking", this session
   const [setAside, setSetAside] = useState(false)   // it is out of the deck now
   const [saving, setSaving] = useState(false)
@@ -319,14 +356,17 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // Declared together, above them, because they answer one question between
   // them: what KIND of card is this, and how far through answering it are we.
   const flip = isFlipCard(card)
+  const cloze = isClozeCard(card)
   // Only multiple choice has two steps to separate. Typing an answer and
   // pressing Check is already a submit step, and revealing a flip card then
   // saying whether you had it is already two acts; a confirmation on either
   // would be asking twice.
-  const twoStep = submitStep && !flip
+  // Typing an answer and pressing Check is already a submit step, so cloze is
+  // exempt too — a confirmation on top would be asking twice.
+  const twoStep = submitStep && !flip && !cloze
   // A pick IS a commit unless the submit step is on. Written once, here, so no
   // reveal below has to remember which mode it is in.
-  const committed = twoStep ? committedFlag : picked != null
+  const committed = cloze ? graded != null : twoStep ? committedFlag : picked != null
   const setCommitted = setCommittedFlag
 
   async function advance() {
@@ -337,6 +377,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       setI(i + 1)
       onIndex?.(i + 1)
       setPicked(null)
+      setAttempt('')
       setCommittedFlag(false)
       setShown(false)
       setGraded(null)
@@ -353,7 +394,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // grade posts one result for the card on screen. Both card types end here —
   // an MCQ derives got/forgot from the pick, a flip card is told by the reader —
   // so there is one request, one error path and one tally, not two.
-  async function grade(result) {
+  async function grade(result, typed = null) {
     const at = i
     setSaving(true)
     setSaveErr('')
@@ -365,6 +406,10 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       result,
       mode,
       offset: tzOffsetMinutes(),
+      // Only on a cloze card, and when present the SERVER decides the grade —
+      // `result` above is ignored. The answer never travelled to the browser, so
+      // the browser is not in a position to mark it.
+      ...(typed != null ? { attempt: typed } : {}),
     }).catch(() => ({ ok: false, status: 0, data: null }))
     inflight.current = req
     const r = await req
@@ -382,7 +427,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     // against 'got'/'forgot' (a boolean never matched, so the session tallies
     // silently stayed at zero).
     if (here) setLastResp(r.data)
-    onAnswered?.(result, r.data)
+    // For a cloze card the server's own verdict is the truth — `result` was a
+    // placeholder. Everything downstream (the tally, the status dot) reads what
+    // came back.
+    const settled = r.data?.result || result
+    if (here && typed != null) setGraded(settled)
+    onAnswered?.(settled, r.data)
   }
 
   // Two ways out of a card that keeps being forgotten. Neither is automatic.
@@ -428,6 +478,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     await grade(picked === card.answer ? 'got' : 'forgot')
   }
 
+  // A cloze card: type it, then check. The server grades it.
+  async function checkCloze() {
+    if (graded != null || saving || !attempt.trim()) return
+    await grade('forgot', attempt)
+  }
+
   // A flip card: reveal, then say whether you had it. The reveal is not an
   // answer and posts nothing — which is what makes the self-grade honest rather
   // than a button you press to make the card go away.
@@ -438,6 +494,9 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   }
 
   const isSource = card.direction === 'source'
+  // A cloze verdict is right or wrong like an MCQ, not self-graded like a flip
+  // card, so it takes the same two words.
+  const clozeRight = graded === 'got'
   // The card's own flag, or the fresher one the grade came back with — the
   // answer that MAKES a card a leech also pushes it a week out of the deck, so
   // waiting for the flag to arrive on a future deck would surface the offer a
@@ -446,7 +505,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // One name for "this card has been graded", whichever way it was graded. Every
   // reveal in the body below reads this rather than `picked != null`, which is
   // true only for the multiple-choice half.
-  const answered = flip ? graded != null : committed
+  const answered = flip || cloze ? graded != null : committed
   return (
     <div key={i} className="review-card-body">
       <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -465,6 +524,41 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       {card.direction === 'quote'
         ? <SourceLines card={card} maps={personMaps} />
         : <QuoteBlock card={card} />}
+      {/* A CLOZE CARD: type the missing words, then check. The answer is graded
+          on the server — it never travelled here, because unlike an option index
+          the words ARE the thing being recalled. */}
+      {cloze && (
+        <div className="mt-3">
+          {graded == null ? (
+            <form
+              className="flex items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                checkCloze()
+              }}
+            >
+              <Field
+                label="The missing words"
+                hideLabel
+                value={attempt}
+                placeholder="type what belongs in the blank"
+                autoFocus
+                onChange={(e) => setAttempt(e.target.value)}
+              />
+              <button type="submit" className="tp-btn tp-btn-primary tactile" disabled={saving || !attempt.trim()}>
+                Check
+              </button>
+            </form>
+          ) : (
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+              <MonoLabel style={{ color: 'var(--faint)' }}>the missing words</MonoLabel>
+              <p className="mt-1" style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontStyle: 'italic' }}>
+                {lastResp?.answer || attempt}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       {/* A FLIP CARD: the source is hidden until asked for, then you say whether
           you had it. Nothing is posted by the reveal — pressing "Show me" is not
           an answer, and treating it as one would turn self-grading into a button
@@ -590,11 +684,17 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               and the reader is the one who said so. Reporting "correct" over
               their own judgement would be the app marking their homework. */}
           <MonoLabel
-            style={{ color: (flip ? graded === 'got' : picked === card.answer) ? 'var(--ok)' : 'var(--error)' }}
+            style={{
+              color: (flip ? graded === 'got' : cloze ? clozeRight : picked === card.answer)
+                ? 'var(--ok)'
+                : 'var(--error)',
+            }}
           >
             {flip
               ? (graded === 'got' ? 'recalled' : 'noted')
-              : (picked === card.answer ? 'correct' : 'not quite')}
+              : (cloze ? clozeRight : picked === card.answer)
+                ? 'correct'
+                : 'not quite'}
           </MonoLabel>
           {/* Never disabled: the grade saves in the background, and a slow or
               failed save must not hold the reader on a card they've answered. */}

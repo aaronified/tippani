@@ -43,6 +43,8 @@ type answerResp struct {
 	OK         bool         `json:"ok"`
 	Kind       string       `json:"kind"`
 	ID         int64        `json:"id"`
+	Result     string       `json:"result"`
+	Answer     string       `json:"answer"`
 	Stability  float64      `json:"stability"`
 	LapseCount int          `json:"lapse_count"`
 	Leech      bool         `json:"leech"`

@@ -164,6 +164,7 @@ const (
 	dirSource = "source" // show quote, recall the work / speech it came from
 	dirQuote  = "quote"  // show the work / speech, recall the quote
 	dirFlip   = "flip"   // show the quote, reveal the source, grade yourself
+	dirCloze  = "cloze"  // blank a phrase out of the quote, type it back
 )
 
 // directionsFor is every question a card of this kind can be asked, in one
@@ -189,9 +190,9 @@ const (
 // where changing it is changing one line.
 func directionsFor(kind string) []string {
 	if kind == kindScreen {
-		return []string{dirSource, dirQuote, dirFlip}
+		return []string{dirSource, dirQuote, dirFlip, dirCloze}
 	}
-	return []string{dirSource, dirQuote, dirFlip}
+	return []string{dirSource, dirQuote, dirFlip, dirCloze}
 }
 
 // item kinds in item_reviews.
@@ -1314,6 +1315,8 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64) b
 		// Nothing to attach: a flip card is the quote on one side and its source
 		// on the other, both of which the card already carries.
 		return true
+	case dirCloze:
+		return attachCloze(card)
 	default:
 		return false
 	}
@@ -1383,6 +1386,35 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 		return false
 	}
 	card.Options, card.Answer = opts, ans
+	return true
+}
+
+// attachCloze masks a phrase out of the card's own words.
+//
+// THE QUOTE IS OVERWRITTEN IN PLACE rather than joined by a second "masked"
+// field, and that is load-bearing. Everything downstream reads `quote` — the
+// client's QuoteBlock, the share image, the in-card edit form — so a parallel
+// field would leave the real text sitting on the card for any of them to print.
+// There is exactly one copy of the words on a cloze card, and it has a hole in
+// it.
+//
+// THE ANSWER IS NOT SENT. Unlike an MCQ, whose `answer` is an index that means
+// nothing without the options beside it, a cloze answer IS the thing being
+// recalled — so it stays on the server and the attempt is graded there.
+func attachCloze(card *reviewCard) bool {
+	text := card.Quote
+	if strings.TrimSpace(text) == "" {
+		text = card.Note // a note-only quote is still words worth recalling
+	}
+	masked, _, ok := clozeSpan(text, card.Kind, card.ID)
+	if !ok {
+		return false
+	}
+	if strings.TrimSpace(card.Quote) == "" {
+		card.Note = masked
+	} else {
+		card.Quote = masked
+	}
 	return true
 }
 
@@ -1600,6 +1632,19 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		Result string `json:"result"`
 		Mode   string `json:"mode"`
 		Offset *int   `json:"offset"`
+		// A cloze attempt, graded HERE rather than in the browser.
+		//
+		// Every other card type is graded client-side and that is fine: an MCQ's
+		// `answer` is an index, which means nothing without the options beside
+		// it, and a flip card is the reader's own verdict by definition. A cloze
+		// answer is different in kind — it IS the words being recalled — so
+		// sending it to the client to compare against would be sending the answer
+		// to a question that has not been answered yet.
+		//
+		// When this is present the server recomputes the same mask the card was
+		// built with (clozeSpan is derived from kind and id alone, never from the
+		// day) and decides got/forgot itself, ignoring whatever `result` said.
+		Attempt *string `json:"attempt"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -1633,6 +1678,9 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[review] handleReviewAnswer uid=%d kind=%s id=%d result=%s mode=%s", uid, req.Kind, req.ID, req.Result, req.Mode)
+	clozeAnswer := "" // filled once a cloze attempt has been graded, never before
+	// A cloze attempt decides its own grade. Done before ownership so that a
+	// borrowed id still 404s on the same line every other write does.
 	pf, err := s.loadPrefs(uid)
 	if err != nil {
 		internalError(w, r, "review answer prefs", err)
@@ -1648,6 +1696,32 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Attempt != nil {
+		text, err := s.itemText(req.Kind, req.ID)
+		if err != nil {
+			internalError(w, r, "review answer item text", err)
+			return
+		}
+		_, answerText, ok := clozeSpan(text, req.Kind, req.ID)
+		if !ok {
+			// The card could not have been a cloze card, so the attempt is about
+			// a question that was never asked. Refused rather than graded: a
+			// silent "forgot" here would move somebody's schedule on the strength
+			// of a request nothing generated.
+			writeErr(w, http.StatusBadRequest, "this card is not a fill-in-the-blank")
+			return
+		}
+		if clozeCorrect(answerText, *req.Attempt) {
+			req.Result = "got"
+		} else {
+			req.Result = "forgot"
+		}
+		// Safe to send back ONLY because the attempt is in: the card is graded,
+		// so the words are no longer the answer to an open question. Carried on
+		// the reply rather than fetched by a second request, which would be a
+		// route that hands out cloze answers on demand.
+		clozeAnswer = answerText
+	}
 	day, _, mod := reviewDay(offset)
 	age, err := s.itemAgeDays(req.Kind, req.ID)
 	if err != nil {
@@ -1687,7 +1761,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// retried POST could, and re-applying growth would compound the half-life
 	// and double-count the tally. Treat a same-day repeat as a no-op echo.
 	if req.Mode == "daily" && found && touchedToday {
-		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, lapseCount, lastReviewed, lastResult, pf, found)
+		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, "", stability, age, lapseCount, lastReviewed, lastResult, pf, found)
 		return
 	}
 
@@ -1768,7 +1842,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if req.Mode == "practice" && req.Result != "skip" {
 		s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
 	}
-	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, lapses, respLastReviewed, respLastResult, pf, found || moveSchedule)
+	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, clozeAnswer, stability, age, lapses, respLastReviewed, respLastResult, pf, found || moveSchedule)
 }
 
 // itemAgeDays is how many days ago the item behind a card was added — the clock
@@ -1799,6 +1873,41 @@ func (s *Server) itemAgeDays(kind string, id int64) (float64, error) {
 	return age, err
 }
 
+// itemText is the words on the card behind an id — the quote, or the note when a
+// quote is note-only, which is the same fallback attachCloze uses when it builds
+// the mask. The grading path has to reconstruct exactly what the card was built
+// from, so the two fallbacks must not drift.
+//
+// Switched exhaustively rather than defaulted, for the reason itemAgeDays gives:
+// an unrecognised kind reading annotations would grade an attempt against
+// somebody's highlight that happened to share an id.
+func (s *Server) itemText(kind string, id int64) (string, error) {
+	var table string
+	switch kind {
+	case kindBook:
+		table = "annotations"
+	case kindScreen:
+		table = "dialogues"
+	case kindUtterance:
+		table = "utterances"
+	default:
+		return "", fmt.Errorf("unknown review kind %q", kind)
+	}
+	var quote, note string
+	err := s.Store.DB.QueryRow(
+		`SELECT COALESCE(quote,''), COALESCE(note,'') FROM `+table+` WHERE id = ?`, id).Scan(&quote, &note)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(quote) == "" {
+		return note, nil
+	}
+	return quote, nil
+}
+
 // answerResponse assembles the reply shared by the normal path and the daily
 // no-op echo: the card's new status + half-life, the mode's day tally, the
 // library-wide status counts (so the "Where you stand" row updates live on
@@ -1813,7 +1922,7 @@ func (s *Server) itemAgeDays(kind string, id int64) (float64, error) {
 // A flag that travelled only on the deck would surface the offer seven days
 // after the frustration that earned it, which is the wrong week to be asked.
 func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int64, mode string, offset int,
-	kind string, id int64, stability, ageDays float64, lapses int, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
+	kind string, id int64, result, clozeAnswer string, stability, ageDays float64, lapses int, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
 	day, _, _ := reviewDay(offset)
 	answered, got, forgot, err := s.modeTally(uid, mode, day)
 	if err != nil {
@@ -1827,9 +1936,13 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		return
 	}
 	out := map[string]any{
-		"ok":          true,
-		"kind":        kind,
-		"id":          id,
+		"ok":   true,
+		"kind": kind,
+		"id":   id,
+		// The grade that was actually recorded. Usually the one the client sent —
+		// but a cloze attempt is graded HERE, so this is the only way the card
+		// learns whether it was right.
+		"result":      result,
 		"stability":   stability,
 		"lapse_count": lapses,
 		"leech":       lapses >= reviewLeechLapses,
@@ -1839,6 +1952,11 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		"got":         got,
 		"forgot":      forgot,
 		"states":      states,
+	}
+	// Only present on a graded cloze card, which is the only time the words are
+	// not the answer to an open question.
+	if clozeAnswer != "" {
+		out["answer"] = clozeAnswer
 	}
 	if mode == "daily" {
 		remaining, err := s.dailyRemaining(uid, offset, pf, answered)

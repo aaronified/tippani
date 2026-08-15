@@ -80,3 +80,23 @@ func budgetFor(n int) int {
 		return 2
 	}
 }
+
+// Distance is the exported full (non-prefix) edit distance, for callers outside
+// the typo-tolerant search pass.
+//
+// A THIN WRAPPER RATHER THAN A SECOND COPY. The review loop's cloze cards are
+// graded by fuzzy match, and the alternative to this was a second Levenshtein
+// somewhere in internal/httpapi — two implementations of one algorithm that
+// would drift the first time either was tuned, and a published demo that graded
+// differently from the app.
+//
+// `budget` bounds the work: the result is budget+1 whenever the true distance
+// exceeds it, which is all a caller asking "is this close enough?" needs. A
+// budget below zero is treated as zero, so an accidental negative refuses
+// everything rather than looping.
+func Distance(a, b string, budget int) int {
+	if budget < 0 {
+		budget = 0
+	}
+	return editDistance([]rune(a), []rune(b), budget, false)
+}

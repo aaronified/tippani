@@ -200,7 +200,7 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 	added := 0
 	// One id reservation for the batch (idBlock, id_floor.go).
 	ids := newIDBlock(tx, "utterances", len(us))
-		// EVERY QUOTE IS FILED (0036). Without this the row lands with a NULL board
+	// EVERY QUOTE IS FILED (0036). Without this the row lands with a NULL board
 	// and appears on no shelf at all — visible only under All quotes, counted in
 	// no board's total, and looking for all the world like an import that silently
 	// dropped half the file. Naming a board IN the file is the piece still to come;
@@ -209,7 +209,7 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 	if err != nil {
 		return added, err
 	}
-for _, u := range us {
+	for _, u := range us {
 		color := u.Color
 		if color == "" {
 			color = "yellow"

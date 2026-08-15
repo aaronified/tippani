@@ -261,3 +261,52 @@ describe('the submit step', () => {
     expect(screen.queryByText('Submit')).toBeNull()
   })
 })
+
+// ---- cloze -----------------------------------------------------------------
+//
+// The server sends the quote with a hole in it and keeps the answer. Unlike an
+// MCQ — whose `answer` is an index that means nothing without the options — the
+// cloze answer IS the words being recalled, so it is graded on the server and
+// the browser is never in a position to leak it.
+describe('a cloze card', () => {
+  const BLANK = '\uFFFC'
+  const clz = (over = {}) => ({
+    kind: 'book', id: 3, direction: 'cloze',
+    quote: `It is a truth ${BLANK} that a single man in possession of a good fortune`,
+    title: 'Pride and Prejudice', color: 'yellow', options: [], answer: 0, ...over,
+  })
+
+  it('asks for the missing words and carries no answer', () => {
+    render(<QuizRunner mode="daily" cards={[clz()]} />)
+    expect(screen.getByText(/Fill in the blank/)).toBeTruthy()
+    expect(screen.getByPlaceholderText(/type what belongs/)).toBeTruthy()
+    // Not a flip card: it must not offer to reveal, because there is nothing
+    // here to reveal from.
+    expect(screen.queryByText('Show me')).toBeNull()
+  })
+
+  it('sends the attempt for the server to grade', async () => {
+    render(<QuizRunner mode="daily" cards={[clz()]} />)
+    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), {
+      target: { value: 'universally acknowledged' },
+    })
+    fireEvent.click(screen.getByText('Check'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(posted()[0].body.attempt).toBe('universally acknowledged')
+  })
+
+  it('will not submit an empty attempt', () => {
+    render(<QuizRunner mode="daily" cards={[clz()]} />)
+    fireEvent.click(screen.getByText('Check'))
+    expect(posted()).toHaveLength(0)
+  })
+
+  // The confirm step is for multiple choice. Typing an answer and pressing
+  // Check is already a submit step; a confirmation on top would be asking twice.
+  it('is not given a second confirm step', () => {
+    render(<QuizRunner mode="daily" submitStep cards={[clz()]} />)
+    fireEvent.change(screen.getByPlaceholderText(/type what belongs/), { target: { value: 'x' } })
+    expect(screen.queryByText('Submit')).toBeNull()
+    expect(screen.getByText('Check')).toBeTruthy()
+  })
+})
