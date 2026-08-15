@@ -299,6 +299,148 @@ func hitQuery[T any](s *Server, ftsTable, what, query string, scan func(*sql.Row
 	return collectHits(rows, what, scan), nil
 }
 
+// ---- where a section's rows come from ---------------------------------------
+//
+// One entry per row kind, naming everything the two query shapes need. It exists
+// so the facet predicates have exactly one place to be spliced in: this handler
+// runs about fifteen queries and a facet has to reach all of them, so fifteen
+// hand-edited WHERE clauses would be fifteen chances to make a mistake that
+// produces a wrong ANSWER rather than an error.
+//
+// THE TWO SHAPES. With free text, a section reads through its FTS index and
+// orders by bm25. With none — a search made entirely of chips, which is what
+// picking `tag:stoicism` out of the dropdown and typing nothing else produces —
+// there is no MATCH to make, so it reads the base table directly and orders by
+// recency. The second shape is not a fallback; it is the ordinary case for a
+// query the reader built by pointing.
+type searchSource struct {
+	self       string // alias of the row itself
+	work       string // alias of the parent book/film; "" when the row has no parent
+	movieSide  bool   // the parent is a film or show (release_year, not published_year)
+	cols       string
+	ftsTable   string
+	ftsFrom    string
+	plainFrom  string
+	userCond   string
+	plainOrder string
+}
+
+var searchSources = map[rowKind]searchSource{
+	rowBook: {
+		self: "b", work: "b", cols: bookHitCols,
+		ftsTable: "books_fts", ftsFrom: "books_fts JOIN books b ON b.id = books_fts.rowid",
+		plainFrom: "books b", userCond: "b.user_id = ?", plainOrder: "b.created_at DESC, b.id DESC",
+	},
+	rowAnnotation: {
+		self: "a", work: "b", cols: annotationHitCols,
+		ftsTable: "annotations_fts",
+		ftsFrom:  "annotations_fts JOIN annotations a ON a.id = annotations_fts.rowid JOIN books b ON b.id = a.book_id",
+		// The user scope is on the parent: annotations carry no user_id, so the
+		// join to books is not decoration, it is the ownership check.
+		plainFrom: "annotations a JOIN books b ON b.id = a.book_id",
+		userCond:  "b.user_id = ?", plainOrder: "a.created_at DESC, a.id DESC",
+	},
+	rowMovie: {
+		self: "m", work: "m", movieSide: true, cols: movieHitCols,
+		ftsTable: "movies_fts", ftsFrom: "movies_fts JOIN movies m ON m.id = movies_fts.rowid",
+		plainFrom: "movies m", userCond: "m.user_id = ?", plainOrder: "m.created_at DESC, m.id DESC",
+	},
+	rowDialogue: {
+		self: "d", work: "m", movieSide: true, cols: dialogueHitCols,
+		ftsTable: "dialogues_fts",
+		ftsFrom:  "dialogues_fts JOIN dialogues d ON d.id = dialogues_fts.rowid JOIN movies m ON m.id = d.movie_id",
+		// As with annotations, the join IS the ownership check.
+		plainFrom: "dialogues d JOIN movies m ON m.id = d.movie_id",
+		userCond:  "m.user_id = ?", plainOrder: "d.created_at DESC, d.id DESC",
+	},
+	rowUtterance: {
+		self: "u", work: "", cols: utteranceHitCols,
+		ftsTable: "utterances_fts", ftsFrom: "utterances_fts JOIN utterances u ON u.id = utterances_fts.rowid",
+		// 0026: the scope is on the row here, not on a parent, so this WHERE is
+		// the only thing between one account's quotes and another's.
+		plainFrom: "utterances u", userCond: "u.user_id = ?", plainOrder: "u.created_at DESC, u.id DESC",
+	},
+}
+
+// hitReq is one section's ask: which columns of the FTS index to match on, what
+// the free text is, and any predicate particular to this section (a decade's
+// year range, a tag's id, the day a date query names).
+type hitReq struct {
+	what      string
+	ftsCols   string // "" = every indexed column (the cross-column fallback)
+	q         string // "" = no FTS at all; read the base table
+	extra     string // section predicate, written with a leading " AND "
+	extraArgs []any
+	order     string // overrides the source's default ordering
+	limit     int
+}
+
+// facetedHits runs one section's query with the request's facets applied, and
+// returns no rows at all when the facets cannot describe this kind of row.
+//
+// The empty return is the subtle half and it is deliberate: `colour=blue` asks
+// for blue things, and a book is not a blue thing, so the books section is
+// EMPTY rather than unfiltered. Skipping the query is what stops a facet the
+// section cannot honour from quietly widening it back to the whole library.
+func facetedHits[T any](s *Server, k rowKind, r hitReq, f searchFacets, uid int64, scan func(*sql.Rows) (T, error)) ([]T, error) {
+	fc, fargs, ok := f.where(k, uid)
+	if !ok {
+		return []T{}, nil
+	}
+	src := searchSources[k]
+	args := make([]any, 0, len(fargs)+len(r.extraArgs)+3)
+
+	var from, where, order, ftsTable string
+	if r.q == "" {
+		from, where, order = src.plainFrom, src.userCond, src.plainOrder
+		args = append(args, uid)
+	} else {
+		match := search.PrefixQuery(r.q)
+		if r.ftsCols != "" {
+			match = search.ColumnPrefixQuery(r.ftsCols, r.q)
+		}
+		from = src.ftsFrom
+		where = src.ftsTable + " MATCH ? AND " + src.userCond
+		order = "bm25(" + src.ftsTable + ")"
+		ftsTable = src.ftsTable
+		args = append(args, match, uid)
+	}
+	// Order matters twice over: the facet clause is written before the section's
+	// own predicate, so its arguments are bound before them too.
+	where += fc
+	args = append(args, fargs...)
+	if r.extra != "" {
+		where += r.extra
+		args = append(args, r.extraArgs...)
+	}
+	if r.order != "" {
+		order = r.order
+	}
+	args = append(args, r.limit)
+
+	return hitQuery(s, ftsTable, r.what, `SELECT `+src.cols+` FROM `+from+
+		` WHERE `+where+` ORDER BY `+order+` LIMIT ?`, scan, args...)
+}
+
+// facetedCount counts one kind of row under the same facets and section
+// predicate facetedHits would apply — so a tag's count never disagrees with the
+// quotes listed beneath it.
+func (s *Server) facetedCount(k rowKind, extra string, extraArgs []any, f searchFacets, uid int64) (int, error) {
+	fc, fargs, ok := f.where(k, uid)
+	if !ok {
+		return 0, nil
+	}
+	src := searchSources[k]
+	args := make([]any, 0, len(fargs)+len(extraArgs)+1)
+	args = append(args, uid)
+	args = append(args, fargs...)
+	args = append(args, extraArgs...)
+	var n int
+	err := s.Store.DB.QueryRow(`SELECT count(*) FROM `+src.plainFrom+
+		` WHERE `+src.userCond+fc+extra, args...).Scan(&n)
+	return n, err
+}
+
 // queryTokens lower-cases and splits the query for the Go-side credit matching
 // and the tag/genre name conditions.
 func queryTokens(q string) []string { return strings.Fields(strings.ToLower(q)) }
@@ -462,9 +604,37 @@ func nameConds(col string, tokens []string) (string, []any) {
 	return strings.Join(conds, " AND "), args
 }
 
+// taggedWith is the "wears this tag" predicate for one of the three quote kinds,
+// written as an EXISTS against the row rather than as a join off the tag table.
+//
+// It reads the long way round on purpose. Selecting FROM annotation_tags would
+// be the obvious shape, but then this section's FROM clause would differ from
+// every other section's — and the facet predicates are compiled against the
+// aliases in searchSources. Phrasing the tag as a predicate instead means this
+// section goes through the SAME builder as the rest, so a facet cannot reach
+// fourteen sections and quietly miss this one.
+func taggedWith(k rowKind, tagID int64) (string, []any) {
+	var join, col string
+	switch k {
+	case rowAnnotation:
+		join, col = "annotation_tags", "annotation_id"
+	case rowDialogue:
+		join, col = "dialogue_tags", "dialogue_id"
+	default:
+		join, col = "utterance_tags", "utterance_id"
+	}
+	self := searchSources[k].self
+	return ` AND EXISTS (SELECT 1 FROM ` + join + ` stj WHERE stj.` + col + ` = ` + self +
+		`.id AND stj.tag_id = ?)`, []any{tagID}
+}
+
 // searchTagFacet finds tags whose name contains every query token and returns
 // each with its total use count and a page of the quotes wearing it.
-func (s *Server) searchTagFacet(uid int64, tokens []string, sc searchScope, limit int) ([]tagHits, error) {
+//
+// The count is computed under the SAME facets as the listing, so a tag that says
+// 40 and shows 10 is showing the first 10 of 40 things you could see — never 10
+// of a 40 that included rows the facets excluded.
+func (s *Server) searchTagFacet(uid int64, tokens []string, sc searchScope, f searchFacets, limit int) ([]tagHits, error) {
 	out := []tagHits{}
 	if len(tokens) == 0 {
 		return out, nil
@@ -493,58 +663,50 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, sc searchScope, limi
 	for _, tr := range found {
 		th := tagHits{Name: tr.name, Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}}
 		if sc.annotations {
-			var n int
-			if err := s.Store.DB.QueryRow(`SELECT count(*) FROM annotation_tags at
-				JOIN annotations a ON a.id = at.annotation_id JOIN books b ON b.id = a.book_id
-				WHERE at.tag_id = ? AND b.user_id = ?`, tr.id, uid).Scan(&n); err != nil {
-				return nil, err
-			}
-			th.Count += n
-			hits, err := hitQuery(s, "", "tag annotation", `SELECT `+annotationHitCols+` FROM annotation_tags at
-				JOIN annotations a ON a.id = at.annotation_id JOIN books b ON b.id = a.book_id
-				WHERE at.tag_id = ? AND b.user_id = ? ORDER BY a.created_at DESC LIMIT ?`,
-				scanAnnotationHit, tr.id, uid, searchSubLimit)
+			extra, eargs := taggedWith(rowAnnotation, tr.id)
+			n, err := s.facetedCount(rowAnnotation, extra, eargs, f, uid)
 			if err != nil {
 				return nil, err
 			}
-			th.Annotations = hits
+			th.Count += n
+			th.Annotations, err = facetedHits(s, rowAnnotation, hitReq{
+				what: "tag annotation", extra: extra, extraArgs: eargs, limit: searchSubLimit,
+			}, f, uid, scanAnnotationHit)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if sc.dialogues {
-			var n int
-			if err := s.Store.DB.QueryRow(`SELECT count(*) FROM dialogue_tags dt
-				JOIN dialogues d ON d.id = dt.dialogue_id JOIN movies m ON m.id = d.movie_id
-				WHERE dt.tag_id = ? AND m.user_id = ?`, tr.id, uid).Scan(&n); err != nil {
-				return nil, err
-			}
-			th.Count += n
-			hits, err := hitQuery(s, "", "tag dialogue", `SELECT `+dialogueHitCols+` FROM dialogue_tags dt
-				JOIN dialogues d ON d.id = dt.dialogue_id JOIN movies m ON m.id = d.movie_id
-				WHERE dt.tag_id = ? AND m.user_id = ? ORDER BY d.created_at DESC LIMIT ?`,
-				scanDialogueHit, tr.id, uid, searchSubLimit)
+			extra, eargs := taggedWith(rowDialogue, tr.id)
+			n, err := s.facetedCount(rowDialogue, extra, eargs, f, uid)
 			if err != nil {
 				return nil, err
 			}
-			th.Dialogues = hits
+			th.Count += n
+			th.Dialogues, err = facetedHits(s, rowDialogue, hitReq{
+				what: "tag dialogue", extra: extra, extraArgs: eargs, limit: searchSubLimit,
+			}, f, uid, scanDialogueHit)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if sc.utterances {
-			// The user scope is on the row, not on a parent — see 0026. Both
-			// halves carry it, because a tag id is guessable and the count alone
-			// would report how many quotes a stranger filed under it.
-			var n int
-			if err := s.Store.DB.QueryRow(`SELECT count(*) FROM utterance_tags ut
-				JOIN utterances u ON u.id = ut.utterance_id
-				WHERE ut.tag_id = ? AND u.user_id = ?`, tr.id, uid).Scan(&n); err != nil {
-				return nil, err
-			}
-			th.Count += n
-			hits, err := hitQuery(s, "", "tag quote", `SELECT `+utteranceHitCols+` FROM utterance_tags ut
-				JOIN utterances u ON u.id = ut.utterance_id
-				WHERE ut.tag_id = ? AND u.user_id = ? ORDER BY u.created_at DESC LIMIT ?`,
-				scanUtteranceHit, tr.id, uid, searchSubLimit)
+			// The user scope is on the row, not on a parent — see 0026. Both the
+			// count and the listing carry it (searchSources.userCond), because a
+			// tag id is guessable and the count alone would report how many
+			// quotes a stranger filed under it.
+			extra, eargs := taggedWith(rowUtterance, tr.id)
+			n, err := s.facetedCount(rowUtterance, extra, eargs, f, uid)
 			if err != nil {
 				return nil, err
 			}
-			th.Quotes = hits
+			th.Count += n
+			th.Quotes, err = facetedHits(s, rowUtterance, hitReq{
+				what: "tag quote", extra: extra, extraArgs: eargs, limit: searchSubLimit,
+			}, f, uid, scanUtteranceHit)
+			if err != nil {
+				return nil, err
+			}
 		}
 		out = append(out, th)
 	}
@@ -553,10 +715,22 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, sc searchScope, limi
 	return out, nil
 }
 
+// inGenre is the "belongs to this genre" predicate, phrased against the work
+// rather than as a join off the genre table — see taggedWith for why.
+func inGenre(k rowKind, genreID int64) (string, []any) {
+	join, col := "book_genres", "book_id"
+	if searchSources[k].movieSide {
+		join, col = "movie_genres", "movie_id"
+	}
+	work := searchSources[k].work
+	return ` AND EXISTS (SELECT 1 FROM ` + join + ` sgj WHERE sgj.` + col + ` = ` + work +
+		`.id AND sgj.genre_id = ?)`, []any{genreID}
+}
+
 // searchGenreFacet finds genres whose name contains every query token and
 // returns each with a page of its works. Genres with no works in scope are
 // dropped (an orphaned genre name is noise, not a result).
-func (s *Server) searchGenreFacet(uid int64, tokens []string, sc searchScope, limit int) ([]genreHits, error) {
+func (s *Server) searchGenreFacet(uid int64, tokens []string, sc searchScope, f searchFacets, limit int) ([]genreHits, error) {
 	out := []genreHits{}
 	if len(tokens) == 0 {
 		return out, nil
@@ -585,18 +759,20 @@ func (s *Server) searchGenreFacet(uid int64, tokens []string, sc searchScope, li
 	for _, gr := range found {
 		gh := genreHits{Name: gr.name, Books: []bookHit{}, Movies: []movieHit{}}
 		if sc.books {
-			hits, err := hitQuery(s, "", "genre book", `SELECT `+bookHitCols+` FROM book_genres bg
-				JOIN books b ON b.id = bg.book_id WHERE bg.genre_id = ? AND b.user_id = ?
-				ORDER BY b.title LIMIT ?`, scanBookHit, gr.id, uid, searchSubLimit)
+			extra, eargs := inGenre(rowBook, gr.id)
+			hits, err := facetedHits(s, rowBook, hitReq{
+				what: "genre book", extra: extra, extraArgs: eargs, order: "b.title", limit: searchSubLimit,
+			}, f, uid, scanBookHit)
 			if err != nil {
 				return nil, err
 			}
 			gh.Books = hits
 		}
 		if sc.movies {
-			hits, err := hitQuery(s, "", "genre movie", `SELECT `+movieHitCols+` FROM movie_genres mg
-				JOIN movies m ON m.id = mg.movie_id WHERE mg.genre_id = ? AND m.user_id = ?
-				ORDER BY m.title LIMIT ?`, scanMovieHit, gr.id, uid, searchSubLimit)
+			extra, eargs := inGenre(rowMovie, gr.id)
+			hits, err := facetedHits(s, rowMovie, hitReq{
+				what: "genre movie", extra: extra, extraArgs: eargs, order: "m.title", limit: searchSubLimit,
+			}, f, uid, scanMovieHit)
 			if err != nil {
 				return nil, err
 			}
@@ -611,21 +787,23 @@ func (s *Server) searchGenreFacet(uid int64, tokens []string, sc searchScope, li
 
 // searchDecadeFacet lists the works published/released in the decade. Returns
 // nil when nothing falls in it (no section rather than an empty one).
-func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBooks, wantMovies bool, limit int) (*decadeHits, error) {
+func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBooks, wantMovies bool, f searchFacets, limit int) (*decadeHits, error) {
 	dh := &decadeHits{Label: label, Books: []bookHit{}, Movies: []movieHit{}}
 	var err error
 	if wantBooks {
-		dh.Books, err = hitQuery(s, "", "decade book", `SELECT `+bookHitCols+` FROM books b
-			WHERE b.user_id = ? AND b.published_year BETWEEN ? AND ?
-			ORDER BY b.published_year, b.title LIMIT ?`, scanBookHit, uid, from, to, limit)
+		dh.Books, err = facetedHits(s, rowBook, hitReq{
+			what: "decade book", extra: " AND b.published_year BETWEEN ? AND ?", extraArgs: []any{from, to},
+			order: "b.published_year, b.title", limit: limit,
+		}, f, uid, scanBookHit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if wantMovies {
-		dh.Movies, err = hitQuery(s, "", "decade movie", `SELECT `+movieHitCols+` FROM movies m
-			WHERE m.user_id = ? AND m.release_year BETWEEN ? AND ?
-			ORDER BY m.release_year, m.title LIMIT ?`, scanMovieHit, uid, from, to, limit)
+		dh.Movies, err = facetedHits(s, rowMovie, hitReq{
+			what: "decade movie", extra: " AND m.release_year BETWEEN ? AND ?", extraArgs: []any{from, to},
+			order: "m.release_year, m.title", limit: limit,
+		}, f, uid, scanMovieHit)
 		if err != nil {
 			return nil, err
 		}
@@ -638,48 +816,58 @@ func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBo
 
 // searchDateFacet lists everything added on one (UTC) day — the target of the
 // Stats activity calendar's dot links. Returns nil when the day was quiet.
-func (s *Server) searchDateFacet(uid int64, day string, sc searchScope, limit int) (*dateHits, error) {
+func (s *Server) searchDateFacet(uid int64, day string, sc searchScope, f searchFacets, limit int) (*dateHits, error) {
 	dh := &dateHits{Date: day, Books: []bookHit{}, Movies: []movieHit{},
 		Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}}
+	// One day, five kinds, one predicate shape — the alias is the only thing
+	// that differs, and it comes from the source table rather than being spelled
+	// out five times.
+	on := func(k rowKind) (string, []any) {
+		self := searchSources[k].self
+		return " AND substr(" + self + ".created_at, 1, 10) = ?", []any{day}
+	}
 	var err error
 	if sc.books {
-		dh.Books, err = hitQuery(s, "", "date book", `SELECT `+bookHitCols+` FROM books b
-			WHERE b.user_id = ? AND substr(b.created_at, 1, 10) = ? ORDER BY b.created_at LIMIT ?`,
-			scanBookHit, uid, day, limit)
+		extra, eargs := on(rowBook)
+		dh.Books, err = facetedHits(s, rowBook, hitReq{
+			what: "date book", extra: extra, extraArgs: eargs, order: "b.created_at", limit: limit,
+		}, f, uid, scanBookHit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if sc.movies {
-		dh.Movies, err = hitQuery(s, "", "date movie", `SELECT `+movieHitCols+` FROM movies m
-			WHERE m.user_id = ? AND substr(m.created_at, 1, 10) = ? ORDER BY m.created_at LIMIT ?`,
-			scanMovieHit, uid, day, limit)
+		extra, eargs := on(rowMovie)
+		dh.Movies, err = facetedHits(s, rowMovie, hitReq{
+			what: "date movie", extra: extra, extraArgs: eargs, order: "m.created_at", limit: limit,
+		}, f, uid, scanMovieHit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if sc.annotations {
-		dh.Annotations, err = hitQuery(s, "", "date annotation", `SELECT `+annotationHitCols+` FROM annotations a
-			JOIN books b ON b.id = a.book_id
-			WHERE b.user_id = ? AND substr(a.created_at, 1, 10) = ? ORDER BY a.created_at LIMIT ?`,
-			scanAnnotationHit, uid, day, limit)
+		extra, eargs := on(rowAnnotation)
+		dh.Annotations, err = facetedHits(s, rowAnnotation, hitReq{
+			what: "date annotation", extra: extra, extraArgs: eargs, order: "a.created_at", limit: limit,
+		}, f, uid, scanAnnotationHit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if sc.dialogues {
-		dh.Dialogues, err = hitQuery(s, "", "date dialogue", `SELECT `+dialogueHitCols+` FROM dialogues d
-			JOIN movies m ON m.id = d.movie_id
-			WHERE m.user_id = ? AND substr(d.created_at, 1, 10) = ? ORDER BY d.created_at LIMIT ?`,
-			scanDialogueHit, uid, day, limit)
+		extra, eargs := on(rowDialogue)
+		dh.Dialogues, err = facetedHits(s, rowDialogue, hitReq{
+			what: "date dialogue", extra: extra, extraArgs: eargs, order: "d.created_at", limit: limit,
+		}, f, uid, scanDialogueHit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if sc.utterances {
-		dh.Quotes, err = hitQuery(s, "", "date quote", `SELECT `+utteranceHitCols+` FROM utterances u
-			WHERE u.user_id = ? AND substr(u.created_at, 1, 10) = ? ORDER BY u.created_at LIMIT ?`,
-			scanUtteranceHit, uid, day, limit)
+		extra, eargs := on(rowUtterance)
+		dh.Quotes, err = facetedHits(s, rowUtterance, hitReq{
+			what: "date quote", extra: extra, extraArgs: eargs, order: "u.created_at", limit: limit,
+		}, f, uid, scanUtteranceHit)
 		if err != nil {
 			return nil, err
 		}
@@ -735,7 +923,20 @@ func fillDialogueGenres(by map[int64][]string, hits []dialogueHit) {
 // not duplicated here (KISS).
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	if q == "" {
+	// Facets first: an unknown one is a 400 whatever else the request says, and
+	// answering a malformed narrowing with results would be answering a
+	// different question than the one asked.
+	f, ferr := parseSearchFacets(r.URL.Query())
+	if ferr != nil {
+		writeErr(w, http.StatusBadRequest, ferr.Error())
+		return
+	}
+	// `q` IS NO LONGER REQUIRED — but only when something else narrows. Picking
+	// `tag:stoicism` out of the dropdown lifts the words out of the box and into
+	// a chip, so the ordinary shape of a chip-built search is an empty box and
+	// one parameter. A bare /search with neither is still a 400: it is not a
+	// search, it is a request for the whole library.
+	if q == "" && !f.any() {
 		writeErr(w, http.StatusBadRequest, "q is required")
 		return
 	}
@@ -749,7 +950,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uid := userID(r)
-	olog.Tracef("[search] handleSearch uid=%d scope=%q q=%q limit=%d", uid, scope, q, limit)
+	olog.Tracef("[search] handleSearch uid=%d scope=%q q=%q limit=%d facets=%v", uid, scope, q, limit, f.any())
 	resp := searchResults{
 		Books: []bookHit{}, Annotations: []annotationHit{},
 		Movies: []movieHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{},
@@ -770,7 +971,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	parsedStructured := false
 	if day, ok := parseAddedDate(q); ok {
 		parsedStructured = true
-		dh, err := s.searchDateFacet(uid, day, sc, limit)
+		dh, err := s.searchDateFacet(uid, day, sc, f, limit)
 		if err != nil {
 			internalError(w, r, "search date added", err)
 			return
@@ -781,7 +982,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if label, from, to, ok := parseDecade(q); ok {
 		parsedStructured = true
-		dec, err := s.searchDecadeFacet(uid, label, from, to, sc.books, sc.movies, limit)
+		dec, err := s.searchDecadeFacet(uid, label, from, to, sc.books, sc.movies, f, limit)
 		if err != nil {
 			internalError(w, r, "search decade", err)
 			return
@@ -801,115 +1002,97 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		total := 0
 
 		if sc.books {
-			hits, err := hitQuery(s, "books_fts", "book", `SELECT `+bookHitCols+` FROM books_fts
-				JOIN books b ON b.id = books_fts.rowid
-				WHERE books_fts MATCH ? AND b.user_id = ? ORDER BY bm25(books_fts) LIMIT ?`,
-				scanBookHit, search.ColumnPrefixQuery("title series", qq), uid, limit)
+			hits, err := facetedHits(s, rowBook, hitReq{what: "book", ftsCols: "title series", q: qq, limit: limit}, f, uid, scanBookHit)
 			if err != nil {
 				return 0, err
 			}
 			resp.Books = hits
 			total += len(hits)
 
-			byAuthor, err := hitQuery(s, "books_fts", "author book", `SELECT `+bookHitCols+` FROM books_fts
-				JOIN books b ON b.id = books_fts.rowid
-				WHERE books_fts MATCH ? AND b.user_id = ? ORDER BY bm25(books_fts) LIMIT ?`,
-				scanBookHit, search.ColumnPrefixQuery("author", qq), uid, limit)
-			if err != nil {
-				return 0, err
-			}
+			// The credit sections are FTS matches on a name column, so they only
+			// exist when there is free text to match. A chips-only search has
+			// nothing that "matched an author name" — its books arrive in Books.
 			resp.Authors = resp.Authors[:0]
-			for _, g := range groupByCredit(byAuthor, func(b bookHit) string { return b.Author }, seps, tokens, limit) {
-				resp.Authors = append(resp.Authors, authorHits{Name: g.Name, Books: g.Hits})
+			if qq != "" {
+				byAuthor, err := facetedHits(s, rowBook, hitReq{what: "author book", ftsCols: "author", q: qq, limit: limit}, f, uid, scanBookHit)
+				if err != nil {
+					return 0, err
+				}
+				for _, g := range groupByCredit(byAuthor, func(b bookHit) string { return b.Author }, seps, tokens, limit) {
+					resp.Authors = append(resp.Authors, authorHits{Name: g.Name, Books: g.Hits})
+				}
 			}
 			total += len(resp.Authors)
 		}
 
 		if sc.annotations {
-			hits, err := hitQuery(s, "annotations_fts", "annotation", `SELECT `+annotationHitCols+` FROM annotations_fts
-				JOIN annotations a ON a.id = annotations_fts.rowid
-				JOIN books b ON b.id = a.book_id
-				WHERE annotations_fts MATCH ? AND b.user_id = ? ORDER BY bm25(annotations_fts) LIMIT ?`,
-				scanAnnotationHit, search.ColumnPrefixQuery("quote", qq), uid, limit)
+			hits, err := facetedHits(s, rowAnnotation, hitReq{what: "annotation", ftsCols: "quote", q: qq, limit: limit}, f, uid, scanAnnotationHit)
 			if err != nil {
 				return 0, err
 			}
 			resp.Annotations = hits
 			total += len(hits)
 
-			notes, err := hitQuery(s, "annotations_fts", "annotation note", `SELECT `+annotationHitCols+` FROM annotations_fts
-				JOIN annotations a ON a.id = annotations_fts.rowid
-				JOIN books b ON b.id = a.book_id
-				WHERE annotations_fts MATCH ? AND b.user_id = ? ORDER BY bm25(annotations_fts) LIMIT ?`,
-				scanAnnotationHit, search.ColumnPrefixQuery("note", qq), uid, limit)
-			if err != nil {
-				return 0, err
+			// Notes is likewise a match on the note COLUMN. With no free text the
+			// question "which notes mention this" has no this — `note:yes` is the
+			// facet that asks for noted rows, and it narrows the section above.
+			resp.Notes.Annotations = []annotationHit{}
+			if qq != "" {
+				notes, err := facetedHits(s, rowAnnotation, hitReq{what: "annotation note", ftsCols: "note", q: qq, limit: limit}, f, uid, scanAnnotationHit)
+				if err != nil {
+					return 0, err
+				}
+				resp.Notes.Annotations = notes
 			}
-			resp.Notes.Annotations = notes
-			total += len(notes)
+			total += len(resp.Notes.Annotations)
 		}
 
 		if sc.movies {
-			hits, err := hitQuery(s, "movies_fts", "movie", `SELECT `+movieHitCols+` FROM movies_fts
-				JOIN movies m ON m.id = movies_fts.rowid
-				WHERE movies_fts MATCH ? AND m.user_id = ? ORDER BY bm25(movies_fts) LIMIT ?`,
-				scanMovieHit, search.ColumnPrefixQuery("title series", qq), uid, limit)
+			hits, err := facetedHits(s, rowMovie, hitReq{what: "movie", ftsCols: "title series", q: qq, limit: limit}, f, uid, scanMovieHit)
 			if err != nil {
 				return 0, err
 			}
 			resp.Movies = hits
 			total += len(hits)
 
-			byDirector, err := hitQuery(s, "movies_fts", "director movie", `SELECT `+movieHitCols+` FROM movies_fts
-				JOIN movies m ON m.id = movies_fts.rowid
-				WHERE movies_fts MATCH ? AND m.user_id = ? ORDER BY bm25(movies_fts) LIMIT ?`,
-				scanMovieHit, search.ColumnPrefixQuery("director", qq), uid, limit)
-			if err != nil {
-				return 0, err
-			}
 			resp.Directors = resp.Directors[:0]
-			for _, g := range groupByCredit(byDirector, func(m movieHit) string { return m.Director }, seps, tokens, limit) {
-				resp.Directors = append(resp.Directors, directorHits{Name: g.Name, Movies: g.Hits})
+			if qq != "" {
+				byDirector, err := facetedHits(s, rowMovie, hitReq{what: "director movie", ftsCols: "director", q: qq, limit: limit}, f, uid, scanMovieHit)
+				if err != nil {
+					return 0, err
+				}
+				for _, g := range groupByCredit(byDirector, func(m movieHit) string { return m.Director }, seps, tokens, limit) {
+					resp.Directors = append(resp.Directors, directorHits{Name: g.Name, Movies: g.Hits})
+				}
 			}
 			total += len(resp.Directors)
 		}
 
 		if sc.dialogues {
-			hits, err := hitQuery(s, "dialogues_fts", "dialogue", `SELECT `+dialogueHitCols+` FROM dialogues_fts
-				JOIN dialogues d ON d.id = dialogues_fts.rowid
-				JOIN movies m ON m.id = d.movie_id
-				WHERE dialogues_fts MATCH ? AND m.user_id = ? ORDER BY bm25(dialogues_fts) LIMIT ?`,
-				scanDialogueHit, search.ColumnPrefixQuery("quote character", qq), uid, limit)
+			hits, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue", ftsCols: "quote character", q: qq, limit: limit}, f, uid, scanDialogueHit)
 			if err != nil {
 				return 0, err
 			}
 			resp.Dialogues = hits
 			total += len(hits)
 
-			byActor, err := hitQuery(s, "dialogues_fts", "actor dialogue", `SELECT `+dialogueHitCols+` FROM dialogues_fts
-				JOIN dialogues d ON d.id = dialogues_fts.rowid
-				JOIN movies m ON m.id = d.movie_id
-				WHERE dialogues_fts MATCH ? AND m.user_id = ? ORDER BY bm25(dialogues_fts) LIMIT ?`,
-				scanDialogueHit, search.ColumnPrefixQuery("actor", qq), uid, limit)
-			if err != nil {
-				return 0, err
-			}
 			resp.Actors = resp.Actors[:0]
-			for _, g := range groupByCredit(byActor, func(d dialogueHit) string { return d.Actor }, seps, tokens, limit) {
-				resp.Actors = append(resp.Actors, actorHits{Name: g.Name, Dialogues: g.Hits})
+			resp.Notes.Dialogues = []dialogueHit{}
+			if qq != "" {
+				byActor, err := facetedHits(s, rowDialogue, hitReq{what: "actor dialogue", ftsCols: "actor", q: qq, limit: limit}, f, uid, scanDialogueHit)
+				if err != nil {
+					return 0, err
+				}
+				for _, g := range groupByCredit(byActor, func(d dialogueHit) string { return d.Actor }, seps, tokens, limit) {
+					resp.Actors = append(resp.Actors, actorHits{Name: g.Name, Dialogues: g.Hits})
+				}
+				noteHitsD, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue note", ftsCols: "note", q: qq, limit: limit}, f, uid, scanDialogueHit)
+				if err != nil {
+					return 0, err
+				}
+				resp.Notes.Dialogues = noteHitsD
 			}
-			total += len(resp.Actors)
-
-			noteHitsD, err := hitQuery(s, "dialogues_fts", "dialogue note", `SELECT `+dialogueHitCols+` FROM dialogues_fts
-				JOIN dialogues d ON d.id = dialogues_fts.rowid
-				JOIN movies m ON m.id = d.movie_id
-				WHERE dialogues_fts MATCH ? AND m.user_id = ? ORDER BY bm25(dialogues_fts) LIMIT ?`,
-				scanDialogueHit, search.ColumnPrefixQuery("note", qq), uid, limit)
-			if err != nil {
-				return 0, err
-			}
-			resp.Notes.Dialogues = noteHitsD
-			total += len(noteHitsD)
+			total += len(resp.Actors) + len(resp.Notes.Dialogues)
 		}
 
 		if sc.utterances {
@@ -928,44 +1111,40 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			// The user scope is on the row here (0026), not on a joined parent, so
 			// each of these three carries its own WHERE — a missing one is a
 			// cross-account leak rather than a hidden row.
-			hits, err := hitQuery(s, "utterances_fts", "quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
-				JOIN utterances u ON u.id = utterances_fts.rowid
-				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
-				scanUtteranceHit, search.ColumnPrefixQuery("quote occasion translation", qq), uid, limit)
+			hits, err := facetedHits(s, rowUtterance, hitReq{
+				what: "quote", ftsCols: "quote occasion translation", q: qq, limit: limit,
+			}, f, uid, scanUtteranceHit)
 			if err != nil {
 				return 0, err
 			}
 			resp.Quotes = hits
 			total += len(hits)
 
-			bySpeaker, err := hitQuery(s, "utterances_fts", "speaker quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
-				JOIN utterances u ON u.id = utterances_fts.rowid
-				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
-				scanUtteranceHit, search.ColumnPrefixQuery("speaker", qq), uid, limit)
-			if err != nil {
-				return 0, err
-			}
 			resp.Speakers = resp.Speakers[:0]
-			for _, g := range groupByCredit(bySpeaker, func(u utteranceHit) string { return u.Speaker }, seps, tokens, limit) {
-				resp.Speakers = append(resp.Speakers, speakerHits{Name: g.Name, Quotes: g.Hits})
+			resp.Notes.Quotes = []utteranceHit{}
+			if qq != "" {
+				bySpeaker, err := facetedHits(s, rowUtterance, hitReq{what: "speaker quote", ftsCols: "speaker", q: qq, limit: limit}, f, uid, scanUtteranceHit)
+				if err != nil {
+					return 0, err
+				}
+				for _, g := range groupByCredit(bySpeaker, func(u utteranceHit) string { return u.Speaker }, seps, tokens, limit) {
+					resp.Speakers = append(resp.Speakers, speakerHits{Name: g.Name, Quotes: g.Hits})
+				}
+				noteHitsU, err := facetedHits(s, rowUtterance, hitReq{what: "quote note", ftsCols: "note", q: qq, limit: limit}, f, uid, scanUtteranceHit)
+				if err != nil {
+					return 0, err
+				}
+				resp.Notes.Quotes = noteHitsU
 			}
-			total += len(resp.Speakers)
-
-			noteHitsU, err := hitQuery(s, "utterances_fts", "quote note", `SELECT `+utteranceHitCols+` FROM utterances_fts
-				JOIN utterances u ON u.id = utterances_fts.rowid
-				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
-				scanUtteranceHit, search.ColumnPrefixQuery("note", qq), uid, limit)
-			if err != nil {
-				return 0, err
-			}
-			resp.Notes.Quotes = noteHitsU
-			total += len(noteHitsU)
+			total += len(resp.Speakers) + len(resp.Notes.Quotes)
 		}
 
 		// Tags + genres match by name (substring, not FTS) but follow the same
-		// pass so they benefit from the typo correction too.
+		// pass so they benefit from the typo correction too. Both return nothing
+		// without free text — there is no name to match — which is right: a
+		// chips-only search is not asking "which of my tags is called this".
 		if sc.annotations || sc.dialogues || sc.utterances {
-			tags, err := s.searchTagFacet(uid, tokens, sc, searchSubLimit)
+			tags, err := s.searchTagFacet(uid, tokens, sc, f, searchSubLimit)
 			if err != nil {
 				return 0, err
 			}
@@ -973,7 +1152,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			total += len(tags)
 		}
 		if sc.books || sc.movies {
-			genres, err := s.searchGenreFacet(uid, tokens, sc, searchSubLimit)
+			genres, err := s.searchGenreFacet(uid, tokens, sc, f, searchSubLimit)
 			if err != nil {
 				return 0, err
 			}
@@ -989,72 +1168,53 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// mich" hitting title + director — still finds its work. Hits land in the
 	// plain books/annotations/movies/dialogues sections.
 	runMixedPass := func(qq string) (int, error) {
-		match := search.PrefixQuery(qq)
 		total := 0
+		// An empty ftsCols is what makes this the cross-column pass: it matches
+		// every indexed column of the row rather than a named few.
+		mixed := func(what string) hitReq { return hitReq{what: what, q: qq, limit: limit} }
+		var err error
 		if sc.books {
-			hits, err := hitQuery(s, "books_fts", "book", `SELECT `+bookHitCols+` FROM books_fts
-				JOIN books b ON b.id = books_fts.rowid
-				WHERE books_fts MATCH ? AND b.user_id = ? ORDER BY bm25(books_fts) LIMIT ?`,
-				scanBookHit, match, uid, limit)
-			if err != nil {
+			if resp.Books, err = facetedHits(s, rowBook, mixed("book"), f, uid, scanBookHit); err != nil {
 				return 0, err
 			}
-			resp.Books = hits
-			total += len(hits)
+			total += len(resp.Books)
 		}
 		if sc.annotations {
-			hits, err := hitQuery(s, "annotations_fts", "annotation", `SELECT `+annotationHitCols+` FROM annotations_fts
-				JOIN annotations a ON a.id = annotations_fts.rowid
-				JOIN books b ON b.id = a.book_id
-				WHERE annotations_fts MATCH ? AND b.user_id = ? ORDER BY bm25(annotations_fts) LIMIT ?`,
-				scanAnnotationHit, match, uid, limit)
-			if err != nil {
+			if resp.Annotations, err = facetedHits(s, rowAnnotation, mixed("annotation"), f, uid, scanAnnotationHit); err != nil {
 				return 0, err
 			}
-			resp.Annotations = hits
-			total += len(hits)
+			total += len(resp.Annotations)
 		}
 		if sc.movies {
-			hits, err := hitQuery(s, "movies_fts", "movie", `SELECT `+movieHitCols+` FROM movies_fts
-				JOIN movies m ON m.id = movies_fts.rowid
-				WHERE movies_fts MATCH ? AND m.user_id = ? ORDER BY bm25(movies_fts) LIMIT ?`,
-				scanMovieHit, match, uid, limit)
-			if err != nil {
+			if resp.Movies, err = facetedHits(s, rowMovie, mixed("movie"), f, uid, scanMovieHit); err != nil {
 				return 0, err
 			}
-			resp.Movies = hits
-			total += len(hits)
+			total += len(resp.Movies)
 		}
 		if sc.dialogues {
-			hits, err := hitQuery(s, "dialogues_fts", "dialogue", `SELECT `+dialogueHitCols+` FROM dialogues_fts
-				JOIN dialogues d ON d.id = dialogues_fts.rowid
-				JOIN movies m ON m.id = d.movie_id
-				WHERE dialogues_fts MATCH ? AND m.user_id = ? ORDER BY bm25(dialogues_fts) LIMIT ?`,
-				scanDialogueHit, match, uid, limit)
-			if err != nil {
+			if resp.Dialogues, err = facetedHits(s, rowDialogue, mixed("dialogue"), f, uid, scanDialogueHit); err != nil {
 				return 0, err
 			}
-			resp.Dialogues = hits
-			total += len(hits)
+			total += len(resp.Dialogues)
 		}
 		if sc.utterances {
-			hits, err := hitQuery(s, "utterances_fts", "quote", `SELECT `+utteranceHitCols+` FROM utterances_fts
-				JOIN utterances u ON u.id = utterances_fts.rowid
-				WHERE utterances_fts MATCH ? AND u.user_id = ? ORDER BY bm25(utterances_fts) LIMIT ?`,
-				scanUtteranceHit, match, uid, limit)
-			if err != nil {
+			if resp.Quotes, err = facetedHits(s, rowUtterance, mixed("quote"), f, uid, scanUtteranceHit); err != nil {
 				return 0, err
 			}
-			resp.Quotes = hits
-			total += len(hits)
+			total += len(resp.Quotes)
 		}
 		return total, nil
 	}
 
 	// runBoth: the faceted pass, then the cross-column fallback if it drew blank.
+	//
+	// The fallback is skipped without free text. Its whole job is to catch a
+	// query whose words span two columns of one row ("casab mich"), and with no
+	// query there are no words to span — it would re-run the SAME facet-only
+	// queries the pass above already ran and overwrite them with themselves.
 	runBoth := func(qq string) (int, error) {
 		total, err := runPass(qq)
-		if err != nil || total > 0 {
+		if err != nil || total > 0 || qq == "" {
 			return total, err
 		}
 		return runMixedPass(qq)
