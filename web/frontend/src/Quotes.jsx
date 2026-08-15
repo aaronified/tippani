@@ -762,17 +762,24 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
 
   return (
     <>
-      {/* The way back to the shelves. Above the scaffold rather than inside it,
-          because WorkListScaffold has no back slot — a work's detail page draws
-          its own too. */}
-      <div className="mb-3">
-        <GhostButton icon={<IconBack />} onClick={onClose}>
-          All boards
-        </GhostButton>
-      </div>
+      {/* The way back to the shelves, on DESKTOP only — a work's detail page
+          draws its own the same way, above the header with room to spare.
+          On a phone this was an entire row spent on a single back arrow, with
+          the title, the count and the filters in the row beneath it, while a
+          book's page has always put all four together. The scaffold takes the
+          arrow inside its sticky bar now (1.14.2), so this must not also draw
+          one or there would be two ways back stacked on each other. */}
+      {!mobile && (
+        <div className="mb-3">
+          <GhostButton icon={<IconBack />} onClick={onClose}>
+            All boards
+          </GhostButton>
+        </div>
+      )}
       {starters}
       <WorkListScaffold
       mobile={mobile}
+      onBack={onClose}
       title={isAll ? 'All quotes' : openBoard?.name || 'Quotes'}
       counts={rows ? `${board.length} ${board.length === 1 ? 'quote' : 'quotes'}${openBoard?.description ? ' · ' + openBoard.description : ''}` : ''}
       error={error}

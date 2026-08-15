@@ -1293,6 +1293,19 @@ export function WorkListScaffold({
   title,
   counts,
   error,
+  // onBack (1.14.2) makes this scaffold a DETAIL page rather than a list one.
+  //
+  // A board is opened from a list of boards, so it needs a way back, and until
+  // now the scaffold had no slot for one — /quotes drew its own button in a
+  // <div> above, which on a phone is an entire row spent on a single back
+  // arrow while the title, the count and the filters sit in the row beneath it.
+  // A book's detail page has never done that: it puts all four in one bar.
+  //
+  // So the back arrow comes INSIDE the sticky bar, drawn by the same
+  // MobileDetailBar a work's page uses, rather than being another control
+  // stacked above it. Absent on the three list screens, which are nobody's
+  // detail page and have nowhere to go back to.
+  onBack,
   onExport,
   headerAside,
   loaded, // items != null (data has arrived)
@@ -1423,21 +1436,31 @@ export function WorkListScaffold({
     />
   )
   const sortSelect = hasSort && <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
+  // The same two controls whichever bar draws them, so a board and a book put
+  // Filters and Export in the same place under the same thumb.
+  const mobileActions = (
+    <>
+      <IconButton icon={<IconFilter />} label="Filters"
+        ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
+      {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export', onClick: onExport }]} />}
+    </>
+  )
+
   return (
     <section>
+      {mobile && onBack ? (
+        // Identical to a work's detail page, because it IS one: back, what you
+        // are looking at, how much of it there is, and what you can do to it —
+        // one row, not two.
+        <MobileDetailBar onClose={onBack} title={title} meta={counts} actions={mobileActions} />
+      ) : (
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader
           title={title}
           counts={counts}
           right={
             <>
-              {mobile && (
-                <div className="flex items-center gap-2">
-                  <IconButton icon={<IconFilter />} label="Filters"
-            ariaLabel="Filters" onClick={() => setMobileFilter((o) => !o)} />
-                  {!DEMO && <MoreMenu items={[{ icon: <IconExport />, label: 'Export', onClick: onExport }]} />}
-                </div>
-              )}
+              {mobile && <div className="flex items-center gap-2">{mobileActions}</div>}
               {!mobile && headerAside}
               {/* Export is a glyph, not a word: the header row is the tightest
                   real estate on the page and "Export all" spent it on a label
@@ -1456,6 +1479,7 @@ export function WorkListScaffold({
           }
         />
       </div>
+      )}
       <ErrorText>{error}</ErrorText>
 
       {hasItems && !mobile && (
