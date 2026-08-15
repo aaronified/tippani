@@ -489,6 +489,23 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		// 0033. Whether the quiz draws on this work's quotes at all. On the WORK
 		// rather than only on its quotes, so a highlight added tomorrow inherits it.
 		ReviewExcluded bool `json:"review_excluded"`
+		// WHO IS QUOTED IN IT, from the lines saved off it — not from the cast.
+		//
+		// The board filters by actor with this, and where it comes from IS the
+		// feature. `movies.cast_json` holds the whole TMDB cast and would have
+		// been the obvious source; it answers a different question. A cast entry
+		// says the actor was in the film. This says you kept something they said,
+		// which is what a library is about and — decisively — is the same
+		// question `actor:` asks in search, where the predicate reads `d.actor`
+		// (searchFacets.where). Filtering a board by one meaning and seeding a
+		// search with the other is a filter that changes what it means on the way
+		// to the search box, silently, in the direction of MORE results.
+		//
+		// Verbatim, unsplit: a line can credit several actors as one string, and
+		// splitting is the client's job (splitCredits), which already has the
+		// reader's own separator preferences. Splitting here would fix them into
+		// the API.
+		Actors []string `json:"actors"`
 	}
 	uid := userID(r)
 	olog.Tracef("[movie] handleListMovies uid=%v", uid)
@@ -544,14 +561,63 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "list movies: last watched", err)
 		return
 	}
+	actors, err := s.movieActors(uid)
+	if err != nil {
+		internalError(w, r, "list movies: actors", err)
+		return
+	}
 	for i := range items {
 		if gs := byMovie[items[i].ID]; gs != nil {
 			items[i].Genres = gs
 		}
 		items[i].ReadCount = reads[items[i].ID]
 		items[i].LastReadAt = lastRead[items[i].ID]
+		items[i].Actors = actors[items[i].ID]
+		if items[i].Actors == nil {
+			// [] and not null: the client maps over it, and a board where the
+			// filter works on films with quoted lines and throws on the ones
+			// without is the shape of bug this repo keeps finding.
+			items[i].Actors = []string{}
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"movies": items})
+}
+
+// movieActors is movieID → the distinct actor strings its saved lines credit.
+//
+// One query for the whole list, like genreNames beside it, rather than a
+// correlated subquery per row: the three counts above can be scalars and this
+// cannot, and forty films each running a GROUP_CONCAT is the shape that makes a
+// board slow for a reason nobody can see in the JSON.
+//
+// DISTINCT on the raw string, so a film whose forty lines all credit the same
+// actor contributes one entry. Sorted by name so the board's dropdown is stable
+// between loads — a list that reorders itself as you save lines is a list you
+// cannot learn the shape of.
+func (s *Server) movieActors(uid int64) (map[int64][]string, error) {
+	rows, err := s.Store.DB.Query(`
+		SELECT DISTINCT d.movie_id, d.actor
+		FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''
+		ORDER BY d.actor`, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]string{}
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			olog.Warnf(olog.CodeMovieRowScan, "[movie] actor row scan failed: %v", err)
+			continue
+		}
+		out[id] = append(out[id], name)
+	}
+	if err := rows.Err(); err != nil {
+		olog.Warnf(olog.CodeMovieRowScan, "[movie] actor row iteration failed: %v", err)
+	}
+	return out, nil
 }
 
 func (s *Server) handleGetMovie(w http.ResponseWriter, r *http.Request) {

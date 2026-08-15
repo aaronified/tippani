@@ -1421,6 +1421,16 @@ export function WorkListScaffold({
   seriesNames = [],
   series,
   setSeries,
+  // WHO IS QUOTED IN IT (1.14.2). Generic rather than `actorNames`, because the
+  // control is one dropdown over one column of names and the Library will want
+  // the same one for authors; `creditNoun` is the only thing that differs.
+  // Hidden when nothing supplies it, like the series select above — a board with
+  // no credits to filter by shows no credit filter rather than an empty one.
+  creditNames = [],
+  credit,
+  setCredit,
+  creditNoun = 'actor',
+  creditNounPlural = `${creditNoun}s`,
   sort,
   setSort,
   sortOptions = [],
@@ -1446,6 +1456,7 @@ export function WorkListScaffold({
   const hasWish = !!setWish
   const hasStates = !!setStates
   const hasSeries = !!setSeries && (seriesNames || []).length > 0
+  const hasCredit = !!setCredit && (creditNames || []).length > 0
   const hasSort = !!setSort && (sortOptions || []).length > 0
   // "show only" — independent toggles, ANDed by the page's `shown` memo. Shared
   // with the desktop row rather than mobile-only: the predicates live in that
@@ -1518,6 +1529,14 @@ export function WorkListScaffold({
       options={[['', `all ${seriesNounPlural}`], ...seriesNames.map((s) => [s, s])]}
     />
   )
+  const creditSelect = hasCredit && (
+    <Select
+      ariaLabel={`Filter by ${creditNoun}`}
+      value={credit}
+      onChange={setCredit}
+      options={[['', `all ${creditNounPlural}`], ...creditNames.map((n) => [n, n])]}
+    />
+  )
   const sortSelect = hasSort && <Select ariaLabel="Sort" value={sort} onChange={setSort} options={sortOptions} />
   // The same two controls whichever bar draws them, so a board and a book put
   // Filters and Export in the same place under the same thumb.
@@ -1573,6 +1592,7 @@ export function WorkListScaffold({
             {hasWish && wishChips}
             {onlyChips}
             {hasStates && stateSelect}
+            {creditSelect}
             {seriesSelect}
             {trailing}
             {hasSort && (
@@ -1630,6 +1650,12 @@ export function WorkListScaffold({
               <div>
                 <MonoLabel className="mb-2 block">{seriesNoun}</MonoLabel>
                 {seriesSelect}
+              </div>
+            )}
+            {hasCredit && (
+              <div>
+                <MonoLabel className="mb-2 block">{creditNoun}</MonoLabel>
+                {creditSelect}
               </div>
             )}
             {trailingMobile}

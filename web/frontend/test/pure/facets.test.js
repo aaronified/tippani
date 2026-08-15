@@ -475,6 +475,35 @@ describe('seeding from where you were', () => {
     expect(seedableChips()).toEqual([])
   })
 
+  // ---- the Catalogue's actor filter (1.14.2) --------------------------------
+  //
+  // The rule this board follows is that no filter ships without deciding what
+  // it MEANS to a search, and `actor` is the first one where the honest answer
+  // is not "the same thing". The board narrows to FILMS an actor is quoted in;
+  // the `actor:` facet is dialogue-only server-side (searchFacets.where returns
+  // no rows for any other kind), so the search answers with that actor's LINES
+  // and an empty Movies section.
+  //
+  // That is the right answer rather than a compromise, and it is why `actor` is
+  // NOT in BOARD_ONLY_FACETS: the client groups dialogue hits under their films
+  // (groupMovies), so pressing Search on a board filtered to Bogart lands on the
+  // same films with the lines that put them there. Dropping the chip at the
+  // boundary — the treatment `noted` and `tagged` get — would have thrown that
+  // away and searched the whole catalogue instead.
+  it('seeds the actor filter, because the search has a real answer for it', () => {
+    const board = [{ field: 'actor', value: 'Humphrey Bogart', label: 'Humphrey Bogart' }]
+    expect(seedableChips(board)).toEqual(board)
+    expect(BOARD_ONLY_FACETS).not.toContain('actor')
+  })
+
+  it('sends it as the name the server matches on', () => {
+    // `&actor=Humphrey+Bogart`, which creditAnyOf splits into tokens and matches
+    // case-insensitively against d.actor. The chip's value is the whole name, so
+    // a two-word name narrows on both words rather than on either.
+    expect(facetParams([{ field: 'actor', value: 'Humphrey Bogart' }]))
+      .toEqual([['actor', 'Humphrey Bogart']])
+  })
+
   it('shows a work’s title and sends its id', () => {
     expect(workSeedChip('book', 42, 'The Dispossessed'))
       .toEqual({ field: 'book', value: '42', label: 'The Dispossessed' })

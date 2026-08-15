@@ -240,13 +240,15 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     fav: facetValue(filters, 'favourite') === 'yes',
     tagged: facetValue(filters, 'tagged') === 'yes', // has at least one tagged dialogue
     noted: facetValue(filters, 'noted') === 'yes', // has at least one dialogue with a note
+    actor: facetValue(filters, 'actor'),
     wish: { yes: 'wishlist', no: 'annotated' }[facetValue(filters, 'wishlist')] || '',
     states: facetValues(filters, 'shelf'), // shelf states kept; [] = every state
   }), [filters])
-  const { mediaType, genre, series, fav, tagged, noted, wish, states } = f
+  const { mediaType, genre, series, fav, tagged, noted, actor, wish, states } = f
   const setMediaType = (v) => setFilters((c) => withFacet(c, 'media', v))
   const setGenre = (v) => setFilters((c) => withFacet(c, 'genre', v))
   const setSeries = (v) => setFilters((c) => withFacet(c, 'series', v))
+  const setActor = (v) => setFilters((c) => withFacet(c, 'actor', v))
   const setFav = (v) => setFilters((c) => withFacet(c, 'favourite', v ? 'yes' : ''))
   const setTagged = (v) => setFilters((c) => withFacet(c, 'tagged', v ? 'yes' : ''))
   const setNoted = (v) => setFilters((c) => withFacet(c, 'noted', v ? 'yes' : ''))
@@ -300,12 +302,30 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     for (const m of movies || []) if (m.series) s.add(m.series)
     return [...s].sort()
   }, [movies])
+  // Every actor with a line saved from them, in alphabetical order — the same
+  // names the credit chips on a line are drawn from, split the same way, so the
+  // dropdown cannot offer "Ford, Hauer" as one person.
+  //
+  // Most-common-first is what the genre select does, and is wrong here: a genre
+  // list is short and a cast list is not, so the useful ordering is the one you
+  // can scan for a name you already have in mind.
+  const actorNames = useMemo(() => {
+    const s = new Set()
+    for (const m of movies || []) for (const raw of m.actors || []) for (const n of splitCredits(raw, creditSeps)) s.add(n)
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [movies, creditSeps])
 
   const shown = useMemo(() => {
     let list = movies || []
     if (mediaType) list = list.filter((m) => (m.media_type || 'movie') === mediaType)
     if (genre) list = list.filter((m) => (m.genres || []).includes(genre))
     if (series) list = list.filter((m) => (m.series || '') === series)
+    // Exact name against the SPLIT credit, not a substring of the raw string: a
+    // line credits its actors as one field ("Ford, Hauer") and the dropdown
+    // offers the split names, so `includes(actor)` on the raw string would let
+    // "Ford" match a film credited only to "Harrison Fordham". splitCredits uses
+    // the reader's own separators, the same ones the credit chips are drawn from.
+    if (actor) list = list.filter((m) => (m.actors || []).some((a) => splitCredits(a, creditSeps).includes(actor)))
     if (fav) list = list.filter((m) => m.favorite)
     if (tagged) list = list.filter((m) => (m.tagged_count || 0) > 0)
     if (noted) list = list.filter((m) => (m.noted_count || 0) > 0)
@@ -320,7 +340,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     else if (sort === 'series') list.sort(bySeries)
     else if (sort === 'read') list.sort(byLastRead)
     return list
-  }, [movies, mediaType, genre, series, fav, tagged, noted, states, wish, sort])
+  }, [movies, mediaType, genre, series, fav, tagged, noted, actor, states, wish, sort, creditSeps])
 
   // Over `shown`, the visible order — see the Library board and useSelection.
   const selection = useSelection(shown.map((m) => m.id))
@@ -395,6 +415,10 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       setSeries={setSeries}
       sort={sort}
       setSort={setSort}
+      creditNames={actorNames}
+      credit={actor}
+      setCredit={setActor}
+      creditNoun="actor"
       seriesNoun="collection"
       sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Collection'], ['read', 'Last watched']]}
       leading={

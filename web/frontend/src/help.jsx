@@ -106,7 +106,8 @@ export const HELP = {
     title: 'Catalogue',
     entries: [
       { term: 'Films / shows', what: 'Both live here. The media-type chips narrow to one or the other; a show’s dialogue carries season and episode.' },
-      { term: 'Filters', icon: <IconFilter />, what: 'Genre, wishlist scope, favourites, tagged, has-notes, shelf state, collection and sort — as a full-screen sheet on a phone.' },
+      { term: 'Filters', icon: <IconFilter />, what: 'Genre, wishlist scope, favourites, tagged, has-notes, shelf state, actor, collection and sort — as a full-screen sheet on a phone.' },
+      { term: 'Actor', what: 'Narrows the board to the titles you have quoted a line from, spoken by one person. It lists who is QUOTED, not the whole cast — a film whose cast you fetched and whose lines you have not saved is not under anybody, because the point of the filter is to find what somebody said. That is also what makes it agree with the search box: press Search from a board filtered to an actor and the same name goes with it, and search answers with that actor’s lines, grouped under the films they are from.' },
       { term: 'Shelf state', what: 'Watching, paused, abandoned, watched — the coloured bar under each poster.' },
       { term: 'Collection', what: 'A franchise or series grouping, the film side of the Library’s "series".' },
       { term: 'Sort', what: 'Recent, Title, Year, Collection, or Last watched — the date you last had it on, finished or not. Anything you have never logged a watch for sits at the end, alphabetically.' },

@@ -207,6 +207,14 @@ function movieListItem(m) {
     tagged_count: own.filter((d) => (d.tags || []).length > 0).length,
     noted_count: own.filter((d) => (d.note || '').trim() !== '').length,
     read_count: finishedCount(MOVIE_READS[m.id]),
+    // Derived from the LINES, exactly as handleListMovies derives it, and not
+    // from CAST[m.id] — which is right there and would have been the obvious
+    // thing to reach for. A cast entry says the actor was in the film; this says
+    // you kept something they said, and the two disagree for every film whose
+    // cast you fetched and whose lines you have not saved. A shim that answers
+    // the easier question is how a demo board filters to a film the real one
+    // would have left out.
+    actors: [...new Set(own.map((d) => d.actor).filter(Boolean))].sort(),
   }
 }
 function movieDetail(m) {
