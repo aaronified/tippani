@@ -543,6 +543,18 @@ function SRSettings({ user, onPreferences }) {
         </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>Confirm each answer</MonoLabel>
+            <InfoDot text="Normally a tap answers straight away. Turn this on and a tap only chooses — you can change your mind, and a Submit button records it. Flip cards are unaffected: revealing and grading are already two steps." />
+          </div>
+          <Toggle
+            ariaLabel="Confirm each answer"
+            value={p.srSubmit ? 'on' : 'off'}
+            onChange={(v) => set({ srSubmit: v === 'on' })}
+            options={[['off', 'No'], ['on', 'Yes']]}
+          />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center gap-1.5">
             <MonoLabel>Adaptive intervals</MonoLabel>
             <InfoDot text="The ladder steps 7 → 30 → 100 days, and any lapse drops you straight back to 7. Adaptive multiplies by 2.5 instead, and halves on a lapse rather than resetting — so one slip on a well-known quote no longer costs you the whole climb." />
           </div>

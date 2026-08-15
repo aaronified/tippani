@@ -356,6 +356,15 @@ type prefs struct {
 	// somebody who has not asked for adaptive scheduling should keep the rule
 	// the explainer on the Home screen describes. See nextStability.
 	SRAdaptive bool `json:"srAdaptive"`
+	// SRSubmit puts a Submit button between choosing an answer and committing it,
+	// so a misplaced tap can be corrected instead of costing a rung. Off by
+	// default: tapping to answer is one gesture instead of two, and that is the
+	// right trade for most people most of the time.
+	//
+	// The GRADING is client-side — POST /review/answer is unchanged and never
+	// sees a half-answered card — but the preference is server state like every
+	// other, or it would not survive a login.
+	SRSubmit bool `json:"srSubmit"`
 	// Guided feature tour (Settings → Onboarding). Tour is its lifecycle state
 	// (see tourStates); "postponed" keeps TourStep as the 0-based step to resume
 	// from — the Settings card shows a Resume button for it.
@@ -591,6 +600,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRSeen           *float64 `json:"srSeen"`
 		SRPracticeCounts *bool    `json:"srPracticeCounts"`
 		SRAdaptive       *bool    `json:"srAdaptive"`
+		SRSubmit         *bool    `json:"srSubmit"`
 		Tour             *string  `json:"tour"`
 		TourStep         *int     `json:"tourStep"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
@@ -695,6 +705,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.SRAdaptive != nil {
 		cur.SRAdaptive = *in.SRAdaptive
+	}
+	if in.SRSubmit != nil {
+		cur.SRSubmit = *in.SRSubmit
 	}
 	if in.Tour != nil && *in.Tour != "" {
 		cur.Tour = *in.Tour

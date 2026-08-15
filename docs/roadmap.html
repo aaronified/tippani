@@ -568,7 +568,17 @@
       Standalone quotes are almost all famous lines, which makes them the best cards
       this app could ask.
     </li>
-    <li><strong>Undo the last answer.</strong> The single most-requested control in every spaced-repetition tool ever built, and a misplaced tap currently costs you a rung.</li>
+    <li>
+      <strong>Undo the last answer</strong> — <em>replaced rather than built.</em>
+      An exact undo needs the half-life the card had before you answered, and
+      nothing stores it; adding a per-answer history table would be a schema this
+      whole section promises not to need. So the <em>misplaced tap</em> the
+      control exists for is prevented instead: an opt-in confirm step, where a
+      tap chooses and a button commits, and until then you can change your mind.
+      Better than undo for a misclick, worse for a considered answer you regret —
+      which is a case this line never claimed.
+      <span class="mono">Shipped in 1.15.0.</span>
+    </li>
     <li><strong>Themed review</strong> — "quiz me on this book / tag / colour / person", from a button on the thing itself. The deck query already filters by scope; this is one more clause and a way in.</li>
     <li><strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly when you notice the typo, the missing tag, or that you love it — and it is currently the one screen from which you can do nothing about any of that.</li>
     <li>

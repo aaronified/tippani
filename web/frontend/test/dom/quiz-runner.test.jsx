@@ -190,3 +190,74 @@ describe('the leech offer', () => {
     await waitFor(() => expect(SENT.some((s) => s.path === '/dialogues/bulk')).toBe(true))
   })
 })
+
+// ---- the submit step -------------------------------------------------------
+//
+// Roadmap §2 asked for "undo the last answer". An exact undo needs the previous
+// half-life, which nothing stores — so the MISCLICK it exists to protect against
+// is prevented instead: a tap selects, a button commits, and until then the
+// choice can be changed freely.
+//
+// The dangerous half is not the button. It is that "chosen" and "graded" used to
+// be the same fact, and every reveal in the card was written against that. Split
+// them and leave one reveal reading the selection, and the card tells you the
+// answer while you can still change it.
+describe('the submit step', () => {
+  it('posts nothing when an option is chosen', () => {
+    render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    expect(posted()).toHaveLength(0)
+    expect(screen.getByText('Submit')).toBeTruthy()
+  })
+
+  it('lets the choice be changed, and grades the last one', async () => {
+    render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    fireEvent.click(screen.getByText('Villette'))
+    fireEvent.click(screen.getByText('Persuasion'))
+    expect(posted()).toHaveLength(0)
+    fireEvent.click(screen.getByText('Submit'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(posted()[0].body.result).toBe('got')
+  })
+
+  // THE LEAK THE SPLIT CREATES. The wrong-answer styling read `chosen &&
+  // !isAnswer`, which was safe only while a chosen option was necessarily a
+  // graded one. Without an explicit commit test, selecting a wrong option paints
+  // it red — telling you it is wrong while you can still change it.
+  it('says nothing about whether the choice is right until it is submitted', () => {
+    render(<QuizRunner mode="daily" submitStep cards={[mcq()]} />)
+    fireEvent.click(screen.getByText('Emma')) // the wrong one
+
+    // THE STYLING, not the verdict line. The verdict is gated on the commit by a
+    // different expression, so checking it would pass while the option itself
+    // sat there painted red — which is the actual leak, and is how the first
+    // version of this test managed to pass against the bug it names.
+    const optionStyle = (label) => screen.getByText(label).closest('button').getAttribute('style') || ''
+    expect(optionStyle('Emma'), 'the wrong choice is marked wrong before it is submitted').not.toMatch(/--error/)
+    expect(optionStyle('Persuasion'), 'the right answer is revealed before submitting').not.toMatch(/--ok/)
+    expect(screen.queryByText('not quite')).toBeNull()
+
+    fireEvent.click(screen.getByText('Submit'))
+    expect(optionStyle('Emma')).toMatch(/--error/)
+    expect(optionStyle('Persuasion')).toMatch(/--ok/)
+    expect(screen.getByText('not quite')).toBeTruthy()
+  })
+
+  it('is off by default, and a tap still grades immediately', async () => {
+    render(<QuizRunner mode="daily" cards={[mcq()]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.queryByText('Submit')).toBeNull()
+  })
+
+  // A flip card is already two acts — reveal, then say whether you had it — so a
+  // confirmation on top would be asking twice.
+  it('does not add a second step to a flip card', async () => {
+    render(<QuizRunner mode="daily" submitStep cards={[flip()]} />)
+    fireEvent.click(screen.getByText('Show me'))
+    fireEvent.click(screen.getByText('Got it'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.queryByText('Submit')).toBeNull()
+  })
+})

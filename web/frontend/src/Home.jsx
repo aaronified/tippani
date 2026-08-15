@@ -276,7 +276,7 @@ function SourceLines({ card, maps = {} }) {
 // same schedule as before, only auto-graded. A correct save is required before
 // advancing; skip (Practice) advances locally, touching neither schedule nor
 // score.
-export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone }) {
+export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone, submitStep = false }) {
   // startIndex seeds the position (Practice restores it from a persisted
   // session on reload); onIndex reports each advance so the host can persist it.
   const [i, setI] = useState(startIndex)
@@ -290,6 +290,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // the lapse count AFTER this answer, and whether it has just crossed into
   // leech territory.
   const [lastResp, setLastResp] = useState(null)
+  // Whether the pick has been COMMITTED. Without the submit step a pick is a
+  // commit, so this follows `picked` — see `committed` below. It is a separate
+  // piece of state rather than a derived one because with the step on there is a
+  // real interval between the two, and every reveal in the body has to read the
+  // commit rather than the selection. `picked != null` used to mean both.
+  const [committedFlag, setCommittedFlag] = useState(false)
   const [dismissed, setDismissed] = useState(false) // "Keep asking", this session
   const [setAside, setSetAside] = useState(false)   // it is out of the deck now
   const [saving, setSaving] = useState(false)
@@ -309,6 +315,20 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const card = cards[i]
   if (!card) return null
 
+  // The three facts every handler and every reveal below is written against.
+  // Declared together, above them, because they answer one question between
+  // them: what KIND of card is this, and how far through answering it are we.
+  const flip = isFlipCard(card)
+  // Only multiple choice has two steps to separate. Typing an answer and
+  // pressing Check is already a submit step, and revealing a flip card then
+  // saying whether you had it is already two acts; a confirmation on either
+  // would be asking twice.
+  const twoStep = submitStep && !flip
+  // A pick IS a commit unless the submit step is on. Written once, here, so no
+  // reveal below has to remember which mode it is in.
+  const committed = twoStep ? committedFlag : picked != null
+  const setCommitted = setCommittedFlag
+
   async function advance() {
     posRef.current = i + 1
     setSaving(false) // a still-flying grade must never gate the next card
@@ -317,6 +337,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       setI(i + 1)
       onIndex?.(i + 1)
       setPicked(null)
+      setCommittedFlag(false)
       setShown(false)
       setGraded(null)
       setLastResp(null)
@@ -387,10 +408,24 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     toast('out of the quiz')
   }
 
+  // WITH THE SUBMIT STEP ON, a tap SELECTS and nothing is posted; Submit
+  // commits. With it off this is exactly what it always was — one tap, one
+  // grade — and that path is the one every reader is on by default.
+  //
   async function pick(idx) {
-    if (picked != null || saving) return // one shot per question
+    if (committed || saving) return
+    if (twoStep) {
+      setPicked(idx) // selected, not answered: nothing leaves the browser yet
+      return
+    }
     setPicked(idx)
     await grade(idx === card.answer ? 'got' : 'forgot')
+  }
+
+  async function submit() {
+    if (picked == null || committed || saving) return
+    setCommitted(true)
+    await grade(picked === card.answer ? 'got' : 'forgot')
   }
 
   // A flip card: reveal, then say whether you had it. The reveal is not an
@@ -403,7 +438,6 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   }
 
   const isSource = card.direction === 'source'
-  const flip = isFlipCard(card)
   // The card's own flag, or the fresher one the grade came back with — the
   // answer that MAKES a card a leech also pushes it a week out of the deck, so
   // waiting for the flag to arrive on a future deck would surface the offer a
@@ -412,7 +446,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // One name for "this card has been graded", whichever way it was graded. Every
   // reveal in the body below reads this rather than `picked != null`, which is
   // true only for the multiple-choice half.
-  const answered = flip ? graded != null : picked != null
+  const answered = flip ? graded != null : committed
   return (
     <div key={i} className="review-card-body">
       <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -481,9 +515,20 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           if (answered && isAnswer) {
             border = 'var(--ok)'
             bg = 'color-mix(in srgb, var(--ok) 16%, transparent)'
-          } else if (chosen && !isAnswer) {
+          } else if (answered && chosen && !isAnswer) {
+            // `answered &&` is not redundant, and leaving it out is an answer
+            // leak. This line read `chosen && !isAnswer`, which was safe only
+            // because a chosen option was necessarily a graded one. With the
+            // submit step there is an interval between the two — and without the
+            // guard, merely SELECTING a wrong option paints it red before
+            // Submit, which tells you the answer while you can still change it.
             border = 'var(--error)'
             bg = 'color-mix(in srgb, var(--error) 12%, transparent)'
+          } else if (chosen) {
+            // Selected and not yet committed: marked as chosen, and saying
+            // nothing whatever about whether it is right.
+            border = 'var(--accent-ui)'
+            bg = 'color-mix(in srgb, var(--accent-ui) 10%, transparent)'
           }
           return (
             <QuizOption
@@ -492,7 +537,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               om={om}
               personMaps={personMaps}
               isSource={isSource}
-              disabled={answered || saving}
+              disabled={committed || saving}
               onPick={() => pick(idx)}
               style={{
                 minHeight: 44,
@@ -559,6 +604,15 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               {i + 1 < cards.length ? 'Next' : 'Finish'}
             </button>
           </span>
+        </div>
+      ) : twoStep && picked != null ? (
+        /* Chosen, not yet committed. The reader can still change their mind by
+           tapping another option — which is the whole feature. */
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <MonoLabel style={{ color: 'var(--faint)' }}>tap another to change</MonoLabel>
+          <button type="button" className="tp-btn tp-btn-primary tactile" disabled={saving} onClick={submit}>
+            Submit
+          </button>
         </div>
       ) : allowSkip && !(flip && shown) ? (
         // Skip goes once a flip card's answer is on screen. Skipping there would
@@ -647,7 +701,7 @@ function StatesRow({ states, help, onToggleHelp, adaptive }) {
 // card due today, no skips, each grade folded into the schedule. Got it / Forgot
 // move the card's half-life; the deck drains as you go and the pending dot
 // follows. Records a permanent daily score + streak.
-function DailyQuizCard({ onPending, states, onStates, adaptive }) {
+function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
   const [data, setData] = useState(null)
   const [phase, setPhase] = useState('loading') // loading | active | done | error
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
@@ -699,6 +753,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive }) {
           mode="daily"
           cards={data.items}
           allowSkip={false}
+          submitStep={submitStep}
           onAnswered={onAnswered}
           onDone={() => setPhase('done')}
         />
@@ -729,7 +784,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive }) {
 // flow as the Daily Quiz, but skippable and, by default, schedule-neutral (a
 // setting opts it into moving half-lives). Its score is separate and can be
 // reset without touching learning history.
-function PracticeCard({ onStates, userId }) {
+function PracticeCard({ onStates, userId, submitStep }) {
   // The active deck + position + tally persist across reloads (localStorage),
   // so a refresh resumes the round instead of dropping it — { cards, i, got,
   // forgot }, cleared when the round finishes or is ended. The key is
@@ -834,6 +889,7 @@ function PracticeCard({ onStates, userId }) {
             mode="practice"
             cards={cards}
             allowSkip
+            submitStep={submitStep}
             startIndex={Math.min(session?.i || 0, cards.length - 1)}
             onIndex={(i) => setSession((s) => (s ? { ...s, i } : s))}
             onAnswered={onAnswered}
@@ -1181,9 +1237,9 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           entered the library yet, and that is easy to forget. */}
       <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
 
-      <DailyQuizCard onPending={onPending} states={states} onStates={setStates} adaptive={!!user?.preferences?.srAdaptive} />
+      <DailyQuizCard onPending={onPending} states={states} onStates={setStates} adaptive={!!user?.preferences?.srAdaptive} submitStep={!!user?.preferences?.srSubmit} />
 
-      <PracticeCard onStates={setStates} userId={user?.id} />
+      <PracticeCard onStates={setStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
 
       <div className="grid grid-cols-2 gap-2.5">
         <Tooltip label="Open the Library" className="flex items-stretch">
