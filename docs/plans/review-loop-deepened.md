@@ -52,7 +52,10 @@ result and are marked **(corrected)**.
 
 ## What is being built
 
-Six features, one commit each, in this order. Each is independently revertible.
+Six features. The order they are written in below is the order they were
+DESIGNED in; the order they are BUILT in is different and is set out under "The
+build order" further down, because the specification pass found that three of
+them rewrite the same function and have to land as one change to it first.
 
 ### 1. Adaptive intervals — `srAdaptive`, off by default
 
@@ -99,8 +102,15 @@ Replaces undo. When on, tapping an option *selects* it; a **Submit** button
 commits. Until then the choice can be changed freely and nothing is posted. When
 off, behaviour is byte-for-byte what it is today (tap grades immediately).
 
-This is client-only. `POST /review/answer` does not change, which is what makes
-it cheap and what makes it safe: no half-answered state ever reaches the server.
+`POST /review/answer` does not change, which is what makes it safe: no
+half-answered state ever reaches the server.
+
+~~This is client-only.~~ **It is not**, and the specification pass caught it: the
+preference is server state like every other, so `srSubmit` needs a field in the
+prefs struct and a pointer in the update handler's merge. Without both, the PUT
+is accepted, silently discarded by `loadPrefs`' typed unmarshal, and the toggle
+reverts at the next login. What is client-only is the answer *endpoint* and the
+grading — not the setting that turns this on.
 
 ### 4. Cloze — fill in the blank
 
