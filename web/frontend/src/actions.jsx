@@ -50,18 +50,41 @@ export const OVERFLOW = 'overflow'
 // the reason one registry serves both rather than two nearly-identical ones.
 export const KINDS = ['book', 'movie', 'annotation', 'dialogue', 'quote']
 
+// ONE THING A CARD MENU CALLS ITS SUBJECT. A quote is "this quote"; a book is
+// "this book" and a film or show is "this title", which is the same word the
+// bulk bar's delete phrase uses (KIND_ROUTES in bulkOps.jsx) — a menu that says
+// "film" over a control whose confirmation says "title" is two names for one
+// thing on two surfaces that open from each other.
+const subjectOf = (kind) => (kind === 'book' ? 'this book' : kind === 'movie' ? 'this title' : 'this quote')
+
 // actionsFor lists what can be done to one item, in the order a surface should
 // show them. Filtering by `ctx` happens here so no caller has to remember which
 // actions its screen supports.
+//
+// A WORK GETS A LIST HERE TOO (1.14.2), and until now it did not. The two halves
+// of the registry had drifted in the one direction nothing checks: `bulkActionsFor`
+// grew a work branch in 1.11.1 and this function stayed quote-only, so a book
+// tile's context menu had nothing to render and the comment in WorkCard said as
+// much — "a menu that opened on a gesture and offered nothing would teach the
+// gesture and then refuse it". The bar could skip a book in the quiz, fill its
+// gaps, edit it and delete it with exactly one thing selected. The tile it was
+// selected from could do none of them, which is the very asymmetry this file
+// exists to make impossible.
 export function actionsFor(kind, item, ctx = {}) {
+  const isWork = isWorkKind(kind)
+  const subject = subjectOf(kind)
   const all = [
     {
       id: 'copy',
       label: 'Copy',
       where: ROW,
       icon: <IconCopy />,
-      tooltip: 'Copy this quote',
-      available: !!ctx.copy,
+      tooltip: `Copy ${subject}`,
+      // A work has no words to put on the clipboard — its quotes do, one level
+      // down — and no share card of its own. Both were "available" on a book
+      // for as long as this list was quote-only, and both would have thrown the
+      // moment a work surface passed the callbacks.
+      available: !isWork && !!ctx.copy,
       run: () => ctx.copy(item),
     },
     {
@@ -69,16 +92,40 @@ export function actionsFor(kind, item, ctx = {}) {
       label: 'Share',
       where: ROW,
       icon: <IconShare />,
-      tooltip: 'Share this quote',
-      available: !!ctx.share,
+      tooltip: `Share ${subject}`,
+      available: !isWork && !!ctx.share,
       run: () => ctx.share(item),
+    },
+    {
+      id: 'fill',
+      label: 'Fill gaps',
+      where: OVERFLOW,
+      icon: <IconMetadata />,
+      tooltip: 'Fill the empty fields',
+      // Fetch what is MISSING and touch nothing else — the same guarantee the
+      // bulk version gives, which is what makes it safe to be one menu item
+      // rather than a console with a diff table.
+      available: isWork && !!ctx.fillGaps,
+      run: () => ctx.fillGaps(item),
+    },
+    {
+      id: 'review',
+      // Names the ACTION and flips, exactly as the bar's does. The card wears
+      // the matching mark since 1.14.2, so the menu that changes it and the
+      // glyph that reports it are the same drawing.
+      label: ctx.excluded ? 'Add to quiz' : 'Skip in quiz',
+      where: OVERFLOW,
+      icon: ctx.excluded ? <IconQuiz /> : <IconQuizSkip />,
+      tooltip: ctx.excluded ? 'Put it back in the quiz' : 'Keep it out of the quiz',
+      available: !!ctx.setReview,
+      run: () => ctx.setReview(item, !!ctx.excluded),
     },
     {
       id: 'edit',
       label: 'Edit',
       where: OVERFLOW,
       icon: <IconEdit />,
-      tooltip: 'Edit this quote',
+      tooltip: `Edit ${subject}`,
       // The one action that genuinely does not generalise to a selection: editing
       // forty quotes at once is a bulk FIELD change, which is a different act with
       // a different form, not this action applied N times.
@@ -96,13 +143,21 @@ export function actionsFor(kind, item, ctx = {}) {
       label: ctx.favourited ? 'Unfavourite' : 'Favourite',
       where: OVERFLOW,
       icon: <IconHeart />,
-      tooltip: 'Favourite this quote',
+      tooltip: `Favourite ${subject}`,
       // HERE BECAUSE OF THE PHONE, not for symmetry. The ♥ is drawn on the card
       // on a pointer device, where hovering reveals the action row; a thumb
       // reaches this list first, and favouriting is the single most common thing
       // anyone does to a quote. It was the one action the bulk bar offered and
       // one card could not.
-      available: !!ctx.favourite,
+      //
+      // NOT OFFERED ON A WORK, and this one is a genuine constraint rather than
+      // a decision. A book's ♥ has no endpoint of its own: it is a field of the
+      // full-state PUT, and the row a board holds is the LIST shape, which
+      // carries neither the description nor the ISBN nor the two other credits.
+      // Favouriting from a tile would send that shorter row back as the whole
+      // book and silently blank every field the board never fetched. The
+      // work's own page has the full row and keeps the ♥.
+      available: !isWork && !!ctx.favourite,
       run: () => ctx.favourite(item),
     },
     {
@@ -110,7 +165,7 @@ export function actionsFor(kind, item, ctx = {}) {
       label: 'Delete',
       where: OVERFLOW,
       icon: <IconDelete />,
-      tooltip: 'Delete this quote',
+      tooltip: `Delete ${subject}`,
       danger: true,
       available: !!ctx.remove,
       run: () => ctx.remove(item),
@@ -198,7 +253,14 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       where: OVERFLOW,
       icon: <IconTag />,
       form: BULK_TAGS,
-      available: !!ctx.addTags,
+      // `!isWork` like its three neighbours, and it was the one of the four
+      // missing it. A tag belongs to a QUOTE — there is no book_tags table and
+      // no `add_tags` on /books/bulk, only `add_genres` — so this could never
+      // have worked over a selection of books. Nothing showed, because the only
+      // thing keeping it off the bar was SelectionBar passing no callback for
+      // the work half; the guard belongs here, beside the identical ones on
+      // colour, seal and favourite, where the rule is stated once.
+      available: !isWork && !!ctx.addTags,
       run: (values) => ctx.addTags(items, values),
     },
     {

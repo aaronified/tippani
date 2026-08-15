@@ -177,7 +177,7 @@ async function setBookStatus(id, body) {
 // `selection` is threaded through rather than held here, because the board is what
 // knows the visible ORDER — Shift-click extends over that, and a per-group hook
 // would extend over one bucket while the reader saw the whole board.
-function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, leadingTile }) {
+function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, leadingTile, onChanged, onEdit }) {
   return (
     <ul className="grid gap-x-6 gap-y-9" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}>
       {/* FIRST, not last. The folder is the pile you are not looking at, and a
@@ -186,7 +186,7 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, l
       {leadingTile && <li>{leadingTile}</li>}
       {books.map((b, i) => (
         <li key={b.id}>
-          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} selection={selection} />
+          <WorkCard kind="book" item={b} index={i} onOpen={onOpen} people={authorMap} seps={seps} selection={selection} onChanged={onChanged} onEdit={onEdit} />
         </li>
       ))}
     </ul>
@@ -483,7 +483,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
                   person={isAuthor ? authors.map[g.label] : null}
                   onOpenPerson={isAuthor ? () => setPerson({ kind: 'author', name: g.label }) : undefined}
                 />
-                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} />
+                <BookGrid books={g.items} coverSize={coverSize} onOpen={onOpen} authorMap={authors.map} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
               </section>
             )
           })}
@@ -496,6 +496,8 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
           authorMap={authors.map}
           seps={creditSeps}
           selection={selection}
+          onChanged={afterBulk}
+          onEdit={setEditWork}
           leadingTile={
             wishBooks.length > 0 ? (
               // Opening it is switching to the chip that already exists. The folder

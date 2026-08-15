@@ -41,9 +41,18 @@ const full = () => ({
 })
 
 describe('what you can do to one quote', () => {
-  it.each(KINDS)('%s offers copy, share, edit and delete', (kind) => {
+  it.each(['annotation', 'dialogue', 'quote'])('%s offers copy, share, edit and delete', (kind) => {
     const ids = actionsFor(kind, ITEM, full()).map((a) => a.id)
     expect(ids).toEqual(['copy', 'share', 'edit', 'delete'])
+  })
+
+  // A WORK IS NOT A QUOTE HERE EITHER (1.14.2). This list said copy and share
+  // were available on a book for as long as it was quote-only — nothing broke,
+  // because no work surface passed the callbacks, and the moment one did it
+  // would have offered to put a cover on the clipboard.
+  it.each(['book', 'movie'])('%s offers neither copy nor share, because there is nothing to copy', (kind) => {
+    const ids = actionsFor(kind, ITEM, full()).map((a) => a.id)
+    expect(ids).toEqual(['edit', 'delete'])
   })
 
   it('puts copy and share in the row, edit and delete behind the ⋯', () => {
@@ -88,6 +97,26 @@ describe('the two lists cannot drift apart', () => {
     expect(acts.filter(bulkable).map((a) => a.id)).toEqual(['copy', 'share', 'delete'])
   })
 
+  // THE DRIFT THAT ACTUALLY HAPPENED, and in the direction the test above does
+  // not look. 1.11.1 gave `bulkActionsFor` a work branch; `actionsFor` stayed
+  // quote-only for three releases, so a work's card menu had nothing to render
+  // and the selection bar could do four things to one selected book that the
+  // book's own tile could not. Every assertion here ran green throughout,
+  // because they all walk item → bulk.
+  it.each(['book', 'movie'])('%s: a selected one and the tile it came from offer the same things', (kind) => {
+    // Set fields and Shelf are the two exceptions, and both are stated rather
+    // than skipped. Set fields is bulk-only BY RULE — over a single work the
+    // full form beside it is strictly better, which the cardinality block at
+    // the foot of this file already pins. Shelf needs a submenu, and a card
+    // menu has no shape for one; the work's own page has the control.
+    const BULK_ONLY = new Set(['set-fields', 'shelf'])
+    const bulk = bulkActionsFor(kind, [ITEM], everything()).map((a) => a.id).filter((id) => !BULK_ONLY.has(id))
+    const item = new Set(actionsFor(kind, ITEM, everything()).map((a) => a.id))
+    for (const id of bulk) {
+      expect(item.has(id), `${kind}: the bar can ${id} one selected row and its card cannot`).toBe(true)
+    }
+  })
+
   it.each(KINDS)('%s: nothing is silently missing from the bulk list', (kind) => {
     // Every non-single action must be findable in the bulk list OR be one this
     // release has not built yet — and the ones not built yet are named here, so
@@ -103,9 +132,21 @@ describe('the two lists cannot drift apart', () => {
 })
 
 describe('what you can do to a selection', () => {
-  it('offers tags for every kind', () => {
-    for (const kind of KINDS) {
+  it('offers tags for every kind of QUOTE', () => {
+    for (const kind of ['annotation', 'dialogue', 'quote']) {
       expect(bulkActionsFor(kind, [ITEM], full()).map((a) => a.id)).toContain('add-tags')
+    }
+  })
+
+  // A tag belongs to a quote. There is no book_tags table and no `add_tags` on
+  // /books/bulk — only `add_genres` — so this was never an action a selection
+  // of works could perform, and the registry said it was for three releases.
+  // The only reason nobody saw it is that SelectionBar passes no addTags
+  // callback for the work half, which is a guard in the wrong file: three of
+  // the four quote-only bulk actions state the rule here and this one did not.
+  it('does not offer tags over works, which have genres instead', () => {
+    for (const kind of ['book', 'movie']) {
+      expect(bulkActionsFor(kind, [ITEM], full()).map((a) => a.id)).not.toContain('add-tags')
     }
   })
 

@@ -482,7 +482,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
                 style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
               >
                 {g.items.map((m) => (
-                  <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} />
+                  <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
                 ))}
               </div>
             </section>
@@ -494,7 +494,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverSize}px, 1fr))` }}
         >
           {shown.map((m) => (
-            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} />
+            <WorkCard key={m.id} kind="movie" item={m} onOpen={onOpen} people={directorMap} seps={creditSeps} selection={selection} onChanged={afterBulk} onEdit={setEditWork} />
           ))}
         </Reveal>
       )}

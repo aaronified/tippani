@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { json, errText } from './api.js'
 import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
+import { KIND_ROUTES, deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import {
   ColorSwatches,
@@ -54,26 +54,13 @@ import {
 // the widest control in it and was open on every selection whether or not anybody
 // meant to type into it.
 
-// KIND_ROUTES maps a selection's kind to its endpoints and to the word a reader
-// types. The bulk vocabulary and the URLs differ by one word — a standalone quote
-// is `/quotes`, a film is a "title" — and this is the one place that has to know.
-const KIND_ROUTES = {
-  annotation: { bulk: '/annotations/bulk', del: '/annotations/bulk/delete', noun: ['highlight', 'highlights'] },
-  dialogue: { bulk: '/dialogues/bulk', del: '/dialogues/bulk/delete', noun: ['film line', 'film lines'] },
-  quote: { bulk: '/quotes/bulk', del: '/quotes/bulk/delete', noun: ['quote', 'quotes'] },
-  // A work carries its quotes into the bin with it, which is why the phrase and
-  // the dialog say so rather than just naming a count.
-  book: { bulk: '/books/bulk', del: '/books/bulk/delete', status: '/books/bulk/status', noun: ['book', 'books'] },
-  movie: { bulk: '/movies/bulk', del: '/movies/bulk/delete', status: '/movies/bulk/status', noun: ['title', 'titles'] },
-}
-
-// deletePhrase has to match the server's, exactly, because the server is where it
-// is checked. Duplicated on purpose rather than fetched: a client that cannot
-// compose the phrase cannot show it, and showing it is the whole affordance.
-export function deletePhrase(kind, n) {
-  const pair = KIND_ROUTES[kind]?.noun || ['item', 'items']
-  return `delete ${n} ${n === 1 ? pair[0] : pair[1]}`
-}
+// KIND_ROUTES and deletePhrase moved to bulkOps.jsx in 1.14.2, with the four
+// callbacks that used to be local variables in this component — a work's own
+// card menu needs exactly the same operations for one row, and a second copy of
+// them would be a card that could skip a book in the quiz slightly differently
+// from the bar that selected it. Re-exported here because this is where every
+// caller already imports it from.
+export { deletePhrase }
 
 // SHELF_CHOICES are the shelf states a selection can be moved to, per side. A book
 // reads and a film watches — the server refuses the other side's word, so offering
@@ -86,13 +73,7 @@ const SHELF_CHOICES = (kind) => [
   ['completed', 'Completed'],
 ]
 
-// FILL_CHUNK matches the server's per-call cap. A selection larger than this is
-// sent as sequential batches, which is what bounds provider load — the same shape
-// the re-verify console already uses.
-const FILL_CHUNK = 15
-
 export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = [], onEdit }) {
-  const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(false)
   const [typed, setTyped] = useState('')
   const [sealing, setSealing] = useState(false)
@@ -101,6 +82,10 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // The mode, not the count — see useSelection. Deselecting the last card used to
   // tear the bar off the screen, so re-picking meant finding the long press again.
   const open = selection.open ?? count > 0
+  // The same hook a work's card menu calls with one id. Above the early return,
+  // because hooks cannot be conditional.
+  const ops = useBulkOps({ kind, ids, onDone })
+  const busy = ops.busy
 
   // ESCAPE LEAVES THE MODE, because a mode you can only leave by finding a button
   // is a mode. Skipped while any of this bar's own dialogs is up: there Escape
@@ -133,42 +118,6 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const picked = rows.filter((r) => selection.isSelected(r.id))
   const allExcluded = picked.length > 0 && picked.every((r) => r.review_excluded)
 
-  async function post(path, body, said) {
-    setBusy(true)
-    const r = await json('POST', path, { ids, ...body })
-    setBusy(false)
-    if (!r.ok) return toast(errText(r, 'could not apply'))
-    toast(said)
-    onDone?.()
-  }
-
-  // fillGaps sends the selection in batches the server will accept and reports one
-  // total. A per-batch toast for a selection of forty would be three toasts saying
-  // three different numbers about one action.
-  async function fillGaps() {
-    setBusy(true)
-    const key = kind === 'book' ? 'book_ids' : 'movie_ids'
-    let fields = 0
-    let failed = 0
-    for (let i = 0; i < ids.length; i += FILL_CHUNK) {
-      const r = await json('POST', '/metadata/fill', { [key]: ids.slice(i, i + FILL_CHUNK) })
-      if (!r.ok) {
-        setBusy(false)
-        return toast(errText(r, 'could not fill'))
-      }
-      // The FIELD count is what the toast reports, not the work count: "filled 3
-      // books" over a selection of forty reads as a failure, while "filled 7
-      // fields" is what actually happened and is unambiguously a win.
-      fields += r.data?.fields || 0
-      failed += r.data?.failed || 0
-    }
-    setBusy(false)
-    // "Nothing was missing" is the good case and has to read like one, or people
-    // learn to distrust the button.
-    toast(fields === 0 ? (failed ? 'nothing could be fetched' : 'nothing was missing') : `filled ${fields} fields`)
-    onDone?.()
-  }
-
   const phrase = deletePhrase(kind, count)
 
   // EVERY CALLBACK HERE IS A REAL FUNCTION, and the bar invokes actions only
@@ -180,19 +129,19 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // function waiting to be called.
   const acts = bulkActionsFor(kind, ids, {
     // Quotes.
-    setColour: !isWork ? (_, c) => post(routes.bulk, { color: c }, `recoloured ${count}`) : undefined,
-    addTags: !isWork ? (_, names) => post(routes.bulk, { add_tags: names }, `tagged ${count}`) : undefined,
+    setColour: !isWork ? (_, c) => ops.post({ color: c }, `recoloured ${count}`) : undefined,
+    addTags: !isWork ? (_, names) => ops.post({ add_tags: names }, `tagged ${count}`) : undefined,
     setSticker: !isWork
       ? // 0 is the server's clear, and it has to be sent as a number rather than as
         // an absent field — see bulkTagReq, where a pointer is what keeps "no
         // sticker" apart from "not saying".
         (_, seal) =>
-          post(routes.bulk, { sticker_id: seal == null ? 0 : seal }, seal == null ? 'seals removed' : `sealed ${count}`)
+          ops.post({ sticker_id: seal == null ? 0 : seal }, seal == null ? 'seals removed' : `sealed ${count}`)
       : undefined,
-    favourite: !isWork ? () => post(routes.bulk, { favorite: true }, `favourited ${count}`) : undefined,
+    favourite: !isWork ? () => ops.post({ favorite: true }, `favourited ${count}`) : undefined,
     // Works.
-    fillGaps: isWork ? fillGaps : undefined,
-    setShelf: isWork ? (_, status) => post(routes.status, { status }, `moved ${count}`) : undefined,
+    fillGaps: isWork ? ops.fillGaps : undefined,
+    setShelf: isWork ? (_, status) => ops.setShelf(status, `moved ${count}`) : undefined,
     // Both. `edit` is filtered to a selection of exactly one by the registry, so
     // there is no count test here — and a screen with no inline form for one row
     // simply does not pass onEdit, which is how the action stays absent rather
@@ -200,7 +149,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     edit: onEdit ? (id) => onEdit(id) : undefined,
     excluded: allExcluded,
     setReview: (_, wasExcluded) =>
-      post(routes.bulk, { review: wasExcluded }, wasExcluded ? 'back in the quiz' : `skipping ${count}`),
+      ops.post({ review: wasExcluded }, wasExcluded ? 'back in the quiz' : `skipping ${count}`),
     remove: () => confirmedDelete(),
   })
   const byID = Object.fromEntries(acts.map((a) => [a.id, a]))
@@ -215,30 +164,13 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     byID.sticker.run(seal)
   }
 
+  // The typed phrase is this component's; the request and its Undo are the
+  // hook's, so a work's card menu deletes through exactly the same call and
+  // lands in exactly the same one-entry bin (0032).
   async function confirmedDelete() {
     setAsking(false)
-    setBusy(true)
-    const r = await json('POST', routes.del, { ids, confirm: phrase })
-    setBusy(false)
     setTyped('')
-    if (!r.ok) return toast(errText(r, 'could not delete'))
-    const trashID = r.data?.trash_id
-    // The same offer a single delete makes, over the whole selection — one bin
-    // entry, one Undo (see migration 0032).
-    toast(
-      `deleted ${count}`,
-      trashID
-        ? {
-            label: 'Undo',
-            onClick: async () => {
-              const u = await json('POST', `/trash/${trashID}/restore`)
-              toast(u.ok ? 'restored' : errText(u, 'could not undo'))
-              onDone?.()
-            },
-          }
-        : undefined,
-    )
-    onDone?.()
+    await ops.remove()
   }
 
   // ASK, rather than run, for the three that need something more from you first.

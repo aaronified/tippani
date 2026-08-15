@@ -43,6 +43,8 @@ import {
   shelfLabel,
   useCardMenu,
 } from './ui.jsx'
+import { actionsFor } from './actions.jsx'
+import { useBulkOps } from './bulkOps.jsx'
 import { selectionClick } from './selection.jsx'
 
 // ---- shelf state (§3f) -----------------------------------------------------
@@ -760,7 +762,7 @@ export function moveLabel(kind, from, to) {
 // hand-drawn card frame + "quotes" vs the film's plain poster + "dialogues".
 // The book grid (Library) and poster grid (Movies) both deal these; each keeps
 // its own <ul>/grid wrapper and gap, sharing only the tile.
-export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, selection, selectKind = kind }) {
+export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, selection, selectKind = kind, onChanged, onEdit }) {
   const isBook = kind === 'book'
   const isShow = !isBook && (item.media_type || 'movie') === 'show'
   const credit = isBook ? item.author : item.director
@@ -803,12 +805,48 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   // usefully select, so every press that is not on a control belongs to the card.
   // The title and the credit line under the artwork are labels rather than prose.
   //
-  // No context menu (an empty `items` list) — a work's actions live in its detail
-  // header and in the selection bar, and a menu that opened on a gesture and
-  // offered nothing would teach the gesture and then refuse it.
+  // ---- and its own menu (1.14.2) ---------------------------------------------
+  //
+  // This said "no context menu (an empty `items` list)", and gave a good reason:
+  // a menu that opened on a gesture and offered nothing would teach the gesture
+  // and then refuse it. What was actually empty was the registry's ITEM list for
+  // a work — `bulkActionsFor` grew a work branch in 1.11.1 and `actionsFor` never
+  // did — so the bar could skip a book in the quiz, fill its gaps, edit it and
+  // delete it with exactly one thing selected, and the tile it was selected from
+  // could do none of them. The gesture was not the problem; the list was.
+  //
+  // Everything here runs through the same `useBulkOps` the bar calls, with one id
+  // instead of forty. Not for tidiness: two implementations of "skip this in the
+  // quiz" is how a card and a bar come to disagree about what the act does, and
+  // the card's own mark reports the result of whichever one ran.
   const picked = !!selection?.isSelected(item.id)
-  const { cardProps, menuClass } = useCardMenu(
-    [],
+  const ops = useBulkOps({ kind, ids: [item.id], onDone: onChanged })
+  const [asking, setAsking] = useState(false)
+  const acts = actionsFor(kind, item, {
+    // Absent unless the board passes a reload — a surface that cannot refresh
+    // after a write should not offer the write. That is the registry's rule and
+    // it is what keeps this menu empty in a read-only context rather than
+    // full of controls that appear to do nothing.
+    fillGaps: onChanged ? () => ops.fillGaps() : undefined,
+    setReview: onChanged
+      ? (_, wasExcluded) => ops.post({ review: wasExcluded }, wasExcluded ? 'back in the quiz' : 'skipping one')
+      : undefined,
+    excluded: !!item.review_excluded,
+    edit: onEdit ? () => onEdit(item.id) : undefined,
+    remove: onChanged ? () => setAsking(true) : undefined,
+  })
+  // SELECT FIRST, the same as a quote card's menu: the gesture that asks "what
+  // can I do to this" is also how you start doing it to several.
+  const menuItems = acts.map((x) => ({ ...x, onClick: x.run }))
+  if (selection) {
+    menuItems.unshift({
+      id: 'select',
+      label: selection.isSelected(item.id) ? 'Deselect' : 'Select',
+      onClick: () => selection.toggle(item.id, selectKind),
+    })
+  }
+  const { cardProps, menuClass, menu } = useCardMenu(
+    menuItems,
     selection ? { onLongPress: () => selection.toggle(item.id, selectKind) } : undefined,
   )
   const onClick = (e) => {
@@ -891,7 +929,41 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       </div>
     </button>
   )
-  if (!selection) return tile
+  // ONE TAP, NOT A TYPED PHRASE, and the difference from the bulk bar is the
+  // point rather than an inconsistency. The bar asks you to type "delete 12
+  // books" because twelve is a number you can misread and one Undo covers the
+  // whole lot; here the subject is the cover you just right-clicked, and the bin
+  // holds it with every quote it took, restorable from the toast or from
+  // Settings. That is the same net a single quote's delete has always relied on.
+  const confirm = (
+    <ConfirmDialog
+      open={asking}
+      title={`Delete ${item.title}?`}
+      body={
+        <p className="microcopy">
+          {count > 0
+            ? `It goes to the bin with the ${count} quote${count === 1 ? '' : 's'} saved from it — one entry, put back together or not at all. `
+            : 'It goes to the bin and can be put back. '}
+          The toast offers an Undo.
+        </p>
+      }
+      confirmLabel="Delete it"
+      onConfirm={() => {
+        setAsking(false)
+        ops.remove()
+      }}
+      onCancel={() => setAsking(false)}
+    />
+  )
+  if (!selection) {
+    return (
+      <>
+        {tile}
+        {menu}
+        {confirm}
+      </>
+    )
+  }
   return (
     <div className={`work-tile${selection.active ? ' is-selecting' : ''}`}>
       {tile}
@@ -900,6 +972,8 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         label={isBook ? 'this book' : isShow ? 'this show' : 'this film'}
         onChange={() => selection.toggle(item.id, selectKind)}
       />
+      {menu}
+      {confirm}
     </div>
   )
 }
