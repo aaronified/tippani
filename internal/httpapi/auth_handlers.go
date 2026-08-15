@@ -331,6 +331,12 @@ type prefs struct {
 	// splitting off. Unset (older rows) defaults to all four; libraries that
 	// store authors as "Last, First" turn comma off.
 	CreditSeparators string `json:"creditSeparators"`
+	// LanguageMarks: the mark a proverb card wears where every other quote wears
+	// a face. A JSON object of folded language name -> glyph, stored as a STRING
+	// because prefs is a flat comparable struct (ui_test.go compares two with
+	// `!=`). "" is the default and means every language uses the letter from its
+	// own script. See language_marks.go for why flags are offered and not assumed.
+	LanguageMarks string `json:"languageMarks"`
 	// TrashDays: how long a deleted thing waits in the bin before the purge takes
 	// it. One of 7, 30, 90, or -1 for "never expire" — never is -1 and not 0
 	// because an absent field unmarshals to 0, and "nobody has set this" must not
@@ -561,6 +567,13 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	} else {
 		p.CreditSeparators = defaultCreditSeps
 	}
+	// A bad blob already in the database reads as NO marks rather than failing the
+	// login. The PUT below is where a client's mistake is refused.
+	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
+		p.LanguageMarks = norm
+	} else {
+		p.LanguageMarks = ""
+	}
 	p.TrashDays = normalizeTrashDays(p.TrashDays)
 	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
 	if !srScopeValid(p.SRReviewScope) {
@@ -594,6 +607,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		Theme            *string  `json:"theme"`
 		Accent           *string  `json:"accent"`
 		CreditSeparators *string  `json:"creditSeparators"`
+		LanguageMarks    *string  `json:"languageMarks"`
 		TrashDays        *int     `json:"trashDays"`
 		SRDaily          *int     `json:"srDaily"`
 		SRReviewScope    *string  `json:"srReviewScope"`
@@ -652,6 +666,17 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.CreditSeparators = norm
+	}
+	// An EMPTY string is a real value here — "clear every mark I set" — so this
+	// cannot use the `!= ""` shorthand its neighbour above uses.
+	if in.LanguageMarks != nil {
+		norm, ok := normalizeLanguageMarks(*in.LanguageMarks)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"languageMarks must be a JSON object of language name to a short mark")
+			return
+		}
+		cur.LanguageMarks = norm
 	}
 	// Category slots. Set before the validation switch so a bad value is caught
 	// there rather than normalised into something the caller did not ask for.

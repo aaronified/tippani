@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
+import { applyLanguageMarks, currentLanguageMarks, languageMarksBlob, languageMarksState, LanguageMark, MARK_PALETTE } from './languages.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -77,7 +78,7 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
+export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'marks', 'sr', 'devices', 'trash', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -103,18 +104,19 @@ export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'tr
 // layout below. It will not render until you do — the render walks the layout,
 // not the card list — which is a loud failure rather than a card appearing
 // somewhere unpredictable. settings-layout.test.js checks the three agree.
-// Colours sit directly under Metadata in every layout, and that is a rule rather
-// than an arrangement: both are about what a quote is LABELLED with — where the
-// facts about a work come from, and what the colour on a highlight is called —
-// so reading down one column reads as one subject.
+// Colours and language marks sit directly under Metadata in every layout, and
+// that is a rule rather than an arrangement: all three are about what a quote is
+// LABELLED with — where the facts about a work come from, what the colour on a
+// highlight is called, and what a proverb wears where every other quote wears a
+// face — so reading down one column reads as one subject.
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
-    ['meta', 'colors', 'onboard'],
+    ['meta', 'colors', 'marks', 'onboard'],
     ['sr', 'devices', 'trash', 'upd', 'backup'],
   ],
   3: [
-    ['meta', 'colors'], // the tall one, and the card that belongs under it
+    ['meta', 'colors', 'marks'], // the tall one, and the two cards that belong under it
     ['sr', 'onboard'],
     ['devices', 'trash', 'upd', 'backup'],
   ],
@@ -137,6 +139,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     meta: <Metadata user={user} onPreferences={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
+    marks: <LanguageMarksCard prefs={user.preferences} onSaved={onPreferences} />,
     devices: <DevicesCard />,
     // Every account has a bin, so this is not admin-gated — unlike the two cards
     // below it. It sits beside Backup because that is the corner of Settings you
@@ -501,6 +504,133 @@ export function ReviewScope({ value, onChange }) {
         })}
       </div>
     </div>
+  )
+}
+
+// LanguageMarksCard — what a proverb wears where every other quote wears a face.
+//
+// FLAGS ARE OFFERED AND NOT ASSUMED, which is the one decision this card exists
+// to make visible. The ask was "use flags for languages", and a flag is what many
+// readers will reach for — but a flag is a country and a language is not. Bengali
+// is spoken either side of a border, Hindi has no flag of its own, and Spanish,
+// Portuguese, Arabic and English have a dozen each with nothing to choose between
+// them. Shipping a default would be this app telling somebody which country owns
+// their mother tongue.
+//
+// So the built-in is a letter from the language's own script, the tray offers
+// flags first, and one tap makes it a flag for good. Anything typable also works:
+// a script the tray has no flag for, a symbol, an emoji nobody thought of.
+function LanguageMarksCard({ prefs, onSaved }) {
+  const [rows, setRows] = useState(() => languageMarksState())
+  const [picking, setPicking] = useState(null) // the language whose tray is open
+  const [err, setErr] = useState('')
+
+  // Re-seed when the session prefs change under us — another tab, or the account
+  // switching. Reads the APPLIED marks, so this stays in step with what is on
+  // screen rather than with a stale prop, exactly as the colour card does.
+  useEffect(() => { setRows(languageMarksState()) }, [prefs])
+
+  async function save(key, mark) {
+    const next = { ...currentLanguageMarks(), [key]: mark }
+    if (!mark) delete next[key]
+    const blob = languageMarksBlob(next)
+    applyLanguageMarks({ languageMarks: blob })
+    setRows(languageMarksState())
+    const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
+    if (!r.ok) {
+      setErr(errText(r, 'could not save'))
+      // Back to what the server still believes, so the card can never show a
+      // mark that was refused.
+      applyLanguageMarks(prefs || {})
+      setRows(languageMarksState())
+      return
+    }
+    setErr('')
+    onSaved?.({ languageMarks: blob })
+  }
+
+  return (
+    <Card>
+      <SectionTitle
+        info="A proverb has nobody to credit, so its card leads with its language instead of a face. The built-in is a letter from that script; a flag is one tap away and never assumed — a flag is a country, and a language is not."
+      >
+        Language marks
+      </SectionTitle>
+      <div>
+        {rows.map((row) => (
+          <div key={row.key} className="inline-field">
+            <div className={'inline-field-head' + (picking === row.key ? '' : ' is-flush')} style={{ gap: 10 }}>
+              <Tooltip label={`Change the ${row.name} mark`}>
+                <button
+                  type="button"
+                  className="color-dot-btn"
+                  aria-label={`Change the ${row.name} mark`}
+                  aria-expanded={picking === row.key}
+                  onClick={() => setPicking(picking === row.key ? null : row.key)}
+                >
+                  <LanguageMark languages={[row.name]} size={22} ring="var(--card)" />
+                </button>
+              </Tooltip>
+              <div className="min-w-0 flex-1" style={{ fontWeight: 600 }}>{row.name}</div>
+              {row.mark && (
+                <FieldIconButton
+                  icon={<IconRevert />}
+                  ariaLabel={`Reset the ${row.name} mark`}
+                  onClick={() => save(row.key, '')}
+                  tooltip="Back to the script letter"
+                />
+              )}
+            </div>
+            {picking === row.key && (
+              <div className="space-y-2 pb-2">
+                <div className="cat-palette" role="listbox" aria-label={`Mark for ${row.name}`}>
+                  {/* The script letter first, because it is the default and the
+                      one thing in this tray that is about the language rather
+                      than about a country. */}
+                  {row.glyph && (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!row.mark}
+                      aria-label={`The ${row.name} script letter`}
+                      className={'cat-swatch' + (!row.mark ? ' is-on' : '')}
+                      style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
+                      onClick={() => { setPicking(null); save(row.key, '') }}
+                    >
+                      {row.glyph}
+                    </button>
+                  )}
+                  {MARK_PALETTE.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="option"
+                      aria-selected={row.mark === m}
+                      aria-label={m}
+                      className={'cat-swatch' + (row.mark === m ? ' is-on' : '')}
+                      style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
+                      onClick={() => { setPicking(null); save(row.key, m) }}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <Field
+                  label="Or type one"
+                  value={row.mark}
+                  placeholder="any letter or symbol"
+                  maxLength={8}
+                  onChange={(e) => setRows(rows.map((r) => (r.key === row.key ? { ...r, mark: e.target.value } : r)))}
+                  onBlur={(e) => save(row.key, e.target.value.trim())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <ErrorText>{err}</ErrorText>
+    </Card>
   )
 }
 

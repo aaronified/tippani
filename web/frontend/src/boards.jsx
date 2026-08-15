@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { categoryVar } from './theme.js'
+import { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
 import {
   Card,
   ConfirmDialog,
@@ -73,40 +74,11 @@ const BOARD_STARTERS = [
 // vocabulary — the field beside it takes anything, and a language you add is
 // kept exactly as you typed it.
 //
-// Each carries a glyph from its dominant script, which is what the board's
-// default cover draws. They are deliberately DISTINCT letters rather than the
-// same "A" five times: four of these ten are written in Latin, and a cover that
-// was the identical glyph on all four would tell you nothing about which board
-// you were looking at. So Spanish gets its ñ and Russian its Ж — the letter a
-// reader of that language would name if asked to pick one.
-const STARTER_LANGUAGES = [
-  { name: 'English', glyph: 'A' },
-  { name: 'Mandarin', glyph: '字' },
-  { name: 'Hindi', glyph: 'अ' },
-  { name: 'Spanish', glyph: 'ñ' },
-  { name: 'French', glyph: 'É' },
-  { name: 'Arabic', glyph: 'ع' },
-  { name: 'Bengali', glyph: 'অ' },
-  { name: 'Portuguese', glyph: 'ã' },
-  { name: 'Russian', glyph: 'Ж' },
-  { name: 'Urdu', glyph: 'ی' },
-]
-
-// glyphFor — the script glyph a proverb board wears, or "" when nothing is
-// known. Matched case-insensitively on the language's name, because the list
-// above seeds a free-text field and "bengali" is the same language as "Bengali".
-//
-// A language nobody listed gets NO glyph and the board falls back to the app's
-// own mark. Guessing a script from an unknown name would put a Latin A on a
-// board of Yoruba proverbs and a Han character on nothing at all — and being
-// confidently wrong about somebody's language is worse than being blank.
-export function glyphFor(languages = []) {
-  for (const l of languages) {
-    const hit = STARTER_LANGUAGES.find((s) => s.name.toLowerCase() === String(l).trim().toLowerCase())
-    if (hit) return hit.glyph
-  }
-  return ''
-}
+// The list itself, the script glyphs, and the rule for resolving one now live in
+// languages.jsx — a leaf, because the quote cards and Settings read them too and
+// neither has any business importing a board. Re-exported here: this is still
+// where a board's cover asks what glyph to draw.
+export { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
 
 // ALL_BOARD is the pinned entry, and it is deliberately NOT a board: it has no
 // row, cannot be renamed, hidden or deleted, and its id is a word rather than a

@@ -14,6 +14,7 @@
 // wrong.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
@@ -199,6 +200,18 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
   if (names.length === 0 && rest.length === 0 && !tr) return ''
   return (
     <>
+      {/* THE MARK STANDS IN FOR THE FACE. A proverb is the one kind of quote with
+          nobody to credit — no speaker, no occasion, no date — so this line used
+          to begin with nothing at all while every other quote in the app begins
+          with somebody's portrait. Its language takes that slot: the reader's own
+          mark if they set one, else a letter from the script.
+
+          Only when there is no face to show. A quote that HAS a speaker gets the
+          speaker, because a person outranks a language for the one slot going —
+          and the language is still named a few words along, in `rest`. */}
+      {names.length === 0 && u.language && (
+        <LanguageMark languages={[u.language]} size={20} ring="var(--card)" className="mr-1.5" />
+      )}
       {names.length > 0 && (
         <>
           <CreditFaces names={names} map={people} size={20} ring="var(--card)" className="mr-1.5 align-middle" />

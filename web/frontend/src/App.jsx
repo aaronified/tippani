@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
+import { applyLanguageMarks } from './languages.jsx'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
 import AddSurface from './AddSurface.jsx'
@@ -105,6 +106,7 @@ export default function App() {
       // Same effect on purpose: it runs on login and on every Settings save, so
       // there is no second place that has to remember to keep it current.
       applyReviewPrefs(user.preferences || {})
+      applyLanguageMarks(user.preferences || {})
     }
   }, [user])
 
