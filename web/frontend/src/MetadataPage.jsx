@@ -6,6 +6,7 @@ import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconButton, IconCheck, IconDelete, IconEdit, IconMerge, IconMetadata, IconMore, IconRefresh, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, normName, PageHeader, ProgressBar, splitCommas, Tooltip, useIsMobileScreen } from './ui.jsx'
 import { PersonModal, PersonName, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
+import { editDistance } from './text.js'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -1150,25 +1151,6 @@ function RemapRow({ label, cast, value, onChange }) {
 }
 
 // ---- people console ----
-
-// editDistance is Levenshtein (iterative, one row of state) — used to spot
-// author/actor names that are one or two edits apart (typos, transliterations).
-function editDistance(a, b) {
-  const m = a.length, n = b.length
-  if (!m) return n
-  if (!n) return m
-  const dp = Array.from({ length: m + 1 }, (_, i) => i)
-  for (let j = 1; j <= n; j++) {
-    let prev = dp[0]
-    dp[0] = j
-    for (let i = 1; i <= m; i++) {
-      const tmp = dp[i]
-      dp[i] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[i], dp[i - 1])
-      prev = tmp
-    }
-  }
-  return dp[m]
-}
 
 // nearDupGroups clusters names that look like the same person: equal once
 // normalised, or within a small edit distance (capped as a fraction of length so
