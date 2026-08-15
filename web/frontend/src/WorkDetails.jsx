@@ -109,6 +109,12 @@ const MOVIE_FIELDS = [
     // The dereferrer resolves a bare numeric id to the right series/movie page.
     href: (it) => `https://thetvdb.com/dereferrer/${(it.media_type || 'movie') === 'show' ? 'series' : 'movie'}/${it.tvdb_id}`,
   },
+  {
+    key: 'imdb_id',
+    label: 'IMDb id',
+    hint: 'IMDb’s id for this title — the ttNNNNNNN in its URL. Nothing is fetched with it: IMDb has no public API, so this is the one id that is only ever carried, not used. It is here because it is the id you are most likely to have to hand, and because it names one title exactly. Paste the whole URL if that is easier.',
+    href: (it) => `https://www.imdb.com/title/${it.imdb_id}/`,
+  },
   { key: 'genres', label: 'Genres', kind: 'tokens' },
   { key: 'description', label: 'Description', kind: 'long' },
 ]
@@ -151,6 +157,10 @@ function fullState(kind, it) {
     // its name — every save re-states the record exactly as it stands.
     tmdb_id: it.tmdb_id || 0,
     tvdb_id: it.tvdb_id || 0,
+    // And the IMDb id genuinely IS full-state, so leaving it out of this would
+    // clear it on the next save of any other field — the trap 0034, 0035, 0036
+    // and 0037 each caught in turn.
+    imdb_id: it.imdb_id || '',
   }
 }
 
@@ -620,7 +630,16 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
               inputMode={spec.kind === 'number' ? 'decimal' : undefined}
               maxLength={spec.kind === 'year' ? 12 : undefined}
               onSave={(d) => onSaveField(spec, d)}
-              fieldKey={spec.key}
+              // A text field can carry a link too — the IMDb id is a string
+              // rather than a number, so it takes this branch rather than the
+              // numeric-id one above, and it is still worth being able to open.
+              display={spec.href && value ? (
+                <Tooltip label={`Open on ${label.replace(/ id$/, '')}`}>
+                  <a href={spec.href(item)} target="_blank" rel="noopener noreferrer" className="tp-link">
+                    {String(value)} ↗
+                  </a>
+                </Tooltip>
+              ) : undefined}
             />
           )
         })}

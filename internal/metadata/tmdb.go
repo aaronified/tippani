@@ -130,11 +130,17 @@ type MovieCandidate struct {
 }
 
 type MovieDetails struct {
-	Source      string // "tmdb" | "tvdb"
-	SourceID    string
-	MediaType   string // "movie" | "show"
-	TMDBID      int64
-	TVDBID      int64
+	Source    string // "tmdb" | "tvdb"
+	SourceID  string
+	MediaType string // "movie" | "show"
+	TMDBID    int64
+	TVDBID    int64
+	// IMDbID is a STRING because an IMDb id is `tt0111161` — the leading zeros
+	// are part of it, and storing the number would give back a URL that 404s.
+	// Nothing fetches WITH it (IMDb has no public API); it is carried because it
+	// is the id a reader is most likely to have to hand, and because it names a
+	// title unambiguously when quoting dialogue.
+	IMDbID      string
 	Title       string
 	Director    string // "creator" for shows; stored in the director column
 	ReleaseYear int
@@ -301,11 +307,27 @@ func (t *TMDB) SearchTV(ctx context.Context, query string, year int) ([]MovieCan
 	return out, nil
 }
 
+// firstNonEmpty is for the film path, where TMDB reports imdb_id twice — once at
+// the top level and once in the appendix — and has been known to leave one of
+// them blank on sparse records.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // Details fetches movie details with append_to_response=credits — one call
 // for details + cast + crew (PLAN §6).
 func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
+	// external_ids rides along on the SAME call the credits already needed, so
+	// the IMDb id costs no extra request. A film carries imdb_id at the top
+	// level as well, but asking for the appendix keeps this identical to the
+	// show path below, where it is the only place it appears.
 	body, err := t.get(ctx, "/movie/"+strconv.FormatInt(id, 10),
-		url.Values{"append_to_response": {"credits"}})
+		url.Values{"append_to_response": {"credits,external_ids"}})
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +337,11 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		Overview    string `json:"overview"`
 		ReleaseDate string `json:"release_date"`
 		PosterPath  string `json:"poster_path"`
-		Collection  *struct {
+		IMDbID      string `json:"imdb_id"`
+		ExternalIDs struct {
+			IMDbID string `json:"imdb_id"`
+		} `json:"external_ids"`
+		Collection *struct {
 			Name string `json:"name"`
 		} `json:"belongs_to_collection"`
 		Genres []struct {
@@ -345,6 +371,7 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 		Title:       r.Title,
 		Overview:    r.Overview,
 		ReleaseYear: leadingYear(r.ReleaseDate),
+		IMDbID:      firstNonEmpty(r.IMDbID, r.ExternalIDs.IMDbID),
 		Raw:         body,
 	}
 	if r.Collection != nil {
@@ -384,8 +411,10 @@ func (t *TMDB) Details(ctx context.Context, id int64) (*MovieDetails, error) {
 // aggregate_credits groups an actor's episode roles, so we take the first role's
 // character. TMDB has no franchise/collection for TV, so Series is left empty.
 func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
+	// A SHOW HAS NO imdb_id AT THE TOP LEVEL — unlike a film — so external_ids
+	// is not a convenience here, it is the only place the id exists.
 	body, err := t.get(ctx, "/tv/"+strconv.FormatInt(id, 10),
-		url.Values{"append_to_response": {"aggregate_credits"}})
+		url.Values{"append_to_response": {"aggregate_credits,external_ids"}})
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +424,10 @@ func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
 		Overview     string `json:"overview"`
 		FirstAirDate string `json:"first_air_date"`
 		PosterPath   string `json:"poster_path"`
-		CreatedBy    []struct {
+		ExternalIDs  struct {
+			IMDbID string `json:"imdb_id"`
+		} `json:"external_ids"`
+		CreatedBy []struct {
 			Name string `json:"name"`
 		} `json:"created_by"`
 		Genres []struct {
@@ -423,6 +455,7 @@ func (t *TMDB) DetailsTV(ctx context.Context, id int64) (*MovieDetails, error) {
 		Title:       r.Name,
 		Overview:    r.Overview,
 		ReleaseYear: leadingYear(r.FirstAirDate),
+		IMDbID:      r.ExternalIDs.IMDbID,
 		Raw:         body,
 	}
 	if len(r.CreatedBy) > 0 {

@@ -20,7 +20,8 @@ func tmdbDetailsBody() string {
 		cast[i] = fmt.Sprintf(`{"character":"C%d","name":"A%d","order":%d}`, i, i, i)
 	}
 	return `{"id":603,"title":"The Matrix","overview":"Neo.","release_date":"1999-03-30",` +
-		`"poster_path":"/matrix.jpg",` +
+		`"poster_path":"/matrix.jpg","imdb_id":"tt0133093",` +
+		`"external_ids":{"imdb_id":"tt0133093"},` +
 		`"genres":[{"id":28,"name":"Action"},{"id":878,"name":"Science Fiction"}],` +
 		`"credits":{"cast":[` + strings.Join(cast, ",") + `],` +
 		`"crew":[{"job":"Producer","name":"Joel Silver"},` +
@@ -91,7 +92,11 @@ func TestTMDBDetails(t *testing.T) {
 		if r.URL.Path != "/movie/603" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
-		if got := r.URL.Query().Get("append_to_response"); got != "credits" {
+		// external_ids rides along on the call the credits already needed, so
+		// the IMDb id costs no extra request. Asserted rather than assumed —
+		// dropping the appendix would leave every id blank and nothing else
+		// about a fetch would look different.
+		if got := r.URL.Query().Get("append_to_response"); got != "credits,external_ids" {
 			t.Errorf("append_to_response = %q", got)
 		}
 		_, _ = w.Write([]byte(body))
@@ -105,6 +110,9 @@ func TestTMDBDetails(t *testing.T) {
 	}
 	if d.TMDBID != 603 || d.Title != "The Matrix" || d.ReleaseYear != 1999 || d.Overview != "Neo." {
 		t.Errorf("details = %+v", d)
+	}
+	if d.IMDbID != "tt0133093" {
+		t.Errorf("imdb_id = %q, want tt0133093 — the id is read, not merely requested", d.IMDbID)
 	}
 	if d.Director != "Lana Wachowski" {
 		t.Errorf("director = %q, want first crew entry with job Director", d.Director)

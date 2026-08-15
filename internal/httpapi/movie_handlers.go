@@ -24,8 +24,14 @@ type movieReq struct {
 	// PUT is full-state everywhere else, but a supplier id is not a field you
 	// retype every save — it is what a re-sync pulls from, so an old client that
 	// has never heard of it must not be able to wipe it by omission.
-	TMDBID       *int64   `json:"tmdb_id"`
-	TVDBID       *int64   `json:"tvdb_id"`
+	TMDBID *int64 `json:"tmdb_id"`
+	TVDBID *int64 `json:"tvdb_id"`
+	// IMDbID is full-state like the ordinary fields rather than a pointer like
+	// the two above, and the difference is what each id is FOR. Those two are
+	// what a re-sync pulls from, so an old client omitting one must not wipe it;
+	// nothing ever fetches with this one, so there is no such thing to protect —
+	// it is a field the reader typed, and it behaves like every other.
+	IMDbID       string   `json:"imdb_id"`
 	Source       string   `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
 	SourceID     string   `json:"source_id"` // id within the source
 	Title        string   `json:"title"`
@@ -75,6 +81,49 @@ func idOrZero(p *int64) int64 {
 	return *p
 }
 
+// normaliseIMDb accepts what a reader actually has in their hand.
+//
+// An IMDb id is reached by copying a URL, so a pasted
+// https://www.imdb.com/title/tt0111161/ is the common case rather than the
+// exotic one — taking the id out of it is a line of code, and refusing it is a
+// message telling somebody to do that line of code by hand. A bare number is
+// accepted too and given its tt, because the digits are what a person reads off
+// the page. Anything else is stored as typed rather than rejected: this id
+// fetches nothing, so a wrong one costs a dead link and no data.
+func normaliseIMDb(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	if i := strings.Index(v, "/title/"); i >= 0 {
+		v = v[i+len("/title/"):]
+	}
+	if i := strings.IndexAny(v, "/?#"); i >= 0 {
+		v = v[:i]
+	}
+	v = strings.TrimSpace(v)
+	// A bare number: tt0111161 is the id, 111161 is what somebody read aloud.
+	if v != "" && strings.IndexFunc(v, func(r rune) bool { return r < '0' || r > '9' }) < 0 {
+		for len(v) < 7 {
+			v = "0" + v
+		}
+		return "tt" + v
+	}
+	return v
+}
+
+// imdbOrKeep is the re-sync rule: a supplier is the authority on what it KNOWS,
+// never on what it does not. TMDB returning no IMDb id means it has none on file,
+// which is not a reason to erase one the reader typed in by hand.
+func imdbOrKeep(tx *sql.Tx, uid, id int64, found string) string {
+	if found != "" {
+		return found
+	}
+	var cur string
+	_ = tx.QueryRow(`SELECT COALESCE(imdb_id, '') FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&cur)
+	return cur
+}
+
 // normalizeMediaType defaults an empty media_type to "movie" and rejects
 // anything outside the {movie, show} vocabulary (validated in app code — the
 // column has no CHECK, matching the 0004 convention).
@@ -102,6 +151,7 @@ type movieDetail struct {
 	ReleaseCirca bool                  `json:"release_circa"`
 	TMDBID       int64                 `json:"tmdb_id"`
 	TVDBID       int64                 `json:"tvdb_id"`
+	IMDbID       string                `json:"imdb_id"`
 	MediaType    string                `json:"media_type"`
 	PosterPath   string                `json:"poster_path"`
 	Description  string                `json:"description"`
@@ -124,13 +174,14 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), release_circa, COALESCE(tmdb_id, 0),
 		       COALESCE(tvdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
-		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at
+		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at,
+		       COALESCE(imdb_id, '')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&castJSON, &m.CreatedAt)
+			&castJSON, &m.CreatedAt, &m.IMDbID)
 	if err != nil {
 		return nil, err
 	}
@@ -201,11 +252,11 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, release_circa, description,
-		                    media_type, series, series_index, favorite)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    media_type, series, series_index, favorite, imdb_id)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite); err != nil {
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID)); err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
 	}
@@ -289,11 +340,11 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	}
 	res, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
-		                    poster_path, description, series, cast_json, source_metadata)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                    poster_path, description, series, cast_json, source_metadata, imdb_id)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
-		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw))
+		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), d.IMDbID)
 	if err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: insert", err)
@@ -621,12 +672,12 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, release_circa = ?, description = ?,
-		                  media_type = ?, series = ?, series_index = ?, favorite = ?,
+		                  media_type = ?, series = ?, series_index = ?, favorite = ?, imdb_id = ?,
 		                  updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), id, uid)
 	if err != nil {
 		failErr("update movie: exec", err)
 		return
@@ -750,11 +801,14 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?, tvdb_id = ?,
 		                  media_type = ?, poster_path = ?, description = ?, series = ?,
-		                  cast_json = ?, source_metadata = ?, updated_at = datetime('now')
+		                  cast_json = ?, source_metadata = ?, imdb_id = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
-		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), id, uid)
+		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw),
+		// A re-sync that found no id must not ERASE one the reader typed: the
+		// supplier is the authority on what it knows, not on what it does not.
+		imdbOrKeep(tx, uid, id, d.IMDbID), id, uid)
 	if err != nil {
 		failErr("resync movie: exec", err)
 		return

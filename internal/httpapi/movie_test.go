@@ -153,8 +153,10 @@ func TestMovieCreateFromTMDB(t *testing.T) {
 		case "/search/movie":
 			w.Write([]byte(`{"results":[{"id":603,"title":"The Matrix","release_date":"1999-03-31","overview":"A hacker."}]}`))
 		case "/movie/603":
-			if r.URL.Query().Get("append_to_response") != "credits" {
-				t.Errorf("missing append_to_response=credits: %s", r.URL)
+			// credits AND external_ids on the one call: the IMDb id (0038) is
+			// fetched from the appendix rather than from a second request.
+			if r.URL.Query().Get("append_to_response") != "credits,external_ids" {
+				t.Errorf("missing append_to_response=credits,external_ids: %s", r.URL)
 			}
 			w.Write([]byte(`{"id":603,"title":"The Matrix","overview":"A hacker.","release_date":"1999-03-31",
 				"poster_path":"/no-such-poster.jpg",

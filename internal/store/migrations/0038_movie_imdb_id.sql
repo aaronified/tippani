@@ -1,0 +1,46 @@
+-- 0038: an IMDb id on a film AND on a show.
+--
+-- The two supplier ids a title already carries — tmdb_id and tvdb_id — are the
+-- ones this app FETCHES with. IMDb is the one it cannot: there is no public API,
+-- and the importer that reads an IMDb quotes page has only ever been handed a
+-- URL by the reader. So `staged_works.imdb_id` has existed since imports were
+-- built, purely as something an import carried through, and the moment a staged
+-- work became a real one the id was dropped on the floor.
+--
+-- It is worth keeping for two reasons. It is the one id a reader is likely to
+-- have to hand, because an IMDb URL is what a search engine returns for a film;
+-- and it is what names a title unambiguously when quoting dialogue, which is
+-- where the character work in the plan starts from.
+--
+-- TEXT, NOT INTEGER, and the distinction is load-bearing rather than pedantic.
+-- An IMDb id is `tt0111161` — the leading zeros are part of it, so storing 111161
+-- and printing it back gives a URL that 404s. tmdb_id and tvdb_id are integers
+-- because those really are numbers.
+--
+-- Empty string rather than NULL, matching every other optional text column here,
+-- so `COALESCE` is not needed on the read path.
+ALTER TABLE movies ADD COLUMN imdb_id TEXT NOT NULL DEFAULT '';
+
+-- No UNIQUE index, deliberately, where tmdb_id and tvdb_id each have one.
+--
+-- Those two are the deduplication keys: a fetch resolves a title to one supplier
+-- record, and two rows claiming the same one is the bug that index prevents. This
+-- id is typed by hand and never resolves anything, so the same constraint would
+-- only produce a save that fails with a message about a row the reader cannot
+-- see. A plain index, because the lookups this serves are "which work is this
+-- IMDb page" during an import.
+CREATE INDEX idx_movies_user_imdb ON movies(user_id, imdb_id) WHERE imdb_id <> '';
+
+-- NOT BACKFILLED, and that is a decision rather than an omission.
+--
+-- `staged_works` holds an imdb_id for every title an IMDb import carried, so
+-- there is an obvious-looking UPDATE that joins the two on title and year. It is
+-- not written here because that join has no key: staged rows carry no supplier
+-- id to match on, they are cleared once a batch is reviewed, and two films can
+-- share a title and a year. Writing the WRONG IMDb id onto a work is worse than
+-- leaving the field blank — a blank field asks to be filled, and a wrong one
+-- sends the reader to another film's page and looks authoritative doing it.
+--
+-- So the column starts empty everywhere and is filled two ways, both of which
+-- name one record exactly: a TMDB fetch, which returns the id alongside the
+-- credits it was already asking for, and typing it in Details.

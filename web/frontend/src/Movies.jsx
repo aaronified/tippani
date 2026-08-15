@@ -202,6 +202,10 @@ function movieState(m) {
     series: m.series || '',
     series_index: m.series_index || 0,
     favorite: !!m.favorite,
+    // imdb_id is full-state, so the detail-header ♥ has to carry it or
+    // favouriting a film would clear the id — the same trap 0034, 0035, 0036
+    // and 0037 each caught on a different column.
+    imdb_id: m.imdb_id || '',
     // status / progress / reads are absent on purpose: they belong to
     // PUT /movies/:id/status, so an ordinary save cannot rewrite the watch log.
   }
