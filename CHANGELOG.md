@@ -5,6 +5,160 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-08-15
+
+### Added
+
+- **The review loop asks five kinds of question instead of two.** A card is drawn from a per-kind
+  table now rather than from a two-way toggle, and the table is the feature: *which work is this
+  quote from?* and *which quote is from this work?* are joined by a **flip card** (read it, reveal
+  the source, say honestly whether you had it), **fill in the blank**, and — on a film or show line
+  — **who says this?**, where the options are the **actors** out of that film's own cast rather than
+  the characters.
+
+  One consequence is worth stating plainly rather than letting it arrive as a surprise: "which book
+  is this quote from?" drops from half of a book's cards to a quarter, and "which film?" from half
+  to a fifth. That is a real change to every existing account and it is a decision, not an emergent
+  property of how long a list happens to be.
+
+  The flip card also fixes a deck that served nothing. A question that could not be built used to
+  drop its card while the badge went on counting it, so a library with one work in it showed cards
+  due and served none — and the test covering that asserted the empty deck as correct. A flip card
+  works for every quote, so there is now nothing to fail at.
+
+- **Fill in the blank, graded on the server, word by word.** A phrase is masked out of the quote and
+  you type it back. The answer never reaches the browser until your attempt is in — unlike an option
+  index, which means nothing without the options, a cloze answer *is* the words being recalled.
+
+  Grading forgives a typo in a long word and nothing at all in a short one: "vast" and "fast" are
+  different words, not a slip. **Each word carries its own budget and the word count has to match**,
+  because a budget banded on the whole answer is earned by the long words and spent on the short
+  ones — before that was fixed, "want of a wife" accepted "want of a **life**" and said correct.
+
+  Offered only where the text is predominantly Latin. The stopword list that decides what is worth
+  blanking is English, and an English list matches *zero* Devanagari or Cyrillic tokens — so every
+  token reads as a content word and the selector confidently masks a phrase out of a script it
+  cannot read. That gate exists because the failure is silent, not because the span comes out badly.
+
+- **A confirm step, instead of the undo the roadmap asked for.** Optional, off by default: a tap
+  chooses an option and a button commits it, so a misplaced tap can be corrected instead of costing
+  a rung. Undo needs the previous half-life stored, which is a column this section is built on not
+  having; this prevents the misclick rather than reversing it. Not offered on flip or cloze cards —
+  typing an answer and pressing Check is already a submit step, and a confirmation on top is asking
+  twice.
+
+- **A card forgotten five times offers a way out.** `lapse_count` has been stored since 0015 and read
+  by nothing. The card now says so **once you have answered it** and offers *Set it aside* beside
+  *Keep asking*. Nothing is suspended automatically: a card that vanished because a counter reached
+  five would be the app making a decision nobody asked it to make. It arrives with the answer that
+  earns it, because that same answer pushes the card a week out of the deck.
+
+- **Quiz me on this book, tag, colour or person.** A themed round starts from the thing itself — a
+  work tile's own menu, a person's panel, a tag card, and the colour rows in Stats — and opens over
+  the screen you were on. There is no "pick a theme" screen: you are already looking at the book when
+  you want to be asked about it.
+
+  **The Daily Quiz is deliberately not themeable.** That deck *is* the schedule. Filtering it would
+  leave the cards actually due unasked while the streak still counted the day as cleared, which
+  quietly turns the one authoritative surface into a second practice mode.
+
+- **Fix the typo, re-tag it, or ♥ it from inside the card** — and only after you have answered.
+  That gate is the feature rather than a nicety: an edit form carries the quote, the title and the
+  credit, which on a "which book?" card *is* the answer, and on a cloze card is the masked words in
+  full. The panel reads the whole row and sends the whole row back, because every one of those saves
+  is full-state and a field left out is a field an edit to the words silently blanks.
+
+- **Choose the type.** Settings → **Type** lists the six faces the app uses, each shown doing its own
+  job — the quote face setting a quote, the label face setting a locator, the Bengali face setting
+  Bengali. A list that sets the same specimen sentence in every face answers no question anybody has.
+
+  Each row offers the built-in and **two alternates**, plus **your own font**: uploaded to your own
+  server, never parsed there, checked by magic bytes rather than by extension (a `.woff2` that is
+  really a ZIP is exactly what an extension test misses). A check then measures whether the face
+  actually draws that row's script — swap the Bengali face for one with no Bengali in it and every
+  Bengali quote turns into boxes, silently. It is a **warning, not a refusal**: it can be fooled
+  either way, and it is your font.
+
+  **Bold, italic, small caps, all caps and lining figures** are per role. There is no "monospace"
+  switch, and the screen says why: whether a face is monospaced is how it was drawn, and no CSS makes
+  a proportional face monospaced — so a control by that name could only lie. Small caps and all caps
+  are absent from the Bengali and Devanagari rows, which have no case at all.
+
+  Everything is bundled with the app. This app makes no network request you did not ask for, and a
+  type picker that phoned a font CDN would have been the first exception — on a screen about how your
+  own words look. Eighteen families, all OFL-1.1.
+
+- **A proverb wears its language where every other quote wears a face.** A proverb has nobody to
+  credit, so its card used to begin with nothing while every other quote begins with somebody's
+  portrait. It leads with a **language mark** now — a letter from that language's own script by
+  default, and a flag or anything else you can type, set per language in Settings.
+
+  **No language arrives wearing a flag.** The tray offers two dozen of them, first; what the app does
+  not do is decide. A flag is a country and a language is not — Bengali is spoken either side of a
+  border, Hindi has no flag of its own, and Spanish, Portuguese, Arabic and English have a dozen each
+  — so picking one for you would be this app saying which country owns your mother tongue.
+
+- **One quote by id** — `?id=` on `/annotations`, `/dialogues` and `/quotes`. What a client needs
+  before it can edit a quote it only holds a review card for.
+
+### Changed
+
+- **The Bengali face changed, and Hindi's with it.** Tiro Bangla was chosen in an earlier release for
+  a reason I still think is a fair one — a text face with real Bengali letterforms rather than a
+  pan-script fallback — and the person who reads Bengali in this app called it horrible, which is the
+  only evidence that counts about type you have to read every day. **Noto Serif Bengali** and **Noto
+  Serif Devanagari** are the built-ins now. Both previous faces are still on the list: reversing a
+  choice is not the same as deleting it.
+
+- **Skipping the quiz is a fact about a quote.** It was two flags that both gated the deck, and the
+  second one made the first one lie: a highlight excluded on its own account *and* by its book got
+  an *Add to quiz* button that cleared its own column, toasted "back in the quiz", and changed
+  nothing the deck could see. The deck reads the quote's flag and nothing else now; a work's toggle
+  writes that flag onto every quote it holds, and a work wears the mark only when all of them are
+  skipped.
+
+- **Select all**, in the context menu on a phone and beside it on a desktop — the same helper behind
+  the work tiles, the quote cards and the boards, instead of three copies drifting apart.
+
+- **Move a quote between boards from the card menu and from the selection bar**, instead of opening
+  the edit form and changing one select in it.
+
+- **A board's own cover**: a mic and an audience for speeches, a script glyph for a proverb board's
+  dominant language, the Tippani mark for everything else — over the colour you chose.
+
+- **API revision 7.** `cloze` and `speaker` get their own feature strings rather than riding on
+  `review-directions`, because a client has to be *built* for a cloze card — masked text, no options,
+  an `attempt` to send, and a grade the server decides — where a flip card only needs a reveal button.
+
+### Fixed
+
+- **The daily deck's "seeded" options were never seeded.** The deck's whole contract is that today's
+  cards are the same cards, in the same order, with the same choices, on every device — and the
+  comment saying so had been there for releases. The pool underneath came from Go map iteration,
+  which is deliberately randomised, and a SQL `RANDOM()`. The same card offered different wrong
+  answers on a phone and a laptop, and nothing anywhere reported it.
+
+- **Three answer leaks, two of them live in the shipped app.** The review card rendered the
+  attribution side — the actor's face chip, the character's name — for every direction that was not
+  `source`, so a "who says this?" card would have shown the right actor directly above its own four
+  options. The option builder fell through to the quote branch for any unrecognised direction, so a
+  card labelled `cloze` or `speaker` would have come back carrying quote options with the correct
+  quote among them. And selecting a wrong option painted it red *before* Submit, which tells you the
+  answer while you can still change it.
+
+- **A cloze blank is graded word by word**, not as one string — see above. Found by a documentation
+  pass comparing the plan against the code, not by a test.
+
+- **`IconOpen is not defined`** when using the page-count filters on the Metadata screen. A guard
+  test now scans every screen for an icon used and never imported; it found that one and nothing
+  else.
+
+- A film line on the Home screen wore the default yellow bar whatever colour it actually was.
+
+<sub>Verification: `go vet ./...`, 807 Go test functions over real HTTP handlers and a real SQLite
+database, 1,759 frontend tests. Every guard added in this release was checked by reverting it and
+watching the test fail.</sub>
+
 ## [1.14.2] - 2026-08-15
 
 ### Added
