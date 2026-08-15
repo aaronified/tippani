@@ -276,6 +276,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /boards", s.requireAuth(s.handleCreateBoard))
 	mux.Handle("PUT /boards/{id}", s.requireAuth(s.handleUpdateBoard))
 	mux.Handle("DELETE /boards/{id}", s.requireAuth(s.handleDeleteBoard))
+	mux.Handle("POST /boards/{id}/cover", s.requireAuth(s.handleUploadBoardImage))
 	mux.Handle("POST /quotes/starters", s.requireAuth(s.handleSeedProverbs))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).

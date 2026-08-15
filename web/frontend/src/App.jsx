@@ -1344,7 +1344,12 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'quotes' && (
           <div data-screen-label="quotes">
-            <QuotesPage creditSeparators={user.preferences?.creditSeparators} />
+            <QuotesPage
+              openId={detail?.type === 'board' ? detail.id : null}
+              onOpen={(id) => go('quotes', { type: 'board', id })}
+              onClose={() => go('quotes', null)}
+              creditSeparators={user.preferences?.creditSeparators}
+            />
           </div>
         )}
         {tab === 'tags' && (

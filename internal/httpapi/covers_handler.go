@@ -67,6 +67,14 @@ func (s *Server) handleUploadMoviePoster(w http.ResponseWriter, r *http.Request)
 	s.uploadCover(w, r, "movies", "poster_path")
 }
 
+// A board's picture (0036). Nothing FETCHES one — no supplier has a photograph
+// of a shelf somebody invented — so upload is the only way in, and this is the
+// same three lines the other two are because uploadCover was already generic.
+func (s *Server) handleUploadBoardImage(w http.ResponseWriter, r *http.Request) {
+	olog.Tracef("[cover] handleUploadBoardImage")
+	s.uploadCover(w, r, "boards", "image_path")
+}
+
 // uploadCover stores an uploaded image, points the row's cover column at it,
 // and deletes the previously stored file. table/column are package constants,
 // never client input, so the SQL interpolation is safe.

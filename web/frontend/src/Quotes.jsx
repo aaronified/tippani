@@ -22,6 +22,7 @@ import { deleteWithUndo } from './undo.jsx'
 import { useSelection } from './selection.jsx'
 import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
+import { ALL_BOARD, BoardList, useBoards } from './boards.jsx'
 import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
@@ -29,6 +30,7 @@ import {
   ErrorText,
   Field,
   GhostButton,
+  IconBack,
   Masonry,
   MonoLabel,
   PartialDateField,
@@ -129,6 +131,11 @@ export function utteranceState(u) {
     category: u.category || 'other',
     language: u.language || '',
     translation: u.translation || '',
+    // 0036, AND THE SAME SILENT-LOSS SITE AS THE THREE ABOVE. A PUT with no
+    // board_id does not leave the quote where it is — it MOVES it to the default
+    // board, because every PUT here is full-state. The ♥, the colour dots and the
+    // selection bar all save through this object.
+    board_id: u.board_id || null,
     sticker_id: u.sticker_id ?? null,
     sticker_x: u.sticker_x ?? null,
     sticker_y: u.sticker_y ?? null,
@@ -230,7 +237,7 @@ const TRANSLATION_LINE = {
 // UtteranceForm follows the house form contract: {initial, onSubmit, onCancel,
 // submitLabel, tagSuggestions, stickers, reloadStickers}, onSubmit resolving to
 // an error string or null.
-export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers }) {
+export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSuggestions = [], stickers = [], reloadStickers, boards = [], defaultBoard = null }) {
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [speaker, setSpeaker] = useState(initial?.speaker || '')
@@ -242,6 +249,10 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   // language — what it says. Editable by hand because nothing else sets them: the
   // starter proverbs arrive categorised, and anything you type arrives as 'other'.
   const [category, setCategory] = useState(initial?.category || 'other')
+  // Where it is FILED (0036). Defaults to the board being looked at, which is
+  // what makes capture inside a board file into that board — the same thing
+  // capture inside a book does.
+  const [boardID, setBoardID] = useState(initial?.board_id ?? defaultBoard ?? null)
   const [language, setLanguage] = useState(initial?.language || '')
   const [translation, setTranslation] = useState(initial?.translation || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
@@ -276,6 +287,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       place: place.trim(),
       medium: medium.trim(),
       category,
+      board_id: boardID,
       language: language.trim(),
       translation: translation.trim(),
       color,
@@ -322,7 +334,18 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       <Field label="Medium" placeholder="radio, speech, letter…" value={medium} onChange={(e) => setMedium(e.target.value)} />
       <label className="block">
         <MonoLabel className="mb-1 block">Kind</MonoLabel>
-        <Select ariaLabel="Kind of quote" value={category} onChange={setCategory} options={CATEGORY_OPTIONS} />
+        {/* The board, not the "kind". 0036 made the three fixed kinds into
+            shelves the reader owns, so this is where a quote is filed rather
+            than what it is — and it is the one field that has to be here,
+            because a PUT without it moves the quote. */}
+        {boards.length > 0 && (
+          <Select
+            ariaLabel="Board"
+            value={boardID == null ? '' : String(boardID)}
+            onChange={(v) => setBoardID(v === '' ? null : Number(v))}
+            options={boards.map((b) => [String(b.id), b.name])}
+          />
+        )}
       </label>
       <Field label="Language" placeholder="Bengali, Hindi…" value={language} onChange={(e) => setLanguage(e.target.value)} />
       <Field label="Translation" placeholder="what it says in English" value={translation} onChange={(e) => setTranslation(e.target.value)} />
@@ -446,7 +469,27 @@ const SORT_OPTIONS = [
 // clearing first. The endpoint still accepts those parameters; this screen just
 // asks for everything and narrows it here, so the filter options describe the
 // whole collection rather than the current view of it.
-export default function QuotesPage({ creditSeparators }) {
+export default function QuotesPage({ creditSeparators, openId = null, onOpen, onClose }) {
+  const { boards, total, reload: reloadBoards } = useBoards()
+  // TWO LEVELS, like the Library. No board open means the shelf list; a board
+  // open means that board's quotes. The board is NOT a filter — see boards.jsx
+  // for what treating it as one cost.
+  if (openId == null) {
+    return <BoardList boards={boards} total={total} reload={reloadBoards} onOpen={onOpen} />
+  }
+  return (
+    <BoardQuotes
+      key={String(openId)}
+      boardId={openId}
+      boards={boards}
+      reloadBoards={reloadBoards}
+      creditSeparators={creditSeparators}
+      onClose={onClose}
+    />
+  )
+}
+
+function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose }) {
   const [rows, setRows] = useState(null)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -467,7 +510,10 @@ export default function QuotesPage({ creditSeparators }) {
   // set that column default rather than guessing a category from `medium`, so this
   // default shows an existing library precisely what it showed before the split.
   // Persisted, so the board you work in is the one you come back to.
-  const [category, setCategory] = usePersistedState('tippani:quotes:category', 'other')
+  // No persisted category any more: which board you are on is the URL, so a
+  // reload lands where the address says rather than where a filter last was.
+  const isAll = boardId === ALL_BOARD
+  const openBoard = (boards || []).find((b) => String(b.id) === String(boardId)) || null
   const [language, setLanguage] = usePersistedState('tippani:quotes:language', '')
   const [sort, setSort] = usePersistedState('tippani:quotes:sort', 'recent')
   const [groupBy, setGroupBy] = usePersistedState('tippani:quotes:group', 'none')
@@ -519,8 +565,8 @@ export default function QuotesPage({ creditSeparators }) {
   // consume it, which reads fine and is fatal. The body is ordered by data flow for
   // that reason, not for tidiness.
   const board = useMemo(
-    () => (rows || []).filter((u) => (u.category || 'other') === category),
-    [rows, category],
+    () => (isAll ? rows || [] : (rows || []).filter((u) => String(u.board_id) === String(boardId))),
+    [rows, isAll, boardId],
   )
 
   // Filter options come from what is actually saved rather than from the People
@@ -624,6 +670,14 @@ export default function QuotesPage({ creditSeparators }) {
     load()
   }
 
+  // Memoised: an inline arrow here would be a NEW component type on every
+  // render, so React would unmount and remount the form between keystrokes and
+  // the field would lose focus mid-word.
+  const QuoteForm = useMemo(
+    () => (p) => <UtteranceForm {...p} boards={boards || []} defaultBoard={isAll ? null : Number(boardId)} />,
+    [boards, isAll, boardId],
+  )
+
   const card = (u, i) => (
     <AnnotationCard
       key={u.id}
@@ -632,7 +686,7 @@ export default function QuotesPage({ creditSeparators }) {
       a={u}
       variant={i}
       meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: setPerson })}
-      form={UtteranceForm}
+      form={QuoteForm}
       tagMap={tagMap}
       stickerMap={stickerMap}
       stickers={stickers}
@@ -660,19 +714,7 @@ export default function QuotesPage({ creditSeparators }) {
   // the filters that belong to the board you are leaving — a speaker who is only on
   // Speeches would otherwise follow you to Proverbs and show an empty shelf that
   // looks like a bug.
-  const boardToggle = (
-    <Toggle
-      ariaLabel="Which quotes"
-      value={category}
-      onChange={(v) => {
-        setCategory(v)
-        setSpeaker('')
-        setMedium('')
-        setLanguage('')
-      }}
-      options={CATEGORY_OPTIONS}
-    />
-  )
+
   const selects = [
     tags.length > 0 && ['tag', 'Filter by tag', tag, setTag, [['', 'all tags'], ...tags.map((t) => [t.name, t.name])]],
     speakers.length > 0 && ['speaker', 'Filter by speaker', speaker, setSpeaker, [['', 'all speakers'], ...speakers.map((n) => [n, n])]],
@@ -686,27 +728,36 @@ export default function QuotesPage({ creditSeparators }) {
 
   // Above the scaffold rather than inside it: the grid slot does not render when a
   // board is empty, and an empty Proverbs board is exactly when this has to show.
-  const starters = category === 'proverb' && rows != null && board.length === 0
+  // Offered on any empty board rather than on a board called Proverbs: nothing
+  // in the code may know a board's name (0036), and an empty shelf is the only
+  // signal available for "there is nothing here to start from".
+  const starters = !isAll && rows != null && board.length === 0
     ? <StarterProverbs onDone={load} />
     : null
 
   return (
     <>
+      {/* The way back to the shelves. Above the scaffold rather than inside it,
+          because WorkListScaffold has no back slot — a work's detail page draws
+          its own too. */}
+      <div className="mb-3">
+        <GhostButton icon={<IconBack />} onClick={onClose}>
+          All boards
+        </GhostButton>
+      </div>
       {starters}
       <WorkListScaffold
       mobile={mobile}
-      title="Quotes"
-      counts={rows ? `${board.length} ${CATEGORY_NOUN[category]}${board.length === 1 ? '' : 's'} · from no book and no film` : ''}
+      title={isAll ? 'All quotes' : openBoard?.name || 'Quotes'}
+      counts={rows ? `${board.length} ${board.length === 1 ? 'quote' : 'quotes'}${openBoard?.description ? ' · ' + openBoard.description : ''}` : ''}
       error={error}
       onExport={() => setExporting(true)}
       loaded={rows != null}
       hasItems={!!(rows && board.length > 0)}
       shownCount={shown.length}
-      emptyText={category === 'proverb'
-        ? 'no proverbs yet — the ＋ saves one, or take a starter set below'
-        : 'nothing here yet — the ＋ in the top bar saves a line from anywhere'}
+      emptyText={'nothing on this board yet — the ＋ in the top bar saves a line from anywhere'}
       noMatchText="no quotes match these filters"
-      noun={CATEGORY_NOUN[category]}
+      noun="quote"
       fav={favOnly}
       setFav={setFavOnly}
       tagged={tagged}
@@ -716,23 +767,12 @@ export default function QuotesPage({ creditSeparators }) {
       sort={sort}
       setSort={setSort}
       sortOptions={SORT_OPTIONS}
-      leading={
-        <>
-          {boardToggle}
-          {colourFilter}
-        </>
-      }
+      leading={colourFilter}
       leadingMobile={
-        <>
-          <div>
-            <MonoLabel className="mb-2 block">which quotes</MonoLabel>
-            {boardToggle}
-          </div>
-          <div>
-            <MonoLabel className="mb-2 block">colour</MonoLabel>
-            {colourFilter}
-          </div>
-        </>
+        <div>
+          <MonoLabel className="mb-2 block">colour</MonoLabel>
+          {colourFilter}
+        </div>
       }
       trailing={
         <>

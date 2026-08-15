@@ -60,17 +60,35 @@ describe('parsePath', () => {
     expect(parsePath('/bin')).toEqual({ tab: 'bin', detail: null })
   })
 
-  // /quotes is a LIST, not a work prefix: there is no /quotes/:id to open,
-  // because a standalone quote has no detail page of its own. An id segment is
-  // simply ignored rather than routed to a screen that does not exist.
-  it('routes /quotes to its list whatever follows it', () => {
+  // /quotes IS a work prefix now (0036). It used to be a flat list — "there is
+  // no /quotes/:id, because a standalone quote has no detail page of its own" —
+  // and that was true of a QUOTE and is not true of a BOARD. The boards are the
+  // level /quotes lists, exactly as /library lists books, and a board opens at
+  // /quotes/{id} the way a book opens at /books/{id}.
+  it('opens a board at /quotes/{id}', () => {
     expect(parsePath('/quotes')).toEqual({ tab: 'quotes', detail: null })
     expect(parsePath('/quotes/')).toEqual({ tab: 'quotes', detail: null })
-    expect(parsePath('/quotes/7')).toEqual({ tab: 'quotes', detail: null })
+    expect(parsePath('/quotes/7')).toEqual({ tab: 'quotes', detail: { type: 'board', id: 7 } })
   })
 
-  it('emits /quotes for the quotes tab', () => {
+  // The pinned All quotes entry is not a board — it has no row and therefore no
+  // id — so it takes the word instead, which keeps it bookmarkable like the rest.
+  it('routes /quotes/all to the pinned entry', () => {
+    expect(parsePath('/quotes/all')).toEqual({ tab: 'quotes', detail: { type: 'board', id: 'all' } })
+  })
+
+  // An unusable id falls back to the board LIST rather than to Home, the same
+  // rule /books and /catalogue follow: you asked for something in the quotes,
+  // so the quotes are a better answer than the front page.
+  it('falls back to the board list for an unusable id', () => {
+    expect(parsePath('/quotes/nonsense')).toEqual({ tab: 'quotes', detail: null })
+    expect(parsePath('/quotes/0')).toEqual({ tab: 'quotes', detail: null })
+  })
+
+  it('emits /quotes for the quotes tab, and /quotes/{id} for a board', () => {
     expect(statePath('quotes', null)).toBe('/quotes')
+    expect(statePath('quotes', { type: 'board', id: 7 })).toBe('/quotes/7')
+    expect(statePath('quotes', { type: 'board', id: 'all' })).toBe('/quotes/all')
   })
 
   it('maps /pending onto the staging tab', () => {

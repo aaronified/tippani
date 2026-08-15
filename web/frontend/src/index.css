@@ -4520,3 +4520,109 @@ html[data-theme="dark"] .mobile-sheet-footer {
 /* The open read says where it is edited rather than offering a second way to
    reach a state the status control owns. */
 .read-hint { font-family: var(--font-mono); font-size: 10px; color: var(--soft); opacity: .75; }
+
+/* ---- quote boards (0036, boards.jsx) --------------------------------------
+   /quotes lists BOARDS the way /library lists books. The shape is deliberately
+   a shelf rather than a filter row: 1.13.0 drew these three as a segmented
+   control handed to the filter slot, which on a phone put them inside the
+   Filters sheet and hid them entirely, and which vanished when the current
+   board was empty. A tile cannot do either of those things.
+
+   auto-fill with a 150px floor, matching the work grids, so a phone shows two
+   across and a desktop as many as fit rather than a fixed count that is wrong
+   on one of them. */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.board-tile {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  overflow: hidden;
+  /* The board's colour as a spine down its left edge rather than a fill: a
+     saturated tile competes with the covers on the two neighbouring screens,
+     and a colour is a label here, not the content. */
+  border-left: 4px solid var(--board-color, var(--line));
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.board-tile:hover { transform: translateY(-2px); box-shadow: var(--lift); }
+/* A hidden board is still drawn when "All" is on — dimmed rather than removed,
+   so the toggle reads as one list seen two ways instead of two lists. */
+.board-tile.is-hidden-board { opacity: .55; }
+.board-tile-face {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.board-tile-img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+/* No picture is a blank with the app's own quote mark in it, not a broken
+   image: nothing FETCHES a board's picture, so having none is the ordinary
+   state rather than a failure. */
+.board-tile-img.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--raised);
+  color: var(--faint);
+}
+.board-tile-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.board-tile-count { font-family: var(--font-mono); font-size: 11px; color: var(--soft); }
+.board-tile-tools { position: absolute; top: 6px; right: 6px; }
+/* All quotes is pinned first and is NOT a board: no spine, no menu, and the
+   dashed edge says it is a view rather than a shelf you can rename. */
+.board-tile-all {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-height: 110px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.board-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-border);
+  cursor: pointer;
+  padding: 0;
+}
+.board-swatch.is-on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui); }
+.board-form-img {
+  width: 84px;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.board-form-img.is-empty { display: inline-block; background: var(--raised); }

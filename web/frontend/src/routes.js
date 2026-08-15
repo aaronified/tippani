@@ -106,6 +106,12 @@ export function parsePath(pathname) {
   // on the line below anyway; /books needs saying, because the book list lives
   // at /library and would otherwise fall through to Home.
   if (a === 'books') return { tab: 'library', detail: null }
+  // A board's own page (0036). /quotes lists the boards the way /library lists
+  // books, and a board opens at /quotes/{id} the way a book opens at /books/{id}.
+  // 'all' is the pinned All quotes entry rather than a board — it is not a row,
+  // so it has no id, and giving it the word keeps it bookmarkable like the rest.
+  if (a === 'quotes' && b === 'all') return { tab: 'quotes', detail: { type: 'board', id: 'all' } }
+  if (a === 'quotes' && workID(b)) return { tab: 'quotes', detail: { type: 'board', id: workID(b) } }
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
   // /import is no longer a tab (§7 One "＋ Add"); an old link opens the Add
   // surface on its Import section over Home — handled by the Shell.
@@ -125,6 +131,7 @@ export function parsePath(pathname) {
 export function statePath(tab, detail) {
   if (detail?.type === 'book') return `/books/${detail.id}`
   if (detail?.type === 'movie') return `/catalogue/${detail.id}`
+  if (detail?.type === 'board') return `/quotes/${detail.id}`
   if (tab === 'home') return '/'
   if (tab === 'library') return '/library'
   if (tab === 'movies') return '/catalogue'
