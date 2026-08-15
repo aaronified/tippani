@@ -1,6 +1,12 @@
 /bin/
 /data/
 /_site/
+# Both, and not just the one that was expected. Running vitest from the repo
+# root rather than from web/frontend puts its cache in a node_modules/ HERE,
+# which this file did not cover — so node_modules/.vite/vitest/…/results.json
+# was committed once and then reported itself modified after every test run,
+# forever. A path-anchored ignore only covers the path somebody thought of.
+node_modules/
 web/frontend/node_modules/
 *.tar.gz
 .vscode/

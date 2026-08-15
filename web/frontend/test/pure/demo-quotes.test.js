@@ -118,3 +118,43 @@ describe('stats', () => {
     expect(total).toBeGreaterThanOrEqual(4)
   })
 })
+
+// ---- what a SEARCH hit carries (1.14.2) -------------------------------------
+//
+// Found while adding the quiz mark to the five hit shapes: the shim's annHit
+// and dlgHit had no `color`, and the server's have had one since 1.7.1 — the
+// release whose whole subject was that a quote is the same object wherever it
+// is listed. So the demo's search results drew every book highlight and every
+// film line in the fallback border grey while the real app drew six named
+// categories, and nothing could have caught it: the shim answers 200 with a
+// plausible object and the component reads a field that is simply not there.
+//
+// Exactly the `created_at`/`created` class the file header already names.
+describe('the shapes /search answers with', () => {
+  const hits = (q) => route('GET', '/search', new URLSearchParams({ q }), null)[1]
+
+  it('gives a book highlight its colour category', () => {
+    const h = hits('margins').annotations[0]
+    expect(h).toBeTruthy()
+    // The VALUE, not merely a defined field: 'yellow' is the storage default,
+    // so asserting truthiness would pass for a shim that had lost the mapping
+    // and was reporting slot 1 for everything.
+    expect(h.color).toBe('yellow')
+  })
+
+  it('gives a film line its colour category', () => {
+    const h = hits('mistake').dialogues[0] || hits('the').dialogues[0]
+    expect(h).toBeTruthy()
+    expect(typeof h.color).toBe('string')
+    expect(h.color).not.toBe('')
+  })
+
+  // The quiz mark's own fields, on all five shapes, for the same reason.
+  it('says whether the quiz will draw it, on the row and on its work', () => {
+    const r = hits('quiet')
+    const h = r.annotations[0]
+    expect(h).toBeTruthy()
+    expect(h.review_excluded).toBe(true) // highlight 2 is skipped on its own account
+    expect(h.work_review_excluded).toBe(false) // its book is not
+  })
+})

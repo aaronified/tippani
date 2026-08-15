@@ -133,16 +133,22 @@ const CAST = {
   3: [{ character: 'Ana', actor: 'L. Reyes' }],
   4: [{ character: 'Mira', actor: 'E. Sen' }],
 }
+// EVERY LINE CARRIES A COLOUR, because every dialogues row on the server does:
+// the column is TEXT NOT NULL DEFAULT 'yellow', so "no colour" is not a state
+// that exists. These had none at all, so the demo's film lines rendered through
+// `categoryVar(d.color) || 'var(--hl-1)'` and came out as slot 1 — which is a
+// real category somebody may have named, i.e. the app asserting a category
+// nobody chose, on every line, in the one build strangers see.
 const DIALOGUES = [
-  { id: 1, movie_id: 1, quote: "We don't remember days. We remember light, and the room it fell in.", note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:12:04', favorite: true, tags: ['light'], sticker_id: 2, sticker_x: 0.86, sticker_y: 0.1 },
-  { id: 2, movie_id: 1, quote: 'You came back. Nobody comes back.', note: '', character: 'Joel', actor: 'D. Kapoor', timestamp: '00:41:52', favorite: false, tags: [] },
-  { id: 3, movie_id: 1, quote: 'Roll the reel. Let them see what we were.', note: '', character: 'Mira', actor: 'E. Sen', timestamp: '01:48:20', favorite: true, tags: ['light'] },
-  { id: 4, movie_id: 2, quote: 'Every alibi is a little story we tell the clock.', note: '', character: 'Vaughn', actor: 'T. Marsh', timestamp: '00:22:10', favorite: false, tags: ['craft'] },
+  { id: 1, movie_id: 1, quote: "We don't remember days. We remember light, and the room it fell in.", note: '', color: 'yellow', character: 'Mira', actor: 'E. Sen', timestamp: '01:12:04', favorite: true, tags: ['light'], sticker_id: 2, sticker_x: 0.86, sticker_y: 0.1 },
+  { id: 2, movie_id: 1, quote: 'You came back. Nobody comes back.', note: '', color: 'pink', character: 'Joel', actor: 'D. Kapoor', timestamp: '00:41:52', favorite: false, tags: [] },
+  { id: 3, movie_id: 1, quote: 'Roll the reel. Let them see what we were.', note: '', color: 'green', character: 'Mira', actor: 'E. Sen', timestamp: '01:48:20', favorite: true, tags: ['light'] },
+  { id: 4, movie_id: 2, quote: 'Every alibi is a little story we tell the clock.', note: '', color: 'blue', character: 'Vaughn', actor: 'T. Marsh', timestamp: '00:22:10', favorite: false, tags: ['craft'] },
   // Movie 3 is a show, so its lines carry the episode they are from. Season 0 is
   // the specials strand — a real season, which is why unset has to be null.
-  { id: 5, movie_id: 3, quote: 'Seven reels, seven ways to lie about a summer.', note: '', character: 'Ana', actor: 'L. Reyes', season: 1, episode: 1, timestamp: '00:08:31', favorite: true, tags: ['craft'] },
-  { id: 6, movie_id: 3, quote: 'You cut the part where I was happy.', note: '', character: 'Ana', actor: 'L. Reyes', season: 2, episode: 6, timestamp: '00:34:02', favorite: false, tags: [] },
-  { id: 7, movie_id: 3, quote: 'The pilot never aired. Ask me why.', note: '', character: 'Ana', actor: 'L. Reyes', season: 0, episode: 1, timestamp: '', favorite: false, tags: [] },
+  { id: 5, movie_id: 3, quote: 'Seven reels, seven ways to lie about a summer.', note: '', color: 'purple', character: 'Ana', actor: 'L. Reyes', season: 1, episode: 1, timestamp: '00:08:31', favorite: true, tags: ['craft'] },
+  { id: 6, movie_id: 3, quote: 'You cut the part where I was happy.', note: '', color: 'orange', character: 'Ana', actor: 'L. Reyes', season: 2, episode: 6, timestamp: '00:34:02', favorite: false, tags: [] },
+  { id: 7, movie_id: 3, quote: 'The pilot never aired. Ask me why.', note: '', color: 'yellow', character: 'Ana', actor: 'L. Reyes', season: 0, episode: 1, timestamp: '', favorite: false, tags: [] },
 ]
 
 const TAGS = [
@@ -608,8 +614,8 @@ function search(q, scope) {
   // the one screen that reads it quietly shows the wrong thing forever.
   const bookHit = (b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index, review_excluded: !!b.review_excluded })
   const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type || 'movie', review_excluded: !!m.review_excluded })
-  const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note, review_excluded: !!a.review_excluded, work_review_excluded: !!b.review_excluded } }
-  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null, review_excluded: !!d.review_excluded, work_review_excluded: !!m.review_excluded } }
+  const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note, color: a.color, review_excluded: !!a.review_excluded, work_review_excluded: !!b.review_excluded } }
+  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', color: d.color, character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null, review_excluded: !!d.review_excluded, work_review_excluded: !!m.review_excluded } }
 
   const uttHit = (u) => ({ id: u.id, quote: u.quote, note: u.note || '', color: u.color, speaker: u.speaker, occasion: u.occasion, occasion_date: u.occasion_date, place: u.place, medium: u.medium, review_excluded: !!u.review_excluded })
 
