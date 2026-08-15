@@ -5,6 +5,132 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.2] - 2026-08-15
+
+### Added
+
+- **The three boards can be asked for, and a board says what it HOLDS.** Reported as "I still
+  cannot access the seeded boards" — and nothing was broken. 1.14.0 seeds boards from the quotes
+  you already have, which is right: nobody should open the app to three empty shelves they never
+  asked for. What nobody wrote down is the consequence. A reader with no standalone quotes gets no
+  boards at all, and no way to ask for the three the rest of the app talks about.
+
+  The offer sits on the **Add board** form, where you have already said you want a shelf, and it
+  *fills the form in* rather than creating anything: the name stays yours to change before you
+  press Create, which matters because a second board of the same name is a 409 and an editable
+  field beats an error. They stay on offer rather than vanishing once "added", because the app
+  cannot tell a Proverbs board you renamed to *Grandmother* from one you never made.
+
+  And a board carries a **kind** — plain or proverb — set on a toggle rather than inferred from its
+  name. Rename a proverb board to *Grandmother* and it is still one; call a plain board *Proverbs*
+  and nothing changes about it. Both of those are the correct answer, and they are why this is a
+  column rather than a name match. A proverb board asks for its languages at creation, which is
+  what turns the quote form's Language box from free text somebody has to spell consistently into a
+  short list, and what the optional per-language sections group by.
+
+- **One save for a Details panel full of self-saving rows.** Changing six fields cost six presses.
+  The per-row saves stay exactly as they are — for one line they are the right answer — and the
+  header now offers a master ✓ beside them.
+
+  **It sends one request, and that is correctness rather than thrift.** Every row PUTs the FULL
+  record with its own field changed, so looping the rows means six full-state writes over the top
+  of each other: run together the last reply wins, run in sequence each one still reads the item as
+  it stood before the previous reply landed. Either way five of your six edits are gone, behind
+  five green toasts saying they were saved. The rows register a patch, the panel merges them and
+  writes once, and a test asserts the request COUNT — a loop passes any test that only checks the
+  final field.
+
+- **An IMDb id on a film and on a show.** The two supplier ids a title carries are the ones this app
+  fetches *with*; IMDb is the one it cannot, because there is no public API. It is worth keeping
+  anyway: it is the id you are most likely to have to hand, and it names one title exactly.
+
+  TEXT and not INTEGER — `tt0111161` has leading zeros that are part of it, and a numeric column
+  gives back a URL that 404s. No UNIQUE index either, where both other ids have one: theirs are
+  dedupe keys for a fetch, and this fetches nothing, so the same constraint would only produce a
+  save that fails while naming a row you cannot see. A TMDB fetch fills it from the `external_ids`
+  appendix that rides along on the call the credits already needed — and for a *show* that appendix
+  is not a convenience but the only place the id exists. Or paste the URL.
+
+- **Favourite one quote from its own menu.** It was the single action the selection bar could do to
+  forty quotes and one card could not. The ♥ is drawn on the card but revealed by hovering, so on a
+  phone the most common thing anybody does to a quote was reachable in bulk and not one at a time.
+  It goes in the registry, so all three quote kinds pick it up at once, and the label says what
+  pressing it will DO — *Unfavourite* once the quote already is one.
+
+- **A quote says when the quiz has stopped asking.** Excluding a work has excluded its quotes since
+  the flag existed, and the card said nothing about it: skip a reference manual and its forty
+  highlights looked exactly like the forty thousand the quiz is still asking about, with no way to
+  tell but noticing they never came up.
+
+  So: the struck flash card, on any row the deck will not draw — the same glyph the *Skip in quiz*
+  button wears, beside the status dot, because the two answer one question between them. The dot
+  says how the recall stands; the mark says nothing is going to ask. Its label names which decision
+  put it there: *Not in the quiz* for the row itself, *Skipped with its book* when the work is out
+  and the highlight is only along for the ride, because those two are undone by different controls.
+
+  **And in search**, which is the half worth stating. All five hit shapes carry it now. Search was
+  already the one place a quote arrived without its COLOUR, and a mark that showed on every board
+  and not in results would have been that bug again with a different field — invisible on any one
+  screen, because each screen is internally consistent.
+
+- **A cover has its own menu**: Select, Fill gaps, the quiz toggle, Edit and Delete, on right-click
+  or a long press. Everything there is something the selection bar could already do to exactly one
+  thing you had picked — the bar and the cover read the same list now, and act through the same
+  code. Delete asks once and does not make you type a phrase, and the dialog names how many quotes
+  travel with the work, because a cover gives no hint that twelve are attached; the toast that
+  follows has an Undo. Favourite is deliberately absent: a work's ♥ belongs to its own page, where
+  the whole record is loaded, and setting it from a board would blank the fields the board never
+  fetched.
+
+- **Filter the catalogue by who is quoted in it.** The dropdown is the small half; which of two
+  available answers it means is the whole of it. The fetched cast and the credits on the lines you
+  saved are different sets, and they diverge for exactly the films a metadata fetch has touched and
+  nobody has quoted. The filter is built on the LINES, and that is forced rather than preferred:
+  `actor:` in search reads the same column, so a board built on the cast would filter to one set of
+  films and seed a search that answered with another — a filter whose meaning changes on the way to
+  the search box, silently, in the direction of *more* results, which reads as the search being
+  broken. No filter here ships without deciding what it means to a search, because the board hands
+  its filters to the search box as a seed.
+
+### Fixed
+
+- **An opened board is a detail page, so it looks like one on a phone.** It spent an entire row on a
+  single back arrow, with the board's name, its count and its filters in the row beneath. A book's
+  page has never done that — it puts all four in one bar — and the board page could not, because
+  the shared scaffold had no back slot and `/quotes` drew its own button above it with a comment
+  explaining why. That comment was the bug report. The slot is the fix rather than a stylesheet
+  tweak, so a board and a book are now the same page shape. Nothing moves on a desktop.
+
+- **The page holds still under a card menu, and the card says it is the one.** Two faults with one
+  cause: the menu is placed at the point the press landed, anchored to a coordinate rather than to
+  the card. So the page scrolled out from under it — leaving it hanging over some other card with
+  its actions still belonging to one now off screen — and nothing on screen ever said which card it
+  came from, which over a grid of near-identical covers means pressing Delete on faith. The page
+  locks while a menu is open, and the card wears the same accent ring a selected card does, because
+  the answer to "which one" is the card.
+
+- **A selection of books offered to add tags to them, and could never have done it.** There is no
+  book tag table and no `add_tags` on the works endpoint — only genres — so this was never an action
+  a selection of works could perform. Three of the four quote-only bulk actions state that rule in
+  the registry and this one did not; the only thing keeping the control off the bar was a callback
+  the bar happened not to pass, which is a guard in the wrong file. Found by a new test asserting
+  that anything the bar can do to a selection of one is on the card it came from — the check that
+  was missing while the item and bulk halves of the registry drifted for three releases.
+
+- **Every film line in the demo wore a colour nobody chose.** Not the search shim — the fixtures.
+  The column is `NOT NULL DEFAULT 'yellow'` on the server, so "no colour" is not a state a real row
+  can be in, and the demo's dialogues had none at all, so they fell through to slot 1: a real
+  category somebody may have named, asserted on every line, in the one build strangers see. The
+  search answers were missing the field on top of that. Nothing could have caught it — the shim
+  answers 200 with a plausible object and the component reads a field that is not there, which is
+  the same shape as the `created_at`/`created` drift the demo's own header warns about.
+
+- **The test runner's cache had been following the repo around.** The ignore file covered
+  `web/frontend/node_modules/` and not `node_modules/`, so running the suite from the repo root —
+  a real invocation, and the one that found an earlier divergence — wrote its cache somewhere
+  nothing ignored. One results file was committed and then reported itself modified after every
+  test run from then on. A path-anchored ignore only covers the path somebody thought of.
+
 ## [1.14.1] - 2026-08-15
 
 ### Fixed

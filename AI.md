@@ -57,15 +57,15 @@ The audit trail is the git history itself: nearly every commit carries a
 
 | | |
 | :-- | :-- |
-| Commits in the repository | 447 |
-| Commits with an AI co-author trailer | **443** |
+| Commits in the repository | 522 |
+| Commits with an AI co-author trailer | **518** |
 | Period | 2026-07-02 → 2026-08-14 |
 
 Models used, by commit count:
 
 | Model | Commits |
 | :-- | --: |
-| Claude Opus 5 | 227 |
+| Claude Opus 5 | 302 |
 | Claude Opus 4.8 | 151 |
 | Claude Fable 5 | 55 |
 | Claude Haiku 4.5 | 5 |
@@ -103,22 +103,23 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **725 Go test functions and 1,581 frontend tests, across 203 test files** — the
+- **765 Go test functions and 1,672 frontend tests, across 217 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 121 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 127 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 82 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 90 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
   rather than trust it — these three had drifted from 645 / 1,293 / 180 before
-  anyone checked them at 1.12.0, which is why each one now sits beside the
-  command that produces it.
+  anyone checked them at 1.12.0, and from 725 / 1,581 / 203 before they were
+  recounted at 1.14.2, which is why each one now sits beside the command that
+  produces it.
 
   Two habits behind those numbers are worth naming, because they are what stops a
   plausible test from being a useless one. **Assert on values, never on counts**:
