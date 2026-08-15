@@ -68,7 +68,27 @@ import (
 //	This also fixes a deck that served nothing: a question that could not be
 //	built used to drop its card while the badge went on counting it, so a
 //	library with one work in it showed cards due and served none.
-const apiRevision = 6
+//
+// 7 — the rest of that table, and three smaller surfaces.
+//
+//	`cloze` masks a phrase out of the quote and asks for it back. The card
+//	carries the masked text and NO answer, because unlike an option index a
+//	cloze answer IS the words being recalled — so POST /review/answer takes an
+//	`attempt`, grades it on the server, and IGNORES the client's `result`. The
+//	reply carries the graded `result` and the `answer` itself.
+//
+//	`speaker` asks who said a film or show line, and its options are ACTORS
+//	drawn from that film's own stored cast.
+//
+//	GET /review/practice takes `book`, `movie`, `tag`, `color` and `person` —
+//	a themed round. GET /review/daily deliberately does not: that deck is the
+//	schedule, and filtering it would leave the cards actually due unasked.
+//
+//	Outside the review loop: `?id=` on /annotations, /dialogues and /quotes
+//	returns one row (a client that can edit a quote from a card needs full
+//	state before it can PUT full state), and /fonts uploads, lists, serves and
+//	deletes a reader's own type.
+const apiRevision = 7
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -132,6 +152,25 @@ var apiFeatures = []string{
 	// separately from quote-categories because it is genuinely optional: a client
 	// can show the three boards perfectly well and never offer to fill one.
 	"proverb-starters", // GET/POST /quotes/starters
+	// Fill in the blank. NAMED SEPARATELY from review-directions, unlike `flip`,
+	// and the difference is the reason for the rule: a flip card needs nothing of
+	// the client but a reveal button, so an old client meets it as a card with no
+	// options and copes. A cloze card needs the client to send an `attempt` and to
+	// understand that the server, not it, decides the grade — a client that
+	// rendered one without knowing this string would show a masked quote, four
+	// missing options and no way to answer.
+	"review-cloze", // `cloze` direction; `attempt` on /review/answer, `answer` in the reply
+	// Who said this — options are actors, out of the film's own cast.
+	"review-speaker", // `speaker` direction on screen cards
+	// Quiz me on this book, tag, colour or person. PRACTICE ONLY, and a client
+	// should not offer it over the daily deck: that deck is the schedule.
+	"review-themes", // book/movie/tag/color/person on GET /review/practice
+	// One quote by id, on all three lists. What a client needs before it can edit
+	// a quote it only has a review card for, since every one of those PUTs is
+	// full-state.
+	"quote-by-id", // ?id= on /annotations, /dialogues, /quotes
+	// Bring your own type. The server stores the bytes and never parses them.
+	"user-fonts", // GET/POST /fonts, GET /fonts/{id}/file, DELETE /fonts/{id}
 }
 
 // minClientRevision is the oldest client API revision this server still serves
