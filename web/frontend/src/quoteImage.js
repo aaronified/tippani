@@ -1,3 +1,5 @@
+import { fontChoice } from './fonts.js'
+
 // Quote-card images (ROADMAP §10). Render a highlight as a shareable PNG,
 // styled in the current paper/film skin, entirely in the browser — no server, no
 // library. A <canvas> is drawn by hand (the 2D API) so the output is a clean
@@ -8,19 +10,46 @@
 const DPR = 2 // draw at 2× for crisp text on any display
 const W = 640 // logical card width (px); height is computed from the content
 
-// The five faces the app already bundles (@fontsource). Named so canvas can ask
-// for them; we await document.fonts before drawing so they're not substituted.
-const FONTS = {
-  quote: 'italic 400 27px "Newsreader", Georgia, serif',
-  attrBold: '600 15px "Newsreader", Georgia, serif',
-  attrItalic: 'italic 400 15px "Newsreader", Georgia, serif',
-  attrPlain: '400 15px "Newsreader", Georgia, serif',
-  meta: '500 11.5px "IBM Plex Mono", ui-monospace, monospace',
-  note: '400 22px "Caveat", cursive',
-  tag: '600 11px "IBM Plex Mono", ui-monospace, monospace',
-  foot: '600 14px "Newsreader", Georgia, serif',
-  credit: '500 11px "IBM Plex Mono", ui-monospace, monospace',
-  bengali: '400 12px "Tiro Bangla", serif',
+// The faces this card draws with, built from the reader's own type settings.
+//
+// THIS IS THE SECOND CONSUMER OF THE TYPE PREFERENCES, and the easiest one to
+// forget: canvas cannot read a CSS custom property, so a font swap that only
+// rewrote the stylesheet would leave every share image in the old type — the
+// same class of bug as a filter that changes one screen. `fontChoice` is the
+// same resolver Settings and the stylesheet use.
+//
+// WHAT FOLLOWS THE PREFERENCE IS THE FAMILY, not the weights and italics. The
+// card is a drawn composition: its quote is italic and its footer is 600 because
+// the card is designed that way, not because the display ROLE is. Applying "all
+// caps" from Settings to a share image would restyle a picture somebody is about
+// to send to somebody else.
+//
+// The Indic faces sit inside each stack after the Latin one, exactly as they do
+// in index.css — canvas resolves a font list the same way CSS does, so a Bengali
+// quote draws in the Bengali face rather than in a system fallback.
+let FONTS = buildFonts()
+
+function buildFonts() {
+  const fam = (role) => fontChoice(role).family
+  const disp = fam('display')
+  const mono = fam('mono')
+  const hand = fam('hand')
+  const bn = fam('bengali')
+  const dv = fam('devanagari')
+  const serif = `"${disp}", "${bn}", "${dv}", Georgia, serif`
+  const code = `"${mono}", ui-monospace, monospace`
+  return {
+    quote: `italic 400 27px ${serif}`,
+    attrBold: `600 15px ${serif}`,
+    attrItalic: `italic 400 15px ${serif}`,
+    attrPlain: `400 15px ${serif}`,
+    meta: `500 11.5px ${code}`,
+    note: `400 22px "${hand}", "${bn}", "${dv}", cursive`,
+    tag: `600 11px ${code}`,
+    foot: `600 14px ${serif}`,
+    credit: `500 11px ${code}`,
+    bengali: `400 12px "${bn}", serif`,
+  }
 }
 
 // ensureFonts resolves once the faces used by the card are loaded, so the first
@@ -31,10 +60,16 @@ export function ensureFonts() {
   if (typeof document === 'undefined' || !document.fonts || !document.fonts.load) {
     return Promise.resolve()
   }
+  // Rebuilt HERE, on every call, because this is the one thing every draw
+  // awaits — so a face changed in Settings is in the next image without the
+  // module having to be told about it.
+  FONTS = buildFonts()
+  const fam = (role) => fontChoice(role).family
   const faces = [
-    'italic 27px "Newsreader"', '600 15px "Newsreader"', 'italic 15px "Newsreader"', '600 14px "Newsreader"',
-    '500 12px "IBM Plex Mono"', '600 11px "IBM Plex Mono"', '500 11px "IBM Plex Mono"',
-    '22px "Caveat"', '12px "Tiro Bangla"', '12px "Tiro Devanagari Hindi"',
+    `italic 27px "${fam('display')}"`, `600 15px "${fam('display')}"`,
+    `italic 15px "${fam('display')}"`, `600 14px "${fam('display')}"`,
+    `500 12px "${fam('mono')}"`, `600 11px "${fam('mono')}"`, `500 11px "${fam('mono')}"`,
+    `22px "${fam('hand')}"`, `12px "${fam('bengali')}"`, `12px "${fam('devanagari')}"`,
   ]
   return Promise.all(faces.map((f) => document.fonts.load(f).catch(() => {}))).then(() => {})
 }

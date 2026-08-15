@@ -240,7 +240,7 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
 const TRANSLATION_LINE = {
   display: 'block',
   marginTop: 3,
-  fontFamily: 'var(--font-display)',
+  fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', fontVariantNumeric: 'var(--font-display-figures)',
   fontStyle: 'italic',
   fontSize: '13px',
   textTransform: 'none',

@@ -467,7 +467,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
       <div className="min-w-0 flex-1">
         <p
           className="whitespace-pre-wrap"
-          style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15.5, lineHeight: 1.5 }}
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15.5, lineHeight: 1.5 }}
         >
           {quote.quote || quote.note}
         </p>
@@ -763,7 +763,7 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
     <div className="space-y-4">
       <p
         className="whitespace-pre-wrap"
-        style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16 }}
+        style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 16 }}
       >
         “{quote.quote || quote.note}”
       </p>

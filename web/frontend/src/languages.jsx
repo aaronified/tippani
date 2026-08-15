@@ -181,7 +181,7 @@ export function LanguageMark({ languages, size = 20, ring = 'var(--card)', class
         // A flag is an emoji and a script letter is type. Leaving the font to
         // the cascade lets each render as itself instead of forcing one voice
         // onto both.
-        fontFamily: 'var(--font-ui)',
+        fontFamily: 'var(--font-ui)', fontWeight: 'var(--font-ui-weight)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)',
       }}
     >
       {mark}

@@ -191,8 +191,8 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
           // centres the glyphs in the field instead of seating them high.
           style={
             mobile
-              ? { fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }
-              : { fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }
+              ? { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }
+              : { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }
           }
           placeholder="Search, or type tag: author: colour:…"
           value={q}
@@ -1250,7 +1250,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
           isBook ? (
             <ChildHit key={h.id} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
               {h.quote && (
-                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
+                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
               )}
               {h.note && (
                 <HandNote>
@@ -1260,7 +1260,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
             </ChildHit>
           ) : (
             <ChildHit key={h.id} color={h.color} hit={h} parent={g.media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-              <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
+              <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15, lineHeight: 1.5 }} />
               {/* The margin note (highlighted — this is what a Notes hit matched on). */}
               {h.note && (
                 <HandNote>
@@ -1423,7 +1423,7 @@ function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
         <MatchWindow
           text={h.quote || h.note}
           terms={terms}
-          style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }}
         />
       )}
       <span className="mt-1 flex items-center gap-1.5">
@@ -1458,7 +1458,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             {(t.annotations || []).map((h) => (
               <ChildHit key={`a${h.id}`} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
                 {(h.quote || h.note) && (
-                  <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
+                  <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
                 )}
                 <MonoLabel className="mt-1 block min-w-0 truncate">
                   {[h.book_title, h.book_author].filter(Boolean).join(' · ')}
@@ -1467,7 +1467,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             ))}
             {(t.dialogues || []).map((h) => (
               <ChildHit key={`d${h.id}`} color={h.color} hit={h} parent={h.movie_media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
+                <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15, lineHeight: 1.5 }} />
                 <MonoLabel className="mt-1 block min-w-0 truncate">
                   {[h.movie_title, h.character].filter(Boolean).join(' · ')}
                 </MonoLabel>

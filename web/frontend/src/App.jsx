@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
 import { applyLanguageMarks } from './languages.jsx'
+import { applyFonts } from './fonts.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
 import AddSurface from './AddSurface.jsx'
@@ -107,6 +108,7 @@ export default function App() {
       // there is no second place that has to remember to keep it current.
       applyReviewPrefs(user.preferences || {})
       applyLanguageMarks(user.preferences || {})
+      applyFonts(user.preferences || {})
     }
   }, [user])
 
@@ -740,7 +742,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
         <div className="drawer-header">
           <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
           <div className="min-w-0">
-            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.02em' }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.02em' }}>
               tippani
             </p>
             <p className="bengali" style={{ fontSize: 11.5, color: 'var(--amber)' }} aria-hidden="true">

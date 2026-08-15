@@ -331,6 +331,24 @@ type prefs struct {
 	// splitting off. Unset (older rows) defaults to all four; libraries that
 	// store authors as "Last, First" turn comma off.
 	CreditSeparators string `json:"creditSeparators"`
+	// The type. Six roles, each with a face token and a comma-separated list of
+	// style modifiers — twelve flat fields because prefs is compared with `!=` in
+	// ui_test.go and a map would not compile. "" is unset and means the built-in.
+	// The server validates the SHAPE of a token and nothing else; which face
+	// `literata` names is a question for the browser that draws it. See
+	// font_prefs.go.
+	FontDisplay         string `json:"fontDisplay"`
+	FontUI              string `json:"fontUi"`
+	FontMono            string `json:"fontMono"`
+	FontHand            string `json:"fontHand"`
+	FontBengali         string `json:"fontBengali"`
+	FontDevanagari      string `json:"fontDevanagari"`
+	FontDisplayStyle    string `json:"fontDisplayStyle"`
+	FontUIStyle         string `json:"fontUiStyle"`
+	FontMonoStyle       string `json:"fontMonoStyle"`
+	FontHandStyle       string `json:"fontHandStyle"`
+	FontBengaliStyle    string `json:"fontBengaliStyle"`
+	FontDevanagariStyle string `json:"fontDevanagariStyle"`
 	// LanguageMarks: the mark a proverb card wears where every other quote wears
 	// a face. A JSON object of folded language name -> glyph, stored as a STRING
 	// because prefs is a flat comparable struct (ui_test.go compares two with
@@ -567,6 +585,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	} else {
 		p.CreditSeparators = defaultCreditSeps
 	}
+	normalizeFonts(&p)
 	// A bad blob already in the database reads as NO marks rather than failing the
 	// login. The PUT below is where a client's mistake is refused.
 	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
@@ -603,20 +622,32 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var in struct {
-		Aesthetic        *string  `json:"aesthetic"`
-		Theme            *string  `json:"theme"`
-		Accent           *string  `json:"accent"`
-		CreditSeparators *string  `json:"creditSeparators"`
-		LanguageMarks    *string  `json:"languageMarks"`
-		TrashDays        *int     `json:"trashDays"`
-		SRDaily          *int     `json:"srDaily"`
-		SRReviewScope    *string  `json:"srReviewScope"`
-		SRSeen           *float64 `json:"srSeen"`
-		SRPracticeCounts *bool    `json:"srPracticeCounts"`
-		SRAdaptive       *bool    `json:"srAdaptive"`
-		SRSubmit         *bool    `json:"srSubmit"`
-		Tour             *string  `json:"tour"`
-		TourStep         *int     `json:"tourStep"`
+		Aesthetic           *string  `json:"aesthetic"`
+		Theme               *string  `json:"theme"`
+		Accent              *string  `json:"accent"`
+		CreditSeparators    *string  `json:"creditSeparators"`
+		LanguageMarks       *string  `json:"languageMarks"`
+		FontDisplay         *string  `json:"fontDisplay"`
+		FontUI              *string  `json:"fontUi"`
+		FontMono            *string  `json:"fontMono"`
+		FontHand            *string  `json:"fontHand"`
+		FontBengali         *string  `json:"fontBengali"`
+		FontDevanagari      *string  `json:"fontDevanagari"`
+		FontDisplayStyle    *string  `json:"fontDisplayStyle"`
+		FontUIStyle         *string  `json:"fontUiStyle"`
+		FontMonoStyle       *string  `json:"fontMonoStyle"`
+		FontHandStyle       *string  `json:"fontHandStyle"`
+		FontBengaliStyle    *string  `json:"fontBengaliStyle"`
+		FontDevanagariStyle *string  `json:"fontDevanagariStyle"`
+		TrashDays           *int     `json:"trashDays"`
+		SRDaily             *int     `json:"srDaily"`
+		SRReviewScope       *string  `json:"srReviewScope"`
+		SRSeen              *float64 `json:"srSeen"`
+		SRPracticeCounts    *bool    `json:"srPracticeCounts"`
+		SRAdaptive          *bool    `json:"srAdaptive"`
+		SRSubmit            *bool    `json:"srSubmit"`
+		Tour                *string  `json:"tour"`
+		TourStep            *int     `json:"tourStep"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -666,6 +697,38 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.CreditSeparators = norm
+	}
+	// The type. An EMPTY string is a real value on every one of these — it means
+	// "back to the built-in" — so none of them can use the `!= ""` shorthand the
+	// older string fields above use.
+	inFaces := []*string{in.FontDisplay, in.FontUI, in.FontMono, in.FontHand, in.FontBengali, in.FontDevanagari}
+	inStyles := []*string{
+		in.FontDisplayStyle, in.FontUIStyle, in.FontMonoStyle,
+		in.FontHandStyle, in.FontBengaliStyle, in.FontDevanagariStyle,
+	}
+	curFaces, curStyles := fontFacePtrs(&cur), fontStylePtrs(&cur)
+	for i := range inFaces {
+		if inFaces[i] == nil {
+			continue
+		}
+		v, ok := normalizeFontToken(*inFaces[i])
+		if !ok {
+			writeErr(w, http.StatusBadRequest, "font must be a short token like source-serif-4")
+			return
+		}
+		*curFaces[i] = v
+	}
+	for i := range inStyles {
+		if inStyles[i] == nil {
+			continue
+		}
+		v, ok := normalizeFontStyles(*inStyles[i])
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"font style must be a comma-separated subset of bold, italic, smallcaps, allcaps, figures")
+			return
+		}
+		*curStyles[i] = v
 	}
 	// An EMPTY string is a real value here — "clear every mark I set" — so this
 	// cannot use the `!= ""` shorthand its neighbour above uses.

@@ -96,7 +96,7 @@ import {
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
-const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 16.5, lineHeight: 1.55 }
+const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 16.5, lineHeight: 1.55 }
 
 // Library is the books tab (§8.3): the cover grid, or a single book's detail
 // view (§8.5). Adding anything — a book, a highlight, an import — belongs to the

@@ -190,7 +190,7 @@ function DailyQuizCard({ onPending, states, onStates, adaptive, submitStep }) {
         <div className="review-card-body py-4 text-center" style={{ padding: '18px 6px 12px' }}>
           <p
             aria-hidden="true"
-            style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
+            style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
           >
             {tally.got || tally.forgot ? 'all caught up ✓' : 'nothing due today'}
           </p>
@@ -332,7 +332,7 @@ function PracticeCard({ onStates, userId, submitStep }) {
 
       {phase === 'done' && (
         <div className="review-card-body py-2 text-center">
-          <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
+          <p aria-hidden="true" style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}>
             {lastRound.got} / {lastRound.got + lastRound.forgot}
           </p>
           <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
@@ -650,7 +650,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           <h1
             className="mt-0.5"
             style={{
-              fontFamily: 'var(--font-display)',
+              fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
               fontWeight: 600,
               fontSize: 26,
               letterSpacing: '-0.01em',
@@ -673,7 +673,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       <div className="grid grid-cols-2 gap-2.5">
         <Tooltip label="Open the Library" className="flex items-stretch">
           <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
               {stats ? stats.books : '–'}
             </p>
             <MonoLabel style={{ fontSize: 11 }}>books · {stats ? stats.annotations : '–'} quotes</MonoLabel>
@@ -681,7 +681,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         </Tooltip>
         <Tooltip label="Open the Catalogue" className="flex items-stretch">
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
               {stats ? stats.movies : '–'}
             </p>
             <MonoLabel style={{ fontSize: 11, color: 'var(--amber)' }}>
@@ -694,7 +694,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       {favs.length > 0 && (
         <section>
           <div className="mb-2.5 flex items-center gap-3">
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 18 }}>
               Favourites
             </h2>
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />
@@ -860,7 +860,7 @@ function FavouriteTile({
               </MonoLabel>
               <p
                 style={{
-                  fontFamily: 'var(--font-display)',
+                  fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
                   fontStyle: 'italic',
                   fontSize: 15,
                   lineHeight: 1.5,

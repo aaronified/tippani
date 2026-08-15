@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
 import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
 import { applyLanguageMarks, currentLanguageMarks, languageMarksBlob, languageMarksState, LanguageMark, MARK_PALETTE } from './languages.jsx'
+import { applyFonts, fontState, prefKey, serialiseFontStyles, stylePrefKey, stylesFor } from './fonts.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -78,7 +79,7 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'marks', 'sr', 'devices', 'trash', 'upd', 'backup']
+export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'marks', 'type', 'sr', 'devices', 'trash', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -113,11 +114,11 @@ export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
     ['meta', 'colors', 'marks', 'onboard'],
-    ['sr', 'devices', 'trash', 'upd', 'backup'],
+    ['sr', 'type', 'devices', 'trash', 'upd', 'backup'],
   ],
   3: [
     ['meta', 'colors', 'marks'], // the tall one, and the two cards that belong under it
-    ['sr', 'onboard'],
+    ['sr', 'type', 'onboard'],
     ['devices', 'trash', 'upd', 'backup'],
   ],
 }
@@ -140,6 +141,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
     marks: <LanguageMarksCard prefs={user.preferences} onSaved={onPreferences} />,
+    type: <TypeCard prefs={user.preferences} onSaved={onPreferences} />,
     devices: <DevicesCard />,
     // Every account has a bin, so this is not admin-gated — unlike the two cards
     // below it. It sits beside Backup because that is the corner of Settings you
@@ -258,7 +260,7 @@ function Slider({ label, hideLabel = false, min, max, step, value, unit = '', de
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
         {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--faint)' }}>{show}{unit}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)' }}>{show}{unit}</span>
       </div>
       <input
         type="range" min={min} max={max} step={step} value={v} aria-label={label}
@@ -505,6 +507,164 @@ export function ReviewScope({ value, onChange }) {
       </div>
     </div>
   )
+}
+
+// TypeCard — Settings → Type. Every face the app uses, doing its actual job.
+//
+// EACH ROW SETS ITS OWN ROLE'S REAL TEXT, not a specimen sentence. A type list
+// that puts "The quick brown fox" in every face tells you nothing about the one
+// question worth asking, which is how it looks doing THIS — the quote face
+// setting a quote, the label face setting a locator, the hand face setting a
+// margin note. It is also the only honest way to show the Bengali and Devanagari
+// rows, whose whole point is a script the specimen sentence does not contain.
+//
+// Every alternate is BUNDLED, not fetched. Tippani never contacts the network on
+// its own, and a type picker that loaded Google Fonts would be the first thing
+// in the app that did — on a screen about how your own words look. All OFL-1.1.
+function TypeCard({ prefs, onSaved }) {
+  const [rows, setRows] = useState(fontState)
+  const [openRole, setOpenRole] = useState(null)
+  const [err, setErr] = useState('')
+
+  useEffect(() => { setRows(fontState()) }, [prefs])
+
+  // save applies FIRST and asks after, like every other card here: the whole
+  // point of a type picker is seeing the change, and a round trip between the
+  // tap and the type is long enough to make the control feel broken.
+  async function save(patch) {
+    applyFonts({ ...(prefs || {}), ...collectFonts(rows), ...patch })
+    setRows(fontState())
+    const r = await json('PUT', '/auth/me/preferences', patch)
+    if (!r.ok) {
+      setErr(errText(r, 'could not save'))
+      applyFonts(prefs || {})
+      setRows(fontState())
+      return
+    }
+    setErr('')
+    onSaved?.(patch)
+  }
+
+  return (
+    <Card>
+      <SectionTitle
+        info="Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with the app and free to use — nothing here is fetched from anywhere."
+      >
+        Type
+      </SectionTitle>
+      <div>
+        {rows.map((row) => {
+          const open = openRole === row.key
+          return (
+            <div key={row.key} className="inline-field">
+              <div className={'inline-field-head' + (open ? '' : ' is-flush')} style={{ gap: 10 }}>
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    className="tp-link"
+                    aria-expanded={open}
+                    onClick={() => setOpenRole(open ? null : row.key)}
+                    style={{ fontWeight: 600 }}
+                  >
+                    {row.label}
+                  </button>
+                  <MonoLabel className="block" style={{ color: 'var(--faint)' }}>
+                    {row.chosen.name}
+                  </MonoLabel>
+                </div>
+              </div>
+              {/* The specimen, always visible: the row's own job, in the face
+                  currently set, so the list reads as a page of type rather than
+                  as a list of names. */}
+              <p
+                className="mb-1"
+                style={{
+                  fontFamily: `var(${row.prop})`,
+                  fontStyle: row.italic ? 'italic' : 'normal',
+                  fontSize: row.key === 'mono' ? 12.5 : 17,
+                  letterSpacing: row.key === 'mono' ? '.08em' : 0,
+                  lineHeight: 1.45,
+                  color: 'var(--ink)',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {row.sample}
+              </p>
+              {open && (
+                <div className="space-y-2 pb-2">
+                  <p className="microcopy">{row.what}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {row.faces.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        aria-pressed={row.chosen.id === f.id}
+                        className={'tp-filter-chip tactile' + (row.chosen.id === f.id ? ' active' : '')}
+                        title={f.note}
+                        onClick={() => save({ [prefKey(row.key)]: f.id })}
+                        style={{ fontFamily: `'${f.family}'` }}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>style</MonoLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {stylesFor(row.key).map((st) => {
+                        const on = row.styles.includes(st.id)
+                        return (
+                          <button
+                            key={st.id}
+                            type="button"
+                            aria-pressed={on}
+                            className={'tp-filter-chip tactile' + (on ? ' active' : '')}
+                            onClick={() =>
+                              save({
+                                [stylePrefKey(row.key)]: serialiseFontStyles(
+                                  on ? row.styles.filter((x) => x !== st.id) : [...row.styles, st.id],
+                                ),
+                              })
+                            }
+                          >
+                            {st.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {/* THE ONE CONTROL THAT WAS ASKED FOR AND IS NOT HERE. Whether
+                        a face is monospaced is a property of how it was drawn: no
+                        CSS makes a proportional face monospaced. "Lining figures"
+                        is the real thing behind the request — it lines the numbers
+                        up in columns — and the picker above is where you change
+                        the face itself. */}
+                    {row.key === 'mono' && (
+                      <p className="microcopy mt-1.5">
+                        There is no &ldquo;monospace&rdquo; switch: whether a face is monospaced is how it was
+                        drawn, not a style. Change the face above instead.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <ErrorText>{err}</ErrorText>
+    </Card>
+  )
+}
+
+// collectFonts turns the rendered rows back into the preference shape, so an
+// optimistic apply carries every role rather than only the one being changed.
+function collectFonts(rows) {
+  const out = {}
+  for (const r of rows) {
+    out[prefKey(r.key)] = r.chosen.id
+    out[stylePrefKey(r.key)] = serialiseFontStyles(r.styles)
+  }
+  return out
 }
 
 // LanguageMarksCard — what a proverb wears where every other quote wears a face.
@@ -768,13 +928,13 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="tp-link"
-                style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+                style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontWeight: 600 }}
               >
                 {current} ↗
               </a>
             </Tooltip>
           ) : (
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{current}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontWeight: 600 }}>{current}</span>
           )}
         </div>
 
@@ -836,7 +996,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <input
                         className="tp-input"
-                        style={{ maxWidth: 140, fontFamily: 'var(--font-mono)' }}
+                        style={{ maxWidth: 140, fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
                         placeholder="UPDATE"
                         value={confirm}
                         onChange={(e) => setConfirm(e.target.value)}
@@ -864,7 +1024,7 @@ function UpdatesCard({ user, update, onUpdateInfo }) {
                       className="flex items-center justify-between gap-2"
                       style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px' }}
                     >
-                      <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, overflowWrap: 'anywhere' }}>
+                      <code style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12.5, overflowWrap: 'anywhere' }}>
                         {info.guided_command}
                       </code>
                       <button type="button" className="tp-link" onClick={copyCmd} style={{ whiteSpace: 'nowrap' }}>
@@ -1190,7 +1350,7 @@ function DevicesCard() {
           <div
             className="mt-1 select-all"
             style={{
-              fontFamily: 'var(--font-mono)',
+              fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)',
               fontSize: 30,
               letterSpacing: '0.18em',
               fontWeight: 600,
@@ -1369,7 +1529,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           <MonoLabel>Type RESTORE</MonoLabel>
           <input
             className="tp-input"
-            style={{ fontFamily: 'var(--font-mono)' }}
+            style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
             autoFocus
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
@@ -1857,7 +2017,7 @@ function SectionTitle({ children, right, info, infoTitle }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-1.5">
-        <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }}>{children}</h2>
+        <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 16.5, fontWeight: 600 }}>{children}</h2>
         {info && <InfoDot text={info} title={infoTitle || (typeof children === 'string' ? children : 'About this')} />}
       </div>
       {right}
@@ -1879,7 +2039,7 @@ function StatusChip({ tone = 'muted', children }) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        fontFamily: 'var(--font-mono)',
+        fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)',
         fontSize: 10.5,
         fontWeight: 500,
         letterSpacing: '.12em',
@@ -1919,7 +2079,7 @@ function SizeSlider({ label, storageKey, def }) {
           onChange={(e) => setSize(Number(e.target.value))}
           style={{ width: 190, accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
         />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--faint)', minWidth: 42 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: 'var(--faint)', minWidth: 42 }}>
           {size}px
         </span>
       </div>
@@ -1980,7 +2140,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
                   <i key={i} style={{ width: 5, height: 5, borderRadius: 2, background: spec.holes, display: 'block' }} />
                 ))}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 7, letterSpacing: '.2em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 7, letterSpacing: '.2em', color: `color-mix(in srgb, ${spec.amber} 60%, transparent)` }}>
                 {code} ▸
               </span>
             </>
@@ -1997,7 +2157,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
             padding: '10px 11px',
           }}
         >
-          <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.35, color: spec.ink }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.35, color: spec.ink }}>
             the margins, wider than the text…
           </p>
           <div className="mt-2 flex items-center gap-2">
@@ -2014,7 +2174,7 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
           </span>
         )}
       </div>
-      <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
+      <p className="mt-2" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: selected ? 'var(--accent-ui)' : 'var(--faint)' }}>
         {spec.label}
       </p>
     </button>
@@ -2399,7 +2559,7 @@ function Metadata({ user, onPreferences }) {
         </div>
       )}
       {lookup?.ok === false && lookup.error && (
-        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--error)' }}>
+        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 11, color: 'var(--error)' }}>
           last error: {lookup.error}
         </p>
       )}

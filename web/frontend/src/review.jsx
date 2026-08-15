@@ -131,7 +131,7 @@ function QuoteBlock({ card }) {
     >
       <p
         style={{
-          fontFamily: 'var(--font-display)',
+          fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
           fontStyle: 'italic',
           fontSize: 17,
           lineHeight: 1.5,
@@ -291,7 +291,7 @@ function SourceLines({ card, maps = {} }) {
   }
   return (
     <div>
-      <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.2 }}>
+      <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 18, lineHeight: 1.2 }}>
         {card.title}
       </p>
       {people.length > 0 && (
@@ -705,7 +705,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           ) : (
             <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
               <MonoLabel style={{ color: 'var(--faint)' }}>the missing words</MonoLabel>
-              <p className="mt-1" style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontStyle: 'italic' }}>
+              <p className="mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 17, fontStyle: 'italic' }}>
                 {lastResp?.answer || attempt}
               </p>
             </div>
@@ -986,7 +986,7 @@ export function ThemedPracticeDialog({ theme, onClose }) {
           <div className="py-2 text-center">
             <p
               aria-hidden="true"
-              style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
+              style={{ fontFamily: 'var(--font-hand)', fontWeight: 'var(--font-hand-weight)', fontStyle: 'var(--font-hand-style)', fontVariantCaps: 'var(--font-hand-caps)', textTransform: 'var(--font-hand-case)', fontVariantNumeric: 'var(--font-hand-figures)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
             >
               {tally.got} / {tally.got + tally.forgot}
             </p>

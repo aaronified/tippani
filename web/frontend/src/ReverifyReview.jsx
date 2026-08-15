@@ -120,7 +120,7 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
           onClick={onToggleOpen}
           aria-expanded={open}
         >
-          <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontSize: 15.5 }}>
+          <span className="min-w-0 truncate font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 15.5 }}>
             {item.title || item.name}
           </span>
           <MonoLabel style={{ fontSize: 9.5, flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>
@@ -155,6 +155,7 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
+
  const mobile = useIsMobileScreen()
   const [items, setItems] = useState([]) // previewed items, all statuses
   const [progress, setProgress] = useState({ done: 0, total: 0 })

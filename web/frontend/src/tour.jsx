@@ -319,12 +319,12 @@ function DemoQuote({ kind }) {
   const q = SAMPLE_QUOTES[kind]
   return (
     <figure className="tour-demo">
-      <blockquote style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+      <blockquote style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
         {kind === 'book' ? `“${q.quote}”` : q.quote}
       </blockquote>
       <figcaption
         className="mt-2"
-        style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.06em', color: 'var(--faint)' }}
+        style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 10.5, letterSpacing: '.06em', color: 'var(--faint)' }}
       >
         {kind === 'book' ? (
           <>— {q.author}, <i>{q.title}</i> · {q.meta}</>
@@ -470,7 +470,7 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
           <button type="button" className="tp-link" onClick={later}>finish later</button>
         </div>
         <div className="mt-1.5 flex items-center gap-1.5">
-          <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: 16.5, fontWeight: 600 }}>
+          <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 16.5, fontWeight: 600 }}>
             {step.title}
           </h2>
           {step.more && <InfoDot title={step.title} text={step.more} />}

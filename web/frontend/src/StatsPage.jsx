@@ -46,7 +46,7 @@ function SectionHead({ label, right }) {
 function StatTile({ n, label, heart, dot }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 26, fontWeight: 500, lineHeight: 1, color: 'var(--ink)' }}>
         {dot && <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 999, flex: '0 0 auto', background: dot.filled ? dot.color : 'transparent', border: `1.5px solid ${dot.color}` }} />}
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n ?? 0}</span>
         {heart && <span style={{ color: 'var(--accent-ui)', fontSize: 13, lineHeight: 1 }}>♥</span>}
@@ -402,7 +402,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, onSearch }) {
             <button
               type="button"
               className="truncate text-left"
-              style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+              style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
               onClick={() => onSearch?.(r.name)}
             >
               {r.name}
@@ -584,7 +584,7 @@ function LeaderList({ rows, onSearch }) {
                 <button
                   type="button"
                   className="truncate text-left"
-                  style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={() => onSearch?.(r.name)}
                 >
                   {r.name}
@@ -1248,7 +1248,7 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
                 <button
                   type="button"
                   className="truncate text-left"
-                  style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
+                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={onOpen}
                 >
                   {title}
@@ -1257,13 +1257,13 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
             ) : (
               <span
                 title={title || undefined}
-                style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 15, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
                 {title || '—'}
               </span>
             )}
             {count != null && (
-              <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontSize: 12, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
+              <span style={{ flex: '0 0 auto', fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 12, color: amber ? 'var(--amber)' : 'var(--accent-ui)' }}>
                 {count}
               </span>
             )}
