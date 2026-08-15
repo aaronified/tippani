@@ -45,7 +45,7 @@ import {
 } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
 import { useBulkOps } from './bulkOps.jsx'
-import { selectionClick } from './selection.jsx'
+import { selectionClick, selectionMenuItems } from './selection.jsx'
 
 // ---- shelf state (§3f) -----------------------------------------------------
 // A work has one shelf state, and everything visual keys off it: the colour bar
@@ -836,15 +836,12 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     remove: onChanged ? () => setAsking(true) : undefined,
   })
   // SELECT FIRST, the same as a quote card's menu: the gesture that asks "what
-  // can I do to this" is also how you start doing it to several.
-  const menuItems = acts.map((x) => ({ ...x, onClick: x.run }))
-  if (selection) {
-    menuItems.unshift({
-      id: 'select',
-      label: selection.isSelected(item.id) ? 'Deselect' : 'Select',
-      onClick: () => selection.toggle(item.id, selectKind),
-    })
-  }
+  // can I do to this" is also how you start doing it to several. Select all
+  // under it, from the shared helper.
+  const menuItems = [
+    ...selectionMenuItems(selection, item.id, selectKind),
+    ...acts.map((x) => ({ ...x, onClick: x.run })),
+  ]
   const { cardProps, menuClass, menu } = useCardMenu(
     menuItems,
     selection ? { onLongPress: () => selection.toggle(item.id, selectKind) } : undefined,

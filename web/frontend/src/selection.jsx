@@ -158,6 +158,12 @@ export function useSelection(orderedIds = []) {
     selected: ids,
     ids: [...ids],
     count: ids.size,
+    // How many are on screen, and whether the selection already holds all of
+    // them. Both exist for the menu's Select all / Deselect all pair: an item
+    // that offers to select everything when everything is already selected is a
+    // dead control, and this board has a stated position on those.
+    total: visible.length,
+    allSelected: visible.length > 0 && ids.size >= visible.length,
     // `open` is the mode; `active` is the same question and is what every board
     // already reads for `.is-selecting`, so it is an alias rather than a second
     // concept. It used to mean `count > 0`, which is why the marks came and went
@@ -200,4 +206,45 @@ export function selectionClick(e, { active }) {
   if (e.shiftKey) return 'extend'
   if (e.metaKey || e.ctrlKey) return 'toggle'
   return active ? 'toggle' : 'open'
+}
+
+// selectionMenuItems — the select controls a card's own menu puts above the
+// actions, for one card, in one place.
+//
+// WHY IT IS A FUNCTION AND NOT THREE COPIES. Select was built inline in
+// Library, Movies and works, identically, three times. Adding Select all beside
+// it would have been a fourth, fifth and sixth copy of a decision — and this
+// repo already has a file whose entire reason for existing is that an action
+// defined per-surface drifts per-surface (actions.jsx, and the book tile that
+// offered nothing for three releases). One list, every surface renders it.
+//
+// SELECT ALL IS PAIRED WITH ITS UNDO rather than standing alone. With everything
+// already picked, "Select all" does nothing — and a control that does nothing on
+// a screen you reach it from teaches you to stop reading the menu. So it reads
+// "Deselect all" at that point, which is never dead and is the thing you
+// actually want next.
+//
+// It selects what is ON SCREEN, not what is in the library. That is the same
+// promise the bar makes — the selection drops anything a filter takes away, so
+// the number in the bar is always a number it can act on — and "all" meaning
+// four hundred rows a filter is hiding would break it.
+export function selectionMenuItems(selection, id, kind) {
+  if (!selection) return []
+  const items = [
+    {
+      id: 'select',
+      label: selection.isSelected(id) ? 'Deselect' : 'Select',
+      onClick: () => selection.toggle(id, kind),
+    },
+  ]
+  // Nothing to select all OF when the board holds one card — the item would
+  // duplicate the one above it.
+  if (selection.total > 1) {
+    items.push(
+      selection.allSelected
+        ? { id: 'deselect-all', label: 'Deselect all', onClick: () => selection.deselectAll() }
+        : { id: 'select-all', label: `Select all ${selection.total}`, onClick: () => selection.selectAll(kind) },
+    )
+  }
+  return items
 }

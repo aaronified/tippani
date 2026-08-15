@@ -9,7 +9,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
-import { selectionClick, useSelection } from './selection.jsx'
+import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
@@ -1775,15 +1775,12 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // The same list the row and the ⋯ render, on a right-click or Shift+F10; a long
   // press on the frame's whitespace SELECTS it, and a long press on the line itself
   // is left to the browser so a thumb can still pull a phrase out (useCardMenu).
-  const menuItems = acts.map((x) => ({ ...x, onClick: x.run }))
-  if (selection) {
-    // Select first, which is what makes the menu and multiselect one feature.
-    menuItems.unshift({
-      id: 'select',
-      label: selection.isSelected(d.id) ? 'Deselect' : 'Select',
-      onClick: () => selection.toggle(d.id, selectKind),
-    })
-  }
+  // Select first, which is what makes the menu and multiselect one feature, with
+  // Select all under it — one helper, so the three boards cannot disagree.
+  const menuItems = [
+    ...selectionMenuItems(selection, d.id, selectKind),
+    ...acts.map((x) => ({ ...x, onClick: x.run })),
+  ]
   const { cardProps, menuClass, menu } = useCardMenu(
     menuItems,
     selection ? { onLongPress: () => selection.toggle(d.id, selectKind) } : undefined,

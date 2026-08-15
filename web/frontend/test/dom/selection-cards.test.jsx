@@ -232,7 +232,47 @@ describe('the card menu', () => {
     fireEvent.contextMenu(cards()[0], { clientX: 10, clientY: 10 })
     const labels = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
     expect(labels[0]).toBe('Select')
-    expect(labels).toEqual(['Select', 'Copy', 'Share', 'Edit', 'Favourite', 'Delete'])
+    expect(labels).toEqual(['Select', 'Select all 3', 'Copy', 'Share', 'Edit', 'Favourite', 'Delete'])
+  })
+
+  // A MENU CLICK IS NOT A CARD CLICK, and the portal is what made that easy to
+  // get wrong: the menu renders into document.body, so it is nowhere near the
+  // card in the DOM — but a React event bubbles through the COMPONENT tree, and
+  // arrived at the card's own onClick regardless. With a selection up, that made
+  // every menu item silently toggle the card it was opened from.
+  it('does not toggle the card it was opened from', () => {
+    render(<Board />)
+    fireEvent.click(boxes()[0]) // a selection is up, so a plain click now toggles
+    expect(count()).toBe(1)
+    fireEvent.contextMenu(cards()[1], { clientX: 10, clientY: 10 })
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Copy'))
+    expect(count(), 'Copy also picked the card it was run from').toBe(1)
+  })
+
+  // Select all names its own count, because "all" on a filtered board is a
+  // promise about a number the reader cannot see. It selects what is ON SCREEN —
+  // the same thing the selection itself holds, since it drops anything a filter
+  // takes away.
+  it('selects every card on screen, and says how many that is', () => {
+    render(<Board />)
+    fireEvent.contextMenu(cards()[0], { clientX: 10, clientY: 10 })
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Select all 3'))
+    expect(count()).toBe(3)
+  })
+
+  // The pair, and the reason it is a pair: offering to select everything when
+  // everything is selected is a dead control, and this board has a position on
+  // those.
+  it('turns into Deselect all once everything is picked', () => {
+    render(<Board />)
+    fireEvent.contextMenu(cards()[0], { clientX: 10, clientY: 10 })
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Select all 3'))
+    fireEvent.contextMenu(cards()[0], { clientX: 10, clientY: 10 })
+    const labels = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
+    expect(labels).toContain('Deselect all')
+    expect(labels.some((l) => l.startsWith('Select all'))).toBe(false)
+    fireEvent.click(within(screen.getByRole('menu')).getByText('Deselect all'))
+    expect(count()).toBe(0)
   })
 
   it('says Deselect for one already picked', () => {

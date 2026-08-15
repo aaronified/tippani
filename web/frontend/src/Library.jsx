@@ -8,7 +8,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
-import { selectionClick, useSelection } from './selection.jsx'
+import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
@@ -1275,15 +1275,12 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
   // and multiselect one feature rather than two: the gesture that asks "what can I
-  // do to this" is also how you start doing it to several.
-  const menuItems = acts.map((x) => ({ ...x, onClick: x.run }))
-  if (selection) {
-    menuItems.unshift({
-      id: 'select',
-      label: selection.isSelected(a.id) ? 'Deselect' : 'Select',
-      onClick: () => selection.toggle(a.id, selectKind),
-    })
-  }
+  // do to this" is also how you start doing it to several. Select all sits under
+  // it, from the same helper every board uses (selection.jsx).
+  const menuItems = [
+    ...selectionMenuItems(selection, a.id, selectKind),
+    ...acts.map((x) => ({ ...x, onClick: x.run })),
+  ]
   // A long press on the card's WHITESPACE selects it; a long press on the quote
   // itself is left to the browser, so a thumb can still pull a phrase out of it.
   // Where there is no selection to enter, the press keeps opening the menu.

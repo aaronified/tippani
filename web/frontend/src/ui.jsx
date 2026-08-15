@@ -4862,7 +4862,15 @@ export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, re
           role="menuitem"
           className="menu-item"
           style={it.danger ? { color: "var(--error)" } : undefined}
-          onClick={() => {
+          // The menu is in a portal, so it is nowhere near the card in the DOM —
+          // but a React event travels the COMPONENT tree, not the DOM tree, and
+          // reaches the card regardless. This stops the BUBBLE half of that, so
+          // an ancestor whose plain onClick opens the item does not also run.
+          // The capture half is a different problem with a different fix, and it
+          // is in useCardMenu: a capture handler on the card fires BEFORE this
+          // one, so nothing written here could have stopped it.
+          onClick={(e) => {
+            e.stopPropagation()
             close()
             it.onClick()
           }}
@@ -5095,6 +5103,20 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
   // acted — long-pressing to select would select, then the trailing click would
   // deselect, and the gesture would appear to do nothing at all.
   const onClickCapture = (e) => {
+    // A CLICK INSIDE THE MENU IS THE MENU'S, not the card's.
+    //
+    // The menu renders through a portal, which puts it in document.body and out
+    // of the card entirely — in the DOM. React events travel the COMPONENT tree,
+    // where the menu is still the card's child, so the card's capture handler
+    // runs on every menu click, and it runs FIRST. On every board that selects on
+    // click that meant picking any item — Copy, Edit, Delete — also toggled the
+    // card it was opened from: the action ran, and quietly took the card out of
+    // the selection you were acting on.
+    //
+    // Reported as `true` (the caller skips its own click handler) rather than
+    // stopped: stopping it here is the capture phase, so the click would never
+    // reach the menu button it was aimed at and the item would not run at all.
+    if (e.target?.closest?.("[role=menu]")) return true;
     if (!fired.current) return false;
     fired.current = false;
     e.preventDefault();
