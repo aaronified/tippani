@@ -1,5 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { coverImgURL, json, errText } from './api.js'
+import {
+  addChip,
+  chipText,
+  facetOptions,
+  liftFacet,
+  makeChip,
+  narrowFacetOptions,
+  readFacetDraft,
+  removeChipAt,
+  searchQueryString,
+} from './facets.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
@@ -36,13 +48,57 @@ import {
   SortableTh,
   splitCommas,
   Tooltip,
+  useAnchoredPosition,
   useColumnsAt,
+  useDismiss,
   useIsMobileScreen,
   usePersistedState,
   useSort,
   ViewToggle,
   useBodyScrollLock,
 } from './ui.jsx'
+
+// ---- the vocabulary, fetched once and held for the session ------------------
+//
+// ONE REQUEST, NOT ONE PER KEYSTROKE. A personal library's vocabulary is a few
+// hundred names — small enough to filter in the browser and far too small to be
+// worth a round trip behind every character typed into a box that is already a
+// typeahead over the whole library.
+//
+// The cache is at MODULE scope rather than in the hook, so leaving Search and
+// coming back does not re-fetch, and the two places that will want this (the
+// box, and the filter sheets) share one copy. `pending` deduplicates the case
+// that actually happens: two components focusing in the same tick.
+let vocabCache = null
+let vocabPending = null
+
+export function primeSearchVocabulary() {
+  if (vocabCache) return Promise.resolve(vocabCache)
+  if (!vocabPending) {
+    vocabPending = json('GET', '/search/vocabulary').then((r) => {
+      vocabPending = null
+      // A vocabulary that would not load is an empty dropdown, never a broken
+      // search box: the grammar still parses and the chips still work, you just
+      // do not get offered the values.
+      if (r.ok && r.data) vocabCache = r.data
+      return vocabCache || {}
+    })
+  }
+  return vocabPending
+}
+
+// useSearchVocabulary fetches on FIRST FOCUS rather than on mount, so opening
+// the Search screen to read your last results costs nothing.
+function useSearchVocabulary() {
+  const [vocab, setVocab] = useState(vocabCache || {})
+  const asked = useRef(false)
+  const load = () => {
+    if (asked.current) return
+    asked.current = true
+    primeSearchVocabulary().then(setVocab)
+  }
+  return [vocab, load]
+}
 
 // SCOPES — where to look, and what each one looks like.
 //
@@ -66,6 +122,128 @@ const SCOPES = [
   ['quotes', 'Quotes', <IconQuote />],
 ]
 
+// SearchBox — the free-text field, the facet dropdown, and the chips beneath.
+//
+// THE BOX HOLDS FREE TEXT. Typing a known field name and a colon opens the
+// value dropdown; choosing a value LIFTS THE TOKEN OUT OF THE BOX INTO A CHIP,
+// exactly as TokenInput already lifts a typed tag into a pill. So `field:value`
+// is a typing affordance, not a wire format — the chips are what get sent, one
+// query parameter each.
+//
+// The dropdown is the only new interaction on this screen, and it is deliberately
+// the one readers already know: same anchored portal, same `.token-menu` skin,
+// same arrow-keys-and-Enter as the tag fields on every edit form.
+export function SearchBox({ q, setQ, chips, setChips, mobile, vocabulary, onFirstFocus }) {
+  const [open, setOpen] = useState(false)
+  const [hi, setHi] = useState(0)
+  const boxRef = useRef(null)
+  const inputRef = useRef(null)
+
+  const draft = readFacetDraft(q)
+  const options = draft ? narrowFacetOptions(facetOptions(draft.field, vocabulary, draft.value), draft.value) : []
+  // The menu only exists when there is something to offer, and the positioning
+  // hook has to agree with that or it measures an element never rendered.
+  const menuOpen = open && !!draft && options.length > 0
+  const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
+  useDismiss(menuOpen, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
+
+  const pick = (opt) => {
+    setChips((cs) => addChip(cs, makeChip(draft.field, opt)))
+    setQ(liftFacet(q, draft))
+    setHi(0)
+    setOpen(false)
+    inputRef.current?.focus()
+  }
+
+  const onKey = (e) => {
+    if (menuOpen && (e.key === 'Enter' || e.key === 'Tab')) {
+      e.preventDefault()
+      pick(options[hi] || options[0])
+    } else if (menuOpen && e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHi((h) => Math.min(h + 1, options.length - 1))
+    } else if (menuOpen && e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHi((h) => Math.max(h - 1, 0))
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    } else if (e.key === 'Backspace' && !q && chips.length) {
+      // The TokenInput gesture, because this is the same gesture: backspace on
+      // an empty field takes back the last thing you added.
+      setChips((cs) => removeChipAt(cs, cs.length - 1))
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div ref={boxRef}>
+        <input
+          ref={inputRef}
+          className="tp-input"
+          // lineHeight:1 tightens the display serif's tall line box so the UA
+          // centres the glyphs in the field instead of seating them high.
+          style={
+            mobile
+              ? { fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }
+              : { fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }
+          }
+          placeholder="Search, or type tag: author: colour:…"
+          value={q}
+          autoFocus
+          autoComplete="off"
+          aria-label="Search"
+          onChange={(e) => {
+            setQ(e.target.value)
+            setOpen(true)
+            setHi(0)
+          }}
+          onFocus={() => {
+            setOpen(true)
+            onFirstFocus?.()
+          }}
+          onKeyDown={onKey}
+        />
+      </div>
+      {menuOpen && createPortal(
+        <ul ref={popRef} className="token-menu" style={style}>
+          {options.map((o, i) => (
+            <li key={`${draft.field}:${o.value}`}>
+              <button
+                type="button"
+                className={'token-opt' + (i === hi ? ' hi' : '')}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => pick(o)}
+              >
+                {draft.field}:{o.label}
+              </button>
+            </li>
+          ))}
+        </ul>,
+        document.body,
+      )}
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="facet-chips">
+          {chips.map((c, i) => (
+            <span key={`${c.field}:${c.value}`} className="token-pill">
+              {chipText(c)}
+              <Tooltip label={`Remove ${c.field}`}>
+                <button
+                  type="button"
+                  className="token-x"
+                  onClick={() => setChips((cs) => removeChipAt(cs, i))}
+                  aria-label={`Remove ${chipText(c)}`}
+                >
+                  ×
+                </button>
+              </Tooltip>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // SearchPage (§8.9, § sectioned search): one big Newsreader box + scope chips.
 // Results come back from the server faceted by WHAT matched and render as one
 // section per facet (only the non-empty ones): Books · Movies · Authors ·
@@ -79,6 +257,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   // restores the last query, scope, and view instead of resetting to empty.
   const [q, setQ] = usePersistedState('tippani:search:q', '')
   const [scope, setScope] = usePersistedState('tippani:search:scope', 'all')
+  // The active facets, persisted alongside the query and the scope — leaving
+  // Search and coming back restores the whole question, not two thirds of it.
+  const [chips, setChips] = usePersistedState('tippani:search:chips', [])
+  const [vocabulary, loadVocabulary] = useSearchVocabulary()
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:searchview', 'tiles') // tiles | list | table
@@ -94,16 +276,27 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
+  // A facet being TYPED is not a facet yet: while the dropdown is open on
+  // `tag:sto`, those characters are a half-written instruction, not a search
+  // term. Sending them as free text would flash the results for "tag sto"
+  // under an open menu — so the box's own draft is stripped before the query
+  // is built, and reappears the moment the field name stops matching.
+  const draft = readFacetDraft(q)
+  const freeText = draft ? liftFacet(q, draft) : q
+  // One string, so the debounce depends on the whole question rather than on
+  // three separate pieces of it — and an array of chips cannot be a dep.
+  const querystring = searchQueryString({ q: freeText, scope, chips })
+  const nothingAsked = !freeText.trim() && chips.length === 0
+
   useEffect(() => {
-    const query = q.trim()
-    if (!query) {
+    if (nothingAsked) {
       setResults(null)
       setError('')
       return
     }
     let stale = false
     const t = setTimeout(async () => {
-      const r = await json('GET', `/search?${new URLSearchParams({ q: query, scope })}`)
+      const r = await json('GET', `/search?${querystring}`)
       if (stale) return
       if (r.ok) {
         setResults(r.data)
@@ -116,11 +309,11 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       stale = true
       clearTimeout(t)
     }
-  }, [q, scope, nonce])
+  }, [querystring, nothingAsked, nonce])
 
   // Highlight the words the results actually came from: the server-corrected
   // query on a fuzzy (zero-hit) pass, else the raw input (PLAN §4).
-  const terms = queryTerms(results?.corrected || q)
+  const terms = queryTerms(results?.corrected || freeText)
   // One group list per facet section. groupBooks/groupMovies fold quote hits
   // under their parent work; the work-only facets pass empty child lists.
   const r = results || {}
@@ -155,28 +348,17 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       {/* Search has no PageHeader — the box IS the header. Nothing rides beside
           it any more either: the screen's "?" moved to the shell bar in 1.4.1, so
           the box gets the whole width it always wanted. */}
-      {mobile && (
+      {mobile ? (
         <div className="mobile-sticky-bar">
-          <input
-            className="tp-input"
-            style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: 1, padding: '10px 14px', width: '100%' }}
-            placeholder="Search titles, authors, genres, quotes, notes…"
-            value={q}
-            autoFocus
-            onChange={(e) => setQ(e.target.value)}
+          <SearchBox
+            q={q} setQ={setQ} chips={chips} setChips={setChips}
+            mobile vocabulary={vocabulary} onFirstFocus={loadVocabulary}
           />
         </div>
-      )}
-      {!mobile && (
-        <input
-          className="tp-input"
-          // lineHeight:1 tightens the display serif's tall line box so the UA
-          // centres the glyphs in the field instead of seating them high.
-          style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: 1, padding: '14px 18px', width: '100%' }}
-          placeholder="Search titles, authors, genres, quotes, notes…"
-          value={q}
-          autoFocus
-          onChange={(e) => setQ(e.target.value)}
+      ) : (
+        <SearchBox
+          q={q} setQ={setQ} chips={chips} setChips={setChips}
+          vocabulary={vocabulary} onFirstFocus={loadVocabulary}
         />
       )}
 
@@ -217,11 +399,18 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       )}
       {empty && (
         <div className="flex flex-col items-center gap-4 py-10">
+          {/* Name the whole question, not the half of it that was typed: with
+              chips up, "no results for “”" would be reporting an empty search
+              over a narrowing the reader can see on screen. */}
           <p className="tp-empty" style={{ padding: 0 }}>
-            no results for “{q.trim()}”{scope !== 'all' ? ` in ${scope}` : ''}
+            no results for “{[freeText.trim(), ...chips.map(chipText)].filter(Boolean).join(' ')}”
+            {scope !== 'all' ? ` in ${scope}` : ''}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <GhostButton icon={<IconClose />} onClick={() => setQ('')}>Clear search</GhostButton>
+            <GhostButton icon={<IconClose />} onClick={() => { setQ(''); setChips([]) }}>Clear search</GhostButton>
+            {chips.length > 0 && (
+              <GhostButton icon={<IconClose />} onClick={() => setChips([])}>Drop the filters</GhostButton>
+            )}
             {scope !== 'all' && <GhostButton icon={<IconSearch />} onClick={() => setScope('all')}>Search everything</GhostButton>}
           </div>
         </div>
