@@ -137,14 +137,20 @@ of that are spelled out in [`AI.md`](AI.md).
   point back at their source. **A show's lines also carry the episode** — a timestamp is the whole
   answer for a film and no answer at all for a series — so they read as *S2E6* and sort through the
   run rather than by the clock alone. Season 0 is a real season, so your specials keep their place.
-- 💬 **Quotes from anywhere else, on three boards** — a line from a speech, a letter, an interview,
-  a song, a proverb, something a friend said. **Proverbs · Speeches · Others**, switched at the top
-  of the one Quotes page: a proverb has no speaker, no occasion, no date and no place, so on a
+- 💬 **Quotes from anywhere else, on boards you make** — a line from a speech, a letter, an interview,
+  a song, a proverb, something a friend said. The Quotes screen lists **boards** the way the Library
+  lists books, and you open one to read what is on it: name them, colour them, describe them, give
+  them a picture, keep as many as you like. **Proverbs · Speeches · Others** are simply the three
+  you start with, and nothing in the app knows those names — rename or delete them freely. A board
+  is where you *filed* something, so deleting one asks where its quotes go rather than taking them
+  with it, and **All quotes** stays pinned above the shelves so the collection is still readable
+  whole. Hiding a board folds the tile away and touches nothing on it.
+  The split exists because a proverb has no speaker, no occasion, no date and no place, so on a
   single board it fell into the residual bucket of every grouping the screen offered and sat mixed
   in with the speeches. A proverb can carry the **language** it belongs to and an **English
   translation**, and the translation is searchable — you search the English because the English is
   the half you can type. **Thirty curated proverbs** come in the box, ten each in Bengali, Hindi and
-  English, and none of them arrive uninvited: the offer sits on an empty Proverbs board, names the
+  English, and none of them arrive uninvited: the offer sits on any empty board, names the
   language, and does nothing until you ask. A proverb is content, not furniture, and a library you
   have kept for a year should not acquire thirty lines you never chose.
   The third kind of quote, and the first with no work behind it:

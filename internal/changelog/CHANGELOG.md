@@ -5,9 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.14.0] - 2026-08-15
 
 ### Added
+
+- **The Quotes screen lists BOARDS now, the way the Library lists books.** You open one to
+  read what is on it, and they are yours: name them, colour them, describe them, give them a
+  picture, keep as many as you like. **Proverbs, Speeches and Others are simply the three you
+  start with** — nothing in the app knows those names, so rename or delete them freely.
+
+  **This replaces the segmented control 1.13.0 shipped, and the reason matters more than the
+  feature.** I built the board as a FILTER. It is not one: a filter narrows what you see
+  *within* a container, and the board decides which container you are in. Everything that
+  went wrong followed from that single misclassification. The control was handed to the
+  shared list scaffold's filter slot — which on a phone renders **inside the Filters sheet**,
+  so the three boards were invisible on the device this app is designed for first — and that
+  whole row is shown only when the *current* board is non-empty, so opening an empty Speeches
+  board **removed the control that got you there**, with the choice remembered, so a reload
+  did not rescue you. On a phone the screen looked exactly as it had in 1.12, which is what
+  was reported.
+
+  A control that belongs above the list had been put in the drawer that narrows the list. The
+  fix was not to move it.
+
+  **Deleting a board asks where its quotes go** and will not proceed until told; an empty one
+  goes without a question. Nothing is deleted with the shelf — a board is where you *filed*
+  something, and unfiling should not destroy it. That also means no board has to be permanent,
+  which is what lets all three of the originals stay ordinary. The one thing it cannot do is
+  delete your last board while quotes are on it, because there would be nowhere to move them.
+
+  **Hiding is explicit and never inferred from emptiness.** A board you have just made is
+  empty, and vanishing at that moment is the same trap this release is undoing. Hiding loses
+  nothing either: a hidden board's quotes are still under **All quotes**, which is pinned
+  above the shelves, is not a board, and cannot be renamed, hidden or deleted — a collection
+  has to stay readable whole.
+
+  Capturing a quote while a board is open files it on that board, the same way capture inside
+  a book does. Which board you are on is now the **address** rather than a remembered filter,
+  so `/quotes/proverbs` bookmarks, the back button steps between boards, and a reload lands
+  where the URL says.
 
 - **Search learned to be told which field you meant.** Type `tag:`, `author:`, `colour:` —
   or `speaker:`, `actor:`, `director:`, `genre:`, `series:`, `shelf:`, `year:`,
@@ -65,6 +101,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every 34px icon button goes through one component.** `field-icon-btn` was a class string
+  hand-written at 46 call sites across 13 files — the last primitive in the app that was never
+  a component. The copy-paste had held remarkably well: all 46 carried a name and a tooltip,
+  and exactly one had drifted (a button on Home was missing its press animation, so it did not
+  press when you pushed it).
+
+  The drift is not the reason. **A class string cannot make a decision.** 1.13.0 gave the 44px
+  buttons an opt-in label so they could honour *Button labels*; the 34px family could not opt
+  into anything, because there was nowhere to put the opting — 46 controls sat outside a
+  preference that claims to govern the app, not by a decision but by never having been asked.
+
+  Asked, the answer is that **this size is nameless**, and the component deliberately takes no
+  label. 34px exists precisely because it sits in a row that has already spent its width — a
+  text input with a ✓ and a ✕ after it, a card's action row that already wraps at six colour
+  dots. So the app has two sizes and two rules, written once instead of remembered 46 times.
+  A test asserts exactly one button in the app wears the class.
+
+  Two things fell out of it. The drifted press animation is fixed by arriving. And the Add
+  sheet's ✓ had been wearing the *other* family's colour class to go green, because this
+  family had a danger tint and no affirmative one — one family reaching into another's
+  stylesheet is how two families stop being distinguishable, so it has its own now.
+
 - **The filter sheet and the search bar are two editors of one state.** The Library's nine
   filter states and the Catalogue's ten are one chip list each, in the same shape the
   search box's chips take. Nothing above changed — every control still gets the value and
@@ -82,6 +140,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with neither: that is not a search, it is a request for the whole library.
 
 ### Fixed
+
+- **The quotes screen looked identical to 1.12 on a phone**, and that is the board-as-filter
+  defect above rather than a deploy problem. It is worth stating separately because the report
+  was accurate and my first answer to it was not: I said the boards had shipped and were
+  working, and on a phone they had never been visible at all.
 
 Four defects in the above, all found by reviewing the facets *after* they landed green,
 and all the same shape: no error, no empty screen, just a different answer to a different
