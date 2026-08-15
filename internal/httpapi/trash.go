@@ -856,6 +856,10 @@ var accountTables = []string{
 	"annotation_tags", "dialogue_tags", "utterance_tags",
 	"item_reviews", "work_reads",
 	"import_batches", "staged_works", "staged_quotes",
+	// A reader's own uploaded type (0039). It is data rather than a credential —
+	// a font somebody found and chose — so it comes back with the account, and
+	// its file is parked beside the covers by userCoverFiles.
+	"user_fonts",
 }
 
 // accountSkipTables are the user-owned tables a restore deliberately does NOT put

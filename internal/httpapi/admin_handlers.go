@@ -287,7 +287,11 @@ func (s *Server) userCoverFiles(id int64) []string {
 		UNION ALL
 		SELECT poster_path FROM movies WHERE user_id = ? AND poster_path IS NOT NULL
 		UNION ALL
-		SELECT path FROM stickers WHERE user_id = ?`, id, id, id)
+		SELECT path FROM stickers WHERE user_id = ?
+		UNION ALL
+		-- An uploaded font lives beside the covers and is parked the same way. The
+		-- cascade frees the ROW; the bytes on disk are this function's job.
+		SELECT path FROM user_fonts WHERE user_id = ?`, id, id, id, id)
 	if err != nil {
 		return nil
 	}
