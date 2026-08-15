@@ -126,6 +126,20 @@ describe('readFacetDraft', () => {
   it('reads a capitalised field name', () => {
     expect(readFacetDraft('Tag:sto').field).toBe('tag')
   })
+
+  // `book` and `movie` are chip fields but not GRAMMAR: they are seeded from a
+  // work's own page and carry an id the reader has no way to know. There is no
+  // vocabulary of titles, so typing one could only ever open an empty dropdown
+  // — and leaving them in the grammar would make `movie:blade runner` a draft
+  // rather than the search for Blade Runner that it plainly is.
+  it('does not read the seeded work fields as typed', () => {
+    expect(readFacetDraft('book:')).toBe(null)
+    expect(readFacetDraft('movie:blade runner')).toBe(null)
+    expect(readFacetDraft('the book: of the new sun')).toBe(null)
+    // They are still valid chip fields, and still go on the wire.
+    expect(facetField('book').name).toBe('book')
+    expect(facetParams([{ field: 'book', value: '42', label: 'x' }])).toEqual([['book', '42']])
+  })
 })
 
 describe('escaping the colon', () => {

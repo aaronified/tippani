@@ -34,17 +34,28 @@ export const FACET_FIELDS = [
   { name: 'series', vocab: 'series', combine: 'or' },
   { name: 'shelf', vocab: 'shelves', combine: 'or' },
   { name: 'year', vocab: 'year', combine: 'or' },
-  { name: 'favourite', vocab: 'yesno', combine: 'or' },
-  { name: 'note', vocab: 'yesno', combine: 'or' },
-  { name: 'wishlist', vocab: 'yesno', combine: 'or' },
-  // One work, by id. Seeded by a search started from a work's own page and
-  // never typed: there is no vocabulary of titles to offer, and the value is an
-  // id rather than the title the chip shows.
-  { name: 'book', vocab: null, combine: 'or' },
-  { name: 'movie', vocab: null, combine: 'or' },
+  // `exclusive` marks a field whose two values contradict rather than union:
+  // a row is favourited or it is not. Without it a reader can stack
+  // `favourite:yes` and `favourite:no`, the server takes the last one, and one
+  // of the chips on screen asserts a narrowing that never happened — the
+  // render-versus-match divergence this whole module exists to prevent.
+  { name: 'favourite', vocab: 'yesno', combine: 'or', exclusive: true },
+  { name: 'note', vocab: 'yesno', combine: 'or', exclusive: true },
+  { name: 'wishlist', vocab: 'yesno', combine: 'or', exclusive: true },
+  // One work, by id. SEEDED, NEVER TYPED — `typed: false` keeps them out of the
+  // grammar entirely. There is no vocabulary of titles to offer, so typing
+  // `movie:blade runner` could only ever open a dropdown with nothing in it;
+  // left in the grammar it would swallow those words instead of searching for
+  // them, which is precisely what somebody typing that wants.
+  { name: 'book', vocab: null, combine: 'or', typed: false },
+  { name: 'movie', vocab: null, combine: 'or', typed: false },
 ]
 
 export const FACET_NAMES = FACET_FIELDS.map((f) => f.name)
+
+// The subset the box will open a dropdown for. A field is typed unless it says
+// otherwise.
+const TYPED_NAMES = FACET_FIELDS.filter((f) => f.typed !== false).map((f) => f.name)
 
 export function facetField(name) {
   const n = String(name || '').toLowerCase()
@@ -65,12 +76,12 @@ export function facetField(name) {
 //
 // So `note\:` is the words. One backslash, immediately before the colon, which is
 // where every other search box in the world puts it.
-const FIELD_RE = new RegExp(`(?:^|\\s)(${FACET_NAMES.join('|')})(\\\\?):`, 'gi')
+const FIELD_RE = new RegExp(`(?:^|\\s)(${TYPED_NAMES.join('|')})(\\\\?):`, 'gi')
 
 // The same shape, for taking the backslash back out before the text is searched.
 // Anchored on a known field name for a reason: a stray backslash anywhere else in
 // the query is a character the reader typed and means to look for.
-const ESCAPED_RE = new RegExp(`(^|\\s)(${FACET_NAMES.join('|')})\\\\:`, 'gi')
+const ESCAPED_RE = new RegExp(`(^|\\s)(${TYPED_NAMES.join('|')})\\\\:`, 'gi')
 
 // unescapeFacetColons turns `note\:` back into `note:` on the way to the server,
 // so an escaped facet searches for exactly the words on screen. Without this the
@@ -123,6 +134,31 @@ export function readFacetDraft(text) {
 export function liftFacet(text, draft) {
   if (!draft) return text
   return String(text || '').slice(0, draft.start).replace(/\s+$/, '')
+}
+
+// readSearchBox is everything the screen needs to know about what is in the box:
+// the draft, what can be offered for it, whether that draft is LIVE, and the
+// free text to actually search.
+//
+// IT IS ONE FUNCTION BECAUSE IT USED TO BE TWO, and the two disagreed. The box
+// opened its menu on "is there a draft with options"; the page stripped the
+// draft out of the query on "is there a draft". For every field that could not
+// offer anything — the seeded work fields, a value narrowing to nothing, any
+// field at all while the vocabulary was still loading — the page threw the words
+// away while the box showed no menu, so the screen said "type to search" over a
+// box the reader had visibly typed into, with nothing to pick and no way out but
+// backspace.
+//
+// Two answers to one question is how that happens, so now there is one answer.
+export function readSearchBox(q, vocabulary) {
+  const draft = readFacetDraft(q)
+  const options = draft
+    ? narrowFacetOptions(facetOptions(draft.field, vocabulary, draft.value), draft.value)
+    : []
+  // A draft with nothing to offer is not a half-written instruction, it is just
+  // words — so it stays in the query rather than being stripped out of it.
+  const live = draft && options.length > 0 ? draft : null
+  return { draft, options, live, freeText: unescapeFacetColons(live ? liftFacet(q, live) : q) }
 }
 
 // The two vocabularies that do not come from the server, because they are not
@@ -227,8 +263,19 @@ export function sameChip(a, b) {
   return a.field === b.field && a.value === b.value
 }
 
+// addChip appends, except for an `exclusive` field, where it REPLACES.
+//
+// `favourite:yes` and `favourite:no` are not two filters, they are one filter
+// answered twice. Left to accumulate they both render as active chips while the
+// server takes only the last — so half the row asserts a narrowing that never
+// happened, which is exactly the render-versus-match divergence the one-parser
+// rule at the top of this file exists to prevent. The board's sheet was already
+// immune, because it goes through withFacet; this is the search box catching up.
 export function addChip(chips, chip) {
-  return chips.some((c) => sameChip(c, chip)) ? chips : [...chips, chip]
+  if (chips.some((c) => sameChip(c, chip))) return chips
+  const spec = facetField(chip.field)
+  if (spec && spec.exclusive) return withFacet(chips, chip.field, chip.value)
+  return [...chips, chip]
 }
 
 export function removeChipAt(chips, i) {

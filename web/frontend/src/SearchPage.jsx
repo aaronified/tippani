@@ -4,14 +4,11 @@ import { coverImgURL, json, errText } from './api.js'
 import {
   addChip,
   chipText,
-  facetOptions,
   liftFacet,
   makeChip,
-  narrowFacetOptions,
-  readFacetDraft,
+  readSearchBox,
   removeChipAt,
   searchQueryString,
-  unescapeFacetColons,
 } from './facets.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
@@ -134,15 +131,21 @@ const SCOPES = [
 // The dropdown is the only new interaction on this screen, and it is deliberately
 // the one readers already know: same anchored portal, same `.token-menu` skin,
 // same arrow-keys-and-Enter as the tag fields on every edit form.
-export function SearchBox({ q, setQ, chips, setChips, mobile, vocabulary, onFirstFocus }) {
+export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, onFirstFocus }) {
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
   const boxRef = useRef(null)
   const inputRef = useRef(null)
 
-  const draft = readFacetDraft(q)
-  const options = draft ? narrowFacetOptions(facetOptions(draft.field, vocabulary, draft.value), draft.value) : []
-  // The menu only exists when there is something to offer, and the positioning
+  // The draft and its options are computed by the PAGE and handed down, not
+  // worked out here. They used to be local, and the page recomputed the draft
+  // separately to decide what to search — two answers to one question, which
+  // diverged exactly where it mattered: a draft with no options to offer opened
+  // no menu here while still being stripped out of the query there, so typing
+  // `book: a novel` searched for nothing at all and the screen said "type to
+  // search" over a box that visibly had text in it.
+  //
+  // The menu opens only when there is something to offer, and the positioning
   // hook has to agree with that or it measures an element never rendered.
   const menuOpen = open && !!draft && options.length > 0
   const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
@@ -280,13 +283,21 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   // A facet being TYPED is not a facet yet: while the dropdown is open on
   // `tag:sto`, those characters are a half-written instruction, not a search
   // term. Sending them as free text would flash the results for "tag sto"
-  // under an open menu — so the box's own draft is stripped before the query
-  // is built, and reappears the moment the field name stops matching.
-  const draft = readFacetDraft(q)
-  // The backslash comes off on the way out: `note\:` is a request to search for
-  // the words "note:", so that is what goes in the query. Leaving it in would
-  // swap one broken search for another.
-  const freeText = unescapeFacetColons(draft ? liftFacet(q, draft) : q)
+  // under an open menu — so a LIVE draft is stripped before the query is built,
+  // and reappears the moment the field name stops matching.
+  //
+  // LIVE MEANS "HAS SOMETHING TO OFFER", and that qualifier is the whole of a
+  // bug this did not have when it shipped. Stripping on the draft alone throws
+  // the words away whenever no dropdown can appear — `tag:zzzz`, or any field at
+  // all while the vocabulary is still loading or failed to. The reader gets an
+  // empty screen saying "type to search" over a box they have visibly typed
+  // into, with no completion to pick and no way out but backspace.
+  //
+  // One computation — readSearchBox — for both the menu and the query, so the
+  // thing that decides what to search and the thing that decides what to offer
+  // cannot disagree. (It also takes the escaping backslash back off: `note\:` is
+  // a request to search for the words "note:", so that is what goes in.)
+  const { draft, options: draftOptions, freeText } = readSearchBox(q, vocabulary)
   // One string, so the debounce depends on the whole question rather than on
   // three separate pieces of it — and an array of chips cannot be a dep.
   const querystring = searchQueryString({ q: freeText, scope, chips })
@@ -356,13 +367,13 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
         <div className="mobile-sticky-bar">
           <SearchBox
             q={q} setQ={setQ} chips={chips} setChips={setChips}
-            mobile vocabulary={vocabulary} onFirstFocus={loadVocabulary}
+            mobile draft={draft} options={draftOptions} onFirstFocus={loadVocabulary}
           />
         </div>
       ) : (
         <SearchBox
           q={q} setQ={setQ} chips={chips} setChips={setChips}
-          vocabulary={vocabulary} onFirstFocus={loadVocabulary}
+          draft={draft} options={draftOptions} onFirstFocus={loadVocabulary}
         />
       )}
 

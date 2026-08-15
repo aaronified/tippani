@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { SearchBox } from '../../src/SearchPage.jsx'
+import { readSearchBox } from '../../src/facets.js'
 
 const VOCAB = {
   tags: ['death', 'stoicism', 'gardening'],
@@ -24,16 +25,27 @@ const VOCAB = {
 
 // A controlled harness, because SearchBox is controlled: the page owns the text
 // and the chips, and half of what is under test is what it hands back.
+//
+// It also owns the DRAFT, which is the shape SearchPage has: one computation of
+// "what is being typed and what can be offered for it", handed down, so the
+// decision about what to search and the decision about what to offer cannot
+// diverge. `freeText` here mirrors the page's, so the test can see the query
+// that would actually be sent.
 function Harness({ vocabulary = VOCAB, onFirstFocus, initial = '' }) {
   const [q, setQ] = useState(initial)
   const [chips, setChips] = useState([])
+  // The PAGE's own function, not a copy of it. A harness that re-implemented
+  // this would be testing the harness — which is exactly the two-answers-to-one-
+  // question shape that produced the bug the tests below pin.
+  const { draft, options, freeText } = readSearchBox(q, vocabulary)
   return (
     <div>
       <SearchBox
         q={q} setQ={setQ} chips={chips} setChips={setChips}
-        vocabulary={vocabulary} onFirstFocus={onFirstFocus}
+        draft={draft} options={options} onFirstFocus={onFirstFocus}
       />
       <output data-testid="q">{q}</output>
+      <output data-testid="free">{freeText}</output>
       <output data-testid="wire">{chips.map((c) => `${c.field}=${c.value}`).join('&')}</output>
     </div>
   )
@@ -201,6 +213,80 @@ describe('the chips', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag:stoicism' }))
     expect(screen.getByTestId('wire').textContent).toBe('tag=death')
+  })
+})
+
+describe('a draft that can never become a chip is just words', () => {
+  // THE BUG THIS CLOSES ATE THE QUERY. Stripping on the draft alone threw the
+  // words away whenever no dropdown could appear, so the screen showed "type to
+  // search" over a box the reader had visibly typed into, with no completion to
+  // pick and no way out but backspace.
+  it('searches the words when nothing can be offered', () => {
+    render(<Harness />)
+    type('tag:zzzzzz')
+    expect(document.querySelector('.token-menu')).toBeNull()
+    expect(screen.getByTestId('free').textContent).toBe('tag:zzzzzz')
+  })
+
+  // The case that made it unrecoverable rather than merely odd: `book` and
+  // `movie` are seeded from a work's page and have no vocabulary at all, so
+  // their dropdown could never appear and their words were always eaten.
+  it('never treats the seeded work fields as typed', () => {
+    render(<Harness />)
+    type('movie:blade runner')
+    expect(document.querySelector('.token-menu')).toBeNull()
+    expect(screen.getByTestId('free').textContent).toBe('movie:blade runner')
+  })
+
+  it('does not truncate the text before one either', () => {
+    render(<Harness />)
+    type('the book: of the new sun')
+    expect(screen.getByTestId('free').textContent).toBe('the book: of the new sun')
+  })
+
+  // The promise made where the vocabulary is fetched: a vocabulary that will
+  // not load is an empty dropdown, never a broken search box.
+  it('still searches while the vocabulary is missing', () => {
+    render(<Harness vocabulary={{}} />)
+    type('tag:sto')
+    expect(document.querySelector('.token-menu')).toBeNull()
+    expect(screen.getByTestId('free').textContent).toBe('tag:sto')
+  })
+
+  it('goes back to stripping the moment there is something to pick', () => {
+    render(<Harness />)
+    type('tag:sto')
+    expect(options()).toEqual(['tag:stoicism'])
+    expect(screen.getByTestId('free').textContent).toBe('')
+  })
+})
+
+describe('a field answered twice', () => {
+  // `favourite:yes` and `favourite:no` are not two filters, they are one filter
+  // answered twice. Left to accumulate they both render as active while the
+  // server takes only the last, so half the chip row asserts a narrowing that
+  // never happened.
+  it('replaces rather than stacking a contradictory flag', () => {
+    render(<Harness />)
+    type('favourite:')
+    fireEvent.click(screen.getByRole('button', { name: 'favourite:yes' }))
+    expect(screen.getByTestId('wire').textContent).toBe('favourite=yes')
+
+    type('favourite:no')
+    fireEvent.click(screen.getByRole('button', { name: 'favourite:no' }))
+    expect(screen.getByTestId('wire').textContent).toBe('favourite=no')
+    expect(document.querySelectorAll('.token-pill')).toHaveLength(1)
+  })
+
+  // ...while a field that genuinely unions still stacks, which is what makes
+  // this a property of the field rather than a blanket rule.
+  it('still stacks two values of a unioning field', () => {
+    render(<Harness />)
+    type('colour:dou')
+    fireEvent.click(screen.getByRole('button', { name: 'colour:doubt' }))
+    type('colour:yel')
+    fireEvent.click(screen.getByRole('button', { name: 'colour:yellow' }))
+    expect(screen.getByTestId('wire').textContent).toBe('colour=blue&colour=yellow')
   })
 })
 
