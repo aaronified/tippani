@@ -9,6 +9,7 @@ import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, useSelection } from './selection.jsx'
+import { boardSeedChips, publishSearchSeed, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
@@ -219,6 +220,15 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const mobile = useIsMobileScreen()
   const authors = usePeople('author') // name→metadata, for author-group portraits
   const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+
+  // A search started from a filtered shelf searches the filtered shelf. The
+  // board publishes what it is currently showing; the shell reads it at the
+  // moment ＋Search is pressed. Cleared on unmount, because a stale seed would
+  // narrow a search to a board you had already left.
+  useEffect(() => {
+    publishSearchSeed(boardSeedChips({ genre, series, fav, states, wish }))
+    return () => publishSearchSeed([])
+  }, [genre, series, fav, states, wish])
 
   async function load() {
     const r = await json('GET', '/books')
@@ -582,6 +592,15 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
     setQuoteStats(null)
     load()
   }, [id])
+
+  // From inside a book, Search means search this book. The chip shows the title
+  // and sends the id — waiting for the title is why this seeds off `book`
+  // rather than off `id`, and why pressing Search before the page has loaded
+  // simply searches everything rather than seeding a chip reading "#42".
+  useEffect(() => {
+    publishSearchSeed(book ? [workSeedChip('book', book.id, book.title)] : [])
+    return () => publishSearchSeed([])
+  }, [book])
 
   // ---- shelf transitions -----------------------------------------------------
   // save is the one path to the status endpoint; every route below funnels here.

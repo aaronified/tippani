@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addChip,
+  boardSeedChips,
   chipText,
   FACET_NAMES,
   facetField,
@@ -17,10 +18,13 @@ import {
   liftFacet,
   makeChip,
   narrowFacetOptions,
+  publishSearchSeed,
   readFacetDraft,
   removeChipAt,
   sameChip,
   searchQueryString,
+  takeSearchSeed,
+  workSeedChip,
 } from '../../src/facets.js'
 
 const VOCAB = {
@@ -46,6 +50,7 @@ describe('the field registry', () => {
     expect(FACET_NAMES).toEqual([
       'tag', 'colour', 'author', 'speaker', 'actor', 'director',
       'genre', 'series', 'shelf', 'year', 'favourite', 'note', 'wishlist',
+      'book', 'movie',
     ])
   })
 
@@ -297,6 +302,97 @@ describe('chips', () => {
       { field: 'colour', value: 'pink', label: 'joy' },
     ]
     expect(removeChipAt(chips, 0)).toEqual([chips[1]])
+  })
+})
+
+describe('seeding from where you were', () => {
+  it('turns a filtered board into the chips that mean the same thing', () => {
+    expect(boardSeedChips({ genre: 'Fantasy', series: 'Earthsea', fav: true, states: ['reading'], wish: '' }))
+      .toEqual([
+        { field: 'genre', value: 'Fantasy', label: 'Fantasy' },
+        { field: 'series', value: 'Earthsea', label: 'Earthsea' },
+        { field: 'favourite', value: 'yes', label: 'yes' },
+        { field: 'shelf', value: 'reading', label: 'reading' },
+      ])
+  })
+
+  it('seeds nothing from an unfiltered board', () => {
+    expect(boardSeedChips({})).toEqual([])
+    expect(boardSeedChips()).toEqual([])
+    expect(boardSeedChips({ genre: '', series: '', fav: false, states: [], wish: '' })).toEqual([])
+  })
+
+  it('carries every shelf a board is showing, not just the first', () => {
+    expect(boardSeedChips({ states: ['reading', 'paused'] }).map((c) => c.value)).toEqual(['reading', 'paused'])
+  })
+
+  it('reads the board’s two wishlist states as the flag and its opposite', () => {
+    expect(boardSeedChips({ wish: 'wishlist' })).toEqual([{ field: 'wishlist', value: 'yes', label: 'yes' }])
+    expect(boardSeedChips({ wish: 'annotated' })).toEqual([{ field: 'wishlist', value: 'no', label: 'no' }])
+  })
+
+  // THE DELIBERATE GAP. A board's "noted" means the BOOK has a highlight
+  // carrying a note; the `note:` facet means the QUOTE has one. Seeding one
+  // from the other sends note=yes with books in scope, and a book has no note
+  // column — so the facet would empty the books section and pressing Search on
+  // a filtered board would return nothing. Half a mapping that is right beats a
+  // whole one that is wrong.
+  it('leaves the board filters that have no honest facet behind', () => {
+    expect(boardSeedChips({ tagged: true, noted: true, mediaType: 'show' })).toEqual([])
+  })
+
+  it('shows a work’s title and sends its id', () => {
+    expect(workSeedChip('book', 42, 'The Dispossessed'))
+      .toEqual({ field: 'book', value: '42', label: 'The Dispossessed' })
+    expect(workSeedChip('movie', 7, 'Stalker'))
+      .toEqual({ field: 'movie', value: '7', label: 'Stalker' })
+  })
+
+  it('seeds no work chip before the page has loaded', () => {
+    // Better a search of everything than a chip reading "#undefined".
+    expect(workSeedChip('book', null, '')).toBe(null)
+    expect(workSeedChip('book', undefined, undefined)).toBe(null)
+  })
+
+  it('falls back to the id when a work has no title', () => {
+    expect(workSeedChip('book', 42, '').label).toBe('#42')
+  })
+
+  it('hands the seed to whoever asks, and clears', () => {
+    publishSearchSeed([{ field: 'shelf', value: 'reading', label: 'reading' }])
+    expect(takeSearchSeed()).toHaveLength(1)
+    publishSearchSeed([])
+    expect(takeSearchSeed()).toEqual([])
+  })
+
+  it('never hands back something that is not a list', () => {
+    // The board publishes in an effect; a bug there must not make the shell
+    // throw on the next press of Search.
+    publishSearchSeed(null)
+    expect(takeSearchSeed()).toEqual([])
+    publishSearchSeed('shelf:reading')
+    expect(takeSearchSeed()).toEqual([])
+  })
+})
+
+describe('removing a seeded chip widens the search', () => {
+  // The promise the whole seeding idea rests on: narrowing is free because
+  // widening is one click. Asserted end to end — a seeded board becomes chips,
+  // becomes a query string, and dropping a chip visibly drops a parameter.
+  const seeded = boardSeedChips({ genre: 'Fantasy', states: ['reading'] })
+
+  it('starts narrowed', () => {
+    expect(searchQueryString({ scope: 'books', chips: seeded }))
+      .toBe('scope=books&genre=Fantasy&shelf=reading')
+  })
+
+  it('widens by exactly the chip removed', () => {
+    expect(searchQueryString({ scope: 'books', chips: removeChipAt(seeded, 1) }))
+      .toBe('scope=books&genre=Fantasy')
+  })
+
+  it('is back to the whole shelf once every chip is off', () => {
+    expect(searchQueryString({ scope: 'books', chips: [] })).toBe('scope=books')
   })
 })
 

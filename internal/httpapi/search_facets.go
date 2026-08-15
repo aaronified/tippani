@@ -73,6 +73,11 @@ type searchFacets struct {
 	directors []string
 	actors    []string
 	speakers  []string
+	// One work, by id. These are what a search started from a work's own page
+	// narrows to: `book:The Dispossessed` shows the title and sends the id,
+	// because a title is not unique and an id is.
+	bookIDs  []int64
+	movieIDs []int64
 	// Flags. nil means "not asked about", which is not the same as false: a
 	// bare *bool is the difference between "show me favourites", "show me
 	// things I have not starred", and "I did not mention favourites".
@@ -85,6 +90,7 @@ func (f searchFacets) any() bool {
 	return len(f.tags) > 0 || len(f.genres) > 0 || len(f.colours) > 0 || len(f.shelves) > 0 ||
 		len(f.series) > 0 || len(f.years) > 0 || len(f.authors) > 0 || len(f.directors) > 0 ||
 		len(f.actors) > 0 || len(f.speakers) > 0 ||
+		len(f.bookIDs) > 0 || len(f.movieIDs) > 0 ||
 		f.favourite != nil || f.note != nil || f.wishlist != nil
 }
 
@@ -156,6 +162,18 @@ func parseSearchFacets(vals url.Values) (searchFacets, error) {
 			f.actors = append(f.actors, nonEmpty(vs)...)
 		case "speaker":
 			f.speakers = append(f.speakers, nonEmpty(vs)...)
+		case "book", "movie":
+			for _, v := range nonEmpty(vs) {
+				n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
+				if err != nil || n <= 0 {
+					return f, searchFacetError{key + " must be an id: " + v}
+				}
+				if key == "book" {
+					f.bookIDs = append(f.bookIDs, n)
+				} else {
+					f.movieIDs = append(f.movieIDs, n)
+				}
+			}
 		case "favourite", "favorite":
 			b, err := parseFacetFlag(key, vs)
 			if err != nil {
@@ -359,6 +377,34 @@ func (f searchFacets) where(k rowKind, uid int64) (string, []any, bool) {
 		}
 		c, a := creditAnyOf("u.speaker", f.speakers)
 		add(c, a...)
+	}
+
+	// One work, by id — what a search started from a work's own page narrows to.
+	// It reaches that work's quotes as well as the work itself, because from
+	// inside a book "search" nearly always means "search this book".
+	if len(f.bookIDs) > 0 {
+		switch k {
+		case rowBook, rowAnnotation:
+		default:
+			return "", nil, false
+		}
+		ids := make([]any, len(f.bookIDs))
+		for i, id := range f.bookIDs {
+			ids[i] = id
+		}
+		add("b.id IN ("+placeholders(len(ids))+")", ids...)
+	}
+	if len(f.movieIDs) > 0 {
+		switch k {
+		case rowMovie, rowDialogue:
+		default:
+			return "", nil, false
+		}
+		ids := make([]any, len(f.movieIDs))
+		for i, id := range f.movieIDs {
+			ids[i] = id
+		}
+		add("m.id IN ("+placeholders(len(ids))+")", ids...)
 	}
 
 	// favourite is the one facet every kind has.

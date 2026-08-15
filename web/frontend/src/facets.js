@@ -37,6 +37,11 @@ export const FACET_FIELDS = [
   { name: 'favourite', vocab: 'yesno', combine: 'or' },
   { name: 'note', vocab: 'yesno', combine: 'or' },
   { name: 'wishlist', vocab: 'yesno', combine: 'or' },
+  // One work, by id. Seeded by a search started from a work's own page and
+  // never typed: there is no vocabulary of titles to offer, and the value is an
+  // id rather than the title the chip shows.
+  { name: 'book', vocab: null, combine: 'or' },
+  { name: 'movie', vocab: null, combine: 'or' },
 ]
 
 export const FACET_NAMES = FACET_FIELDS.map((f) => f.name)
@@ -106,7 +111,7 @@ const YES_NO = [
 // typed, which turns the dropdown into a confirmation rather than a list.
 export function facetOptions(field, vocabulary = {}, typed = '') {
   const spec = facetField(field)
-  if (!spec) return []
+  if (!spec || !spec.vocab) return []
   if (spec.vocab === 'yesno') return YES_NO
   if (spec.vocab === 'year') {
     const n = String(typed || '').trim()
@@ -202,6 +207,64 @@ export function removeChipAt(chips, i) {
 // pairs rather than an object.
 export function facetParams(chips = []) {
   return chips.map((c) => [c.field, c.value])
+}
+
+// ---- seeding from where you were -------------------------------------------
+//
+// A search started from a shelf should search the shelf. The Library already
+// computes the scope for this (searchScope in routes.js); what it could not
+// carry was the FILTERS — the board knew it was showing you reading, Fantasy,
+// Earthsea, and the search it opened knew none of it.
+//
+// The channel is a module-level variable rather than React state, and that is
+// on purpose. The shell reads it at the moment Search is pressed and at no
+// other time, so putting it in state would re-render the whole shell on every
+// keystroke in a filter field to deliver a value nobody is looking at yet.
+//
+// The board publishes on change and CLEARS ON UNMOUNT. A stale seed is worse
+// than none: pressing Search from Stats and arriving with the Library's shelf
+// chip still up would narrow a search to a board you had already left.
+let searchSeed = []
+
+export function publishSearchSeed(chips) {
+  searchSeed = Array.isArray(chips) ? chips : []
+}
+
+export function takeSearchSeed() {
+  return searchSeed
+}
+
+// boardSeedChips maps a board's filter state onto the facets that mean the same
+// thing. Only the ones that translate EXACTLY are here.
+//
+// `tagged`, `noted` and `mediaType` are deliberately absent, and the reason is
+// worth writing down because their absence looks like an oversight. A board's
+// "noted" means "this BOOK has a highlight carrying a note" — a property of the
+// work, derived from its children. The `note:` facet means "this QUOTE has a
+// note", which is a property of the child. Seeding one from the other would
+// send `note=yes` with books in scope, and since a book has no note column that
+// facet empties the books section: press Search on a filtered board and get
+// nothing back. Half a mapping that is right beats a whole one that is wrong.
+export function boardSeedChips({ genre, series, fav, states, wish } = {}) {
+  const chips = []
+  if (genre) chips.push({ field: 'genre', value: genre, label: genre })
+  if (series) chips.push({ field: 'series', value: series, label: series })
+  if (fav) chips.push({ field: 'favourite', value: 'yes', label: 'yes' })
+  for (const s of states || []) if (s) chips.push({ field: 'shelf', value: s, label: s })
+  // The board's third state, "annotated", is the wishlist's complement rather
+  // than a thing of its own.
+  if (wish === 'wishlist') chips.push({ field: 'wishlist', value: 'yes', label: 'yes' })
+  else if (wish === 'annotated') chips.push({ field: 'wishlist', value: 'no', label: 'no' })
+  return chips
+}
+
+// workSeedChip is what a search started from a work's own page narrows to. The
+// chip SHOWS the title and SENDS the id, because a title is not unique and an id
+// is — the same split colours use, for the same reason.
+export function workSeedChip(type, id, title) {
+  if (!id) return null
+  const field = type === 'movie' ? 'movie' : 'book'
+  return { field, value: String(id), label: title || `#${id}` }
 }
 
 // searchQueryString assembles the whole request: free text, scope, then a

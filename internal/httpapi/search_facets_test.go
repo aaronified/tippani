@@ -578,6 +578,65 @@ func TestFacetsReachTheDateAddedSection(t *testing.T) {
 	wantTitles(t, "faceted date books", bookTitles(narrowed.DateAdded.Books), []string{"Starred Today"})
 }
 
+// ---- one work --------------------------------------------------------------
+
+func TestBookAndMovieFacetsNarrowToOneWork(t *testing.T) {
+	// What a search started from a work's own page seeds. It reaches the work
+	// AND its quotes, because from inside a book "search" nearly always means
+	// "search this book".
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	one := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Kestrel One"}, http.StatusCreated))
+	two := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Kestrel Two"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": one.ID, "quote": "kestrel from one"}, http.StatusCreated)
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": two.ID, "quote": "kestrel from two"}, http.StatusCreated)
+
+	res := searchWith(t, c, "q=kestrel&book="+itoa(one.ID))
+	wantTitles(t, "book: books", bookTitles(res.Books), []string{"Kestrel One"})
+	wantTitles(t, "book: annotations", quoteTexts(res.Annotations), []string{"kestrel from one"})
+
+	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{"title": "Kestrel Film"}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": film.ID, "quote": "kestrel spoken"}, http.StatusCreated)
+
+	res = searchWith(t, c, "q=kestrel&movie="+itoa(film.ID))
+	wantTitles(t, "movie: movies", movieTitles(res.Movies), []string{"Kestrel Film"})
+	wantTitles(t, "movie: dialogues", dialogueTexts(res.Dialogues), []string{"kestrel spoken"})
+	// A book is not a film, so a film facet empties the books side entirely
+	// rather than leaving it wide.
+	if len(res.Books) != 0 || len(res.Annotations) != 0 {
+		t.Errorf("a movie facet left the books side populated: %v / %v",
+			bookTitles(res.Books), quoteTexts(res.Annotations))
+	}
+}
+
+func TestAWorkIDIsNotAWayIntoAnotherAccount(t *testing.T) {
+	// The one facet whose value is guessable. Ids are sequential, so `book=1`
+	// is a thing a stranger can type — and the user scope has to be what stops
+	// it, not the id being secret.
+	h := newTestServer(t).Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+
+	book := decode[bookDetail](t, admin.mustDo("POST", "/books", map[string]any{"title": "Kestrel Private"}, http.StatusCreated))
+	admin.mustDo("POST", "/annotations", map[string]any{"book_id": book.ID, "quote": "kestrel secret"}, http.StatusCreated)
+
+	res := searchWith(t, bob, "q=kestrel&book="+itoa(book.ID))
+	if len(res.Books) != 0 || len(res.Annotations) != 0 {
+		t.Errorf("bob read account 1's book %d: %v / %v", book.ID, bookTitles(res.Books), quoteTexts(res.Annotations))
+	}
+}
+
+func TestAWorkFacetMustBeAnID(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	// The chip shows a title and sends an id. A title arriving here means the
+	// two halves have come apart, which is worth a 400 rather than no results.
+	c.mustDo("GET", "/search?q=x&book=The+Dispossessed", nil, http.StatusBadRequest)
+	c.mustDo("GET", "/search?q=x&book=0", nil, http.StatusBadRequest)
+	c.mustDo("GET", "/search?q=x&movie=-3", nil, http.StatusBadRequest)
+}
+
 // ---- what a facet cannot describe ------------------------------------------
 
 // A facet that a kind of row has no column for must EMPTY that kind, not be

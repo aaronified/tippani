@@ -51,6 +51,7 @@ import {
   useIsMobileScreen,
   useResolvedDark,
 } from './ui.jsx'
+import { takeSearchSeed } from './facets.js'
 import { Profile } from './Account.jsx'
 import { PageHelp } from './help.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
@@ -1086,22 +1087,37 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     try {
       localStorage.setItem('tippani:search:q', JSON.stringify(q))
       localStorage.setItem('tippani:search:scope', JSON.stringify(scope))
+      // Chips are cleared for the same reason the scope is: this is a jump to a
+      // NAMED query — an author from Metadata, a day from the Stats calendar —
+      // and a leftover chip would silently answer a narrower question than the
+      // link promised.
+      localStorage.setItem('tippani:search:chips', JSON.stringify([]))
     } catch { /* private mode — search just opens empty */ }
     selectTab('search')
   }
-  // searchScoped seeds the scope SearchPage will read on mount and goes there.
-  // The query is left alone: the box remembers your last one, and clearing it
-  // would make an ordinary navigation destructive.
-  function searchScoped(scope) {
+  // searchScoped seeds the scope — and now the chips — SearchPage will read on
+  // mount, then goes there. The query is left alone: the box remembers your
+  // last one, and clearing it would make an ordinary navigation destructive.
+  //
+  // The CHIPS are replaced rather than merged, which is the opposite call to
+  // the query and deliberately so. A chip says where you were searching from,
+  // so carrying the Library's `shelf:reading` into a search started from the
+  // Catalogue would narrow films by a shelf no film is on — a search that
+  // matches nothing and reads as broken. Every seeded chip is removable, so
+  // widening is one click.
+  function searchScoped(scope, chips = []) {
     try {
       localStorage.setItem('tippani:search:scope', JSON.stringify(scope))
+      localStorage.setItem('tippani:search:chips', JSON.stringify(chips))
     } catch { /* private mode — the box keeps whatever it had */ }
     selectTab('search')
   }
   // The top bar's Search lands scoped to whatever you were looking at (Library →
-  // Books, Catalogue → Movies), because a search started from a list is nearly
-  // always a search of that list. The drawer's Search clears the scope instead.
-  const openSearch = () => searchScoped(searchScope(tab, detail))
+  // Books, Catalogue → Movies) AND filtered the way that screen was filtered,
+  // because a search started from a list is nearly always a search of that list.
+  // The drawer's Search clears both instead — see the Shell's drawer row, which
+  // calls searchScoped('all') with no chips.
+  const openSearch = () => searchScoped(searchScope(tab, detail), takeSearchSeed())
 
   async function logout() {
     await fetch(apiURL('/auth/logout'), { method: 'POST' })

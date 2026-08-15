@@ -10,6 +10,7 @@ import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, useSelection } from './selection.jsx'
+import { boardSeedChips, publishSearchSeed, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
@@ -234,6 +235,15 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   const [error, setError] = useState('')
   const [coverSize] = useCoverSize('tippani:size:movies', 150) // set from Settings
   const mobile = useIsMobileScreen()
+
+  // Mirrors the Library: a search started from a filtered catalogue searches
+  // the filtered catalogue. `mediaType` has no facet to map onto, so a board
+  // filtered to shows seeds everything else and leaves that one behind rather
+  // than seeding a facet that would empty the results.
+  useEffect(() => {
+    publishSearchSeed(boardSeedChips({ genre, series, fav, states, wish }))
+    return () => publishSearchSeed([])
+  }, [genre, series, fav, states, wish])
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -661,6 +671,13 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
     setLineStats(null)
     load()
   }, [id])
+
+  // Mirrors BookDetail: from inside a film, Search means search this film. Chip
+  // shows the title, wire carries the id.
+  useEffect(() => {
+    publishSearchSeed(movie ? [workSeedChip('movie', movie.id, movie.title)] : [])
+    return () => publishSearchSeed([])
+  }, [movie])
 
   // ---- shelf transitions ------------------------------------------------------
   // The films and shows caps are separate pools (2 · 5): a binge-watched series
