@@ -2449,7 +2449,7 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **Token by token rather than whole-string,** because a whole-string budget earned by long neighbours will hide a wholly missing short word.
 
-**Nearly free to build:** `internal/search/levenshtein.go` already exists for the typo-tolerant search pass, and the rest of this rule is the *absence* of features. The one addition worth making is showing the difference marked on the reveal, so a reader who typed "recieve" can see that is what happened — and so can one whose synonym was refused, or the rule reads as arbitrary rather than strict.
+**Nearly free to build:** `internal/search/levenshtein.go` already exists for the typo-tolerant search pass, and the rest of this rule is the *absence* of features. **The banding lives with the caller, not inside the shared function.** `editDistance` was just consolidated into `web/frontend/src/text.js` precisely because two copies of Levenshtein stay correct only until somebody tunes one of them — and a length-banded threshold *is* tuning. Search wants to be generous because a near miss there costs a wasted glance; cloze wants to be strict because a near miss there is a false pass. Same distance function, two callers, two thresholds, neither written into the shared code. The one addition worth making is showing the difference marked on the reveal, so a reader who typed "recieve" can see that is what happened — and so can one whose synonym was refused, or the rule reads as arbitrary rather than strict.
 
 **Approved.** The reader's, in the form "fill in the blanks questions must be forgiving with typos. but not with synonyms."
 
