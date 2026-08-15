@@ -1000,6 +1000,68 @@ The flag is the whole safety argument for the backfill. Without it the sweep run
 
 <sub>0.x — `internal/store/migrations/0005_ui_prefs.sql` · `docs/PLAN.md` · `CHANGELOG.md`</sub>
 
+### A board is a work, and /quotes is a two-level screen like the other two
+
+**Decided.** The three-board segmented control shipped in 1.13.0 is **withdrawn**. Boards become rows the reader owns, listed on `/quotes` the way books are listed in the Library and films in the Catalogue, each opening its own page at `/quotes/{id}`. The reader creates as many as they like. Called **boards**, on screen and here.
+
+**Why, and it is my error rather than a change of mind.** I built the board as a filter. It is not one: a filter narrows what you see *within* a container, and the board decides which container you are in. Everything that went wrong followed from that single misclassification — `WorkListScaffold` renders the `leading` slot inside the **Filters sheet** on a phone, so the three boards were invisible on the device the app is designed for first; and it gates that whole row on `hasItems`, which `Quotes.jsx` passes as *the current board is non-empty*, so switching to an empty Speeches board **removed the control that got you there**. `tippani:quotes:category` is persisted, so a reload did not rescue you. A reader on a phone saw a screen identical to 1.12, which is exactly what was reported.
+
+Neither is a bug to patch. A control that belongs above the list was placed in the drawer that narrows the list, and the fix is to stop calling it a filter.
+
+**What this buys beyond the fix.** The route falls out for free (a board's page is a work's page), capture inside a board files into that board exactly as capture inside a book does, and the vocabulary stops being three names the code knows.
+
+**Approved.** The reader's, in the form "proverbs, speeches, and others (user can create other boards) sit in the quotes page like works do in libraries."
+
+<sub>Not shipped — supersedes the 1.13.0 board toggle</sub>
+
+### One board per quote, and the three that exist now are seeded and then ordinary
+
+**Decided.** `utterances.board_id` replaces the fixed `category` column: one board per quote, like a book on a shelf. Migration seeds **Proverbs**, **Speeches** and **Others** from the three existing values and then knows nothing further about them — all three are renamable, deletable and reorderable. A board carries a name, a colour, a description and a **picture**, uploaded or pasted like a cover; nothing fetches one, because no supplier has a picture of a board.
+
+**Why single membership.** It is the honest evolution of a column that already held one value, the counts add up to the total, and moving a quote is a move rather than a copy. Many-to-many was considered and refused for a specific reason: it is what **tags** already are, and two overlapping ways to group the same rows is worse than either alone.
+
+**Why nothing in the code may know their names.** The moment `Others` is special-cased, renaming it breaks the special case silently. Where a fallback board is genuinely needed — the global ＋, and an import with no board named — it is the reader's **default board**, held as a preference pointing at a row, set to Others by the migration and changeable afterwards.
+
+**Approved.** The reader's: "One board, like a book on a shelf" and "Seeded, then ordinary", with a picture "like a work has a cover".
+
+<sub>Not shipped</sub>
+
+### Deleting a board asks where its quotes go, which is why no board has to be permanent
+
+**Decided.** Deleting a board that holds quotes offers the other boards and moves them; it cannot proceed until one is chosen. A board with nothing on it deletes freely. The consequence is accepted deliberately: **you cannot delete your last board while any quote exists**, because there would be nowhere for its quotes to go.
+
+**Why this rather than a permanent Others.** A permanent bucket is a name in the code, and the entry above exists to keep names out of the code. This achieves the same guarantee — no quote is ever orphaned — through a rule about the *operation* instead of a rule about one privileged row.
+
+**Instead of.** Deleting the quotes with the board, the way deleting a book takes its annotations: a book genuinely contains its annotations, whereas a board is a place a reader filed something, and unfiling should not destroy it. Allowing board-less quotes with an Unfiled tile: it makes `board_id` nullable, and every count, filter and query then carries a null case forever to serve a state the reader can always avoid.
+
+**Approved.** The reader's, in the form "Ask where they go, and refuse until told."
+
+<sub>Not shipped</sub>
+
+### Hiding a board is explicit, and All quotes is pinned above them
+
+**Decided.** A board is hidden only when the reader hides it, and a filter shows the hidden ones again. Emptiness never hides anything. The board list also carries one pinned **All quotes** entry, which opens every quote regardless of board; it is not a board, and cannot be renamed, hidden or deleted.
+
+**Why not "empty means hidden".** A board you have just made is empty. The automatic rule would make it disappear at the moment of creation, which is the same class of trap as the one this whole section is undoing — a control vanishing exactly when it is needed. Explicit hiding also matches how a colour category is hidden in Settings, so the app has one idea of what hiding means.
+
+**Hiding never loses anything**, because a hidden board's quotes are still in All quotes. That is what makes hiding safe enough to be a one-tap action instead of a confirm.
+
+**Approved.** The reader's: "Hide boards that user is not using. but keep a filter that enables them at will", and "Yes — an All quotes entry".
+
+<sub>Not shipped</sub>
+
+### An import creates a board it does not know, and that is what makes an old export round-trip
+
+**Decided.** `board: Kennedy` in a Markdown import creates a Kennedy board and files the quote there. A quote with no board key goes to the default board. The old `category` / `kind` / `type` keys are accepted as aliases and their values are treated as board names.
+
+**Why, given the current rule is the opposite.** Today an unknown category is a 400 with the offending value named, and that was right when the set was three values the server defined. Once boards are the reader's own, an unknown name is not an error — it is a board they have not made yet, and refusing the file would mean hand-making every board before importing. It also means **a file exported from an older version imports cleanly**, because `category: proverb` simply finds or creates a board called proverb.
+
+**The cost, stated.** A typo creates a board. That is visible in the list and fixable by renaming or deleting it, which is a far cheaper failure than a refused import — the same reasoning 1.13.1 used for credit suffixes, where a wrongly-split name is visible and a wrongly-merged one hides a whole person.
+
+**Approved.** The reader's, in the form "Create the board."
+
+<sub>Not shipped</sub>
+
 ## 5. Works, Shelves and Reading History
 
 Books, films and shows share one catalogue shape, and everything about where you stand with a work is either derived from data already present or moved behind its own endpoint so an ordinary save cannot rewrite history.
