@@ -350,6 +350,12 @@ type prefs struct {
 	// so this reinforcement is entirely opt-in.
 	SRSeen           float64 `json:"srSeen"`
 	SRPracticeCounts bool    `json:"srPracticeCounts"`
+	// SRAdaptive swaps the fixed 7 → 30 → 100 ladder for a multiplicative rule
+	// where a lapse shortens the half-life instead of resetting it to 7. Off by
+	// default: the ladder is legible in a way a computed interval is not, and
+	// somebody who has not asked for adaptive scheduling should keep the rule
+	// the explainer on the Home screen describes. See nextStability.
+	SRAdaptive bool `json:"srAdaptive"`
 	// Guided feature tour (Settings → Onboarding). Tour is its lifecycle state
 	// (see tourStates); "postponed" keeps TourStep as the 0-based step to resume
 	// from — the Settings card shows a Resume button for it.
@@ -584,6 +590,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRReviewScope    *string  `json:"srReviewScope"`
 		SRSeen           *float64 `json:"srSeen"`
 		SRPracticeCounts *bool    `json:"srPracticeCounts"`
+		SRAdaptive       *bool    `json:"srAdaptive"`
 		Tour             *string  `json:"tour"`
 		TourStep         *int     `json:"tourStep"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
@@ -685,6 +692,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// A bool has no "empty" sentinel, so presence is the pointer being non-nil.
 	if in.SRPracticeCounts != nil {
 		cur.SRPracticeCounts = *in.SRPracticeCounts
+	}
+	if in.SRAdaptive != nil {
+		cur.SRAdaptive = *in.SRAdaptive
 	}
 	if in.Tour != nil && *in.Tour != "" {
 		cur.Tour = *in.Tour

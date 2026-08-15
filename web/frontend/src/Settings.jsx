@@ -505,10 +505,12 @@ export function ReviewScope({ value, onChange }) {
 }
 
 // SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the
-// daily deck size, what the review covers (books / films & shows / both), and
-// whether Practice is allowed to move the schedule. The review intervals
-// themselves are a fixed ladder (7 → 30 → 100 days, review_handlers.go)
-// and not tunable. Each knob persists via the partial-merge preferences PUT.
+// daily deck size, what the review covers (books / films & shows / both),
+// whether Practice is allowed to move the schedule, and which of the two
+// scheduling rules is in force. The default is still the fixed ladder
+// (7 → 30 → 100 days, review_handlers.go); adaptive is opt-in and its real
+// subject is the lapse, which shortens instead of resetting. Each knob persists
+// via the partial-merge preferences PUT.
 function SRSettings({ user, onPreferences }) {
   const p = user.preferences || {}
   function set(patch) {
@@ -537,6 +539,18 @@ function SRSettings({ user, onPreferences }) {
             value={p.srPracticeCounts ? 'on' : 'off'}
             onChange={(v) => set({ srPracticeCounts: v === 'on' })}
             options={[['off', 'No'], ['on', 'Yes']]}
+          />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>Adaptive intervals</MonoLabel>
+            <InfoDot text="The ladder steps 7 → 30 → 100 days, and any lapse drops you straight back to 7. Adaptive multiplies by 2.5 instead, and halves on a lapse rather than resetting — so one slip on a well-known quote no longer costs you the whole climb." />
+          </div>
+          <Toggle
+            ariaLabel="Adaptive intervals"
+            value={p.srAdaptive ? 'on' : 'off'}
+            onChange={(v) => set({ srAdaptive: v === 'on' })}
+            options={[['off', 'Ladder'], ['on', 'Adaptive']]}
           />
         </div>
         <div>

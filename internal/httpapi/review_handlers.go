@@ -73,6 +73,59 @@ const (
 	reviewQuota        = 8     // default srDaily deck size
 )
 
+// Adaptive-interval constants (srAdaptive, off by default). The fixed ladder is
+// the honest default and stays the default; these describe the OTHER rule.
+//
+// The one place the ladder is harsher than the science asks is the lapse: it
+// drops a card to 7 from any rung, so a single miss on a card you have recalled
+// four times costs you the whole climb. Anki's move to FSRS made the argument
+// that a lapse should SHORTEN rather than reset mainstream, and that is the
+// substance of this option — reviewShrink, not reviewGrow, is why it exists.
+//
+// The bounds do not change: adaptive still lives between reviewMinStability and
+// reviewMaxStability, so every query that floors or caps a half-life keeps
+// working unchanged and no stored value can promise a review past 100 days.
+const (
+	reviewGrow   = 2.5 // successful recall multiplier (SM-2's classic ease)
+	reviewShrink = 0.5 // lapse multiplier — halve the half-life, never reset it
+	reviewLate   = 1.2 // late-recall credit: recalling it this long after the last review is itself evidence
+)
+
+// nextStability is the half-life an answer earns. Both scheduling rules live
+// here, together, because the only way to be sure the opt-in rule differs from
+// the default ONLY where it is meant to is to read them side by side.
+//
+// `succeeded` is whether the card has ever been recalled correctly before
+// (review_count > lapse_count). Both rules treat the first success identically —
+// it takes the starting rung and no more — because a card with no track record
+// has demonstrated nothing yet, whichever rule you are under. The rules diverge
+// only once there is a history to be adaptive about.
+// The bounds are applied ONCE, on the way out, rather than by each branch. Every
+// branch here multiplies or picks, and both operations can leave the range: the
+// version of this function that clamped per-branch was correct in four places and
+// wrong in the fifth, which is the failure mode a single exit removes.
+func nextStability(adaptive bool, result string, cur, elapsed float64, succeeded bool) float64 {
+	clamp := func(v float64) float64 { return min(max(v, reviewMinStability), reviewMaxStability) }
+	if result == "got" && !succeeded {
+		// max(), not assignment: a "seen"-lengthened half-life must never be
+		// shortened by a correct answer.
+		return clamp(max(cur, reviewLadder[0]))
+	}
+	if !adaptive {
+		if result == "got" {
+			return clamp(nextRung(cur))
+		}
+		return clamp(reviewLadder[0]) // lapse: straight back to the first rung
+	}
+	if result == "got" {
+		// Grow multiplicatively, but never award less than the elapsed gap itself
+		// warrants: remembering something 90 days after the last review is direct
+		// evidence the half-life is around 90, not around cur*2.5.
+		return clamp(max(cur*reviewGrow, elapsed*reviewLate))
+	}
+	return clamp(cur * reviewShrink) // lapse: shortened, not reset
+}
+
 // reviewLadder is the fixed spaced-repetition ladder (days): a correct recall
 // climbs to the next rung above the card's current half-life, any lapse falls
 // straight back to the first rung, and cards sit on the top rung for as long
@@ -1499,20 +1552,13 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if moveSchedule {
-		// The ladder: a card's FIRST successful recall takes the 7-day starting
-		// rung — whether it has no row yet or a row built purely from lapses
-		// (review_count == lapse_count ⇔ zero "got"s so far) — and every later
-		// success climbs one rung. Any lapse falls back to the start. max() so a
-		// "seen"-lengthened half-life is never shortened by a success.
-		if req.Result == "got" {
-			if found && reviewCount > lapseCount {
-				stability = nextRung(stability)
-			} else {
-				stability = max(stability, reviewLadder[0])
-			}
-		} else { // forgot
-			stability = reviewLadder[0]
-		}
+		// A card has "succeeded" before when it has more answers than lapses
+		// (review_count == lapse_count ⇔ zero "got"s so far); a card with no row
+		// at all trivially has not. nextStability turns that, the grade and the
+		// gap since the last review into the new half-life under whichever of the
+		// two rules the reviewer is on.
+		stability = nextStability(pf.SRAdaptive, req.Result, stability,
+			elapsedDays(lastReviewed), found && reviewCount > lapseCount)
 		if found {
 			q := `UPDATE item_reviews SET stability = ?, review_count = review_count + 1,
 			       last_result = ?, last_reviewed_at = datetime('now'), last_touched_at = datetime('now')`

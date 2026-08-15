@@ -402,7 +402,12 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
 
 // StatesRow — the "where you stand" breakdown: a count per repetition status
 // with its coloured dot, plus a toggle for the explainer.
-function StatesRow({ states, help, onToggleHelp }) {
+//
+// `adaptive` mirrors the srAdaptive preference, and the explainer describes
+// whichever rule is actually in force. Describing the ladder to somebody who has
+// switched it off would make the one piece of copy that explains the schedule
+// the one piece of copy that lies about it.
+function StatesRow({ states, help, onToggleHelp, adaptive }) {
   if (!states || states.total === 0) return null
   const pips = [
     ['remembered', states.remembered],
@@ -435,9 +440,19 @@ function StatesRow({ states, help, onToggleHelp }) {
       </div>
       {help && (
         <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
-          Each quote carries a memory “half-life” that climbs a fixed ladder — a week, then 30 and
-          100 days — each time you recall it, and falls straight back to a week when you forget —
-          the classic{' '}
+          {adaptive ? (
+            <>
+              Each quote carries a memory “half-life” that stretches to two and a half times its
+              length each time you recall it — up to 100 days — and is halved, not reset, when you
+              forget: the classic{' '}
+            </>
+          ) : (
+            <>
+              Each quote carries a memory “half-life” that climbs a fixed ladder — a week, then 30 and
+              100 days — each time you recall it, and falls straight back to a week when you forget —
+              the classic{' '}
+            </>
+          )}
           <a href="https://en.wikipedia.org/wiki/Forgetting_curve" target="_blank" rel="noopener noreferrer" className="tp-link">
             forgetting curve
           </a>{' '}
@@ -459,7 +474,7 @@ function StatesRow({ states, help, onToggleHelp }) {
 // card due today, no skips, each grade folded into the schedule. Got it / Forgot
 // move the card's half-life; the deck drains as you go and the pending dot
 // follows. Records a permanent daily score + streak.
-function DailyQuizCard({ onPending, states, onStates }) {
+function DailyQuizCard({ onPending, states, onStates, adaptive }) {
   const [data, setData] = useState(null)
   const [phase, setPhase] = useState('loading') // loading | active | done | error
   const [tally, setTally] = useState({ got: 0, forgot: 0 })
@@ -531,7 +546,7 @@ function DailyQuizCard({ onPending, states, onStates }) {
       )}
 
       {states && (
-        <StatesRow states={states} help={help} onToggleHelp={() => setHelp((v) => !v)} />
+        <StatesRow states={states} help={help} onToggleHelp={() => setHelp((v) => !v)} adaptive={adaptive} />
       )}
     </HandCard>
   )
@@ -993,7 +1008,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           entered the library yet, and that is easy to forget. */}
       <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
 
-      <DailyQuizCard onPending={onPending} states={states} onStates={setStates} />
+      <DailyQuizCard onPending={onPending} states={states} onStates={setStates} adaptive={!!user?.preferences?.srAdaptive} />
 
       <PracticeCard onStates={setStates} userId={user?.id} />
 

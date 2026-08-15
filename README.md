@@ -125,9 +125,13 @@ of that are spelled out in [`AI.md`](AI.md).
   study for exams or a refresher — and by default it *doesn't* touch your schedule (a Settings toggle
   opts in), with its own resettable score. Every quote in the Library and Catalogue wears a **status
   dot** — 🟢 **remembered**, 🟡 **forgetting**, 🔴 **probably forgotten** (renamed from the old
-  soon/later/someday for clarity) — and hovering it shows the half-life. The half-life climbs a fixed
-  ladder — **7 → 30 → 100 days**, one rung per successful recall, holding at 100 — and a single
-  lapse drops it straight back to 7 from any rung. A quote you've **just saved counts as remembered
+  soon/later/someday for clarity) — and hovering it shows the half-life. By default the half-life
+  climbs a fixed ladder — **7 → 30 → 100 days**, one rung per successful recall, holding at 100 —
+  and a single lapse drops it straight back to 7 from any rung. That reset is the one place the loop
+  is harsher than the science asks, so Settings offers **adaptive intervals** instead: the half-life
+  multiplies by 2.5 on a recall and is *halved* on a lapse rather than reset, still capped at 100.
+  Off unless you turn it on — the ladder is legible in a way a computed interval is not. A quote
+  you've **just saved counts as remembered
   for its first week** before it joins the rotation — you did, after all, just write it down. Two to
   three minutes a day, sane defaults (deck size and scope are tunable in Settings), no gamification —
   a dot on the logo marks a waiting deck.
