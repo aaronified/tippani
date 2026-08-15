@@ -20,7 +20,7 @@ const FONTS = {
   tag: '600 11px "IBM Plex Mono", ui-monospace, monospace',
   foot: '600 14px "Newsreader", Georgia, serif',
   credit: '500 11px "IBM Plex Mono", ui-monospace, monospace',
-  bengali: '400 12px "Noto Serif Bengali", serif',
+  bengali: '400 12px "Tiro Bangla", serif',
 }
 
 // ensureFonts resolves once the faces used by the card are loaded, so the first
@@ -34,7 +34,7 @@ export function ensureFonts() {
   const faces = [
     'italic 27px "Newsreader"', '600 15px "Newsreader"', 'italic 15px "Newsreader"', '600 14px "Newsreader"',
     '500 12px "IBM Plex Mono"', '600 11px "IBM Plex Mono"', '500 11px "IBM Plex Mono"',
-    '22px "Caveat"', '12px "Noto Serif Bengali"',
+    '22px "Caveat"', '12px "Tiro Bangla"', '12px "Tiro Devanagari Hindi"',
   ]
   return Promise.all(faces.map((f) => document.fonts.load(f).catch(() => {}))).then(() => {})
 }

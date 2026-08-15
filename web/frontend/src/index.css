@@ -23,12 +23,24 @@
        more slowly than a board does */
     --home-max: 42rem;
 
-    /* type stack (§3) */
-    --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
-    --font-ui: 'Hanken Grotesk', system-ui, sans-serif;
+    /* type stack (§3)
+       THE INDIC FACES SIT IN THE MAIN STACKS, after the Latin one, and that is
+       what makes a Bengali or Hindi quote render in a face somebody chose rather
+       than in whatever the operating system reaches for. @fontsource ships each
+       face as unicode-range subsets, so a stack of "Newsreader, Tiro Bangla,
+       Tiro Devanagari Hindi" costs Latin text nothing — no Latin codepoint ever
+       reaches the Indic faces, and no Bengali codepoint stops at Newsreader.
+       Listing them AFTER the Latin face is the whole trick; before it, their own
+       Latin subsets would win and the app would change typeface. */
+    --font-display: 'Newsreader', 'Tiro Bangla', 'Tiro Devanagari Hindi', Georgia, 'Times New Roman', serif;
+    --font-ui: 'Hanken Grotesk', 'Tiro Bangla', 'Tiro Devanagari Hindi', system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
     --font-hand: 'Caveat', 'Segoe Script', cursive;
-    --font-bengali: 'Noto Serif Bengali', serif;
+    /* Tiro Bangla replaces Noto Serif Bengali: a text face with real Bengali
+       letterforms rather than a pan-script fallback, and it sits beside
+       Newsreader without arguing with it. */
+    --font-bengali: 'Tiro Bangla', serif;
+    --font-devanagari: 'Tiro Devanagari Hindi', serif;
 
     /* paper-light fallbacks; theme.js overwrites these at runtime (§4) */
     --bg: #F4EDDE; --raised: #FBF6EA; --card: #FFFEF9;
@@ -996,6 +1008,7 @@
     color: var(--ink);
   }
   .bengali { font-family: var(--font-bengali); color: var(--amber); }
+  .devanagari { font-family: var(--font-devanagari); }
 
   /* ---- tag chips (§6): five CSS-only styles × four colours ---- */
   .tag-chip {
