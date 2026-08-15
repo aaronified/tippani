@@ -11,6 +11,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   applyFonts,
+  hasScript,
+  scriptProbe,
   faceFor,
   FONT_FACES,
   FONT_ROLES,
@@ -21,6 +23,7 @@ import {
   stackFor,
   stylePrefKey,
   stylesFor,
+  verifyUpload,
 } from '../../src/fonts.js'
 
 beforeEach(() => applyFonts({}))
@@ -131,5 +134,25 @@ describe('what gets written onto the page', () => {
     expect(prefKey('display')).toBe('fontDisplay')
     expect(prefKey('ui')).toBe('fontUi')
     expect(stylePrefKey('bengali')).toBe('fontBengaliStyle')
+  })
+})
+
+describe('the script check on an uploaded font', () => {
+  // Replace the Bengali face with something that has no Bengali in it and every
+  // Bengali quote turns into boxes, silently. The check exists to say so.
+  it('probes the script the role actually needs', () => {
+    expect(scriptProbe('bengali')).toMatch(/[ঀ-৿]/)
+    expect(scriptProbe('devanagari')).toMatch(/[ऀ-ॿ]/)
+    // A role with no script of its own is checked against Latin.
+    expect(scriptProbe('display')).toBe(scriptProbe('latin'))
+  })
+
+  // UNDECIDABLE IS NOT A FAILURE. jsdom has no canvas, so this is also the path
+  // every test in this file runs on — and the rule it pins is the one that
+  // matters on a real browser too: "I could not check" must never render as
+  // "your font is wrong".
+  it('answers null rather than false when it cannot measure', () => {
+    expect(hasScript('Nothing At All', 'bengali')).toBe(null)
+    expect(verifyUpload('Nothing At All', 'bengali')).toBe(null)
   })
 })

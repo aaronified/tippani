@@ -289,6 +289,12 @@ func (s *Server) Handler() http.Handler {
 	// Stickers: uploaded images managed on the Tags page, one attachable per
 	// annotation/dialogue (§ sticker feature).
 	mux.Handle("GET /stickers", s.requireAuth(s.handleListStickers))
+	// Bring your own type (Settings → Type). The bytes are stored and never
+	// parsed — see font_handlers.go.
+	mux.Handle("GET /fonts", s.requireAuth(s.handleListFonts))
+	mux.Handle("POST /fonts", s.requireAuth(s.handleUploadFont))
+	mux.Handle("GET /fonts/{id}/file", s.requireAuth(s.handleFontFile))
+	mux.Handle("DELETE /fonts/{id}", s.requireAuth(s.handleDeleteFont))
 	mux.Handle("POST /stickers", s.requireAuth(s.handleUploadSticker))
 	mux.Handle("PUT /stickers/{id}", s.requireAuth(s.handleUpdateSticker))
 	mux.Handle("DELETE /stickers/{id}", s.requireAuth(s.handleDeleteSticker))

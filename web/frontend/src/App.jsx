@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
 import { applyLanguageMarks } from './languages.jsx'
-import { applyFonts } from './fonts.js'
+import { applyFonts, registerUploads } from './fonts.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
 import AddSurface from './AddSurface.jsx'
@@ -109,6 +109,14 @@ export default function App() {
       applyReviewPrefs(user.preferences || {})
       applyLanguageMarks(user.preferences || {})
       applyFonts(user.preferences || {})
+      // The uploaded faces, if any. Loaded AFTER applyFonts and then applied
+      // again: the stacks name the family either way, so the only thing the
+      // second call changes is that the face now exists — and a font that never
+      // loads leaves its token unresolvable, which falls back to the built-in.
+      json('GET', '/fonts').then((r) => {
+        if (!r.ok) return
+        registerUploads(r.data?.fonts || []).then(() => applyFonts(user.preferences || {}))
+      })
     }
   }, [user])
 

@@ -153,7 +153,109 @@ const faceList = (roleKey) => FONT_FACES[roleKey] || []
 // indistinguishable from a broken stylesheet, and it would be silent.
 export function faceFor(roleKey, token) {
   const list = faceList(roleKey)
-  return list.find((f) => f.id === token) || list[0]
+  // An uploaded face is offered for every role, because only the reader knows
+  // what they uploaded it for — and the script check is what tells them whether
+  // it suits the one they picked.
+  return list.find((f) => f.id === token) || uploadFace(token) || list[0]
+}
+
+
+// ---- fonts a reader uploaded ----------------------------------------------
+//
+// A preference can name one as `upload:12`. The face itself is registered as a
+// FontFace at load, under a family name derived from the id, so the rest of this
+// file resolves it exactly like a bundled one and nothing downstream — the
+// stacks, the share image, the picker — has to know the difference.
+
+let uploads = [] // [{ id, name, token, format }]
+
+const uploadFamily = (id) => `TippaniUpload${id}`
+
+export const uploadedFonts = () => uploads.slice()
+
+// registerUploads loads each uploaded face into the document and remembers them.
+// BEST EFFORT, NEVER THROWING: a font that fails to load leaves its token
+// unresolvable, and an unresolvable token falls back to the built-in — which is
+// exactly what should happen to a file that turned out not to work.
+export async function registerUploads(list) {
+  uploads = (list || []).map((f) => ({ ...f, family: uploadFamily(f.id) }))
+  if (typeof document === 'undefined' || !document.fonts || typeof FontFace === 'undefined') return
+  await Promise.all(
+    uploads.map(async (f) => {
+      try {
+        const face = new FontFace(f.family, `url(/api/fonts/${f.id}/file)`)
+        await face.load()
+        document.fonts.add(face)
+      } catch {
+        // Leave it in the list — the picker should still show what was uploaded,
+        // and the fallback covers the rendering.
+      }
+    }),
+  )
+}
+
+// uploadFace resolves an `upload:N` token to a face shaped like a bundled one.
+function uploadFace(token) {
+  const m = /^upload:(\d+)$/.exec(String(token || ''))
+  if (!m) return null
+  const hit = uploads.find((f) => String(f.id) === m[1])
+  return hit ? { id: token, name: hit.name, family: hit.family, note: 'Yours' } : null
+}
+
+// ---- the script check ------------------------------------------------------
+//
+// "A verifier will verify if the language / script is the same." Replace the
+// Bengali face with something that has no Bengali in it and every Bengali quote
+// turns into boxes, silently, with nothing on the screen that did it to say why.
+//
+// IT RUNS BY MEASUREMENT, NOT BY PARSING, and the reason is worth stating.
+// Reading the cmap table would mean a font parser; woff2 is Brotli-compressed,
+// so in the browser it would mean shipping a decompressor as well — for a check
+// whose answer is advisory either way. Instead: set a string of the target
+// script in the candidate face and in a control that certainly lacks it, and
+// compare widths. A font without the script substitutes the same fallback the
+// control does and measures identically; one with it does not.
+//
+// IT IS A WARNING AND NOT A REFUSAL. It can be fooled both ways — a font with
+// three Bengali glyphs passes — and refusing somebody's own font on the strength
+// of a metrics heuristic is worse than telling them what looks wrong.
+const SCRIPT_PROBES = {
+  bengali: 'অআইঈউকখগঘঙ',
+  devanagari: 'अआइईउकखगघङ',
+  latin: 'Hamburgefonstiv',
+}
+
+export function scriptProbe(script) {
+  return SCRIPT_PROBES[script] || SCRIPT_PROBES.latin
+}
+
+// hasScript measures whether `family` draws `script` itself.
+//
+// Returns null when it cannot tell — no canvas, no text metrics — because "I did
+// not check" and "it failed" must not be the same answer on a screen that is
+// about to say something discouraging.
+export function hasScript(family, script) {
+  if (typeof document === 'undefined') return null
+  const ctx = document.createElement('canvas').getContext?.('2d')
+  if (!ctx || typeof ctx.measureText !== 'function') return null
+  const probe = scriptProbe(script)
+  const width = (f) => {
+    ctx.font = `40px ${f}`
+    return ctx.measureText(probe).width
+  }
+  // monospace is the control: a face that lacks the script falls through to the
+  // same generic the control resolves to, so the two measure the same.
+  const control = width('monospace')
+  const candidate = width(`"${family}", monospace`)
+  if (!control || !candidate) return null
+  return Math.abs(candidate - control) > 0.5
+}
+
+// verifyUpload is what the upload screen calls: does this face draw the script
+// the role it is being assigned to needs? `null` means undecidable.
+export function verifyUpload(family, roleKey) {
+  const role = FONT_ROLES.find((r) => r.key === roleKey)
+  return hasScript(family, role?.script || 'latin')
 }
 
 // ---- the reader's choice ---------------------------------------------------

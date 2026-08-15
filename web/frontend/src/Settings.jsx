@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { DEMO, json, errText, coverImgURL, copyText, apiURL, uploadWithProgress } from './api.js'
+import { DEMO, json, errText, coverImgURL, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
 import { applyLanguageMarks, currentLanguageMarks, languageMarksBlob, languageMarksState, LanguageMark, MARK_PALETTE } from './languages.jsx'
-import { applyFonts, fontState, prefKey, serialiseFontStyles, stylePrefKey, stylesFor } from './fonts.js'
+import {
+  applyFonts,
+  fontState,
+  prefKey,
+  registerUploads,
+  serialiseFontStyles,
+  stylePrefKey,
+  stylesFor,
+  uploadedFonts,
+  verifyUpload,
+} from './fonts.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -525,8 +535,54 @@ function TypeCard({ prefs, onSaved }) {
   const [rows, setRows] = useState(fontState)
   const [openRole, setOpenRole] = useState(null)
   const [err, setErr] = useState('')
+  const [mine, setMine] = useState(uploadedFonts)
+  const [busy, setBusy] = useState(false)
+  // What the script check said about the face just assigned, per role. A
+  // WARNING and never a refusal — see hasScript.
+  const [warn, setWarn] = useState({})
 
   useEffect(() => { setRows(fontState()) }, [prefs])
+
+  async function reloadUploads() {
+    const r = await json('GET', '/fonts')
+    if (!r.ok) return
+    await registerUploads(r.data?.fonts || [])
+    setMine(uploadedFonts())
+    applyFonts(prefs || {})
+    setRows(fontState())
+  }
+
+  // upload sends the file, registers the face, and assigns it to the role that
+  // asked — then checks whether it can actually draw that role's script.
+  async function upload(roleKey, file) {
+    if (!file) return
+    setBusy(true)
+    setErr('')
+    // The multipart helper, not json(): json() stringifies its body, which
+    // would post the string "[object FormData]" and get a 400 nobody could read.
+    const r = await uploadFile('/fonts', file)
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r, 'could not upload that font'))
+    await reloadUploads()
+    await save({ [prefKey(roleKey)]: r.data.token })
+    checkScript(roleKey)
+  }
+
+  // THE VERIFIER, and it runs after the assignment rather than before it. The
+  // check needs the face LOADED to measure it, and the honest thing to report is
+  // what the reader is now looking at — not a prediction about it.
+  function checkScript(roleKey) {
+    const face = fontState().find((x) => x.key === roleKey)?.chosen
+    const ok = face ? verifyUpload(face.family, roleKey) : null
+    setWarn((wmap) => ({ ...wmap, [roleKey]: ok }))
+  }
+
+  async function removeFont(f) {
+    if (!confirm(`Remove ${f.name}? Any role using it goes back to its built-in.`)) return
+    const r = await json('DELETE', `/fonts/${f.id}`)
+    if (!r.ok) return setErr(errText(r, 'could not remove that font'))
+    await reloadUploads()
+  }
 
   // save applies FIRST and asks after, like every other card here: the whole
   // point of a type picker is seeing the change, and a round trip between the
@@ -593,7 +649,7 @@ function TypeCard({ prefs, onSaved }) {
               {open && (
                 <div className="space-y-2 pb-2">
                   <p className="microcopy">{row.what}</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {row.faces.map((f) => (
                       <button
                         key={f.id}
@@ -607,7 +663,56 @@ function TypeCard({ prefs, onSaved }) {
                         {f.name}
                       </button>
                     ))}
+                    {/* YOUR OWN FACES ARE OFFERED ON EVERY ROLE, because only you
+                        know what you uploaded one for. The script check below is
+                        what tells you whether it suits the role you picked. */}
+                    {mine.map((f) => (
+                      <span key={f.id} className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-pressed={row.chosen.id === f.token}
+                          className={'tp-filter-chip tactile' + (row.chosen.id === f.token ? ' active' : '')}
+                          onClick={() => { save({ [prefKey(row.key)]: f.token }); checkScript(row.key) }}
+                          style={{ fontFamily: `'${f.family}'` }}
+                        >
+                          {f.name}
+                        </button>
+                        <FieldIconButton
+                          icon={<IconDelete />}
+                          ariaLabel={`Remove ${f.name}`}
+                          onClick={() => removeFont(f)}
+                          tooltip="Remove this font"
+                          danger
+                        />
+                      </span>
+                    ))}
+                    <label className="tp-filter-chip tactile" style={{ cursor: 'pointer' }}>
+                      {busy ? 'Uploading…' : '＋ Upload'}
+                      <input
+                        type="file"
+                        accept=".woff2,.woff,.otf,.ttf,font/woff2,font/woff,font/otf,font/ttf"
+                        className="sr-only"
+                        disabled={busy}
+                        onChange={(e) => { upload(row.key, e.target.files?.[0]); e.target.value = '' }}
+                      />
+                    </label>
                   </div>
+                  {/* THE SCRIPT CHECK. Replace the Bengali face with something
+                      that has no Bengali in it and every Bengali quote turns into
+                      boxes, silently, with nothing on this screen to say why.
+
+                      It measures rather than parses — see hasScript — so it can
+                      be fooled both ways, and it is a warning rather than a
+                      refusal. Refusing somebody's own font on the strength of a
+                      metrics heuristic is worse than telling them what looks
+                      wrong. `null` means it could not tell, and says nothing at
+                      all rather than guessing discouragingly. */}
+                  {warn[row.key] === false && (
+                    <p className="microcopy" style={{ color: 'var(--error)' }}>
+                      This font doesn’t look like it draws {row.script ? row.label : 'Latin'}. It is set anyway —
+                      if the text below turns into boxes, that is why.
+                    </p>
+                  )}
                   <div>
                     <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>style</MonoLabel>
                     <div className="flex flex-wrap gap-2">
