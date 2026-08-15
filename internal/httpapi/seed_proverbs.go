@@ -127,6 +127,10 @@ func (s *Server) handleListProverbStarters(w http.ResponseWriter, r *http.Reques
 func (s *Server) handleSeedProverbs(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Language string `json:"language"`
+		// Which board they land on. The offer is made ON a board — an empty one —
+		// so it files where it was accepted, exactly as capture inside a board
+		// does. Absent means the default board.
+		BoardID *int64 `json:"board_id"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -147,6 +151,16 @@ func (s *Server) handleSeedProverbs(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	// Filed on the board that offered them. Without this the rows land with a
+	// NULL board and appear on no shelf — the reader presses "Add 10 Bengali
+	// proverbs", the board they are standing on stays empty, and the only sign it
+	// worked at all is the count under All quotes.
+	boardID, err := resolveBoard(tx, uid, req.BoardID)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "board not found")
+		return
+	}
+
 	// One reservation for the batch, as writeUtterances does.
 	ids := newIDBlock(tx, "utterances", len(set))
 	added := 0
@@ -160,9 +174,9 @@ func (s *Server) handleSeedProverbs(w http.ResponseWriter, r *http.Request) {
 		// and the hash is over the words alone because there is nothing else.
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
-			  (id, user_id, quote, color, category, language, translation, source, dedupe_hash)
-			VALUES (?, ?, ?, 'yellow', 'proverb', ?, ?, 'seed', ?)`,
-			id, uid, p.Quote, req.Language, p.Translation,
+			  (id, user_id, quote, color, category, language, translation, board_id, source, dedupe_hash)
+			VALUES (?, ?, ?, 'yellow', 'proverb', ?, ?, ?, 'seed', ?)`,
+			id, uid, p.Quote, req.Language, p.Translation, boardID,
 			store.UtteranceDedupeHash(p.Quote, "", "", ""))
 		if err != nil {
 			internalError(w, r, "insert starter proverb", err)

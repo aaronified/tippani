@@ -247,3 +247,70 @@ func TestABoardNeedsAName(t *testing.T) {
 	c.mustDo("POST", "/boards", map[string]any{"name": "   "}, http.StatusBadRequest)
 	c.mustDo("POST", "/boards", map[string]any{"name": "Fine", "color": "chartreuse"}, http.StatusBadRequest)
 }
+
+// EVERY WRITER FILES ITS QUOTE, and this exists because two of them did not.
+//
+// 1.14.0 gave utterances a board and wired the create and update handlers, and
+// missed the other two paths that write the table: the proverb seeder and the
+// importer. Both left board_id NULL, which does not fail and does not warn — the
+// quotes are simply on no shelf. They show under All quotes, they are counted in
+// no board's total, and the board the reader was standing on when they pressed
+// "Add 10 Bengali proverbs" stays empty. That reads exactly like a feature that
+// silently did nothing.
+//
+// The assertion is deliberately over the WHOLE TABLE rather than over the rows a
+// particular endpoint made: the next writer added to utterances is the one this
+// is meant to catch.
+func TestEveryQuoteIsFiledOnABoard(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// One of each writer: the create handler, the seeder, and an import.
+	newUtterance(t, c, bose())
+	c.mustDo("POST", "/quotes/starters", map[string]any{"language": "Bengali"}, http.StatusOK)
+	// A real round trip rather than a hand-written file: export what is here and
+	// import it into a second account, which is how the importer is exercised
+	// everywhere else in this package.
+	md := exportQuotes(t, c, nil)
+	bob := addUser(t, h, c, "bob")
+	staged := stageQuotesMD(t, bob, "tippani-quotes.md", md)
+	approveBatch(t, bob, staged.BatchID)
+
+	var unfiled int
+	if err := srv.Store.DB.QueryRow(`SELECT COUNT(*) FROM utterances WHERE board_id IS NULL`).Scan(&unfiled); err != nil {
+		t.Fatal(err)
+	}
+	if unfiled != 0 {
+		t.Fatalf("%d quotes are on no board", unfiled)
+	}
+
+	// And the counts add up: every quote is on exactly one board, so the sum of
+	// the board counts is the total. A NULL board_id breaks this silently.
+	got := listBoards(t, c)
+	sum := 0
+	for _, b := range got.Boards {
+		sum += b.Quotes
+	}
+	if sum != got.Total {
+		t.Fatalf("board counts sum to %d but there are %d quotes", sum, got.Total)
+	}
+}
+
+// The seeder files onto the board that offered them, because the offer is made
+// ON an empty board — the same rule capture inside a board follows.
+func TestStarterProverbsLandOnTheBoardThatOfferedThem(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	newUtterance(t, c, bose()) // makes the first board, so there is a default to differ from
+	shelf := newBoard(t, c, "Bengali proverbs")
+	c.mustDo("POST", "/quotes/starters",
+		map[string]any{"language": "Bengali", "board_id": shelf.ID}, http.StatusOK)
+
+	for _, b := range listBoards(t, c).Boards {
+		if b.ID == shelf.ID && b.Quotes == 0 {
+			t.Fatal("the proverbs did not land on the board that asked for them")
+		}
+	}
+}

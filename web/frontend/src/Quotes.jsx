@@ -65,7 +65,7 @@ const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
 //
 // The counts come from the server rather than being hardcoded here, so the number on
 // the button and the set that lands cannot drift apart.
-function StarterProverbs({ onDone }) {
+function StarterProverbs({ onDone, boardID }) {
   const [offers, setOffers] = useState(null)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
@@ -77,7 +77,7 @@ function StarterProverbs({ onDone }) {
   async function take(language) {
     setBusy(language)
     setMsg('')
-    const r = await json('POST', '/quotes/starters', { language })
+    const r = await json('POST', '/quotes/starters', { language, board_id: boardID ?? null })
     setBusy('')
     if (!r.ok) return setMsg(errText(r, 'could not add them'))
     // `skipped` is the honest half: asking twice reports nothing added rather than
@@ -732,7 +732,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // in the code may know a board's name (0036), and an empty shelf is the only
   // signal available for "there is nothing here to start from".
   const starters = !isAll && rows != null && board.length === 0
-    ? <StarterProverbs onDone={load} />
+    ? <StarterProverbs onDone={load} boardID={Number(boardId)} />
     : null
 
   return (

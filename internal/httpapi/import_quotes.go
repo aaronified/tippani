@@ -200,7 +200,16 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 	added := 0
 	// One id reservation for the batch (idBlock, id_floor.go).
 	ids := newIDBlock(tx, "utterances", len(us))
-	for _, u := range us {
+		// EVERY QUOTE IS FILED (0036). Without this the row lands with a NULL board
+	// and appears on no shelf at all — visible only under All quotes, counted in
+	// no board's total, and looking for all the world like an import that silently
+	// dropped half the file. Naming a board IN the file is the piece still to come;
+	// the default board is the right answer when the file names none.
+	boardID, err := defaultBoardID(tx, uid)
+	if err != nil {
+		return added, err
+	}
+for _, u := range us {
 		color := u.Color
 		if color == "" {
 			color = "yellow"
@@ -238,13 +247,13 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		res, err := tx.Exec(`
 			INSERT OR IGNORE INTO utterances
 			  (id, user_id, quote, note, color, favorite, speaker, occasion, occasion_date,
-			   place, medium, category, language, translation, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
+			   place, medium, category, language, translation, board_id, source, dedupe_hash, noted_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?)`,
 			id, uid, strings.TrimSpace(u.Quote), nullable(u.Note), color, u.Favorite,
 			speaker, occasion, occDate,
 			strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
 			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
-			hash, nullable(u.NotedAt))
+			boardID, hash, nullable(u.NotedAt))
 		if err != nil {
 			return added, err
 		}
