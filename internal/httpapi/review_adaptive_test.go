@@ -17,7 +17,7 @@ import (
 )
 
 // nextStability is the whole rule, so it is tested directly rather than through
-// six HTTP round-trips. The endpoint wiring is covered by TestAdaptivePrefMovesSchedule.
+// six HTTP round-trips. The endpoint wiring is covered by TestAdaptivePrefReachesTheSchedule.
 func TestNextStabilityLadderUnchanged(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -115,8 +115,57 @@ func TestNextStabilityStaysInBounds(t *testing.T) {
 	}
 }
 
-// The preference has to actually reach the schedule, and has to be off until
-// somebody turns it on.
+// THE PREFERENCE HAS TO REACH THE SCHEDULE, which is a different claim from the
+// two above and was for a while asserted by nothing but a comment naming a test
+// that did not exist. nextStability can be perfectly correct and perfectly
+// unreachable: pass the wrong argument at the one call site in handleReviewAnswer
+// and every test in this file still passes while every reader is still on the
+// ladder.
+//
+// Asserted end-to-end, over HTTP, through the same endpoint the client posts to,
+// and on the ONE value the two rules disagree about most loudly — the lapse.
+func TestAdaptivePrefReachesTheSchedule(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Persuasion")
+	// Two quotes with the same history, so the only difference between them at
+	// the end is which rule was in force.
+	ladder := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "the first line"}, http.StatusCreated).Body.Bytes())
+	adaptive := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "the second line"}, http.StatusCreated).Body.Bytes())
+	ageSeededItems(t, srv)
+
+	// Climb both to the second rung: first success takes 7 (both rules agree),
+	// second success climbs. Practice, with the schedule opted in, so the day's
+	// idempotency guard does not swallow the second answer to the same card.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, http.StatusOK)
+	for _, id := range []int64{ladder, adaptive} {
+		if got := answer(t, c, kindBook, id, "got", "practice").Stability; got != 7 {
+			t.Fatalf("first success on %d: stability %g, want 7", id, got)
+		}
+	}
+	for _, id := range []int64{ladder, adaptive} {
+		if got := answer(t, c, kindBook, id, "got", "practice").Stability; got != 30 {
+			t.Fatalf("second success on %d: stability %g, want 30", id, got)
+		}
+	}
+
+	// Now the rules part company. Under the ladder a lapse falls to 7 from any
+	// rung; under adaptive it halves, to 15.
+	if got := answer(t, c, kindBook, ladder, "forgot", "practice").Stability; got != 7 {
+		t.Fatalf("lapse under the ladder: stability %g, want 7", got)
+	}
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srAdaptive": true}, http.StatusOK)
+	if got := answer(t, c, kindBook, adaptive, "forgot", "practice").Stability; got != 15 {
+		t.Fatalf("lapse under adaptive: stability %g, want 15 — the preference is not reaching nextStability", got)
+	}
+}
+
+// And it has to be off until somebody turns it on, survive a PUT that never
+// mentions it, and be turnable back off.
 func TestAdaptivePrefRoundtrip(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())

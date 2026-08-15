@@ -2,9 +2,14 @@
 
 The build of roadmap §2 (`docs/roadmap.html#review-loop`, tracked as
 [#16](https://github.com/aaronified/tippani/issues/16)). Eight items were on the
-roadmap; six are being built, and the two that are not are recorded here with
-their reasons, because a plan that quietly drops a third of its section is how a
-roadmap stops being a promise.
+roadmap; **five are being built as written, one is replaced, and two are cut** —
+and the cuts are recorded here with their reasons, because a plan that quietly
+drops a quarter of its section is how a roadmap stops being a promise. A sixth
+feature, the traditional flip card, is an addition to the section rather than an
+item from it.
+
+(The count in this paragraph was wrong in the first draft — it said six built and
+then listed eight — and stayed wrong until the specs were written against it.)
 
 ## What already exists
 
@@ -170,6 +175,86 @@ working unchanged.
 | **Recall-history sparkline** | Needs a per-answer history table the section promises not to add |
 | **"Which chapter / act?"** | Cut on request — the answer is a locator, not a memory, and getting it wrong says nothing about whether you know the quote |
 | **"Who wrote it?" / "type the next line"** | Not asked for. "Type the next line" also needs two annotations adjacent by `location` in one book, which is a much narrower pool than it sounds |
+
+## What the specification pass found
+
+Seven implementation specs were written against the tree, one per feature, each
+blind to the others, then reconciled. The reconciliation is the reason this
+section exists: six of the seven rewrite the same two functions.
+
+### Three defects that are live in the shipped app today
+
+1. **`Home.jsx` renders the attribution side for every direction that is not
+   `source`.** The line is `{isSource ? <QuoteBlock/> : <SourceLines/>}`, and
+   `SourceLines` prints the actor as a face chip and the character in its meta
+   line. The moment a `speaker` card exists, that path shows the correct actor
+   above the four options you are meant to choose between. **This must be fixed
+   before any new direction is served, not alongside one.**
+2. **`attachMCQ` falls through to the quote branch for any unrecognised
+   direction.** It tests `if card.Direction == dirSource` and everything else
+   takes the other branch — so a card labelled `cloze` or `speaker` would come
+   back carrying quote options with the correct quote among them, while the
+   client rendered it as something else. It needs an explicit switch whose
+   default refuses.
+3. **`buildQuestion` drops a card when it cannot build a question, and
+   `dailyRemaining` counts it anyway.** The badge and the deck disagree for any
+   library with one work in it. The flip card fixes this by making the signature
+   unable to fail.
+
+### Corrections to this plan
+
+- **§3 "This is CLIENT ONLY" is wrong.** The submit step needs `srSubmit` in the
+  prefs struct and in the update handler's merge, or the PUT is accepted and
+  silently discarded by `loadPrefs`' typed unmarshal — the toggle would revert at
+  the next login. What is client-only is the *answer endpoint*, which genuinely
+  does not change.
+- **Cloze needs a script gate, and the stated reason it does not is false.** The
+  plan says a quote in another script "simply will not produce a good span". It
+  will: an English stopword list matches zero Devanagari or Cyrillic tokens, so
+  every token reads as a content word and the selector confidently blanks a
+  phrase out of text it understands nothing about.
+- **The three new directions must land as ONE change to the direction
+  vocabulary**, not three. Each spec independently rewrote `dailyDirection`'s
+  two-way toggle into a differently-shaped three-way, and the three rewrites are
+  mutually exclusive. One ordered table, `directionsFor(kind)`, replaces all of
+  them — and makes per-kind applicability (speaker is screen-only, a book has no
+  cast) a property of the table rather than a special case.
+- **`QuizRunner` has no test coverage at all**, and six of the seven features
+  rewrite it. The submit-off path — the one every current reader is on — has
+  never been asserted by anything. Tests land *before* the state machine is
+  split, not after.
+
+### A product decision this plan owes an answer to
+
+Under one direction table, "which book is this quote from?" drops from half of a
+book's cards to a quarter, and "which film?" from half to a fifth. That is a
+large, immediate change to every existing account, and it would otherwise arrive
+as an emergent property of how long a list happens to be. It is decided
+explicitly in the vocabulary commit and said out loud in the release note.
+
+## The build order
+
+Eight commits, each shippable with a green suite, reconciled from the seven specs:
+
+| | | |
+| :-- | :-- | :-- |
+| 1 | Deterministic pools | Sorted keys, so a seeded deck is reproducible before anything depends on it |
+| 2 | **The direction vocabulary** | The keystone: `directionsFor`, the explicit `attachDirection` switch, `buildQuestion` that cannot fail, the `Home.jsx` render fix, one API revision bump, and the first `QuizRunner` tests |
+| 3 | Leech handling | Independent of the vocabulary; needs `lapse_count` on the card *and* on the answer response |
+| 4 | The submit step | After the vocabulary, so it can exempt cloze and flip — typing an answer and pressing Check is already a submit step, and a second confirmation on it is two |
+| 5 | Cloze | Now a body rather than a restructure |
+| 6 | "Who said this?" | Last of the directions; the only one that touches the pool builder |
+| 7 | Themed practice | Its clause must NOT go in `reviewSource.where()` — five queries splice that string and two are Daily-only, so a theme there would narrow the Daily badge in the same commit that promises Daily is not themeable |
+| 8 | In-card actions | Last, because it is the only commit that needs the final shape of every card type |
+
+### Two bugs that live between features
+
+Neither is visible from inside any single feature, and both are answer leaks:
+
+- Folding an edited row back onto a **cloze** card rewrites `card.quote` with the
+  unmasked text — saving an edit would print the answer.
+- The same fold writes a **title** into the answer slot of a **speaker** card,
+  whose options are actor names.
 
 ## The shape of the whole thing
 
