@@ -21,6 +21,8 @@ import {
   IconDelete,
   IconDevice,
   IconEdit,
+  IconEye,
+  IconEyeOff,
   IconExport,
   IconKey,
   IconRefresh,
@@ -427,24 +429,6 @@ function collect(rows) {
 
 // The eye pair: whether a category is offered in the pickers. Not a delete —
 // nothing about a quote changes — so an eye rather than a bin.
-function IconEye() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-      <circle cx="12" cy="12" r="3.2" />
-    </svg>
-  )
-}
-function IconEyeOff() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M9.9 5.9A9.3 9.3 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.8" />
-      <path d="M6.3 7.7A17.6 17.6 0 0 0 2.5 12S6 18.5 12 18.5a9.4 9.4 0 0 0 3.6-.7" />
-      <path d="M4 4l16 16" />
-    </svg>
-  )
-}
-
 // ReviewScope — which media the deck draws from, as three independent choices.
 //
 // It was a three-way Toggle: Books, Films & shows, and a third option labelled

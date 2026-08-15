@@ -23,6 +23,8 @@ import {
   GhostButton,
   IconDelete,
   IconEdit,
+  IconEye,
+  IconEyeOff,
   IconPlus,
   IconQuote,
   IconUpload,
@@ -260,7 +262,15 @@ function BoardTile({ board, onOpen, onEdit, onDelete, onToggleHidden }) {
         <MoreMenu
           items={[
             { icon: <IconEdit />, label: 'Edit', onClick: () => onEdit(board) },
-            { label: board.hidden ? 'Show' : 'Hide', onClick: () => onToggleHidden(board) },
+            // The glyph shows the ACTION, not the state: this is a menu item,
+            // where the words say what pressing it does. Settings' twin is a
+            // toggle showing where a category currently stands, so its eye is the
+            // other way round — different widget, different rule.
+            {
+              icon: board.hidden ? <IconEye /> : <IconEyeOff />,
+              label: board.hidden ? 'Show' : 'Hide',
+              onClick: () => onToggleHidden(board),
+            },
             { icon: <IconDelete />, label: 'Delete', danger: true, onClick: () => onDelete(board) },
           ]}
         />
