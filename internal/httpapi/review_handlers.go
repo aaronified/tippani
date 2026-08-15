@@ -530,19 +530,26 @@ type reviewSource struct {
 	// eligible is the kind's own reviewability rule beyond "has words". Only
 	// utterances have one: a quote with no attribution has no question.
 	eligible string
+	// tagJoin / tagKey name this kind's tag join table, for themed rounds. Each
+	// kind has its own rather than one shared table.
+	tagJoin string
+	tagKey  string
 }
 
 func bookSource() reviewSource {
-	return reviewSource{kind: kindBook, table: "annotations", parent: "books", parentKey: "book_id", idCol: "x.id"}
+	return reviewSource{kind: kindBook, table: "annotations", parent: "books", parentKey: "book_id", idCol: "x.id",
+		tagJoin: "annotation_tags", tagKey: "annotation_id"}
 }
 
 func screenSource() reviewSource {
-	return reviewSource{kind: kindScreen, table: "dialogues", parent: "movies", parentKey: "movie_id", idCol: "x.id"}
+	return reviewSource{kind: kindScreen, table: "dialogues", parent: "movies", parentKey: "movie_id", idCol: "x.id",
+		tagJoin: "dialogue_tags", tagKey: "dialogue_id"}
 }
 
 func utteranceSource() reviewSource {
 	return reviewSource{kind: kindUtterance, table: "utterances", idCol: "x.id",
-		eligible: `AND (COALESCE(x.occasion,'') <> '' OR COALESCE(x.speaker,'') <> '')`}
+		eligible: `AND (COALESCE(x.occasion,'') <> '' OR COALESCE(x.speaker,'') <> '')`,
+		tagJoin:  "utterance_tags", tagKey: "utterance_id"}
 }
 
 func sourcesFor(sc reviewScope) []reviewSource {
@@ -653,13 +660,22 @@ const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.r
 // for one bucket. bucketAll (Practice) returns the whole in-scope pool;
 // bucketDue / bucketUnseen (Daily) each return their own slice,
 // most-forgotten-first and hash-spread respectively, capped at `limit`.
-func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := bookSource()
 	q := `SELECT x.id, x.book_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
 	             p.title, COALESCE(p.author,''), COALESCE(x.chapter,''), COALESCE(x.location,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
+	// The theme, spliced HERE and never into rs.where() — that string is also
+	// read by dailyRemaining and reviewStates, which are Daily's badge and
+	// Daily's status row, and a theme in either would narrow both.
+	tclause, targs, skip := th.clause(rs)
+	if skip {
+		return nil, nil
+	}
+	q += tclause
+	args = append(args, targs...)
 	clause, cargs := rs.bucketClause(bucket, mod, day, seed)
 	q += clause
 	args = append(args, cargs...)
@@ -691,13 +707,22 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, s
 	return out, rows.Err()
 }
 
-func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := screenSource()
 	q := `SELECT x.id, x.movie_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color, p.title, COALESCE(x.character,''),
 	             COALESCE(x.actor,''), COALESCE(x.timestamp,''), x.season, x.episode, COALESCE(p.media_type,'movie'),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
+	// The theme, spliced HERE and never into rs.where() — that string is also
+	// read by dailyRemaining and reviewStates, which are Daily's badge and
+	// Daily's status row, and a theme in either would narrow both.
+	tclause, targs, skip := th.clause(rs)
+	if skip {
+		return nil, nil
+	}
+	q += tclause
+	args = append(args, targs...)
 	clause, cargs := rs.bucketClause(bucket, mod, day, seed)
 	q += clause
 	args = append(args, cargs...)
@@ -734,13 +759,22 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string,
 // column, and its "work" is derived from two text fields rather than read from a
 // join. Everything downstream — the bucket ordering, the per-work spread, the
 // distractor ranking — then treats it like the other two.
-func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := utteranceSource()
 	q := `SELECT x.id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
 	             COALESCE(x.speaker,''), COALESCE(x.occasion,''), COALESCE(x.occasion_date,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
+	// The theme, spliced HERE and never into rs.where() — that string is also
+	// read by dailyRemaining and reviewStates, which are Daily's badge and
+	// Daily's status row, and a theme in either would narrow both.
+	tclause, targs, skip := th.clause(rs)
+	if skip {
+		return nil, nil
+	}
+	q += tclause
+	args = append(args, targs...)
 	clause, cargs := rs.bucketClause(bucket, mod, day, seed)
 	q += clause
 	args = append(args, cargs...)
@@ -854,24 +888,24 @@ func overdueRatio(c reviewCand) float64 {
 // deckCandidates fetches one bucket across the in-scope media and merges them
 // into a single ordering — the two queries each come back ordered, so a plain
 // append would put every book ahead of every film.
-func (s *Server) deckCandidates(uid int64, bucket deckBucket, sc reviewScope, mod, day string, seed int64, limit int) ([]reviewCand, error) {
+func (s *Server) deckCandidates(uid int64, bucket deckBucket, sc reviewScope, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	var out []reviewCand
 	if sc.books {
-		bc, err := s.bookCandidates(uid, bucket, mod, day, seed, limit)
+		bc, err := s.bookCandidates(uid, bucket, th, mod, day, seed, limit)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, bc...)
 	}
 	if sc.screen {
-		dc, err := s.screenCandidates(uid, bucket, mod, day, seed, limit)
+		dc, err := s.screenCandidates(uid, bucket, th, mod, day, seed, limit)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, dc...)
 	}
 	if sc.utterance {
-		uc, err := s.utteranceCandidates(uid, bucket, mod, day, seed, limit)
+		uc, err := s.utteranceCandidates(uid, bucket, th, mod, day, seed, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -1561,12 +1595,17 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		// fetch, so a never-answered card could not reach the deck at all until
 		// the backlog cleared.
 		fetch := slots * reviewFetchHeadroom
-		due, err := s.deckCandidates(uid, bucketDue, scope, mod, day, seed, fetch)
+		// reviewTheme{} BY NAME, not by omission. Daily is not themeable — the
+		// daily deck IS the schedule, and filtering it would leave the cards that
+		// are actually due unasked while the streak still counted the day as
+		// cleared. Passing the empty theme explicitly makes that a line somebody
+		// can read and argue with.
+		due, err := s.deckCandidates(uid, bucketDue, scope, reviewTheme{}, mod, day, seed, fetch)
 		if err != nil {
 			internalError(w, r, "daily quiz due", err)
 			return
 		}
-		unseen, err := s.deckCandidates(uid, bucketUnseen, scope, mod, day, seed, fetch)
+		unseen, err := s.deckCandidates(uid, bucketUnseen, scope, reviewTheme{}, mod, day, seed, fetch)
 		if err != nil {
 			internalError(w, r, "daily quiz unseen", err)
 			return
@@ -1612,6 +1651,9 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope := scopeFlags(pf.SRReviewScope)
+	// "Quiz me on this book / tag / colour / person." Absent parameters mean the
+	// whole pool, which is what Practice has always served.
+	theme := parseReviewTheme(r.URL.Query())
 	// 0: Practice varies its distractors between rounds on purpose.
 	pools, err := s.quizPools(uid, scope, 0)
 	if err != nil {
@@ -1625,7 +1667,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	// unseen cards would make an already-reviewed card *more* likely to come up
 	// than an unreviewed one. bucketAll keeps every card equally likely. The seed
 	// is fresh per request, so each round is a different walk.
-	cands, err := s.deckCandidates(uid, bucketAll, scope, "", "", rand.Int64N(reviewSeedRange), 0)
+	cands, err := s.deckCandidates(uid, bucketAll, scope, theme, "", "", rand.Int64N(reviewSeedRange), 0)
 	if err != nil {
 		internalError(w, r, "practice pool", err)
 		return
