@@ -11,7 +11,7 @@ import {
   searchQueryString,
 } from './facets.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
-import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
+import { Frame, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
@@ -20,6 +20,7 @@ import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
+import { episodeLabel } from './text.js'
 import {
   BulkBar,
   CloseButton,

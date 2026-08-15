@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
+import { episodeLabel } from './text.js'
 import { DEMO, coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, CoverPreview, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
@@ -1200,17 +1201,6 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       </div>
     </form>
   )
-}
-
-// episodeLabel renders a show line's episode locator the way people write it:
-// S2E5, or S2 when the season is all that's recorded. '' when there is none —
-// which is every film line, so a caller can join it into a credit unconditionally.
-//
-// The null checks are deliberate, not `|| ''`: season 0 is a real season (it is
-// where a series keeps its specials), so 0 has to render.
-export function episodeLabel(d) {
-  if (d?.season == null) return ''
-  return d.episode == null ? `S${d.season}` : `S${d.season}E${d.episode}`
 }
 
 // countOrNull turns a form field back into what the API wants for a nullable

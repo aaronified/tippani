@@ -22,7 +22,7 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { QuizRunner } = await import('../../src/Home.jsx')
+const { QuizRunner } = await import('../../src/review.jsx')
 
 const mcq = (over = {}) => ({
   kind: 'book', id: 1, direction: 'source', quote: 'the only way out is through',

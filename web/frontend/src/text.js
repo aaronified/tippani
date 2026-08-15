@@ -85,3 +85,21 @@ export function editBudget(n) {
   if (n < 3) return 0
   return n <= 5 ? 1 : 2
 }
+
+// episodeLabel renders a show line's episode locator the way people write it:
+// S2E5, or S2 when the season is all that's recorded. '' when there is none —
+// which is every film line, so a caller can join it into a credit unconditionally.
+//
+// The null checks are deliberate, not `|| ''`: season 0 is a real season (it is
+// where a series keeps its specials), so 0 has to render.
+//
+// HERE RATHER THAN IN Movies.jsx, where it was written and where its four other
+// callers still are. The quiz runner needs it to caption a film line, and the
+// runner now lives in review.jsx — which the work tiles and the person panel
+// import, and which Movies.jsx imports by way of works.jsx. A one-line pure
+// formatter was the only thing standing between those two facts and an import
+// cycle, so it moved to the module that imports nothing.
+export function episodeLabel(d) {
+  if (d?.season == null) return ''
+  return d.episode == null ? `S${d.season}` : `S${d.season}E${d.episode}`
+}

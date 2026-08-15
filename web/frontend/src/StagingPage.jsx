@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
-import { episodeLabel } from './Movies.jsx'
+import { episodeLabel } from './text.js'
 import {
   ANNOTATION_HEX,
   BulkBar,
