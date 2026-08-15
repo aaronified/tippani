@@ -713,6 +713,110 @@ func TestAFacetEmptiesTheKindsItCannotDescribe(t *testing.T) {
 	}
 }
 
+// ---- two silent wrong answers the review found ------------------------------
+
+func TestACreditFacetMatchesANameThatIsNotEnglish(t *testing.T) {
+	// THE FAILURE WAS TOTAL AND SILENT, over a value the app itself had just
+	// offered. The credit facets lowered the value with Go's strings.ToLower — a
+	// full Unicode fold — and compared it against SQLite's lower(), which folds
+	// ASCII and nothing else. For "Marcus Aurelius" the two agree by accident;
+	// for "Лев Толстой" they cannot, so the facet returned no rows at all for a
+	// name GET /search/vocabulary lists as a dropdown option.
+	//
+	// The ASCII case is in here as the control, because a fix that broke it
+	// would look exactly like a fix that worked.
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	c.mustDo("POST", "/books", map[string]any{"title": "War and Peace", "author": "Лев Толстой"}, http.StatusCreated)
+	c.mustDo("POST", "/books", map[string]any{"title": "Nana", "author": "Émile Zola"}, http.StatusCreated)
+	c.mustDo("POST", "/books", map[string]any{"title": "Meditations", "author": "Marcus Aurelius"}, http.StatusCreated)
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Solaris", "director": "Андрей Тарковский",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "a line", "actor": "Донатас Банионис",
+	}, http.StatusCreated)
+	newUtterance(t, c, map[string]any{"quote": "a saying", "speaker": "Ῥαβινδρανάθ"})
+
+	for _, tc := range []struct {
+		query string
+		want  []string
+	}{
+		{"scope=books&author=Marcus", []string{"Meditations"}},
+		{"scope=books&author=" + urlQueryEscape("Лев Толстой"), []string{"War and Peace"}},
+		{"scope=books&author=" + urlQueryEscape("Толстой"), []string{"War and Peace"}},
+		{"scope=books&author=" + urlQueryEscape("Émile"), []string{"Nana"}},
+	} {
+		res := searchWith(t, c, tc.query)
+		wantTitles(t, tc.query, bookTitles(res.Books), tc.want)
+	}
+
+	// The other three credit columns go through the same builder, so they would
+	// have had the same hole.
+	res := searchWith(t, c, "scope=movies&director="+urlQueryEscape("Тарковский"))
+	wantTitles(t, "director", movieTitles(res.Movies), []string{"Solaris"})
+	res = searchWith(t, c, "q=line&scope=dialogues&actor="+urlQueryEscape("Банионис"))
+	wantTitles(t, "actor", dialogueTexts(res.Dialogues), []string{"a line"})
+	res = searchWith(t, c, "q=saying&scope=quotes&speaker="+urlQueryEscape("Ῥαβινδρανάθ"))
+	wantTitles(t, "speaker", utteranceTexts(res.Quotes), []string{"a saying"})
+}
+
+func TestATagWithNothingUnderItIsNotAResult(t *testing.T) {
+	// The genre and decade facets already drop an empty group — "an orphaned
+	// genre name is noise, not a result". The tag facet was the one of the three
+	// that did not, and facets made the empty case routine: a tag matches the
+	// query by NAME while a colour facet excludes everything wearing it.
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Meditations"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "the obstacle is the way",
+		"color": "green", "tags": []string{"stoicism"},
+	}, http.StatusCreated)
+
+	res := searchWith(t, c, "q=stoicism&colour=blue")
+	if len(res.Tags) != 0 {
+		t.Errorf("a tag heading over an empty box: %+v", res.Tags)
+	}
+}
+
+func TestAnEmptyTagGroupDoesNotSwallowARealHit(t *testing.T) {
+	// THE EXPENSIVE HALF, and the reason the one above is not merely cosmetic.
+	// `total` counts GROUPS, so an empty tag group makes a search that found
+	// nothing look like a search that found something — which skips the
+	// cross-column fallback and the zero-hit typo pass.
+	//
+	// annotations_fts indexes quote and note as separate columns and the faceted
+	// pass matches them one at a time, so a query spanning BOTH only ever lands
+	// through the fallback. The A/B below changes exactly one thing: the NAME of
+	// a tag on an unrelated row. Under the bug that alone lost the row the
+	// reader was looking for.
+	find := func(t *testing.T, tag string) searchResults {
+		t.Helper()
+		h := newTestServer(t).Handler()
+		c := signupAdmin(t, h)
+		book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{"title": "Meditations"}, http.StatusCreated))
+		// The row wanted: blue, "obstacle" in the quote and "wisdom" in the note.
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book.ID, "quote": "the obstacle is the way",
+			"note": "wisdom from Rome", "color": "blue",
+		}, http.StatusCreated)
+		// An unrelated green row, carrying a tag the facets exclude.
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book.ID, "quote": "unrelated", "color": "green", "tags": []string{tag},
+		}, http.StatusCreated)
+		return searchWith(t, c, "q=obstacle+wisdom&colour=blue")
+	}
+
+	// A tag whose name has nothing to do with the query: the row is found.
+	wantTitles(t, "control", quoteTexts(find(t, "gardening").Annotations), []string{"the obstacle is the way"})
+	// A tag whose NAME matches both query tokens. Nothing else differs.
+	wantTitles(t, "with a name-matched tag", quoteTexts(find(t, "obstacle wisdom").Annotations),
+		[]string{"the obstacle is the way"})
+}
+
 // ---- isolation -------------------------------------------------------------
 
 func TestFacetsCannotReachAnotherAccount(t *testing.T) {

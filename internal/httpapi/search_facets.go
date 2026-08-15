@@ -461,18 +461,38 @@ func (f searchFacets) where(k rowKind, uid int64) (string, []any, bool) {
 }
 
 // creditAnyOf builds "(name matches value A) OR (name matches value B)", where
-// each value matches the way nameConds already matches a credit column: every
+// each value matches the way search has always matched a credit column: every
 // token of the value must appear somewhere in it.
+//
+// BOTH SIDES ARE FOLDED BY THE SAME IMPLEMENTATION, which is the whole reason
+// this does not simply call nameConds. nameConds takes tokens that queryTokens
+// has already lowered with Go's strings.ToLower — a full Unicode fold — and
+// compares them against SQLite's lower(), which folds ASCII and nothing else.
+// For an ASCII name the two agree by accident. For "Лев Толстой" they cannot:
+// Go turns the value into "лев", SQLite leaves the column as "Лев Толстой", and
+// instr never hits. The facet returned NOTHING, silently, for a name the
+// vocabulary endpoint had just offered as a dropdown option.
+//
+// So the value is bound RAW and wrapped in SQL lower() here, exactly as the
+// series, tag and genre predicates already do. Two names folded by one
+// implementation can disagree with a reader's expectations; two names folded by
+// two implementations disagree with each other, which is worse and invisible.
 func creditAnyOf(col string, values []string) (string, []any) {
 	var parts []string
 	var args []any
 	for _, v := range values {
-		tokens := queryTokens(v)
+		// Split only — NOT lowered. The fold happens in SQL, on both sides.
+		tokens := strings.Fields(v)
 		if len(tokens) == 0 {
 			continue
 		}
-		cond, a := nameConds(col, tokens)
-		parts = append(parts, "("+cond+")")
+		conds := make([]string, len(tokens))
+		a := make([]any, len(tokens))
+		for i, t := range tokens {
+			conds[i] = "instr(lower(" + col + "), lower(?)) > 0"
+			a[i] = t
+		}
+		parts = append(parts, "("+strings.Join(conds, " AND ")+")")
 		args = append(args, a...)
 	}
 	if len(parts) == 0 {

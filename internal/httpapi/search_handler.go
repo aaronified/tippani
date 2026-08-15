@@ -708,7 +708,22 @@ func (s *Server) searchTagFacet(uid int64, tokens []string, sc searchScope, f se
 				return nil, err
 			}
 		}
-		out = append(out, th)
+		// A TAG WITH NOTHING UNDER IT IS NOT A RESULT — the same rule the genre
+		// and decade facets below already follow, and the tag facet was the one
+		// of the three that did not.
+		//
+		// It became reachable the moment the count learned about facets: before
+		// that a name-matched tag always had rows, and now `q=stoicism` with
+		// `colour=blue` finds the tag by name and nothing wearing it. That drew
+		// a Tags heading over an empty box, which is bad, and did something
+		// worse — `total` counts the GROUPS, so one empty group makes a search
+		// that found nothing look like a search that found something, which
+		// skips the cross-column fallback and the zero-hit typo pass. A query
+		// spanning a quote and its note could go missing entirely because an
+		// unrelated row happened to carry a tag whose NAME matched.
+		if th.Count > 0 || len(th.Annotations)+len(th.Dialogues)+len(th.Quotes) > 0 {
+			out = append(out, th)
+		}
 	}
 	// Most-used first; the name ORDER BY above breaks ties.
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Count > out[j].Count })
