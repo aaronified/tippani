@@ -330,7 +330,7 @@ function ColourCategoriesCard({ prefs, onSaved }) {
     // microcopy underneath was repeating in shorter words.
     <Card data-tour="categories">
       <SectionTitle
-        info="The six highlight colours, named. Tags say what a quote is about; its colour says what kind of note it is — a fact, a line you disagreed with, something to come back to. Renaming one changes nothing but the words on your screen: the stored value stays yellow, blue, pink or orange, so exports and imports round-trip exactly as before. Hiding a category takes it out of the pickers without touching a single quote already wearing it."
+        info="Tags say what a quote is about; its colour says what KIND of note it is. Renaming changes only the words on screen — the stored value never moves, so exports round-trip. Hiding one leaves every quote wearing it untouched."
       >
         Colour categories
       </SectionTitle>
@@ -1307,7 +1307,7 @@ function BinTile({ onOpen }) {
   return (
     <Card data-tour="trash">
       <SectionTitle
-        info="Everything you delete waits here first: a book with all its quotes, a film with its lines, or one highlight on its own. Putting one back returns it exactly as it was — the same quotes, the same tags, the same colours, the same review schedule, and the cover picture too, which waits in a corner of the image store rather than being thrown away. Deleting an account is kept here as well, whole, for whichever admin deleted it. An entry leaves on its own once it is older than the window you set on that page, and that clock only runs while the server is running: nothing expires on an instance that is switched off."
+        info="Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. An entry leaves on its own past the window, and that clock only runs while the server does."
         infoTitle="The bin"
       >
         The bin
@@ -1560,7 +1560,7 @@ function BackupCard({ user }) {
   return (
     <Card data-tour="backup">
       <SectionTitle
-        info="One dated, encrypted archive of everything — your library, images, users and settings, including password hashes and API keys. Only the newest is kept on the server. It is sealed with your account password, or a passphrase you choose. On the server that made it your CURRENT password opens it, whichever password sealed it — that is a key kept in the data directory, never inside the archive. Carried to another machine it needs the password it was sealed with, so keep that. A passphrase archive is tied to nothing and recoverable by nothing: lose the passphrase and it is lost. Restoring goes the other way and replaces everything here — every user, library and setting — and logs everyone out; what it replaced is kept as one recovery copy in the data directory until the next restore. Restoring a file taken off another Tippani is how you move to a new box, and the archive must not come from a newer version than this server."
+        info="One dated, encrypted archive of everything, sealed with your password or a passphrase. Moved to another machine it needs the password that sealed it, and a passphrase archive is recoverable by nothing. Restoring replaces everything here."
         infoTitle="Backup & restore"
       >
         Backup &amp; restore
@@ -2212,7 +2212,7 @@ function Metadata({ user, onPreferences }) {
 
   return (
     <Card data-tour="metadata-keys">
-      <SectionTitle info="Books are looked up in Google Books and Open Library together and merged field by field — the first-publication year from one, the larger cover and the description from the other; neither needs a key. Films and shows come from TMDB and TheTVDB, also merged. TMDB may also carry a shared built-in key baked into the build: where the build has one, film lookups work before you set anything; where it does not, they answer 503 until a key goes in the field below. TheTVDB has no built-in and is optional. A chip appears only where there is something to say: that no book lookup has been tried since this server started (“Untested” — not that anything is wrong), that the last one failed, or that films are running on the shared built-in key or on no key at all. Working lookups show nothing, because a pill that says everything is fine is only ever there when you do not need it. Every field here edits and saves on its own: a ✓ writes just that key and leaves the others alone, saved secrets show masked and can never be revealed, and a blank field clears one. Manual entry always works, whatever any of this says.">
+      <SectionTitle info="Books come from Google Books and Open Library merged, and need no key. Films and shows need a TMDB key unless this build ships one; TheTVDB is optional. Each field saves on its own, and manual entry always works.">
         Metadata sources
       </SectionTitle>
 

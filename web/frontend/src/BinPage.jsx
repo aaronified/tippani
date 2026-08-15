@@ -101,7 +101,7 @@ const RETENTION = [
 ]
 
 const BIN_INFO =
-  'Everything you delete waits here first: a book with all its quotes, a film with its lines, or one highlight on its own. Putting one back returns it exactly as it was — the same quotes, the same tags, the same colours, the same review schedule, and the cover picture too, which waits in a corner of the image store rather than being thrown away. Deleting an account is kept here as well, whole, for whichever admin deleted it. An entry leaves on its own once it is older than the window below, and that clock only runs while the server is running: nothing expires on an instance that is switched off, so a due date here is the earliest a thing can go rather than a promise about the day. “Empty now” is for when the reason you wanted a shorter window was wanting something gone today.'
+  'Everything you delete waits here first, and putting one back returns it exactly as it was — quotes, tags, colours, schedule and cover alike. “Empty now” is for when you wanted something gone today.'
 
 // parseStamp reads the server's `datetime('now')` stamp. It is a UTC wall-clock
 // string with no zone marker, so the T and the Z are added rather than letting the

@@ -2432,9 +2432,10 @@ const LONG_PRESS_SLOP = 10;
 // label then sits over the screen indefinitely, obscuring the very thing you
 // clicked it to change.
 //
-// Six seconds is long enough to read a five-word label several times and short
-// enough that a stuck one goes away before you reach for it.
-const HOVER_HIDE_MS = 6000;
+// Three seconds: long enough to read a five-word label twice, short enough that
+// a stuck one is gone before you reach to get rid of it. Six was tried first and
+// read as broken — a label you have finished with is in the way immediately.
+const HOVER_HIDE_MS = 3000;
 
 export function Tooltip({ label, side = "top", className = "", onContextMenu, children }) {
   const timer = useRef(null);

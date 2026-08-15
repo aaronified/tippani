@@ -67,18 +67,61 @@ function branches(block) {
 
 const titleOf = (block) => (block.match(/title="([^"]*)"/) || [, '(untitled)'])[1]
 
-const ALL = FILES.flatMap((f) =>
-  infoDotBlocks(readFileSync(join(SRC, f), 'utf8')).flatMap((b) =>
-    branches(b).map((text) => ({ file: f, title: titleOf(b), text })),
-  ),
-)
+// THE EXTRACTION ABOVE MISSED MOST OF THE COPY, and the miss was total: when
+// this rule was widened the four longest payloads in the app were 1113, 930, 783
+// and 614 characters, and none of them had ever been measured. All four passed a
+// suite whose entire purpose is to cap them at 240.
+//
+// They were missed because `<InfoDot text="..." />` is not how the long ones are
+// written. A dot with a paragraph in it gets hoisted to a module constant
+// (`const BIN_INFO = '...'`), or it is handed to a wrapper as `info=` / `hint=` /
+// `blurb=` and that wrapper renders the InfoDot — so the tag this scanned for
+// carried no literal at all.
+//
+// The lesson is the one the FTS sweep taught: a check that reads a NARROWER thing
+// than the rule it enforces reports success about the part nobody was worried
+// about. So the payload is now taken from wherever it is written.
+const PROP_RE = /(?:text|info|hint|blurb)="([^"]{12,})"/g
+// A module constant is only counted when its name says what it is for; a general
+// sweep of every long string in the file would drag in prose that is not a dot.
+const CONST_RE = /^const\s+([A-Z][A-Z0-9_]*(?:INFO|HELP|BLURB|COPY))\s*=\s*'([^']{12,})'/gm
+
+function payloadsIn(src, file) {
+  const out = []
+  for (const b of infoDotBlocks(src)) {
+    for (const text of branches(b)) out.push({ file, title: titleOf(b), text })
+  }
+  for (const m of src.matchAll(PROP_RE)) {
+    out.push({ file, title: '(prop)', text: m[1] })
+  }
+  for (const m of src.matchAll(CONST_RE)) {
+    out.push({ file, title: m[1], text: m[2] })
+  }
+  return out
+}
+
+const ALL = FILES.flatMap((f) => payloadsIn(readFileSync(join(SRC, f), 'utf8'), f))
 
 describe('InfoDot copy stays within its budget', () => {
   it('found the dots at all, so a passing suite is not an empty one', () => {
     // Every guard here is only as good as the extraction, and an extraction that
     // silently matches nothing turns this whole file into a no-op that reports
     // success. The count is deliberately a floor rather than an exact number.
-    expect(ALL.length).toBeGreaterThan(25)
+    expect(ALL.length).toBeGreaterThan(28)
+  })
+
+  // A COUNT IS A WEAK GUARD FOR THIS, because the miss it is meant to catch was
+  // not "found nothing" — it was "found the short ones". Both of the shapes the
+  // long copy is actually written in have to be represented, or the widening
+  // above can rot back to the tag-only scan and the number will barely move.
+  it('reaches the two shapes the long copy is written in', () => {
+    // Named by their opening words rather than by a marker the extractor sets,
+    // so this asserts the COPY is reached rather than that the code took a
+    // particular branch. Both were over a thousand and eight hundred characters
+    // and invisible to this file until 1.14.1.
+    const reaches = (opening) => ALL.some((d) => d.text.startsWith(opening))
+    expect(reaches('One dated, encrypted archive'), 'the backup dot (an info= prop) is not measured').toBe(true)
+    expect(reaches('Everything you delete waits here'), 'the bin dot (a hoisted const) is not measured').toBe(true)
   })
 
   it(`keeps every branch under ${INFODOT_MAX} characters`, () => {
