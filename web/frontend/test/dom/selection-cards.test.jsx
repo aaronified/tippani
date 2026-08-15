@@ -232,7 +232,7 @@ describe('the card menu', () => {
     fireEvent.contextMenu(cards()[0], { clientX: 10, clientY: 10 })
     const labels = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
     expect(labels[0]).toBe('Select')
-    expect(labels).toEqual(['Select', 'Copy', 'Share', 'Edit', 'Delete'])
+    expect(labels).toEqual(['Select', 'Copy', 'Share', 'Edit', 'Favourite', 'Delete'])
   })
 
   it('says Deselect for one already picked', () => {

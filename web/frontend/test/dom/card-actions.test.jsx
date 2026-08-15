@@ -173,7 +173,7 @@ describe.each([
     mount()
     fireEvent.contextMenu(document.querySelector('.card-menu-host'), { clientX: 30, clientY: 30 })
     const inMenu = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
-    expect(inMenu).toEqual(['Copy', 'Share', 'Edit', 'Delete'])
+    expect(inMenu).toEqual(['Copy', 'Share', 'Edit', 'Favourite', 'Delete'])
   })
 
   it('fires the same handler the glyph does', () => {

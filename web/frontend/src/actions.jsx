@@ -87,6 +87,25 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.edit(item),
     },
     {
+      id: 'favourite',
+      // Named for what pressing it DOES, like every other item in a menu, so it
+      // reads as an action rather than as a report of where the quote stands.
+      // The card's own ♥ is the other half — that one is a toggle and shows the
+      // state — and the two are the same pair as a board's Hide/Show beside
+      // Settings' eye: different widget, different rule.
+      label: ctx.favourited ? 'Unfavourite' : 'Favourite',
+      where: OVERFLOW,
+      icon: <IconHeart />,
+      tooltip: 'Favourite this quote',
+      // HERE BECAUSE OF THE PHONE, not for symmetry. The ♥ is drawn on the card
+      // on a pointer device, where hovering reveals the action row; a thumb
+      // reaches this list first, and favouriting is the single most common thing
+      // anyone does to a quote. It was the one action the bulk bar offered and
+      // one card could not.
+      available: !!ctx.favourite,
+      run: () => ctx.favourite(item),
+    },
+    {
       id: 'delete',
       label: 'Delete',
       where: OVERFLOW,

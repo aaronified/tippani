@@ -1109,6 +1109,11 @@ function FavouriteTile({
     copy: onCopy && (() => onCopy()),
     share: onShare && (() => onShare()),
     edit: onEditStart && (() => onEditStart()),
+    // Home's favourites board is the one screen where unfavouriting takes the
+    // card off the board it is on, which is exactly what somebody pressing it
+    // there means. `f.raw` is the stored row — `f` is the card's own shape.
+    favourite: onPatch && (() => onPatch({ favorite: !f.raw?.favorite })),
+    favourited: !!f.raw?.favorite,
     remove: onDelete && (() => onDelete()),
   })
   const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))

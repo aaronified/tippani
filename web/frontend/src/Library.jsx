@@ -1264,6 +1264,10 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     copy: onCopy,
     share: onShare,
     edit: (row) => setEditingId(row.id),
+    // The same patch the card's own ♥ runs, so the two cannot disagree about
+    // what favouriting is. `favourited` only decides the wording.
+    favourite: (row) => patch(row, { favorite: !row.favorite }),
+    favourited: !!a.favorite,
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu

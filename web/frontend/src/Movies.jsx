@@ -1741,6 +1741,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
     copy: onCopy && (() => onCopy()),
     share: onShare && (() => onShare()),
     edit: onEdit && (() => onEdit()),
+    // The same immediate PUT the frame's own ♥ runs, so the two cannot disagree
+    // about what favouriting is.
+    favourite: onPatch && (() => onPatch({ favorite: !d.favorite })),
+    favourited: !!d.favorite,
     remove: onDelete && (() => onDelete()),
   })
   // The same list the row and the ⋯ render, on a right-click or Shift+F10; a long
