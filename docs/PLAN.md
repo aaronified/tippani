@@ -1682,6 +1682,60 @@ Dropping the whole row rather than leaving an empty flex box is the smaller half
 
 <sub>`docs/roadmap.html` · `internal/httpapi/metadata_handlers.go`</sub>
 
+### The character-to-actor mapping is already stored, so character chips need no IMDb at all
+
+**Decided.** Character chips are built from `movies.cast_json`, which already holds up to twenty top-billed `CastMember{Character, Actor, PersonID, ImageURL}` rows per film, harvested from the SAME TMDB credits call the details fetch already makes. No new fetch, no new supplier, no scraping, and nothing that has to be rate-limited.
+
+**Why this is worth an entry.** The feature was specified around IMDb — "this will need IMDb IDs", with a once-a-day ceiling because IMDb blocks traffic. That is true of the character *pictures* and of nothing else. The mapping, which is the part every other piece of this depends on, is in the database now and is already served on the movie payload as `Cast`. `movies` has no `imdb_id` column at all — only `staged_works` carries one, marked informational — so the IMDb route would have started by adding an identifier to fetch data the app already has.
+
+**The consequence for the review deck is the useful one.** §8's new `speaker` facet — *who said this line* — needs the character list and the mapping, and nothing else. So it is **not** blocked on the picture work, and the two can ship in either order. I said the opposite when proposing them; the cast column is the reason it is not so.
+
+**Approved.** Mine, having checked `cast_json` before writing the plan the feature was requested as.
+
+<sub>Not shipped — `internal/metadata/tmdb.go` · `internal/httpapi/movie_handlers.go`</sub>
+
+### A character's aliases are the slashes in its own name, computed rather than stored
+
+**Decided.** "V / William Rookwood" is one character with two names. The alias set is produced by splitting the stored character string on `/`, at read time, from `cast_json`. Both halves resolve to the same actor; **the quote keeps whatever name it used** — a line credited to "V" still reads "V", and is never rewritten to the full slashed form.
+
+**Why no table.** The aliasing is a pure function of a string the supplier already gives us, so storing it would be caching a derivation — the same objection §8 makes to a stored `due_at` and §3 makes generally. It also cannot drift out of step with a re-sync, because it is recomputed from whatever the re-sync wrote.
+
+**Preserving the quote's own naming is the load-bearing half.** The character string is a supplier's label; what the reader typed when they saved the line is the name that line uses, and replacing it with the canonical form would edit their quote to match a metadata provider. Resolution goes one way: from the name on the line, to the actor.
+
+**Splitting on `/` only, not on the credit separators.** `metadata.SplitCredits` exists and is wrong here: it splits a list of *people*, and "V / William Rookwood" is one person under two names. A comma in a character field is far more likely to be part of a title ("Bob, the Baker") than a second character.
+
+**Approved.** The reader's, in the form "sometimes the names of the characters are retrieved as \"V / William Rookwood\", in that case, both \"V\" and \"William Rookwood\" should resolve to that actor and preserve the quote's way of naming the character."
+
+<sub>Not shipped</sub>
+
+### Names in the line become chips; the credits below become text
+
+**Decided.** A film or show line has its character names found in the quote text and drawn as chips in place. The block beneath, which currently shows actor portrait chips, becomes a plain **character — actor** list. The person keeps their ordinary people chip everywhere else; this changes only how a film's own page reads.
+
+**Why.** The portraits below the line were answering a question the reader did not have. What they want while reading a line is *who is speaking*, which belongs in the line, and the mapping is a footnote — so the picture and the text were the wrong way round. Putting the chip on the name in the text also makes the line self-describing when it is shared or exported out of context.
+
+**The matching is over the alias set** from the entry above, longest-first so "William Rookwood" is matched before "William", and case-insensitively at word boundaries so a character called Will is not found inside "willing".
+
+**Approved.** The reader's, in the form "whose names will be highlighted in the card itself with their people chips. the bottom area where the actor chips sit now, will only name the character-actor mapping, not their image chips."
+
+<sub>Not shipped</sub>
+
+### The in-costume still is the only part that needs IMDb, so it is opt-in, per character, and cached hard
+
+**Decided.** A character portrait — the actor in costume, as on `imdb.com/title/{tt}/characters/{nm}` — is fetched only when the reader asks for that character, stored per (movie, character), and used **only** for that film's own chips. The person's people-chip portrait is untouched. Any IMDb read happens at most once a day per title, with an explicit manual refresh, and an `imdb_id` on `movies` has to exist first.
+
+**Why it is separated from everything above.** `CastMember.ImageURL` already carries a headshot from TMDB, and a headshot is not the thing being asked for: the point of a character chip is the character. That picture is not in any API the app already speaks to, which is the entire reason IMDb enters the design — and IMDb blocks traffic, has no API, and would be scraped. So it is the one part that is expensive, fragile and legally awkward, and it is therefore the part that is optional, manual and last.
+
+**Storage, unlike the mapping.** This one IS a table — sparse, one row per character the reader actually asked about, created lazily, exactly the shape `item_reviews` uses. The absence of a row is the default, and a film nobody has fetched a still for costs nothing.
+
+**The daily ceiling is a property of the title, not of the app.** Recorded so it is not later mistaken for a general politeness setting: one read per title per day, so refreshing a film's cast twice in an afternoon fetches once, and the reader gets a manual override because they know when they have changed something.
+
+**Instead of.** Fetching stills for the whole cast on sync — twenty scrapes per film for pictures nobody asked to see. A Google image search — considered, and it is the fallback if IMDb proves unworkable, but it returns a page of guesses where IMDb returns the answer, so it would need the reader to pick, which is a different feature.
+
+**Approved.** The reader's, in the form "if you fetch IMDB data, do that once a day only with optional user refresh. this is because otherwise Imdb blocks traffic" and "these will only be used for the actor chips in the movie itself. the person will retain his people chip as usual."
+
+<sub>Not shipped</sub>
+
 ## 7. Search and the Full-Text Index
 
 Search is FTS5 external-content indexes maintained by triggers, which buys me not storing every quote twice and costs a corruption mode that took four attempts to recover from. Every query string is escaped on the way in, and the facet work is planned so that a malformed query is impossible to send rather than merely rejected.
