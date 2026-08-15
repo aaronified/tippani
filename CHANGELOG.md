@@ -5,6 +5,82 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.1] - 2026-08-15
+
+### Fixed
+
+- **The starter proverbs and every imported quote were filed on no board at all.** 1.14.0 gave a
+  quote a board and wired the two endpoints I was looking at — create and update — and missed the
+  other two paths that write that table. Both left the board empty.
+
+  Nothing failed and nothing warned, which is the whole trouble. The quotes arrive, they are
+  visible under **All quotes**, they are counted in no board's total, and they are absent from the
+  board you were standing on when you pressed *Add 10 Bengali proverbs*. That reads exactly like a
+  button which silently did nothing — and it is how this was found, by being asked how to get the
+  starter set.
+
+  The seeder now files onto **the board that offered them**: the offer is made on an empty board,
+  and an accepted offer should land where it was accepted, which is the rule capture inside a board
+  already follows. The importer files on the default board. Naming a board *in the file* is still
+  the deferred half, exactly as 1.14.0 said.
+
+  The test is over the whole table rather than over the rows either endpoint writes, and it also
+  asserts the per-board counts sum to the total — one quote, one board is the invariant a NULL
+  breaks quietly. The next writer added to that table is the one it exists to catch.
+
+- **A tooltip that outlived the thing it described.** On a desktop the hover bubble opened on
+  pointerenter and closed on pointerleave and nothing else, which is right up until the moment the
+  thing under the pointer stops being there. Press a colour swatch and the picker re-renders, a
+  panel opens over the control, the row reflows — and the leave event that was going to close it
+  never arrives. The label then sits over the screen indefinitely, obscuring the very control you
+  pressed it to change, which is how it was reported.
+
+  Two closes now, because neither is enough alone. **A click answers the question** — you hovered
+  to learn what the control does and then pressed it, so the label is finished; and the click is the
+  one moment we know for certain the pointer was there, which pointerleave may never say. And **a
+  three-second backstop** for when neither event comes, long enough to read a five-word label
+  several times over. It applies to hover only: a keyboard reader has not asked for their label to
+  vanish mid-sentence, and that bubble is closed by blur, which unlike pointerleave always arrives.
+
+- **Five InfoDots were over the length budget, the longest at 1113 characters against a cap of
+  240** — metadata sources, backup, the bin and its duplicate in Settings, and colour categories.
+  Every one of them passed the suite whose entire purpose is to cap them.
+
+  The check only read `<InfoDot text="…" />`, and that is not how long copy gets written. A dot with
+  a paragraph in it is hoisted to a module constant, or handed to a wrapper as `info=` and the
+  wrapper renders the dot — so the tag being scanned for carried no literal at all. **A check that
+  reads a narrower thing than the rule it enforces reports success about the part nobody was worried
+  about**, which is the same shape as the search sweep that never reached quotes.
+
+  So the copy is now taken from wherever it is written, and the guard is no longer a count: a count
+  would not have caught this, because the miss was not "found nothing" but "found the short ones".
+  Two payloads are asserted to be reached *by their opening words*, so the widening cannot rot back
+  to a tag-only scan. It found a fifth dot the moment it worked. Each is trimmed to what the control
+  does plus the one consequence you would regret not knowing; the rest of the reasoning already has
+  a home in `docs/PLAN.md`, which can hold it at whatever length it needs.
+
+### Added
+
+- **Three captions at every timeline gap width, drawn without replacement.** The long-silence lines
+  were twelve sorted by length, which looks like plenty until you notice how one gets chosen: by how
+  much room the slot has. The depth that matters is per *width*, not overall — and the middle band
+  held two, so a chart of similarly sized gaps printed the same sentence beside itself and read as
+  though the app had one joke. Four bands of four now, with a test that the bands do not overlap,
+  since an overlap would let "the widest band that fits" pick a band whose other members do not.
+
+  And the draw is **without replacement** rather than random, because random is not the same rule:
+  with four lines an independent draw repeats within three picks about half the time, which is
+  precisely what a reader sees as repetition. One bag for the whole chart rather than one per gap —
+  two gaps saying the same thing is the repeat anyone actually notices — and it is seeded, so a
+  re-render redraws the same chart instead of reshuffling under the pointer.
+
+- **Hide and Show in a board's menu have an icon**, the only item there that lacked one beside Edit
+  and Delete. The eye came out of Settings, where it puts a colour category away, and is now shared:
+  two callers is the moment a glyph becomes the app's word for an idea. It points the other way in
+  each, on purpose. Settings' control is a **toggle** and shows where the category currently stands;
+  a menu item is an **action** and its words say what pressing it will do — so Hide draws the crossed
+  eye and Show the open one.
+
 ## [1.14.0] - 2026-08-15
 
 ### Added
