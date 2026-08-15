@@ -78,9 +78,19 @@ It does not say how to build or test the app — that is
 that is [the UI glossary](ui-glossary.html). It records **why**, and only why.
 
 One thing it deliberately does contain: decisions about things **not built yet**, where
-the constraint was agreed before the code. Those are marked *planned* on the grey line.
-A constraint agreed in advance and then forgotten is how a feature quietly arrives in the
-wrong shape.
+the constraint was agreed before the code — and, just as often, where the decision was
+*not to build it*. Those are marked *planned* or *deferred* on the grey line, and they
+cite [the roadmap](roadmap.html). A constraint agreed in advance and then forgotten is how
+a feature quietly arrives in the wrong shape; a deferral left unwritten is
+indistinguishable from an omission, and only one of the two is honest.
+
+**A feature's design is not one of those.** That lives in
+[`plans/`](plans/) while the feature is unbuilt, and is folded in here — with a pass on
+what the plan got wrong — the moment it ships. The distinction is between a *constraint*
+("semantic search is deferred, and here is the cost that decided it") and a *design*
+("here is how the bin will work"). Three designs were left sitting in the forward
+directory after shipping and went stale there; *A plan lives in docs/plans/ until it
+ships* in section 17 is the entry that gave the rule its missing half.
 
 ---
 
@@ -582,7 +592,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Reversal.** Not reversed, but *supplemented* — see 3.18, which reinstates recoverability without touching this rule.
 
-<sub>from 0.1.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>from 0.1.0 — `internal/store/migrations/`</sub>
 
 ### The bin reinstates recoverability via a snapshot table, not a flag
 
@@ -592,7 +602,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Reversal.** None yet; nothing is written.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### The trash payload reads its columns from `PRAGMA table_info`
 
@@ -600,7 +610,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** An explicit per-table column list; rejected on the delayed-failure argument.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### Restore is one entry per user action, and an account shares the table
 
@@ -608,7 +618,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Per-row trash entries with a restore that reassembles, and a separate table for account deletions.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### `id INTEGER PRIMARY KEY` is a rowid alias, so ids need an allocation floor
 
@@ -618,7 +628,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Reversal.** This point is explicitly not yet settled; the rest of the plan is written to be independent of the answer.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### The purge runs at startup and once a day on a request, never on a ticker
 
@@ -626,7 +636,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** A background ticker goroutine.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### File parking happens last, outside the transaction, and fails safe
 
@@ -634,7 +644,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Parking files first, or copying instead of moving.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### Only the five content kinds get a bin
 
@@ -642,7 +652,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Binning everything, which would have made the payload builder handle four more shapes for no recoverable loss.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### The FTS-restore worry was unfounded
 
@@ -652,7 +662,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Reversal.** Yes: a planned work item removed before it was written.
 
-<sub>planned 1.8.0 — `docs/plans/trash-and-undo.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go`</sub>
 
 ### A delete is a snapshot in a bin, not a flag on the row
 
@@ -666,7 +676,7 @@ The cost is real and named: a snapshot is a copy, so it can be incomplete in way
 
 **Approved.** Mine, and I approved shipping it BEFORE the features that need it: bulk delete is only a reasonable thing to offer once every delete is recoverable.
 
-<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go` · `docs/plans/trash-and-undo.md` · `CHANGELOG.md`</sub>
+<sub>1.8.0 — `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash.go` · `internal/httpapi/trash_handlers.go` · `CHANGELOG.md`</sub>
 
 ### What travels with a deleted thing is DECLARED, because the foreign-key graph is incomplete
 
@@ -1958,7 +1968,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** A shared query grammar parsed on both sides; rejected on the named drift risk.
 
-<sub>planned 1.10.0 — `docs/plans/search-facets.md`</sub>
+<sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
 
 ### AND or OR is a property of the facet, not a global rule
 
@@ -1966,7 +1976,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** A global AND/OR, or a user-facing switch.
 
-<sub>planned 1.10.0 — `docs/plans/search-facets.md`</sub>
+<sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
 
 ### Facet values never reach a `MATCH`, and an unknown facet is a 400
 
@@ -1974,7 +1984,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** Ignoring unknown facets for forward compatibility.
 
-<sub>planned 1.10.0 — `docs/plans/search-facets.md`</sub>
+<sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
 
 ### Search vocabulary is one cached call, returning colours as key and name
 
@@ -1982,7 +1992,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** A per-keystroke suggest endpoint, or returning colours as bare keys.
 
-<sub>planned 1.10.0 — `docs/plans/search-facets.md`</sub>
+<sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
 
 ### Context-aware search made visible and removable, with a right-click globe
 
@@ -1992,7 +2002,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Reversal.** None; this makes existing behaviour legible rather than changing it.
 
-<sub>planned 1.10.0 — `docs/plans/search-facets.md`</sub>
+<sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
 
 ### Filter sheets are rewired onto the facet state rather than replaced
 
@@ -2000,7 +2010,37 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** Deleting the sheets in favour of chips, or leaving them independent.
 
-<sub>planned 1.10.0 — `docs/plans/search-facets.md`</sub>
+<sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
+
+### Four things the facet plan had wrong, found by building it
+
+**Decided.** Recorded as one entry rather than folded silently into the six above, because a plan corrected without trace reads as a plan that was right.
+
+**`wishlist` has no column and cannot have one.** The plan listed it beside `favourite` and `note` as a "boolean predicate", which reads as an equality on a column. 0024 gave it none on purpose — a work with no quotes in it *is* the wishlist, so it needs no storage and can never drift out of step with the count it is derived from. The facet is a count-zero predicate.
+
+**The filter sheets were not where the plan said, and there were not nine `useState`s each.** Both boards render `WorkListScaffold`, which owns the sheet, the desktop row and the sheet's own open/close state; the boards pass value/setter pairs down. The counts are nine and **ten** — the Catalogue has `mediaType` too — and each board has a second filter surface on its detail page that the plan never mentions.
+
+**Part 4's `scope:` chip was not built, and the reason it was proposed is not true.** The plan said `searchScope` "just had nowhere to show itself". It has somewhere: the scope row above the results has shown the active scope as a highlighted chip since the screen was built, and *All* is one click away. A second control saying the same thing in the same row of the same screen is not more legible, it is two things to keep in step. The *seeding* Part 4 describes — arriving already narrowed to where you came from — is built and is the half that was worth having.
+
+**The grammar needed a way out of itself, which the plan does not mention at all.** Thirteen ordinary English words become operators the moment `field:` is a syntax: `note:`, `series:` and `year:` are things a reader writes in a note. Without an escape those phrases are unsearchable, and unsearchable *silently* — the box opens a dropdown and the words never reach the query. A backslash before the colon is the way out.
+
+**Three smaller ones.** A board's `tagged` and `noted` cannot seed `tag:` and `note:` — the board's are properties of the **work**, derived from its children, and the facets are properties of the **quote**, so sending one as the other empties the section and a search from a filtered board comes back with nothing. `q` had to stop being required, which the plan does not mention and which its own Part 1 makes unavoidable: lifting the token out of the box is what leaves the box empty. And `Tooltip`'s right-click line turned out to be load-bearing once rather than twice — it stops the platform menu, and `useCardMenu`'s own guard is what stops the card menu.
+
+**Approved.** Mine, all four, written after building rather than while planning — which is the only moment any of them could have been known.
+
+<sub>1.10.0 · recorded 1.14.2 — `web/frontend/src/facets.js` · `web/frontend/src/works.jsx` · `internal/httpapi/search_facets.go`</sub>
+
+### What a board filter means to a search is decided before the filter ships
+
+**Decided.** A board publishes its filters to the search box as a seed, so adding a filter is also a promise about what pressing Search will do. Every filter therefore has to answer that question before it ships, and there are three legitimate answers: seed it unchanged; drop it at the boundary (`BOARD_ONLY_FACETS`, for `tagged`, `noted` and `media`, which the server has no facet for); or change what the filter is built on so the two agree.
+
+**Why.** The Catalogue's actor filter is what made the rule explicit. Two sources were available and they are not the same set — the cast a metadata fetch wrote, and the credits on the lines actually saved — and they diverge for exactly the films that have been fetched and not quoted, which in a library that imports covers before highlights is most of them. `actor:` in search reads the line credits. A board built on the cast would therefore have filtered to one set of films and seeded a search that answered with another: a filter whose meaning changes on the way to the search box, silently, and in the direction of *more* results, which reads as the search being broken rather than as the filter being wrong. So the board reads what the facet reads.
+
+The third answer is the one worth naming, because it is the one nobody reaches for. `tagged` and `noted` are dropped because no honest mapping exists; the actor filter was not dropped — the filter was rebuilt so a mapping did.
+
+**Instead of.** Sourcing the filter from `movies.cast_json`, which is richer, already fetched, and answers a different question.
+
+<sub>1.14.2 — `internal/httpapi/movie_handlers.go` · `web/frontend/src/facets.js` · `web/frontend/src/Movies.jsx`</sub>
 
 ### "More like this" from the existing term dictionaries ships first
 
@@ -4214,7 +4254,7 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** A context menu asks "what can I do to *this*"; multiselect asks "what can I do to *these*". Built separately, the app ends up with two answers to the same question — a menu that offers Delete beside a bar that does not — and the divergence is invisible until somebody notices one of them is missing something. Today an action's definition is spread across whatever renders it: `QuoteActions` knows Share/Edit/Delete, a work's delete lives in `WorkDetails`, the shelf move lives in `Library`, and nothing knows the *set* — which is exactly why there is no context menu and why the bulk form offers tags-and-fields rather than "the things you can do to a quote". If the screens look identical after commit 1, the registry is right. My call, and building the shared thing first is the part I have to keep re-deciding.
 
-<sub>`docs/plans/context-menu-and-multiselect.md`</sub>
+<sub>1.10.0 · works 1.11.1 — `web/frontend/src/actions.jsx` · `web/frontend/src/selection.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/ui.jsx`</sub>
 
 ### An action that cannot be done in bulk is marked `single: true`
 
@@ -4222,7 +4262,7 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** An action that can be done to one thing and not to forty is a real category — Edit is exactly that — so the registry marks it rather than omitting it. Absence is what drift looks like; a flag is what a decision looks like. The two are indistinguishable in a list, which is the entire reason for the flag. Mine, and it is the same principle as `orphanRefQuery` returning `""` instead of falling through: make the missing case visible.
 
-<sub>`docs/plans/context-menu-and-multiselect.md`</sub>
+<sub>1.10.0 · works 1.11.1 — `web/frontend/src/actions.jsx` · `web/frontend/src/selection.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/ui.jsx`</sub>
 
 ### Long-press is already taken by tooltips, which constrains where the menu can be bound
 
@@ -4230,7 +4270,7 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** `Tooltip` opens its label after `LONG_PRESS_MS = 500` on touch, because a phone has no hover and the glyph-only buttons introduced in 1.5.0 would otherwise be unlabelled. A card contains those buttons, so "long-press opens a menu" and "long-press shows a label" are live on the same square inch. They coexist only because of what each is attached to, and writing that down before building the menu is what stops the menu being built first and the conflict discovered on a phone. I approved binding the *new* gesture around the existing one rather than reworking tooltips, because the tooltip is the accessibility affordance and the menu is the convenience.
 
-<sub>`docs/plans/context-menu-and-multiselect.md`</sub>
+<sub>1.10.0 · works 1.11.1 — `web/frontend/src/actions.jsx` · `web/frontend/src/selection.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/ui.jsx`</sub>
 
 ### Right-click yields to the browser when text is selected
 
@@ -4238,7 +4278,7 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** This is a note-keeping app. Selecting a passage and right-clicking it to copy, search or look it up is not an edge case here, it is a core motion, and replacing that menu with an app menu takes away the thing the app is for. It also composes with the gesture ground rules, which forbid `user-select: none` on quote text for the same reason. My call, and it is the one place I am happy to lose a gesture entirely.
 
-<sub>`docs/plans/context-menu-and-multiselect.md`</sub>
+<sub>1.10.0 · works 1.11.1 — `web/frontend/src/actions.jsx` · `web/frontend/src/selection.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/ui.jsx`</sub>
 
 ### A selection clears when the filter changes, spans one kind, and never persists
 
@@ -4246,7 +4286,7 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** A selection that survives a filter change is a set of rows you can no longer see, and the next bulk action applies to things that are not on screen. Cross-kind selection is forbidden because the bulk endpoints are per-kind and the available actions differ, so a mixed selection would offer the intersection and quietly do nothing to half of it. No persistence because a selection is a sentence you are in the middle of, not a state worth restoring — restoring one across a reload means the next bulk action is applied to a set the reader assembled yesterday. Approved by me as three rules that are really one: a selection is only ever what is currently visible and currently one thing.
 
-<sub>`docs/plans/context-menu-and-multiselect.md`</sub>
+<sub>1.10.0 · works 1.11.1 — `web/frontend/src/actions.jsx` · `web/frontend/src/selection.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/ui.jsx`</sub>
 
 ### Bulk delete is never reachable from a gesture, ships last and alone, and needs the bin first
 
@@ -4254,7 +4294,23 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** Every other action in the registry is recoverable or trivially redone; this one deletes forty rows. Three deliberate frictions: it cannot be reached by a gesture that could be made by accident, it is separated from the actions people press constantly, and it costs a typed confirmation. Shipping it last and alone means the commit that introduces it changes nothing else, so it can be reverted on its own. Requiring the bin first is the load-bearing dependency — bulk delete is only sane because every in-scope delete is recoverable for 30 days. My call, and the ordering is the part I would defend hardest.
 
-<sub>`docs/plans/context-menu-and-multiselect.md`</sub>
+<sub>1.10.0 · works 1.11.1 — `web/frontend/src/actions.jsx` · `web/frontend/src/selection.jsx` · `web/frontend/src/SelectionBar.jsx` · `web/frontend/src/ui.jsx`</sub>
+
+### Two things the context-menu plan had wrong, and one it could not have known
+
+**Decided.** Recorded here for the same reason section 7 records the facet plan's misses: a plan corrected without trace reads as a plan that was right.
+
+**Home favourites were declared out of scope, and are in it.** The plan excluded search results and Home's favourites because "their rows vary in kind, so the menu would have to pick a registry per row". True of search, where a result list mixes books, films and three kinds of quote. Not true of Home, where the row carries its own kind and picking the registry is one expression — `f.kind === 'screen' ? 'dialogue' : f.kind`. The exclusion was one argument applied to two surfaces that only look alike, and the cheaper of the two has had the menu since.
+
+**One registry served one half of the app for three releases.** The plan's first commit built `actionsFor` and `bulkActionsFor` together, before either feature, so that a menu and a bar could not answer the same question differently — and that is exactly what happened anyway, in the direction nothing was watching. 1.11.1 gave the bulk list a work branch; the item list stayed quote-only. The selection bar could fill a book's gaps, skip it in the quiz, edit it and delete it with one thing selected, and the cover that one was selected from offered nothing at all. Every test in the file walked item → bulk. None walked bulk → item, so the asymmetry the registry exists to prevent was invisible to the tests written to prevent it.
+
+The lesson is not "write more tests". It is that a symmetry check has a direction, and one written from the surface that currently has more actions will keep passing as the other surface falls behind.
+
+**And the thing it could not have known.** `WorkCard` carried a comment explaining that it had no menu because a work's actions live elsewhere and "a menu that opened on a gesture and offered nothing would teach the gesture and then refuse it". That reasoning is sound and the conclusion was wrong, because the premise had quietly stopped being true — the actions existed, on the other list. A comment justifying an absence is worth re-reading whenever the thing it describes gains a neighbour.
+
+**Approved.** Mine, written after building the last of it at 1.14.2.
+
+<sub>1.10.0 · works 1.11.1 · completed 1.14.2 — `web/frontend/src/actions.jsx` · `web/frontend/src/works.jsx` · `web/frontend/src/Home.jsx`</sub>
 
 ### Gesture ground rules come before any gesture, and swipe-between-tabs is rejected permanently
 
@@ -5357,15 +5413,21 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 <sub>1.3.2 — `CHANGELOG.md`</sub>
 
-### docs/plans/ is a separate directory from docs/PLAN.md
+### A plan lives in docs/plans/ until it ships, then folds into this document and retires
 
-**Decided.** Forward build plans for unreleased features — `trash-and-undo.md` (1.8.0), `context-menu-and-multiselect.md` (1.9.0), `search-facets.md` (1.10.0) — live under `docs/plans/`. `docs/PLAN.md` stays where it is.
+**Decided.** `docs/plans/` holds one file per feature that is **designed and not yet built**. The moment it ships, its decisions are folded into this log — with a pass recording where the plan was wrong — and the plan file is deleted. The directory is therefore always a list of what is coming, never an archive. `docs/PLAN.md` is the opposite: only work already released.
 
-**Why.** They are different documents doing different jobs. PLAN.md is the record of why the built thing is shaped as it is, cited from the code. A file in `docs/plans/` opens with "Nothing here is written yet. This is the plan." Merging them would put speculation and record in one place with no way to tell which sentence is which.
+**Why.** They are different documents doing different jobs, and the separation was right. What was missing was the second half of it — an exit. A plan for a feature that shipped six releases ago is a design document sitting in a directory whose whole promise is "this is not built yet", and it goes stale in the one way that cannot be detected: every sentence in it was true when written, and some of them are still true, and nothing marks which. That is precisely the failure that turned this file from a design document into a log. Leaving the plans in place reintroduced it one directory over.
 
-**Approved.** My call, and I approved the separation before the first plan was written rather than after three had accumulated.
+There is a second cost, and it is the one that made this concrete. Decisions taken at plan time are logged here with the plan file as their source. Twenty-five grey lines cited one of the three. **Fourteen still read *planned*** for features that had been running for months — a reader skimming the log would take a built feature for a proposal, which is the same class of wrong as an overturned decision left standing — and **six named no release at all**, which is the same fault with the evidence missing.
 
-<sub>1.7.x — `docs/plans/search-facets.md` · `docs/plans/trash-and-undo.md`</sub>
+**Instead of.** Keeping the shipped plans as historical design records. Rejected on the argument above: git already holds them, and a file in a *forward* directory is read as forward whatever a header says.
+
+**Reversal.** Supplements the original decision rather than overturning it. The separation stands; what changes is that it now has a direction and an end. The earlier entry read: *"Forward build plans for unreleased features — `trash-and-undo.md` (1.8.0), `context-menu-and-multiselect.md` (1.9.0), `search-facets.md` (1.10.0) — live under `docs/plans/`. `docs/PLAN.md` stays where it is."* All three shipped; all three were folded in and deleted at 1.14.2, which is when the rule got its missing half.
+
+**Approved.** Mine. The separation I approved before the first plan was written; the retirement I approved after three had shipped and none had left.
+
+<sub>1.7.x · retired at 1.14.2 — `docs/PLAN.md` · `DEVELOPMENT.md`; the three plans are in git</sub>
 
 ### Verification against the tree changed the plans before any code was written
 
@@ -5375,7 +5437,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved planning against the tree rather than against my memory of it.
 
-<sub>1.7.x — `docs/plans/trash-and-undo.md` · `docs/plans/search-facets.md`</sub>
+<sub>1.7.x — retired into this document at 1.14.2; the plans are in git</sub>
 
 ### Every decision in the three feature plans is a settled answer, and the unsettled one says so
 
@@ -5385,7 +5447,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine — every row in those tables is a decision I took and approved, and the open question is flagged precisely because I have not.
 
-<sub>1.7.x — `docs/plans/trash-and-undo.md` · `docs/plans/context-menu-and-multiselect.md` · `docs/plans/search-facets.md`</sub>
+<sub>1.7.x — retired into this document at 1.14.2; the plans are in git</sub>
 
 ### AI review is worth more than AI code, and it is the same model
 
