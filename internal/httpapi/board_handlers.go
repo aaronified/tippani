@@ -26,6 +26,22 @@ const boardNameMax = 80
 
 const boardDescriptionMax = 2000
 
+// The two kinds 0037 defines. 'speech' is deliberately absent: a speech quote
+// uses the same fields every other quote uses, so a kind for it would be a label
+// with no behaviour behind it.
+const (
+	boardKindPlain   = "plain"
+	boardKindProverb = "proverb"
+)
+
+// A language name, not a tag — long enough for "Scottish Gaelic" and short enough
+// that a pasted sentence fails as a 400.
+const boardLanguageMax = 40
+
+// Enough for a reader who collects widely, and a ceiling so the row cannot be
+// grown without limit by a client that appends rather than replaces.
+const boardLanguagesMax = 40
+
 type boardRow struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
@@ -39,16 +55,28 @@ type boardRow struct {
 	// itself. Counting client-side would mean fetching every quote to draw a
 	// shelf, which is the thing the two-level screen is built to avoid.
 	Quotes int `json:"quotes"`
+	// Kind (0037) is what the board HOLDS, and it is deliberately not its name.
+	// This file still knows no board's name; it knows that a proverb board puts
+	// the language and the English translation first, because those are the
+	// fields that carry a proverb and are noise on a board of speeches.
+	Kind string `json:"kind"`
+	// Languages is meaningful only on a proverb board: the short list the quote
+	// form offers instead of a free-text box somebody has to spell the same way
+	// twice, and what the optional per-language sections group by. Always sent as
+	// an array, never null, so the client never branches on absent-vs-empty.
+	Languages []string `json:"languages"`
 }
 
 type boardReq struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Color       string  `json:"color"`
-	ImagePath   string  `json:"image_path"`
-	Hidden      *bool   `json:"hidden"` // pointer: absent means "leave it"
-	Pos         *int    `json:"pos"`
-	MoveTo      *int64  `json:"move_to"` // delete only
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Color       string   `json:"color"`
+	ImagePath   string   `json:"image_path"`
+	Hidden      *bool    `json:"hidden"` // pointer: absent means "leave it"
+	Pos         *int     `json:"pos"`
+	MoveTo      *int64   `json:"move_to"` // delete only
+	Kind        string   `json:"kind"`
+	Languages   []string `json:"languages"`
 }
 
 func (b *boardReq) normalise() string {
@@ -70,7 +98,75 @@ func (b *boardReq) normalise() string {
 	if !validColor(b.Color) {
 		return "color must be one of " + strings.Join(annotationColors, ", ")
 	}
+	// An absent kind is 'plain' rather than an error, so every client written
+	// against 1.14.0 and every board in an older export keeps working untouched.
+	b.Kind = strings.TrimSpace(b.Kind)
+	if b.Kind == "" {
+		b.Kind = boardKindPlain
+	}
+	if b.Kind != boardKindPlain && b.Kind != boardKindProverb {
+		return "kind must be " + boardKindPlain + " or " + boardKindProverb
+	}
+	// Languages belong to a proverb board and are dropped from any other, rather
+	// than refused. A reader who fills the list in and then switches the kind back
+	// has not made a mistake worth a 400 — they have changed their mind, and the
+	// list would otherwise sit invisible in the row waiting to reappear.
+	if b.Kind != boardKindProverb {
+		b.Languages = nil
+		return ""
+	}
+	seen := map[string]bool{}
+	clean := make([]string, 0, len(b.Languages))
+	for _, l := range b.Languages {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		if len([]rune(l)) > boardLanguageMax {
+			return "language name is too long"
+		}
+		// Case-insensitively unique, but the reader's own capitalisation is what
+		// is stored: "bengali" typed second should not win over "Bengali".
+		if key := strings.ToLower(l); !seen[key] {
+			seen[key] = true
+			clean = append(clean, l)
+		}
+	}
+	if len(clean) > boardLanguagesMax {
+		return "that is too many languages for one board"
+	}
+	b.Languages = clean
 	return ""
+}
+
+// encodeLanguages stores the list the way 0037's backfill does — a JSON array —
+// with the EMPTY LIST STORED AS THE EMPTY STRING rather than as "[]". That is the
+// column default, so a board nobody has touched and a board whose languages were
+// all removed hold the same value, and neither has to be told apart from the
+// other when reading.
+func encodeLanguages(langs []string) string {
+	if len(langs) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(langs)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// decodeLanguages never returns nil, so the JSON going out is [] rather than
+// null: a client that has to check for both is a client that will one day check
+// for only one.
+func decodeLanguages(raw string) []string {
+	out := []string{}
+	if strings.TrimSpace(raw) == "" {
+		return out
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil || out == nil {
+		return []string{}
+	}
+	return out
 }
 
 // defaultBoardID resolves where a quote goes when nothing named a board: the ＋
@@ -198,7 +294,8 @@ func (s *Server) handleListBoards(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[boards] handleListBoards uid=%d", uid)
 	rows, err := s.Store.DB.Query(`
 		SELECT b.id, b.name, b.description, b.color, b.image_path, b.hidden, b.pos,
-		       (SELECT COUNT(*) FROM utterances u WHERE u.board_id = b.id)
+		       (SELECT COUNT(*) FROM utterances u WHERE u.board_id = b.id),
+		       b.kind, b.languages
 		FROM boards b WHERE b.user_id = ? ORDER BY b.pos, b.id`, uid)
 	if err != nil {
 		internalError(w, r, "list boards", err)
@@ -208,10 +305,13 @@ func (s *Server) handleListBoards(w http.ResponseWriter, r *http.Request) {
 	out := []boardRow{}
 	for rows.Next() {
 		var b boardRow
-		if err := rows.Scan(&b.ID, &b.Name, &b.Description, &b.Color, &b.ImagePath, &b.Hidden, &b.Pos, &b.Quotes); err != nil {
+		var langs string
+		if err := rows.Scan(&b.ID, &b.Name, &b.Description, &b.Color, &b.ImagePath, &b.Hidden, &b.Pos, &b.Quotes,
+			&b.Kind, &langs); err != nil {
 			olog.Warnf(olog.CodeBoardRowScan, "[boards] row scan failed: %v", err)
 			continue
 		}
+		b.Languages = decodeLanguages(langs)
 		out = append(out, b)
 	}
 	if err := rows.Err(); err != nil {
@@ -261,9 +361,9 @@ func (s *Server) handleCreateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	var pos int
 	_ = tx.QueryRow(`SELECT COALESCE(MAX(pos), -1) + 1 FROM boards WHERE user_id = ?`, uid).Scan(&pos)
-	res, err := tx.Exec(`INSERT INTO boards (user_id, name, description, color, image_path, pos)
-	                     VALUES (?, ?, ?, ?, ?, ?)`,
-		uid, req.Name, req.Description, req.Color, req.ImagePath, pos)
+	res, err := tx.Exec(`INSERT INTO boards (user_id, name, description, color, image_path, pos, kind, languages)
+	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		uid, req.Name, req.Description, req.Color, req.ImagePath, pos, req.Kind, encodeLanguages(req.Languages))
 	if err != nil {
 		internalError(w, r, "insert board", err)
 		return
@@ -278,7 +378,8 @@ func (s *Server) handleCreateBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, boardRow{ID: id, Name: req.Name, Description: req.Description,
-		Color: req.Color, ImagePath: req.ImagePath, Pos: pos})
+		Color: req.Color, ImagePath: req.ImagePath, Pos: pos, Kind: req.Kind,
+		Languages: decodeLanguages(encodeLanguages(req.Languages))})
 }
 
 func (s *Server) handleUpdateBoard(w http.ResponseWriter, r *http.Request) {
@@ -319,8 +420,8 @@ func (s *Server) handleUpdateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	// hidden and pos are pointers so an edit of the name cannot un-hide a board
 	// as a side effect. Every other field is full-state, like every PUT here.
-	set := `name = ?, description = ?, color = ?, image_path = ?, updated_at = datetime('now')`
-	args := []any{req.Name, req.Description, req.Color, req.ImagePath}
+	set := `name = ?, description = ?, color = ?, image_path = ?, kind = ?, languages = ?, updated_at = datetime('now')`
+	args := []any{req.Name, req.Description, req.Color, req.ImagePath, req.Kind, encodeLanguages(req.Languages)}
 	if req.Hidden != nil {
 		set += `, hidden = ?`
 		args = append(args, *req.Hidden)

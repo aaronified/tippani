@@ -402,7 +402,22 @@ const GROUP_OPTIONS = [
   ['place', 'Place'],
   ['decade', 'Decade'],
 ]
-const GROUP_RESIDUAL = { medium: 'No medium', place: 'No place' }
+const GROUP_RESIDUAL = { medium: 'No medium', place: 'No place', language: 'No language' }
+
+// The per-language sections on a proverb board (0037) — what the request called
+// subfolders, and it is a GROUPING rather than a folder for a reason worth
+// stating: a folder is a place a quote lives, and a proverb already lives on the
+// board. Grouping is the same shelf read in language order, so it can be turned
+// on and off without moving anything, and every other view of the board still
+// shows all of it.
+//
+// Offered on a proverb board ONLY. Language is the field that carries a proverb;
+// on a board of speeches it is empty on every row, which would be a section
+// called "No language" holding the entire board.
+export function groupOptionsFor(board) {
+  if (board?.kind !== 'proverb') return GROUP_OPTIONS
+  return [...GROUP_OPTIONS, ['language', 'Language']]
+}
 
 // THE THREE BOARDS (0035). One page, three boards — not three nav tabs: a phone's
 // bottom bar holds four content screens and turning one of them into three would put
@@ -614,9 +629,19 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     return list
   }, [board, color, favOnly, tagged, noted, tag, speaker, medium, language, sort, seps])
 
+  // groupBy is persisted across boards, so a grouping only one KIND of board
+  // offers has to be checked against the board you are actually on rather than
+  // trusted. Group a proverb board by language, walk to a board of speeches, and
+  // without this the Select shows a value it does not list while the page draws
+  // one section called "No language" holding everything — a persisted choice
+  // following the reader somewhere it does not apply, which is the exact trap
+  // 1.14.0 exists to undo. Falls back to ungrouped for the render and leaves the
+  // stored value alone, so walking back finds the sections still on.
+  const groupable = groupOptionsFor(openBoard).some(([v]) => v === groupBy) ? groupBy : 'none'
+
   const grouped = useMemo(
-    () => (groupBy === 'none' ? null : groupUtterances(shown, groupBy, seps)),
-    [shown, groupBy, seps],
+    () => (groupable === 'none' ? null : groupUtterances(shown, groupable, seps)),
+    [shown, groupable, seps],
   )
 
   async function save(id, fields) {
@@ -723,7 +748,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   ].filter(Boolean)
 
   const groupSelect = (
-    <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
+    <Select ariaLabel="Group by" value={groupable} onChange={setGroupBy} options={groupOptionsFor(openBoard)} />
   )
 
   // Above the scaffold rather than inside it: the grid slot does not render when a
@@ -853,7 +878,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
           {grouped.map((g) => {
             // A speaker heading gets their portrait and opens their panel — the
             // same chip an author heading gets in the Library.
-            const isSpeaker = groupBy === 'speaker' && !g.residual
+            const isSpeaker = groupable === 'speaker' && !g.residual
             return (
               <section key={g.key}>
                 <GroupHeading

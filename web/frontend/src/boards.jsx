@@ -40,6 +40,39 @@ import {
 // as a quote's colour rather than inventing a second vocabulary of its own.
 const BOARD_COLORS = ['yellow', 'blue', 'pink', 'orange', 'green', 'purple']
 
+// BOARD_STARTERS (0037) — the three 1.14.0 seeded, offered where somebody has
+// already said they want a new shelf.
+//
+// WHY THIS EXISTS. 0036 seeds boards from quotes the reader ALREADY had, which is
+// right — nobody should open the app to three empty shelves they never asked for
+// — but it left a reader with no standalone quotes unable to reach Proverbs or
+// Speeches at all, ever. That was reported as "I still cannot access the seeded
+// boards". The offer was simply never built.
+//
+// IT IS A FORM FILLER, NOT A CREATE BUTTON. Pressing one writes a name, a colour
+// and a kind into the fields and stops there, so the name is still yours to change
+// before you press Create — which matters because a second board called Proverbs
+// is refused with a 409, and being handed an editable field beats being handed an
+// error. That is also why these stay on offer rather than disappearing once
+// "added": the app cannot tell a Proverbs board you renamed to Grandmother from
+// one you never made, and the name box is the honest guard either way.
+const BOARD_STARTERS = [
+  {
+    key: 'proverbs',
+    name: 'Proverbs',
+    color: 'green',
+    kind: 'proverb',
+    description: 'Handed down, not attributed.',
+  },
+  { key: 'speeches', name: 'Speeches', color: 'blue', kind: 'plain', description: 'Said aloud, to a room.' },
+  { key: 'others', name: 'Others', color: 'yellow', kind: 'plain', description: 'Everything else worth keeping.' },
+]
+
+// The languages the starter proverbs come in, offered as a head start on the
+// picker. NOT a closed list: the field beside them takes any language, because a
+// reader's proverbs are not limited to the three this app happens to ship.
+const STARTER_LANGUAGES = ['Bengali', 'Hindi', 'English']
+
 // ALL_BOARD is the pinned entry, and it is deliberately NOT a board: it has no
 // row, cannot be renamed, hidden or deleted, and its id is a word rather than a
 // number so the route reads /quotes/all. A collection has to stay browsable as a
@@ -71,13 +104,46 @@ export function useBoards() {
 // The picture is uploaded rather than fetched: no supplier has a photograph of a
 // shelf somebody invented, so an empty one is an honest blank rather than a
 // failed lookup.
-export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save' }) {
+export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', existingNames = [] }) {
   const [name, setName] = useState(initial?.name || '')
   const [description, setDescription] = useState(initial?.description || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [imagePath, setImagePath] = useState(initial?.image_path || '')
+  const [kind, setKind] = useState(initial?.kind || 'plain')
+  const [languages, setLanguages] = useState(initial?.languages || [])
+  const [newLanguage, setNewLanguage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Checked here as well as by the server's 409, because the two answer different
+  // questions. The server's is the one that is CORRECT — it sees every board,
+  // including any made in another tab a moment ago — and this one is the one that
+  // is KIND, since being told before pressing Create beats being told after.
+  const taken = new Set(existingNames.map((n) => n.trim().toLowerCase()))
+  const clash = name.trim() !== '' && name.trim().toLowerCase() !== (initial?.name || '').toLowerCase()
+    && taken.has(name.trim().toLowerCase())
+
+  function useStarter(s) {
+    setName(s.name)
+    setColor(s.color)
+    setKind(s.kind)
+    // Only if the box is still empty: a starter fills a form in, and overwriting
+    // a sentence somebody has already typed is not filling in.
+    setDescription((d) => (d.trim() ? d : s.description))
+  }
+
+  function toggleLanguage(l) {
+    setLanguages((ls) => (ls.some((x) => x.toLowerCase() === l.toLowerCase())
+      ? ls.filter((x) => x.toLowerCase() !== l.toLowerCase())
+      : [...ls, l]))
+  }
+
+  function addLanguage() {
+    const l = newLanguage.trim()
+    if (!l) return
+    if (!languages.some((x) => x.toLowerCase() === l.toLowerCase())) setLanguages([...languages, l])
+    setNewLanguage('')
+  }
 
   async function pickImage(e) {
     const file = e.target.files?.[0]
@@ -96,14 +162,100 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save' })
     e.preventDefault()
     if (!name.trim()) return setError('Give the board a name')
     setBusy(true)
-    const msg = await onSubmit({ name: name.trim(), description, color, image_path: imagePath })
+    const msg = await onSubmit({
+      name: name.trim(),
+      description,
+      color,
+      image_path: imagePath,
+      kind,
+      // Sent on every board rather than only on a proverb one, so the field is
+      // never absent from a full-state PUT. The server drops the list from a
+      // plain board itself.
+      languages,
+    })
     setBusy(false)
     if (msg) setError(msg)
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      {/* Offered on a NEW board only. On an edit the board already is something,
+          and a row of chips that would silently rewrite its name and colour is a
+          trap rather than a shortcut. */}
+      {!initial?.id && (
+        <div>
+          <MonoLabel className="mb-1.5 block">start from</MonoLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            {BOARD_STARTERS.map((s) => (
+              <GhostButton key={s.key} type="button" onClick={() => useStarter(s)}>
+                {s.name}
+                {taken.has(s.name.toLowerCase()) ? ' ✓' : ''}
+              </GhostButton>
+            ))}
+          </div>
+          <p className="microcopy mt-1.5">Fills the form in. Change any of it before you create.</p>
+        </div>
+      )}
       <Field label="Name" value={name} placeholder="Proverbs" onChange={(e) => setName(e.target.value)} />
+      {clash && <p className="microcopy">You already have a board called that.</p>}
+      {/* WHAT THE BOARD HOLDS, which is not the same question as what it is
+          called. A proverb board puts the language and the English translation
+          first on the quote form; on a board of speeches those two are noise.
+          Rename a proverb board to anything at all and it stays one. */}
+      <div>
+        <MonoLabel className="mb-1.5 block">what it holds</MonoLabel>
+        <Toggle
+          ariaLabel="What it holds"
+          value={kind}
+          onChange={setKind}
+          options={[
+            ['plain', 'Quotes'],
+            ['proverb', 'Proverbs'],
+          ]}
+        />
+      </div>
+      {kind === 'proverb' && (
+        <div>
+          <MonoLabel className="mb-1.5 block">languages</MonoLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            {[...new Set([...STARTER_LANGUAGES, ...languages])].map((l) => {
+              const on = languages.some((x) => x.toLowerCase() === l.toLowerCase())
+              return (
+                <button
+                  key={l}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleLanguage(l)}
+                  className={'tp-filter-chip tactile' + (on ? ' active' : '')}
+                >
+                  {l}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-end gap-2 mt-2">
+            <Field
+              label="Another language"
+              value={newLanguage}
+              placeholder="Tamil, Yoruba…"
+              onChange={(e) => setNewLanguage(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter adds the language rather than submitting the form, which
+                // is what a lone text input inside a <form> would otherwise do —
+                // creating the board on the keystroke meant to fill a field in.
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addLanguage()
+                }
+              }}
+            />
+            <GhostButton type="button" onClick={addLanguage}>
+              Add
+            </GhostButton>
+          </div>
+          <p className="microcopy mt-1.5">Offered on the quote form, and what the language sections group by.</p>
+        </div>
+      )}
       <div>
         <MonoLabel className="mb-1.5 block">colour</MonoLabel>
         <div className="flex flex-wrap items-center gap-2">
@@ -305,12 +457,20 @@ export function BoardList({ boards, total, reload, onOpen }) {
   async function toggleHidden(b) {
     // Full-state PUT, like every other in this app: the whole board goes back or
     // the fields left out are cleared.
+    //
+    // KIND AND LANGUAGES ARE HERE FOR THAT REASON and for no other. This is the
+    // fourth time the same trap has been laid — 0034's translator, 0035's
+    // category, 0036's board_id, and now these — and it is always a writer that
+    // was correct on the day it was written and became lossy when a column was
+    // added beside it. Hiding a proverb board would quietly make it a plain one.
     const r = await json('PUT', `/boards/${b.id}`, {
       name: b.name,
       description: b.description,
       color: b.color,
       image_path: b.image_path,
       hidden: !b.hidden,
+      kind: b.kind,
+      languages: b.languages,
     })
     if (!r.ok) return setError(errText(r))
     await reload()
@@ -366,9 +526,13 @@ export function BoardList({ boards, total, reload, onOpen }) {
 
       {boards != null && boards.length === 0 && (
         <Card className="mt-4">
+          {/* The screen a reader with no standalone quotes actually lands on,
+              and until 1.14.2 it named neither Proverbs nor Speeches — so the
+              three boards the rest of the app talks about were unreachable from
+              the one place somebody would look for them. */}
           <p className="microcopy">
-            No boards yet. The ＋ in the top bar saves a quote and makes the first one, or start a board here and file
-            into it.
+            No boards yet. <b>New board</b> offers the three to start from — Proverbs, Speeches and Others — and takes
+            any name you like instead. The ＋ in the top bar saves a quote and makes the first one for you.
           </p>
         </Card>
       )}
@@ -380,6 +544,7 @@ export function BoardList({ boards, total, reload, onOpen }) {
             onSubmit={save}
             onCancel={() => setEditing(null)}
             submitLabel={editing === 'new' ? 'Create' : 'Save'}
+            existingNames={(boards || []).map((b) => b.name)}
           />
         </FormModal>
       )}

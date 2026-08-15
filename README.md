@@ -141,7 +141,12 @@ of that are spelled out in [`AI.md`](AI.md).
   a song, a proverb, something a friend said. The Quotes screen lists **boards** the way the Library
   lists books, and you open one to read what is on it: name them, colour them, describe them, give
   them a picture, keep as many as you like. **Proverbs · Speeches · Others** are simply the three
-  you start with, and nothing in the app knows those names — rename or delete them freely. A board
+  you start with — **New board** offers all three, fills the form in and lets you rename it before
+  you create it — and nothing in the app knows those names, so rename or delete them freely. A board
+  says **what it holds** rather than being recognised by its name: mark one as proverbs and it asks
+  which **languages** it is for, puts the language and the English translation first on the quote
+  form, and will optionally break itself into a section per language. Rename that board to
+  *Grandmother* and it is still a proverb board; call an ordinary board *Proverbs* and it is not. A board
   is where you *filed* something, so deleting one asks where its quotes go rather than taking them
   with it, and **All quotes** stays pinned above the shelves so the collection is still readable
   whole. Hiding a board folds the tile away and touches nothing on it.
