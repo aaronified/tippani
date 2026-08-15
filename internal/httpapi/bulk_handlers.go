@@ -257,6 +257,34 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	writeJSON(w, http.StatusOK, map[string]int{"updated": len(owned)})
 }
 
+// cascadeWorkReview writes a work's quiz opt-out onto every quote it holds.
+//
+// WHY THIS IS A WRITE AND NOT A JOIN. 0033 made the work's flag a term in the
+// deck's eligibility query, so excluding a book covered its future highlights for
+// free and cost one column. It also meant a highlight could be barred from the
+// deck by a flag that was not on it — and the control that clears the quote's own
+// flag then reported an outcome that did not happen ("back in the quiz", on a
+// card the deck still refused). The gate is the quote's own column now, so
+// reaching its quotes is something the work's control has to actually do.
+//
+// The ids are already ownership-filtered by the caller, and the children are
+// reached through them, so no user_id term is needed here — the same reasoning
+// ownedChildIDs uses in the other direction.
+func cascadeWorkReview(tx *sql.Tx, childTable, parentKey string, val int, workIDs []int64) error {
+	if len(workIDs) == 0 {
+		return nil
+	}
+	args := make([]any, 0, len(workIDs)+1)
+	args = append(args, val)
+	for _, id := range workIDs {
+		args = append(args, id)
+	}
+	_, err := tx.Exec(
+		`UPDATE `+childTable+` SET review_excluded = ?, updated_at = datetime('now')
+		 WHERE `+parentKey+` IN (`+inClause(len(workIDs))+`)`, args...)
+	return err
+}
+
 // bulkSetChild runs `UPDATE <table> SET <col> = ?, updated_at = now WHERE id IN (ids)`.
 // col is a package constant.
 func bulkSetChild(tx *sql.Tx, table, col string, val any, ids []int64) error {
@@ -368,8 +396,17 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if req.Review != nil {
-		if err := set("review_excluded", boolToInt(!*req.Review)); err != nil {
+		// The work's own column is kept, with a narrower job than 0033 gave it:
+		// it seeds the lines saved from this film LATER. It no longer gates the
+		// deck, so on its own it would not take today's lines out of the quiz —
+		// which is what the reader pressing this means.
+		val := boolToInt(!*req.Review)
+		if err := set("review_excluded", val); err != nil {
 			internalError(w, r, "bulk movies: review", err)
+			return
+		}
+		if err := cascadeWorkReview(tx, "dialogues", "movie_id", val, owned); err != nil {
+			internalError(w, r, "bulk movies: review cascade", err)
 			return
 		}
 	}

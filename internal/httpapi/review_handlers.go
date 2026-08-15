@@ -533,16 +533,21 @@ func (rs reviewSource) reviewJoin() string {
 // to four of them is a deck that will not serve a card the badge is still
 // counting, which reads as the quiz being broken rather than as a filter being
 // inconsistent.
+// ONE FLAG, NOT TWO. 0033 also ANDed the parent's `review_excluded` here, so a
+// highlight could be kept out of the deck by its book without anything on the
+// quote saying so — and that made the control that clears the quote's own flag
+// lie. It offered "Add to quiz", cleared the column, toasted "back in the quiz",
+// and the deck went on refusing to serve the card because the other flag was
+// still set. Nothing on screen resolved it: the mark read both flags, the button
+// read one.
+//
+// So the flag that GATES is now the flag the reader can see and change on the
+// card in front of them. Excluding a work still reaches its quotes — it writes
+// the column on all of them, and seeds the ones added later — but it does that
+// as a write they can see and undo, not as a term in this query.
 func (rs reviewSource) where() string {
-	w := "WHERE " + rs.ownerCol() + " = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '')" +
-		// 0033. The quote's own opt-out.
-		" AND COALESCE(x.review_excluded,0) = 0"
-	if rs.parent != "" {
-		// And its work's, so excluding a reference manual also excludes the
-		// highlight added to it tomorrow. A standalone quote has no parent.
-		w += " AND COALESCE(p.review_excluded,0) = 0"
-	}
-	return w + " " + rs.eligible
+	return "WHERE " + rs.ownerCol() + " = ? AND (COALESCE(x.quote,'') <> '' OR COALESCE(x.note,'') <> '')" +
+		" AND COALESCE(x.review_excluded,0) = 0 " + rs.eligible
 }
 
 // dueSQL is when a scheduled card comes back round. It floors the stored

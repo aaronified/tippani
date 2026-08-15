@@ -256,35 +256,70 @@ func TestAChildRowReportsItsWorksExclusion(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("expected one highlight, got %d", len(rows))
 	}
-	// Its OWN column is untouched — nobody excluded this highlight — and that is
-	// the distinction the card draws and the bulk bar acts on.
-	if rows[0].ReviewExcluded {
-		t.Errorf("excluding the book set the highlight's own flag; it must not")
+	// Its own column IS set now, and that is the correction. The deck reads this
+	// flag and no other, so skipping the book has to reach the highlight rather
+	// than being ANDed in at query time — otherwise the control that clears this
+	// column reports "back in the quiz" about a card the deck still refuses.
+	if !rows[0].ReviewExcluded {
+		t.Errorf("excluding the book left the highlight's own flag clear; the deck reads that flag")
 	}
 	if !rows[0].WorkReviewExcluded {
-		t.Errorf("work_review_excluded = false on a highlight the deck will not serve")
+		t.Errorf("work_review_excluded = false on a highlight of a skipped book")
 	}
 
-	// The one the work-level flag exists for: saved AFTER the exclusion, so
-	// nothing about this row was ever touched by the reader's decision. The
-	// create response is the same shape the list returns.
+	// The one job the work's column still has: saved AFTER the exclusion, and it
+	// inherits. The create response is the same shape the list returns.
 	made := decode[annotationRow](t, c.mustDo("POST", "/annotations",
 		map[string]any{"book_id": bookID, "quote": "see 6.20"}, http.StatusCreated))
-	if made.ReviewExcluded || !made.WorkReviewExcluded {
-		t.Errorf("a highlight added to a skipped book: own=%v book=%v, want false/true",
+	if !made.ReviewExcluded || !made.WorkReviewExcluded {
+		t.Errorf("a highlight added to a skipped book: own=%v book=%v, want true/true",
 			made.ReviewExcluded, made.WorkReviewExcluded)
 	}
 
-	// And back: putting the book in clears the mark on every child at once,
-	// which is the property that makes the flag worth inheriting.
+	// And back: putting the book in clears the flag on every child at once. This
+	// is the same control run the other way, which is what makes the decision
+	// undoable — 0033's version could not be undone from the card at all.
 	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{bookID}, "review": true}, 200)
 	rows = decode[struct {
 		Annotations []annotationRow `json:"annotations"`
 	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(bookID), nil, 200)).Annotations
+	if len(rows) != 2 {
+		t.Fatalf("expected two highlights, got %d", len(rows))
+	}
 	for _, a := range rows {
-		if a.WorkReviewExcluded {
-			t.Errorf("annotation %d still reports its book excluded after the book went back in", a.ID)
+		if a.ReviewExcluded || a.WorkReviewExcluded {
+			t.Errorf("annotation %d still excluded after the book went back in: own=%v book=%v",
+				a.ID, a.ReviewExcluded, a.WorkReviewExcluded)
 		}
+	}
+}
+
+// THE REPORT THIS CHANGE CAME FROM. A highlight excluded on its own account and
+// by its book: the bar reads the own flag, offers "Add to quiz", clears it — and
+// under 0033 the deck went on refusing the card because the book's flag was
+// still ANDed in. The toast said "back in the quiz" about a card that was not.
+func TestClearingAQuotesOwnFlagPutsItBackInTheDeck(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	bookID := createBook(t, c, "The Chicago Manual of Style")
+	annID := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": bookID, "quote": "see 6.19"}, http.StatusCreated).Body.Bytes())
+	ageSeededItems(t, srv)
+
+	// Excluded both ways round: the book's control, then the quote's own.
+	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{bookID}, "review": false}, 200)
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{annID}, "review": false}, 200)
+	if got := reviewTotal(t, c); got != 0 {
+		t.Fatalf("an excluded highlight is still in the deck: %d", got)
+	}
+
+	// The one control the card and the bar both offer. Afterwards the deck must
+	// actually serve it, because that is what the toast says happened.
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{annID}, "review": true}, 200)
+	if got := reviewTotal(t, c); got != 1 {
+		t.Fatalf("Add to quiz said the highlight was back and the deck still will not serve it: %d, want 1", got)
 	}
 }
 
@@ -310,11 +345,11 @@ func TestADialogueReportsItsFilmsExclusion(t *testing.T) {
 	if len(rows) != 1 {
 		t.Fatalf("expected one line, got %d — a scan failure drops rows silently", len(rows))
 	}
-	if rows[0].ReviewExcluded {
-		t.Errorf("excluding the film set the line's own flag; it must not")
+	if !rows[0].ReviewExcluded {
+		t.Errorf("excluding the film left the line's own flag clear; the deck reads that flag")
 	}
 	if !rows[0].WorkReviewExcluded {
-		t.Errorf("work_review_excluded = false on a line the deck will not serve")
+		t.Errorf("work_review_excluded = false on a line of a skipped film")
 	}
 }
 
@@ -361,10 +396,12 @@ func TestSearchCarriesTheQuizMark(t *testing.T) {
 	if len(res.Annotations) != 1 {
 		t.Fatalf("expected one annotation hit, got %d", len(res.Annotations))
 	}
-	// The inherited half, in search. This is the row the whole change is for:
-	// its own flag was never set and the quiz will never serve it.
-	if res.Annotations[0].ReviewExcluded {
-		t.Errorf("annotation hit: own flag set by excluding the book")
+	// The inherited half, in search. Excluding the book writes the flag onto its
+	// highlights now — the deck reads the highlight's own column and nothing
+	// else — so the hit carries both, and the mark it draws is about a card the
+	// quiz genuinely will not serve.
+	if !res.Annotations[0].ReviewExcluded {
+		t.Errorf("annotation hit: own flag clear after its book was excluded")
 	}
 	if !res.Annotations[0].WorkReviewExcluded {
 		t.Errorf("annotation hit: work_review_excluded = false, so a result of a skipped book wears no mark")

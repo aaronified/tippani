@@ -3453,26 +3453,34 @@ export function ReviewDot({ item, side = "top" }) {
 
 // skipReason — why the Daily Quiz will not draw this row, or "" when it will.
 //
-// TWO FLAGS, ONE ANSWER, and that is the whole reason this is a function rather
-// than `item.review_excluded` written at each card. The deck's eligibility rule
-// (reviewSource.where, server-side) drops a quote whose own column is set AND a
-// quote whose PARENT WORK's is — exclude a reference manual and every highlight
-// in it is out, including the one added tomorrow. A card that read only the
-// first flag would show no mark on forty highlights the quiz has already
-// stopped asking about, which is the reverse of the thing the mark exists for.
+// ONE FLAG DECIDES, and the second one only explains. The deck's eligibility
+// rule (reviewSource.where, server-side) reads the quote's OWN column and
+// nothing else; excluding a work writes that column across its quotes and seeds
+// the ones added later, so a skipped book still reaches its highlights — as a
+// write you can see on the card rather than as a term in a query.
+//
+// It used to read `own || work`, which was right while the deck ANDed both. It
+// is wrong now in a state that is reachable on purpose: put ONE highlight of a
+// skipped book back in the quiz and its own flag is clear while its book's is
+// still set. The deck will serve that card. A mark saying otherwise would be the
+// same lie the old "back in the quiz" toast told, drawn instead of spoken.
+//
+// The work's flag still shapes the WORDING, because "skipped with its book" and
+// "skipped on its own" are undone in different places — and the second sentence
+// is also what warns you that the next highlight you save here starts excluded.
 //
 // `parent` is the word for what the work is on this screen — "book", "film",
 // "show". The caller knows it; the row does not carry media_type, and inferring
 // "film" from a movie_id would be wrong on every episode of a series.
 export function skipReason(item = {}, parent = "") {
-  if (item.review_excluded) return "Not in the quiz";
+  if (!item.review_excluded) return "";
   // ONE field for both kinds, and the server's parity test is what settled it.
   // Spelled book_review_excluded / movie_review_excluded it read exactly like
   // book_title beside movie_title — but then this line is `book_x || movie_x`,
   // and dropping one of the two is a mark that is right on books and silently
   // absent on films, on a screen where nothing looks wrong either way.
   if (item.work_review_excluded) return `Skipped with its ${parent || "work"}`;
-  return "";
+  return "Not in the quiz";
 }
 
 // QuizSkipMark — the struck flash card, on any row the quiz will not draw.

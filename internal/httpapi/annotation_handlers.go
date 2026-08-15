@@ -150,11 +150,17 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	res, err := tx.Exec(`
 		INSERT INTO annotations (id, book_id, quote, note, color, chapter, location,
-		                         favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                         favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
+		                         review_excluded)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
+		        -- INHERITED FROM THE BOOK, which is the one job its column still has.
+		        -- The deck reads this row's flag and not its book's, so "skip this
+		        -- reference manual" has to reach the highlight added tomorrow at the
+		        -- moment it is added rather than by being ANDed in at query time.
+		        (SELECT COALESCE(review_excluded, 0) FROM books WHERE id = ?)) ON CONFLICT DO NOTHING`,
 		id, req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
 		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Source, req.hash(),
-		nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
+		nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY, req.BookID)
 	if err != nil {
 		internalError(w, r, "insert annotation", err)
 		return

@@ -153,8 +153,18 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Review != nil {
 		// The body says what the reader wants; the column stores its negative.
-		if err := bulkSetBooks(tx, "review_excluded", boolToInt(!*req.Review), owned, uid); err != nil {
+		//
+		// The book's column is kept and now seeds the highlights added to it
+		// LATER; the deck reads the highlight's own flag, so taking today's
+		// highlights out of the quiz is a write across them rather than a term in
+		// a query. See cascadeWorkReview.
+		val := boolToInt(!*req.Review)
+		if err := bulkSetBooks(tx, "review_excluded", val, owned, uid); err != nil {
 			internalError(w, r, "bulk books: review", err)
+			return
+		}
+		if err := cascadeWorkReview(tx, "annotations", "book_id", val, owned); err != nil {
+			internalError(w, r, "bulk books: review cascade", err)
 			return
 		}
 	}

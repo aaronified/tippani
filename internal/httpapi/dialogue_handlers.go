@@ -314,11 +314,15 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := tx.Exec(`
 		INSERT INTO dialogues (id, movie_id, quote, note, color, character, actor, timestamp, season, episode,
-		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
+		                       review_excluded)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
+		        -- Inherited from the film, exactly as a highlight inherits from its
+		        -- book. See the annotation create path.
+		        (SELECT COALESCE(review_excluded, 0) FROM movies WHERE id = ?)) ON CONFLICT DO NOTHING`,
 		id, req.MovieID, req.Quote, nullable(req.Note), req.Color, nullable(req.Character),
 		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode, req.Favorite, req.Source,
-		req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
+		req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY, req.MovieID)
 	if err != nil {
 		internalError(w, r, "insert dialogue", err)
 		return

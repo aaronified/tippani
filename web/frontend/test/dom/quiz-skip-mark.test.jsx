@@ -31,28 +31,35 @@ describe('why the quiz will not draw this', () => {
   // The load-bearing case: own flag FALSE, parent flag true. A card that read
   // `review_excluded` alone shows nothing here, and the quiz has already
   // stopped asking.
-  it('names the work when the work is the reason', () => {
-    expect(skipReason({ review_excluded: false, work_review_excluded: true }, 'book'))
+  // Excluding a book now WRITES the flag onto its highlights, so a quote of a
+  // skipped book has both set — and the second one names where the decision was
+  // made, which is also where undoing it for the whole book lives.
+  it('names the work when the work is why', () => {
+    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'book'))
       .toBe('Skipped with its book')
-    expect(skipReason({ review_excluded: false, work_review_excluded: true }, 'film'))
+    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'film'))
       .toBe('Skipped with its film')
     // A series is not a film, and the row does not carry media_type — the
     // caller does, which is why the noun is a prop.
-    expect(skipReason({ work_review_excluded: true }, 'show')).toBe('Skipped with its show')
+    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'show'))
+      .toBe('Skipped with its show')
   })
 
-  // The row's own flag wins the wording: "Not in the quiz" is true either way,
-  // and blaming the book for a decision made about the quote would send anybody
-  // trying to undo it to the wrong control.
-  it('blames the row, not the work, when both are set', () => {
-    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'book'))
-      .toBe('Not in the quiz')
+  // THE STATE THE OLD RULE GOT WRONG, and it is reachable on purpose: put one
+  // highlight of a skipped book back in the quiz. Its own flag is clear, its
+  // book's is still set, and the deck WILL serve it — because the deck reads the
+  // quote's own column and nothing else. A mark here would be the same lie the
+  // old "back in the quiz" toast told, drawn instead of spoken.
+  it('says nothing when only the work is flagged, because the deck will serve it', () => {
+    expect(skipReason({ review_excluded: false, work_review_excluded: true }, 'book')).toBe('')
+    expect(skipReason({ work_review_excluded: true }, 'film')).toBe('')
   })
 
-  // A standalone quote has no parent to inherit from, so the caller names none.
-  // The fallback exists so a future kind cannot render the word "undefined".
+  // A standalone quote has no parent, so the caller names none. The fallback
+  // exists so a future kind cannot render the word "undefined".
   it('falls back to a generic noun rather than an empty one', () => {
-    expect(skipReason({ work_review_excluded: true })).toBe('Skipped with its work')
+    expect(skipReason({ review_excluded: true, work_review_excluded: true }))
+      .toBe('Skipped with its work')
   })
 
   // Every label here is inside the house ceiling. A tooltip is one line on a
@@ -60,8 +67,8 @@ describe('why the quiz will not draw this', () => {
   it('keeps every label to five words', () => {
     const labels = [
       skipReason({ review_excluded: true }),
-      skipReason({ work_review_excluded: true }, 'book'),
-      skipReason({ work_review_excluded: true }, 'show'),
+      skipReason({ review_excluded: true, work_review_excluded: true }, 'book'),
+      skipReason({ review_excluded: true, work_review_excluded: true }, 'show'),
     ]
     for (const l of labels) expect(l.split(' ').length).toBeLessThanOrEqual(5)
   })
@@ -73,8 +80,8 @@ describe('the mark itself', () => {
     expect(container.querySelector('.quiz-skip-mark')).toBeNull()
   })
 
-  it('stands on a row inheriting its work exclusion, and says why', () => {
-    render(<QuizSkipMark item={{ id: 1, work_review_excluded: true }} parent="book" />)
+  it('stands on a row skipped with its work, and says why', () => {
+    render(<QuizSkipMark item={{ id: 1, review_excluded: true, work_review_excluded: true }} parent="book" />)
     expect(screen.getByLabelText('Skipped with its book')).not.toBeNull()
   })
 
