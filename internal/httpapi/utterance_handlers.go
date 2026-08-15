@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/olog"
@@ -70,7 +71,12 @@ type utteranceReq struct {
 	// Category is where you FILED it, not what it is, which is why it stays out of
 	// the dedupe hash: the same words filed as a proverb and as an other are one
 	// saved line somebody moved. See 0035's header for the full argument.
-	Category string `json:"category"` // "" -> "other"
+	Category string `json:"category"` // "" -> "other" (0035; superseded by BoardID)
+	// BoardID is where it is FILED (0036), and it supersedes Category. A pointer
+	// so that absent and zero are different things: absent means "the default
+	// board", which is what the ＋ pressed outside a board sends, while a zero
+	// would be a board id that cannot exist and is worth a 400.
+	BoardID *int64 `json:"board_id"`
 	// A plain language name ('Bengali'), not a BCP-47 tag, and free text rather
 	// than an enum — the set of languages is the reader's, not this schema's.
 	Language string `json:"language"`
@@ -155,13 +161,17 @@ type utteranceRow struct {
 	Category    string `json:"category"`
 	Language    string `json:"language"`
 	Translation string `json:"translation"`
+	// 0036. The board this quote is filed on. Always set — the migration
+	// backfilled every existing row and the API never writes a null — so the
+	// client can key on it without a "no board" branch.
+	BoardID int64 `json:"board_id"`
 }
 
 // utteranceCols includes the LEFT-JOINed spaced-repetition state; every SELECT
 // using it must add utteranceReviewJoin.
 const utteranceCols = `u.id, u.quote, COALESCE(u.note, ''), u.color, u.favorite,
 	u.speaker, u.occasion, u.occasion_date, u.place, u.medium,
-	u.category, u.language, u.translation,
+	u.category, u.language, u.translation, COALESCE(u.board_id, 0),
 	COALESCE(u.noted_at, ''), u.sticker_id, u.sticker_x, u.sticker_y, u.created_at, u.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
 	u.review_excluded`
@@ -172,7 +182,7 @@ func scanUtterance(sc interface{ Scan(...any) error }) (utteranceRow, error) {
 	var u utteranceRow
 	err := sc.Scan(&u.ID, &u.Quote, &u.Note, &u.Color, &u.Favorite,
 		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium,
-		&u.Category, &u.Language, &u.Translation,
+		&u.Category, &u.Language, &u.Translation, &u.BoardID,
 		&u.NotedAt, &u.StickerID, &u.StickerX, &u.StickerY, &u.CreatedAt, &u.UpdatedAt,
 		&u.Reviewed, &u.Stability, &u.LastReviewedAt, &u.LastResult, &u.ReviewExcluded)
 	u.Tags = []string{}
@@ -233,16 +243,23 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "reserve quote id", err)
 		return
 	}
+	// Where it is filed (0036). Resolved inside the transaction so a first quote
+	// on a fresh account and the row that quote creates are one atomic act.
+	boardID, err := resolveBoard(tx, uid, req.BoardID)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "board not found")
+		return
+	}
 	res, err := tx.Exec(`
 		INSERT INTO utterances (id, user_id, quote, note, color, favorite,
 		                        speaker, occasion, occasion_date, place, medium,
-		                        category, language, translation,
+		                        category, language, translation, board_id,
 		                        source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
 		ON CONFLICT DO NOTHING`,
 		id, uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
-		req.Category, req.Language, req.Translation,
+		req.Category, req.Language, req.Translation, boardID,
 		req.Source, req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY)
 	if err != nil {
 		internalError(w, r, "insert utterance", err)
@@ -318,6 +335,18 @@ func (s *Server) handleListUtterances(w http.ResponseWriter, r *http.Request) {
 		}
 		q += ` AND u.category = ?`
 		args = append(args, v)
+	}
+	// ?board= is the 0036 replacement for ?category=, and it is validated the same
+	// way and for the same reason: a client asking for a board that is not theirs
+	// has a bug, and an empty shelf hides it.
+	if v := strings.TrimSpace(r.URL.Query().Get("board")); v != "" {
+		bid, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || !boardOwned(s.Store.DB, uid, bid) {
+			writeErr(w, http.StatusBadRequest, "board not found")
+			return
+		}
+		q += ` AND u.board_id = ?`
+		args = append(args, bid)
 	}
 	// ?language= is free text and therefore NOT validated — the set is whatever
 	// has been typed, so an unknown value is legitimately an empty board.
@@ -426,6 +455,15 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	// permission check and a missing row needs no handling here.
 	var wasFavorite bool
 	_ = tx.QueryRow(`SELECT favorite FROM utterances WHERE id = ? AND user_id = ?`, id, uid).Scan(&wasFavorite)
+	// EVERY PUT HERE IS FULL-STATE, so a body with no board_id would move the
+	// quote to the default board rather than leave it where it is. That is the
+	// same trap 0034 caught on `translator` and 0035 caught on category — and it
+	// is why utteranceState on the client carries board_id too.
+	boardID, err := resolveBoard(tx, uid, req.BoardID)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "board not found")
+		return
+	}
 	// The user scope is in the UPDATE itself, not a preflight SELECT: a check
 	// followed by an unscoped write is a race, and here it would be a race that
 	// edits someone else's quote.
@@ -440,13 +478,13 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		UPDATE utterances SET quote = ?, note = ?, color = ?, favorite = ?,
 		       speaker = ?, occasion = ?, occasion_date = ?, place = ?, medium = ?,
-		       category = ?, language = ?, translation = ?,
+		       category = ?, language = ?, translation = ?, board_id = ?,
 		       dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?,
 		       updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium,
-		req.Category, req.Language, req.Translation,
+		req.Category, req.Language, req.Translation, boardID,
 		req.hash(), req.StickerID, req.StickerX, req.StickerY, id, uid)
 	if err != nil {
 		internalError(w, r, "update utterance", err)

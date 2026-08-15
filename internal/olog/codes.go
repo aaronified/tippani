@@ -47,6 +47,7 @@ const (
 	CodeExportRowScan  Code = "TIP-EXPORT-001"
 	CodeBulkRowScan    Code = "TIP-BULK-001"
 	CodeTagRowScan     Code = "TIP-TAG-001"
+	CodeBoardRowScan   Code = "TIP-BOARD-001"
 	CodeStatsRowScan   Code = "TIP-STATS-001"
 	CodeStickerRowScan Code = "TIP-STICKER-001"
 	CodeAdminRowScan   Code = "TIP-ADMIN-001"
@@ -141,6 +142,7 @@ var Registry = map[Code]string{
 	CodeExportRowScan:  "An export row failed to scan; omitted from the export.",
 	CodeBulkRowScan:    "A bulk-selection id row failed to scan; omitted from the operation.",
 	CodeTagRowScan:     "A genre/tag row failed to scan; dropped from the list.",
+	CodeBoardRowScan:   "A quote-board row failed to scan; dropped from the list.",
 	CodeStatsRowScan:   "A stats aggregate row failed to scan; omitted from the totals.",
 	CodeStickerRowScan: "A sticker list row failed to scan; dropped from the list.",
 	CodeAdminRowScan:   "A user list row failed to scan; dropped from the admin list.",

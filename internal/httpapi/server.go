@@ -267,6 +267,15 @@ func (s *Server) Handler() http.Handler {
 	// wildcard above under Go's pattern precedence, the same way /quotes/bulk
 	// already does.
 	mux.Handle("GET /quotes/starters", s.requireAuth(s.handleListProverbStarters))
+
+	// Boards (0036) — the shelves /quotes lists, the way the Library lists books.
+	// Registered as their own noun rather than under /quotes/{id} because a board
+	// is not a quote, and nesting them would put a board id in the same wildcard
+	// slot a quote id already occupies.
+	mux.Handle("GET /boards", s.requireAuth(s.handleListBoards))
+	mux.Handle("POST /boards", s.requireAuth(s.handleCreateBoard))
+	mux.Handle("PUT /boards/{id}", s.requireAuth(s.handleUpdateBoard))
+	mux.Handle("DELETE /boards/{id}", s.requireAuth(s.handleDeleteBoard))
 	mux.Handle("POST /quotes/starters", s.requireAuth(s.handleSeedProverbs))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).

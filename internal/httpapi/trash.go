@@ -845,6 +845,12 @@ var accountTables = []string{
 	"users",
 	"genres", "tags", "stickers", "people", "person_kinds",
 	"books", "movies",
+	// boards BEFORE utterances, because this list is in RESTORE order (parents
+	// first) and the delete walks it backwards. utterances.board_id is ON DELETE
+	// RESTRICT — the rule that no quote is ever orphaned — so a delete that
+	// removed the boards first would be refused by the database rather than
+	// cascading, which is exactly what it did before this line moved here.
+	"boards",
 	"annotations", "dialogues", "utterances",
 	"book_genres", "movie_genres",
 	"annotation_tags", "dialogue_tags", "utterance_tags",

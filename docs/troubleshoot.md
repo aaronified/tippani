@@ -69,6 +69,7 @@ the subsystem and the underlying error.
 | `TIP-EXPORT-001` | Export rows |
 | `TIP-BULK-001` | Bulk-selection id rows |
 | `TIP-TAG-001` | Genres / tags list |
+| `TIP-BOARD-001` | Quote boards list |
 | `TIP-STATS-001` | Stats aggregate rows |
 | `TIP-STICKER-001` | Stickers list |
 | `TIP-TRASH-005` | The bin list |

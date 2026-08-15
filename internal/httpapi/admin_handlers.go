@@ -232,6 +232,21 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "delete user: bin it first", err)
 		return
 	}
+	// The quotes go BEFORE the user, and this is not tidiness.
+	//
+	// utterances.board_id is ON DELETE RESTRICT (0036) — the rule that no quote is
+	// ever orphaned by a board being removed. Deleting the user cascades into
+	// boards AND into utterances, and SQLite does not promise which order, so the
+	// board cascade can reach a board whose quotes are still there and be refused
+	// — turning an account deletion into a 500.
+	//
+	// RESTRICT is about a BOARD going while quotes point at it. When the whole
+	// account goes there is nothing left to orphan, so clearing the quotes first
+	// says exactly that, and the snapshot above already holds them for a restore.
+	if _, err := tx.Exec(`DELETE FROM utterances WHERE user_id = ?`, id); err != nil {
+		internalError(w, r, "delete user: clear quotes", err)
+		return
+	}
 	// Delete unless it would remove the last admin. The guard is in SQL so the
 	// count and delete are one atomic statement.
 	res, err := tx.Exec(
