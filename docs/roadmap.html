@@ -559,14 +559,23 @@
     <li>
       <strong>Cloze review — blank out a phrase and recall it.</strong> The most
       natural way to test a <em>quote</em>, as opposed to a fact, and nobody in this
-      space does it. The masked span is chosen at request time from the quote text
-      (longest run of non-stopwords, seeded by the quote id so it is stable per card),
-      which means <strong>no schema and no storage</strong> — the same "compute it in
-      the query" discipline the forgetting curve already follows. Grading is a fuzzy
-      match, and the edit distance for it is already in
-      <code>internal/search/levenshtein.go</code> for the typo-tolerant search pass.
-      Standalone quotes are almost all famous lines, which makes them the best cards
-      this app could ask.
+      space does it. The masked span is chosen at request time from the quote's own
+      words and derived from the card's id alone — <strong>no schema and no
+      storage</strong>, and deliberately independent of the DAY, so the endpoint
+      that grades your attempt reconstructs the same blank you were shown.
+      Grading is fuzzy, through the edit distance already in
+      <code>internal/search/levenshtein.go</code>, and it happens on the
+      <strong>server</strong>: an option index means nothing without the options
+      beside it, but a cloze answer <em>is</em> the words being recalled, so it
+      never travels until the attempt is in.
+      <br><br>
+      One limit, stated rather than discovered: the stopword list is English, and
+      an English list matches <em>zero</em> Devanagari or Cyrillic tokens — so
+      every word reads as a content word and the blank falls confidently in text
+      it cannot read. Cloze is offered only on predominantly Latin quotes;
+      everything else gets one of the other directions, which are all
+      script-agnostic.
+      <span class="mono">Shipped in 1.15.0.</span>
     </li>
     <li>
       <strong>Undo the last answer</strong> — <em>replaced rather than built.</em>
