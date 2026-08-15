@@ -2422,8 +2422,25 @@ const LONG_PRESS_SLOP = 10;
 // suppression itself never lifts. A wrapped control that wants a right-click
 // gesture of its own passes a handler here; it still gets no platform menu and
 // still does not open the card menu it may be sitting inside.
+// HOVER_HIDE_MS — how long a hover bubble stays up on its own.
+//
+// It exists because pointerleave is not a promise. The bubble opened on
+// pointerenter and closed on pointerleave and nothing else, which is correct
+// right up until the thing under the pointer stops being there: press a colour
+// swatch and the picker re-renders, a panel opens over the control, the row
+// reflows — and the leave event that was going to close this never arrives. The
+// label then sits over the screen indefinitely, obscuring the very thing you
+// clicked it to change.
+//
+// Six seconds is long enough to read a five-word label several times and short
+// enough that a stuck one goes away before you reach for it.
+const HOVER_HIDE_MS = 6000;
+
 export function Tooltip({ label, side = "top", className = "", onContextMenu, children }) {
   const timer = useRef(null);
+  // Separate from `timer`, which is the touch long-press. One ref for two
+  // unrelated schedules is how a hover cancels a long press.
+  const autoHide = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
   const wrap = useRef(null);
@@ -2433,7 +2450,10 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, ch
   const held = useRef(0);
   // Unmount is a close: clicking a control that opens a modal takes the wrapper
   // (and its pointerleave) with it, which would otherwise pin the label forever.
-  useEffect(() => () => hideHint(held.current), []);
+  useEffect(() => () => {
+    clearTimeout(autoHide.current);
+    hideHint(held.current);
+  }, []);
   if (!label) return children;
 
   // An open InfoDot / Help sheet suppresses its own trigger's bubble: the tap
@@ -2444,12 +2464,19 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, ch
     const r = wrap.current?.getBoundingClientRect();
     return r && r.width ? r : null;
   };
-  const open = () => {
+  // `auto` is false for keyboard focus: somebody reading a label with the
+  // keyboard has not asked for it to vanish mid-sentence, and their bubble is
+  // closed by blur, which — unlike pointerleave — always arrives.
+  const open = (auto = false) => {
     if (suppressed) return;
     hideHint(held.current);
     held.current = showHint(label, box(), side);
+    clearTimeout(autoHide.current);
+    autoHide.current = auto ? setTimeout(close, HOVER_HIDE_MS) : null;
   };
   const close = () => {
+    clearTimeout(autoHide.current);
+    autoHide.current = null;
     hideHint(held.current);
     held.current = 0;
   };
@@ -2461,7 +2488,7 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, ch
   const onPointerEnter = (e) => {
     // Touch fires pointerenter too, on the tap — that path is the long press.
     if (e.pointerType === "touch" || suppressed) return;
-    open();
+    open(true);
   };
   const onPointerDown = (e) => {
     if (e.pointerType !== "touch") return;
@@ -2488,7 +2515,14 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, ch
     }
   };
   const onClickCapture = (e) => {
-    if (!fired.current) return;
+    if (!fired.current) {
+      // A CLICK ANSWERS THE QUESTION. You hovered to find out what the control
+      // does and then pressed it, so the label has done its job — and this is
+      // the one moment we know for certain the pointer was here, which
+      // pointerleave may never tell us if the control moves or is covered.
+      close();
+      return;
+    }
     fired.current = false;
     e.preventDefault();
     e.stopPropagation();
