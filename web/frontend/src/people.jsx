@@ -1,140 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { coverImgURL, json, errText } from './api.js'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
+import { json, errText } from './api.js'
+import { personImgURL, PersonPortrait, usePeople } from './credits.jsx'
+import { usePractice } from './review.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, PartialDateField, Placeholder, Tooltip } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
-export function personImgURL(path) {
-  return coverImgURL(path)
-}
+// The person primitives — portrait, credit splitting, the saved-people map —
+// live in credits.jsx so the quiz card can draw a face without importing this
+// panel. Re-exported here because this is still where a reader looks for them.
+export { DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 
-// ---- multi-author credit splitting (ROADMAP §11) ----
-// parseCreditSeps / splitCredits mirror internal/metadata/credits.go — keep
-// the two in LOCKSTEP; the Go table in credits_test.go is the source of truth.
-// A credit stays stored verbatim ("Gaiman & Pratchett"); only people-derived
-// views (group-by headings, the People console, person links) split it.
-
-export const DEFAULT_CREDIT_SEPS = { comma: true, semicolon: true, amp: true, and: true }
-
-// parseCreditSeps reads the creditSeparators preference: a comma-separated
-// token list from {comma, semicolon, amp, and}, or "none". Empty/unknown-only
-// falls back to the default set.
-export function parseCreditSeps(pref) {
-  const v = String(pref || '').trim()
-  if (!v) return DEFAULT_CREDIT_SEPS
-  if (v.toLowerCase() === 'none') return { comma: false, semicolon: false, amp: false, and: false }
-  const seps = { comma: false, semicolon: false, amp: false, and: false }
-  let seen = false
-  for (const tok of v.split(',')) {
-    const t = tok.trim().toLowerCase()
-    if (t in seps) {
-      seps[t] = true
-      seen = true
-    }
-  }
-  return seen ? seps : DEFAULT_CREDIT_SEPS
-}
-
-// ROMAN NUMERALS ARE NOT IN HERE, and their absence is the decision. This set has
-// to match internal/metadata/credits.go exactly — the two split the same strings and
-// a disagreement about what a component IS shows up as a rename that touches one
-// side and not the other.
-//
-// It used to carry ii/iii/iv/v for "Henry Ford II". The cost appeared the moment
-// characters were split the same way: "V" is a real character name, so a dialogue
-// line stored as "Evey, V" had its second speaker swallowed onto the first and came
-// out as one label nobody could remap. A single letter is a plausible name and a
-// terrible suffix.
-//
-// Numbers take their place: a bare number, with or without an ordinal ending, is a
-// generational marker rather than a person. It cannot collide with a name.
-//
-// The consequence, stated rather than discovered: "Henry Ford, II" now splits in two.
-// That is the right way round — a wrongly-split credit is visible and fixable, a
-// wrongly-merged one hides a whole person.
-const CREDIT_SUFFIXES = new Set([
-  'jr', 'jr.', 'sr', 'sr.',
-  'inc', 'inc.', 'ltd', 'ltd.', 'llc', 'llc.', 'co', 'co.',
-])
-// 2, 2nd, 3rd, 4th, with an optional trailing dot. Anchored, so "2 Fast 2 Furious"
-// is not a suffix.
-const CREDIT_NUMBER_SUFFIX_RE = /^[0-9]+(st|nd|rd|th)?\.?$/
-const isCreditSuffix = (low) => CREDIT_SUFFIXES.has(low) || CREDIT_NUMBER_SUFFIX_RE.test(low)
-const CREDIT_AND_RE = /\s+and\s+/i
-const CREDIT_LEADING_AND_RE = /^and\s+/i
-const MAX_CREDIT_COMPONENTS = 8
-
-function splitCreditAnd(p, listCtx) {
-  p = p.trim()
-  if (!p) return []
-  if (listCtx) {
-    // Oxford comma: ", and Lee" comma-splits into a leading-"and" token the
-    // infix regex below can't reach — strip the joiner first.
-    p = p.replace(CREDIT_LEADING_AND_RE, '').trim()
-    if (!p) return []
-  }
-  const parts = p.split(new RegExp(CREDIT_AND_RE.source, 'gi'))
-  if (parts.length < 2) return [p]
-  if (!listCtx) {
-    // Outside list context both sides must look like full names (≥ 2 words) —
-    // "Daniels and Sons" / "William and Mary" stay whole.
-    for (const q of parts) {
-      if (q.trim().split(/\s+/).filter(Boolean).length < 2) return [p]
-    }
-  }
-  return parts
-}
-
-// splitCredits splits a joined credit into individual names using the enabled
-// separators; a verbatim single name passes through as [name], '' as [].
-// Whitespace normalizes first (JS \s is Unicode-aware) to stay in lockstep
-// with Go's strings.Fields normalization.
-export function splitCredits(s, seps = DEFAULT_CREDIT_SEPS) {
-  const t = String(s || '').trim().replace(/\s+/g, ' ')
-  if (!t) return []
-  if (!seps.comma && !seps.semicolon && !seps.amp && !seps.and) return [t]
-
-  let listCtx = false
-  let parts = [t]
-  const splitOn = (list, sep) => list.flatMap((p) => p.split(sep))
-  if (seps.comma && t.includes(',')) {
-    listCtx = true
-    parts = splitOn(parts, ',')
-  }
-  if (seps.semicolon && t.includes(';')) {
-    listCtx = true
-    parts = splitOn(parts, ';')
-  }
-  if (seps.amp && t.includes('&')) {
-    listCtx = true
-    parts = splitOn(parts, '&')
-  }
-  if (seps.and) parts = parts.flatMap((p) => splitCreditAnd(p, listCtx))
-
-  const merged = []
-  for (let p of parts) {
-    p = p.trim()
-    if (!p) continue
-    const low = p.toLowerCase()
-    if (low === 'et al' || low === 'et al.') continue
-    if (isCreditSuffix(low) && merged.length > 0) {
-      merged[merged.length - 1] += ', ' + p
-      continue
-    }
-    merged.push(p)
-  }
-
-  const seen = new Set()
-  const out = []
-  for (const p of merged) {
-    const k = p.toLowerCase()
-    if (seen.has(k)) continue
-    seen.add(k)
-    out.push(p)
-    if (out.length === MAX_CREDIT_COMPONENTS) break
-  }
-  return out.length ? out : [t]
-}
 
 // The external references a person can link out to, in display order. A saved
 // link is recognised by hostname; everything else renders as a plain URL row.
@@ -195,21 +71,6 @@ export function ProviderChips({ links }) {
   )
 }
 
-// usePeople loads every saved metadata row for a kind ('author'|'actor') and
-// returns a name→row map (for group-by portraits + quick presence checks) plus
-// a reload to call after a save/delete.
-export function usePeople(kind) {
-  const [map, setMap] = useState({})
-  async function reload() {
-    const r = await json('GET', `/people?kind=${kind}`)
-    if (r.ok) setMap(Object.fromEntries((r.data.people || []).map((p) => [p.name, p])))
-  }
-  useEffect(() => {
-    reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind])
-  return { map, reload }
-}
 
 // PersonName renders a name as a link that opens the metadata panel. onOpen is
 // given { kind, name } — parents keep a single [person,setPerson] + PersonModal.
@@ -231,18 +92,6 @@ export function PersonName({ kind, name, onOpen, className = 'tp-link', style, c
   )
 }
 
-// PersonPortrait — the small round portrait for a group-by heading (renders
-// nothing when there's no saved image).
-export function PersonPortrait({ person, size = 30 }) {
-  if (!person?.image_path) return null
-  return (
-    <img
-      src={personImgURL(person.image_path)}
-      alt=""
-      style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--ink-border)', flex: 'none' }}
-    />
-  )
-}
 
 // CreditFaces — the round-portrait chip for a credit line, sized like a book's
 // author face. When a credit names more than one person (co-authors, a film's
@@ -312,7 +161,7 @@ function lifespanLabel(p) {
   return ''
 }
 
-function PersonView({ person, name, onEdit, onDelete }) {
+function PersonView({ person, name, onEdit, onDelete, onPractise }) {
   const [zoom, setZoom] = useState(false)
   // Passport-ratio photo (7:9) FLOATED so the bio + born + links wrap around it
   // and continue below — no dead space beside a short photo. Click → full screen.
@@ -359,6 +208,15 @@ function PersonView({ person, name, onEdit, onDelete }) {
       </div>
       {zoom && <Lightbox path={person.image_path} title={name} onClose={() => setZoom(false)} />}
       <div className="flex justify-end gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+        {/* FIRST IN THE ROW, and away from Delete. "Quiz me on Austen" is the one
+            thing you might want from this panel repeatedly; editing a bio is
+            something you do once. It reads across every role the person holds —
+            author, actor, director, speaker — because the server matches all
+            four on one field, and a reader who has quoted someone's films and
+            their memoir means both. */}
+        <GhostButton onClick={onPractise} className="mr-auto inline-flex items-center gap-1.5">
+          <IconQuiz /> Practise
+        </GhostButton>
         <GhostButton
           onClick={onDelete}
           className="inline-flex items-center gap-1.5"
@@ -582,6 +440,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
   const [fetchNote, setFetchNote] = useState('')
   const [error, setError] = useState('')
   const enriched = useRef(false)
+  const { practise, practiceDialog } = usePractice()
 
   useEffect(() => {
     let stale = false
@@ -740,7 +599,13 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
         ) : (
           <div className="space-y-3">
             {person ? (
-              <PersonView person={person} name={name} onEdit={() => setEditing(true)} onDelete={remove} />
+              <PersonView
+                person={person}
+                name={name}
+                onEdit={() => setEditing(true)}
+                onDelete={remove}
+                onPractise={() => practise({ person: name, label: name })}
+              />
             ) : (
               <>
                 <p className="microcopy">nothing saved yet</p>
@@ -762,6 +627,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
           </div>
         )}
       </div>
+      {practiceDialog}
     </div>
   )
 }

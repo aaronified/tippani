@@ -17,13 +17,14 @@ import { useEffect, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { json } from './api.js'
 import { episodeLabel } from './text.js'
-import { DEFAULT_CREDIT_SEPS, PersonPortrait, splitCredits, usePeople } from './people.jsx'
+import { DEFAULT_CREDIT_SEPS, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import {
   ClampMore,
   ErrorText,
   Field,
   FieldIconButton,
+  FormModal,
   HandNote,
   MonoLabel,
   toast,
@@ -34,6 +35,31 @@ import {
 export function tzOffsetMinutes() {
   return -new Date().getTimezoneOffset()
 }
+
+// ---- the one preference a themed round cannot be handed -------------------
+//
+// srSubmit (the confirm step) reaches the Daily Quiz and Practice as a prop, from
+// the session user App already holds. A themed round has no such path: it opens
+// from a work tile, a tag card, a person panel — surfaces that know nothing about
+// the reader and have no business learning. Threading `user` through four screens
+// to reach one boolean would put a review preference in the signature of every
+// card in the app.
+//
+// So App pushes it here, in the same effect that already applies the theme and
+// the colour categories, and this module reads it when it builds a round.
+//
+// THE PROP PATH STAYS the reactive one — Home re-renders with the new value the
+// moment Settings saves, and a module variable cannot do that. This is not a
+// second source of truth: both read `preferences.srSubmit` from the same object
+// at the same moment, and effects flush before paint, so no dialog can open on a
+// value older than the render that drew the button opening it.
+let reviewPrefs = { submitStep: false }
+
+export function applyReviewPrefs(prefs) {
+  reviewPrefs = { submitStep: !!prefs?.srSubmit }
+}
+
+export const submitStepPref = () => reviewPrefs.submitStep
 
 // The date line and the greeting both come from greetings.js now — the device's
 // clock, date and IANA time zone pick the pool (time of day, weekend, or a
@@ -702,4 +728,143 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       {saveErr && <div className="mt-2"><ErrorText>{saveErr}</ErrorText></div>}
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// themed practice — "quiz me on this book / tag / colour / person"
+// ---------------------------------------------------------------------------
+//
+// The server side shipped in 1.15.0 and is described in review_theme.go. The
+// short version: a theme narrows the CANDIDATE pool for a practice round, and
+// only for practice. The Daily Quiz is deliberately not themeable, because the
+// daily deck IS the schedule — filtering it would leave the cards that are
+// actually due unasked while the streak still counted the day as cleared.
+//
+// WHERE THE BUTTONS ARE is the design, and it is contextual rather than central.
+// There is no "pick a theme" screen: you are already looking at the book, the
+// tag, the person or the colour when you want to be asked about it, and a picker
+// would mean choosing a book from a list of books one screen after leaving the
+// list of books. So the entry points ride the surfaces that already name the
+// thing — the work tile's own menu, the person panel, the tag card, and the
+// colour rows in Stats.
+//
+// A theme is `{book}` | `{movie}` | `{tag}` | `{color}` | `{person}` plus a
+// `label` saying what to call the round. The label is the caller's, not derived:
+// only the caller knows whether "Austen" is an author, a director or a speaker,
+// and the server matches all three on purpose.
+
+// themeQuery turns a theme into the query string handlePractice parses. Empty
+// fields are omitted rather than sent blank — an empty `tag=` is a theme the
+// server would read as "no tag", which is what the whole round already means.
+export function themeQuery(theme) {
+  const q = new URLSearchParams()
+  for (const k of ['book', 'movie', 'tag', 'color', 'person']) {
+    if (theme?.[k]) q.set(k, String(theme[k]))
+  }
+  return q.toString()
+}
+
+// ThemedPracticeDialog — one themed round in a modal, over whatever screen it
+// was started from. Deliberately not a route: the round is a detour, and coming
+// back to the shelf you were on is the whole shape of it.
+export function ThemedPracticeDialog({ theme, onClose }) {
+  const [cards, setCards] = useState(null) // null = still loading
+  const [tally, setTally] = useState({ got: 0, forgot: 0 })
+  const [done, setDone] = useState(false)
+  // A round is identified by a counter rather than by its contents, so "Another
+  // round" remounts QuizRunner and resets every piece of per-card state in it.
+  // Handing a fresh deck to a mounted runner would keep the old position.
+  const [round, setRound] = useState(0)
+
+  useEffect(() => {
+    let live = true
+    setCards(null)
+    setDone(false)
+    setTally({ got: 0, forgot: 0 })
+    const qs = themeQuery(theme)
+    json('GET', `/review/practice${qs ? `?${qs}` : ''}`).then((r) => {
+      if (!live) return
+      setCards(r.ok ? r.data.items || [] : [])
+    })
+    return () => { live = false }
+  }, [round, theme?.book, theme?.movie, theme?.tag, theme?.color, theme?.person])
+
+  const empty = cards != null && cards.length === 0
+  return (
+    <FormModal open onClose={onClose} title={theme?.label || 'Practice'} maxWidth={560}>
+      <div className="review-card-body">
+        {cards == null && <MonoLabel style={{ color: 'var(--faint)' }}>loading…</MonoLabel>}
+        {/* NOT AN ERROR, and worth the sentence. A theme with nothing behind it
+            is the ordinary answer for a book you have not quoted yet, or a
+            colour you stopped using — and every quote it would have asked about
+            may simply be one you set aside. Saying so beats an empty card. */}
+        {empty && (
+          <div className="py-2 text-center">
+            <p className="tp-empty">no quotes here to practise</p>
+            <button type="button" className="tp-btn tactile mt-3" onClick={onClose}>Close</button>
+          </div>
+        )}
+        {cards != null && cards.length > 0 && !done && (
+          <>
+            <QuizRunner
+              key={round}
+              mode="practice"
+              cards={cards}
+              allowSkip
+              submitStep={submitStepPref()}
+              onAnswered={(result) =>
+                setTally((t) => ({
+                  got: t.got + (result === 'got' ? 1 : 0),
+                  forgot: t.forgot + (result === 'forgot' ? 1 : 0),
+                }))
+              }
+              onDone={() => setDone(true)}
+            />
+            <div className="mt-2 text-right">
+              <button type="button" className="tp-link" onClick={onClose}>End round</button>
+            </div>
+          </>
+        )}
+        {done && (
+          <div className="py-2 text-center">
+            <p
+              aria-hidden="true"
+              style={{ fontFamily: 'var(--font-hand)', fontSize: 24, color: 'var(--accent-ui)', transform: 'rotate(-1.2deg)' }}
+            >
+              {tally.got} / {tally.got + tally.forgot}
+            </p>
+            <p className="mono-label mt-1 mb-3" style={{ letterSpacing: '.06em' }}>
+              {tally.got} recalled · {tally.forgot} missed
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button type="button" className="tp-btn tactile" onClick={onClose}>Done</button>
+              <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setRound((n) => n + 1)}>
+                Another round
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </FormModal>
+  )
+}
+
+// usePractice — what a screen wires up to offer a themed round: a function that
+// starts one, and the dialog to render.
+//
+// A HOOK RATHER THAN A GLOBAL, so the dialog belongs to the screen that opened it
+// and unmounts with it. A round left running behind a screen the reader navigated
+// away from would keep posting grades against a schedule they thought they had
+// stopped touching.
+//
+//   const { practise, practiceDialog } = usePractice()
+//   ...
+//   <button onClick={() => practise({ book: id, label: title })}>Practise</button>
+//   {practiceDialog}
+export function usePractice() {
+  const [theme, setTheme] = useState(null)
+  return {
+    practise: (t) => setTheme(t),
+    practiceDialog: theme ? <ThemedPracticeDialog theme={theme} onClose={() => setTheme(null)} /> : null,
+  }
 }

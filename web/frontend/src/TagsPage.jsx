@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
+import { usePractice } from './review.jsx'
 import {
   ColorSwatches,
   EmptyState,
@@ -104,6 +105,7 @@ async function deleteTag(tag, onChanged, setError) {
 function CompactTagCard({ tag, index, onChanged }) {
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
+  const { practise, practiceDialog } = usePractice()
   const uses = tag.annotations + tag.dialogues
 
   return (
@@ -127,6 +129,14 @@ function CompactTagCard({ tag, index, onChanged }) {
       </TagChip>
       <ErrorText>{error}</ErrorText>
       <div className="mt-auto flex gap-3 pt-0.5">
+        {/* Only where there is something to ask about. A tag attached to nothing
+            would open a round with no cards in it, and an empty dialog is a
+            worse answer than an absent control. */}
+        {uses > 0 && (
+          <button className="tp-link" onClick={() => practise({ tag: tag.name, label: tag.name })}>
+            practise
+          </button>
+        )}
         <button className="tp-link" onClick={() => setEditing(true)}>
           edit
         </button>
@@ -134,6 +144,7 @@ function CompactTagCard({ tag, index, onChanged }) {
           delete
         </button>
       </div>
+      {practiceDialog}
     </HandCard>
   )
 }
@@ -144,6 +155,7 @@ function TagTable({ tags, onChanged }) {
   const { sort, toggle, apply } = useSort('uses', 'desc')
   const [editingId, setEditingId] = useState(null)
   const [error, setError] = useState('')
+  const { practise, practiceDialog } = usePractice()
   const rows = apply(tags, {
     name: (t) => t.name.toLowerCase(),
     style: (t) => t.style,
@@ -172,6 +184,11 @@ function TagTable({ tags, onChanged }) {
                 <td className="col-actions">
                   <TableActions
                     noun="tag"
+                    onPractise={
+                      t.annotations + t.dialogues > 0
+                        ? () => practise({ tag: t.name, label: t.name })
+                        : undefined
+                    }
                     onEdit={() => setEditingId(t.id)}
                     onDelete={() => deleteTag(t, onChanged, setError)}
                   />
@@ -197,6 +214,7 @@ function TagTable({ tags, onChanged }) {
           />
         )}
       </FormModal>
+      {practiceDialog}
     </>
   )
 }

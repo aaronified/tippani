@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Home from './Home.jsx'
-import { tzOffsetMinutes } from './review.jsx'
+import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
@@ -101,6 +101,10 @@ export default function App() {
     if (user) {
       applyTheme(user.preferences || {})
       applyColors(user.preferences || {})
+      // And the one review preference a themed round cannot be handed as a prop.
+      // Same effect on purpose: it runs on login and on every Settings save, so
+      // there is no second place that has to remember to keep it current.
+      applyReviewPrefs(user.preferences || {})
     }
   }, [user])
 

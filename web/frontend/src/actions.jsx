@@ -109,6 +109,24 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.fillGaps(item),
     },
     {
+      id: 'practise',
+      label: 'Practise',
+      where: OVERFLOW,
+      icon: <IconQuiz />,
+      tooltip: `Quiz me on ${subject}`,
+      // A THEMED ROUND OVER ONE WORK. The endpoint takes a single book or movie
+      // id (review_theme.go), which is why this is `single` rather than absent
+      // from the bulk list: "practise these forty books" is not this action
+      // forty times, it is a round the server has no way to describe.
+      //
+      // Works only. "Practise this quote" would be a round of exactly one card,
+      // which is a flashcard with extra steps — and the thing a reader means by
+      // pointing at one quote is Favourite or Skip, both of which are here.
+      single: true,
+      available: isWork && !!ctx.practise,
+      run: () => ctx.practise(item),
+    },
+    {
       id: 'review',
       // Names the ACTION and flips, exactly as the bar's does. The card wears
       // the matching mark since 1.14.2, so the menu that changes it and the

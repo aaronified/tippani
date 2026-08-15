@@ -44,6 +44,7 @@ import {
   useCardMenu,
 } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
+import { usePractice } from './review.jsx'
 import { useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
 
@@ -822,6 +823,9 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   const picked = !!selection?.isSelected(item.id)
   const ops = useBulkOps({ kind, ids: [item.id], onDone: onChanged })
   const [asking, setAsking] = useState(false)
+  // "Quiz me on this one." The dialog belongs to the tile that opened it, so it
+  // closes with the board rather than outliving it.
+  const { practise, practiceDialog } = usePractice()
   const acts = actionsFor(kind, item, {
     // Absent unless the board passes a reload — a surface that cannot refresh
     // after a write should not offer the write. That is the registry's rule and
@@ -834,6 +838,11 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
     excluded: !!item.review_excluded,
     edit: onEdit ? () => onEdit(item.id) : undefined,
     remove: onChanged ? () => setAsking(true) : undefined,
+    // NOT gated on onChanged, unlike its neighbours. Every other action here
+    // writes, and a surface that cannot reload after a write should not offer
+    // one; a themed round only reads the pool, and grading inside it changes
+    // nothing this tile draws.
+    practise: () => practise({ [kind === 'book' ? 'book' : 'movie']: item.id, label: item.title }),
   })
   // SELECT FIRST, the same as a quote card's menu: the gesture that asks "what
   // can I do to this" is also how you start doing it to several. Select all
@@ -958,6 +967,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {tile}
         {menu}
         {confirm}
+        {practiceDialog}
       </>
     )
   }
@@ -971,6 +981,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       />
       {menu}
       {confirm}
+      {practiceDialog}
     </div>
   )
 }

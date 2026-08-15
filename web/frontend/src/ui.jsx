@@ -5238,10 +5238,11 @@ export function PickMark({ picked, onChange, label = "this" }) {
 // The SET is still the same set, and that part does have to stay in step: a
 // table row offers copy, share, edit and delete because that is what the card
 // beside it offers, just laid flat in a cell that has the width for it.
-export function TableActions({ onCopy, onShare, onEdit, onDelete, noun = "row" }) {
+export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, noun = "row" }) {
   return (
     <span className="flex items-center justify-end gap-1">
       {onCopy && <FieldIconButton icon={<IconCopy />} ariaLabel="Copy" onClick={onCopy} tooltip={`Copy this ${noun}`} />}
+      {onPractise && <FieldIconButton icon={<IconQuiz />} ariaLabel="Practise" onClick={onPractise} tooltip={`Quiz me on this ${noun}`} />}
       {onShare && <FieldIconButton icon={<IconShare />} ariaLabel="Share" onClick={onShare} tooltip={`Share this ${noun}`} />}
       {onEdit && <FieldIconButton icon={<IconEdit />} ariaLabel="Edit" onClick={onEdit} tooltip={`Edit this ${noun}`} />}
       {onDelete && <FieldIconButton icon={<IconDelete />} ariaLabel="Delete" onClick={onDelete} tooltip={`Delete this ${noun}`} danger />}

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { CAT_NAME_MAX, categoryName, categoryVar } from './theme.js'
+import { usePractice } from './review.jsx'
 import { coverImgURL, json } from './api.js'
 import { PersonPortrait, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, fmtHalfLife, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, FieldIconButton, fmtHalfLife, IconQuiz, MonoLabel, mulberry32, PageHeader, STATUS_META, toast, Toggle, Tooltip, useIsMobileScreen, usePersistedState } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -481,10 +482,14 @@ function BreakdownCard({ breakdown, personMaps, onSearch }) {
 }
 
 // HBar — one labelled horizontal magnitude bar (used by the colour breakdown).
-function HBar({ swatch, label, labelWidth, n, max, fill }) {
+function HBar({ swatch, label, labelWidth, n, max, fill, onPractise }) {
   return (
     <div className="flex items-center gap-2" title={`${label}: ${n}`}>
       {swatch}
+      {/* The bar is a magnitude, not a control — so the doorway is a separate
+          button at the end of the row rather than the row itself. A chart you
+          can accidentally start a quiz round by brushing against is a chart
+          nobody trusts to hold still. */}
       {/* nowrap: the column is sized to the longest name below, but a name that
           overruns the cap must ELLIPSISE rather than wrap — a wrapped label
           pushes its own row taller than its neighbours and the bars stop
@@ -495,12 +500,25 @@ function HBar({ swatch, label, labelWidth, n, max, fill }) {
         <div style={{ height: '100%', width: `${Math.round((100 * n) / max)}%`, background: fill, borderRadius: 999 }} />
       </div>
       <span className="mono-label" style={{ width: 30, flex: '0 0 auto', textAlign: 'right' }}>{n}</span>
+      {onPractise && (
+        <FieldIconButton
+          icon={<IconQuiz />}
+          ariaLabel={`Practise ${label}`}
+          onClick={onPractise}
+          tooltip={`Quiz me on ${label}`}
+        />
+      )}
     </div>
   )
 }
 
 function Colors({ colors }) {
   const rows = hlRows()
+  // THE FOURTH THEME, and the one with no page of its own. A book has a tile, a
+  // tag has a card, a person has a panel; a colour category is only ever a
+  // filter chip — except here, where it is a named row with a count beside it.
+  // So this is where "quiz me on the ones I marked Disagreed" belongs.
+  const { practise, practiceDialog } = usePractice()
   const total = rows.reduce((a, [k]) => a + (colors?.[k] || 0), 0)
   const max = Math.max(1, ...rows.map(([k]) => colors?.[k] || 0))
   // The label column was a fixed 52px, which fitted "Yellow" and nothing a
@@ -536,11 +554,13 @@ function Colors({ colors }) {
               n={colors?.[k] || 0}
               max={max}
               fill={fill}
+              onPractise={(colors?.[k] || 0) > 0 ? () => practise({ color: k, label }) : undefined}
               swatch={<span style={{ width: 12, height: 12, borderRadius: 999, background: fill, border: '1px solid rgba(41,38,29,.35)', flex: '0 0 auto' }} />}
             />
           ))}
         </div>
       )}
+      {practiceDialog}
     </Card>
   )
 }

@@ -56,10 +56,25 @@ describe('the menu a cover opens', () => {
   // The registry's rule, exercised through the component: a board that cannot
   // reload after a write passes no `onChanged`, and the writes are then absent
   // rather than present and silently ineffective.
+  //
+  // THIS ASSERTED AN EMPTY MENU until 1.15.0, which was the same statement only
+  // as long as every action on a work was a write. Practise is the first that is
+  // not — it opens a themed round over the book, which reads the quote pool and
+  // changes nothing this tile draws — so gating it on a reload callback would be
+  // coupling a read to a write for the symmetry of it. The rule the name states
+  // is the one checked: no writes.
   it('offers nothing that writes when the board cannot reload', () => {
     render(<WorkCard kind="book" item={BOOK} onOpen={() => {}} />)
     fireEvent.contextMenu(screen.getByTitle(BOOK.title))
-    expect(screen.queryAllByRole('menuitem')).toHaveLength(0)
+    for (const write of ['Fill gaps', 'Skip in quiz', 'Add to quiz', 'Edit', 'Delete']) {
+      expect(labels()).not.toContain(write)
+    }
+    expect(labels()).toEqual(['Practise'])
+  })
+
+  it('offers a themed round over the book itself', () => {
+    openMenu()
+    expect(labels()).toContain('Practise')
   })
 
   it('starts a selection from the menu, and says which way round it is', () => {
