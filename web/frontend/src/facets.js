@@ -52,9 +52,33 @@ export function facetField(name) {
 }
 
 // A known field name followed by a colon, at a word boundary. Case-insensitive,
-// because `Tag:` is the same request as `tag:` and correcting the reader's
-// shift key is not the job.
-const FIELD_RE = new RegExp(`(?:^|\\s)(${FACET_NAMES.join('|')}):`, 'gi')
+// because `Tag:` is the same request as `tag:` and correcting the reader's shift
+// key is not the job.
+//
+// The optional backslash is the ESCAPE, and it is why this captures two groups.
+// Thirteen ordinary English words became operators the moment this shipped:
+// `note:` and `series:` and `year:` are things a reader writes in a note, and
+// `author: unknown` is a phrase somebody could well be searching their own
+// library for. A grammar with no way out of itself makes those unsearchable, and
+// worse, makes them unsearchable SILENTLY — the box would open a dropdown and
+// the words would never reach the query.
+//
+// So `note\:` is the words. One backslash, immediately before the colon, which is
+// where every other search box in the world puts it.
+const FIELD_RE = new RegExp(`(?:^|\\s)(${FACET_NAMES.join('|')})(\\\\?):`, 'gi')
+
+// The same shape, for taking the backslash back out before the text is searched.
+// Anchored on a known field name for a reason: a stray backslash anywhere else in
+// the query is a character the reader typed and means to look for.
+const ESCAPED_RE = new RegExp(`(^|\\s)(${FACET_NAMES.join('|')})\\\\:`, 'gi')
+
+// unescapeFacetColons turns `note\:` back into `note:` on the way to the server,
+// so an escaped facet searches for exactly the words on screen. Without this the
+// backslash would be part of the query and would match nothing at all — an
+// escape hatch that silently swapped one broken search for another.
+export function unescapeFacetColons(text) {
+  return String(text || '').replace(ESCAPED_RE, '$1$2:')
+}
 
 // readFacetDraft finds the facet being typed: the LAST `field:` in the box, and
 // everything after it.
@@ -71,9 +95,18 @@ const FIELD_RE = new RegExp(`(?:^|\\s)(${FACET_NAMES.join('|')}):`, 'gi')
 export function readFacetDraft(text) {
   const s = String(text || '')
   let last = null
+  // lastIndex is reset here rather than trusted: the regex is module-level and
+  // /g, so a call that returned early would otherwise leave the next one
+  // starting halfway through a different string.
   FIELD_RE.lastIndex = 0
   let m
-  while ((m = FIELD_RE.exec(s)) !== null) last = m
+  while ((m = FIELD_RE.exec(s)) !== null) {
+    // An escaped colon is not an operator. Skipped rather than returned as
+    // "no draft", so `tag\:x colour:` still opens on the colour — one escaped
+    // field does not turn the rest of the box back into plain text.
+    if (m[2] === '\\') continue
+    last = m
+  }
   if (!last) return null
   // The match may have eaten a leading space; the field starts after it.
   const start = last.index + last[0].length - last[1].length - 1

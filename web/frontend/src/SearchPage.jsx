@@ -11,6 +11,7 @@ import {
   readFacetDraft,
   removeChipAt,
   searchQueryString,
+  unescapeFacetColons,
 } from './facets.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState, episodeLabel } from './Movies.jsx'
@@ -282,7 +283,10 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   // under an open menu — so the box's own draft is stripped before the query
   // is built, and reappears the moment the field name stops matching.
   const draft = readFacetDraft(q)
-  const freeText = draft ? liftFacet(q, draft) : q
+  // The backslash comes off on the way out: `note\:` is a request to search for
+  // the words "note:", so that is what goes in the query. Leaving it in would
+  // swap one broken search for another.
+  const freeText = unescapeFacetColons(draft ? liftFacet(q, draft) : q)
   // One string, so the debounce depends on the whole question rather than on
   // three separate pieces of it — and an array of chips cannot be a dep.
   const querystring = searchQueryString({ q: freeText, scope, chips })

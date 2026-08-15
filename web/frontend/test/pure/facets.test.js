@@ -27,6 +27,7 @@ import {
   searchQueryString,
   seedableChips,
   takeSearchSeed,
+  unescapeFacetColons,
   withFacet,
   withFacetValues,
   workSeedChip,
@@ -124,6 +125,57 @@ describe('readFacetDraft', () => {
 
   it('reads a capitalised field name', () => {
     expect(readFacetDraft('Tag:sto').field).toBe('tag')
+  })
+})
+
+describe('escaping the colon', () => {
+  // THE GRAMMAR HAS TO HAVE A WAY OUT OF ITSELF. Thirteen ordinary English words
+  // became operators the moment this shipped — `note:`, `series:`, `year:` are
+  // things a reader writes in a note, and "author: unknown" is a phrase somebody
+  // could well be searching their own library for. Without an escape those are
+  // unsearchable, and unsearchable SILENTLY: the box opens a dropdown and the
+  // words never reach the query.
+  it('takes a backslash before the colon as "these are just words"', () => {
+    expect(readFacetDraft('note\\:')).toBe(null)
+    expect(readFacetDraft('note\\: to self')).toBe(null)
+    expect(readFacetDraft('author\\: unknown')).toBe(null)
+  })
+
+  it('escapes only the one it is attached to', () => {
+    // An escaped field does not turn the rest of the box back into plain text.
+    const d = readFacetDraft('note\\: to self tag:sto')
+    expect(d.field).toBe('tag')
+    expect(d.value).toBe('sto')
+  })
+
+  // An escaped field is not a boundary either. The draft still runs to the end
+  // of the string, so an escaped colon typed after an open one is part of the
+  // value being typed — which is the same rule as everywhere else, and the
+  // alternative (an escape that silently ends the draft) would be a second rule
+  // to learn for no gain.
+  it('does not end an open draft', () => {
+    const d = readFacetDraft('tag:sto note\\:')
+    expect(d.field).toBe('tag')
+    expect(d.value).toBe('sto note\\:')
+  })
+
+  it('puts the colon back before the words are searched', () => {
+    expect(unescapeFacetColons('note\\: to self')).toBe('note: to self')
+    expect(unescapeFacetColons('author\\: unknown')).toBe('author: unknown')
+  })
+
+  // A backslash the reader typed for its own sake is a character they mean to
+  // look for, so only the ones in front of a known field's colon come off.
+  it('leaves every other backslash alone', () => {
+    expect(unescapeFacetColons('c:\\\\windows')).toBe('c:\\\\windows')
+    expect(unescapeFacetColons('a \\\\ b')).toBe('a \\\\ b')
+    expect(unescapeFacetColons('notes\\: plural')).toBe('notes\\: plural')
+  })
+
+  it('is a no-op on text with nothing to unescape', () => {
+    expect(unescapeFacetColons('the obstacle is the way')).toBe('the obstacle is the way')
+    expect(unescapeFacetColons('')).toBe('')
+    expect(unescapeFacetColons(null)).toBe('')
   })
 })
 

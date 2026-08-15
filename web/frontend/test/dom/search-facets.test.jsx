@@ -87,6 +87,23 @@ describe('the dropdown', () => {
     type('tag:')
     expect(document.querySelector('.token-menu')).toBeNull()
   })
+
+  // The way out of the grammar. Thirteen ordinary English words became operators
+  // when this shipped, and "note: to self" is a thing somebody writes and then
+  // searches for. Without the backslash the box opens a dropdown and those words
+  // never reach the query — unsearchable, and silently so.
+  it('stays shut on an escaped colon', () => {
+    render(<Harness />)
+    type('note\\: to self')
+    expect(document.querySelector('.token-menu')).toBeNull()
+    expect(screen.getByTestId('wire').textContent).toBe('')
+  })
+
+  it('escapes one field without disarming the rest of the box', () => {
+    render(<Harness />)
+    type('note\\: to self tag:sto')
+    expect(options()).toEqual(['tag:stoicism'])
+  })
 })
 
 describe('picking a value lifts the token out of the box', () => {

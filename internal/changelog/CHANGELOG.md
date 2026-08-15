@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A search made **only** of chips is a whole search. Picking a value empties the box, so
   that is the ordinary shape of a chip-built query.
 
+  **A backslash escapes the colon**, because thirteen ordinary English words became
+  operators the moment this shipped. `note:` and `series:` and `year:` are things a reader
+  writes in a note, and "author: unknown" is a phrase somebody could well be searching
+  their own library for — so `note\: to self` stays plain text, and the backslash comes
+  back off before the words are searched. A grammar with no way out of itself makes those
+  phrases unsearchable, and unsearchable *silently*: the box opens a dropdown and the words
+  never reach the query.
+
 - **A search started from a shelf searches the shelf.** The top bar's Search has landed
   scoped to where you were since 1.4.1; what it could never carry was the *filters*. The
   board knew it was showing you reading, Fantasy, Earthsea, and the search it opened knew

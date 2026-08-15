@@ -291,6 +291,9 @@ of that are spelled out in [`AI.md`](AI.md).
   is. The colon is a typing affordance and never reaches the server: every chip travels as its own
   query parameter, so an unknown field is rejected rather than quietly dropped, and no facet value can
   reach the full-text index. A search made **only** of chips is a whole search — the box may be empty.
+  And a backslash escapes it: `note\: to self` searches for the words, because thirteen ordinary
+  English words becoming operators with no way out of the grammar is how a phrase goes silently
+  unsearchable.
 - 🧭 **A search that knows where you are** — starting a search from a filtered shelf **arrives
   filtered**: the Library's genre, series, shelf, favourites and wishlist come with you as chips, and
   from a book's own page you get `book:` that book. Every one is removable, so narrowing is free
