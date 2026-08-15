@@ -42,8 +42,11 @@ import {
   StickerButton,
   TokenInput,
   Tooltip,
+  UnsavedFieldsContext,
   titleCaseGenre,
   toast,
+  useFormHost,
+  useUnsavedFields,
 } from './ui.jsx'
 
 // ---- field specs -----------------------------------------------------------
@@ -230,6 +233,40 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
 
   // Returns whether the write landed, so InlineField keeps the editor (and what
   // was typed) open when it did not.
+  // saveAll — every open, edited row committed in ONE request.
+  //
+  // Merged into a single patch rather than looped over saveField, and that is
+  // the whole correctness argument. Each row PUTs the FULL record with its own
+  // field changed, so six rows saving themselves is six full-state writes over
+  // the top of each other: in parallel the last reply wins, and in sequence each
+  // one still reads `item` as it was before the previous reply landed. Either
+  // way five edits are silently lost behind five toasts saying they were saved.
+  async function saveAll(entries, closeAll) {
+    const patch = {}
+    for (const e of entries) {
+      const spec = specs.find((s) => s.key === e.key)
+      if (!spec) continue
+      const next = coerce(spec, e.get())
+      // A year writes two columns, so coerce hands back a patch rather than a
+      // value — the same branch saveField takes, for the same reason.
+      Object.assign(patch, next && typeof next === 'object' && !Array.isArray(next)
+        ? next
+        : { [spec.key]: next })
+    }
+    if ('title' in patch && !String(patch.title).trim()) {
+      setError('a title is required')
+      return
+    }
+    if (!Object.keys(patch).length) return
+    if (await save(patch)) {
+      // Closed only after the server agreed, like every row does on its own: a
+      // failed save must leave what you typed on the screen.
+      closeAll()
+      const n = entries.length
+      toast(n === 1 ? '1 field saved' : `${n} fields saved`)
+    }
+  }
+
   async function saveField(spec, draft) {
     const next = coerce(spec, draft)
     if (spec.key === 'title' && !String(next).trim()) {
@@ -370,6 +407,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
           busy={busy}
           genreSuggestions={genreSuggestions}
           onSaveField={saveField}
+          onSaveAll={saveAll}
           onCover={(patch) => save(patch, 'cover')}
           onChanged={onChanged}
           onFetch={() => setView('lookup')}
@@ -431,10 +469,28 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
 
 // ---- the resting view ------------------------------------------------------
 
-function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveField, onCover, onChanged, onFetch, onDelete }) {
+function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
+  // THE MASTER SAVE. Every row still saves itself — that is what the panel is
+  // for, and changing one field should not cost more than one press. What it
+  // did cost was six presses for six fields, so the header offers one.
+  //
+  // It goes through the dialog's own header slot rather than being a button
+  // this component draws, so it lands in the same place on a phone's sheet and
+  // on a desktop dialog, and greys with its reason on it like every other ✓.
+  // "Nothing to save" is inside the five-word rule.
+  const unsaved = useUnsavedFields()
+  const host = useFormHost(unsaved.count ? '' : 'Nothing to save')
+  async function submit(e) {
+    e.preventDefault()
+    if (!unsaved.count) return
+    await onSaveAll(unsaved.collect(), unsaved.closeAll)
+  }
   return (
-    <div className="space-y-3">
+    // A real <form> bound to the header's ✓ by the HTML `form=` attribute, the
+    // way every other dialog in this app does it.
+    <form id={host?.formId} onSubmit={submit} className="space-y-3">
+      <UnsavedFieldsContext.Provider value={unsaved.host}>
       {/* Artwork keeps its own icon row (upload · paste URL · search) — the same
           control CoverControls has always been, but wired to save immediately
           rather than stage a change for a Save button that no longer exists. */}
@@ -486,6 +542,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
             return (
               <InlineField
                 key={spec.key}
+                fieldKey={spec.key}
                 label={label}
                 value={value}
                 hint={spec.hint}
@@ -508,6 +565,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
             return (
               <InlineField
                 key={spec.key}
+                fieldKey={spec.key}
                 label={label}
                 value={value}
                 display={value.join(' · ')}
@@ -524,6 +582,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
             return (
               <InlineField
                 key={spec.key}
+                fieldKey={spec.key}
                 label={label}
                 value={value}
                 display={value === 'show' ? 'Show' : 'Film'}
@@ -551,6 +610,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
           return (
             <InlineField
               key={spec.key}
+              fieldKey={spec.key}
               label={label}
               value={value}
               hint={spec.hint}
@@ -560,11 +620,13 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
               inputMode={spec.kind === 'number' ? 'decimal' : undefined}
               maxLength={spec.kind === 'year' ? 12 : undefined}
               onSave={(d) => onSaveField(spec, d)}
+              fieldKey={spec.key}
             />
           )
         })}
       </div>
-    </div>
+      </UnsavedFieldsContext.Provider>
+    </form>
   )
 }
 

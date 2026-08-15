@@ -2,7 +2,7 @@
 // compatibility exports the pre-redesign pages still import — the page pass
 import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
 // replaces those call sites, then the compat block can shrink.
-import { Children, Component, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, Component, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
@@ -2289,6 +2289,48 @@ export function ConfirmDialog({
 // control that looks like it saves and does nothing — worse than no control. So
 // the reason is `null` until a form registers, and the button is absent until
 // then rather than present and inert.
+// UnsavedFieldsContext (1.14.2) — one save for a panel whose rows each save
+// themselves.
+//
+// The Details panel is deliberately a row of self-saving fields: the modal it
+// replaced made you re-save a whole record to change one line. That is still
+// right for changing one line, and it is tiring for changing six — you open,
+// type, press ✓, open the next. So the per-row controls stay exactly as they
+// are, and a master ✓ appears in the sheet's header when anything is open with
+// an unsaved edit in it.
+//
+// IT COLLECTS PATCHES, NOT SAVES, and that is the part that matters. Every row
+// PUTs the FULL record with its one field changed, so N rows saving themselves
+// is N full-state writes racing each other: run them together and the last reply
+// wins; run them in order and each one still reads the record as it was before
+// the previous reply landed. Either way five of your six edits vanish, with six
+// green toasts saying they were saved. One merged patch in one PUT is the only
+// version of this that is correct.
+export const UnsavedFieldsContext = createContext(null);
+
+// useUnsavedFields is the host side: the registry, and the merged read of it.
+//
+// A row registers when it becomes dirty and unregisters when it stops, so the
+// state that drives the header button changes once per row rather than once per
+// keystroke. What the row hands over is a GETTER rather than its draft, which is
+// what lets the typing itself stay out of the registry entirely.
+export function useUnsavedFields() {
+  const rows = useRef(new Map());
+  const [ids, setIds] = useState([]);
+  const register = useCallback((id, entry) => {
+    if (entry) rows.current.set(id, entry);
+    else rows.current.delete(id);
+    setIds([...rows.current.keys()]);
+  }, []);
+  const host = useMemo(() => ({ register }), [register]);
+  // Read at save time, never held in state: the drafts are live.
+  const collect = useCallback(() => [...rows.current.values()], []);
+  const closeAll = useCallback(() => {
+    for (const e of [...rows.current.values()]) e.close?.();
+  }, []);
+  return { host, count: ids.length, collect, closeAll };
+}
+
 export const FormHostContext = createContext(null);
 
 // useFormHost — what a form calls to join its dialog's header. Returns the host
@@ -3164,6 +3206,10 @@ export function InlineField({
   disabled = false,
   editLabel,
   nameCase = false,
+  // fieldKey opts this row into its panel's master save. Absent — which is every
+  // row outside the Details panel — and the row behaves exactly as it always
+  // has: it saves itself and nothing collects it.
+  fieldKey,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -3213,6 +3259,30 @@ export function InlineField({
     }
   };
 
+  // ---- the master save's half of the bargain --------------------------------
+  // Registered on the DIRTY FLIP rather than on the draft, so typing does not
+  // churn the host's state; the draft is handed over as a getter and read at
+  // save time. An open row you have not changed is not unsaved work, so it does
+  // not register — pressing ✓ with three rows merely open must do nothing.
+  const host = useContext(UnsavedFieldsContext);
+  const fieldId = useId();
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const dirty = editing && draft !== value;
+  useEffect(() => {
+    if (!host?.register || !fieldKey || !dirty) return;
+    host.register(fieldId, {
+      key: fieldKey,
+      label,
+      get: () => draftRef.current,
+      close: () => setEditing(false),
+    });
+    // Unregisters when the row goes clean, closes, or unmounts — the last one
+    // matters, because a panel switching to the metadata picker must not leave
+    // a save behind for fields that are no longer on screen.
+    return () => host.register(fieldId, null);
+  }, [host, fieldKey, dirty, fieldId, label]);
+
   const filled = Array.isArray(value) ? value.length > 0 : String(value ?? "").trim() !== "";
   return (
     <div className="inline-field">
@@ -3251,11 +3321,17 @@ export function InlineField({
           {input ? (
             input({ value: draft, onChange: setDraft, ref })
           ) : multiline ? (
+            // The row's name is drawn as a MonoLabel beside the pencil, which is
+            // a heading for the row rather than a <label> for this box — so
+            // until 1.14.2 the editor a screen reader landed in announced
+            // nothing at all. Named here rather than by wiring the MonoLabel up,
+            // because that label belongs to the whole row, ✓ and ✕ included.
             <textarea
               ref={ref}
               className="tp-input"
               rows={4}
               value={draft}
+              aria-label={label}
               onChange={(e) => setTyped(e.target.value)}
             />
           ) : (
@@ -3266,6 +3342,7 @@ export function InlineField({
               inputMode={inputMode}
               maxLength={maxLength}
               autoComplete="off"
+              aria-label={label}
               onChange={(e) => setTyped(e.target.value)}
             />
           )}
