@@ -932,10 +932,32 @@ type quizPools struct {
 	byKey  map[string]workRef
 }
 
-func (s *Server) quizPools(uid int64, sc reviewScope) (quizPools, error) {
+// quizPools samples the distractor material. `seed` is the day seed for the
+// Daily Quiz and 0 for Practice.
+//
+// THE SAMPLE HAS TO BE STABLE, not just its order. The quote pool is capped at
+// quizQuoteCap rows per medium, and it was capped with `ORDER BY RANDOM()` — so
+// a library with more quotes than the cap handed every request a DIFFERENT two
+// hundred. seededRand then carefully shuffled that varying sample with a stable
+// seed, which cannot produce a stable answer: the same daily card offered
+// different wrong answers on a phone and on a laptop, on the same day, and the
+// seed introduced to stop exactly that could not reach the problem.
+//
+// So the daily deck orders by the same arithmetic hash the deck order already
+// uses (shuffleKeySQL) rather than by RANDOM(). Practice passes 0 and keeps
+// RANDOM(), on purpose: varying between rounds is the point there.
+func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, error) {
 	p := quizPools{byKey: map[string]workRef{}}
-	scan := func(q string, fn func(*sql.Rows) error) error {
-		rows, err := s.Store.DB.Query(q, uid)
+	// sample is the ORDER BY for the capped quote pull, per kind.
+	sampleOn := func(idCol, kind string) (string, []any) {
+		if seed == 0 {
+			return "ORDER BY RANDOM() LIMIT " + strconv.Itoa(quizQuoteCap), nil
+		}
+		return "ORDER BY " + shuffleKeySQL(idCol, kind) + " LIMIT " + strconv.Itoa(quizQuoteCap), []any{seed}
+	}
+	sample := func(kind string) (string, []any) { return sampleOn("a.id", kind) }
+	scan := func(q string, fn func(*sql.Rows) error, extra ...any) error {
+		rows, err := s.Store.DB.Query(q, append([]any{uid}, extra...)...)
 		if err != nil {
 			return err
 		}
@@ -979,11 +1001,12 @@ func (s *Server) quizPools(uid int64, sc reviewScope) (quizPools, error) {
 			}); err != nil {
 			return p, err
 		}
+		bookOrder, bookArgs := sample(kindBook)
 		if err := scan(`SELECT a.id, a.book_id, COALESCE(a.quote,''), COALESCE(a.note,'')
 		                FROM annotations a JOIN books b ON b.id = a.book_id
 		                WHERE b.user_id = ? AND (COALESCE(a.quote,'') <> '' OR COALESCE(a.note,'') <> '')
-		                ORDER BY RANDOM() LIMIT `+strconv.Itoa(quizQuoteCap),
-			p.quoteScanner(kindBook)); err != nil {
+		                `+bookOrder,
+			p.quoteScanner(kindBook), bookArgs...); err != nil {
 			return p, err
 		}
 	}
@@ -1040,11 +1063,12 @@ func (s *Server) quizPools(uid int64, sc reviewScope) (quizPools, error) {
 			}); err != nil {
 			return p, err
 		}
+		screenOrder, screenArgs := sampleOn("d.id", kindScreen)
 		if err := scan(`SELECT d.id, d.movie_id, COALESCE(d.quote,''), COALESCE(d.note,'')
 		                FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		                WHERE m.user_id = ? AND (COALESCE(d.quote,'') <> '' OR COALESCE(d.note,'') <> '')
-		                ORDER BY RANDOM() LIMIT `+strconv.Itoa(quizQuoteCap),
-			p.quoteScanner(kindScreen)); err != nil {
+		                `+screenOrder,
+			p.quoteScanner(kindScreen), screenArgs...); err != nil {
 			return p, err
 		}
 	}
@@ -1056,11 +1080,12 @@ func (s *Server) quizPools(uid int64, sc reviewScope) (quizPools, error) {
 		// falls back to a title-only option. The eligibility rule matches
 		// utteranceCandidates' — a quote with no attribution belongs to no work and
 		// would otherwise become a distractor with a blank title.
+		uttOrder, uttArgs := sampleOn("id", kindUtterance)
 		if err := scan(`SELECT COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,'')
 		                FROM utterances
 		                WHERE user_id = ? AND (COALESCE(quote,'') <> '' OR COALESCE(note,'') <> '')
 		                  AND (COALESCE(occasion,'') <> '' OR COALESCE(speaker,'') <> '')
-		                ORDER BY RANDOM() LIMIT `+strconv.Itoa(quizQuoteCap),
+		                `+uttOrder,
 			func(rows *sql.Rows) error {
 				var quote, note, speaker, occasion string
 				if err := rows.Scan(&quote, &note, &speaker, &occasion); err != nil {
@@ -1080,13 +1105,29 @@ func (s *Server) quizPools(uid int64, sc reviewScope) (quizPools, error) {
 				}
 				p.quotes = append(p.quotes, quoteRef{work: w, text: text})
 				return nil
-			}); err != nil {
+			}, uttArgs...); err != nil {
 			return p, err
 		}
 	}
+	// SORTED, because a Go map does not iterate in a stable order and this slice
+	// is the input to a SEEDED shuffle.
+	//
+	// seededRand exists so that "the exact options — distractor choice AND order —
+	// are identical for every client viewing the same day's card". That promise
+	// was not being kept. A seeded Fisher–Yates permutes the positions it is
+	// given; run it over a slice whose starting order is random and the result is
+	// random too, and rankWorks' SliceStable then preserves that randomness among
+	// every equally-scored work. So the same card could offer different wrong
+	// answers on a phone and a laptop, on the same day, which is the one thing
+	// the seed was introduced to stop.
+	//
+	// The key is the sort field rather than the title: it is unique (kind + id),
+	// so the order is total, and two works that genuinely share a title cannot
+	// swap places between requests.
 	for _, w := range p.byKey {
 		p.works = append(p.works, w)
 	}
+	sort.Slice(p.works, func(i, j int) bool { return p.works[i].key < p.works[j].key })
 	return p, nil
 }
 
@@ -1363,7 +1404,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	}
 	items := []reviewCard{}
 	if slots := pf.SRDaily - answered; slots > 0 {
-		pools, err := s.quizPools(uid, scope)
+		pools, err := s.quizPools(uid, scope, seed)
 		if err != nil {
 			internalError(w, r, "daily quiz pools", err)
 			return
@@ -1426,7 +1467,8 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope := scopeFlags(pf.SRReviewScope)
-	pools, err := s.quizPools(uid, scope)
+	// 0: Practice varies its distractors between rounds on purpose.
+	pools, err := s.quizPools(uid, scope, 0)
 	if err != nil {
 		internalError(w, r, "practice pools", err)
 		return

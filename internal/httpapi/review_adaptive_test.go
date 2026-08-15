@@ -11,8 +11,10 @@ package httpapi
 // worse than not shipping it.
 
 import (
+	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -194,5 +196,65 @@ func TestAdaptivePrefRoundtrip(t *testing.T) {
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
 	if me.Preferences.SRAdaptive {
 		t.Fatal("srAdaptive could not be turned back off")
+	}
+}
+
+// ---- the seeded deck actually being seeded --------------------------------
+//
+// seededRand's comment says the point of it is that "the exact options —
+// distractor choice AND order — are identical for every client viewing the same
+// day's card", after a bug where the wrong options changed between browsers and
+// only the right answer stayed put.
+//
+// The promise was still not being kept, in two places that no test looked at.
+// The work pool was built by ranging a Go MAP, whose iteration order is
+// deliberately randomised, and the quote pool was capped with ORDER BY RANDOM(),
+// which hands a different sample to every request. A seeded shuffle over either
+// is a seeded permutation of a random input, which is just a random output.
+//
+// Asserted by fetching the same day's deck repeatedly: same cards, same options,
+// same order.
+func TestDailyDeckIsIdenticalAcrossRequests(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Enough works and quotes that both pools have real choices to make — with
+	// one book and one quote every ordering is trivially identical and the test
+	// would pass against the bug it exists for.
+	for i := 0; i < 6; i++ {
+		book := createBook(t, c, fmt.Sprintf("Book %d", i))
+		for j := 0; j < 3; j++ {
+			c.mustDo("POST", "/annotations", map[string]any{
+				"book_id": book, "quote": fmt.Sprintf("line %d of book %d", j, i),
+			}, http.StatusCreated)
+		}
+	}
+	ageSeededItems(t, srv)
+
+	first := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, http.StatusOK))
+	if len(first.Items) == 0 {
+		t.Fatal("empty deck — nothing to compare")
+	}
+	fingerprint := func(d reviewDeckResp) string {
+		var b strings.Builder
+		for _, it := range d.Items {
+			fmt.Fprintf(&b, "%s#%d/%s/%d[", it.Kind, it.ID, it.Direction, it.Answer)
+			for _, o := range it.Options {
+				b.WriteString(o)
+				b.WriteByte('|')
+			}
+			b.WriteString("]\n")
+		}
+		return b.String()
+	}
+	want := fingerprint(first)
+	// Several times: a map's iteration order can coincide with the last one, so
+	// one repeat is a coin toss rather than a check.
+	for i := 0; i < 6; i++ {
+		got := fingerprint(decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, http.StatusOK)))
+		if got != want {
+			t.Fatalf("the same day's deck differs between requests (attempt %d)\nfirst:\n%s\nnow:\n%s", i+1, want, got)
+		}
 	}
 }
