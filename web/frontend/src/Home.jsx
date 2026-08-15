@@ -25,6 +25,7 @@ import {
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
@@ -285,6 +286,12 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // holds 'got' | 'forgot' so the footer can report what was recorded.
   const [shown, setShown] = useState(false)
   const [graded, setGraded] = useState(null)
+  // The grade's own reply, kept for the one thing the card cannot already know:
+  // the lapse count AFTER this answer, and whether it has just crossed into
+  // leech territory.
+  const [lastResp, setLastResp] = useState(null)
+  const [dismissed, setDismissed] = useState(false) // "Keep asking", this session
+  const [setAside, setSetAside] = useState(false)   // it is out of the deck now
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState('') // the grade didn't reach the server
   // posRef is the card on screen right now, readable from a settled request's
@@ -312,6 +319,9 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       setPicked(null)
       setShown(false)
       setGraded(null)
+      setLastResp(null)
+      setDismissed(false)
+      setSetAside(false)
       return
     }
     // Last card: let the grade settle before the host reads the round's tally.
@@ -350,7 +360,31 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
     // The result string, not the raw boolean — both cards' tallies compare
     // against 'got'/'forgot' (a boolean never matched, so the session tallies
     // silently stayed at zero).
+    if (here) setLastResp(r.data)
     onAnswered?.(result, r.data)
+  }
+
+  // Two ways out of a card that keeps being forgotten. Neither is automatic.
+  function keepGoing() {
+    setDismissed(true)
+  }
+
+  // "Set it aside" writes the quote's own review_excluded — the same column, and
+  // the same endpoint, the card menu's "Skip in quiz" uses. Since 1.15.0 the
+  // deck reads that flag and nothing else, so this genuinely stops the asking
+  // rather than half-stopping it.
+  async function setItAside() {
+    const bulkKind = REVIEW_BULK_KIND[card.kind]
+    if (!bulkKind) return
+    setSetAside(true) // optimistic: the offer should go the moment it is taken
+    const r = await json('POST', `/${bulkKind}s/bulk`, { ids: [card.id], review: false })
+      .catch(() => ({ ok: false }))
+    if (!r.ok) {
+      setSetAside(false)
+      toast('couldn’t set it aside')
+      return
+    }
+    toast('out of the quiz')
   }
 
   async function pick(idx) {
@@ -370,6 +404,11 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
 
   const isSource = card.direction === 'source'
   const flip = isFlipCard(card)
+  // The card's own flag, or the fresher one the grade came back with — the
+  // answer that MAKES a card a leech also pushes it a week out of the deck, so
+  // waiting for the flag to arrive on a future deck would surface the offer a
+  // week after the frustration that earned it.
+  const leech = !dismissed && (lastResp?.leech ?? card.leech)
   // One name for "this card has been graded", whichever way it was graded. Every
   // reveal in the body below reads this rather than `picked != null`, which is
   // true only for the multiple-choice half.
@@ -471,6 +510,35 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           )
         })}
       </div>
+      {/* THE LEECH OFFER. A card forgotten five times over is costing a slot in
+          every deck and giving nothing back, and until now the only way to stop
+          being asked was to delete the quote — which is the app telling somebody
+          their note-keeping is wrong.
+
+          It appears only AFTER the answer, never instead of it: the card is
+          still asked, and the offer is what you do with the answer once it is
+          in. And it is an offer — nothing is suspended automatically, because a
+          card vanishing because a counter reached five is a decision nobody
+          asked the app to make. */}
+      {answered && leech && (
+        <div className="mt-3" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+          {setAside ? (
+            <MonoLabel style={{ color: 'var(--faint)' }}>out of the quiz</MonoLabel>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <MonoLabel style={{ color: 'var(--faint)' }}>
+                forgotten {lastResp?.lapse_count ?? card.lapse_count} times
+              </MonoLabel>
+              <button type="button" className="tp-link" style={{ marginLeft: 'auto' }} onClick={keepGoing}>
+                Keep asking
+              </button>
+              <button type="button" className="tp-btn tactile" onClick={setItAside}>
+                Set it aside
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {answered ? (
         <div className="mt-3 flex items-center justify-between gap-3">
           {/* A flip card was not right or wrong — it was recalled or it was not,

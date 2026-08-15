@@ -40,17 +40,19 @@ type practiceDeckResp struct {
 }
 
 type answerResp struct {
-	OK        bool         `json:"ok"`
-	Kind      string       `json:"kind"`
-	ID        int64        `json:"id"`
-	Stability float64      `json:"stability"`
-	Status    string       `json:"status"`
-	Mode      string       `json:"mode"`
-	Answered  int          `json:"answered"`
-	Got       int          `json:"got"`
-	Forgot    int          `json:"forgot"`
-	Remaining int          `json:"remaining"`
-	States    statusCounts `json:"states"`
+	OK         bool         `json:"ok"`
+	Kind       string       `json:"kind"`
+	ID         int64        `json:"id"`
+	Stability  float64      `json:"stability"`
+	LapseCount int          `json:"lapse_count"`
+	Leech      bool         `json:"leech"`
+	Status     string       `json:"status"`
+	Mode       string       `json:"mode"`
+	Answered   int          `json:"answered"`
+	Got        int          `json:"got"`
+	Forgot     int          `json:"forgot"`
+	Remaining  int          `json:"remaining"`
+	States     statusCounts `json:"states"`
 }
 
 type scoresResp struct {

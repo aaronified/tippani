@@ -123,3 +123,70 @@ it('renders an unknown direction as a flip card rather than as nothing', () => {
   expect(screen.getByText('Show me')).toBeTruthy()
   expect(screen.queryByText('Middlemarch')).toBeNull()
 })
+
+// ---- the leech offer -------------------------------------------------------
+//
+// A card forgotten five times over costs a slot in every deck and gives nothing
+// back, and until now the only way to stop being asked was to delete the quote.
+//
+// The two rules that matter are about WHEN it appears. Never before the answer —
+// the card is still asked, and the offer is what you do with the answer once it
+// is in. And never automatically: nothing is suspended on the app's own
+// initiative, because a card vanishing because a counter reached five is a
+// decision nobody asked it to make.
+describe('the leech offer', () => {
+  const leechy = (over = {}) => mcq({ leech: true, lapse_count: 5, ...over })
+
+  it('says nothing until the card has been answered', () => {
+    render(<QuizRunner mode="daily" cards={[leechy()]} />)
+    expect(screen.queryByText('Set it aside')).toBeNull()
+  })
+
+  it('offers a way out once the answer is in', async () => {
+    render(<QuizRunner mode="daily" cards={[leechy()]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    await waitFor(() => expect(screen.getByText('Set it aside')).toBeTruthy())
+    expect(screen.getByText(/forgotten 5 times/)).toBeTruthy()
+  })
+
+  it('never appears for a card that is not a leech', async () => {
+    render(<QuizRunner mode="daily" cards={[mcq({ leech: false, lapse_count: 2 })]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(screen.queryByText('Set it aside')).toBeNull()
+  })
+
+  // Nothing is suspended by answering. The only thing that takes a card out of
+  // the deck is the reader pressing the button that says so.
+  it('takes the card out only when asked, and by the bulk route that writes the flag', async () => {
+    render(<QuizRunner mode="daily" cards={[leechy()]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    await waitFor(() => expect(screen.getByText('Set it aside')).toBeTruthy())
+    expect(SENT.some((s) => s.path.endsWith('/bulk'))).toBe(false)
+
+    fireEvent.click(screen.getByText('Set it aside'))
+    await waitFor(() => expect(SENT.some((s) => s.path === '/annotations/bulk')).toBe(true))
+    const call = SENT.find((s) => s.path === '/annotations/bulk')
+    expect(call.body).toEqual({ ids: [1], review: false })
+  })
+
+  it('lets the reader keep being asked, and stops offering for the session', async () => {
+    render(<QuizRunner mode="daily" cards={[leechy()]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    await waitFor(() => expect(screen.getByText('Keep asking')).toBeTruthy())
+    fireEvent.click(screen.getByText('Keep asking'))
+    expect(screen.queryByText('Set it aside')).toBeNull()
+    expect(SENT.some((s) => s.path.endsWith('/bulk'))).toBe(false)
+  })
+
+  // A film line and a standalone quote are the same offer through different
+  // endpoints — the schedule names its kinds book/screen/utterance and the bulk
+  // routes name the rows annotation/dialogue/quote.
+  it('reaches the right endpoint for a film line', async () => {
+    render(<QuizRunner mode="daily" cards={[leechy({ kind: 'screen', id: 9 })]} />)
+    fireEvent.click(screen.getByText('Emma'))
+    await waitFor(() => expect(screen.getByText('Set it aside')).toBeTruthy())
+    fireEvent.click(screen.getByText('Set it aside'))
+    await waitFor(() => expect(SENT.some((s) => s.path === '/dialogues/bulk')).toBe(true))
+  })
+})

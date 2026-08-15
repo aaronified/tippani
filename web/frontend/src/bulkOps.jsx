@@ -33,6 +33,23 @@ export const KIND_ROUTES = {
   movie: { bulk: '/movies/bulk', del: '/movies/bulk/delete', status: '/movies/bulk/status', noun: ['title', 'titles'] },
 }
 
+// REVIEW_BULK_KIND crosses from the SCHEDULE's vocabulary to this file's.
+//
+// A review card names its kind the way item_reviews does — book / screen /
+// utterance — because that is what the schedule is keyed on. The bulk endpoints
+// name the same three things annotation / dialogue / quote, because that is what
+// the rows are. The two vocabularies are both correct and neither is going to
+// change, so the crossing lives here, once, beside the table it crosses into.
+//
+// It exists because "stop asking me about this one" is written by the BULK
+// endpoint — no single-item PUT touches review_excluded — so the review card
+// has to speak this file's language to set it.
+export const REVIEW_BULK_KIND = {
+  book: 'annotation',
+  screen: 'dialogue',
+  utterance: 'quote',
+}
+
 // deletePhrase has to match the server's, exactly, because the server is where
 // it is checked. Duplicated on purpose rather than fetched: a client that cannot
 // compose the phrase cannot show it, and showing it is the whole affordance.

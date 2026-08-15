@@ -258,3 +258,86 @@ func TestDailyDeckIsIdenticalAcrossRequests(t *testing.T) {
 		}
 	}
 }
+
+// ---- leeches ---------------------------------------------------------------
+//
+// A card forgotten five times is a leech: it costs a slot in every deck and
+// gives nothing back. The deck says so, and the reader is offered a way out.
+//
+// THE SUBTLE HALF IS THE ANSWER RESPONSE, not the deck. A lapse sets
+// last_reviewed_at to now and stability to the first rung, and a card is due
+// only when elapsed >= MAX(stability, 7) — so the very answer that makes a card
+// a leech also guarantees it will not be in a deck for at least a week. A flag
+// that travelled only on the deck would surface the offer seven days after the
+// frustration that earned it.
+func TestLeechIsReportedByTheAnswerThatCausesIt(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Persuasion")
+	id := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "a line I never remember"}, http.StatusCreated).Body.Bytes())
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, http.StatusOK)
+
+	for i := 1; i <= reviewLeechLapses; i++ {
+		res := answer(t, c, kindBook, id, "forgot", "practice")
+		if res.LapseCount != i {
+			t.Fatalf("lapse %d reported lapse_count %d", i, res.LapseCount)
+		}
+		want := i >= reviewLeechLapses
+		if res.Leech != want {
+			t.Fatalf("after %d lapses leech = %v, want %v — the offer has to arrive with the answer that earns it",
+				i, res.Leech, want)
+		}
+	}
+}
+
+// Practice that is not counting must not count toward it either: those answers
+// never reach lapse_count, so offering to set a card aside on the strength of
+// them would be an offer made about a history that was not recorded.
+func TestPracticeThatDoesNotCountDoesNotMakeALeech(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Persuasion")
+	id := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "a line I never remember"}, http.StatusCreated).Body.Bytes())
+	ageSeededItems(t, srv)
+
+	for i := 0; i < reviewLeechLapses+2; i++ {
+		res := answer(t, c, kindBook, id, "forgot", "practice")
+		if res.LapseCount != 0 || res.Leech {
+			t.Fatalf("schedule-neutral practice moved the lapse count: %+v", res)
+		}
+	}
+}
+
+// And the deck carries it too, for a card that was already a leech before today.
+func TestDeckCarriesTheLeechFlag(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Persuasion")
+	id := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "a line I never remember"}, http.StatusCreated).Body.Bytes())
+	ageSeededItems(t, srv)
+
+	if _, err := srv.Store.DB.Exec(
+		`INSERT INTO item_reviews (kind, item_id, stability, review_count, lapse_count, last_result,
+		                           last_reviewed_at, last_touched_at)
+		 VALUES ('book', ?, 7, 6, 6, 'forgot', datetime('now','-30 days'), datetime('now','-30 days'))`,
+		id); err != nil {
+		t.Fatal(err)
+	}
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, http.StatusOK))
+	if len(deck.Items) != 1 {
+		t.Fatalf("expected the overdue card: %+v", deck)
+	}
+	if !deck.Items[0].Leech || deck.Items[0].LapseCount != 6 {
+		t.Fatalf("deck card does not report the leech: %+v", deck.Items[0])
+	}
+}

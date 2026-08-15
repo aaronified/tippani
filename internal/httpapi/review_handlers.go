@@ -71,6 +71,14 @@ const (
 	reviewNewItemDays  = 7.0   // days; grace week after an item is added — reads "remembered", not yet due
 	reviewSeen         = 1.0   // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
 	reviewQuota        = 8     // default srDaily deck size
+	// reviewLeechLapses is how many times a card has to be forgotten before the
+	// deck offers a way out of it. Five is Anki's default, which is what makes
+	// the word mean the same thing here as it does to anyone who has met one
+	// before. It is a threshold for an OFFER and nothing else: no card is
+	// suspended, nothing leaves the deck, and the quiz keeps asking until the
+	// reader says otherwise. A card that vanished because a counter reached five
+	// would be the app deciding something nobody asked it to decide.
+	reviewLeechLapses = 5
 )
 
 // Adaptive-interval constants (srAdaptive, off by default). The fixed ladder is
@@ -418,7 +426,19 @@ type reviewCard struct {
 	MediaType    string  `json:"media_type"` // movie | show (screen); "" for book
 	Stability    float64 `json:"stability"`
 	ReviewCount  int     `json:"review_count"`
-	Status       string  `json:"status"`
+	// LapseCount is how many times this card has been forgotten — stored since
+	// 0015 and, until now, never read by anything. It sits beside ReviewCount
+	// because the two are always read together: review_count > lapse_count is
+	// what nextStability calls "has succeeded before", and lapse_count alone is
+	// what makes a leech.
+	LapseCount int `json:"lapse_count"`
+	// Leech — forgotten reviewLeechLapses times or more. NOT an instruction: the
+	// card stays in the deck and keeps being asked. This is the deck saying out
+	// loud that a card is costing a slot and giving nothing back, so the reader
+	// can be offered a way out of it. The threshold lives on the server so
+	// "five" is one number rather than one per surface.
+	Leech  bool   `json:"leech"`
+	Status string `json:"status"`
 	// Multiple-choice options and the index of the correct one. For a "source"
 	// card the options are titles (which work is this quote from?); for a "quote"
 	// card they are quotes (which quote is from this work?).
@@ -623,7 +643,7 @@ func (rs reviewSource) bucketClause(bucket deckBucket, mod, day string, seed int
 
 // schedCols is the scheduling tail every candidate SELECT ends with, in the
 // order finishCard's scan expects.
-const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), r.last_reviewed_at,
+const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.review_count,0), COALESCE(r.lapse_count,0), r.last_reviewed_at,
                    COALESCE(r.last_result,''), COALESCE(julianday('now') - julianday(x.created_at), 1e9)`
 
 // bookCandidates / screenCandidates / utteranceCandidates fetch reviewable cards
@@ -657,7 +677,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, mod, day string, s
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Chapter, &c.card.Location,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
 		}
@@ -695,7 +715,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, mod, day string,
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Character,
 			&c.card.Actor, &c.card.Timestamp, &c.card.Season, &c.card.Episode, &c.card.MediaType,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue
 		}
@@ -738,7 +758,7 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, mod, day stri
 		c.card.Kind = kindUtterance
 		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&speaker, &occasion, &c.card.OccasionDate,
-			&c.seen, &c.card.Stability, &c.card.ReviewCount, &lr, &c.lastResult, &c.age); err != nil {
+			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] utterance candidate row scan failed: %v", err)
 			continue
 		}
@@ -895,6 +915,8 @@ func finishCard(c reviewCand, direction string) reviewCard {
 	card := c.card
 	card.Direction = direction
 	card.Status = recallStatus(c.seen, card.Stability, c.elapsed, c.age, c.lastResult)
+	// Derived, never stored — the same discipline the status dot follows.
+	card.Leech = card.LapseCount >= reviewLeechLapses
 	return card
 }
 
@@ -1665,7 +1687,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	// retried POST could, and re-applying growth would compound the half-life
 	// and double-count the tally. Treat a same-day repeat as a no-op echo.
 	if req.Mode == "daily" && found && touchedToday {
-		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, lastReviewed, lastResult, pf, found)
+		s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, lapseCount, lastReviewed, lastResult, pf, found)
 		return
 	}
 
@@ -1695,6 +1717,19 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "review answer upsert", err)
 			return
 		}
+	}
+
+	// The lapse count as it stands AFTER this answer, because the offer it drives
+	// is earned by the answer just given rather than by the state before it.
+	// Derived from the write rather than re-read: the transaction already knows
+	// the number, and a second SELECT is a second chance to disagree with it.
+	//
+	// GATED ON moveSchedule, not on the grade. Practice with srPracticeCounts off
+	// never touches lapse_count, so counting one here would offer to set a card
+	// aside on the strength of answers that never reached the schedule.
+	lapses := lapseCount
+	if moveSchedule && req.Result == "forgot" {
+		lapses++
 	}
 
 	// Tally the answer into this mode's session for the local day (skips are not
@@ -1733,7 +1768,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 	if req.Mode == "practice" && req.Result != "skip" {
 		s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
 	}
-	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, respLastReviewed, respLastResult, pf, found || moveSchedule)
+	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, stability, age, lapses, respLastReviewed, respLastResult, pf, found || moveSchedule)
 }
 
 // itemAgeDays is how many days ago the item behind a card was added — the clock
@@ -1769,8 +1804,16 @@ func (s *Server) itemAgeDays(kind string, id int64) (float64, error) {
 // library-wide status counts (so the "Where you stand" row updates live on
 // every answer, quiz or practice), and (for daily) how much of today's deck is
 // left so the pending dot stays honest.
+// answerResponse also carries whether the card has just BECOME a leech, and that
+// is load-bearing rather than a convenience.
+//
+// A lapse sets last_reviewed_at to now and stability to the first rung, and a
+// card is due when elapsed >= MAX(stability, 7). So the very answer that makes a
+// card a leech also guarantees it will not appear in a deck for at least a week.
+// A flag that travelled only on the deck would surface the offer seven days
+// after the frustration that earned it, which is the wrong week to be asked.
 func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int64, mode string, offset int,
-	kind string, id int64, stability, ageDays float64, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
+	kind string, id int64, stability, ageDays float64, lapses int, lastReviewed sql.NullString, lastResult string, pf prefs, seen bool) {
 	day, _, _ := reviewDay(offset)
 	answered, got, forgot, err := s.modeTally(uid, mode, day)
 	if err != nil {
@@ -1784,16 +1827,18 @@ func (s *Server) answerResponse(w http.ResponseWriter, r *http.Request, uid int6
 		return
 	}
 	out := map[string]any{
-		"ok":        true,
-		"kind":      kind,
-		"id":        id,
-		"stability": stability,
-		"status":    recallStatus(seen, stability, elapsedDays(lastReviewed), ageDays, lastResult),
-		"mode":      mode,
-		"answered":  answered,
-		"got":       got,
-		"forgot":    forgot,
-		"states":    states,
+		"ok":          true,
+		"kind":        kind,
+		"id":          id,
+		"stability":   stability,
+		"lapse_count": lapses,
+		"leech":       lapses >= reviewLeechLapses,
+		"status":      recallStatus(seen, stability, elapsedDays(lastReviewed), ageDays, lastResult),
+		"mode":        mode,
+		"answered":    answered,
+		"got":         got,
+		"forgot":      forgot,
+		"states":      states,
 	}
 	if mode == "daily" {
 		remaining, err := s.dailyRemaining(uid, offset, pf, answered)

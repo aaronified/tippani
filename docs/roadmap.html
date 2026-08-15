@@ -571,7 +571,17 @@
     <li><strong>Undo the last answer.</strong> The single most-requested control in every spaced-repetition tool ever built, and a misplaced tap currently costs you a rung.</li>
     <li><strong>Themed review</strong> — "quiz me on this book / tag / colour / person", from a button on the thing itself. The deck query already filters by scope; this is one more clause and a way in.</li>
     <li><strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly when you notice the typo, the missing tag, or that you love it — and it is currently the one screen from which you can do nothing about any of that.</li>
-    <li><strong>Leech handling</strong> — <code>lapse_count</code> is already stored, so at five lapses the card can offer to be suspended or shortened rather than grinding on.</li>
+    <li>
+      <strong>Leech handling</strong> — <code>lapse_count</code> was already
+      stored and nothing read it. At five lapses the card now says so once you
+      have answered it, and offers to be set aside rather than grinding on.
+      <em>Neither suspended nor shortened</em>, as this line used to promise: a
+      card that vanished because a counter reached five would be the app
+      deciding something nobody asked it to, and a half-life quietly altered
+      behind the reader is the schedule lying about itself. It is an offer, it
+      arrives with the answer that earns it, and the other button says keep
+      asking. <span class="mono">Shipped in 1.15.0.</span>
+    </li>
     <li>
       <strong>The traditional flip card</strong> — the quote on one side, its
       source on the other, and <em>you</em> say whether you had it. The one card
