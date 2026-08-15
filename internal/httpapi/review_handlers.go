@@ -165,6 +165,8 @@ const (
 	dirQuote  = "quote"  // show the work / speech, recall the quote
 	dirFlip   = "flip"   // show the quote, reveal the source, grade yourself
 	dirCloze  = "cloze"  // blank a phrase out of the quote, type it back
+	// Screen only: a book has no cast, which is why directionsFor is per-kind.
+	dirSpeaker = "speaker" // show the line, recall WHO said it (options are actors)
 )
 
 // directionsFor is every question a card of this kind can be asked, in one
@@ -190,7 +192,7 @@ const (
 // where changing it is changing one line.
 func directionsFor(kind string) []string {
 	if kind == kindScreen {
-		return []string{dirSource, dirQuote, dirFlip, dirCloze}
+		return []string{dirSource, dirQuote, dirFlip, dirCloze, dirSpeaker}
 	}
 	return []string{dirSource, dirQuote, dirFlip, dirCloze}
 }
@@ -945,6 +947,15 @@ type workRef struct {
 	// actorNames keeps the first-seen casing of each dialogue actor — the map
 	// above lowercases for matching, but option chips need a display name.
 	actorNames []string
+	// cast is the film's whole billed cast, from movies.cast_json — the people
+	// who COULD have said a line in it, as against actorNames, which is only
+	// those the reader has actually recorded saying one.
+	//
+	// The distinction is the whole quality of a "who said this?" card. Offering
+	// three actors the reader has already quoted makes the answer guessable from
+	// familiarity; offering three from the same film's billing makes it a
+	// question about the film.
+	cast []string
 }
 
 // person is the credit an option chip shows for this work: a book's author, a
@@ -1070,16 +1081,23 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		}
 	}
 	if sc.screen {
-		if err := scan(`SELECT id, title, COALESCE(director,'') FROM movies WHERE user_id = ? AND title <> ''`,
+		if err := scan(`SELECT id, title, COALESCE(director,''), COALESCE(cast_json,'')
+		                FROM movies WHERE user_id = ? AND title <> ''`,
 			func(rows *sql.Rows) error {
 				var id int64
-				var title, director string
-				if err := rows.Scan(&id, &title, &director); err != nil {
+				var title, director, castJSON string
+				if err := rows.Scan(&id, &title, &director, &castJSON); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] screen work row scan failed: %v", err)
 					return nil
 				}
 				k := kindScreen + ":" + strconv.FormatInt(id, 10)
-				p.byKey[k] = workRef{key: k, kind: kindScreen, title: title, director: director, genres: map[string]bool{}, actors: map[string]bool{}}
+				p.byKey[k] = workRef{
+					key: k, kind: kindScreen, title: title, director: director,
+					genres: map[string]bool{}, actors: map[string]bool{},
+					// Already stored by the metadata fetch. No API call, exactly as
+					// the roadmap promised.
+					cast: castActors(castJSON),
+				}
 				return nil
 			}); err != nil {
 			return p, err
@@ -1317,6 +1335,8 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64) b
 		return true
 	case dirCloze:
 		return attachCloze(card)
+	case dirSpeaker:
+		return attachSpeaker(card, ownKey, p, seed)
 	default:
 		return false
 	}

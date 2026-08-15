@@ -609,7 +609,17 @@
       library used to get an empty deck while the badge counted the cards anyway.
       <span class="mono">Shipped in 1.15.0.</span>
     </li>
-    <li><strong>More card types from data already held</strong> — <em>who said this line?</em> (multiple choice over the film's own stored <code>cast_json</code>, no API call), <em>which chapter or act?</em>, <em>who wrote it?</em>, and <em>type the next line</em> where two annotations sit adjacent by location in one book.</li>
+    <li>
+      <strong>Who said this?</strong> — a screen-only card whose options are
+      <em>actors</em>, not characters: you pick a face. <code>dialogues.actor</code>
+      has been stored per line since the beginning and <code>movies.cast_json</code>
+      holds the whole billed cast, so the hard, interesting wrong answers — the
+      other people in this same film — were already on disk. No API call, as
+      promised. Three faces is the floor: a choice between two is a coin toss, and
+      a card that cannot reach three simply gets asked another way.
+      <span class="mono">Shipped in 1.15.0.</span>
+    </li>
+    <li><strong>More card types from data already held</strong> — <em>which chapter or act?</em> and <em>type the next line</em> where two annotations sit adjacent by location in one book.</li>
     <li><strong>A recall-history sparkline</strong> on the quote's pop-up, drawn from <code>item_reviews</code>.</li>
   </ul>
   <p class="mono">Nothing is promoted out of Later into this section — Anki <code>.apkg</code> export stays under consideration, where it already sits.</p>

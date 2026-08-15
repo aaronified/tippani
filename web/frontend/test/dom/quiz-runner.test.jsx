@@ -310,3 +310,52 @@ describe('a cloze card', () => {
     expect(screen.getByText('Check')).toBeTruthy()
   })
 })
+
+// ---- who said this ---------------------------------------------------------
+//
+// Options are ACTORS, not characters — the reviewer picks a face. The prompt is
+// the line alone, which matters more here than on any other card: the attribution
+// side of a screen card prints the actor as a chip and the character in its meta
+// line, so showing it would put the answer directly above the options.
+describe('a "who said this" card', () => {
+  const spk = (over = {}) => ({
+    kind: 'screen', id: 5, direction: 'speaker', media_type: 'movie',
+    quote: "Don't let yourself get attached", title: 'Heat',
+    character: 'Neil', actor: 'Robert De Niro', color: 'yellow',
+    options: ['Al Pacino', 'Robert De Niro', 'Val Kilmer', 'Jon Voight'],
+    option_meta: [
+      { person: 'Al Pacino', kind: 'actor' },
+      { person: 'Robert De Niro', kind: 'actor' },
+      { person: 'Val Kilmer', kind: 'actor' },
+      { person: 'Jon Voight', kind: 'actor' },
+    ],
+    answer: 1, ...over,
+  })
+
+  it('asks the question and offers actors', () => {
+    render(<QuizRunner mode="daily" cards={[spk()]} />)
+    expect(screen.getByText('Who says this?')).toBeTruthy()
+    expect(screen.getByText("Don't let yourself get attached")).toBeTruthy()
+    for (const a of ['Al Pacino', 'Robert De Niro', 'Val Kilmer']) {
+      expect(screen.getAllByText(a).length).toBeGreaterThan(0)
+    }
+  })
+
+  // THE LEAK THIS CARD TYPE WOULD OTHERWISE HAVE. Before the prompt side was
+  // narrowed to the "quote" direction, every non-source card rendered the
+  // attribution — actor chip and all — directly above its own options.
+  it('does not print the character, which is the answer by another name', () => {
+    render(<QuizRunner mode="daily" cards={[spk()]} />)
+    expect(screen.queryByText('Neil')).toBeNull()
+    // The film's title is not shown either: it is not asked for, and the meta
+    // line that carries it also carries the character.
+    expect(screen.queryByText(/Film ·/)).toBeNull()
+  })
+
+  it('grades the pick like any other multiple choice', async () => {
+    render(<QuizRunner mode="daily" cards={[spk()]} />)
+    fireEvent.click(screen.getAllByText('Al Pacino')[0])
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(posted()[0].body.result).toBe('forgot')
+  })
+})

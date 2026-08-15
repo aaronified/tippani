@@ -93,6 +93,8 @@ function askLine(card) {
       return `Which quote is from this ${workNoun(card)}?`
     case 'cloze':
       return 'Fill in the blank'
+    case 'speaker':
+      return 'Who says this?'
     default:
       // Flip, and any direction a newer server sends that this client has never
       // heard of. Both are asked the same way, because both are answered the
@@ -603,7 +605,10 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           const isAnswer = idx === card.answer
           const chosen = picked === idx
           // Work-title options carry a person chip (author / actor / director).
-          const om = isSource ? card.option_meta?.[idx] : null
+          // A face under the option: a work's author/actor/director on a source
+          // card, and the actor themselves on a speaker card, where every option
+          // IS a person.
+          const om = isSource || card.direction === 'speaker' ? card.option_meta?.[idx] : null
           let border = 'var(--line)'
           let bg = 'var(--raised)'
           if (answered && isAnswer) {
@@ -639,8 +644,10 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 borderRadius: 9,
                 border: `1.4px solid ${border}`,
                 background: bg,
-                fontFamily: isSource ? 'var(--font-ui)' : 'var(--font-display)',
-                fontStyle: isSource ? 'normal' : 'italic',
+                // A title and a person's name are set as text; a quote is set as
+                // a quote. Only the "which quote?" card offers quotes.
+                fontFamily: card.direction === 'quote' ? 'var(--font-display)' : 'var(--font-ui)',
+                fontStyle: card.direction === 'quote' ? 'italic' : 'normal',
                 fontSize: 14.5,
                 lineHeight: 1.4,
                 overflowWrap: 'anywhere',

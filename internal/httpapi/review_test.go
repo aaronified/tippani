@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -128,8 +129,15 @@ func ageSeededItems(t *testing.T, srv *Server) {
 // rather than a card that failed to build. Asserting the count alone would now
 // pass a malformed MCQ (one option) and fail a perfectly good flip card.
 func askable(card reviewCard) bool {
-	if card.Direction == dirFlip {
+	switch card.Direction {
+	case dirFlip:
 		return len(card.Options) == 0
+	case dirCloze:
+		// The question IS the hole in the text; the answer is on the server.
+		return len(card.Options) == 0 && strings.Contains(card.Quote+card.Note, clozeBlank)
+	case dirSpeaker:
+		// Fewer than three faces is a coin toss rather than a question.
+		return len(card.Options) >= speakerMinOptions && card.Answer < len(card.Options)
 	}
 	return len(card.Options) >= 2 && card.Answer >= 0 && card.Answer < len(card.Options)
 }
@@ -641,8 +649,11 @@ func TestReviewScreenCards(t *testing.T) {
 			screen = &deck.Items[i]
 		}
 	}
-	if screen == nil || len(screen.Options) < 2 || screen.Title != "Heat" {
-		t.Fatalf("screen card not in deck with options: %+v", deck.Items)
+	// askable rather than a raw option count: a screen card can legitimately be
+	// drawn as a flip card (no options) or as a cloze one, and the claim here is
+	// that it reaches the deck as an answerable question about the right film.
+	if screen == nil || !askable(*screen) || screen.Title != "Heat" {
+		t.Fatalf("screen card not in deck as a question: %+v", deck.Items)
 	}
 
 	res := answer(t, c, kindScreen, dlg.ID, "got", "daily")
