@@ -9,7 +9,7 @@ import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, useSelection } from './selection.jsx'
-import { boardSeedChips, publishSearchSeed, workSeedChip } from './facets.js'
+import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { PersonCredit, PersonModal, PersonPortrait, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
@@ -196,12 +196,40 @@ function BookGrid({ books, coverSize, onOpen, authorMap = {}, seps, selection, l
 
 function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const [books, setBooks] = useState(null)
-  const [genre, setGenre] = useState('') // '' = All
-  const [series, setSeries] = useState('') // '' = all series
-  const [fav, setFav] = useState(false)
-  const [tagged, setTagged] = useState(false) // has at least one tagged quote
-  const [noted, setNoted] = useState(false) // has at least one quote with a note
-  const [wish, setWish] = useState('') // '' = all | 'wishlist' | 'annotated'
+  // ONE LIST, NOT NINE useStates. Every filter this board offers is a chip, in
+  // the same shape the search box's chips take — which is what lets the sheet
+  // and the search bar be two editors of one thing rather than two ways to say
+  // "tagged stoicism" that do not know about each other.
+  //
+  // The controls below are unchanged: each still gets a value and a setter of
+  // exactly the shape it always took, so WorkListScaffold did not have to learn
+  // anything. What changed is that there is now one object underneath them, so
+  // `onReset` empties a list instead of remembering nine setters, and pressing
+  // Search hands over the very state the board was filtered by.
+  const [filters, setFilters] = useState([])
+  // Derived once per change rather than per render: `states` is a fresh array
+  // each time it is read, and the `shown` memo below has it in its dep list —
+  // recomputing it every render would re-filter the whole library on every
+  // keystroke anywhere on the screen.
+  const f = useMemo(() => ({
+    genre: facetValue(filters, 'genre'), // '' = All
+    series: facetValue(filters, 'series'), // '' = all series
+    fav: facetValue(filters, 'favourite') === 'yes',
+    tagged: facetValue(filters, 'tagged') === 'yes', // has at least one tagged quote
+    noted: facetValue(filters, 'noted') === 'yes', // has at least one quote with a note
+    // The board's three-way control over the server's two-way flag: '' = all,
+    // 'wishlist' = nothing saved out of it yet, 'annotated' = something was.
+    wish: { yes: 'wishlist', no: 'annotated' }[facetValue(filters, 'wishlist')] || '',
+    states: facetValues(filters, 'shelf'), // shelf states kept; [] = every state
+  }), [filters])
+  const { genre, series, fav, tagged, noted, wish, states } = f
+  const setGenre = (v) => setFilters((c) => withFacet(c, 'genre', v))
+  const setSeries = (v) => setFilters((c) => withFacet(c, 'series', v))
+  const setFav = (v) => setFilters((c) => withFacet(c, 'favourite', v ? 'yes' : ''))
+  const setTagged = (v) => setFilters((c) => withFacet(c, 'tagged', v ? 'yes' : ''))
+  const setNoted = (v) => setFilters((c) => withFacet(c, 'noted', v ? 'yes' : ''))
+  const setWish = (v) => setFilters((c) => withFacet(c, 'wishlist', v === 'wishlist' ? 'yes' : v === 'annotated' ? 'no' : ''))
+  const setStates = (v) => setFilters((c) => withFacetValues(c, 'shelf', v))
   // Fold the wishlist into one tile. PERSISTED, unlike every filter beside it and
   // unlike `groupBy`, because it is not a question about this visit — it is how you
   // want your board to look, in the same class as the cover size. Which is also why
@@ -211,7 +239,6 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   // OFF by default. Turning it on is one tap and reversible; a grid that silently
   // rearranged itself on upgrade is a library that looks like it lost books.
   const [wishFolder, setWishFolder] = usePersistedState('tippani:books:wishFolder', false)
-  const [states, setStates] = useState([]) // shelf states kept; [] = every state
   const [sort, setSort] = useState('recent')
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
   const [exporting, setExporting] = useState(false)
@@ -226,9 +253,9 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   // moment ＋Search is pressed. Cleared on unmount, because a stale seed would
   // narrow a search to a board you had already left.
   useEffect(() => {
-    publishSearchSeed(boardSeedChips({ genre, series, fav, states, wish }))
+    publishSearchSeed(seedableChips(filters))
     return () => publishSearchSeed([])
-  }, [genre, series, fav, states, wish])
+  }, [filters])
 
   async function load() {
     const r = await json('GET', '/books')
@@ -398,7 +425,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
           </div>
         </>
       }
-      onReset={() => { setGenre(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setFilters([]); setGroupBy('none'); setSort('recent') }}
       exportDialog={
         <ConfirmDialog
           open={exporting}

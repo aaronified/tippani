@@ -234,28 +234,75 @@ export function takeSearchSeed() {
   return searchSeed
 }
 
-// boardSeedChips maps a board's filter state onto the facets that mean the same
-// thing. Only the ones that translate EXACTLY are here.
+// BOARD_ONLY_FACETS are the three board filters that have no facet on the
+// server, and their absence looks like an oversight, so:
 //
-// `tagged`, `noted` and `mediaType` are deliberately absent, and the reason is
-// worth writing down because their absence looks like an oversight. A board's
-// "noted" means "this BOOK has a highlight carrying a note" — a property of the
-// work, derived from its children. The `note:` facet means "this QUOTE has a
-// note", which is a property of the child. Seeding one from the other would
-// send `note=yes` with books in scope, and since a book has no note column that
-// facet empties the books section: press Search on a filtered board and get
-// nothing back. Half a mapping that is right beats a whole one that is wrong.
-export function boardSeedChips({ genre, series, fav, states, wish } = {}) {
-  const chips = []
-  if (genre) chips.push({ field: 'genre', value: genre, label: genre })
-  if (series) chips.push({ field: 'series', value: series, label: series })
-  if (fav) chips.push({ field: 'favourite', value: 'yes', label: 'yes' })
-  for (const s of states || []) if (s) chips.push({ field: 'shelf', value: s, label: s })
-  // The board's third state, "annotated", is the wishlist's complement rather
-  // than a thing of its own.
-  if (wish === 'wishlist') chips.push({ field: 'wishlist', value: 'yes', label: 'yes' })
-  else if (wish === 'annotated') chips.push({ field: 'wishlist', value: 'no', label: 'no' })
-  return chips
+// A board's "noted" means this BOOK has a highlight carrying a note — a
+// property of the work, derived from its children. The `note:` facet means this
+// QUOTE has a note, a property of the child. Seeding one from the other would
+// send `note=yes` with books in scope, and a book has no note column, so the
+// facet would empty the books section: press Search on a filtered board and get
+// nothing back. "tagged" is the same shape. `media` has no facet at all.
+//
+// They live in the board's chip list anyway, because the alternative is three
+// filters kept somewhere else and an onReset that has to remember both places.
+// They are dropped on the way to the search box instead — one list, one reset,
+// one honest boundary.
+export const BOARD_ONLY_FACETS = ['tagged', 'noted', 'media']
+
+// seedableChips is the board's filter state minus the three the server cannot
+// answer. This is the whole of the board-to-search mapping now: the board holds
+// chips natively, so there is nothing left to translate.
+export function seedableChips(chips = []) {
+  return chips.filter((c) => !BOARD_ONLY_FACETS.includes(c.field))
+}
+
+// ---- reading and writing one field of a chip list ---------------------------
+//
+// The board's nine filter useStates are one chip list, and these are what let
+// the sheet keep its checkboxes over it. Each control still gets a value and a
+// setter of exactly the shape it always took; what changed is that there is now
+// one thing underneath all of them, so `onReset` is emptying a list rather than
+// remembering to call nine setters — and so the search this board opens is
+// carrying the same object the board was filtered by, not a copy of it.
+
+// facetValue is the first value for a field, or '' — for the single-valued
+// controls (a genre select, a series select).
+export function facetValue(chips, field) {
+  const hit = (chips || []).find((c) => c.field === field)
+  return hit ? hit.value : ''
+}
+
+// facetValues is every value for a field — for the multi-valued ones (shelf).
+export function facetValues(chips, field) {
+  return (chips || []).filter((c) => c.field === field).map((c) => c.value)
+}
+
+// withFacet sets a field to one value, IN PLACE when it is already there. Order
+// is preserved rather than rebuilt, so changing a genre does not make the chip
+// jump to the end of the row under the reader's cursor. An empty value removes
+// the field, which is what every "All" option and every un-pressed chip sends.
+export function withFacet(chips, field, value) {
+  const rest = (chips || []).filter((c) => c.field !== field)
+  if (!value) return rest
+  const at = (chips || []).findIndex((c) => c.field === field)
+  const chip = { field, value, label: value }
+  if (at < 0) return [...rest, chip]
+  const out = [...(chips || [])].filter((c) => c.field !== field)
+  out.splice(at, 0, chip)
+  return out
+}
+
+// withFacetValues sets every value for a multi-valued field at once, keeping
+// the field's position in the row.
+export function withFacetValues(chips, field, values) {
+  const list = (values || []).filter(Boolean)
+  const at = (chips || []).findIndex((c) => c.field === field)
+  const out = (chips || []).filter((c) => c.field !== field)
+  const made = list.map((v) => ({ field, value: v, label: v }))
+  if (at < 0) return [...out, ...made]
+  out.splice(at, 0, ...made)
+  return out
 }
 
 // workSeedChip is what a search started from a work's own page narrows to. The

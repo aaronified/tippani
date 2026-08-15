@@ -10,7 +10,7 @@ import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
 import { selectionClick, useSelection } from './selection.jsx'
-import { boardSeedChips, publishSearchSeed, workSeedChip } from './facets.js'
+import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import {
@@ -221,15 +221,32 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   const { map: directorMap } = usePeople('director') // name→metadata, for director/creator face chips
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const [status, setStatus] = useState(null) // GET /metadata/status → Add-movie is status-aware
-  const [mediaType, setMediaType] = useState('') // '' = all, 'movie', 'show'
-  const [genre, setGenre] = useState('')
-  const [series, setSeries] = useState('')
-  const [fav, setFav] = useState(false)
+  // ONE LIST, NOT TEN useStates — see BookList, which does the same with nine.
+  // The tenth here is `media`, the films/shows split, which is board-only: there
+  // is no facet for it, so it is dropped on the way to the search box.
+  const [filters, setFilters] = useState([])
   const [groupBy, setGroupBy] = useState('none') // none | series | author | decade | genre
-  const [tagged, setTagged] = useState(false) // has at least one tagged dialogue
-  const [noted, setNoted] = useState(false) // has at least one dialogue with a note
-  const [wish, setWish] = useState('') // '' = all | 'wishlist' | 'annotated'
-  const [states, setStates] = useState([]) // shelf states kept; [] = every state
+  // Derived once per change, not per render: `states` is a fresh array each read
+  // and the `shown` memo has it in its deps.
+  const f = useMemo(() => ({
+    mediaType: facetValue(filters, 'media'), // '' = all, 'movie', 'show'
+    genre: facetValue(filters, 'genre'),
+    series: facetValue(filters, 'series'),
+    fav: facetValue(filters, 'favourite') === 'yes',
+    tagged: facetValue(filters, 'tagged') === 'yes', // has at least one tagged dialogue
+    noted: facetValue(filters, 'noted') === 'yes', // has at least one dialogue with a note
+    wish: { yes: 'wishlist', no: 'annotated' }[facetValue(filters, 'wishlist')] || '',
+    states: facetValues(filters, 'shelf'), // shelf states kept; [] = every state
+  }), [filters])
+  const { mediaType, genre, series, fav, tagged, noted, wish, states } = f
+  const setMediaType = (v) => setFilters((c) => withFacet(c, 'media', v))
+  const setGenre = (v) => setFilters((c) => withFacet(c, 'genre', v))
+  const setSeries = (v) => setFilters((c) => withFacet(c, 'series', v))
+  const setFav = (v) => setFilters((c) => withFacet(c, 'favourite', v ? 'yes' : ''))
+  const setTagged = (v) => setFilters((c) => withFacet(c, 'tagged', v ? 'yes' : ''))
+  const setNoted = (v) => setFilters((c) => withFacet(c, 'noted', v ? 'yes' : ''))
+  const setWish = (v) => setFilters((c) => withFacet(c, 'wishlist', v === 'wishlist' ? 'yes' : v === 'annotated' ? 'no' : ''))
+  const setStates = (v) => setFilters((c) => withFacetValues(c, 'shelf', v))
   const [sort, setSort] = useState('recent')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
@@ -241,9 +258,9 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
   // filtered to shows seeds everything else and leaves that one behind rather
   // than seeding a facet that would empty the results.
   useEffect(() => {
-    publishSearchSeed(boardSeedChips({ genre, series, fav, states, wish }))
+    publishSearchSeed(seedableChips(filters))
     return () => publishSearchSeed([])
-  }, [genre, series, fav, states, wish])
+  }, [filters])
 
   async function load() {
     const r = await json('GET', '/movies')
@@ -414,7 +431,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           <Select ariaLabel="Group by" value={groupBy} onChange={setGroupBy} options={GROUP_OPTIONS} />
         </div>
       }
-      onReset={() => { setGenre(''); setMediaType(''); setFav(false); setTagged(false); setNoted(false); setWish(''); setStates([]); setSeries(''); setGroupBy('none'); setSort('recent') }}
+      onReset={() => { setFilters([]); setGroupBy('none'); setSort('recent') }}
       exportDialog={
         <ConfirmDialog
           open={exporting}

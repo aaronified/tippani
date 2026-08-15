@@ -9,12 +9,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   addChip,
-  boardSeedChips,
+  BOARD_ONLY_FACETS,
   chipText,
   FACET_NAMES,
   facetField,
   facetOptions,
   facetParams,
+  facetValue,
+  facetValues,
   liftFacet,
   makeChip,
   narrowFacetOptions,
@@ -23,7 +25,10 @@ import {
   removeChipAt,
   sameChip,
   searchQueryString,
+  seedableChips,
   takeSearchSeed,
+  withFacet,
+  withFacetValues,
   workSeedChip,
 } from '../../src/facets.js'
 
@@ -305,40 +310,103 @@ describe('chips', () => {
   })
 })
 
+describe('one field of a chip list', () => {
+  // These are what let the board's filter sheet keep its checkboxes over a chip
+  // list: each control still gets a value and a setter of the shape it always
+  // took, with one object underneath all of them.
+  const chips = [
+    { field: 'genre', value: 'Fantasy', label: 'Fantasy' },
+    { field: 'shelf', value: 'reading', label: 'reading' },
+    { field: 'shelf', value: 'paused', label: 'paused' },
+  ]
+
+  it('reads a single value, or nothing', () => {
+    expect(facetValue(chips, 'genre')).toBe('Fantasy')
+    expect(facetValue(chips, 'series')).toBe('')
+    expect(facetValue([], 'genre')).toBe('')
+    expect(facetValue(undefined, 'genre')).toBe('')
+  })
+
+  it('reads every value of a multi-valued field', () => {
+    expect(facetValues(chips, 'shelf')).toEqual(['reading', 'paused'])
+    expect(facetValues(chips, 'genre')).toEqual(['Fantasy'])
+    expect(facetValues([], 'shelf')).toEqual([])
+  })
+
+  it('sets a field, replacing what was there', () => {
+    expect(withFacet(chips, 'genre', 'History').filter((c) => c.field === 'genre'))
+      .toEqual([{ field: 'genre', value: 'History', label: 'History' }])
+  })
+
+  it('adds a field that was not there', () => {
+    expect(withFacet([], 'genre', 'Fantasy'))
+      .toEqual([{ field: 'genre', value: 'Fantasy', label: 'Fantasy' }])
+  })
+
+  // Every "All" option and every un-pressed chip sends the empty string, so it
+  // has to mean "take this off" rather than "match nothing".
+  it('removes a field when the value goes empty', () => {
+    expect(withFacet(chips, 'genre', '').some((c) => c.field === 'genre')).toBe(false)
+    expect(withFacet(chips, 'shelf', '').some((c) => c.field === 'shelf')).toBe(false)
+  })
+
+  // Rebuilding the list instead would send a changed genre to the end of the
+  // row, which moves the × the reader was aiming at.
+  it('keeps a field in its place when its value changes', () => {
+    expect(withFacet(chips, 'genre', 'History').map((c) => c.field))
+      .toEqual(['genre', 'shelf', 'shelf'])
+  })
+
+  it('sets every value of a multi-valued field at once, in place', () => {
+    const next = withFacetValues(chips, 'shelf', ['completed'])
+    expect(next.map((c) => `${c.field}:${c.value}`)).toEqual(['genre:Fantasy', 'shelf:completed'])
+  })
+
+  it('empties a multi-valued field with an empty list', () => {
+    expect(withFacetValues(chips, 'shelf', []).map((c) => c.field)).toEqual(['genre'])
+    expect(withFacetValues(chips, 'shelf', undefined).map((c) => c.field)).toEqual(['genre'])
+  })
+})
+
 describe('seeding from where you were', () => {
-  it('turns a filtered board into the chips that mean the same thing', () => {
-    expect(boardSeedChips({ genre: 'Fantasy', series: 'Earthsea', fav: true, states: ['reading'], wish: '' }))
-      .toEqual([
-        { field: 'genre', value: 'Fantasy', label: 'Fantasy' },
-        { field: 'series', value: 'Earthsea', label: 'Earthsea' },
-        { field: 'favourite', value: 'yes', label: 'yes' },
-        { field: 'shelf', value: 'reading', label: 'reading' },
-      ])
-  })
-
-  it('seeds nothing from an unfiltered board', () => {
-    expect(boardSeedChips({})).toEqual([])
-    expect(boardSeedChips()).toEqual([])
-    expect(boardSeedChips({ genre: '', series: '', fav: false, states: [], wish: '' })).toEqual([])
-  })
-
-  it('carries every shelf a board is showing, not just the first', () => {
-    expect(boardSeedChips({ states: ['reading', 'paused'] }).map((c) => c.value)).toEqual(['reading', 'paused'])
-  })
-
-  it('reads the board’s two wishlist states as the flag and its opposite', () => {
-    expect(boardSeedChips({ wish: 'wishlist' })).toEqual([{ field: 'wishlist', value: 'yes', label: 'yes' }])
-    expect(boardSeedChips({ wish: 'annotated' })).toEqual([{ field: 'wishlist', value: 'no', label: 'no' }])
+  // The board holds chips natively now, so the whole board-to-search mapping is
+  // dropping the three the server cannot answer.
+  it('hands the search box the board’s own filters', () => {
+    const board = [
+      { field: 'genre', value: 'Fantasy', label: 'Fantasy' },
+      { field: 'shelf', value: 'reading', label: 'reading' },
+      { field: 'favourite', value: 'yes', label: 'yes' },
+    ]
+    expect(seedableChips(board)).toEqual(board)
   })
 
   // THE DELIBERATE GAP. A board's "noted" means the BOOK has a highlight
-  // carrying a note; the `note:` facet means the QUOTE has one. Seeding one
-  // from the other sends note=yes with books in scope, and a book has no note
+  // carrying a note; the `note:` facet means the QUOTE has one. Sending one as
+  // the other means note=yes with books in scope, and a book has no note
   // column — so the facet would empty the books section and pressing Search on
-  // a filtered board would return nothing. Half a mapping that is right beats a
-  // whole one that is wrong.
-  it('leaves the board filters that have no honest facet behind', () => {
-    expect(boardSeedChips({ tagged: true, noted: true, mediaType: 'show' })).toEqual([])
+  // a filtered board would return nothing. `tagged` is the same shape and
+  // `media` has no facet at all, so all three stop at the boundary.
+  it('drops the board filters the server has no facet for', () => {
+    expect(BOARD_ONLY_FACETS).toEqual(['tagged', 'noted', 'media'])
+    const board = [
+      { field: 'genre', value: 'Fantasy', label: 'Fantasy' },
+      { field: 'tagged', value: 'yes', label: 'yes' },
+      { field: 'noted', value: 'yes', label: 'yes' },
+      { field: 'media', value: 'show', label: 'show' },
+    ]
+    expect(seedableChips(board)).toEqual([{ field: 'genre', value: 'Fantasy', label: 'Fantasy' }])
+  })
+
+  // The guarantee that gap exists for: nothing the board can be filtered by
+  // reaches /search as a name it would reject with a 400.
+  it('never seeds a field the server does not know', () => {
+    const everything = [...FACET_NAMES, ...BOARD_ONLY_FACETS].map((field) => ({ field, value: 'x', label: 'x' }))
+    for (const c of seedableChips(everything)) expect(FACET_NAMES).toContain(c.field)
+  })
+
+  it('seeds nothing from an unfiltered board', () => {
+    expect(seedableChips([])).toEqual([])
+    expect(seedableChips()).toEqual([])
   })
 
   it('shows a work’s title and sends its id', () => {
@@ -379,7 +447,7 @@ describe('removing a seeded chip widens the search', () => {
   // The promise the whole seeding idea rests on: narrowing is free because
   // widening is one click. Asserted end to end — a seeded board becomes chips,
   // becomes a query string, and dropping a chip visibly drops a parameter.
-  const seeded = boardSeedChips({ genre: 'Fantasy', states: ['reading'] })
+  const seeded = seedableChips(withFacetValues(withFacet([], 'genre', 'Fantasy'), 'shelf', ['reading']))
 
   it('starts narrowed', () => {
     expect(searchQueryString({ scope: 'books', chips: seeded }))
