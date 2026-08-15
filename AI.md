@@ -103,22 +103,32 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **690 Go test functions and 1,380 frontend tests, across 190 test files** — the
+- **725 Go test functions and 1,581 frontend tests, across 203 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 119 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 121 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 71 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 82 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
   rather than trust it — these three had drifted from 645 / 1,293 / 180 before
   anyone checked them at 1.12.0, which is why each one now sits beside the
   command that produces it.
+
+  Two habits behind those numbers are worth naming, because they are what stops a
+  plausible test from being a useless one. **Assert on values, never on counts**:
+  "got 3, wanted 3" passes happily while the three are the wrong three, which is
+  the entire failure mode of a filter or a facet. And **check the test by breaking
+  the code**: the search facets landed green on the first run, which is not
+  reassuring on a change that touches fifteen queries — so the predicate was
+  neutered to confirm seventeen tests noticed, and again to confirm two more
+  noticed a subtler reversal. A test written after the code, by the thing that
+  wrote the code, is worth exactly what its failure proves.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
   generated regions still match the data files they come from, a check that the

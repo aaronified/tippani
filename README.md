@@ -283,6 +283,20 @@ of that are spelled out in [`AI.md`](AI.md).
   list, or sortable tables; **group by** the same axes as the Library; **open any quote in place**
   to share/edit/delete; **select results** for a bulk tag or field edit — and your last search is
   remembered when you come back.
+- 🏷 **Say which field you meant** — type `tag:`, `author:`, `colour:` (or `speaker:`, `actor:`,
+  `director:`, `genre:`, `series:`, `shelf:`, `year:`, `favourite:`, `note:`, `wishlist:`) and a
+  dropdown offers **your own library's words**, narrowing as you type and forgiving a typo. Choosing
+  one lifts it out of the box into a **removable chip** beneath. Two tags **intersect**; two colours
+  **union** — a quote has one colour, so asking for two of them would be asking for something nothing
+  is. The colon is a typing affordance and never reaches the server: every chip travels as its own
+  query parameter, so an unknown field is rejected rather than quietly dropped, and no facet value can
+  reach the full-text index. A search made **only** of chips is a whole search — the box may be empty.
+- 🧭 **A search that knows where you are** — starting a search from a filtered shelf **arrives
+  filtered**: the Library's genre, series, shelf, favourites and wishlist come with you as chips, and
+  from a book's own page you get `book:` that book. Every one is removable, so narrowing is free
+  because widening is one click. The board's filter sheet and the search bar edit the **same** state,
+  so they cannot disagree. If you would rather every search be a search of everything,
+  **right-click the search button** — a globe appears in the lens and stays until you say otherwise.
 - 🖼 **Metadata & covers** — books from Google Books + Open Library, films and shows from
   [TMDB](https://www.themoviedb.org/) + TheTVDB. Covers, posters and portraits are fetched at full
   resolution through an SSRF-guarded fetcher and served locally, never hotlinked. A **Metadata

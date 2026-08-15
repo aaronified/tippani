@@ -5,6 +5,109 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Search learned to be told which field you meant.** Type `tag:`, `author:`, `colour:` —
+  or `speaker:`, `actor:`, `director:`, `genre:`, `series:`, `shelf:`, `year:`,
+  `favourite:`, `note:`, `wishlist:` — and a dropdown offers the words your own library
+  actually uses, narrowing as you type and forgiving a typo. Choosing one lifts it out of
+  the box and into a removable chip beneath, so the box goes back to being free text.
+
+  **The colon never reaches the server.** The client parses it and sends `&tag=stoicism`;
+  the API has never heard of a syntax. A grammar both halves parse is a grammar that
+  drifts, and the drift does not announce itself — it shows up as a query that RENDERS one
+  way and MATCHES another, with both halves looking correct on their own. It also makes
+  every chip a query parameter, so an unknown field is refused rather than quietly
+  dropped: a dropped facet returns a WIDER result set, and a wider result set looks
+  exactly like a correct answer.
+
+  **Two tags intersect; two colours union**, and the rule is a property of the field
+  because one rule cannot serve both. A quote has one colour, so `colour:doubt
+  colour:joy` under an all-AND rule asks for something nothing is — that query returns
+  nothing forever and reads as broken rather than as empty. Meanwhile narrowing by a
+  second tag is a real question, and OR would widen it, which is the opposite of what
+  pressing a second chip is for.
+
+  Colours carry their names the whole way: the chip reads `colour:doubt` while the query
+  sends `blue`, because the six slots are yours to name and showing the storage word would
+  be showing you a word you deliberately renamed. Narrowing runs on the name too — typing
+  `blu` finds nothing.
+
+  A search made **only** of chips is a whole search. Picking a value empties the box, so
+  that is the ordinary shape of a chip-built query.
+
+- **A search started from a shelf searches the shelf.** The top bar's Search has landed
+  scoped to where you were since 1.4.1; what it could never carry was the *filters*. The
+  board knew it was showing you reading, Fantasy, Earthsea, and the search it opened knew
+  none of it — you retyped the question you had just finished pointing at. It now arrives
+  as chips, and from a book's or film's own page it arrives narrowed to that work. Every
+  seeded chip is removable, so narrowing is free because widening is one click.
+
+- **A globe for when you meant everything.** Right-click the search button and it stops
+  caring where you are: every search becomes a search of everything, and the magnifier
+  draws the world inside its lens to say so. It stays until you say otherwise.
+
+  Right-click only, with no on-screen affordance, and that cost is accepted rather than
+  overlooked — a visible switch would be a permanent control in the busiest row of the app
+  answering a question most readers never ask. The globe is the feedback. The phone's bar
+  follows the preference and cannot change it, since there is no right-click there and
+  long-press is already the tooltip's.
+
+### Changed
+
+- **The filter sheet and the search bar are two editors of one state.** The Library's nine
+  filter states and the Catalogue's ten are one chip list each, in the same shape the
+  search box's chips take. Nothing above changed — every control still gets the value and
+  setter it always took — but `Reset` is now emptying a list rather than enumerating nine
+  setters, and a filter cannot be added to a board without deciding what it means to a
+  search, because there is nowhere else to put it.
+
+  Three filters deliberately stop at that boundary. A board's *tagged* and *has notes* are
+  properties of the WORK, derived from its children; `tag:` and `note:` are properties of
+  the quote. Sending one as the other would empty the books section, so a search started
+  from a filtered board would come back with nothing. Half a mapping that is right beats a
+  whole one that is wrong.
+
+- **`/search` no longer requires `q`** when a facet is present, and still refuses a request
+  with neither: that is not a search, it is a request for the whole library.
+
+### Internal
+
+- **The fifteen queries behind `/search` are assembled rather than written out.** Results
+  are sectioned by what matched, so a facet is a predicate that has to reach every section
+  — and fifteen hand-edited `WHERE` clauses would be fifteen chances at a mistake that
+  produces a wrong ANSWER rather than an error, since a predicate that failed to apply is
+  indistinguishable from one that matched everything. A table names where each row kind
+  comes from and one builder splices the facets in, so there is no second place to forget.
+
+  An inapplicable facet **empties** its section rather than being ignored: `colour:blue`
+  asks for blue things and a book is not one. The alternative puts the whole library under
+  a heading claiming the results are blue.
+
+  No facet value reaches an FTS `MATCH` — they are parameter-bound predicates on ordinary
+  columns — which is pinned by feeding a facet a value full of FTS5 operators.
+
+- **`Tooltip` gained a right-click opt-out**, needed by both this and the context-menu
+  plan. It wraps every control in the app and swallows right-clicks whole, so the search
+  icon could not have received one. The opt-out ADDS to the suppression rather than
+  skipping it, since skipping would hand the Android long-press bug back to every caller
+  that wanted a gesture.
+
+  Writing its test corrected the comment it was written from: that line claimed to stop a
+  card's menu opening on the card's own buttons, and it does not — `preventDefault`
+  suppresses the default, not the propagation, and what turns the event away is
+  `useCardMenu`'s own guard. Both mechanisms are real; believing they are one is how
+  somebody eventually deletes the one doing the work.
+
+- **`editDistance` moved out of `MetadataPage.jsx`** into a shared `text.js`, where it
+  arrives with the test it never had. Its companion `foldText` is deliberately not
+  `normName`: that one drops everything outside `[a-z0-9]`, which is right for grouping
+  Latin names and fatal for a typeahead — a reader whose tags are in Bengali would be
+  filtering a dropdown where every option folded to the empty string and therefore matched
+  everything equally.
+
 ## [1.13.2] - 2026-08-15
 
 ### Fixed

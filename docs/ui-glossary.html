@@ -1797,6 +1797,56 @@
     </div>
   </section>
 
+  <section class="g-section">
+    <h2>Saying which field you meant <span class="g-tlabel">1.14.0</span></h2>
+    <p>A colon in the search box turns the words before it into a <em>field</em>. The syntax lives entirely on the client &mdash; the server has never heard of a colon &mdash; because a grammar both halves parse is a grammar that drifts, and the drift shows up as a query that renders one way and matches another.</p>
+    <div class="g-grid">
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:20px">
+          <input class="tp-input" readonly value="tag:sto" style="font-family:var(--font-display),serif;font-size:19px;line-height:1;padding:14px 18px;width:100%">
+          <ul class="token-menu" style="position:static;margin:6px 0 0;width:auto;max-height:none">
+            <li><button type="button" class="token-opt hi">tag:stoicism</button></li>
+          </ul>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+            <span class="token-pill">tag:stoicism<button type="button" class="token-x">&times;</button></span>
+            <span class="token-pill">colour:doubt<button type="button" class="token-x">&times;</button></span>
+            <span class="token-pill">shelf:reading<button type="button" class="token-x">&times;</button></span>
+          </div>
+        </div>
+        <div class="g-name">The facet dropdown &amp; chips</div>
+        <div class="g-src">SearchBox &mdash; SearchPage.jsx &middot; facets.js &middot; GET /search/vocabulary &middot; .token-menu / .token-pill &mdash; index.css</div>
+        <div class="g-desc"><b>It is the dropdown you already know.</b> Same anchored portal, same <code>.token-menu</code> skin, same arrows-and-Enter as the tag fields on every edit form &mdash; and choosing a value <b>lifts the token out of the box into a chip</b>, exactly as TokenInput lifts a typed tag into a pill. The only new idea on the screen is the colon.<br><br><b>The vocabulary is one request, on first focus, held for the session.</b> A personal library's is a few hundred names: too small to be worth a round trip per keystroke, and filtering it in the browser never flickers behind the typing. A vocabulary that will not load is an empty dropdown rather than a broken box &mdash; the grammar still parses and the chips still work, you are just not offered the values.<br><br><b>The draft runs to the end of the string</b>, not to the next space, and that is the one parsing decision worth arguing with. Splitting on whitespace is the obvious way to find &ldquo;the token being typed&rdquo; and it makes <code>author:Le Guin</code> unreachable: the space after <em>Le</em> ends the token and the draft stays <code>author:Le</code> forever. Since choosing a value lifts the whole thing out immediately, a draft that runs to the end costs nothing.<br><br><b>It ranks rather than filters.</b> A prefix &mdash; of the whole value or of any word in it &mdash; beats a substring, which beats a typo correction. A flat &ldquo;prefix or within budget&rdquo; test would return both in vocabulary order and let the fuzzy match win by accident of sorting: <code>deth</code> would offer <em>death</em> above <em>dethrone</em>, when you can always type one more letter to reach the former and cannot type your way out of a list that reordered itself.<br><br><b>A chip shows a word and sends another when they differ.</b> The six colour slots are user-named, so the chip reads <code>colour:doubt</code> and the wire carries <code>colour=blue</code>; narrowing runs on the name, so typing <code>blu</code> finds nothing &mdash; the storage word is not what is on screen, so it is not what is searched. <code>book:</code> does the same with a title and an id.<br><br><b>A search made only of chips is a whole search.</b> Picking a value empties the box, so the ordinary shape of a chip-built query is no free text and one parameter &mdash; which is why <code>q</code> stopped being required. With neither, it is still refused: that is not a search, it is a request for the whole library.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:16px">
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;font-family:var(--font-mono),monospace;font-size:11.5px;color:var(--soft)">
+            <div style="padding:10px;border:1px solid var(--line);border-radius:8px"><b style="color:var(--ink)">tag &middot; genre</b><br>two of them <b>intersect</b> &mdash; a row can wear several</div>
+            <div style="padding:10px;border:1px solid var(--line);border-radius:8px"><b style="color:var(--ink)">colour &middot; shelf &middot; series &middot; year &middot; every credit</b><br>two of them <b>union</b> &mdash; a row has one</div>
+          </div>
+        </div>
+        <div class="g-name">Why the rule depends on the field</div>
+        <div class="g-src">searchFacets.where &mdash; internal/httpapi/search_facets.go</div>
+        <div class="g-desc">A quote has ONE colour. <code>colour:doubt colour:joy</code> under an all-AND rule means &ldquo;has two colours&rdquo;, which nothing does &mdash; so that query returns nothing forever and reads as <em>broken</em> rather than as <em>empty</em>. Under an OR rule it means &ldquo;either&rdquo;, which is what you would say out loud.<br><br>Meanwhile <code>tag:stoicism tag:death</code> <b>must</b> intersect: narrowing by a second tag is a real question in a quote library, and OR would widen it &mdash; the opposite of what pressing a second chip is for. One rule cannot serve both, so the rule is a property of the facet.<br><br><b>Credits are in the OR family even though they look like tags</b>, because a book has one author line. <code>author:Gaiman author:Le Guin</code> under AND would be the colour failure again &mdash; nothing is by both. A co-written book still turns up for <code>author:Gaiman</code> alone, because the match is a substring of the joined credit rather than an equality.<br><br><b>A facet a row cannot answer EMPTIES that section rather than being ignored.</b> <code>colour:doubt</code> asks for doubt-coloured things and a book is not one, so the Books section comes back with nothing. Ignoring it instead would put the whole library under a heading claiming the results are doubt-coloured: every row real, nothing raised, an answer to a question nobody asked. For the same reason an unknown field name is <em>refused</em> &mdash; a dropped facet returns a wider set that looks exactly like a correct answer.<br><br><b>No facet value ever reaches the full-text index.</b> Facets are ordinary parameter-bound predicates on ordinary columns; only the free text reaches FTS, exactly as it did before.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="topbar-add-btn tactile icon-only" style="pointer-events:none"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+            <span class="microcopy">right-click &rarr;</span>
+            <span class="topbar-add-btn tactile icon-only" style="pointer-events:none"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M4.2 11h13.6"/><path d="M11 4.1c1.7 1.9 2.6 4.3 2.6 6.9s-.9 5-2.6 6.9c-1.7-1.9-2.6-4.3-2.6-6.9s.9-5 2.6-6.9"/></svg></span>
+          </div>
+        </div>
+        <div class="g-name">Context, and the globe that turns it off</div>
+        <div class="g-src">searchScoped / openSearch &mdash; App.jsx &middot; publishSearchSeed &mdash; facets.js &middot; IconSearchGlobe &mdash; ui.jsx</div>
+        <div class="g-desc"><b>A search started from a shelf searches the shelf.</b> The top bar's Search has landed scoped to where you were since 1.4.1; what it could never carry was the FILTERS. The board knew it was showing you <em>reading, Fantasy, Earthsea</em> and the search it opened knew none of it. It arrives as chips now &mdash; and from a work's own page, as that work.<br><br><b>Every seeded chip is removable, which is the whole bargain:</b> narrowing is free because widening is one click.<br><br><b>The filter sheet and the chips are one state.</b> The Library's nine filter states and the Catalogue's ten are one chip list each, so <em>Reset</em> is emptying a list rather than enumerating nine setters, and a filter cannot be added to a board without deciding what it means to a search. Three of them stop at the boundary: a board's <em>tagged</em> and <em>has notes</em> are properties of the WORK derived from its children, while <code>tag:</code> and <code>note:</code> are properties of the quote &mdash; sending one as the other would empty the books section and a search from a filtered board would come back with nothing.<br><br><b>The globe is for readers whose every search is a search of everything.</b> Right-clicking the search button toggles it and it stays toggled. In the lens rather than beside it, because the thing being said is not &ldquo;there is a mode&rdquo; but &ldquo;this glass is looking at everything&rdquo; &mdash; an equator and one meridian, since at 28px a third line is a smudge and the silhouette has to stay the search icon's.<br><br><b>Right-click only, with no on-screen affordance, and that cost is accepted.</b> A visible switch would be a permanent control in the busiest row of the app answering a question most readers never ask. The globe is the feedback: once it is on, the button says so every time you look at it. The phone's bar follows the preference and cannot change it &mdash; there is no right-click there and long-press is already the tooltip's &mdash; so the one place that can flip it is the one place the gesture exists.<br><br><b>Tooltip had to grow an opt-out for this</b>, since it wraps every control in the app and swallows right-clicks whole. The opt-out ADDS to the suppression rather than skipping it: <code>preventDefault</code> still runs, propagation is stopped for the opted-in control, and the handler is called last, once the event is safe.</div>
+      </div>
+
+    </div>
+  </section>
+
   <p style="margin-top:56px;color:var(--faint);font-size:12px;font-family:var(--font-mono),monospace">
     Hand-maintained copy, generated CSS. The &lt;style id="appcss"&gt; snapshot is refreshed by
     <code>node scripts/glossary-css.mjs</code> (and <code>--check</code> fails CI when it is

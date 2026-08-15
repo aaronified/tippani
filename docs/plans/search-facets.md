@@ -1,20 +1,12 @@
 # Plan — search that knows where you are and what you meant
 
-**STARTED. Commit 1 (`GET /search/vocabulary`) has shipped** — see the changelog's
-Unreleased section. The rest is unbuilt.
+**BUILT.** Every part of this has shipped; the changelog's Unreleased section
+carries the notes. Kept as written, with the three places the plan was wrong
+recorded at the bottom rather than edited out of the text above — a plan that is
+quietly corrected after the fact stops being evidence of what was believed
+beforehand.
 
-Read this before picking it up: **Part 3 is the expensive half, and not because it
-is clever.** `/search` builds about fifteen separate FTS queries, one per section,
-and a facet is a predicate that has to reach every one of them. That is a
-mechanical change to the app's most complex handler where every mistake is SILENT —
-a wrong result set, not an error — so it wants doing in one sitting with a test per
-facet per section, rather than in pieces.
-
-Parts 1, 2 and 4 (the client-side grammar, the dropdown, the context chips) are
-independent of that and could land first: without Part 3 the chips would simply have
-nothing to narrow, which is why they have not.
-
-**Target: 1.10.0. Independent of the other two plans; could land at any point.**
+**Landed as 1.14.0, not the 1.10.0 targeted below.**
 
 Two asks, one mechanism: **tagged searches** — say which field you mean, with the
 values offered to you — and **context-aware searches** — the screen you are on
@@ -234,3 +226,42 @@ endpoint; nothing writes, nothing deletes, and a wrong answer is a wrong result
 set rather than a lost row. Part 5 rewires two working screens onto new state,
 which is where a regression would actually land — hence its own commit, last,
 after the facets are proven.
+
+---
+
+## What the plan got wrong
+
+Written after the fact, kept apart from the text above so the plan stays a
+record of what was believed before building rather than a tidy account of what
+happened.
+
+**`wishlist` has no column, and cannot have one.** The plan lists it beside
+`favourite` and `note` as a "boolean predicate", which reads as an equality on a
+column. 0024 gave it none on purpose: a work with no quotes in it *is* the
+wishlist, so it needs no storage and can never drift out of step with the count
+it is derived from. The facet is a count-zero predicate.
+
+**The filter sheets are not in `Library.jsx` and `Movies.jsx`,** and there are
+not nine `useState`s each. Both boards render `WorkListScaffold` (`works.jsx`),
+which owns the sheet, the desktop row and the sheet's own open/close state; the
+boards only pass value/setter pairs down. The counts are nine and **ten** —
+the Catalogue has `mediaType` as well — and each board has a second, separate
+filter surface on its detail page that the plan does not mention.
+
+**Part 4's `scope:` chip was not built, and the reason it was proposed is not
+true.** The plan says `searchScope` "just had nowhere to show itself". It has
+somewhere: the scope row above the results has shown the active scope as a
+highlighted chip since the screen was built, and `All` is one click away. A
+second control saying the same thing in the same row of the same screen is not
+more legible, it is two things to keep in step. The *seeding* Part 4 describes —
+arriving already narrowed to where you came from — is built.
+
+Three smaller ones. A board's `tagged` and `noted` cannot seed `tag:` and
+`note:`: the board's are properties of the **work** derived from its children,
+the facets are properties of the **quote**, and sending one as the other empties
+the section — so a search from a filtered board would come back with nothing.
+`q` had to stop being required, which the plan does not mention and which its own
+Part 1 makes unavoidable: lifting the token out of the box is what leaves the box
+empty. And `Tooltip`'s right-click line turned out to be load-bearing once rather
+than twice — it stops the platform menu, and `useCardMenu`'s own guard is what
+stops the card menu.
