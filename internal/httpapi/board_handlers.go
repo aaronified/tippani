@@ -26,12 +26,23 @@ const boardNameMax = 80
 
 const boardDescriptionMax = 2000
 
-// The two kinds 0037 defines. 'speech' is deliberately absent: a speech quote
-// uses the same fields every other quote uses, so a kind for it would be a label
-// with no behaviour behind it.
+// The kinds a board can be. 0037 defined two and said "no more until something
+// needs a third" — and it turned 'speech' down on a stated test: a kind for it
+// would be "a label with no behaviour behind it, which is how vocabularies rot".
+//
+// 1.15.0 gives it behaviour. A board's DEFAULT COVER is drawn from its kind — a
+// microphone and an audience for a board of speeches, a glyph of its language's
+// script for a board of proverbs — so the third value now earns itself by the
+// same test that refused it. The quote FORM is still identical on a speech board
+// and a plain one, which is what 0037 was actually protecting.
+//
+// The test to apply to a fourth is the one 0037 wrote, and this passes it: a
+// kind with no behaviour behind it is a label, and a label is how a vocabulary
+// rots.
 const (
 	boardKindPlain   = "plain"
 	boardKindProverb = "proverb"
+	boardKindSpeech  = "speech"
 )
 
 // A language name, not a tag — long enough for "Scottish Gaelic" and short enough
@@ -104,8 +115,8 @@ func (b *boardReq) normalise() string {
 	if b.Kind == "" {
 		b.Kind = boardKindPlain
 	}
-	if b.Kind != boardKindPlain && b.Kind != boardKindProverb {
-		return "kind must be " + boardKindPlain + " or " + boardKindProverb
+	if b.Kind != boardKindPlain && b.Kind != boardKindProverb && b.Kind != boardKindSpeech {
+		return "kind must be " + boardKindPlain + ", " + boardKindProverb + " or " + boardKindSpeech
 	}
 	// Languages belong to a proverb board and are dropped from any other, rather
 	// than refused. A reader who fills the list in and then switches the kind back

@@ -4635,6 +4635,36 @@ html[data-theme="dark"] .mobile-sheet-footer {
   background: var(--raised);
   color: var(--faint);
 }
+/* THE DEFAULT COVER, drawn from what the board holds (BoardCover in boards.jsx).
+   On paper the board's own colour is the FIELD and the drawing is the ink, the
+   way a highlighter works. In the dark that same rule would make a decorative
+   tile the brightest thing on the screen, so the field goes quiet and the colour
+   moves into the drawing instead. One SVG in currentColor serves both. */
+.board-cover {
+  background: color-mix(in srgb, var(--board-color) 26%, var(--raised));
+  color: color-mix(in srgb, var(--board-color) 62%, var(--ink));
+  overflow: hidden;
+}
+html[data-theme="dark"] .board-cover {
+  background: var(--raised);
+  color: var(--board-color);
+}
+.board-cover-art {
+  width: 78%;
+  height: auto;
+  display: block;
+}
+/* The glyph is a letter shown AS a letter, so it takes the display face rather
+   than being treated as an icon. cap-height varies wildly between Han, Bengali
+   and Latin, so it is centred on the box rather than on a baseline. */
+.board-cover-glyph {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 34cqw, 58px);
+  line-height: 1;
+  font-weight: 500;
+  display: block;
+}
+.board-cover-plain { color: var(--faint); background: var(--raised); }
 .board-tile-name {
   font-family: var(--font-display);
   font-weight: 600;

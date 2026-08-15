@@ -64,14 +64,49 @@ const BOARD_STARTERS = [
     kind: 'proverb',
     description: 'Handed down, not attributed.',
   },
-  { key: 'speeches', name: 'Speeches', color: 'blue', kind: 'plain', description: 'Said aloud, to a room.' },
+  { key: 'speeches', name: 'Speeches', color: 'blue', kind: 'speech', description: 'Said aloud, to a room.' },
   { key: 'others', name: 'Others', color: 'yellow', kind: 'plain', description: 'Everything else worth keeping.' },
 ]
 
-// The languages the starter proverbs come in, offered as a head start on the
-// picker. NOT a closed list: the field beside them takes any language, because a
-// reader's proverbs are not limited to the three this app happens to ship.
-const STARTER_LANGUAGES = ['Bengali', 'Hindi', 'English']
+// The ten most-spoken languages in the world, offered as chips on a proverb
+// board so the common case is a tap. The list is a STARTING POINT and not a
+// vocabulary — the field beside it takes anything, and a language you add is
+// kept exactly as you typed it.
+//
+// Each carries a glyph from its dominant script, which is what the board's
+// default cover draws. They are deliberately DISTINCT letters rather than the
+// same "A" five times: four of these ten are written in Latin, and a cover that
+// was the identical glyph on all four would tell you nothing about which board
+// you were looking at. So Spanish gets its ñ and Russian its Ж — the letter a
+// reader of that language would name if asked to pick one.
+const STARTER_LANGUAGES = [
+  { name: 'English', glyph: 'A' },
+  { name: 'Mandarin', glyph: '字' },
+  { name: 'Hindi', glyph: 'अ' },
+  { name: 'Spanish', glyph: 'ñ' },
+  { name: 'French', glyph: 'É' },
+  { name: 'Arabic', glyph: 'ع' },
+  { name: 'Bengali', glyph: 'অ' },
+  { name: 'Portuguese', glyph: 'ã' },
+  { name: 'Russian', glyph: 'Ж' },
+  { name: 'Urdu', glyph: 'ی' },
+]
+
+// glyphFor — the script glyph a proverb board wears, or "" when nothing is
+// known. Matched case-insensitively on the language's name, because the list
+// above seeds a free-text field and "bengali" is the same language as "Bengali".
+//
+// A language nobody listed gets NO glyph and the board falls back to the app's
+// own mark. Guessing a script from an unknown name would put a Latin A on a
+// board of Yoruba proverbs and a Han character on nothing at all — and being
+// confidently wrong about somebody's language is worse than being blank.
+export function glyphFor(languages = []) {
+  for (const l of languages) {
+    const hit = STARTER_LANGUAGES.find((s) => s.name.toLowerCase() === String(l).trim().toLowerCase())
+    if (hit) return hit.glyph
+  }
+  return ''
+}
 
 // ALL_BOARD is the pinned entry, and it is deliberately NOT a board: it has no
 // row, cannot be renamed, hidden or deleted, and its id is a word rather than a
@@ -97,6 +132,78 @@ export function useBoards() {
     reload()
   }, [reload])
   return { boards, total, error, reload }
+}
+
+// BoardCover — what a board wears when nobody has given it a picture.
+//
+// It used to be one grey quote mark on every board, which is the same answer to
+// a different question forty times: a shelf list where every tile is identical
+// is a list you have to read rather than one you can see.
+//
+// So the default is drawn from what the board HOLDS, which is a thing the board
+// already knows (kind, 0037) rather than a thing inferred from its name — rename
+// a proverb board to "Grandmother" and it keeps its glyph, which is the same
+// rule everything else about kind follows.
+//
+//   speech   a microphone, and an audience listening to it
+//   proverb  a letter from the script of its language
+//   plain    the app's own quote mark, which is the honest "something else"
+//
+// THE COLOUR SWAPS SIDES WITH THE THEME, and that is not decoration. On paper the
+// board's colour is the field and the drawing is the ink, which is how a
+// highlighter works. In the dark that would be a lit panel on a dim screen — the
+// brightest thing on the page would be a decorative tile — so the field goes
+// quiet and the colour moves into the drawing. Both directions are in the
+// stylesheet, keyed on html[data-theme="dark"]; nothing here knows which is on.
+export function BoardCover({ board }) {
+  const glyph = board.kind === 'proverb' ? glyphFor(board.languages || []) : ''
+  const cls = 'board-tile-img is-empty board-cover board-cover-' + (board.kind || 'plain')
+  if (board.kind === 'speech') {
+    return (
+      <span className={cls} aria-hidden="true">
+        {/* Mic on the left, the room it is addressed to on the right. Drawn in
+            currentColor so one SVG serves both themes. */}
+        <svg viewBox="0 0 90 60" className="board-cover-art" role="presentation" focusable="false">
+          {/* the microphone: capsule, yoke, stand */}
+          <rect x="14" y="12" width="10" height="19" rx="5" fill="currentColor" />
+          <path d="M9.5 26.5a9.5 9.5 0 0 0 19 0" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M19 36v9" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M12.5 45.5h13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          {/* the audience: heads and shoulders, back rows smaller and fainter so
+              the room reads as having depth rather than as five identical dots */}
+          <g fill="currentColor" opacity="0.45">
+            <circle cx="49" cy="30" r="3.6" />
+            <path d="M43 45c0-3.6 2.7-6.3 6-6.3s6 2.7 6 6.3z" />
+            <circle cx="63" cy="29" r="3.4" />
+            <path d="M57.4 45c0-3.4 2.5-6 5.6-6s5.6 2.6 5.6 6z" />
+            <circle cx="76" cy="30" r="3.2" />
+            <path d="M70.8 45c0-3.2 2.3-5.7 5.2-5.7s5.2 2.5 5.2 5.7z" />
+          </g>
+          <g fill="currentColor" opacity="0.85">
+            <circle cx="56" cy="38" r="4.2" />
+            <path d="M49 55c0-4 3.1-7.2 7-7.2s7 3.2 7 7.2z" />
+            <circle cx="70.5" cy="38.5" r="4" />
+            <path d="M64 55c0-3.8 2.9-6.8 6.5-6.8s6.5 3 6.5 6.8z" />
+          </g>
+        </svg>
+      </span>
+    )
+  }
+  if (glyph) {
+    return (
+      <span className={cls} aria-hidden="true">
+        {/* The display face, because this is a letter being shown as a letter.
+            Bengali and Devanagari resolve through the stack's Indic faces; Han
+            and Arabic fall to the system, which every platform has for these. */}
+        <span className="board-cover-glyph">{glyph}</span>
+      </span>
+    )
+  }
+  return (
+    <span className={cls} aria-hidden="true">
+      <IconQuote />
+    </span>
+  )
 }
 
 // MoveToBoardDialog — "which board do these go on?", for one quote or for forty.
@@ -299,8 +406,9 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
         <div>
           <MonoLabel className="mb-1.5 block">languages</MonoLabel>
           <div className="flex flex-wrap items-center gap-2">
-            {[...new Set([...STARTER_LANGUAGES, ...languages])].map((l) => {
+            {[...new Set([...STARTER_LANGUAGES.map((s) => s.name), ...languages])].map((l) => {
               const on = languages.some((x) => x.toLowerCase() === l.toLowerCase())
+              const glyph = glyphFor([l])
               return (
                 <button
                   key={l}
@@ -309,6 +417,10 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
                   onClick={() => toggleLanguage(l)}
                   className={'tp-filter-chip tactile' + (on ? ' active' : '')}
                 >
+                  {/* The glyph the board's cover will wear, shown beside the name
+                      so the choice and its consequence are the same control. A
+                      language with no glyph simply shows its name. */}
+                  {glyph && <span aria-hidden="true" style={{ marginRight: 5, opacity: 0.75 }}>{glyph}</span>}
                   {l}
                 </button>
               )
@@ -482,9 +594,7 @@ function BoardTile({ board, onOpen, onEdit, onDelete, onToggleHidden }) {
         {board.image_path ? (
           <img src={coverImgURL(board.image_path)} alt="" className="board-tile-img" />
         ) : (
-          <span className="board-tile-img is-empty" aria-hidden="true">
-            <IconQuote />
-          </span>
+          <BoardCover board={board} />
         )}
         <span className="board-tile-name">{board.name}</span>
         <span className="board-tile-count">
