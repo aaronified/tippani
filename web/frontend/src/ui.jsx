@@ -2417,7 +2417,12 @@ const LONG_PRESS_SLOP = 10;
 //
 // A fired long-press swallows the click that follows it: holding a Delete button
 // to find out what it does must never also delete the thing.
-export function Tooltip({ label, side = "top", className = "", children }) {
+// `onContextMenu` is the OPT-OUT, and it is an opt-out from doing nothing rather
+// than from the suppression below — see the comment on that line for why the
+// suppression itself never lifts. A wrapped control that wants a right-click
+// gesture of its own passes a handler here; it still gets no platform menu and
+// still does not open the card menu it may be sitting inside.
+export function Tooltip({ label, side = "top", className = "", onContextMenu, children }) {
   const timer = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
@@ -2513,13 +2518,36 @@ export function Tooltip({ label, side = "top", className = "", children }) {
       onClickCapture={onClickCapture}
       onFocus={onFocus}
       onBlur={close}
-      // LOAD-BEARING TWICE, so it says so. On Android, long-pressing a control
-      // otherwise raises the text-selection handles or the platform context menu
-      // over the label we just showed. And since useCardMenu, this is also what
-      // stops a right-click on a card's own buttons from opening the CARD's menu:
-      // right-clicking the share glyph should do nothing, not offer to delete the
-      // quote. Removing this line breaks two features, one of them silently.
-      onContextMenu={(e) => e.preventDefault()}
+      // LOAD-BEARING, and for one thing rather than the two this comment used
+      // to claim. On Android, long-pressing a wrapped control otherwise raises
+      // the text-selection handles or the platform context menu over the label
+      // we just showed; on desktop it raises the browser's menu over whatever
+      // the control was about to do. That is what preventDefault is for, and it
+      // is why this line never lifts.
+      //
+      // IT IS NOT WHAT KEEPS A CARD'S MENU SHUT. The note here used to say it
+      // was, and the test written against that claim failed: preventDefault
+      // suppresses the DEFAULT, not the propagation, so a right-click on a
+      // card's share glyph does still reach useCardMenu. What turns it away
+      // there is useCardMenu's own `onControl(e.target)` guard
+      // (MENU_IGNORE_SELECTOR). Both mechanisms are real and both are needed —
+      // this one stops the browser's menu, that one stops the card's — but they
+      // are separate, and believing this line does both work is how somebody
+      // eventually deletes the guard that actually does.
+      //
+      // A CONTROL WITH ITS OWN RIGHT-CLICK GESTURE ADDS TO THIS, IT DOES NOT
+      // REPLACE IT. preventDefault still runs, so it still gets no platform
+      // menu. stopPropagation is added for it specifically: a control that has
+      // claimed the gesture should own it outright rather than depend on every
+      // ancestor's guard being written correctly. The handler is called last,
+      // once the event has been made safe — an opt-out that simply skipped this
+      // line would hand the Android bug back to every caller that wanted one.
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (!onContextMenu) return;
+        e.stopPropagation();
+        onContextMenu(e);
+      }}
     >
       {children}
     </span>
@@ -4250,6 +4278,23 @@ export function IconEdit() { return <svg {...iconStroke}><path d="M17 3l4 4L7 19
 export function IconDelete() { return <svg {...iconStroke}><path d="M3 6h18"/><path d="M8 3V2h8v1"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> }
 export function IconPlus() { return <svg {...iconStroke}><path d="M12 5v14"/><path d="M5 12h14"/></svg> }
 export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> }
+// IconSearchGlobe — the same magnifier, with the world drawn inside its lens.
+//
+// A globe rather than a badge, and IN the lens rather than beside it, because
+// the thing being said is not "there is a mode" but "this glass is looking at
+// everything". An equator and one meridian are enough: at 28px a third line is
+// a smudge, and the silhouette has to stay the search icon's or the button
+// stops being recognisable as Search.
+export function IconSearchGlobe() {
+  return (
+    <svg {...iconStroke}>
+      <circle cx="11" cy="11" r="7"/>
+      <path d="M21 21l-4.3-4.3"/>
+      <path d="M4.2 11h13.6"/>
+      <path d="M11 4.1c1.7 1.9 2.6 4.3 2.6 6.9s-.9 5-2.6 6.9c-1.7-1.9-2.6-4.3-2.6-6.9s.9-5 2.6-6.9"/>
+    </svg>
+  )
+}
 // IconQuote — quotation marks inside a square speech bubble: the Quotes tab, and
 // the top-bar / drawer capture entry.
 //

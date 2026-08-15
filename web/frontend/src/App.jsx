@@ -38,6 +38,7 @@ import {
   IconMenu,
   IconPlus,
   IconSearch,
+  IconSearchGlobe,
   NavIcon,
   Sprockets,
   StickerButton,
@@ -49,6 +50,7 @@ import {
   useFrameBase,
   useHideOnScrollDown,
   useIsMobileScreen,
+  usePersistedState,
   useResolvedDark,
 } from './ui.jsx'
 import { takeSearchSeed } from './facets.js'
@@ -908,6 +910,12 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // this is open/closed rather than which-of-two-views.
   const [profileOpen, setProfileOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // Whether the top bar's Search ignores where you are. A standing preference,
+  // so it is persisted rather than per-visit: a reader who searches everything
+  // does so every time, and having to re-declare it after each reload would
+  // make the gesture worse than the behaviour it replaces. Toggled by
+  // right-clicking the search button — see toggleGlobalSearch.
+  const [globalSearch, setGlobalSearch] = usePersistedState('tippani:search:global', false)
   // The single "＋ Add" surface (§7 One "＋ Add"): book · film · quote · import.
   // 1.4.1 made it the ONLY one — the Library and Catalogue page headers had their
   // own ＋, and a book's own page had a separate "Add annotation" modal, so there
@@ -1117,7 +1125,25 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // because a search started from a list is nearly always a search of that list.
   // The drawer's Search clears both instead — see the Shell's drawer row, which
   // calls searchScoped('all') with no chips.
-  const openSearch = () => searchScoped(searchScope(tab, detail), takeSearchSeed())
+  //
+  // Unless you have said otherwise. `globalSearch` is the standing preference
+  // for the minority of readers whose every search is a search of everything,
+  // and it makes the top-bar button behave like the drawer's: no scope, no
+  // seeded chips, a globe in the lens.
+  const openSearch = () =>
+    globalSearch ? searchScoped('all') : searchScoped(searchScope(tab, detail), takeSearchSeed())
+  // RIGHT-CLICK ONLY, WITH NO ON-SCREEN AFFORDANCE, and that cost is accepted
+  // rather than overlooked: a visible switch for this would be a permanent
+  // control in the busiest row of the app, answering a question most readers
+  // never ask. It is documented where the app documents its other invisible
+  // gestures — help.jsx and the UI glossary. The globe is the feedback: once it
+  // is on, the button says so every time you look at it.
+  const toggleGlobalSearch = () => {
+    setGlobalSearch((g) => {
+      toast(g ? 'searching where you are' : 'searching everything')
+      return !g
+    })
+  }
 
   async function logout() {
     await fetch(apiURL('/auth/logout'), { method: 'POST' })
@@ -1181,15 +1207,21 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 accent texture — the phone top bar already works this way.
                 (Quote capture lives inside the ＋ Add surface's Capture tab —
                 no separate top-bar pill.) */}
-            <Tooltip label="Search everything" side="bottom" className="shrink-0">
+            <Tooltip
+              label={globalSearch ? 'Searching everything' : 'Search'}
+              side="bottom"
+              className="shrink-0"
+              onContextMenu={toggleGlobalSearch}
+            >
               <button
                 type="button"
                 className="topbar-add-btn tactile icon-only"
                 data-tour="search"
+                data-global={globalSearch ? 'on' : undefined}
                 onClick={openSearch}
-                aria-label="Search"
+                aria-label={globalSearch ? 'Search everything' : 'Search'}
               >
-                <IconSearch />
+                {globalSearch ? <IconSearchGlobe /> : <IconSearch />}
               </button>
             </Tooltip>
             {/* Help moved out of the page headers and into the bar in 1.4.1: it
@@ -1229,9 +1261,23 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 {importBadge}
               </button>
             </Tooltip>
-            <Tooltip label="Search everything" side="bottom" className="shrink-0">
-              <button type="button" className="mobile-topbar-btn" data-tour="search" aria-label="Search" onClick={openSearch}>
-                <IconSearch />
+            {/* The glyph follows the preference here too, but the GESTURE does
+                not: a phone has no right-click, and long-press is already the
+                Tooltip's. So this bar reports the mode and cannot change it,
+                which is the honest arrangement — the button behaves the way its
+                glyph says, and the one place that can flip it is the one place
+                the gesture exists. The drawer's Search below stays global
+                unconditionally, as it always has. */}
+            <Tooltip label={globalSearch ? 'Searching everything' : 'Search'} side="bottom" className="shrink-0">
+              <button
+                type="button"
+                className="mobile-topbar-btn"
+                data-tour="search"
+                data-global={globalSearch ? 'on' : undefined}
+                aria-label={globalSearch ? 'Search everything' : 'Search'}
+                onClick={openSearch}
+              >
+                {globalSearch ? <IconSearchGlobe /> : <IconSearch />}
               </button>
             </Tooltip>
             <PageHelp screen={help} />
