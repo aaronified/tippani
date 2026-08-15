@@ -32,9 +32,21 @@ A plan is written against the tree rather than against memory: open with a
 *What already exists* table verified at a named commit, and record what that
 verification changed. It has moved real claims every time.
 
-## The three that retired here
+## The six that retired here
 
 `trash-and-undo.md` (shipped 1.8.0), `context-menu-and-multiselect.md`
 (1.10.0, works in 1.11.1, finished in 1.14.2) and `search-facets.md` (1.10.0).
 Their decisions and their corrections are in `PLAN.md` under sections 3, 7
 and 14.
+
+Then `review-loop-deepened.md`, `review-exclusion-per-quote.md` and
+`font-settings.md`, all shipped in 1.15.0 and folded into sections 8 and 15.
+
+The first of those is the strongest argument this directory has for existing.
+Its *What already exists* pass, verified against a named commit, found three
+defects live in the shipped app before a line of the feature was written — and
+its specification pass caught two more bugs that lived *between* features, which
+no single spec owned and no test would have reached. It was also right where the
+implementation was wrong: it specified cloze grading token by token, said why in
+as many words, and the code that shipped banded the budget across the whole
+string until a docs pass three commits later compared the two.

@@ -2390,7 +2390,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 **Approved.** Mine, and I approved it as opt-in on the same reasoning that retired the sliders: a default nobody has to understand.
 
-<sub>Not shipped — `docs/roadmap.html`</sub>
+<sub>1.15.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_adaptive_test.go`</sub>
 
 ### Cloze review computes the masked span at request time — no schema, no storage
 
@@ -2402,7 +2402,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 **Approved.** Mine, and I approved the seeded-per-card rule so a reader is not asked a different blank each time they meet the same line.
 
-<sub>Not shipped</sub>
+<sub>1.15.0 — `internal/httpapi/cloze.go` · `internal/httpapi/cloze_test.go`</sub>
 
 ### Achievements are off by default, computed at query time, one streak
 
@@ -2463,7 +2463,7 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **Approved.** The reader's, in the form "add new facets to the quiz as well."
 
-<sub>Not shipped</sub>
+<sub>1.15.0, four of the six — `internal/httpapi/review_handlers.go` (`directionsFor`)</sub>
 
 ### Question types are a preference, and the filter belongs in reviewSource
 
@@ -2493,7 +2493,7 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 **Approved.** The reader's, in the form "fill in the blanks questions must be forgiving with typos. but not with synonyms."
 
-<sub>Not shipped</sub>
+<sub>1.15.0 — `internal/httpapi/cloze.go` · `internal/httpapi/cloze_test.go`</sub>
 
 ### Measured difficulty feeds the schedule, beside the fixed ladder
 
@@ -2510,6 +2510,174 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 **Approved.** The reader's, in the form "Difficulty feeds the schedule - yes."
 
 <sub>Not shipped</sub>
+
+### Skipping the quiz is a fact about a quote, and a work's toggle is a bulk edit
+
+**Decided.** `reviewSource.where()` reads the QUOTE's `review_excluded` and nothing else. A work's toggle writes that column onto every quote it holds, and the work wears its own mark only when all of them are skipped.
+
+**Reversal.** 0033 put the flag on both and ANDed them in the deck, which made the child's flag lie. The report: *"Take a highlight that is excluded both on its own account and by its book. The selection bar reads the own flag, so it offers Add to quiz; pressing it clears the quote's own column and toasts 'back in the quiz' — but the book still excludes it, so the deck still won't serve it and the mark stays put."*
+
+**Why the toast was the worst part.** It reported an outcome that did not happen, about a change that did. Nothing on screen resolved the contradiction, because the mark read both flags and the button read one — so the app was simultaneously right and wrong about the same quote.
+
+**Instead of** making the button read both flags and clear both, which was the smaller change. That would let one press of *Add to quiz* on a single highlight put forty others back into the deck as a side effect — a bulk write behind a single-item control.
+
+**Affordable because the rule has exactly one choke point.** The comment there already said that a rule added to four of the five callers is "a deck that will not serve a card the badge is still counting"; removing a term is the same argument.
+
+**Approved.** The reader's, and the resolution is theirs too: *"hide from quiz/spaced repetition should be an annotation level thing. and user can simply turn them on / off in bulk when they change the setting in work level. and work level icon will be shown when all annotations in it are skipped."*
+
+<sub>1.15.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/bulk_handlers.go` · `web/frontend/src/ui.jsx`</sub>
+
+### One ordered table of question types, and a flip card that cannot fail
+
+**Decided.** `directionsFor(kind)` is the single per-kind list of question types — source, quote, flip, cloze, and speaker for screen quotes — and `buildQuestion` returns a card unconditionally rather than a `(card, ok)` pair. When no direction can be built, the card falls back to the **flip card**: show the quote, reveal the source, grade yourself.
+
+**Why one table.** Seven implementation specs were written against the tree, one per feature, each blind to the others. Every one of them independently rewrote `dailyDirection`'s two-way toggle into a differently-shaped three-way, and the three rewrites were mutually exclusive. A table makes per-kind applicability — speaker is screen-only, a book has no cast — a property of data rather than a special case in a branch.
+
+**Why the signature cannot fail.** `buildQuestion` used to drop a card it could not build a question for, and `dailyRemaining` counted it anyway. The badge and the deck disagreed for any library with one work in it: "3 due", nothing served. **Its test asserted the empty deck as correct.** The flip card fixes this at the root, because it is the one type that works for every quote — there is nothing to fail at.
+
+**Instead of** adding a fifth reason for a card to vanish. A quiz that silently serves fewer cards than it counts is a quiz nobody can trust the count of.
+
+**Approved.** Mine, on the reconciler's finding.
+
+<sub>1.15.0 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-runner.test.jsx`</sub>
+
+### The client keys a flip card on the ABSENCE of options, not on the direction string
+
+**Decided.** `isFlipCard(card)` is true when the card has no options and no cloze blank — never `card.direction === 'flip'`.
+
+**Why.** It makes an unknown direction from a newer server degrade to the one card type that always works, instead of rendering as a multiple choice with nothing to choose. A card with options is a question this client knows how to grade; a card without them is not, whatever it calls itself.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `web/frontend/src/review.jsx`</sub>
+
+### Three answer leaks, two of them live in the shipped app before this release
+
+**Decided.** Fixed, each with a test that fails when the guard is removed:
+
+1. **`Home.jsx` rendered the attribution side for every direction that was not `source`.** The line was `isSource ? <QuoteBlock/> : <SourceLines/>`, and `SourceLines` prints the actor as a face chip and the character in its meta line. With two directions that was the same thing; the moment a *speaker* card existed it would have shown the right actor directly above the four options.
+2. **`attachMCQ` fell through to the quote branch for any unrecognised direction.** It tested `if direction == source` and everything else took the other branch, so a card labelled `cloze` or `speaker` would have come back carrying quote options with the correct quote among them. It is an explicit switch now, whose default refuses.
+3. **Selecting a wrong option painted it red before Submit.** `chosen && !isAnswer` was safe only while a chosen option was necessarily a graded one; the confirm step put a real interval between the two, and without `answered &&` the styling told you the answer while you could still change it.
+
+**Why they are logged together.** None was visible from inside the feature that would have exposed it. The first two were found by a specification pass reconciling seven independent specs, not by any test, and both had been in the tree for releases behind a two-direction vocabulary that happened not to reach them.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `web/frontend/src/review.jsx` · `internal/httpapi/review_handlers.go`</sub>
+
+### The daily deck's "seeded" options were never seeded
+
+**Decided.** `quizPools` sorts its work list after building it from a map, and the quote sampler orders by a hash of the id when a seed is present instead of `ORDER BY RANDOM()`.
+
+**Why.** The deck's whole contract is that today's cards are the same cards, in the same order, with the same choices, on every device. The comment saying so had been there for releases. The pool underneath came from Go map iteration — deliberately randomised — and a SQL `RANDOM()`, so the same card offered different wrong answers on a phone and a laptop, and nothing anywhere reported it.
+
+**Instead of** trusting the comment. This is the second time in this section a stated invariant turned out to be enforced by nothing.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_seed_test.go`</sub>
+
+### A confirm step replaced undo, because the roadmap asked for the wrong thing
+
+**Decided.** `srSubmit`, off by default: a tap SELECTS an option and a Submit button commits it. Until you press it, tapping another option changes your mind and nothing has left the browser.
+
+**Why, and the reversal.** The roadmap line asked for "undo the last answer", which needs the previous half-life stored — a column this section is built on not having. The reader restated the actual want as *"optional submit button instead so answers can be changed after clicking. this will protect against misclicks"*, which is the same problem solved before it happens rather than after.
+
+**Not offered on flip or cloze cards.** Typing an answer and pressing Check is already a submit step; revealing a card and then saying whether you had it is already two acts. A confirmation on either is asking twice.
+
+**The plan said "this is client only" and was wrong.** The preference needs a field in the prefs struct and a branch in the merge, or the PUT is accepted and silently discarded by `loadPrefs`' typed unmarshal and the toggle reverts at the next login. What is genuinely client-only is the answer endpoint.
+
+**Approved.** The reader's, in the form quoted above.
+
+<sub>1.15.0 — `internal/httpapi/auth_handlers.go` · `web/frontend/src/review.jsx`</sub>
+
+### A card forgotten five times is offered a way out, and never taken out automatically
+
+**Decided.** `lapse_count` was stored since 0015 and read by nothing. At five lapses the card says so **after** it has been answered, and offers "Set it aside" beside "Keep asking". Neither suspends nor shortens anything by itself.
+
+**Why an offer.** A card that vanished because a counter reached five would be the app making a decision nobody asked it to make, and a half-life quietly altered behind the reader is the schedule lying about itself.
+
+**Why after the answer, and why the flag comes back on the grade.** The answer that MAKES a card a leech also pushes it a week out of the deck, so waiting for the flag to arrive on a future card would surface the offer a week after the frustration that earned it.
+
+**Approved.** The reader's, as "leech handling".
+
+<sub>1.15.0 — `internal/httpapi/review_handlers.go` · `web/frontend/src/review.jsx`</sub>
+
+### A cloze card is offered only where the stopword list means something
+
+**Decided.** `clozeReadable` gates cloze on the text being at least three-quarters Latin script. Everything else gets one of the other directions, which are all script-agnostic.
+
+**Reversal.** The plan said a quote in another script "simply will not produce a good span". It produces a *confident* one: an English stopword list matches zero Devanagari or Cyrillic or Han tokens, so every token reads as a content word and the selector blanks a phrase out of text it understands nothing about. Far from producing no span, it produces one with nothing to say against it.
+
+**The limit is written in the code rather than in the plan**, so whoever adds a second stopword list knows exactly what to change.
+
+**Approved.** Mine, on the specification pass.
+
+<sub>1.15.0 — `internal/httpapi/cloze.go` · `internal/httpapi/cloze_test.go`</sub>
+
+### The cloze mask is derived from (kind, id) and never from the day
+
+**Decided.** `clozeSpan` takes no day seed. The same card blanks the same words on every device, on every day, in Daily and in Practice alike.
+
+**Why.** The grading endpoint has to recompute the span the card was built with. A mask that moved with the date would grade tomorrow's answer against today's blank, and nothing would report it — the reader would simply be marked wrong for the right words.
+
+**And the answer never travels.** Unlike an MCQ, whose `answer` is an index that means nothing without the options, a cloze answer IS the words being recalled. The card carries the masked text and no answer; the words come back in the reply to the attempt.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `internal/httpapi/cloze.go`</sub>
+
+### "Who said this" draws its distractors from the film's own cast, and never fetches
+
+**Decided.** The options are ACTORS, not characters, at the reader's request. Distractors come from the same film's stored `cast_json` first — the people who were actually in it — and widen to the pool only when that is not enough.
+
+**Why the film's own cast.** It is the difference between a question that is hard because you have to remember and one that is easy because three of the four names are obviously from other decades. It also costs nothing: the cast is already stored, so there is no request at quiz time, which this app does not do anyway.
+
+**Approved.** The reader's, in the form "for movies/shows, who said this (options will have actor cards, not the character cards)".
+
+<sub>1.15.0 — `internal/httpapi/speaker.go` · `internal/httpapi/speaker_test.go`</sub>
+
+### A theme narrows Practice only, and the clause is kept out of the shared eligibility string
+
+**Decided.** `reviewTheme` is threaded through the three candidate queries as its own clause. It is **not** added to `reviewSource.where()`, and `handleDailyQuiz` passes `reviewTheme{}` **by name** with a comment saying why.
+
+**Why not in `where()`.** Five queries splice that string and two of them are Daily's own: `dailyRemaining`, which decides the badge, and `reviewStates`, which draws the "where you stand" row. A theme there would narrow both — so opening a themed round would change the number of cards the app said were due today, in the same commit whose stated constraint is that Daily is not themeable.
+
+**Why Daily is not themeable at all.** The daily deck IS the schedule. Filtering it would leave the cards that are actually due unasked while the streak still counted the day as cleared, which quietly turns the one authoritative surface into a second practice mode.
+
+**A theme about something a kind cannot have drops that kind entirely** rather than leaving it unfiltered. "Quiz me on this book" over film lines must return no film lines — not all of them, which is what an ignored clause does.
+
+**The buttons are contextual rather than central.** There is no "pick a theme" screen: you are already looking at the book, the tag, the person or the colour when you want to be asked about it. A picker would mean choosing a book from a list of books one screen after leaving the list of books.
+
+**Approved.** The reader's, as "themed review".
+
+<sub>1.15.0 — `internal/httpapi/review_theme.go` · `web/frontend/src/review.jsx` · `web/frontend/src/works.jsx` · `web/frontend/src/StatsPage.jsx`</sub>
+
+### In-card actions open only after the card is graded
+
+**Decided.** Edit, ♥ and re-tag live in one panel on the review card, and the panel is unreachable until the card has been answered.
+
+**Why the gate is the feature.** An edit form carries the quote, the title and the credit: on a "which book?" card that IS the answer, and on a cloze card it is the masked words in full. A pencil beside an unanswered question is a way to read the answer without answering it. With the confirm step on there is a real interval between choosing and committing, and the gate holds across it.
+
+**It also disposes of two bugs that lived between features.** The specification pass found that folding an edited row back onto a card would un-mask a cloze card, and would write a film title into the answer slot of a speaker card whose options are actor names. Both were about revealing something early; once nothing folds back before the grade, what remains is one short rule — the note always, the quote unless the card is a cloze one, and the options never, because they were the question.
+
+**The whole row goes back, because the PUT is full-state.** The payload is the row with the edited fields over it rather than a hand-built object that has to remember `board_id` on a standalone quote and the sticker's coordinates on all three. A field forgotten there is a field an edit to the words silently blanks.
+
+**Approved.** The reader's, as the roadmap line.
+
+<sub>1.15.0 — `web/frontend/src/review.jsx` · `internal/httpapi/quote.go` (`idFilter`)</sub>
+
+### QuizRunner had no tests at all, and six features rewrote it
+
+**Decided.** Tests landed *before* the state machine was split, not after.
+
+**Why it is worth an entry.** The only thing that rendered `QuizRunner` was a smoke test that mounts every screen with all requests refused, so nothing ever reached an active deck. The submit-off path — the one every current reader is on — had never been asserted by anything, and six of the seven features in this release rewrite that component. Two of the three answer leaks above are in code that path runs.
+
+**And a test that passed against its own bug.** The first version of the submit-step leak test checked for the words "not quite", which are gated separately, rather than for the option styling. It passed with the guard removed. Every guard in this release was verified by reverting it and watching the test fail.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `web/frontend/test/dom/quiz-runner.test.jsx` · `web/frontend/test/dom/card-tools.test.jsx`</sub>
 
 ## 9. Import and the Staging Queue
 
@@ -4902,6 +5070,104 @@ that is doing two things, and the word limit surfaces that rather than papering 
 were nothing but this rule applied to text that had accumulated.
 
 <sub>1.4.1 — `web/frontend/test/dom/button-labels.test.jsx` · `web/frontend/src/ui.jsx`</sub>
+
+### Six type ROLES, three faces each, and every one bundled
+
+**Decided.** Settings → Type lists the six jobs type does here — quotes, interface, labels, notes, Bengali, Devanagari — each with the built-in and two alternates, and each row **shown doing its own job** rather than setting a specimen sentence.
+
+**Why roles rather than fonts.** A role is what the font is FOR, so swapping one is a line in `fonts.js` and not a search for every place a family name was written down. It is also the only way the picker can say anything useful: a list that sets "the quick brown fox" in every face answers no question anybody has, and it cannot show the Bengali row at all, whose whole point is a script no specimen sentence contains.
+
+**Bundled, not fetched, and the cost is stated.** This app never contacts the network on its own, and a type picker that loaded Google Fonts would be the first thing in it that did — on a screen about how your own words look. `web/dist` goes from 3.4 MB to 7.2 MB. What grows is the image on disk, not what a browser downloads: `@fontsource` splits every face by `unicode-range`, so a subset is fetched only when a codepoint in its range is drawn. All eighteen families are OFL-1.1.
+
+**An unrecognised token falls back to the built-in, never to nothing.** A preference that fails to resolve must not leave the app with no font: that is indistinguishable from a broken stylesheet, and it is silent.
+
+**Approved.** The reader's, in the form "build a settings where users can customise every font used in the app".
+
+<sub>1.15.0 — `web/frontend/src/fonts.js` · `web/frontend/src/Settings.jsx` · `web/frontend/src/main.jsx`</sub>
+
+### The Bengali face changed on the reader's judgement, and the old one stayed on the list
+
+**Decided.** Bengali is Noto Serif Bengali and Devanagari is Noto Serif Devanagari. Tiro Bangla and Tiro Devanagari Hindi are both still offered.
+
+**Reversal.** An earlier release had replaced Noto Serif Bengali *with* Tiro Bangla, for a stated reason I still think is a reasonable one — "a text face with real Bengali letterforms rather than a pan-script fallback". The person who reads Bengali in this app called it horrible, which is the only evidence that counts about type somebody has to read every day. Devanagari moved the same way on the same reader's milder version of the same note.
+
+**Reversing a choice is not deleting it.** Both previous faces are on the list they were removed from being the default of, which is what a picker is for.
+
+**Approved.** The reader's, in the form "change the bengali font. it is horrible. Hindi font can be improved as well, but it is not as bad."
+
+<sub>1.15.0 — `web/frontend/src/index.css` · `web/frontend/src/fonts.js`</sub>
+
+### The Indic faces live inside the Latin stacks, so changing one rebuilds three
+
+**Decided.** `--font-display`, `--font-ui` and `--font-hand` each name the Latin face first and then the Bengali and Devanagari faces. Stacks are composed in `stackFor` from the WHOLE choice, not per role.
+
+**Why after the Latin face and not before.** No Latin codepoint ever reaches the Bengali face and no Bengali codepoint stops at the Latin one, so one stack serves both and neither pays for the other. Listed *before*, the Indic faces' own Latin subsets would win and the app would change typeface.
+
+**The consequence, which is the non-obvious part:** picking a new Bengali face has to rebuild the display, ui and hand stacks too. A per-role substitution would leave a Bengali quote inside a book card rendering in the old face while the Bengali row of the picker showed the new one.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `web/frontend/src/fonts.js` · `web/frontend/test/dom/fonts.test.jsx`</sub>
+
+### The style modifiers are companion custom properties, and OFF is `inherit`
+
+**Decided.** Bold, italic, small caps, all caps and lining figures are per role, applied through five companion properties (`--font-display-weight` and so on) set beside every `font-family: var(--font-X)` — 69 rules in `index.css` and 63 inline styles.
+
+**Why not at `:root`.** These are inherited properties. Set once at the root they would land on everything, and a modifier meant for the label face would restyle the quotes.
+
+**Why `inherit` rather than `normal` for off.** A heading already set to 600 must not be flattened to 400 by a role nobody has touched. "Off" has to mean *whatever this element would have been*, which is exactly what an untouched preference should mean.
+
+**Where an element already sets its own weight or italic, the companion is dropped** rather than left to fight it — 89 such sites, found by walking each object literal and rule block rather than by eye.
+
+**"Monospace" was asked for and is not here, and the picker says so.** Whether a face is monospaced is a property of how it was drawn; no CSS makes a proportional face monospaced, so a switch by that name could only lie. `font-variant-numeric: tabular-nums` is the real thing behind the request and ships as "Lining figures". Small caps and all caps are absent from the Bengali and Devanagari rows, which have no case at all.
+
+**Approved.** The reader's for the list, mine for the two substitutions, both stated on screen.
+
+<sub>1.15.0 — `web/frontend/src/index.css` · `web/frontend/src/fonts.js`</sub>
+
+### An uploaded font is stored and never parsed, and the script check runs in the browser
+
+**Decided.** `POST /fonts` checks the first four bytes against the six font-container magics and writes the rest verbatim. The script check — does this face actually draw Bengali? — runs client-side, **by measuring text**, and is a warning rather than a refusal.
+
+**Why the server never parses it.** Font parsers are a famously bad attack surface, the dependency budget here is three direct Go modules, and the only thing that needs to read this file is the browser that asked for it, which has a hardened parser and is going to run it whatever this package concludes. The file is served with `nosniff`, and only to its owner.
+
+**Format by magic bytes, not by extension.** A `.woff2` that is really a ZIP is exactly the case an extension test misses, and the browser would refuse it later with nothing on screen to say why.
+
+**Why measurement rather than parsing.** Reading the `cmap` table means a font parser; woff2 is Brotli-compressed, so in the browser it would mean shipping a decompressor as well — for a check whose answer is advisory either way. Instead: set a string of the target script in the candidate and in a control that certainly lacks it, and compare widths. A face without the script substitutes the same fallback the control does and measures identically.
+
+**A warning, not a refusal.** It can be fooled both ways — a font with three Bengali glyphs passes — and refusing somebody's own font on the strength of a metrics heuristic is worse than telling them what looks wrong. Where it cannot measure at all it answers *undecidable* and says nothing: "I could not check" must never render as "your font is wrong".
+
+**Deleting a font a preference still names rewrites nothing.** An unresolvable token falls back to the built-in, which is the rule that already covers a typo, an older client and a newer one.
+
+**Approved.** The reader's, in the form "user can upload a new font to replace them. a verifier will verify if the language / script is the same".
+
+<sub>1.15.0 — `internal/httpapi/font_handlers.go` · `internal/store/migrations/0039_user_fonts.sql` · `web/frontend/src/fonts.js`</sub>
+
+### The share image resolves the same faces, because canvas cannot read a custom property
+
+**Decided.** `quoteImage.js` builds its font shorthands from `fontChoice`, rebuilt inside `ensureFonts()` — the one thing every draw already awaits.
+
+**Why it is worth an entry.** It is the easiest consumer to forget. A type swap that only rewrote the stylesheet would leave every exported card in the old face, which is the same class of bug as a filter that changes one screen: correct everywhere you look and wrong where you do not.
+
+**What follows the preference is the FAMILY, not the weights.** The card is a drawn composition — its quote is italic and its footer is 600 because the card is designed that way, not because the display role is. Applying "all caps" from Settings to a share image would restyle a picture somebody is about to send to somebody else.
+
+**Approved.** Mine.
+
+<sub>1.15.0 — `web/frontend/src/quoteImage.js`</sub>
+
+### A proverb wears its language where every other quote wears a face
+
+**Decided.** A standalone quote with a language and no speaker leads its meta line with a **language mark** — the reader's own if they set one, else a letter from that language's script, else nothing at all.
+
+**Flags are offered and not assumed.** The ask was "use flags for languages", and the tray offers twenty-four of them first. What the app does not ship is a *mapping*. A flag is a country and a language is not: Bengali is spoken either side of a border, Hindi has no flag of its own, and Spanish, Portuguese, Arabic and English have a dozen each with nothing to choose between them. A default here would be this app telling somebody which country owns their mother tongue. A test asserts no starter language arrives wearing a flag, because a table like that is exactly what somebody fills in later out of tidiness.
+
+**Instead of** leaving the slot empty, which is what it was. Every other quote card begins with somebody's portrait; a proverb — which is close to *the* kind with nobody to credit — began with nothing.
+
+**Stored as JSON in a string**, for the reason `creditSeparators` is a token string: prefs is a flat comparable struct compared with `!=` in `ui_test.go`, so a map field would not compile. Names fold on the way in, keys sort so the blob is stable, and an empty mark is dropped rather than stored — the absence IS the default.
+
+**Approved.** The reader's, in the form "use flags for languages (replacement for people chips for proverbs). let the user change them if needed as well." The second half is the mechanism rather than an escape hatch.
+
+<sub>1.15.0 — `web/frontend/src/languages.jsx` · `internal/httpapi/language_marks.go`</sub>
 
 ## 16. Serving and Running It: HTTP Surface, Logging, TLS and Updates
 

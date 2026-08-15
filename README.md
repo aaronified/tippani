@@ -108,17 +108,49 @@ of that are spelled out in [`AI.md`](AI.md).
   colour is deliberately not nameable — it is what a quote gets when nobody picks one, and what an
   import writes when the source named no colour, so naming it would label every unmarked quote you
   own.
+- 🔤 **Choose the type** — Settings → Type lists the six faces the app uses, each shown doing its own
+  job rather than setting the same specimen sentence: the quote face setting a quote, the label face
+  setting a locator, the Bengali face setting Bengali. Each offers the built-in and **two
+  alternates**, and you can **upload your own** — stored on your own server, never parsed there, with
+  a check that measures whether the face actually draws that row's script (a warning, not a refusal;
+  it's your font). **Bold, italic, small caps, all caps and lining figures** are per role. Every
+  bundled face is OFL-licensed and ships **with the app** — nothing is fetched from anywhere, which is
+  true of this app generally and would be a strange thing to break on a screen about how your own
+  words look.
 - 🧠 **Daily Quiz & Practice** — spaced repetition grounded in the memory research, over your
   **books, films/shows *and* standalone quotes** alike — each of the three independently
   switchable, so books-and-quotes-but-not-films is a thing you can ask for. Every highlight carries a **memory half-life** and resurfaces
   along the **Ebbinghaus forgetting curve**: recall probability decays as $p = 2^{-t/h}$ — where $t$
   is the days since you last saw it and $h$ is its half-life — so a card comes due right as you're
-  about to forget it. Each card is a **multiple-choice** question in one of two directions — *which
-  work is this quote from?* (pick the title) or *which quote is from this work?* (pick the quote) — with
-  **plausible distractors**: for books, other works by the **same author** first, then the closest by
-  **shared genre**; for films/shows, the closest by **shared genre**, then a **shared actor**. A correct
-  pick counts as ***Got it*** (the half-life climbs); a wrong one as ***Forgot*** (a lapse — the card
-  starts over); Practice also allows ***Skip*** (no effect on the schedule).
+  about to forget it. A card is asked in one of **five ways**, drawn per card and per day: *which
+  work is this quote from?* (pick the title) · *which quote is from this work?* (pick the quote) ·
+  **fill in the blank** (a phrase is masked out and you type it back) · **who says this?** on a film
+  or show line, where the options are the **actors** out of that film's own cast rather than the
+  characters · and the plain **flip card** — read it, remember, then reveal and say honestly whether
+  you had it. The multiple-choice ones carry **plausible distractors**: for books, other works by
+  the **same author** first, then the closest by **shared genre**; for films/shows, the closest by
+  **shared genre**, then a **shared actor**. A correct pick counts as ***Got it*** (the half-life
+  climbs); a wrong one as ***Forgot*** (a lapse); Practice also allows ***Skip*** (no effect on the
+  schedule).
+
+  The blank is graded **on the server**, word by word, forgiving a typo in a long word and nothing
+  at all in a short one — "vast" and "fast" are different words, not a slip — and the answer never
+  reaches the browser until your attempt is in. Cloze is offered only where the text is
+  predominantly Latin, because the stopword list that decides what is worth blanking is English and
+  would otherwise confidently mask a phrase out of a script it cannot read.
+
+  If you tap the wrong option by accident, Settings has an opt-in **confirm step**: a tap chooses
+  and a button commits, so you can change your mind until you press it. A card you have forgotten
+  five times says so once you have answered it and offers to be **set aside** — an offer, never
+  automatic, because a card vanishing because a counter reached five is a decision nobody asked the
+  app to make. And you can **fix a typo, re-tag it or ♥ it from inside the card** — but only after
+  you have answered, since an edit form shows the quote and its source, which on most cards is the
+  answer.
+
+  A round can also be **about one thing**: *Practise* sits in a book or film's own menu, on a
+  person's panel, beside a tag, and on the colour rows in Stats. The Daily Quiz has no themed
+  version on purpose — that deck **is** the schedule, and filtering it would leave the cards
+  actually due unasked while the streak still counted the day as cleared.
 
   The **Daily Quiz** is the scheduled session: every card due that day, no skipping, each grade folded
   into your schedule, with a permanent score and streak. **Practice** is unlimited, skippable, on-demand
@@ -157,7 +189,11 @@ of that are spelled out in [`AI.md`](AI.md).
   The split exists because a proverb has no speaker, no occasion, no date and no place, so on a
   single board it fell into the residual bucket of every grouping the screen offered and sat mixed
   in with the speeches. A proverb can carry the **language** it belongs to and an **English
-  translation**, and the translation is searchable — you search the English because the English is
+  translation**. Because it has nobody to credit, its card leads with a **language mark** where every
+  other quote leads with somebody's face — a letter from that language's own script by default, and
+  a flag or anything else you like from Settings. No language arrives wearing a flag: a flag is a
+  country and a language is not, and picking one for you would be this app saying which country owns
+  your mother tongue. The translation is searchable — you search the English because the English is
   the half you can type. **Thirty curated proverbs** come in the box, ten each in Bengali, Hindi and
   English, and none of them arrive uninvited: the offer sits on any empty board, names the
   language, and does nothing until you ask. A proverb is content, not furniture, and a library you
@@ -635,6 +671,11 @@ Standing on the shoulders of:
   paper·wood·metal·glass surfaces of the paper/film skins.
 - **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** — I read their highlight / Markdown exports directly as import
   sources; thanks to both apps for making Kindle and cross-device highlights portable.
+- **[Fontsource](https://fontsource.org/)**, and the type designers behind the eighteen families
+  that ship in the build — Newsreader, Source Serif 4, Literata, Hanken Grotesk, Inter, Public Sans,
+  IBM Plex Mono, JetBrains Mono, Source Code Pro, Caveat, Kalam, Gloria Hallelujah, Noto Serif
+  Bengali, Hind Siliguri, Tiro Bangla, Noto Serif Devanagari, Hind and Tiro Devanagari Hindi. Every
+  one is under the **SIL Open Font License 1.1**, and every one is bundled rather than fetched.
 
 ## License
 

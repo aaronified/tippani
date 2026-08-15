@@ -103,23 +103,23 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **765 Go test functions and 1,672 frontend tests, across 217 test files** — the
+- **807 Go test functions and 1,759 frontend tests, across 233 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npm test                                            # frontend tests
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 127 Go files
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 136 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 90 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 97 frontend
   ```
 
   A number in a file like this one is stale the moment it is written, so recount
   rather than trust it — these three had drifted from 645 / 1,293 / 180 before
-  anyone checked them at 1.12.0, and from 725 / 1,581 / 203 before they were
-  recounted at 1.14.2, which is why each one now sits beside the command that
-  produces it.
+  anyone checked them at 1.12.0, from 725 / 1,581 / 203 before they were
+  recounted at 1.14.2, and from 765 / 1,672 / 217 by 1.15.0, which is why each
+  one now sits beside the command that produces it.
 
   Two habits behind those numbers are worth naming, because they are what stops a
   plausible test from being a useless one. **Assert on values, never on counts**:
@@ -130,6 +130,27 @@ worth nothing here and only execution counts. What the repo actually runs:
   neutered to confirm seventeen tests noticed, and again to confirm two more
   noticed a subtler reversal. A test written after the code, by the thing that
   wrote the code, is worth exactly what its failure proves.
+
+  1.15.0 added a third habit, for a case the other two cannot reach. Seven
+  features in that release all rewrote the same two functions, so instead of
+  building them in sequence I had seven implementation specifications written
+  against the tree, each blind to the others, and then reconciled. **It found
+  three defects live in the shipped app before a line of the feature was
+  written** — a render branch that would print the answer above the options, a
+  switch whose default returned the correct quote among the distractors, and a
+  badge that counted cards the deck then refused to serve, whose test asserted
+  the empty deck as correct. It also found two bugs that lived *between* two
+  features and belonged to neither, which is the class no single spec and no
+  single test was ever going to reach. The reconciliation is folded into
+  `docs/PLAN.md` §8.
+
+  The same release is also the clearest case for writing the plan first: the
+  retired plan specified cloze grading word by word and said why in as many words
+  — "a whole-string budget earned by long neighbours will hide a wholly missing
+  short word" — and I built the whole-string version anyway. Three commits later
+  a documentation pass compared the two and found that `"want of a wife"` was
+  accepting `"want of a life"`. The plan was right and the code was not, and only
+  reading them side by side said so.
 - **CI on every push**: `go vet ./...`, `go test ./...`, a smoke test that boots
   the server and health-checks it, a frontend build, a check that the roadmap's
   generated regions still match the data files they come from, a check that the
@@ -409,6 +430,13 @@ What can be stated from the tree:
   section — the `pretext` text-reflow library, the CC0 texture packs behind the
   paper/film skins, the metadata sources, and the apps whose export formats are
   read as import sources.
+- **Eighteen type families ship in the build**, all `@fontsource` packages and all
+  **OFL-1.1** — free to use, embed, modify and redistribute. Twelve of them arrived
+  in 1.15.0 as the alternates behind Settings → Type. They are bundled rather than
+  fetched, which is the same rule as everything else here: this app makes no
+  network request the reader did not ask for, and a type picker that phoned a font
+  CDN would have been the first exception, on a screen about how your own words
+  look.
 - **Design influences are named where they apply**, in the code and in
   `docs/PLAN.md` — the Radarr-style status bar, the `*arr`-style cover folder — so
   an idea taken from elsewhere is attributed rather than passed off.
