@@ -256,6 +256,13 @@ second control saying the same thing in the same row of the same screen is not
 more legible, it is two things to keep in step. The *seeding* Part 4 describes —
 arriving already narrowed to where you came from — is built.
 
+**And the grammar needed a way out of itself, which the plan does not mention.**
+Thirteen ordinary English words become operators the moment `field:` is a
+syntax — `note:`, `series:` and `year:` are things a reader writes in a note.
+Without an escape those phrases are unsearchable, and unsearchable silently: the
+box opens a dropdown and the words never reach the query. A backslash before the
+colon is the way out.
+
 Three smaller ones. A board's `tagged` and `noted` cannot seed `tag:` and
 `note:`: the board's are properties of the **work** derived from its children,
 the facets are properties of the **quote**, and sending one as the other empties

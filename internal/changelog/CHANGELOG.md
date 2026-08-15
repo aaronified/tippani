@@ -81,6 +81,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`/search` no longer requires `q`** when a facet is present, and still refuses a request
   with neither: that is not a search, it is a request for the whole library.
 
+### Fixed
+
+Four defects in the above, all found by reviewing the facets *after* they landed green,
+and all the same shape: no error, no empty screen, just a different answer to a different
+question. Every one is recorded here rather than folded silently into the entry above,
+because the reason they existed is more useful than the fact that they don't.
+
+- **A credit facet could not match a name that was not English.** `author:Лев Толстой`
+  returned nothing — for a name `GET /search/vocabulary` had just offered as a dropdown
+  option. The value went through Go's `strings.ToLower`, a full Unicode fold, and was then
+  compared against SQLite's `lower()`, which folds ASCII and nothing else: for "Marcus
+  Aurelius" the two agree by accident, for "Лев Толстой" they cannot. Émile Zola,
+  Тарковский, Ῥαβινδρανάθ — all silently unfindable, across all four credit columns. The
+  rule was already written down three predicates above, on the series facet; the credits
+  were the one place not following it.
+
+- **A tag with nothing under it was still a result**, and that was not cosmetic. The genre
+  and decade facets drop an empty group; the tag facet did not, and facets made the empty
+  case routine — `tag:stoicism` matches a tag by name while `colour:doubt` excludes
+  everything wearing it. It drew a Tags heading over an empty box, and because the hit
+  total counts *groups*, it also made a search that found nothing look like a search that
+  found something — skipping both recovery paths, the cross-column fallback and the
+  zero-hit typo correction. A query spanning a quote and its note could vanish entirely
+  because an unrelated row happened to carry a tag whose name matched.
+
+- **A draft that could never become a chip ate the query.** Typing `movie:blade runner`
+  searched for nothing: the screen said "type to search" over a box that visibly had text
+  in it. The box opened its menu on "is there a draft with options"; the page stripped the
+  draft out of the query on "is there a draft" — two answers to one question, agreeing for
+  `tag:sto` and disagreeing wherever a field had nothing to offer, including while the
+  vocabulary was still loading. There is one answer now, and `book:`/`movie:` have left the
+  grammar entirely: they are seeded from a work's page and carry an id, never typed.
+
+- **A field answered twice stacked instead of replacing.** `favourite:yes` and
+  `favourite:no` both rendered as active chips while the server took only the last, so half
+  the row asserted a narrowing that never happened.
+
 ### Internal
 
 - **The fifteen queries behind `/search` are assembled rather than written out.** Results
