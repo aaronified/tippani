@@ -188,8 +188,26 @@ func clozeSpan(text string, kind string, id int64) (masked, answer string, ok bo
 //
 // FUZZY, because this is recall of a phrase and not a spelling test: case,
 // surrounding punctuation and inner whitespace are all normalised away, and a
-// small edit distance is forgiven on top. The budget scales with length — one
-// slip in a short word is most of it, one in a long phrase is a typo.
+// small edit distance is forgiven on top.
+//
+// TOKEN BY TOKEN, NOT WHOLE-STRING, and this is the correction that matters.
+// The first version banded the budget on the length of the whole answer, which
+// is the failure the plan predicted in as many words: a budget earned by long
+// neighbours pays for a wholly wrong short word. Measured before the fix, on
+// real spans out of Austen:
+//
+//	"man in possession"  accepted  "man ON possession"
+//	"single man in"      accepted  "single MEN in"
+//	"want of a wife"     accepted  "want of a LIFE"
+//
+// Every one of those is a different word, and the last one is a different
+// sentence. "vast" and "fast" were correctly refused in isolation the whole
+// time — the budget only became wrong once a short word had long company.
+//
+// So each word carries its own budget, and the count has to match: three words
+// recalled as two is not a typo. The banding is the same shape as before and
+// derived from the same fact — how far you can travel from a word before landing
+// on another real one, which is a function of its length.
 func clozeCorrect(answer, attempt string) bool {
 	a, b := clozeNormalise(answer), clozeNormalise(attempt)
 	if a == "" || b == "" {
@@ -198,20 +216,43 @@ func clozeCorrect(answer, attempt string) bool {
 	if a == b {
 		return true
 	}
-	n := len([]rune(a))
-	budget := 1
-	switch {
-	case n <= 4:
-		budget = 0 // "vast" and "fast" are different words, not a typo
-	case n <= 10:
-		budget = 1
-	default:
-		budget = 2
-	}
-	if budget == 0 {
+	aw, bw := strings.Fields(a), strings.Fields(b)
+	// A missing or an extra word is never a typo, whatever the distances say.
+	if len(aw) != len(bw) {
 		return false
 	}
-	return search.Distance(a, b, budget) <= budget
+	for i := range aw {
+		if aw[i] == bw[i] {
+			continue
+		}
+		budget := clozeBudget(len([]rune(aw[i])))
+		if budget == 0 {
+			return false
+		}
+		if search.Distance(aw[i], bw[i], budget) > budget {
+			return false
+		}
+	}
+	return true
+}
+
+// clozeBudget is how many edits one word of n characters may be wrong by.
+//
+// Nothing under five, because at four characters almost every other word is one
+// edit away — "vast" and "fast" are different words, not a slip. This mirrors
+// editBudget in text.js and budgetFor in internal/search/levenshtein.go in
+// shape but NOT in numbers, and deliberately: search wants to be generous
+// because a near miss there costs a wasted glance, and this wants to be strict
+// because a near miss here is a false pass on something you did not recall.
+func clozeBudget(n int) int {
+	switch {
+	case n <= 4:
+		return 0
+	case n <= 7:
+		return 1
+	default:
+		return 2
+	}
 }
 
 // clozeNormalise folds everything that is not the words themselves: case, outer

@@ -119,6 +119,22 @@ func TestClozeGradingIsForgivingButNotBlind(t *testing.T) {
 		{"vast", "fast", false},       // short words are not typos of each other
 		{"fortune", "", false},
 		{"fortune", "misfortune", false},
+
+		// THE BUG THE FIRST VERSION HAD, and the reason grading is token by
+		// token. A budget banded on the whole answer is earned by the long words
+		// and spent on the short ones — so a wholly different short word passed
+		// as long as it had long company. Every one of these was accepted before
+		// the fix, and the last is a different sentence.
+		{"man in possession", "man on possession", false},
+		{"single man in", "single men in", false},
+		{"want of a wife", "want of a life", false},
+		// A typo in a long word inside a phrase is still forgiven — the fix
+		// tightens the short words, it does not make the whole thing a spelling
+		// test.
+		{"truth universally acknowledged", "truth universaly acknowledged", true},
+		// A missing or an extra word is never a typo, whatever the distances say.
+		{"in possession of", "in possession", false},
+		{"a good fortune", "a very good fortune", false},
 	}
 	for _, c := range cases {
 		if got := clozeCorrect(c.answer, c.attempt); got != c.want {
