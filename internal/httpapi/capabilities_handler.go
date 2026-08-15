@@ -46,7 +46,18 @@ import (
 //     without it. Plus `GET`/`POST /quotes/starters` — ten curated proverbs per
 //     language, written only when asked, because a proverb is content and
 //     seeding content nobody chose is the app writing in their collection.
-const apiRevision = 5
+// 6 — the review loop asks more than one kind of question. A card's `direction`
+//     is drawn from a per-kind table rather than from a two-way toggle, and the
+//     first new entry is `flip`: the quote on one side, its source on the other,
+//     graded by the reader. A flip card carries NO options, which is how a client
+//     recognises it without knowing the name — and is what lets a client that
+//     has never heard of a later direction still render it as something a person
+//     can answer instead of as an empty multiple choice.
+//
+//     This also fixes a deck that served nothing: a question that could not be
+//     built used to drop its card while the badge went on counting it, so a
+//     library with one work in it showed cards due and served none.
+const apiRevision = 6
 
 // apiFeatures names what this server can do, so a client can light up or hide a
 // screen instead of probing for a 404. Names are stable once published: an old
@@ -70,6 +81,11 @@ var apiFeatures = []string{
 	// features because a client can perfectly well offer one board's selection and
 	// not the other's — the Library and the Quotes screen are different screens.
 	"bulk-works", // POST /books|movies/bulk/delete and /bulk/status
+	// A review card can be a flip card: no options, reveal, self-grade. A client
+	// that knows this string can render one; a client that does not will meet a
+	// card with an empty `options` array, which is why "no options means flip" is
+	// the rule rather than a direction allowlist.
+	"review-directions", // `direction` drawn from a per-kind table; `flip` is the first addition
 	// Stop the quiz asking about something without deleting it: `review` on all five
 	// bulk bodies, and `review_excluded` on every list row.
 	//

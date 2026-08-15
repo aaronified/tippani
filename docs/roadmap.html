@@ -572,6 +572,14 @@
     <li><strong>Themed review</strong> — "quiz me on this book / tag / colour / person", from a button on the thing itself. The deck query already filters by scope; this is one more clause and a way in.</li>
     <li><strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly when you notice the typo, the missing tag, or that you love it — and it is currently the one screen from which you can do nothing about any of that.</li>
     <li><strong>Leech handling</strong> — <code>lapse_count</code> is already stored, so at five lapses the card can offer to be suspended or shortened rather than grinding on.</li>
+    <li>
+      <strong>The traditional flip card</strong> — the quote on one side, its
+      source on the other, and <em>you</em> say whether you had it. The one card
+      type that works for every quote regardless of what else is in the library:
+      multiple choice needs a second work to be wrong with, and a single-title
+      library used to get an empty deck while the badge counted the cards anyway.
+      <span class="mono">Shipped in 1.15.0.</span>
+    </li>
     <li><strong>More card types from data already held</strong> — <em>who said this line?</em> (multiple choice over the film's own stored <code>cast_json</code>, no API call), <em>which chapter or act?</em>, <em>who wrote it?</em>, and <em>type the next line</em> where two annotations sit adjacent by location in one book.</li>
     <li><strong>A recall-history sparkline</strong> on the quote's pop-up, drawn from <code>item_reviews</code>.</li>
   </ul>

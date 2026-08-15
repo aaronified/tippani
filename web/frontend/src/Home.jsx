@@ -84,9 +84,28 @@ function workNoun(card) {
 // the quote and asks which work it's from (options are titles); "quote" shows
 // the work and asks which quote is from it (options are quotes).
 function askLine(card) {
-  return card.direction === 'source'
-    ? `Which ${workNoun(card)} is this quote from?`
-    : `Which quote is from this ${workNoun(card)}?`
+  switch (card.direction) {
+    case 'source':
+      return `Which ${workNoun(card)} is this quote from?`
+    case 'quote':
+      return `Which quote is from this ${workNoun(card)}?`
+    default:
+      // Flip, and any direction a newer server sends that this client has never
+      // heard of. Both are asked the same way, because both are answered the
+      // same way: read it, remember what it came from, then check yourself.
+      return 'Where is this from?'
+  }
+}
+
+// isFlipCard — a card the reader grades themselves.
+//
+// KEYED ON THE ABSENCE OF OPTIONS, not on the direction string, and that is
+// deliberate: it makes an unknown direction from a newer server degrade to the
+// one card type that always works instead of rendering as a multiple choice with
+// nothing to choose. A card with options is a question this client understands
+// how to grade; a card without them is not.
+function isFlipCard(card) {
+  return !(card.options || []).length
 }
 
 // QuoteBlock — the quote side of a card (used as prompt for "source", as the
@@ -256,11 +275,16 @@ function SourceLines({ card, maps = {} }) {
 // same schedule as before, only auto-graded. A correct save is required before
 // advancing; skip (Practice) advances locally, touching neither schedule nor
 // score.
-function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone }) {
+export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone }) {
   // startIndex seeds the position (Practice restores it from a persisted
   // session on reload); onIndex reports each advance so the host can persist it.
   const [i, setI] = useState(startIndex)
   const [picked, setPicked] = useState(null) // chosen option index for the current card
+  // A flip card has no options to pick, so revealing its answer and grading it
+  // are two separate acts. `shown` is the first; `graded` is the second, and it
+  // holds 'got' | 'forgot' so the footer can report what was recorded.
+  const [shown, setShown] = useState(false)
+  const [graded, setGraded] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveErr, setSaveErr] = useState('') // the grade didn't reach the server
   // posRef is the card on screen right now, readable from a settled request's
@@ -286,6 +310,8 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
       setI(i + 1)
       onIndex?.(i + 1)
       setPicked(null)
+      setShown(false)
+      setGraded(null)
       return
     }
     // Last card: let the grade settle before the host reads the round's tally.
@@ -293,11 +319,11 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
     onDone?.()
   }
 
-  async function pick(idx) {
-    if (picked != null || saving) return // one shot per question
+  // grade posts one result for the card on screen. Both card types end here —
+  // an MCQ derives got/forgot from the pick, a flip card is told by the reader —
+  // so there is one request, one error path and one tally, not two.
+  async function grade(result) {
     const at = i
-    const correct = idx === card.answer
-    setPicked(idx)
     setSaving(true)
     setSaveErr('')
     // .catch is belt-and-braces over api.js's own guard: `saving` gates the
@@ -305,7 +331,7 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
     const req = json('POST', '/review/answer', {
       kind: card.kind,
       id: card.id,
-      result: correct ? 'got' : 'forgot',
+      result,
       mode,
       offset: tzOffsetMinutes(),
     }).catch(() => ({ ok: false, status: 0, data: null }))
@@ -324,18 +350,87 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
     // The result string, not the raw boolean — both cards' tallies compare
     // against 'got'/'forgot' (a boolean never matched, so the session tallies
     // silently stayed at zero).
-    onAnswered?.(correct ? 'got' : 'forgot', r.data)
+    onAnswered?.(result, r.data)
+  }
+
+  async function pick(idx) {
+    if (picked != null || saving) return // one shot per question
+    setPicked(idx)
+    await grade(idx === card.answer ? 'got' : 'forgot')
+  }
+
+  // A flip card: reveal, then say whether you had it. The reveal is not an
+  // answer and posts nothing — which is what makes the self-grade honest rather
+  // than a button you press to make the card go away.
+  async function selfGrade(result) {
+    if (graded != null || saving) return
+    setGraded(result)
+    await grade(result)
   }
 
   const isSource = card.direction === 'source'
-  const answered = picked != null
+  const flip = isFlipCard(card)
+  // One name for "this card has been graded", whichever way it was graded. Every
+  // reveal in the body below reads this rather than `picked != null`, which is
+  // true only for the multiple-choice half.
+  const answered = flip ? graded != null : picked != null
   return (
     <div key={i} className="review-card-body">
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <MonoLabel>{askLine(card)}</MonoLabel>
         <span className="mono-label" style={{ letterSpacing: '.06em' }}>{i + 1} of {cards.length}</span>
       </div>
-      {isSource ? <QuoteBlock card={card} /> : <SourceLines card={card} maps={personMaps} />}
+      {/* THE PROMPT SIDE. Only a "quote" card shows the attribution — every other
+          direction shows the words.
+
+          This was `isSource ? QuoteBlock : SourceLines`, which sent EVERY
+          direction that was not "source" down the attribution path. With two
+          directions that was the same thing; with more it is an answer leak,
+          because SourceLines prints the actor as a face chip and the character
+          in its meta line. A card asking who said a line would have shown the
+          right actor directly above its own four options. */}
+      {card.direction === 'quote'
+        ? <SourceLines card={card} maps={personMaps} />
+        : <QuoteBlock card={card} />}
+      {/* A FLIP CARD: the source is hidden until asked for, then you say whether
+          you had it. Nothing is posted by the reveal — pressing "Show me" is not
+          an answer, and treating it as one would turn self-grading into a button
+          you press to make the card go away. */}
+      {flip && (
+        <div className="mt-3">
+          {shown ? (
+            <>
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                <SourceLines card={card} maps={personMaps} />
+              </div>
+              {graded == null ? (
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="tp-btn tactile"
+                    disabled={saving}
+                    onClick={() => selfGrade('forgot')}
+                  >
+                    Forgot
+                  </button>
+                  <button
+                    type="button"
+                    className="tp-btn tp-btn-primary tactile"
+                    disabled={saving}
+                    onClick={() => selfGrade('got')}
+                  >
+                    Got it
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setShown(true)}>
+              Show me
+            </button>
+          )}
+        </div>
+      )}
       <div className="mt-3 flex flex-col gap-2">
         {(card.options || []).map((opt, idx) => {
           const isAnswer = idx === card.answer
@@ -378,8 +473,15 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
       </div>
       {answered ? (
         <div className="mt-3 flex items-center justify-between gap-3">
-          <MonoLabel style={{ color: picked === card.answer ? 'var(--ok)' : 'var(--error)' }}>
-            {picked === card.answer ? 'correct' : 'not quite'}
+          {/* A flip card was not right or wrong — it was recalled or it was not,
+              and the reader is the one who said so. Reporting "correct" over
+              their own judgement would be the app marking their homework. */}
+          <MonoLabel
+            style={{ color: (flip ? graded === 'got' : picked === card.answer) ? 'var(--ok)' : 'var(--error)' }}
+          >
+            {flip
+              ? (graded === 'got' ? 'recalled' : 'noted')
+              : (picked === card.answer ? 'correct' : 'not quite')}
           </MonoLabel>
           {/* Never disabled: the grade saves in the background, and a slow or
               failed save must not hold the reader on a card they've answered. */}
@@ -390,7 +492,10 @@ function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswere
             </button>
           </span>
         </div>
-      ) : allowSkip ? (
+      ) : allowSkip && !(flip && shown) ? (
+        // Skip goes once a flip card's answer is on screen. Skipping there would
+        // be a way to read the answer and move on without ever saying whether
+        // you knew it, which is the one thing self-grading cannot survive.
         <div className="mt-3 text-right">
           <button type="button" className="tp-link" onClick={advance}>skip</button>
         </div>

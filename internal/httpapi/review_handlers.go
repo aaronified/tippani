@@ -155,7 +155,36 @@ var reviewFloorSQL = fmt.Sprintf("%g", reviewMinStability)
 const (
 	dirSource = "source" // show quote, recall the work / speech it came from
 	dirQuote  = "quote"  // show the work / speech, recall the quote
+	dirFlip   = "flip"   // show the quote, reveal the source, grade yourself
 )
+
+// directionsFor is every question a card of this kind can be asked, in one
+// ordered table.
+//
+// ONE TABLE, NOT A CHAIN OF IFS. Each new direction was designed as its own
+// rewrite of dailyDirection's two-way toggle into a differently-shaped three-way,
+// and the rewrites were mutually exclusive — %3 here, a second hash there, a
+// screen-only branch in the third. A table makes "what can this kind be asked?"
+// one question with one answer, and makes adding a fifth direction an edit to a
+// list rather than to a modulus.
+//
+// PER-KIND, because the applicability is real and not a special case: a book has
+// no cast, so it can never be asked who said the line. Putting that here rather
+// than in the picker is what stops it becoming an `if kind == ...` at the call
+// site, which is where the last three rewrites all wanted to put it.
+//
+// THE WEIGHTING IS A DELIBERATE CHOICE AND NOT AN ACCIDENT OF LENGTH. Adding
+// directions dilutes the old ones: "which book is this quote from?" was half of
+// a book's cards and is now a third. That is intended — the section exists to
+// make the loop deeper rather than to ask one question more often — but it is a
+// visible change to every existing account, so it is decided here, in the table,
+// where changing it is changing one line.
+func directionsFor(kind string) []string {
+	if kind == kindScreen {
+		return []string{dirSource, dirQuote, dirFlip}
+	}
+	return []string{dirSource, dirQuote, dirFlip}
+}
 
 // item kinds in item_reviews.
 const (
@@ -343,11 +372,18 @@ func recallStatus(seen bool, stability, elapsedDays, ageDays float64, lastResult
 
 // dailyDirection picks a card's question type for the day, deterministically so
 // a refresh shows the same one. Practice varies it at random instead.
+//
+// IT DOES NOT USE shuffleKey, and that is the correction. shuffleKey is the
+// deck's ORDER key — it is what mergeDeck and the candidate queries sort by — so
+// deriving the direction from the same number ties the two together: every card
+// asked one way clusters at one end of the session and the other way at the
+// other, which reads as the quiz having moods. A second hash off the same inputs
+// keeps them independent.
 func dailyDirection(kind string, id, seed int64) string {
-	if shuffleKey(kind, id, seed)%2 == 0 {
-		return dirSource
-	}
-	return dirQuote
+	dirs := directionsFor(kind)
+	h := uint64(id)*0x9E3779B97F4A7C15 + kindSalt(kind)*31 + uint64(seed)*0xBF58476D1CE4E5B9
+	h ^= h >> 29
+	return dirs[h%uint64(len(dirs))]
 }
 
 // shuffleKey is a stable per-day pseudo-random ordering key for a card; the
@@ -1201,7 +1237,18 @@ func distractorScore(own, cand workRef) int {
 // buildQuestion builds an MCQ card. `seed` is the day seed for the Daily Quiz
 // (making the whole option set deterministic per card, so every client sees the
 // same choices) or 0 for practice (varied per round).
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) (reviewCard, bool) {
+// buildQuestion CANNOT FAIL, and that is a fix rather than a convenience.
+//
+// It used to return (reviewCard, bool) and both call sites dropped the card when
+// it came back false — while dailyRemaining counts the same card in SQL, which
+// knows nothing about whether a question could be built for it. So a library
+// with one book in it had a badge saying cards were due and a deck that served
+// none of them, and nothing anywhere reported a problem.
+//
+// The flip card is what makes the signature honest: it needs no distractor pool,
+// no second work to be wrong with, and no maskable span, so there is always a
+// question to ask about any quote with words in it.
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) reviewCard {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -1211,17 +1258,43 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) (rev
 			cardSeed = 1
 		}
 	}
-	if card := finishCard(c, preferred); attachMCQ(&card, c.workKey, p, cardSeed) {
-		return card, true
+	// The preferred direction, then every other one this kind allows, then the
+	// flip card — which needs no distractors and therefore cannot fail.
+	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed) {
+		return card
 	}
-	other := dirQuote
-	if preferred == dirQuote {
-		other = dirSource
+	for _, d := range directionsFor(c.card.Kind) {
+		if d == preferred {
+			continue
+		}
+		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed) {
+			return card
+		}
 	}
-	if card := finishCard(c, other); attachMCQ(&card, c.workKey, p, cardSeed) {
-		return card, true
+	return finishCard(c, dirFlip)
+}
+
+// attachDirection fills in whatever a card's direction needs, and REFUSES a
+// direction it does not know.
+//
+// The switch is exhaustive on purpose. This was `if direction == dirSource {…}`
+// with everything else falling into the quote branch, which is fine while there
+// are exactly two directions and is an answer leak the moment there are three: a
+// card labelled with a direction this function had never heard of came back
+// carrying quote options — the correct quote among them — while the client
+// rendered it as something else entirely. A default that returns false makes an
+// unknown direction produce no card instead of the wrong one.
+func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
+	switch card.Direction {
+	case dirSource, dirQuote:
+		return attachMCQ(card, ownKey, p, seed)
+	case dirFlip:
+		// Nothing to attach: a flip card is the quote on one side and its source
+		// on the other, both of which the card already carries.
+		return true
+	default:
+		return false
 	}
-	return reviewCard{}, false
 }
 
 // attachMCQ fills a card's Options/Answer for its direction, drawing distractors
@@ -1428,9 +1501,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			if len(items) >= slots {
 				break
 			}
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools, seed); ok {
-				items = append(items, card)
-			}
+			items = append(items, buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools, seed))
 		}
 	}
 	states, err := s.reviewStates(uid, scope)
@@ -1485,12 +1556,12 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "practice pool", err)
 		return
 	}
-	dirs := []string{dirSource, dirQuote}
 	items := make([]reviewCard, 0, len(cands))
 	for _, c := range cands {
-		if card, ok := buildQuestion(c, dirs[rand.IntN(2)], pools, 0); ok {
-			items = append(items, card)
-		}
+		// Practice picks from the same table the daily deck does, at random
+		// rather than by hash — varying between rounds is the point here.
+		dirs := directionsFor(c.card.Kind)
+		items = append(items, buildQuestion(c, dirs[rand.IntN(len(dirs))], pools, 0))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pool": len(items)})
 }

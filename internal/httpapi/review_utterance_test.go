@@ -105,10 +105,13 @@ func TestPracticeServesStandaloneQuotes(t *testing.T) {
 		if card.Speaker == "" {
 			t.Fatal("the speaker did not reach the card")
 		}
-		if len(card.Options) < 2 {
-			t.Fatalf("a card with no wrong answer is not a question: %+v", card.Options)
+		if !askable(card) {
+			t.Fatalf("a card that cannot be answered is not a question: %+v", card)
 		}
 		switch card.Direction {
+		case dirFlip:
+			// The quote and its source, both already on the card, graded by the
+			// reader. Nothing to assert about options because it has none.
 		case dirSource:
 			sawSource = true
 			// The answer is the occasion the quote came from.

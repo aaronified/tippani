@@ -19,6 +19,7 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 )
@@ -115,6 +116,20 @@ func ageSeededItems(t *testing.T, srv *Server) {
 	}
 }
 
+// askable — the card is a question somebody can actually answer.
+//
+// It used to be `len(Options) >= 2`, which was the same thing while every card
+// was multiple choice. It is not any more: a flip card is the quote on one side
+// and its source on the other, self-graded, and having no options is what it IS
+// rather than a card that failed to build. Asserting the count alone would now
+// pass a malformed MCQ (one option) and fail a perfectly good flip card.
+func askable(card reviewCard) bool {
+	if card.Direction == dirFlip {
+		return len(card.Options) == 0
+	}
+	return len(card.Options) >= 2 && card.Answer >= 0 && card.Answer < len(card.Options)
+}
+
 func answer(t *testing.T, c *testClient, kind string, id int64, result, mode string) answerResp {
 	t.Helper()
 	return decode[answerResp](t, c.mustDo("POST", "/review/answer",
@@ -132,13 +147,25 @@ func TestDailyQuizMCQ(t *testing.T) {
 		t.Fatalf("empty pool deck: %+v", deck)
 	}
 
-	// A single-title library can't form a multiple-choice question (no wrong
-	// answer to offer), so its deck is empty.
+	// A single-title library cannot form a multiple-choice question — there is no
+	// second work to offer as a wrong answer — and it USED TO GET AN EMPTY DECK
+	// for that reason, while dailyRemaining went on counting the same cards in
+	// SQL. The badge said three were due and the deck served none, with nothing
+	// anywhere reporting a problem.
+	//
+	// Every one of them is a flip card now: the quote on one side, its source on
+	// the other, graded by the reader. That needs no distractor, so there is
+	// always a question to ask.
 	_, ids := seedReviewBook(t, c, "Dune", 3)
 	ageSeededItems(t, srv)
 	deck = decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
-	if len(deck.Items) != 0 {
-		t.Fatalf("single-title deck should be empty (no MCQ distractors): %+v", deck)
+	if len(deck.Items) != 3 {
+		t.Fatalf("single-title deck should serve flip cards, not nothing: %+v", deck)
+	}
+	for _, it := range deck.Items {
+		if it.Direction != dirFlip || len(it.Options) != 0 {
+			t.Fatalf("single-title card should be a flip card with no options: %+v", it)
+		}
 	}
 
 	// A second title unlocks the questions.
@@ -152,19 +179,26 @@ func TestDailyQuizMCQ(t *testing.T) {
 		if it.Kind != kindBook || it.Title != "Dune" || it.Status != "unseen" || it.ReviewCount != 0 {
 			t.Fatalf("unseen item: %+v", it)
 		}
-		if it.Direction != dirSource && it.Direction != dirQuote {
-			t.Fatalf("bad direction: %+v", it)
+		// A second title makes the two multiple-choice directions POSSIBLE; it
+		// does not make them compulsory. The direction is drawn from the table
+		// for this kind, so a flip card here is a correct outcome rather than a
+		// card that failed to build — which is why the shape is asserted per
+		// direction instead of assuming one.
+		if !slices.Contains(directionsFor(it.Kind), it.Direction) {
+			t.Fatalf("direction not in the table for this kind: %+v", it)
 		}
-		if len(it.Options) < 2 || it.Answer < 0 || it.Answer >= len(it.Options) {
-			t.Fatalf("bad MCQ options/answer: %+v", it)
+		if !askable(it) {
+			t.Fatalf("card is not answerable: %+v", it)
 		}
-		// The correct option is the card's title (source) or its quote (quote).
-		want := it.Title
-		if it.Direction == dirQuote {
-			want = it.Quote
-		}
-		if it.Options[it.Answer] != want {
-			t.Fatalf("answer option mismatch: %+v", it)
+		if it.Direction != dirFlip {
+			// The correct option is the card's title (source) or its quote (quote).
+			want := it.Title
+			if it.Direction == dirQuote {
+				want = it.Quote
+			}
+			if it.Options[it.Answer] != want {
+				t.Fatalf("answer option mismatch: %+v", it)
+			}
 		}
 	}
 
@@ -239,7 +273,7 @@ func TestDailyQuizScheduling(t *testing.T) {
 	if deck.Items[0].ID != ids[2] || deck.Items[1].ID != ids[1] {
 		t.Fatalf("due order: %d, %d (want %d, %d)", deck.Items[0].ID, deck.Items[1].ID, ids[2], ids[1])
 	}
-	if deck.Items[0].Status != "probably-forgotten" || len(deck.Items[0].Options) < 2 {
+	if deck.Items[0].Status != "probably-forgotten" || !askable(deck.Items[0]) {
 		t.Fatalf("due item: %+v", deck.Items[0])
 	}
 
@@ -440,8 +474,8 @@ func TestPracticeMode(t *testing.T) {
 		t.Fatalf("practice pool: %+v", pd)
 	}
 	for _, it := range pd.Items {
-		if len(it.Options) < 2 {
-			t.Fatalf("practice card without options: %+v", it)
+		if !askable(it) {
+			t.Fatalf("practice card is not a question: %+v", it)
 		}
 	}
 
