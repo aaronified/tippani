@@ -227,3 +227,169 @@ func TestReviewExclusionIsPerAccount(t *testing.T) {
 		t.Fatalf("Alice could not exclude her own highlight: %d, want 0", got)
 	}
 }
+
+// ---- what the row says about itself (1.14.2) --------------------------------
+//
+// The deck has excluded a child of an excluded work since 0033, and until now
+// the row said nothing about it. That gap is invisible from the server's side —
+// every count above is already right — and it is the whole feature from the
+// reader's: exclude a reference manual and its forty highlights carry no mark,
+// so the app shows forty cards it has quietly stopped asking about and gives no
+// way to tell them from the thirty-nine thousand it has not.
+//
+// Asserted as a PAIR of values rather than as "excluded", because the two flags
+// mean different things to the control that undoes them: the child's own column
+// is what /annotations/bulk writes, and the parent's is not.
+
+func TestAChildRowReportsItsWorksExclusion(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	bookID := createBook(t, c, "The Chicago Manual of Style")
+	c.mustDo("POST", "/annotations", map[string]any{"book_id": bookID, "quote": "see 6.19"}, http.StatusCreated)
+	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{bookID}, "review": false}, 200)
+
+	rows := decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(bookID), nil, 200)).Annotations
+	if len(rows) != 1 {
+		t.Fatalf("expected one highlight, got %d", len(rows))
+	}
+	// Its OWN column is untouched — nobody excluded this highlight — and that is
+	// the distinction the card draws and the bulk bar acts on.
+	if rows[0].ReviewExcluded {
+		t.Errorf("excluding the book set the highlight's own flag; it must not")
+	}
+	if !rows[0].WorkReviewExcluded {
+		t.Errorf("work_review_excluded = false on a highlight the deck will not serve")
+	}
+
+	// The one the work-level flag exists for: saved AFTER the exclusion, so
+	// nothing about this row was ever touched by the reader's decision. The
+	// create response is the same shape the list returns.
+	made := decode[annotationRow](t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": bookID, "quote": "see 6.20"}, http.StatusCreated))
+	if made.ReviewExcluded || !made.WorkReviewExcluded {
+		t.Errorf("a highlight added to a skipped book: own=%v book=%v, want false/true",
+			made.ReviewExcluded, made.WorkReviewExcluded)
+	}
+
+	// And back: putting the book in clears the mark on every child at once,
+	// which is the property that makes the flag worth inheriting.
+	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{bookID}, "review": true}, 200)
+	rows = decode[struct {
+		Annotations []annotationRow `json:"annotations"`
+	}](t, c.mustDo("GET", "/annotations?book_id="+itoa(bookID), nil, 200)).Annotations
+	for _, a := range rows {
+		if a.WorkReviewExcluded {
+			t.Errorf("annotation %d still reports its book excluded after the book went back in", a.ID)
+		}
+	}
+}
+
+func TestADialogueReportsItsFilmsExclusion(t *testing.T) {
+	// The film side, asserted separately rather than trusted to symmetry: the
+	// two kinds were built as near-copies and the whole reason quote.go exists
+	// is that they drifted. dialogueCols reads `m.review_excluded`, which needs
+	// the movies join — an omission that would be a runtime scan failure, and
+	// scan failures here are LOGGED AND SKIPPED, so the symptom is an empty
+	// list with a 200 rather than an error.
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Stalker"}, http.StatusCreated).Body.Bytes())
+	c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": movieID, "quote": "let everything that has been planned come true"}, http.StatusCreated)
+	c.mustDo("POST", "/movies/bulk", map[string]any{"ids": []int64{movieID}, "review": false}, 200)
+
+	rows := decode[struct {
+		Dialogues []dialogueRow `json:"dialogues"`
+	}](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(movieID), nil, 200)).Dialogues
+	if len(rows) != 1 {
+		t.Fatalf("expected one line, got %d — a scan failure drops rows silently", len(rows))
+	}
+	if rows[0].ReviewExcluded {
+		t.Errorf("excluding the film set the line's own flag; it must not")
+	}
+	if !rows[0].WorkReviewExcluded {
+		t.Errorf("work_review_excluded = false on a line the deck will not serve")
+	}
+}
+
+func TestSearchCarriesTheQuizMark(t *testing.T) {
+	// One query reaching every kind at once, for the reason the colour test
+	// gives: the failure mode is one shape disagreeing with the other four, and
+	// a test per kind goes on passing through exactly that.
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "Revolution in the Margins",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "You cannot buy the revolution.",
+	}, http.StatusCreated)
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "The Revolution Will Not Be Televised",
+	}, http.StatusCreated))
+	dlg := idOf(t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "the revolution is not a dinner party", "character": "Narrator",
+	}, http.StatusCreated).Body.Bytes())
+	utt := newUtterance(t, c, map[string]any{
+		"quote": "A revolution is not a bed of roses.", "speaker": "Fidel Castro",
+	}).ID
+
+	// The book goes out as a WORK; the dialogue and the standalone quote go out
+	// on their own account. Between them every field added to the five hit
+	// shapes is exercised with a true value, which is what stops a scan reading
+	// the wrong column from passing on all-false rows.
+	c.mustDo("POST", "/books/bulk", map[string]any{"ids": []int64{book.ID}, "review": false}, 200)
+	c.mustDo("POST", "/dialogues/bulk", map[string]any{"ids": []int64{dlg}, "review": false}, 200)
+	c.mustDo("POST", "/quotes/bulk", map[string]any{"ids": []int64{utt}, "review": false}, 200)
+
+	res := decode[searchResults](t, c.mustDo("GET", "/search?q=revolution", nil, http.StatusOK))
+
+	if len(res.Books) != 1 {
+		t.Fatalf("expected one book hit, got %d", len(res.Books))
+	}
+	if !res.Books[0].ReviewExcluded {
+		t.Errorf("book hit: review_excluded = false on an excluded book")
+	}
+	if len(res.Annotations) != 1 {
+		t.Fatalf("expected one annotation hit, got %d", len(res.Annotations))
+	}
+	// The inherited half, in search. This is the row the whole change is for:
+	// its own flag was never set and the quiz will never serve it.
+	if res.Annotations[0].ReviewExcluded {
+		t.Errorf("annotation hit: own flag set by excluding the book")
+	}
+	if !res.Annotations[0].WorkReviewExcluded {
+		t.Errorf("annotation hit: work_review_excluded = false, so a result of a skipped book wears no mark")
+	}
+	if len(res.Movies) != 1 {
+		t.Fatalf("expected one movie hit, got %d", len(res.Movies))
+	}
+	// Not excluded — only its line was — so this one pins the negative and
+	// proves the column being read is the film's own and not the line's.
+	if res.Movies[0].ReviewExcluded {
+		t.Errorf("movie hit: review_excluded = true on a film nobody excluded")
+	}
+	if len(res.Dialogues) != 1 {
+		t.Fatalf("expected one dialogue hit, got %d", len(res.Dialogues))
+	}
+	if !res.Dialogues[0].ReviewExcluded {
+		t.Errorf("dialogue hit: review_excluded = false on an excluded line")
+	}
+	if res.Dialogues[0].WorkReviewExcluded {
+		t.Errorf("dialogue hit: work_review_excluded = true on a film nobody excluded")
+	}
+	if len(res.Quotes) != 1 {
+		t.Fatalf("expected one standalone quote hit, got %d", len(res.Quotes))
+	}
+	if !res.Quotes[0].ReviewExcluded {
+		t.Errorf("quote hit: review_excluded = false on an excluded quote")
+	}
+}

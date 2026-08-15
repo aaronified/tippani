@@ -114,6 +114,23 @@ type quoteRow struct {
 	// always says "Exclude" over a selection that is already excluded is a control
 	// nobody can tell the state of.
 	ReviewExcluded bool `json:"review_excluded"`
+	// And the parent WORK's flag, because 0033 put the column on both and
+	// reviewSource.where() drops a child whose work is excluded. A card reading
+	// only the field above shows no mark on the forty highlights of a skipped
+	// reference manual, which are precisely the rows a mark is for.
+	//
+	// SHARED HERE RATHER THAN book_review_excluded / movie_review_excluded, and
+	// the parity test is what decided it. Named per kind, it read exactly like
+	// BookTitle beside MovieID and would have passed review as one — but every
+	// client would then have to write `book_x || movie_x` at each card, and
+	// forgetting one name is a mark that is right on books and silently absent on
+	// films. One name is one thing to get wrong instead of two, and the test's
+	// whole job is to catch a field that arrived on one kind and not the other.
+	//
+	// A standalone quote has no parent, so this is always false for that kind —
+	// accurate rather than meaningless, and the same asymmetry §24 has
+	// everywhere else.
+	WorkReviewExcluded bool `json:"work_review_excluded"`
 }
 
 // annotationColors is the colour set, in slot order. Adding to it is not a code

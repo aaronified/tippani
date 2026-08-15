@@ -198,15 +198,19 @@ type dialogueRow struct {
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
 	episodeRef
+	// The film's exclusion is quoteRow.WorkReviewExcluded, shared with
+	// annotations rather than spelled movie_review_excluded here.
 }
 
 // dialogueCols includes the LEFT-JOINed spaced-repetition state (see
-// dialogueReviewJoin); every SELECT using it must add that join.
+// dialogueReviewJoin); every SELECT using it must add that join. It also reads
+// `m.review_excluded`, so every SELECT using it must join `movies m` — both of
+// them already did, because that join IS the ownership check.
 const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.color, COALESCE(d.character, ''),
 	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.season, d.episode, d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
 	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
-	d.review_excluded`
+	d.review_excluded, m.review_excluded`
 
 // dialogueOrder is the one true dialogue order, used by the list and the export
 // so a file reads in the order the screen shows: through the run, then through
@@ -238,7 +242,8 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Season, &d.Episode, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
-			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult, &d.ReviewExcluded)
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
+			&d.ReviewExcluded, &d.WorkReviewExcluded)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +417,8 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Color, &d.Character,
 			&d.Actor, &d.Timestamp, &d.Season, &d.Episode, &d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
-			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult, &d.ReviewExcluded); err != nil {
+			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
+			&d.ReviewExcluded, &d.WorkReviewExcluded); err != nil {
 			// See annotation_handlers: never silently drop a row — a scan error is a
 			// SELECT/struct drift and would present as an unexplained empty list.
 			olog.Warnf(olog.CodeDlgRowScan, "[dialogues] list row scan failed (schema/query drift?): %v", err)

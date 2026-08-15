@@ -73,6 +73,7 @@ import {
   PageHeader,
   PickMark,
   Placeholder,
+  QuizSkipMark,
   QuoteActions,
   QuoteTools,
   ReviewDot,
@@ -1873,6 +1874,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
               library's author chip. */}
           <CreditFaces names={actorNames} map={actorMap} size={24} ring="var(--card)" />
           <ReviewDot item={d} />
+          {/* The library's twin — see AnnotationCard. `show` is already the prop
+              that tells this frame which kind of thing it is inside, so the mark
+              can say "its show" rather than calling every episode a film. */}
+          <QuizSkipMark item={d} parent={show ? 'show' : 'film'} />
           <span style={amberMono}>
             {creditParts.map((p, i) => (
               <span key={i}>

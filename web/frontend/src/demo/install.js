@@ -59,7 +59,11 @@ const BOOKS = [
   // Book 1 is tracked by PAGE (a physical book): pos/pos_total drive the 45%.
   { id: 1, title: 'The Wide Margin', author: 'A. Whitfield', published_year: 1998, genres: ['essays', 'memoir'], series: '', series_index: 0, favorite: true, status: 'reading', progress: 45, pos_unit: 'page', pos: 96, pos_total: 214, cover_path: coverArt('#5C4A33', '#F4EDDE', 'The Wide', 'Margin') },
   { id: 2, title: "Reaper's Gale", author: 'Steven Erikson', published_year: 2007, genres: ['fantasy', 'epic'], series: 'Malazan Book of the Fallen', series_index: 7, favorite: false, status: 'paused', progress: 20, pos_unit: '', pos: 0, pos_total: 0, cover_path: coverArt('#2F3A4A', '#ECE3D1', "Reaper's", 'Gale') },
-  { id: 3, title: 'Quiet Light', author: 'M. Sinha', published_year: 2015, genres: ['poetry'], series: '', series_index: 0, favorite: false, status: 'completed', progress: 100, cover_path: '' },
+  // Excluded from the quiz (0033), so the demo shows both halves of the mark:
+  // this tile wears its own, and highlight 6 below wears the INHERITED one
+  // without any flag of its own. A skipped work with no skipped highlight in it
+  // would show only the easy half.
+  { id: 3, title: 'Quiet Light', author: 'M. Sinha', published_year: 2015, genres: ['poetry'], series: '', series_index: 0, favorite: false, status: 'completed', progress: 100, cover_path: '', review_excluded: true },
   { id: 4, title: 'The Salt Path', author: 'R. Winn', published_year: 2018, genres: ['memoir', 'nature'], series: '', series_index: 0, favorite: true, status: 'abandoned', progress: 0, cover_path: coverArt('#3F7D5A', '#F4EDDE', 'The Salt', 'Path') },
   { id: 5, title: 'On Colour', author: '(unknown)', published_year: 0, genres: [], series: '', series_index: 0, favorite: false, status: '', progress: 0, cover_path: '' },
 ]
@@ -87,7 +91,9 @@ const DESCRIPTIONS = {
 }
 const ANNOTATIONS = [
   { id: 1, book_id: 1, quote: 'She kept the margins wider than the text, the way some people keep a spare room — for whoever might arrive.', note: 'the wide-margin argument, again — keep.', color: 'yellow', chapter: '3', location: '142', favorite: true, tags: ['memory', 'craft'], noted_at: '2026-02-11', sticker_id: 1, sticker_x: 0.84, sticker_y: 0.06 },
-  { id: 2, book_id: 1, quote: 'Quiet is not the absence of sound but the presence of attention.', note: '', color: 'blue', chapter: '1', location: '9', favorite: false, tags: ['craft'], noted_at: '2026-03-02' },
+  // Skipped on its own account, in a book that is not — the other half of the
+  // pair with highlight 6.
+  { id: 2, book_id: 1, quote: 'Quiet is not the absence of sound but the presence of attention.', note: '', color: 'blue', chapter: '1', location: '9', favorite: false, tags: ['craft'], noted_at: '2026-03-02', review_excluded: true },
   { id: 3, book_id: 1, quote: 'A margin is a promise: that there is always room to answer back.', note: '', color: 'pink', chapter: '5', location: '201', favorite: true, tags: ['favourite'], noted_at: '2026-05-19' },
   { id: 4, book_id: 2, quote: 'The dead do not dream, and yet here we are, dreaming them.', note: '', color: 'orange', chapter: '', location: '', favorite: false, tags: ['heartbreak'], noted_at: '2026-06-08' },
   { id: 5, book_id: 2, quote: 'Children. Confront them with a mystery and they will attack it with a hammer.', note: 'so good', color: 'yellow', chapter: '', location: '', favorite: true, tags: ['funny', 'wisdom'], noted_at: '2026-06-21' },
@@ -239,6 +245,10 @@ function annRow(a) {
   return {
     sticker_id: null, sticker_x: null, sticker_y: null,
     book_title: b.title || '', book_author: b.author || '',
+    // Borrowed from the book the same way the title and the author above are —
+    // see annotationRow. Before `...a`, so a highlight's own flag can never be
+    // overwritten by its parent's.
+    work_review_excluded: !!b.review_excluded,
     ...a,
     ...demoReview('book', a.id),
     created_at: a.noted_at + ' 09:00:00', updated_at: a.noted_at + ' 09:00:00',
@@ -368,7 +378,8 @@ function reviewScores() {
   }
 }
 function dlgRow(d) {
-  return { sticker_id: null, sticker_x: null, sticker_y: null, ...d, ...demoReview('screen', d.id), created_at: '2026-06-01 09:00:00', updated_at: '2026-06-01 09:00:00' }
+  const m = MOVIES.find((x) => x.id === d.movie_id) || {}
+  return { sticker_id: null, sticker_x: null, sticker_y: null, work_review_excluded: !!m.review_excluded, ...d, ...demoReview('screen', d.id), created_at: '2026-06-01 09:00:00', updated_at: '2026-06-01 09:00:00' }
 }
 
 // A deterministic year of activity for the Stats calendars: a stable hash
@@ -582,12 +593,17 @@ function search(q, scope) {
   const hit = (txt) => s && String(txt || '').toLowerCase().includes(s)
   const mv = (id) => MOVIES.find((m) => m.id === id) || {}
   const bk = (id) => BOOKS.find((b) => b.id === id) || {}
-  const bookHit = (b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })
-  const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type || 'movie' })
-  const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note } }
-  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null } }
+  // `review_excluded` on every hit, and the parent's on the two child kinds —
+  // the same five shapes search_handler.go returns. A shim that answers a
+  // request the app now reads a field out of, without that field, is the
+  // `created_at`/`created` class of drift all over again: nothing throws, and
+  // the one screen that reads it quietly shows the wrong thing forever.
+  const bookHit = (b) => ({ id: b.id, title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index, review_excluded: !!b.review_excluded })
+  const movieHit = (m) => ({ id: m.id, title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type || 'movie', review_excluded: !!m.review_excluded })
+  const annHit = (a) => { const b = bk(a.book_id); return { id: a.id, book_id: a.book_id, book_title: b.title || '', book_cover_path: b.cover_path || '', book_author: b.author || '', book_published_year: b.published_year || 0, book_series: b.series || '', book_genres: b.genres || [], quote: a.quote, note: a.note, review_excluded: !!a.review_excluded, work_review_excluded: !!b.review_excluded } }
+  const dlgHit = (d) => { const m = mv(d.movie_id); return { id: d.id, movie_id: d.movie_id, movie_title: m.title || '', movie_poster_path: m.poster_path || '', movie_director: m.director || '', movie_release_year: m.release_year || 0, movie_series: m.series || '', movie_genres: m.genres || [], movie_media_type: m.media_type || 'movie', quote: d.quote, note: d.note || '', character: d.character, actor: d.actor, timestamp: d.timestamp, season: d.season ?? null, episode: d.episode ?? null, review_excluded: !!d.review_excluded, work_review_excluded: !!m.review_excluded } }
 
-  const uttHit = (u) => ({ id: u.id, quote: u.quote, note: u.note || '', color: u.color, speaker: u.speaker, occasion: u.occasion, occasion_date: u.occasion_date, place: u.place, medium: u.medium })
+  const uttHit = (u) => ({ id: u.id, quote: u.quote, note: u.note || '', color: u.color, speaker: u.speaker, occasion: u.occasion, occasion_date: u.occasion_date, place: u.place, medium: u.medium, review_excluded: !!u.review_excluded })
 
   const wantBooks = !scope || scope === 'all' || scope === 'books'
   const wantAnnotations = !scope || scope === 'all' || scope === 'annotations'

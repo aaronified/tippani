@@ -42,7 +42,9 @@ import {
   Masonry,
   MonoLabel,
   Placeholder,
+  QuizSkipMark,
   Select,
+  skipReason,
   SortableTh,
   splitCommas,
   Tooltip,
@@ -1075,7 +1077,7 @@ function SearchBulkForm({ n, ids, bulk, onClear, onDone }) {
 // not wrapped). Its matching children (annotations / dialogues) sit BELOW that
 // header, spanning the FULL card width — the quote cards, not indented under the
 // cover.
-function MediaGroup({ kind, cover, title, mediaTag, credits, genres = [], terms, onOpen, children }) {
+function MediaGroup({ kind, item, cover, title, mediaTag, credits, genres = [], terms, onOpen, children }) {
   const hasChildren = Array.isArray(children) ? children.some(Boolean) : Boolean(children)
   return (
     <HandCard className="p-4">
@@ -1108,6 +1110,18 @@ function MediaGroup({ kind, cover, title, mediaTag, credits, genres = [], terms,
               {mediaTag && (
                 <span className="mono-label" style={{ marginLeft: 8, fontSize: 9.5, color: 'var(--amber)', verticalAlign: 'middle' }}>
                   {mediaTag}
+                </span>
+              )}
+              {/* Beside the title, in the same run as the FILM/SHOW tag: this is
+                  the work's OWN mark, and the rows below carry their own. `quiet`
+                  because the title is a button.
+
+                  Guarded rather than left to QuizSkipMark's own null, because the
+                  wrapper carries the gap — an empty span with a margin on it is
+                  8px of nothing after every unmarked title. */}
+              {skipReason(item) && (
+                <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+                  <QuizSkipMark item={item} quiet />
                 </span>
               )}
             </p>
@@ -1152,21 +1166,38 @@ function MediaGroup({ kind, cover, title, mediaTag, credits, genres = [], terms,
 // No colour falls back to the border, not to slot 1: `--hl-1` is a real
 // category somebody may have named, and painting an unknown row with it would
 // be asserting a category that was never chosen.
-function ChildHit({ color, onClick, children }) {
+//
+// THE QUIZ MARK IS DRAWN HERE AND NOT AT THE FIVE CALL SITES, for the reason
+// the colour bar is: five places rendering a quote is five places to add the
+// next thing a quote says about itself, and the colour arrived late precisely
+// because search had its own idea of what a quote row was. Passing `hit` costs
+// each caller one prop; forgetting it at one of the five is a mark that is on a
+// book's results and off a tag's, which nobody would ever notice.
+function ChildHit({ color, hit, parent = '', onClick, children }) {
+  const why = skipReason(hit, parent)
   return (
     <button
       type="button"
       onClick={onClick}
       className="block w-full text-left"
       style={{
+        position: 'relative',
         background: 'var(--raised)',
         border: '1px solid var(--line)',
         borderLeft: `4px solid ${categoryVar(color) || 'var(--line)'}`,
         borderRadius: 8,
-        padding: '8px 12px',
+        // The mark gets a lane of its own rather than overprinting the words:
+        // a search hit is windowed around the match, so the text runs to the
+        // right edge by construction and there is no slack to borrow.
+        padding: why ? '8px 30px 8px 12px' : '8px 12px',
         cursor: 'pointer',
       }}
     >
+      {why && (
+        <span className="absolute right-2 top-2">
+          <QuizSkipMark item={hit} parent={parent} quiet />
+        </span>
+      )}
       {children}
     </button>
   )
@@ -1205,6 +1236,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
     <div className={view === 'tiles' ? 'mb-3 break-inside-avoid' : ''}>
       <MediaGroup
         kind={isBook ? 'COVER' : 'POSTER'}
+        item={g}
         cover={isBook ? g.cover_path : g.poster_path}
         title={g.title}
         terms={terms}
@@ -1215,7 +1247,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
       >
         {(isBook ? g.annotations : g.dialogues).map((h) =>
           isBook ? (
-            <ChildHit key={h.id} color={h.color} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
+            <ChildHit key={h.id} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
               {h.quote && (
                 <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
               )}
@@ -1226,7 +1258,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
               )}
             </ChildHit>
           ) : (
-            <ChildHit key={h.id} color={h.color} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
+            <ChildHit key={h.id} color={h.color} hit={h} parent={g.media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
               <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
               {/* The margin note (highlighted — this is what a Notes hit matched on). */}
               {h.note && (
@@ -1381,9 +1413,11 @@ function PeopleSection({ label, kind, entries, people, onOpenPerson, view, rende
 // The key prefix is `u` because `a`/`d`/`b`/`m` are taken and the kinds share
 // one children array — two hits with the same numeric id from different tables
 // would otherwise collide and React would drop one.
+// No `parent` on the hit below: a standalone quote has none, so the only quiz
+// mark it can wear is its own.
 function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
   return (
-    <ChildHit key={`u${h.id}`} color={h.color} onClick={() => onOpen({ kind: 'utterance', hit: h })}>
+    <ChildHit key={`u${h.id}`} color={h.color} hit={h} onClick={() => onOpen({ kind: 'utterance', hit: h })}>
       {(h.quote || h.note) && (
         <MatchWindow
           text={h.quote || h.note}
@@ -1421,7 +1455,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
           </div>
           <div className="space-y-2">
             {(t.annotations || []).map((h) => (
-              <ChildHit key={`a${h.id}`} color={h.color} onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
+              <ChildHit key={`a${h.id}`} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
                 {(h.quote || h.note) && (
                   <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.5 }} />
                 )}
@@ -1431,7 +1465,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
               </ChildHit>
             ))}
             {(t.dialogues || []).map((h) => (
-              <ChildHit key={`d${h.id}`} color={h.color} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
+              <ChildHit key={`d${h.id}`} color={h.color} hit={h} parent={h.movie_media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
                 <MatchWindow text={h.quote} terms={terms} style={{ fontFamily: 'var(--font-display)', fontSize: 15, lineHeight: 1.5 }} />
                 <MonoLabel className="mt-1 block min-w-0 truncate">
                   {[h.movie_title, h.character].filter(Boolean).join(' · ')}
@@ -1523,19 +1557,22 @@ function groupBooks(r) {
   const ensure = (id, seed) => {
     let g = byId.get(id)
     if (!g) {
-      g = { id, title: '', author: '', cover_path: '', genres: [], published_year: 0, series: '', series_index: 0, annotations: [], ...seed }
+      g = { id, title: '', author: '', cover_path: '', genres: [], published_year: 0, series: '', series_index: 0, review_excluded: false, annotations: [], ...seed }
       byId.set(id, g)
       order.push(g)
     }
     return g
   }
   for (const b of r.books || []) {
-    ensure(b.id, { title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index })
+    ensure(b.id, { title: b.title, author: b.author, cover_path: b.cover_path, genres: b.genres, published_year: b.published_year, series: b.series, series_index: b.series_index, review_excluded: b.review_excluded })
   }
   for (const a of r.annotations || []) {
     // Parent-book fields on the annotation hit so an annotation-only group still
-    // buckets by author/decade/series/genre.
-    const g = ensure(a.book_id, { title: a.book_title, cover_path: a.book_cover_path, author: a.book_author, genres: a.book_genres, published_year: a.book_published_year, series: a.book_series })
+    // buckets by author/decade/series/genre — and, since 1.14.2, so an
+    // annotation-only group can still draw the book's quiz mark. A group seeded
+    // from a book hit already has it and `ensure` keeps the first seed; both
+    // sources read the same column, so they cannot disagree.
+    const g = ensure(a.book_id, { title: a.book_title, cover_path: a.book_cover_path, author: a.book_author, genres: a.book_genres, published_year: a.book_published_year, series: a.book_series, review_excluded: a.work_review_excluded })
     g.annotations.push(a)
   }
   return order
@@ -1548,17 +1585,17 @@ function groupMovies(r) {
   const ensure = (id, seed) => {
     let g = byId.get(id)
     if (!g) {
-      g = { id, title: '', director: '', release_year: 0, poster_path: '', genres: [], series: '', series_index: 0, media_type: 'movie', dialogues: [], ...seed }
+      g = { id, title: '', director: '', release_year: 0, poster_path: '', genres: [], series: '', series_index: 0, media_type: 'movie', review_excluded: false, dialogues: [], ...seed }
       byId.set(id, g)
       order.push(g)
     }
     return g
   }
   for (const m of r.movies || []) {
-    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type })
+    ensure(m.id, { title: m.title, director: m.director, release_year: m.release_year, poster_path: m.poster_path, genres: m.genres, series: m.series, series_index: m.series_index, media_type: m.media_type, review_excluded: m.review_excluded })
   }
   for (const d of r.dialogues || []) {
-    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path, director: d.movie_director, release_year: d.movie_release_year, genres: d.movie_genres, series: d.movie_series, media_type: d.movie_media_type })
+    const g = ensure(d.movie_id, { title: d.movie_title, poster_path: d.movie_poster_path, director: d.movie_director, release_year: d.movie_release_year, genres: d.movie_genres, series: d.movie_series, media_type: d.movie_media_type, review_excluded: d.work_review_excluded })
     g.dialogues.push(d)
   }
   return order

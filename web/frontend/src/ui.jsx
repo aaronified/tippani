@@ -3449,6 +3449,63 @@ export function ReviewDot({ item, side = "top" }) {
   );
 }
 
+// ---- "the quiz will not ask about this" (0033) ----
+
+// skipReason — why the Daily Quiz will not draw this row, or "" when it will.
+//
+// TWO FLAGS, ONE ANSWER, and that is the whole reason this is a function rather
+// than `item.review_excluded` written at each card. The deck's eligibility rule
+// (reviewSource.where, server-side) drops a quote whose own column is set AND a
+// quote whose PARENT WORK's is — exclude a reference manual and every highlight
+// in it is out, including the one added tomorrow. A card that read only the
+// first flag would show no mark on forty highlights the quiz has already
+// stopped asking about, which is the reverse of the thing the mark exists for.
+//
+// `parent` is the word for what the work is on this screen — "book", "film",
+// "show". The caller knows it; the row does not carry media_type, and inferring
+// "film" from a movie_id would be wrong on every episode of a series.
+export function skipReason(item = {}, parent = "") {
+  if (item.review_excluded) return "Not in the quiz";
+  // ONE field for both kinds, and the server's parity test is what settled it.
+  // Spelled book_review_excluded / movie_review_excluded it read exactly like
+  // book_title beside movie_title — but then this line is `book_x || movie_x`,
+  // and dropping one of the two is a mark that is right on books and silently
+  // absent on films, on a screen where nothing looks wrong either way.
+  if (item.work_review_excluded) return `Skipped with its ${parent || "work"}`;
+  return "";
+}
+
+// QuizSkipMark — the struck flash card, on any row the quiz will not draw.
+//
+// THE SAME GLYPH THE BUTTON WEARS. IconQuizSkip is what "Skip in quiz" is drawn
+// as in the selection bar and the card menu, so the mark on the card is the
+// picture of the act that put it there. A second drawing for the state would be
+// the Share/Upload mistake again — two glyphs a pixel apart meaning one thing.
+//
+// `quiet` DROPS THE TOOLTIP AND THE FOCUS STOP, for a mark that sits inside a
+// button — a work tile, a search hit. Two reasons, and either alone is enough:
+// a focusable element inside a <button> is invalid HTML and the browsers
+// disagree about which control a tap belongs to; and Tooltip binds its own
+// long-press, which would swallow the tile's long-press-to-select on exactly
+// the corner the mark occupies. The aria-label stays either way, so the mark is
+// never silent to a screen reader — it just folds into the button's name
+// instead of standing beside it.
+export function QuizSkipMark({ item, parent = "", side = "top", quiet = false }) {
+  const why = skipReason(item, parent);
+  if (!why) return null;
+  const mark = (
+    <span
+      className="quiz-skip-mark"
+      aria-label={why}
+      tabIndex={quiet ? undefined : 0}
+      role={quiet ? "img" : undefined}
+    >
+      <IconQuizSkip size={13} />
+    </span>
+  );
+  return quiet ? mark : <Tooltip label={why} side={side}>{mark}</Tooltip>;
+}
+
 // ---- placeholders & film-strip pieces (§6) ----
 
 // Placeholder — diagonal stripes + mono COVER/POSTER label, 2:3.

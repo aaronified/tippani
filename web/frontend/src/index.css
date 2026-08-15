@@ -2218,6 +2218,24 @@
     transition: transform .12s ease;
   }
   .status-dot:hover, .status-dot:focus-visible { transform: scale(1.25); }
+  /* .quiz-skip-mark — the struck flash card on a row the Daily Quiz will not
+     draw (0033), drawn beside the status dot it qualifies.
+
+     --faint, not --error. Being out of the quiz is a preference somebody set,
+     not a fault, and a red mark on forty highlights of a reference manual would
+     read as forty things gone wrong. It has to be legible and it must not be
+     the loudest thing on the card.
+
+     `cursor: help` only when it can actually answer: the `quiet` variant sits
+     inside a button, where the pointer belongs to the button. */
+  .quiz-skip-mark {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--faint);
+    line-height: 0;
+  }
+  .quiz-skip-mark[tabindex] { cursor: help; transition: color .12s ease; }
+  .quiz-skip-mark[tabindex]:hover, .quiz-skip-mark[tabindex]:focus-visible { color: var(--soft); }
   /* No card lift for tooltips any more: the bubble is a viewport-fixed sibling of
      the page (ToastHost, at the app root), so no card's stacking context can clip
      it and none has to be raised to let it out.

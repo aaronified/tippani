@@ -27,6 +27,7 @@ import {
   PartialDateField,
   PickMark,
   Placeholder,
+  QuizSkipMark,
   SHELF_META,
   Select,
   SheetFooter,
@@ -879,6 +880,14 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
             {count} dialogue{count === 1 ? '' : 's'}
           </span>
         )}
+        {/* IN THE COUNT ROW, NOT OVER THE ARTWORK. Every other mark this tile
+            wears is a badge on the cover, and this one deliberately is not: the
+            comment above is explicit that keeping the artwork unobscured is why
+            the shelf state is a bar rather than a badge, and a fourth overlay
+            would spend the last free corner on the quietest fact here.
+
+            `quiet`, because the tile IS a button — see QuizSkipMark. */}
+        <QuizSkipMark item={item} quiet />
       </div>
     </button>
   )

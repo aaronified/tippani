@@ -68,6 +68,7 @@ import {
   mulberry32,
   PageHeader,
   PickMark,
+  QuizSkipMark,
   QuoteActions,
   QuoteTools,
   ReviewDot,
@@ -1370,6 +1371,14 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             ))}
           <div className="flex items-center gap-2">
             <ReviewDot item={a} />
+            {/* Beside the dot, because the two answer one question between them:
+                the dot says how the recall stands, the mark says the quiz is not
+                going to ask. Without it the dot on an excluded quote reads "due
+                now" about a card the deck will never serve.
+
+                This card serves annotations AND standalone quotes; only the
+                first has a work to inherit from, so only it names one. */}
+            <QuizSkipMark item={a} parent={selectKind === 'annotation' ? 'book' : ''} />
             {metaLine && <MonoLabel className="block">{metaLine}</MonoLabel>}
           </div>
           {a.note && <HandNote>{a.note}</HandNote>}

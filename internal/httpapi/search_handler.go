@@ -16,6 +16,15 @@ import (
 	"tippani/internal/search"
 )
 
+// EVERY HIT BELOW CARRIES review_excluded, and the two child hits carry their
+// parent's as well.
+//
+// A search result is the same object the board shows, and 0033's mark is the
+// newest thing a card says about itself. Search was already the one place a
+// quote arrived without its COLOUR — so a library sorted into six categories
+// looked uncategorised the moment you searched it — and a mark that appeared on
+// every board and not here would be the identical bug with a different field:
+// invisible on any one screen, because each screen is internally consistent.
 type bookHit struct {
 	ID            int64    `json:"id"`
 	Title         string   `json:"title"`
@@ -25,6 +34,8 @@ type bookHit struct {
 	PublishedYear int      `json:"published_year"`
 	Series        string   `json:"series"`
 	SeriesIndex   float64  `json:"series_index"`
+
+	ReviewExcluded bool `json:"review_excluded"`
 }
 
 type annotationHit struct {
@@ -45,6 +56,9 @@ type annotationHit struct {
 	// list wore the default colour and a library sorted into six named
 	// categories looked uncategorised the moment you searched it.
 	Color string `json:"color"`
+
+	ReviewExcluded     bool `json:"review_excluded"`
+	WorkReviewExcluded bool `json:"work_review_excluded"` // the book's; see quoteRow
 }
 
 type movieHit struct {
@@ -57,6 +71,8 @@ type movieHit struct {
 	Series      string   `json:"series"`
 	SeriesIndex float64  `json:"series_index"`
 	MediaType   string   `json:"media_type"` // movie | show — so the UI tags films vs shows
+
+	ReviewExcluded bool `json:"review_excluded"`
 }
 
 // utteranceHit is a standalone quote (§24). It is the only hit with no parent
@@ -80,6 +96,10 @@ type utteranceHit struct {
 	Category    string `json:"category"`
 	Language    string `json:"language"`
 	Translation string `json:"translation"`
+
+	// No parent field to borrow: a standalone quote carries only its own flag,
+	// which is the same asymmetry the rest of §24 has.
+	ReviewExcluded bool `json:"review_excluded"`
 }
 
 type dialogueHit struct {
@@ -101,6 +121,9 @@ type dialogueHit struct {
 	Actor          string   `json:"actor"`
 	Timestamp      string   `json:"timestamp"`
 	episodeRef              // shows only; null on a film's lines
+
+	ReviewExcluded     bool `json:"review_excluded"`
+	WorkReviewExcluded bool `json:"work_review_excluded"` // the film's; see quoteRow
 }
 
 // ---- facet sections (§ sectioned search) ------------------------------------
@@ -215,40 +238,51 @@ type searchResults struct {
 // aliases (b/a/m/d) are fixed by the queries below.
 const (
 	bookHitCols = `b.id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
-		COALESCE(b.published_year, 0), COALESCE(b.series, ''), COALESCE(b.series_index, 0)`
+		COALESCE(b.published_year, 0), COALESCE(b.series, ''), COALESCE(b.series_index, 0),
+		b.review_excluded`
+	// The child hits read the parent's exclusion as well as their own. It costs
+	// nothing: `b`/`m` is already joined here, because for a child row that join
+	// IS the ownership check (see searchSources).
 	annotationHitCols = `a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
 		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
-		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, '')`
+		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, ''),
+		a.review_excluded, b.review_excluded`
 	movieHitCols = `m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
 		COALESCE(m.poster_path, ''), COALESCE(m.series, ''), COALESCE(m.series_index, 0),
-		COALESCE(m.media_type, 'movie')`
+		COALESCE(m.media_type, 'movie'),
+		m.review_excluded`
 	dialogueHitCols = `d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 		COALESCE(d.note, ''), d.color, COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
 		d.season, d.episode,
 		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
-		COALESCE(m.media_type, 'movie')`
+		COALESCE(m.media_type, 'movie'),
+		d.review_excluded, m.review_excluded`
 	utteranceHitCols = `u.id, u.quote, COALESCE(u.note, ''), u.color,
 		COALESCE(u.speaker, ''), COALESCE(u.occasion, ''), COALESCE(u.occasion_date, ''),
 		COALESCE(u.place, ''), COALESCE(u.medium, ''),
-		u.category, u.language, u.translation`
+		u.category, u.language, u.translation,
+		u.review_excluded`
 )
 
 func scanBookHit(rows *sql.Rows) (bookHit, error) {
 	h := bookHit{Genres: []string{}}
-	err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.CoverPath, &h.PublishedYear, &h.Series, &h.SeriesIndex)
+	err := rows.Scan(&h.ID, &h.Title, &h.Author, &h.CoverPath, &h.PublishedYear, &h.Series, &h.SeriesIndex,
+		&h.ReviewExcluded)
 	return h, err
 }
 
 func scanAnnotationHit(rows *sql.Rows) (annotationHit, error) {
 	h := annotationHit{BookGenres: []string{}}
 	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color,
-		&h.BookAuthor, &h.BookYear, &h.BookSeries)
+		&h.BookAuthor, &h.BookYear, &h.BookSeries,
+		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err
 }
 
 func scanMovieHit(rows *sql.Rows) (movieHit, error) {
 	h := movieHit{Genres: []string{}}
-	err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath, &h.Series, &h.SeriesIndex, &h.MediaType)
+	err := rows.Scan(&h.ID, &h.Title, &h.Director, &h.ReleaseYear, &h.PosterPath, &h.Series, &h.SeriesIndex, &h.MediaType,
+		&h.ReviewExcluded)
 	return h, err
 }
 
@@ -256,7 +290,8 @@ func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	h := dialogueHit{MovieGenres: []string{}}
 	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note, &h.Color,
 		&h.Character, &h.Actor, &h.Timestamp, &h.Season, &h.Episode,
-		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType)
+		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType,
+		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err
 }
 
@@ -264,7 +299,8 @@ func scanUtteranceHit(rows *sql.Rows) (utteranceHit, error) {
 	var h utteranceHit
 	err := rows.Scan(&h.ID, &h.Quote, &h.Note, &h.Color, &h.Speaker, &h.Occasion,
 		&h.OccasionDate, &h.Place, &h.Medium,
-		&h.Category, &h.Language, &h.Translation)
+		&h.Category, &h.Language, &h.Translation,
+		&h.ReviewExcluded)
 	return h, err
 }
 

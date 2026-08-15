@@ -72,6 +72,15 @@ var apiFeatures = []string{
 	"bulk-works", // POST /books|movies/bulk/delete and /bulk/status
 	// Stop the quiz asking about something without deleting it: `review` on all five
 	// bulk bodies, and `review_excluded` on every list row.
+	//
+	// Since 1.14.2 a CHILD row also reports its parent work's flag as the shared
+	// `work_review_excluded`, and all five search hit shapes carry
+	// `review_excluded`. Additive, and no revision bump: a client
+	// that does not know the names reads them as absent, which is false, which is
+	// exactly the behaviour it had before. Named here rather than as a second
+	// feature string because it is the same capability finally reported in full —
+	// the deck has excluded a child of an excluded work since 0033, and the row
+	// simply never said so.
 	"review-exclusion",
 	// Fetch only what is MISSING from a selection's metadata and touch nothing that
 	// is already there — the unattended half of re-verify.
