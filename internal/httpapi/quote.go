@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"tippani/internal/store"
@@ -158,6 +159,38 @@ func validColor(c string) bool {
 		}
 	}
 	return false
+}
+
+// idFilter narrows a quote list to ONE row. Shared by all three kinds, for the
+// same one caller: the review card, which can now edit the quote it is asking
+// about and needs the full row before it can PUT one back.
+//
+// A LIST RATHER THAN A NEW GET /annotations/{id}, and that is the decision. The
+// three list endpoints already carry the exact shape an edit form wants — the
+// tags, the sticker and its position, the parent's title, the schedule columns —
+// assembled by a query that has been correct for twenty releases. A per-kind
+// single-row handler would be a fourth place that has to stay in step with
+// annotationRow, and the failure when it drifts is a form that silently blanks
+// whichever field the new handler forgot.
+//
+// It answers 200 with an EMPTY list for an id that is not yours, not 403: the
+// ownership clause is already in the WHERE of every one of these queries, and a
+// list that says "no rows" is the honest report of a filter that matched
+// nothing. Distinguishing "not yours" from "not there" is how a list endpoint
+// becomes an existence oracle for other people's ids.
+func idFilter(w http.ResponseWriter, r *http.Request, alias string, q *string, args *[]any) bool {
+	v := r.URL.Query().Get("id")
+	if v == "" {
+		return true
+	}
+	id, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid id")
+		return false
+	}
+	*q += ` AND ` + alias + `.id = ?`
+	*args = append(*args, id)
+	return true
 }
 
 // colorFilter appends the shared ?color= list filter for the given table alias.

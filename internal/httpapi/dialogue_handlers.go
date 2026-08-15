@@ -396,6 +396,10 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		                   WHERE dt.dialogue_id = d.id AND t.name = ?)`
 		args = append(args, v)
 	}
+	// One row, for the review card's in-card edit — see idFilter.
+	if !idFilter(w, r, "d", &q, &args) {
+		return
+	}
 	if !colorFilter(w, r, "d", &q, &args) {
 		return
 	}

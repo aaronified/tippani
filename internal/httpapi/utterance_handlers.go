@@ -354,6 +354,10 @@ func (s *Server) handleListUtterances(w http.ResponseWriter, r *http.Request) {
 		q += ` AND u.language = ?`
 		args = append(args, v)
 	}
+	// One row, for the review card's in-card edit — see idFilter.
+	if !idFilter(w, r, "u", &q, &args) {
+		return
+	}
 	if !colorFilter(w, r, "u", &q, &args) {
 		return
 	}

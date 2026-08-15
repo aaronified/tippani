@@ -250,6 +250,10 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		q += ` AND a.book_id = ?`
 		args = append(args, id)
 	}
+	// One row, for the review card's in-card edit — see idFilter.
+	if !idFilter(w, r, "a", &q, &args) {
+		return
+	}
 	if !colorFilter(w, r, "a", &q, &args) {
 		return
 	}
