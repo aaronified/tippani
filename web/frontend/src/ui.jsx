@@ -5067,7 +5067,35 @@ export function useCardMenu(items = [], { onLongPress } = {}) {
     <ActionMenu open={!!at} at={at} items={items} onClose={close} returnFocusTo={cardRef} />
   ) : null;
 
-  return { cardProps, menuClass: enabled ? "card-menu-host" : "", menu, open: !!at, close };
+  // THE PAGE MUST NOT MOVE UNDER AN OPEN MENU (1.14.2).
+  //
+  // The menu is placed once, in script, at the point the press landed — anchored
+  // to a coordinate rather than to the card. That is right, and it means the
+  // page scrolling afterwards slides every card out from under a menu that stays
+  // pinned where it was. On a desktop the wheel is under the same hand that just
+  // right-clicked, so this happened constantly: the menu ends up hanging over
+  // some other card, and its actions still belong to a card now off screen.
+  //
+  // Locked rather than re-anchored on scroll, because the second is a worse
+  // answer to a question nobody asked: a menu that chases its card is a menu you
+  // can drag around the screen with the wheel, and it still leaves the reader
+  // acting on something they can no longer see. The same refcounted lock every
+  // dialog uses, so a menu opened over an open sheet does not unlock the page
+  // when it closes.
+  useBodyScrollLock(!!at);
+
+  // AND THE CARD IT BELONGS TO SAYS SO. A context menu names no target — it is
+  // a floating list beside the pointer — so with a grid of near-identical
+  // covers, "delete" was being pressed with no confirmation of WHICH one. The
+  // card carries the mark rather than the menu carrying a title, because the
+  // answer to "which one" is the card itself.
+  return {
+    cardProps,
+    menuClass: enabled ? "card-menu-host" + (at ? " is-menu-target" : "") : "",
+    menu,
+    open: !!at,
+    close,
+  };
 }
 
 // PickMark — the tick in a card's corner that says whether the card is selected.

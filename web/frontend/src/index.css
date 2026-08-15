@@ -1468,6 +1468,27 @@
      only way to do it — there is no long press to confuse it with. */
   .card-menu-host { -webkit-touch-callout: none; }
 
+  /* THE CARD A CONTEXT MENU BELONGS TO.
+     A context menu names no target — it is a floating list beside the pointer —
+     so over a grid of near-identical covers, "delete" was being pressed with no
+     confirmation of WHICH one it would delete. The card says so instead of the
+     menu carrying a title, because the answer to "which one" is the card.
+
+     An ACCENT RING, exactly as a selected card wears (see PickMark): the two are
+     the same statement — this is the card being acted on — and inventing a
+     second look for it would ask the reader to learn two marks for one idea. It
+     is an outline rather than a border so nothing reflows, and rather than a
+     tint because a quote card's colour bar already means something else and a
+     film poster's frame would fight it.
+
+     Not transitioned. The menu opens instantly at the pointer, and a ring that
+     fades in over 180ms arrives after the decision it exists to inform. */
+  .card-menu-host.is-menu-target {
+    outline: 2px solid var(--accent-ui);
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+
   /* A LONG PRESS MUST NOT ALSO HIGHLIGHT WORDS.
      Hold a finger on a card's whitespace or its meta line and two things used to
      happen at once: the gesture fired (select the card, or open the menu) and the
