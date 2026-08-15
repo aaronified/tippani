@@ -2258,6 +2258,103 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 <sub>Not shipped</sub>
 
+### A card's difficulty is a property of the library, and nothing in the deck knew it
+
+**Decided.** The diagnosis the next four entries answer. The deck asks one question — which work is this line from, or its mirror — and turns one knob, `distractorScore`, which is written to make the wrong answers as confusable as it can. Where that knob lands is decided by the shape of the library rather than by anything about the reader.
+
+**Why it is expensive rather than merely irritating.** `workRef` has no `series` field and `distractorScore` never mentions one, so a volume in a series is the worst case the scoring can produce: same medium, same author, same genres, and the siblings outrank every other candidate. The card offers four books whose titles differ by a subtitle, and the reader is asked to separate things that are genuinely inseparable — a line in volume three could as easily have been in volume four. A show is a level worse: same series, same cast, and an `episodeRef` means the question can be *which episode*.
+
+A standalone film fails the other way. Nothing scores highly, the distractors share no genre and no cast, and the title alone gives it away — while the option chip for a screen work shows its dialogue actor, so on a line you half-remember the actor names the film for you.
+
+**And the schedule cannot tell.** This section already records that *a recorded lapse is decisive* and that the ladder is fixed at 7 → 30 → 100. So an unanswerable series card **resets the half-life of a line the reader knew perfectly well**, and a free film card **advances one to a hundred days** on a question that tested nothing. Every decision in this section is about *when* to ask. None was about whether the question was worth asking, which is the gap.
+
+**Approved.** The reader's report — "the recall the book thing is very hard for serieses. and very easy when they are not serieses (especially so for movies)" — and my reading of the two halves as one defect.
+
+<sub>Not shipped</sub>
+
+### The question's grain follows the series, and that is not a preference
+
+**Decided.** `workRef` gains `series` and `seriesIndex` (both tables already carry the columns). A card whose work belongs to a series asks about the **series**, with the siblings collapsed into one option; a show asks which show, never which episode. The volume and the episode move to the reveal. It ships silently, with no setting.
+
+**Why no setting.** A switch between a fair question and an unfair one is not a preference, and offering it would be asking the reader to own a defect. What is worth choosing is which *kinds* of question to be asked — see the next entry.
+
+**The collapse has to reach `choicesFrom`,** which dedupes by string. Two sibling volumes are two distinct titles and survive it, so a "four-choice" card in a five-volume series is really a one-in-four guess between the same book. Collapsing by series key is what makes the option count honest.
+
+**Instead of.** A second "which volume?" step once the series is right — it is the same defect asked politely. Dropping series volumes from the deck — the line is worth remembering; only the question about it was wrong.
+
+**Approved.** The reader's, in the form "a toggle, but for types of questions. not for fair and unfair."
+
+<sub>Not shipped</sub>
+
+### Six question facets, and which apply is a property of the kind
+
+**Decided.** The deck grows from two facets to six: **source** (which work), **quote** (which line), **cloze** (fill the blank), **speaker** (who said this), **author** (who wrote this), **when** (roughly which decade). Which are available is decided by the kind and by the row, never by the reader.
+
+| facet | book | screen | standalone quote |
+|---|:--:|:--:|:--:|
+| source · quote · cloze | ✓ | ✓ | ✓ |
+| speaker | — | ✓ character | ✓ speaker |
+| author | ✓ | — | — |
+| when | ✓ published | ✓ release | ✓ occasion date |
+
+**Why.** Today's two facets are the same question in mirror image, which is why the film case has no hard version and the series case has no fair one. **Speaker is the facet the screen deck was missing**: the plausible distractors are the other characters of the same film, so the pool is dense by construction and needs no cross-library similarity search at all.
+
+**Two of the six have difficulty that does not depend on the library's shape** — cloze, whose difficulty comes from the line, and *when*, whose difficulty is how far apart the offered decades are, a number the deck chooses rather than inherits. Those two are what a sparse or lopsided library falls back on, which is the answer to the film case. The decade machinery *when* needs landed in 1.13.2.
+
+**Author is the weakest of the six** and is not defaulted on: a reader usually knows the author from the shelf.
+
+**This is why the character-chip feature and this one are one piece of work.** That feature builds the character → actor mapping per film; this one needs exactly that mapping to ask *who said this*. Planned apart, each would build half of it.
+
+**Approved.** The reader's, in the form "add new facets to the quiz as well."
+
+<sub>Not shipped</sub>
+
+### Question types are a preference, and the filter belongs in reviewSource
+
+**Decided.** `reviewQuestions`, a comma-separated string of enabled facets, taking the same shape as `reviewScope` and the same failure rule: **an unparseable or unknown value means everything, never nothing.** The eligibility predicate for each enabled facet is OR-ed into `reviewSource`'s `where()`.
+
+**Why it cannot live in the card builder.** `reviewSource` exists because five queries have to agree on what is reviewable, and the recorded symptom of their disagreeing is *a badge promising cards the deck will not serve*. Question types re-introduce exactly that risk, because **not every facet can be asked of every card**: cloze needs a quote long enough to blank a span out of, speaker needs a character, *when* needs a year. So "is there an enabled question this card can support" is a sixth condition on eligibility and belongs beside the utterance clause.
+
+`source` and `quote` are satisfiable by every row, which is what keeps the deck from emptying — and is the reason to make one of them unswitchable in the UI rather than to write a fallback that silently ignores the setting.
+
+**Approved.** The reader's, in the form "yes, a toggle. but for types of questions."
+
+<sub>Not shipped</sub>
+
+### Cloze is forgiving with typos and strict with synonyms, and the threshold follows word length
+
+**Decided.** The blank is graded after normalisation, by Levenshtein distance banded on the length of the answer word: **0 edits up to 4 characters, 1 for 5–7, 2 for 8 and over.** Multi-word blanks are graded token by token, in order, all must pass. No thesaurus, no stemmer, no inflection matching.
+
+**The trap, which sets the numbers.** Edit distance does not know the difference between a typo and a different word. "cat" → "cot" is one edit; "bad" → "sad" is one edit. A tolerance generous enough to feel kind on a long word will, on a short one, silently accept **a word the reader actually chose** — the synonym failure arriving through the back door wearing typo's coat. So the threshold is not a generosity setting: it is derived from how far you can travel before landing on another real word, and that distance is a function of length.
+
+**Normalisation is not forgiveness.** Case, surrounding punctuation, curly against straight apostrophes, en dash against hyphen, collapsed whitespace. None of those is the reader being wrong.
+
+**Refused explicitly:** synonyms (the blank is a span of a *quote*; a word that means the same thing is not the word that was written, and accepting it lets the reader pass without recalling the line), stems and inflections ("walked" for "walking" changes what the line says), and word order or count.
+
+**Token by token rather than whole-string,** because a whole-string budget earned by long neighbours will hide a wholly missing short word.
+
+**Nearly free to build:** `internal/search/levenshtein.go` already exists for the typo-tolerant search pass, and the rest of this rule is the *absence* of features. The one addition worth making is showing the difference marked on the reveal, so a reader who typed "recieve" can see that is what happened — and so can one whose synonym was refused, or the rule reads as arbitrary rather than strict.
+
+**Approved.** The reader's, in the form "fill in the blanks questions must be forgiving with typos. but not with synonyms."
+
+<sub>Not shipped</sub>
+
+### Measured difficulty feeds the schedule, beside the fixed ladder
+
+**Decided.** The deck counts its own **plausible** distractors per card — candidates scoring above the same-medium floor — and that number reaches the grader. A correct answer on a card the deck knows was easy does not earn the full step up the ladder; **a lapse on a card the deck knows was unfair is not decisive.**
+
+**Why the defensive half ships first.** It is the one that stops damage. Until the series grain lands, every series card is an unfair card, and each one is resetting the half-life of a line that was known.
+
+**It does not become a column.** This section's founding constraint is that recall is computed at query time from a stored half-life, with no sweep and no cached derivation. Difficulty is a property of the pool at the moment of asking, so it is computed then, like everything else here.
+
+**Not self-reported.** Self-graded recall was removed and restored once already; a second judgement per card spends the reader's attention on calibrating the app rather than on the line.
+
+**This section already reserves the shape** — *the fixed ladder stays the default; adaptive intervals would ship beside it*. This is that, with a difficulty signal that is measured rather than guessed.
+
+**Approved.** The reader's, in the form "Difficulty feeds the schedule - yes."
+
+<sub>Not shipped</sub>
+
 ## 9. Import and the Staging Queue
 
 Imports used to parse and write in one shot, which meant a misdetected file was reported after it had already reached search and the review deck. Everything now lands in separate staging tables where nothing is irreversible, and every parser reads structure rather than English.
