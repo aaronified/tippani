@@ -1233,7 +1233,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation' }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
@@ -1271,6 +1271,10 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     // what favouriting is. `favourited` only decides the wording.
     favourite: (row) => patch(row, { favorite: !row.favorite }),
     favourited: !!a.favorite,
+    // Only the Quotes screen passes this — a highlight belongs to its book and has
+    // no board — which is what keeps "Move to board" off a Library card without
+    // this file knowing anything about boards.
+    setBoard: onMoveBoard,
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu

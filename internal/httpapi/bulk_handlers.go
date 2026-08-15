@@ -75,6 +75,17 @@ type bulkTagReq struct {
 	// about these" — stated as the thing a reader wants rather than as the column,
 	// which is the negative of it.
 	Review *bool `json:"review"`
+	// Which board these are filed on (0036). STANDALONE QUOTES ONLY — an
+	// annotation belongs to its book and a dialogue to its film, and neither has
+	// a board to be moved between. Sent to either of those kinds it is refused
+	// rather than ignored: a bulk call that reports success and moved nothing is
+	// the failure this file's ownership comment is already about.
+	//
+	// A pointer, and nil means "leave it alone". There is deliberately no way to
+	// spell "no board" here — every quote is on exactly one board, and the single
+	// -quote PUT already treats a null board_id as "the default one" rather than
+	// as none.
+	BoardID *int64 `json:"board_id"`
 }
 
 // quoteBulkKind describes one binnable quote kind for the bulk path: its table,
@@ -214,6 +225,28 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		// column stores the opposite. Inverted in exactly one place, here.
 		if err := bulkSetChild(tx, table, "review_excluded", boolToInt(!*req.Review), owned); err != nil {
 			internalError(w, r, "bulk tag: review", err)
+			return
+		}
+	}
+	if req.BoardID != nil {
+		// Refused rather than ignored for the two kinds that have no board. An
+		// annotation belongs to its book and a dialogue to its film; accepting the
+		// field and doing nothing with it would make "move these to Speeches"
+		// report success over a selection of highlights.
+		if kind != "utterance" {
+			writeErr(w, http.StatusBadRequest, "only standalone quotes are filed on boards")
+			return
+		}
+		// Somebody else's board is refused, not silently swapped for the default —
+		// the same rule resolveBoard states for a single quote, and for the same
+		// reason: filing forty quotes somewhere other than where the request said
+		// is worse than refusing, because nothing on screen would say it happened.
+		if !boardOwned(tx, uid, *req.BoardID) {
+			writeErr(w, http.StatusNotFound, "no such board")
+			return
+		}
+		if err := bulkSetChild(tx, table, "board_id", *req.BoardID, owned); err != nil {
+			internalError(w, r, "bulk tag: board", err)
 			return
 		}
 	}

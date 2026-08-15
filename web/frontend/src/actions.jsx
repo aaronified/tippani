@@ -161,6 +161,24 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.favourite(item),
     },
     {
+      id: 'board',
+      label: 'Move to board',
+      where: OVERFLOW,
+      icon: <IconMoveTo />,
+      tooltip: 'File it on another board',
+      // Moving a quote between boards was reachable only by opening the edit form
+      // and changing one select in it — which is the whole form, and a full-state
+      // PUT, for a move. The bulk bar has the same action, and the registry's
+      // standing rule is that a thing you can do to forty you can do to one.
+      //
+      // Gated on the CALLBACK, not on the kind: the Quotes screen renders the same
+      // AnnotationCard the Library does, and that call site names the kind
+      // 'annotation'. A kind test here would be a control that is right about
+      // boards and silently absent on the one screen that has them.
+      available: !!ctx.setBoard,
+      run: () => ctx.setBoard(item),
+    },
+    {
       id: 'delete',
       label: 'Delete',
       where: OVERFLOW,
@@ -193,6 +211,9 @@ export const BULK_FIELDS = 'fields'
 export const BULK_COLOUR = 'colour'
 export const BULK_STICKER = 'sticker'
 export const BULK_SHELF = 'shelf'
+// Where a standalone quote is filed. Named for the thing rather than for the
+// column (`board_id`), like every other constant here.
+export const BULK_BOARD = 'board'
 export const BULK_CONFIRM = 'confirm'
 
 // WORK_KINDS — a book, a film or a show, as against the three kinds of quote.
@@ -303,6 +324,20 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       form: BULK_SHELF,
       available: isWork && !!ctx.setShelf,
       run: (values) => ctx.setShelf(items, values),
+    },
+    {
+      id: 'board',
+      label: 'Move to board',
+      where: OVERFLOW,
+      icon: <IconMoveTo />,
+      form: BULK_BOARD,
+      // The mirror of `shelf` on the other side of the split: a work is filed on
+      // a shelf, a standalone quote on a board, and neither has the other's.
+      // Offered ONLY where boards exist — a selection of annotations or dialogues
+      // has no board to move to, because those belong to their book or their film —
+      // and the bar says so by passing the callback on that screen alone.
+      available: !!ctx.setBoard,
+      run: (values) => ctx.setBoard(items, values),
     },
     {
       id: 'set-fields',

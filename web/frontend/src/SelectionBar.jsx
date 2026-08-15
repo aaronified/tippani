@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
+import { MoveToBoardDialog } from './boards.jsx'
 import { KIND_ROUTES, deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import {
@@ -78,6 +79,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const [typed, setTyped] = useState('')
   const [sealing, setSealing] = useState(false)
   const [tagging, setTagging] = useState(false)
+  const [moving, setMoving] = useState(false)
   const { kind, ids, count } = selection
   // The mode, not the count — see useSelection. Deselecting the last card used to
   // tear the bar off the screen, so re-picking meant finding the long press again.
@@ -91,7 +93,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // is a mode. Skipped while any of this bar's own dialogs is up: there Escape
   // belongs to the dialog, and dismissing the selection underneath it would answer
   // a question nobody asked.
-  const inDialog = asking || sealing || tagging
+  const inDialog = asking || sealing || tagging || moving
   useEffect(() => {
     if (!open || inDialog) return
     const k = (e) => {
@@ -139,6 +141,10 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
           ops.post({ sticker_id: seal == null ? 0 : seal }, seal == null ? 'seals removed' : `sealed ${count}`)
       : undefined,
     favourite: !isWork ? () => ops.post({ favorite: true }, `favourited ${count}`) : undefined,
+    // Standalone quotes only: an annotation belongs to its book and a dialogue to
+    // its film, and neither has a board. The registry reads the callback's
+    // presence, so naming the kind here is what keeps the action off those two.
+    setBoard: kind === 'quote' ? (_, boardID) => ops.post({ board_id: boardID }, `moved ${count}`) : undefined,
     // Works.
     fillGaps: isWork ? ops.fillGaps : undefined,
     setShelf: isWork ? (_, status) => ops.setShelf(status, `moved ${count}`) : undefined,
@@ -164,6 +170,11 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     byID.sticker.run(seal)
   }
 
+  const applyBoard = (boardID) => {
+    setMoving(false)
+    byID.board.run(boardID)
+  }
+
   // The typed phrase is this component's; the request and its Undo are the
   // hook's, so a work's card menu deletes through exactly the same call and
   // lands in exactly the same one-entry bin (0032).
@@ -179,6 +190,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const ASKS = {
     'add-tags': () => setTagging(true),
     sticker: () => setSealing(true),
+    board: () => setMoving(true),
     delete: () => setAsking(true),
   }
   const overflow = atOverflow(acts).map((a) => ({
@@ -317,6 +329,9 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         <TagsDialog count={count} busy={busy} suggestions={tagSuggestions} onApply={applyTags} onClose={() => setTagging(false)} />
       )}
       {sealing && <SealDialog count={count} busy={busy} onApply={applySeal} onClose={() => setSealing(false)} />}
+      {moving && (
+        <MoveToBoardDialog count={count} busy={busy} onApply={applyBoard} onClose={() => setMoving(false)} />
+      )}
 
       <ConfirmDialog
         open={asking}

@@ -99,6 +99,60 @@ export function useBoards() {
   return { boards, total, error, reload }
 }
 
+// MoveToBoardDialog — "which board do these go on?", for one quote or for forty.
+//
+// WHY IT FETCHES ITS OWN BOARDS. The same reason SealDialog fetches its own
+// stickers: the selection bar is on the Library and the Catalogue too, and
+// mounting this inside it would fetch every reader's board list on screens that
+// have no boards at all. It opens, it asks, it is gone.
+//
+// IT IS THE ONE DIALOG BOTH SURFACES USE. A card's ⋯ and the selection bar post
+// to the same endpoint with one id or with forty — /quotes/bulk does not care —
+// so giving them separate pickers would be two lists of the same boards drifting
+// apart, which is the failure actions.jsx exists to prevent.
+//
+// No "no board" option. Every quote is filed on exactly one board; the way to
+// have fewer boards is to delete one, and its quotes move to the default.
+export function MoveToBoardDialog({ count, busy, currentBoardID = null, onApply, onClose }) {
+  const { boards } = useBoards()
+  const list = boards || []
+  // Preselect nothing when the selection spans boards (or is on none we know) —
+  // a picker that opens already reading "Speeches" over a mixed selection is
+  // reporting a fact that is not true.
+  const [pick, setPick] = useState(currentBoardID == null ? '' : String(currentBoardID))
+  const target = pick === '' ? null : Number(pick)
+  return (
+    <FormModal open onClose={onClose} title={count === 1 ? 'Move this quote' : `Move ${count} quotes`}>
+      <div className="space-y-3">
+        <p className="microcopy">
+          {count === 1
+            ? 'Which board it is filed on. Nothing else about the quote changes.'
+            : `All ${count} move to one board. Nothing else about them changes.`}
+        </p>
+        {list.length === 0 ? (
+          <ErrorText>There is nowhere to move them — make a board first.</ErrorText>
+        ) : (
+          <Select
+            label="Board"
+            value={pick}
+            onChange={setPick}
+            options={list.map((b) => [String(b.id), b.name])}
+            placeholder="choose a board"
+          />
+        )}
+        <GhostButton
+          onClick={() => onApply(target)}
+          // Moving them to the board they are already on is a request that changes
+          // nothing and still writes updated_at across the selection.
+          disabled={busy || target == null || target === currentBoardID}
+        >
+          Move
+        </GhostButton>
+      </div>
+    </FormModal>
+  )
+}
+
 // BoardForm — new board, and editing one. Name, colour, description, picture.
 //
 // The picture is uploaded rather than fetched: no supplier has a photograph of a

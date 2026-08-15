@@ -22,7 +22,7 @@ import { deleteWithUndo } from './undo.jsx'
 import { useSelection } from './selection.jsx'
 import { SelectionBar } from './SelectionBar.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
-import { ALL_BOARD, BoardList, useBoards } from './boards.jsx'
+import { ALL_BOARD, BoardList, MoveToBoardDialog, useBoards } from './boards.jsx'
 import { GroupHeading, WorkListScaffold, groupWorks } from './works.jsx'
 import {
   ColorSwatches,
@@ -45,6 +45,7 @@ import {
   useFormHost,
   useIsMobileScreen,
   usePersistedState,
+  toast,
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
@@ -509,6 +510,9 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [shareFor, setShareFor] = useState(null)
+  // The quote whose board is being changed from its own ⋯ menu. The selection bar
+  // asks the same question of a whole selection with the same dialog.
+  const [movingQuote, setMovingQuote] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const [exporting, setExporting] = useState(false)
   const [tags, setTags] = useState([])
@@ -721,6 +725,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       save={save}
       patch={patch}
       remove={remove}
+      onMoveBoard={() => setMovingQuote(u)}
       onCopy={() => copyQuote(sharePayload(u))}
       onShare={() => setShareFor(u)}
       tagSuggestions={Object.keys(tagMap)}
@@ -877,6 +882,24 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     >
       {selection.open && (
         <SelectionBar selection={selection} rows={shown} onDone={afterBulk} tagSuggestions={Object.keys(tagMap)} onEdit={setEditingId} />
+      )}
+      {/* One quote, from its own ⋯. Posted through the BULK endpoint with a single
+          id — the same call the bar makes with forty — so there is no second path
+          to keep in step, which is the rule deletes already follow. */}
+      {movingQuote && (
+        <MoveToBoardDialog
+          count={1}
+          currentBoardID={movingQuote.board_id ?? null}
+          onApply={async (target) => {
+            const u = movingQuote
+            setMovingQuote(null)
+            const r = await json('POST', '/quotes/bulk', { ids: [u.id], board_id: target })
+            if (!r.ok) return toast(errText(r, 'could not move'))
+            toast('moved')
+            await load()
+          }}
+          onClose={() => setMovingQuote(null)}
+        />
       )}
       {!rows ? (
         <Placeholder />
