@@ -233,40 +233,67 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = 'Save', e
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      {/* Offered on a NEW board only. On an edit the board already is something,
-          and a row of chips that would silently rewrite its name and colour is a
-          trap rather than a shortcut. */}
-      {!initial?.id && (
-        <div>
-          <MonoLabel className="mb-1.5 block">start from</MonoLabel>
-          <div className="flex flex-wrap items-center gap-2">
-            {BOARD_STARTERS.map((s) => (
-              <GhostButton key={s.key} type="button" onClick={() => useStarter(s)}>
-                {s.name}
-                {taken.has(s.name.toLowerCase()) ? ' ✓' : ''}
-              </GhostButton>
-            ))}
-          </div>
-          <p className="microcopy mt-1.5">Fills the form in. Change any of it before you create.</p>
-        </div>
-      )}
       <Field label="Name" value={name} placeholder="Proverbs" onChange={(e) => setName(e.target.value)} />
       {clash && <p className="microcopy">You already have a board called that.</p>}
       {/* WHAT THE BOARD HOLDS, which is not the same question as what it is
           called. A proverb board puts the language and the English translation
           first on the quote form; on a board of speeches those two are noise.
-          Rename a proverb board to anything at all and it stays one. */}
+          Rename a proverb board to anything at all and it stays one.
+
+          ONE SECTION, NOT TWO. This sat under a separate `start from` row of
+          chips offering Proverbs / Speeches / Others, and the two read as one
+          choice asked twice: `Proverbs` appeared in both and meant different
+          things in each — a name-and-colour prefill in the first, the board's
+          behaviour in the second. Somebody who picked it above and then saw it
+          again below had no way to tell which one had taken.
+
+          So the starters ARE this control now. Each one still fills the form in
+          (0037's reachability fix, which a plain kind toggle would have thrown
+          away), and each one also says what the board holds — because that is
+          what the reader was choosing all along. Speeches and Others are both
+          plain boards; the kind is a column with two values and stays that way. */}
       <div>
         <MonoLabel className="mb-1.5 block">what it holds</MonoLabel>
-        <Toggle
-          ariaLabel="What it holds"
-          value={kind}
-          onChange={setKind}
-          options={[
-            ['plain', 'Quotes'],
-            ['proverb', 'Proverbs'],
-          ]}
-        />
+        {initial?.id ? (
+          /* On an edit the board already IS something, and chips that silently
+             rewrote its name and colour would be a trap rather than a shortcut.
+             So editing offers the behaviour alone. */
+          <Toggle
+            ariaLabel="What it holds"
+            value={kind}
+            onChange={setKind}
+            options={[
+              ['plain', 'Quotes'],
+              ['proverb', 'Proverbs'],
+            ]}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              {BOARD_STARTERS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  // Pressed when this starter's name is the one in the box —
+                  // which is also what un-presses it the moment somebody types
+                  // their own name over it, and that is honest: a board called
+                  // "Grandmother" is not the Proverbs starter any more, even
+                  // though it is still a proverb board.
+                  aria-pressed={name.trim().toLowerCase() === s.name.toLowerCase()}
+                  onClick={() => useStarter(s)}
+                  className={
+                    'tp-filter-chip tactile' +
+                    (name.trim().toLowerCase() === s.name.toLowerCase() ? ' active' : '')
+                  }
+                >
+                  {s.name}
+                  {taken.has(s.name.toLowerCase()) ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+            <p className="microcopy mt-1.5">Fills the form in. Change any of it before you create.</p>
+          </>
+        )}
       </div>
       {kind === 'proverb' && (
         <div>

@@ -43,7 +43,9 @@ const noop = () => {}
 // text query matches the prose as well as the button.
 const openNewBoard = async () => {
   fireEvent.click(screen.getByRole('button', { name: /New board/ }))
-  await screen.findByText('start from')
+  // The starters ARE the "what it holds" control on a new board — they were a
+  // separate `start from` row until the two read as one question asked twice.
+  await screen.findByText('what it holds')
 }
 
 describe('the starter offer', () => {
@@ -125,14 +127,18 @@ describe('the starter offer', () => {
   })
 
   // Editing a board is not the moment to be offered a row of chips that would
-  // silently rewrite its name and colour.
+  // silently rewrite its name and colour. The section itself stays — an existing
+  // board can still be told what it holds — but it is the plain two-way toggle
+  // there, with no starter to overwrite the name somebody chose.
   it('is offered on a new board only', async () => {
     BOARDS = [board(1, 'Kennedy')]
     render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
     fireEvent.click(screen.getByLabelText(/more/i))
     fireEvent.click(await screen.findByText('Edit'))
     await screen.findByDisplayValue('Kennedy')
-    expect(screen.queryByText('start from')).toBeNull()
+    expect(screen.getByText('what it holds')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Speeches/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Others/ })).toBeNull()
   })
 })
 
