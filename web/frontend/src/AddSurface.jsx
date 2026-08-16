@@ -40,7 +40,10 @@ import {
 // (they differ only by media_type); "Book" uses the books flow. Manual entry is
 // no longer a sibling mode — it's the "Add manually" escape hatch under the
 // results, which opens the right hand-entry popup for the chosen kind.
-const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show'], ['game', 'Game']]
+// Exported so the popup's kind maps can be tested against this list rather than
+// spot-checked: a fifth kind added here and forgotten in ManualPopup saves as a
+// film and says nothing (see test/dom/add-manual-kind.test.jsx).
+export const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show'], ['game', 'Game']]
 
 // workFromBook / workFromMovie normalise a freshly-created record into the lean
 // {kind,id,title,sub,tag} shape the capture picker (and WorkPicker) speak, so an
@@ -50,11 +53,14 @@ export function workFromBook(b) {
 }
 export function workFromMovie(m) {
   // media_type rides along beside the display tag: capture needs the fact (a show
-  // gains season/episode fields), not the label.
-  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', media_type: m.media_type === 'show' ? 'show' : 'movie', tag: m.media_type === 'show' ? 'SHOW' : 'FILM' }
+  // gains season/episode fields), not the label. Narrowed to the vocabulary
+  // rather than passed through, because a row with no media_type is a film — but
+  // a game must survive as a game or it captures as one and files as the other.
+  const mt = m.media_type === 'show' ? 'show' : m.media_type === 'game' ? 'game' : 'movie'
+  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', media_type: mt, tag: mt === 'show' ? 'SHOW' : mt === 'game' ? 'GAME' : 'FILM' }
 }
 
-// AddLookup — the canonical "look up / add a Book, Film or Show" card: a kind
+// AddLookup — the canonical "look up / add a Book, Film, Show or Game" card: a kind
 // toggle, a search that queries the metadata sources, a candidate list that
 // creates the work (with cover + genres + source pinning) on pick, and an "add
 // manually" escape hatch that's visible from the start (press it to skip the
@@ -75,7 +81,12 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
   const [error, setError] = useState('')
   const [confirm, setConfirm] = useState(null) // movie same-name confirm {cand, existing}
   const [manual, setManual] = useState(false) // manual-entry popup open
-  const [noKey, setNoKey] = useState(false) // TMDB/TVDB missing → film/show lookup 503s
+  // Which supplier is unconfigured, PER KIND rather than as one flag: film/show
+  // run on TMDB/TVDB and a game runs on IGDB, and they are configured
+  // independently. A single boolean read off tmdb meant the common case — TMDB set,
+  // IGDB not — showed no warning at all on Game, so the first thing a game
+  // search did was 503 into the manual popup with nothing said beforehand.
+  const [noKey, setNoKey] = useState({ movie: false, game: false })
   const [openGroup, setOpenGroup] = useState(-1) // index of the expanded edition group
   const isBook = kind === 'book'
   // 'film' is the UI word and 'movie' the stored one, so this maps rather than
@@ -90,13 +101,17 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     [candidates, isBook],
   )
 
-  // A missing movie key makes film/show lookup 503; surface it so "Add manually"
-  // reads as the obvious path (book lookup needs no key).
+  // A missing lookup key makes film/show/game lookup 503; surface it so "Add
+  // manually" reads as the obvious path (book lookup needs no key).
   useEffect(() => {
     json('GET', '/metadata/status').then((r) => {
-      if (r.ok && r.data?.tmdb?.source === 'none') setNoKey(true)
+      if (!r.ok) return
+      setNoKey({ movie: r.data?.tmdb?.source === 'none', game: r.data?.igdb?.source === 'none' })
     })
   }, [])
+  // The supplier behind the CURRENT chip — the only one whose absence this
+  // search will hit.
+  const kindHasNoKey = !isBook && (kind === 'game' ? noKey.game : noKey.movie)
 
   function switchKind(k) {
     setKind(k)
@@ -189,7 +204,13 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     setError(errText(r, 'could not enrich that title'))
   }
 
-  const placeholder = isBook ? 'ISBN or title' : mediaType === 'show' ? 'Show title' : 'Film title'
+  const placeholder = isBook
+    ? 'ISBN or title'
+    : mediaType === 'show'
+      ? 'Show title'
+      : mediaType === 'game'
+        ? 'Game title'
+        : 'Film title'
   // The lookup let the user down (failed, or found nothing) — step the manual
   // path forward as a real button, not just the microcopy link below.
   const lookupFailed = !confirm && (!!error || (candidates && candidates.length === 0))
@@ -226,7 +247,7 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       {/* The hint NAMES THE SUPPLIER, because they are different keys and the
           generic wording sent people to the TMDB field to fix a games lookup.
           IGDB also needs a PAIR, which is the half people miss. */}
-      {!isBook && noKey && (
+      {kindHasNoKey && (
         <p className="microcopy" style={{ color: 'var(--soft)' }}>
           {kind === 'game'
             ? 'no IGDB key configured — it needs a Twitch client id and secret. “Add manually” below always works.'
@@ -324,8 +345,8 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
 
 // ManualPopup — the hand-entry form for the chosen kind, in a modal above the
 // Add surface (§3.1: manual entry is a popup reached from the look-up card, not a
-// sibling tab). Book → ManualTab; Film / Show → ManualMovie (media type fixed by
-// the kind that opened it).
+// sibling tab). Book → ManualTab; Film / Show / Game → ManualMovie (media type
+// fixed by the kind that opened it).
 //
 // COMMIT LIVES IN THE HEADER, beside close. The form used to end in a primary
 // text button ("Add book" / "Add movie"), which is the pattern the rest of the
@@ -358,7 +379,13 @@ function ManualPopup({ kind, onClose, onAdded }) {
   // still scrolled when you close this. Ref-counted, so a dialog opened from
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
- const [mt, setMt] = useState(kind === 'show' ? 'show' : 'movie')
+  // THE KIND THAT OPENED THIS IS THE ANSWER, and it is the only answer: this
+  // popup deliberately renders no MediaTypeToggle (see the header comment), so
+  // whatever lands here is what gets saved. A kind missing from this map is not
+  // a cosmetic slip — it silently files the work as the fallback, with no
+  // control on screen to put it right. 'game' was missing, so every game reached
+  // through "Add manually" was saved as a film.
+  const [mt, setMt] = useState(kind === 'show' ? 'show' : kind === 'game' ? 'game' : 'movie')
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
@@ -366,7 +393,14 @@ function ManualPopup({ kind, onClose, onAdded }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
-  const heading = kind === 'book' ? 'Add a book manually' : kind === 'show' ? 'Add a show manually' : 'Add a film manually'
+  const heading =
+    kind === 'book'
+      ? 'Add a book manually'
+      : kind === 'show'
+        ? 'Add a show manually'
+        : kind === 'game'
+          ? 'Add a game manually'
+          : 'Add a film manually'
   const canSave = !busy && !!title.trim()
   return createPortal(
     <div
