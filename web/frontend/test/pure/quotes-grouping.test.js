@@ -76,12 +76,17 @@ describe('grouping by speaker', () => {
 })
 
 describe('grouping by medium and place', () => {
-  it('buckets by medium', () => {
-    expect(labels(groupUtterances(ALL, 'medium'))).toEqual(['radio', 'speech', 'No medium'])
-  })
-
-  it('buckets by place', () => {
-    expect(labels(groupUtterances(ALL, 'place'))).toEqual(['Burma', 'Washington', 'No place'])
+  // One test over both dimensions rather than two: the call and the matcher are
+  // identical and only the dimension and its expected labels differ. The two
+  // tests just below already loop over ['medium', 'place'] the same way, so a
+  // table here matches the file's own style; the single toEqual over collected
+  // pairs names whichever dimension bucketed wrongly.
+  it('buckets by medium, and by place', () => {
+    const want = [
+      ['medium', ['radio', 'speech', 'No medium']],
+      ['place', ['Burma', 'Washington', 'No place']],
+    ]
+    expect(want.map(([dim]) => [dim, labels(groupUtterances(ALL, dim))])).toEqual(want)
   })
 
   // These two go through the generic facet branch, which reads u[dim]. If that

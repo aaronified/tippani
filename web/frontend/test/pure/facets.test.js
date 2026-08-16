@@ -215,23 +215,40 @@ describe('liftFacet — the token leaves the box', () => {
 })
 
 describe('facetOptions', () => {
-  it('offers the library vocabulary for a plain field', () => {
-    expect(facetOptions('tag', VOCAB)).toEqual([
+  // One test over all nine rows rather than five: every row is the same
+  // `facetOptions(field, vocabulary, typed)` call compared with the same
+  // matcher, so the only thing five separate it()s bought was five titles.
+  // Comparing the whole collected list at once names EVERY failing row instead
+  // of dying on the first, and each row keeps its original it() title.
+  const OPTION_CASES = [
+    { name: 'offers the library vocabulary for a plain field', field: 'tag', vocab: VOCAB, want: [
       { value: 'death', label: 'death' },
       { value: 'dawn', label: 'dawn' },
       { value: 'stoicism', label: 'stoicism' },
       { value: 'gardening', label: 'gardening' },
-    ])
-  })
-
-  // The 1.7.1 rename, and the reason the vocabulary endpoint returns pairs: the
-  // chip must read `colour:doubt` while the query sends `blue`.
-  it('separates a colour name from the word it is stored as', () => {
-    expect(facetOptions('colour', VOCAB)).toEqual([
+    ] },
+    // The 1.7.1 rename, and the reason the vocabulary endpoint returns pairs: the
+    // chip must read `colour:doubt` while the query sends `blue`.
+    { name: 'separates a colour name from the word it is stored as', field: 'colour', vocab: VOCAB, want: [
       { value: 'yellow', label: 'yellow' },
       { value: 'blue', label: 'doubt' },
       { value: 'pink', label: 'joy' },
-    ])
+    ] },
+    // A year has no vocabulary and cannot have one, so the dropdown offers back
+    // what was typed — a confirmation rather than a list.
+    { name: 'offers a year back to you once it is a number', field: 'year', vocab: VOCAB, typed: '1974', want: [{ value: '1974', label: '1974' }] },
+    { name: 'offers a year back to you once it is a number', field: 'year', vocab: VOCAB, typed: '19', want: [{ value: '19', label: '19' }] },
+    { name: 'offers a year back to you once it is a number', field: 'year', vocab: VOCAB, typed: '', want: [] },
+    { name: 'offers a year back to you once it is a number', field: 'year', vocab: VOCAB, typed: 'nineteen', want: [] },
+    { name: 'survives a vocabulary that has not arrived yet', field: 'tag', vocab: {}, want: [] },
+    { name: 'survives a vocabulary that has not arrived yet', field: 'tag', vocab: undefined, want: [] },
+    { name: 'offers nothing for a field that does not exist', field: 'nonsense', vocab: VOCAB, want: [] },
+  ]
+
+  it('offers every field exactly the options it has', () => {
+    const row = (c) => `${c.name} — ${c.field}:${c.typed ?? ''}${c.vocab ? '' : ' (no vocabulary)'}`
+    const got = OPTION_CASES.map((c) => [row(c), facetOptions(c.field, c.vocab, c.typed)])
+    expect(got).toEqual(OPTION_CASES.map((c) => [row(c), c.want]))
   })
 
   it('offers yes and no for the flags', () => {
@@ -239,106 +256,91 @@ describe('facetOptions', () => {
       expect(facetOptions(f, VOCAB).map((o) => o.value)).toEqual(['yes', 'no'])
     }
   })
-
-  // A year has no vocabulary and cannot have one, so the dropdown offers back
-  // what was typed — a confirmation rather than a list.
-  it('offers a year back to you once it is a number', () => {
-    expect(facetOptions('year', VOCAB, '1974')).toEqual([{ value: '1974', label: '1974' }])
-    expect(facetOptions('year', VOCAB, '19')).toEqual([{ value: '19', label: '19' }])
-    expect(facetOptions('year', VOCAB, '')).toEqual([])
-    expect(facetOptions('year', VOCAB, 'nineteen')).toEqual([])
-  })
-
-  it('survives a vocabulary that has not arrived yet', () => {
-    expect(facetOptions('tag', {})).toEqual([])
-    expect(facetOptions('tag', undefined)).toEqual([])
-  })
-
-  it('offers nothing for a field that does not exist', () => {
-    expect(facetOptions('nonsense', VOCAB)).toEqual([])
-  })
 })
 
 describe('narrowFacetOptions', () => {
   const tags = facetOptions('tag', VOCAB)
   const authors = facetOptions('author', VOCAB)
+  const colours = facetOptions('colour', VOCAB)
   const labels = (os) => os.map((o) => o.label)
 
-  it('offers everything before you type', () => {
-    expect(labels(narrowFacetOptions(tags, ''))).toEqual(['death', 'dawn', 'stoicism', 'gardening'])
-  })
+  // One test over all 18 rows rather than eleven: every one of these was the
+  // same statement — `labels(narrowFacetOptions(options, typed))` compared with
+  // toEqual — and differed only in the option list and what was typed. Comparing
+  // the whole collected list at once names EVERY failing row rather than dying
+  // on the first, and each row keeps its original it() title so a failure still
+  // says which case broke. Nothing is dropped: there is one row per expect()
+  // that was here before.
+  const NARROW_CASES = [
+    { name: 'offers everything before you type', options: tags, typed: '', want: ['death', 'dawn', 'stoicism', 'gardening'] },
 
-  it('narrows on a prefix', () => {
-    expect(labels(narrowFacetOptions(tags, 'sto'))).toEqual(['stoicism'])
-    expect(labels(narrowFacetOptions(tags, 'da'))).toEqual(['dawn'])
+    { name: 'narrows on a prefix', options: tags, typed: 'sto', want: ['stoicism'] },
+    { name: 'narrows on a prefix', options: tags, typed: 'da', want: ['dawn'] },
     // "gardening" contains "de", so it comes too — behind the word that starts
     // with it.
-    expect(labels(narrowFacetOptions(tags, 'de'))).toEqual(['death', 'gardening'])
-  })
+    { name: 'narrows on a prefix', options: tags, typed: 'de', want: ['death', 'gardening'] },
 
-  // A single letter reaches the substring rank too, and the order it comes back
-  // in is the whole ranking on display: the two words that START with d, in
-  // vocabulary order, then the one that merely contains one.
-  it('offers prefixes before substrings', () => {
-    expect(labels(narrowFacetOptions(tags, 'd'))).toEqual(['death', 'dawn', 'gardening'])
-  })
+    // A single letter reaches the substring rank too, and the order it comes back
+    // in is the whole ranking on display: the two words that START with d, in
+    // vocabulary order, then the one that merely contains one.
+    { name: 'offers prefixes before substrings', options: tags, typed: 'd', want: ['death', 'dawn', 'gardening'] },
 
-  it('is case- and accent-insensitive', () => {
-    expect(labels(narrowFacetOptions(tags, 'STO'))).toEqual(['stoicism'])
-    expect(labels(narrowFacetOptions(authors, 'ursula'))).toEqual(['Ursula K. Le Guin'])
-  })
+    { name: 'is case- and accent-insensitive', options: tags, typed: 'STO', want: ['stoicism'] },
+    { name: 'is case- and accent-insensitive', options: authors, typed: 'ursula', want: ['Ursula K. Le Guin'] },
 
-  // A name is several words and the reader types the memorable one.
-  it('matches a prefix of any word, not only the first', () => {
-    expect(labels(narrowFacetOptions(authors, 'guin'))).toEqual(['Ursula K. Le Guin'])
-    expect(labels(narrowFacetOptions(authors, 'prat'))).toEqual(['Terry Pratchett'])
-  })
+    // A name is several words and the reader types the memorable one.
+    { name: 'matches a prefix of any word, not only the first', options: authors, typed: 'guin', want: ['Ursula K. Le Guin'] },
+    { name: 'matches a prefix of any word, not only the first', options: authors, typed: 'prat', want: ['Terry Pratchett'] },
 
-  it('tolerates one typo', () => {
-    expect(labels(narrowFacetOptions(tags, 'stoicsm'))).toEqual(['stoicism'])
-    expect(labels(narrowFacetOptions(tags, 'gardning'))).toEqual(['gardening'])
-    expect(labels(narrowFacetOptions(authors, 'gaimen'))).toEqual(['Neil Gaiman'])
-  })
+    { name: 'tolerates one typo', options: tags, typed: 'stoicsm', want: ['stoicism'] },
+    { name: 'tolerates one typo', options: tags, typed: 'gardning', want: ['gardening'] },
+    { name: 'tolerates one typo', options: authors, typed: 'gaimen', want: ['Neil Gaiman'] },
 
-  // THE RANKING GUARANTEE, and the reason this function ranks rather than
-  // filters. "deth" is one edit from "death" and a literal prefix of
-  // "dethrone". A flat "prefix OR within budget" filter would return them in
-  // vocabulary order and let the typo-correction win by accident of sorting.
-  // A word that STARTS with what you typed must never sit below a word that
-  // merely resembles it — you can always type one more letter to reach the
-  // fuzzy one, and you cannot type your way out of a list that reordered itself.
-  it('puts an exact prefix above a fuzzy match on a different word', () => {
-    const os = [{ value: 'a', label: 'death' }, { value: 'b', label: 'dethrone' }]
-    expect(labels(narrowFacetOptions(os, 'deth'))).toEqual(['dethrone', 'death'])
-  })
+    // THE RANKING GUARANTEE, and the reason this function ranks rather than
+    // filters. "deth" is one edit from "death" and a literal prefix of
+    // "dethrone". A flat "prefix OR within budget" filter would return them in
+    // vocabulary order and let the typo-correction win by accident of sorting.
+    // A word that STARTS with what you typed must never sit below a word that
+    // merely resembles it — you can always type one more letter to reach the
+    // fuzzy one, and you cannot type your way out of a list that reordered itself.
+    {
+      name: 'puts an exact prefix above a fuzzy match on a different word',
+      options: [{ value: 'a', label: 'death' }, { value: 'b', label: 'dethrone' }],
+      typed: 'deth',
+      want: ['dethrone', 'death'],
+    },
 
-  it('puts a prefix above a substring', () => {
-    const os = [{ value: 'a', label: 'undeath' }, { value: 'b', label: 'death' }]
-    expect(labels(narrowFacetOptions(os, 'death'))).toEqual(['death', 'undeath'])
-  })
+    {
+      name: 'puts a prefix above a substring',
+      options: [{ value: 'a', label: 'undeath' }, { value: 'b', label: 'death' }],
+      typed: 'death',
+      want: ['death', 'undeath'],
+    },
 
-  // Two characters is too little signal to correct: at that length almost every
-  // option in a library is one edit away, so the budget is zero and only real
-  // prefixes and substrings survive.
-  it('forgives nothing on a two-character stub', () => {
-    expect(labels(narrowFacetOptions(tags, 'xy'))).toEqual([])
-  })
+    // Two characters is too little signal to correct: at that length almost every
+    // option in a library is one edit away, so the budget is zero and only real
+    // prefixes and substrings survive.
+    { name: 'forgives nothing on a two-character stub', options: tags, typed: 'xy', want: [] },
 
-  it('offers nothing rather than everything when nothing matches', () => {
-    expect(narrowFacetOptions(tags, 'zzzzzzzz')).toEqual([])
+    // Asserted through labels() like every other row rather than on the raw
+    // result, which is the same claim: labels([]) is [].
+    { name: 'offers nothing rather than everything when nothing matches', options: tags, typed: 'zzzzzzzz', want: [] },
+
+    { name: 'narrows a renamed colour by its NAME, not its storage word', options: colours, typed: 'dou', want: ['doubt'] },
+    // The stored word is not what is on screen, so it is not what is searched.
+    { name: 'narrows a renamed colour by its NAME, not its storage word', options: colours, typed: 'blu', want: [] },
+  ]
+
+  it('ranks and narrows every one of these the way its name says', () => {
+    const row = (c) => `${c.name} — typed ${JSON.stringify(c.typed)}`
+    const got = NARROW_CASES.map((c) => [row(c), labels(narrowFacetOptions(c.options, c.typed))])
+    expect(got).toEqual(NARROW_CASES.map((c) => [row(c), c.want]))
   })
 
   it('caps the list', () => {
     const many = Array.from({ length: 40 }, (_, i) => ({ value: `t${i}`, label: `tag${i}` }))
     expect(narrowFacetOptions(many, 'tag')).toHaveLength(8)
     expect(narrowFacetOptions(many, '', 3)).toHaveLength(3)
-  })
-
-  it('narrows a renamed colour by its NAME, not its storage word', () => {
-    const colours = facetOptions('colour', VOCAB)
-    expect(labels(narrowFacetOptions(colours, 'dou'))).toEqual(['doubt'])
-    // The stored word is not what is on screen, so it is not what is searched.
-    expect(labels(narrowFacetOptions(colours, 'blu'))).toEqual([])
   })
 })
 
@@ -544,60 +546,78 @@ describe('removing a seeded chip widens the search', () => {
   // becomes a query string, and dropping a chip visibly drops a parameter.
   const seeded = seedableChips(withFacetValues(withFacet([], 'genre', 'Fantasy'), 'shelf', ['reading']))
 
-  it('starts narrowed', () => {
-    expect(searchQueryString({ scope: 'books', chips: seeded }))
-      .toBe('scope=books&genre=Fantasy&shelf=reading')
-  })
+  // One test over all three rows rather than three: each was the same
+  // `searchQueryString({ scope: 'books', chips })` compared with toBe over the
+  // shared `seeded` above, differing only in which chips were left on. Kept in
+  // order so the narrowing-to-widening sequence still reads top to bottom, and
+  // compared as one collection so a failure names every step that went wrong.
+  const STEPS = [
+    { name: 'starts narrowed', chips: seeded, want: 'scope=books&genre=Fantasy&shelf=reading' },
+    { name: 'widens by exactly the chip removed', chips: removeChipAt(seeded, 1), want: 'scope=books&genre=Fantasy' },
+    { name: 'is back to the whole shelf once every chip is off', chips: [], want: 'scope=books' },
+  ]
 
-  it('widens by exactly the chip removed', () => {
-    expect(searchQueryString({ scope: 'books', chips: removeChipAt(seeded, 1) }))
-      .toBe('scope=books&genre=Fantasy')
-  })
-
-  it('is back to the whole shelf once every chip is off', () => {
-    expect(searchQueryString({ scope: 'books', chips: [] })).toBe('scope=books')
+  it('narrows and widens one chip at a time', () => {
+    const got = STEPS.map((s) => [s.name, searchQueryString({ scope: 'books', chips: s.chips })])
+    expect(got).toEqual(STEPS.map((s) => [s.name, s.want]))
   })
 })
 
 describe('searchQueryString', () => {
-  it('sends free text, scope and one parameter per chip', () => {
-    const qs = searchQueryString({
-      q: 'revolution',
-      scope: 'books',
-      chips: [
-        { field: 'tag', value: 'stoicism', label: 'stoicism' },
-        { field: 'colour', value: 'blue', label: 'doubt' },
-      ],
-    })
-    expect(qs).toBe('q=revolution&scope=books&tag=stoicism&colour=blue')
-  })
+  // One test over all five rows rather than five: every one was a single call
+  // and a single string compare, differing only in the argument object and the
+  // expected query string. Row names are the original it() titles, and the
+  // collection is compared in one go so a failure names every wrong query
+  // rather than only the first. `args: undefined` is the no-argument case —
+  // the signature is `searchQueryString({ ... } = {})`, so it takes the same
+  // default-parameter path a bare `searchQueryString()` does.
+  const QUERIES = [
+    {
+      name: 'sends free text, scope and one parameter per chip',
+      args: {
+        q: 'revolution',
+        scope: 'books',
+        chips: [
+          { field: 'tag', value: 'stoicism', label: 'stoicism' },
+          { field: 'colour', value: 'blue', label: 'doubt' },
+        ],
+      },
+      want: 'q=revolution&scope=books&tag=stoicism&colour=blue',
+    },
 
-  // Two chips of one field are two parameters of the same name — that is how a
-  // multi-valued facet is expressed, and how the server tells intersection from
-  // union.
-  it('repeats a name rather than joining values', () => {
-    const qs = searchQueryString({
-      chips: [
-        { field: 'tag', value: 'stoicism', label: 'stoicism' },
-        { field: 'tag', value: 'death', label: 'death' },
-      ],
-    })
-    expect(qs).toBe('scope=all&tag=stoicism&tag=death')
-  })
+    // Two chips of one field are two parameters of the same name — that is how a
+    // multi-valued facet is expressed, and how the server tells intersection from
+    // union.
+    {
+      name: 'repeats a name rather than joining values',
+      args: {
+        chips: [
+          { field: 'tag', value: 'stoicism', label: 'stoicism' },
+          { field: 'tag', value: 'death', label: 'death' },
+        ],
+      },
+      want: 'scope=all&tag=stoicism&tag=death',
+    },
 
-  // The chips-only search: picking a value emptied the box, and that request
-  // must still be well-formed. The server stopped requiring `q` for exactly this.
-  it('omits q entirely when the box is empty', () => {
-    expect(searchQueryString({ q: '   ', scope: 'quotes', chips: [{ field: 'tag', value: 'x', label: 'x' }] }))
-      .toBe('scope=quotes&tag=x')
-  })
+    // The chips-only search: picking a value emptied the box, and that request
+    // must still be well-formed. The server stopped requiring `q` for exactly this.
+    {
+      name: 'omits q entirely when the box is empty',
+      args: { q: '   ', scope: 'quotes', chips: [{ field: 'tag', value: 'x', label: 'x' }] },
+      want: 'scope=quotes&tag=x',
+    },
 
-  it('escapes values rather than pasting them in', () => {
-    const qs = searchQueryString({ chips: [{ field: 'author', value: 'Gaiman & Pratchett', label: 'x' }] })
-    expect(qs).toBe('scope=all&author=Gaiman+%26+Pratchett')
-  })
+    {
+      name: 'escapes values rather than pasting them in',
+      args: { chips: [{ field: 'author', value: 'Gaiman & Pratchett', label: 'x' }] },
+      want: 'scope=all&author=Gaiman+%26+Pratchett',
+    },
 
-  it('defaults to searching everything', () => {
-    expect(searchQueryString()).toBe('scope=all')
+    { name: 'defaults to searching everything', args: undefined, want: 'scope=all' },
+  ]
+
+  it('builds the query the server takes', () => {
+    const got = QUERIES.map((c) => [c.name, searchQueryString(c.args)])
+    expect(got).toEqual(QUERIES.map((c) => [c.name, c.want]))
   })
 })

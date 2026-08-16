@@ -177,41 +177,62 @@ describe('a composed popup', () => {
     expect(cases.length).toBeGreaterThan(0)
   })
 
-  for (const { popup, list } of cases) {
-    const classes = list.split(' ')
-
-    it(`"${list}" does not pin both top and bottom`, () => {
-      if (pins(resolved(classes, 'height'))) return
+  // Three tests over every composition rather than three PER composition: within
+  // each family the assertion is identical and only the class list changes, and
+  // the class list already rode in the failure message rather than the title. The
+  // collected list names every offending composition at once instead of the run
+  // dying on the first. `cases` is discovered by scanning src/, so a list holding
+  // two popup classes ("cs-menu token-menu") is still visited once per popup name
+  // — a repeated iteration over identical input, which costs nothing but is worth
+  // knowing about if the numbers look odd.
+  it('does not pin both top and bottom', () => {
+    const offenders = []
+    for (const { list } of cases) {
+      const classes = list.split(' ')
+      if (pins(resolved(classes, 'height'))) continue
       const top = resolved(classes, 'top')
       const bottom = resolved(classes, 'bottom')
-      expect(
-        pins(top) && pins(bottom),
-        `top: ${top} and bottom: ${bottom} — an auto-height box solves for a NEGATIVE height ` +
-          `and renders as its own borders. Clear one with \`auto\`.`,
-      ).toBe(false)
-    })
+      if (pins(top) && pins(bottom)) offenders.push(`"${list}" top: ${top} and bottom: ${bottom}`)
+    }
+    expect(
+      offenders,
+      'an auto-height box solves for a NEGATIVE height ' +
+        'and renders as its own borders. Clear one with `auto`.',
+    ).toEqual([])
+  })
 
-    it(`"${list}" does not pin both left and right`, () => {
-      if (pins(resolved(classes, 'width'))) return
+  it('does not pin both left and right', () => {
+    const offenders = []
+    for (const { list } of cases) {
+      const classes = list.split(' ')
+      if (pins(resolved(classes, 'width'))) continue
       const left = resolved(classes, 'left')
       const right = resolved(classes, 'right')
-      expect(pins(left) && pins(right), `left: ${left} and right: ${right}`).toBe(false)
-    })
+      if (pins(left) && pins(right)) offenders.push(`"${list}" left: ${left} and right: ${right}`)
+    }
+    expect(offenders).toEqual([])
+  })
 
-    // The max-width check that used to sit here is gone deliberately. It caught
-    // .token-menu's `max-width: 100%` becoming a 40px cap when composed onto a
-    // colour dot — a hazard of ABSOLUTE positioning, where 100% means the
-    // offset parent. Every popup is `fixed` now, so 100% means the viewport and
-    // the trap no longer exists. Asserting it would be theatre.
-    //
-    // This is the replacement, and it is the thing that would actually break:
-    // the popup class is only `fixed` while nothing composed over it says
-    // otherwise. .hand-card gaining a `position` — entirely plausible, it is
-    // the app's most-composed class — would turn every menu wearing it back
-    // into an absolutely-positioned one, silently, and the flip and the clamp
-    // would stop working with no error anywhere.
-    it(`"${list}" still resolves to position: fixed`, () => {
-      expect(resolved(classes, 'position'), `something composed over .${popup} changed its position`).toBe('fixed')
-    })
-  }
+  // The max-width check that used to sit here is gone deliberately. It caught
+  // .token-menu's `max-width: 100%` becoming a 40px cap when composed onto a
+  // colour dot — a hazard of ABSOLUTE positioning, where 100% means the
+  // offset parent. Every popup is `fixed` now, so 100% means the viewport and
+  // the trap no longer exists. Asserting it would be theatre.
+  //
+  // This is the replacement, and it is the thing that would actually break:
+  // the popup class is only `fixed` while nothing composed over it says
+  // otherwise. .hand-card gaining a `position` — entirely plausible, it is
+  // the app's most-composed class — would turn every menu wearing it back
+  // into an absolutely-positioned one, silently, and the flip and the clamp
+  // would stop working with no error anywhere.
+  it('still resolves to position: fixed', () => {
+    const offenders = []
+    for (const { popup, list } of cases) {
+      const position = resolved(list.split(' '), 'position')
+      if (position !== 'fixed') {
+        offenders.push(`"${list}" is ${position} — something composed over .${popup} changed its position`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
 })

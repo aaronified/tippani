@@ -122,6 +122,11 @@ describe('what the card no longer says', () => {
     // reader learns to look there, and it is empty in every case that matters.
     // The default STATUS in this file is a working lookup, so this is the
     // ordinary render, not an edge case.
+    //
+    // The same render is what pins the built-in key, which is the case a key
+    // field is silent about: you have set nothing and lookups work anyway.
+    // Deleting the chip along with the redundant one would have removed the
+    // answer to "why does this work".
     await page()
     await waitFor(() => expect(screen.getByText('Built-in key')).toBeTruthy())
     expect(screen.queryByText('OK')).toBeNull()
@@ -142,14 +147,6 @@ describe('what the card no longer says', () => {
     STATUS = { tmdb: { source: 'custom' }, books_lookup: null }
     await page()
     await waitFor(() => expect(screen.getByText('Untested')).toBeTruthy())
-  })
-
-  it('keeps the two a key field cannot report', async () => {
-    // The built-in key is the case a key field is silent about: you have set
-    // nothing and lookups work anyway. Deleting the chip along with the
-    // redundant one would have removed the answer to "why does this work".
-    await page()
-    await waitFor(() => expect(screen.getByText('Built-in key')).toBeTruthy())
   })
 
   it('says so when there is no key at all', async () => {

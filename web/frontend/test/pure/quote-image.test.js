@@ -108,22 +108,26 @@ describe('buildModel mirrors buildShareText field for field', () => {
     return disagreements
   }
 
-  it('agrees on all 512 selections of a book quote', () => {
-    const ids = ['quote', 'author', 'work', 'published', 'chapter', 'location', 'noted', 'tags', 'note']
-    expect(agreesOn(earthsea(), ids)).toEqual([])
-  })
+  const KINDS = [
+    ['all 512 selections of a book quote', earthsea,
+      ['quote', 'author', 'work', 'published', 'chapter', 'location', 'noted', 'tags', 'note']],
+    ['all 256 selections of a film line', casablanca,
+      ['quote', 'work', 'year', 'character', 'actor', 'timestamp', 'tags', 'note']],
+    // The third kind (§24). Its field set is new on both sides at once, so this
+    // is the run that catches a name typed one way into the payload and another
+    // way into the picture.
+    ['all 256 selections of a standalone quote', bose,
+      ['quote', 'speaker', 'occasion', 'when', 'place', 'medium', 'noted', 'tags']],
+  ]
 
-  it('agrees on all 256 selections of a film line', () => {
-    const ids = ['quote', 'work', 'year', 'character', 'actor', 'timestamp', 'tags', 'note']
-    expect(agreesOn(casablanca(), ids)).toEqual([])
-  })
-
-  // The third kind (§24). Its field set is new on both sides at once, so this
-  // is the run that catches a name typed one way into the payload and another
-  // way into the picture.
-  it('agrees on all 256 selections of a standalone quote', () => {
-    const ids = ['quote', 'speaker', 'occasion', 'when', 'place', 'medium', 'noted', 'tags']
-    expect(agreesOn(bose(), ids)).toEqual([])
+  // One test over all 3 fixtures rather than three it() blocks: each body was
+  // the same call to agreesOn with a different fixture and field list. The
+  // exhaustive sweep inside agreesOn is untouched, so all 512 + 256 + 256 =
+  // 1024 selection comparisons still run, and reporting them as one table means
+  // a failure names every kind that disagreed rather than only the first.
+  it('agrees with the text on every selection of every kind', () => {
+    const got = KINDS.map(([label, make, ids]) => [label, agreesOn(make(), ids)])
+    expect(got).toEqual(KINDS.map(([label]) => [label, []]))
   })
 
   // The emphasis flags are the other half of the mirror: plaintext throws them
@@ -522,11 +526,15 @@ describe('hexToRgba', () => {
     ['a missing hash', 'B4482D', 1, 'rgba(180, 72, 45, 1)'],
     ['surrounding whitespace', '  #b4482d  ', 1, 'rgba(180, 72, 45, 1)'],
   ]
-  for (const [name, hex, a, want] of cases) {
-    it(`converts ${name}`, () => {
-      expect(hexToRgba(hex, a)).toBe(want)
-    })
-  }
+  // One test over all 7 rows rather than seven it() blocks: identical assertion
+  // form, pure data. Compared as one table of [name, result] pairs, so a
+  // failure names every spelling that converted wrongly instead of stopping at
+  // the first. Each row keeps its original it() title as its label. The two
+  // tests below stay separate on purpose — see their own comments.
+  it('converts every hex spelling it accepts', () => {
+    const got = cases.map(([name, hex, a]) => [name, hexToRgba(hex, a)])
+    expect(got).toEqual(cases.map(([name, , , want]) => [name, want]))
+  })
 
   // The fallback is the app's terracotta accent: a malformed custom property
   // (an unresolved var(), a color-mix() canvas cannot read) draws in the brand
@@ -542,11 +550,16 @@ describe('hexToRgba', () => {
     ['null', null],
     ['undefined', undefined],
   ]
-  for (const [name, hex] of malformed) {
-    it(`falls back to terracotta for ${name}`, () => {
-      expect(hexToRgba(hex, 0.4)).toBe('rgba(180,72,45,0.4)')
-    })
-  }
+  // One test over all 9 rows rather than nine it() blocks: the same single line
+  // each time, with only the input varying — the expected string is a constant
+  // across all nine. Kept as its OWN it() rather than folded into the `cases`
+  // table above, because the two tables pin different output spellings on
+  // purpose (spaced when parsed, unspaced when falling back), which is exactly
+  // what the comment above `cases` says. Every input survives as a row.
+  it('falls back to terracotta for anything malformed', () => {
+    const got = malformed.map(([name, hex]) => [name, hexToRgba(hex, 0.4)])
+    expect(got).toEqual(malformed.map(([name]) => [name, 'rgba(180,72,45,0.4)']))
+  })
 
   // parseInt stops at the first non-hex character instead of failing, so six
   // characters that are only partly hex parse as the prefix rather than falling

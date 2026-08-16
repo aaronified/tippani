@@ -142,11 +142,15 @@ describe('timeBucket — both ends of all six buckets', () => {
     [21, 'night'], [23, 'night'],
   ]
 
-  for (const [h, want] of AT) {
-    it(`${h}:30 is ${want}`, () => {
-      expect(timeBucket(new Date(YEAR, 0, 5, h, 30))).toBe(want)
-    })
-  }
+  // One test over all 12 rows rather than twelve it() blocks: the assertion was
+  // byte-identical per row and differed only in the two loop variables. The
+  // pairs are compared as one table so a failure names EVERY hour that mapped
+  // to the wrong bucket, instead of dying on the first. No case was dropped —
+  // AT is unchanged and every row is still asserted.
+  it('maps both ends of all six buckets', () => {
+    const got = AT.map(([h]) => [h, timeBucket(new Date(YEAR, 0, 5, h, 30))])
+    expect(got).toEqual(AT)
+  })
 })
 
 describe('isWeekend', () => {
@@ -183,11 +187,15 @@ describe('localRegion — IANA zone to ISO region', () => {
     ['America/Havana', ''], ['Africa/Addis_Ababa', ''], ['Not/AZone', ''],
   ]
 
-  for (const [zone, want] of ZONES) {
-    it(`maps ${zone} to ${want ? want : 'no region'}`, () => {
-      expect(localRegion(zone)).toBe(want)
-    })
-  }
+  // One test over all 20 rows rather than twenty it() blocks: pure data, one
+  // assertion form, no per-case setup. Compared as one table of [zone, region]
+  // pairs so a failure names every zone that resolved wrongly at once. Every
+  // zone above survives as a row; the sibling test below is deliberately NOT
+  // folded in, because it asserts three different things.
+  it('maps every known IANA zone, and only those, to its region', () => {
+    const got = ZONES.map(([zone]) => [zone, localRegion(zone)])
+    expect(got).toEqual(ZONES)
+  })
 
   // The regression itself, spelled out end to end rather than as a table row,
   // because the table row alone does not show what the bug looked like: a
@@ -272,12 +280,19 @@ describe('holidayFor — precedence: a national day beats the international list
     ['', new Date(YEAR, 3, 23), 'World Book Day'],
   ]
 
-  for (const [region, when, want] of CASES) {
-    it(`${region || 'intl'} on ${when.toDateString()} says ${want}`, () => {
+  // One test over all 7 rows rather than seven it() blocks: nothing varied but
+  // the tuple. The rows are deliberately PAIRED — PK vs GB on 25 Dec, TR vs the
+  // international list on 23 April — and both halves of each pair are still
+  // rows, so the "a national day beats the list" / "and the list still wins
+  // elsewhere" contrast is intact. Collecting the misses means a failure names
+  // every region/date that lost its holiday, not just the first.
+  it('gives every one of these the holiday it should have', () => {
+    const missed = CASES.filter(([region, when, want]) => {
       const pool = holidayFor(when, region) || []
-      expect(pool.some((g) => g.includes(want))).toBe(true)
-    })
-  }
+      return !pool.some((g) => g.includes(want))
+    }).map(([region, when, want]) => `${region || 'intl'} on ${when.toDateString()} should say ${want}`)
+    expect(missed).toEqual([])
+  })
 })
 
 describe('holidayFor — tone: a commemoration never says "Happy"', () => {
@@ -290,15 +305,25 @@ describe('holidayFor — tone: a commemoration never says "Happy"', () => {
     ['CA', 8, 30], ['BD', 1, 21], ['ZA', 5, 16], ['MX', 10, 2], ['IN', 9, 2], ['HU', 9, 23],
   ]
 
-  for (const [region, m, d] of CASES) {
-    it(`${region} on ${m + 1}-${d}`, () => {
+  // One test over all 11 rows rather than eleven it() blocks: every body ran the
+  // identical two-step check and differed only in the (region, month, day)
+  // tuple. Both steps stay INSIDE the loop, per row — see the vacuity note
+  // below — and the offenders are collected so a failure names every
+  // commemoration that went wrong at once rather than stopping at the first.
+  it('never wishes anyone a happy commemoration', () => {
+    const wrong = []
+    for (const [region, m, d] of CASES) {
       const pool = holidayFor(new Date(YEAR, m, d), region) || []
+      const at = `${region} on ${m + 1}-${d}`
       // An empty pool would pass the "Happy" assertion vacuously, so the day
       // has to actually be in the table for this test to mean anything.
-      expect(pool.length).toBeGreaterThan(0)
-      for (const g of pool) expect(g).not.toMatch(/^Happy /)
-    })
-  }
+      // Per row, never hoisted: one row falling out of the table must not be
+      // covered by another row's pool being non-empty.
+      if (pool.length === 0) wrong.push(`${at}: not in the table at all`)
+      for (const g of pool) if (/^Happy /.test(g)) wrong.push(`${at}: ${g}`)
+    }
+    expect(wrong).toEqual([])
+  })
 })
 
 // The two families holidayFor computes instead of tabulating. Every date below

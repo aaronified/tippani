@@ -84,23 +84,27 @@ describe('TIMELINE_SCALES', () => {
 // "1994s" under every column — a decade that does not exist, on the axis whose
 // only job is to say when.
 describe('bucketLabel', () => {
-  it('names a year as a year', () => {
-    expect(bucketLabel(1994, 1)).toBe('1994')
-    expect(bucketLabel(-380, 1)).toBe('380 BCE')
+  // One test over all five rows rather than three it()s: every assertion is
+  // bucketLabel(start, size) against a string, so comparing the whole column at
+  // once names every scale that got it wrong instead of dying on the first. The
+  // old it() titles survive as row names, and the yearLabel check that shared the
+  // first block is kept as its own line below — it calls a different function.
+  it('names a bucket at the scale it was cut at', () => {
+    const rows = [
+      { name: 'names a year as a year', start: 1994, size: 1, want: '1994' },
+      { name: 'names a year as a year (BCE)', start: -380, size: 1, want: '380 BCE' },
+      { name: 'names a decade as a decade', start: 1990, size: 10, want: '1990s' },
+      { name: 'names a decade as a decade (BCE)', start: -380, size: 10, want: '380s BCE' },
+      // "1900s" for 1900-1999 is conventional English for a century, the scale
+      // selector sits above the chart saying which scale is on, and every column
+      // carries its span in a tooltip. It is not precise enough to SEARCH, which is
+      // bucketQuery's business rather than this one's.
+      { name: 'names a century the way a century is said', start: 1900, size: 100, want: decadeLabel(1900) },
+    ]
+    const got = rows.map((r) => [r.name, bucketLabel(r.start, r.size)])
+    expect(got).toEqual(rows.map((r) => [r.name, r.want]))
+
     expect(yearLabel(1994)).toBe('1994')
-  })
-
-  it('names a decade as a decade', () => {
-    expect(bucketLabel(1990, 10)).toBe('1990s')
-    expect(bucketLabel(-380, 10)).toBe('380s BCE')
-  })
-
-  // "1900s" for 1900-1999 is conventional English for a century, the scale
-  // selector sits above the chart saying which scale is on, and every column
-  // carries its span in a tooltip. It is not precise enough to SEARCH, which is
-  // bucketQuery's business rather than this one's.
-  it('names a century the way a century is said', () => {
-    expect(bucketLabel(1900, 100)).toBe(decadeLabel(1900))
   })
 
   it('never writes a decade that does not exist', () => {
@@ -109,32 +113,33 @@ describe('bucketLabel', () => {
 })
 
 describe('bucketQuery', () => {
-  // Only a decade has an exact answer on the server. A bare year cannot go
-  // through the query box at all ("1984" is a book people own), and a century
-  // would be answered WRONG rather than not at all — "1900s" parses as the
-  // decade, so a column covering a hundred years would return ten of them and
-  // look complete.
-  it('offers nothing at year or century scale', () => {
-    expect(bucketQuery(1994, 1)).toBeNull()
-    expect(bucketQuery(1900, 100)).toBeNull()
-  })
-
-  it('asks for the decade at decade scale', () => {
-    expect(bucketQuery(1990, 10)).toBe('1990s')
-  })
-
-  // THE PADDING IS THE POINT. "50s" means the 1950s to the server, and rightly
-  // so for somebody typing it — which would send a column holding a gospel to a
-  // shelf of mid-century paperbacks and show it as a confident answer.
-  it('pads a short year so no shorthand can claim it', () => {
-    expect(bucketQuery(50, 10)).toBe('0050s')
-    expect(bucketQuery(800, 10)).toBe('0800s')
-    expect(bucketQuery(0, 10)).toBe('0000s')
-  })
-
-  it('keeps the era for BCE, which suppresses the shorthand on its own', () => {
-    expect(bucketQuery(-380, 10)).toBe('380s BCE')
-    expect(bucketQuery(-80, 10)).toBe('80s BCE')
+  // One test over all eight rows rather than four it()s: every assertion is
+  // bucketQuery(start, size) against a string or null, so comparing the whole
+  // column at once names every case that broke instead of dying on the first
+  // (toBeNull() becomes a `want: null` row — the same assertion). The old it()
+  // titles survive as row names and every rationale rides on its own rows.
+  it('asks the server only what the server can answer exactly', () => {
+    const rows = [
+      // Only a decade has an exact answer on the server. A bare year cannot go
+      // through the query box at all ("1984" is a book people own), and a century
+      // would be answered WRONG rather than not at all — "1900s" parses as the
+      // decade, so a column covering a hundred years would return ten of them and
+      // look complete.
+      { name: 'offers nothing at year scale', start: 1994, size: 1, want: null },
+      { name: 'offers nothing at century scale', start: 1900, size: 100, want: null },
+      { name: 'asks for the decade at decade scale', start: 1990, size: 10, want: '1990s' },
+      // THE PADDING IS THE POINT. "50s" means the 1950s to the server, and rightly
+      // so for somebody typing it — which would send a column holding a gospel to a
+      // shelf of mid-century paperbacks and show it as a confident answer.
+      { name: 'pads a short year so no shorthand can claim it', start: 50, size: 10, want: '0050s' },
+      { name: 'pads a short year so no shorthand can claim it (800)', start: 800, size: 10, want: '0800s' },
+      { name: 'pads a short year so no shorthand can claim it (0)', start: 0, size: 10, want: '0000s' },
+      // The era suppresses the shorthand on its own, so there is nothing to pad.
+      { name: 'keeps the era for BCE, which suppresses the shorthand on its own', start: -380, size: 10, want: '380s BCE' },
+      { name: 'keeps the era for BCE (two digits)', start: -80, size: 10, want: '80s BCE' },
+    ]
+    const got = rows.map((r) => [r.name, bucketQuery(r.start, r.size)])
+    expect(got).toEqual(rows.map((r) => [r.name, r.want]))
   })
 
   // The label is for reading and the query is for the server, and for a short

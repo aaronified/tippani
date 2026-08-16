@@ -53,8 +53,15 @@ const tokenHex = (n) => {
 }
 
 describe('--hl-1..4 and ANNOTATION_HEX', () => {
-  it.each(SLOTS.map((c, i) => [i + 1, c]))('slot %i is %s in both', (slot, colour) => {
-    expect(tokenHex(slot)).toBe(ANNOTATION_HEX[colour].toUpperCase())
+  // One test over all six slots rather than one per colour: the assertion is
+  // identical per slot, so comparing the whole CSS side against the whole JS side
+  // in a single toEqual names EVERY slot that has drifted instead of stopping at
+  // the first. The loop is still derived from SLOTS, so it grows on its own when
+  // a seventh colour is migrated in.
+  it('every slot is the same colour in both', () => {
+    const inCss = SLOTS.map((colour, i) => `--hl-${i + 1} ${colour} ${tokenHex(i + 1)}`)
+    const inJs = SLOTS.map((colour, i) => `--hl-${i + 1} ${colour} ${ANNOTATION_HEX[colour].toUpperCase()}`)
+    expect(inCss).toEqual(inJs)
   })
 
   it('the slot order has not moved', () => {
@@ -82,11 +89,20 @@ describe('--hl-1..4 and ANNOTATION_HEX', () => {
 describe('no stray copies of the palette', () => {
   // The hexes must appear in index.css exactly once each — in the token
   // definition. Anywhere else is a fifth copy waiting to disagree.
-  it.each(SLOTS.map((c, i) => [c, i + 1]))('%s is written once in the stylesheet', (colour, slot) => {
-    const hex = ANNOTATION_HEX[colour]
-    const uses = rules.split(new RegExp(hex, 'i')).length - 1
-    expect(uses, `${hex} appears ${uses}× in index.css`).toBe(1)
-    expect(css).toContain(`--hl-${slot}: ${hex}`)
+  //
+  // One test over all six colours rather than one per colour: both assertions are
+  // identical from colour to colour, and collecting the offenders reports every
+  // stray copy in one run instead of dying on the first.
+  it('every colour is written once in the stylesheet, as its own token', () => {
+    const offenders = []
+    for (const [i, colour] of SLOTS.entries()) {
+      const slot = i + 1
+      const hex = ANNOTATION_HEX[colour]
+      const uses = rules.split(new RegExp(hex, 'i')).length - 1
+      if (uses !== 1) offenders.push(`${hex} appears ${uses}× in index.css`)
+      if (!css.includes(`--hl-${slot}: ${hex}`)) offenders.push(`--hl-${slot}: ${hex} is not the definition`)
+    }
+    expect(offenders).toEqual([])
   })
 })
 

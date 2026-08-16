@@ -76,36 +76,35 @@ describe('applyLabels', () => {
     expect(labels()).toBeUndefined()
   })
 
-  it("shows labels on a desktop width under 'auto'", async () => {
-    const { applyLabels } = await loadTheme({ narrow: false })
-    applyLabels('auto')
-    expect(labels()).toBe('on')
-  })
-
-  it("hides labels under the mobile breakpoint under 'auto'", async () => {
-    const { applyLabels } = await loadTheme({ narrow: true })
-    applyLabels('auto')
-    expect(labels()).toBe('off')
-  })
-
-  it("'off' wins on a desktop width", async () => {
-    const { applyLabels } = await loadTheme({ narrow: false })
-    applyLabels('off')
-    expect(labels()).toBe('off')
-  })
-
-  it("'on' wins under the mobile breakpoint", async () => {
+  // One test over all five preference × viewport pairs rather than five: the
+  // body was identical per row — load a fresh theme at that width, apply that
+  // preference, read the attribute back — and only the three values varied.
+  // Every case is still an iteration under its own name, and comparing the
+  // collected answers in one go names EVERY wrong pair at once rather than
+  // stopping at the first.
+  const CASES = [
+    { name: "shows labels on a desktop width under 'auto'", narrow: false, pref: 'auto', want: 'on' },
+    { name: "hides labels under the mobile breakpoint under 'auto'", narrow: true, pref: 'auto', want: 'off' },
+    { name: "'off' wins on a desktop width", narrow: false, pref: 'off', want: 'off' },
     // The explicit preference has to beat the breakpoint in BOTH directions, or
     // the setting is only half a setting.
-    const { applyLabels } = await loadTheme({ narrow: true })
-    applyLabels('on')
-    expect(labels()).toBe('on')
-  })
+    { name: "'on' wins under the mobile breakpoint", narrow: true, pref: 'on', want: 'on' },
+    { name: 'treats an unrecognised preference as auto', narrow: true, pref: 'yes please', want: 'off' },
+  ]
 
-  it('treats an unrecognised preference as auto', async () => {
-    const { applyLabels } = await loadTheme({ narrow: true })
-    applyLabels('yes please')
-    expect(labels()).toBe('off')
+  it('resolves every preference against the viewport', async () => {
+    const got = []
+    for (const { name, narrow, pref } of CASES) {
+      // A fresh loadTheme per row, exactly as each it() did: theme.js captures
+      // matchMedia at module scope, so the viewport has to be re-established
+      // before the import for every case. Clearing the attribute first means a
+      // row cannot pass by inheriting the previous row's answer.
+      document.documentElement.removeAttribute('data-labels')
+      const { applyLabels } = await loadTheme({ narrow })
+      applyLabels(pref)
+      got.push([name, labels()])
+    }
+    expect(got).toEqual(CASES.map(({ name, want }) => [name, want]))
   })
 })
 

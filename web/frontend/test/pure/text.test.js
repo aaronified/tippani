@@ -114,20 +114,24 @@ describe('foldText', () => {
 describe('editBudget', () => {
   // Mirrors budgetFor in internal/search/levenshtein.go. If that table changes,
   // this one changes with it — the reader is promised one behaviour, not two.
-  it('forgives nothing under three characters', () => {
-    expect(editBudget(0)).toBe(0)
-    expect(editBudget(1)).toBe(0)
-    expect(editBudget(2)).toBe(0)
-  })
-
-  it('forgives one edit from three to five characters', () => {
-    expect(editBudget(3)).toBe(1)
-    expect(editBudget(4)).toBe(1)
-    expect(editBudget(5)).toBe(1)
-  })
-
-  it('forgives two edits beyond five characters', () => {
-    expect(editBudget(6)).toBe(2)
-    expect(editBudget(40)).toBe(2)
+  // One test over all eight lengths rather than three tier-named ones: every
+  // case is the same call and the same matcher, only the length and the budget
+  // differ, and as one table it reads as the mirror of the Go table it is. The
+  // single toEqual over collected pairs names every tier that drifted at once.
+  it('forgives nothing under three characters, one from three to five, two beyond five', () => {
+    const table = [
+      // forgives nothing under three characters
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      // forgives one edit from three to five characters
+      [3, 1],
+      [4, 1],
+      [5, 1],
+      // forgives two edits beyond five characters
+      [6, 2],
+      [40, 2],
+    ]
+    expect(table.map(([n]) => [n, editBudget(n)])).toEqual(table)
   })
 })

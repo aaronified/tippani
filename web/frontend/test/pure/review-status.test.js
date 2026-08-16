@@ -71,28 +71,31 @@ describe('unseen', () => {
 describe('the curve', () => {
   const seen = (over) => reviewStatus({ reviewed: true, created_at: OLD(), last_result: 'got', ...over })
 
-  it('is remembered immediately after a correct answer', () => {
-    expect(seen({ stability: 30, last_reviewed_at: daysAgo(0) }).key).toBe('remembered')
-  })
+  // One test over all five points rather than five separate it()s: every case
+  // is the same seen() call with the same stability, differing only in the days
+  // elapsed and the expected key. Each row is labelled with the it() it
+  // replaces, and the aggregate names EVERY boundary that moved at once instead
+  // of dying on the first — which matters here, because the four corners below
+  // (0.9 from both sides, 0.5 from both sides) are meant to be read together.
+  const curve = [
+    [0, 'remembered', 'is remembered immediately after a correct answer'],
+    // p = 2^(-4/30) = 0.912, just inside the 0.9 boundary.
+    [4, 'remembered', 'is remembered while p >= 0.9'],
+    // p = 2^(-5/30) = 0.891, just outside it.
+    [5, 'forgetting', 'tips into forgetting once p drops under 0.9'],
+    // One half-life elapsed is p = 0.5 exactly, and the comparison is >=, so this
+    // is the last moment it counts as forgetting rather than lost.
+    [30, 'forgetting', 'is still forgetting at exactly one half-life'],
+    [31, 'probably-forgotten', 'is probably-forgotten past one half-life'],
+  ]
 
-  // p = 2^(-4/30) = 0.912, just inside the 0.9 boundary.
-  it('is remembered while p >= 0.9', () => {
-    expect(seen({ stability: 30, last_reviewed_at: daysAgo(4) }).key).toBe('remembered')
-  })
-
-  // p = 2^(-5/30) = 0.891, just outside it.
-  it('tips into forgetting once p drops under 0.9', () => {
-    expect(seen({ stability: 30, last_reviewed_at: daysAgo(5) }).key).toBe('forgetting')
-  })
-
-  // One half-life elapsed is p = 0.5 exactly, and the comparison is >=, so this
-  // is the last moment it counts as forgetting rather than lost.
-  it('is still forgetting at exactly one half-life', () => {
-    expect(seen({ stability: 30, last_reviewed_at: daysAgo(30) }).key).toBe('forgetting')
-  })
-
-  it('is probably-forgotten past one half-life', () => {
-    expect(seen({ stability: 30, last_reviewed_at: daysAgo(31) }).key).toBe('probably-forgotten')
+  it('falls remembered → forgetting → probably-forgotten as p decays', () => {
+    const got = curve.map(([days, , name]) => [
+      days,
+      seen({ stability: 30, last_reviewed_at: daysAgo(days) }).key,
+      name,
+    ])
+    expect(got).toEqual(curve)
   })
 })
 
@@ -208,9 +211,14 @@ describe('fmtHalfLife', () => {
     [100, '3mo'],
     [0.4, '10h'], // 0.4*24 = 9.6 — rounds up; floor would say 9h
   ]
-  for (const [input, want] of cases) {
-    it(`renders ${input} days as ${want}`, () => {
-      expect(fmtHalfLife(input)).toBe(want)
-    })
-  }
+  // One test over all fourteen rows rather than fourteen generated it()s: the
+  // table above already held every case, and the loop was only ever on the
+  // outside of the assertion. Comparing the whole [input, rendered] list
+  // against the table names EVERY row that regressed at once, where fourteen
+  // it()s reported the same thing at fourteen times the cost. Nothing is
+  // dropped: each row is still asserted, and its input still identifies it in
+  // the failure diff exactly as the generated title did.
+  it('renders every half-life the way the tooltip needs it', () => {
+    expect(cases.map(([input]) => [input, fmtHalfLife(input)])).toEqual(cases)
+  })
 })

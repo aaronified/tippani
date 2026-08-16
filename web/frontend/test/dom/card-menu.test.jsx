@@ -18,7 +18,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import { Tooltip, useCardMenu } from '../../src/ui.jsx'
 
 const ITEMS = (onClick = vi.fn()) => [
@@ -184,16 +184,28 @@ describe('long-press on a card', () => {
 })
 
 describe('the keyboard', () => {
-  it('opens on Shift+F10', async () => {
-    render(<Card />)
-    fireEvent.keyDown(card(), { key: 'F10', shiftKey: true })
-    expect(await screen.findByRole('menu')).toBeTruthy()
-  })
-
-  it('opens on the Menu key', async () => {
-    render(<Card />)
-    fireEvent.keyDown(card(), { key: 'ContextMenu' })
-    expect(await screen.findByRole('menu')).toBeTruthy()
+  // One test over both opening keys rather than two: the render, the gesture and
+  // the assertion are identical per row and only the key differs, so the
+  // aggregate names EVERY key that failed to open the menu instead of dying on
+  // the first. cleanup() runs per row because RTL only unmounts between tests,
+  // not between iterations.
+  it('opens on Shift+F10 and on the Menu key', async () => {
+    const KEYS = [
+      ['Shift+F10', { key: 'F10', shiftKey: true }],
+      ['the Menu key', { key: 'ContextMenu' }],
+    ]
+    const shut = []
+    for (const [name, key] of KEYS) {
+      cleanup()
+      render(<Card />)
+      fireEvent.keyDown(card(), key)
+      try {
+        await screen.findByRole('menu')
+      } catch {
+        shut.push(name)
+      }
+    }
+    expect(shut).toEqual([])
   })
 
   it('ignores F10 without shift', () => {

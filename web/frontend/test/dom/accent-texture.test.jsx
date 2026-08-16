@@ -63,30 +63,43 @@ describe('the contrast block exists at all', () => {
 })
 
 describe('accent-filled controls are textured', () => {
-  it.each(GRAIN_OVERLAY)('%s gets the grain overlay in both aesthetics', (sel) => {
+  // Two tests over all nine selectors rather than one per selector: within each
+  // family the assertion is identical and only the selector changes, so the
+  // collected list names every untextured control at once. The two families stay
+  // APART because they assert different things — a ::before overlay against a
+  // tile inside the fill — not different data.
+  it('every accent fill gets the grain overlay in both aesthetics', () => {
     // fabric on paper, rubber on film — the two halves of the same rule.
-    expect(css, `${sel} paper grain`).toMatch(
-      new RegExp(`html\\[data-aesthetic="paper"\\]\\s*${sel.replace('.', '\\.')}::before`),
-    )
-    expect(css, `${sel} film grain`).toMatch(
-      new RegExp(`html\\[data-aesthetic="film"\\]\\s*${sel.replace('.', '\\.')}::before`),
-    )
+    const missing = []
+    for (const sel of GRAIN_OVERLAY) {
+      const esc = sel.replace('.', '\\.')
+      if (!new RegExp(`html\\[data-aesthetic="paper"\\]\\s*${esc}::before`).test(css)) missing.push(`${sel} paper grain`)
+      if (!new RegExp(`html\\[data-aesthetic="film"\\]\\s*${esc}::before`).test(css)) missing.push(`${sel} film grain`)
+    }
+    expect(missing).toEqual([])
   })
 
-  it.each(LAYERED_FILL)('%s carries a texture tile in its fill', (sel) => {
-    const esc = sel.replace(/\./g, '\\.')
-    expect(css, `${sel} paper tile`).toMatch(new RegExp(`html\\[data-aesthetic="paper"\\][^{]*${esc}[^{]*\\{[^}]*fabric\\.webp`))
-    expect(css, `${sel} film tile`).toMatch(new RegExp(`html\\[data-aesthetic="film"\\][^{]*${esc}[^{]*\\{[^}]*rubber\\.webp`))
+  it('every layered surface carries a texture tile in its fill', () => {
+    const missing = []
+    for (const sel of LAYERED_FILL) {
+      const esc = sel.replace(/\./g, '\\.')
+      if (!new RegExp(`html\\[data-aesthetic="paper"\\][^{]*${esc}[^{]*\\{[^}]*fabric\\.webp`).test(css)) missing.push(`${sel} paper tile`)
+      if (!new RegExp(`html\\[data-aesthetic="film"\\][^{]*${esc}[^{]*\\{[^}]*rubber\\.webp`).test(css)) missing.push(`${sel} film tile`)
+    }
+    expect(missing).toEqual([])
   })
 })
 
 describe('every texture can be turned off', () => {
-  it.each(GRAIN_OVERLAY_ALL)('%s::before is faded under prefers-contrast', (sel) => {
-    expect(contrastBlock).toContain(`${sel}::before`)
-  })
-
-  it.each(LAYERED_FILL)('%s has its layered fill replaced under prefers-contrast', (sel) => {
-    expect(contrastBlock).toContain(sel)
+  // One test over all ten entries rather than one per selector: unlike the sibling
+  // describe, both families run the identical assertion (the contrast block
+  // mentions this string), so the only thing that varied was the string itself —
+  // the ::before overlay for the grain, the bare selector for a layered fill.
+  // The collected list names every texture with no off switch in one run.
+  it('every textured surface is named in the contrast block', () => {
+    const entries = [...GRAIN_OVERLAY_ALL.map((sel) => `${sel}::before`), ...LAYERED_FILL]
+    const unswitchable = entries.filter((e) => !contrastBlock.includes(e))
+    expect(unswitchable, 'a texture with no way to turn it off').toEqual([])
   })
 
   it('replaces layered fills rather than trying to fade them', () => {

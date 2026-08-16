@@ -19,10 +19,24 @@ const art = () => document.querySelector('.board-cover-art')
 const glyph = () => document.querySelector('.board-cover-glyph')
 
 describe('glyphFor', () => {
-  it('finds a language however it was typed', () => {
-    expect(glyphFor(['Bengali'])).toBe('অ')
-    expect(glyphFor(['bengali'])).toBe('অ')
-    expect(glyphFor(['  Hindi  '])).toBe('अ')
+  // One test over all six language lists rather than three: every case is the
+  // same glyphFor(list) → glyph comparison and only the list differs, so one
+  // table asserted at once names every list that came out wrong instead of
+  // dying on the first. Each row keeps the name of the it() it used to be.
+  it('draws the script it recognises, and nothing when it recognises none', () => {
+    const cases = [
+      { name: 'finds a language however it was typed', languages: ['Bengali'], want: 'অ' },
+      { name: 'finds a language however it was typed', languages: ['bengali'], want: 'অ' },
+      { name: 'finds a language however it was typed', languages: ['  Hindi  '], want: 'अ' },
+      { name: 'takes the first language it recognises, so a mixed board still has one', languages: ['Yoruba', 'Bengali'], want: 'অ' },
+      // Guessing a script from a name nobody listed would put a Latin A on a board
+      // of Yoruba proverbs. Being confidently wrong about somebody's language is
+      // worse than being blank.
+      { name: 'says nothing about a language it does not know', languages: ['Yoruba'], want: '' },
+      { name: 'says nothing about a language it does not know', languages: [], want: '' },
+    ]
+    const got = cases.map(({ name, languages }) => [name, languages, glyphFor(languages)])
+    expect(got).toEqual(cases.map(({ name, languages, want }) => [name, languages, want]))
   })
 
   // Four of the ten are written in Latin, so the glyphs are deliberately
@@ -31,18 +45,6 @@ describe('glyphFor', () => {
   it('gives the Latin languages distinct letters', () => {
     const latin = [glyphFor(['English']), glyphFor(['Spanish']), glyphFor(['French']), glyphFor(['Portuguese'])]
     expect(new Set(latin).size).toBe(4)
-  })
-
-  it('takes the first language it recognises, so a mixed board still has one', () => {
-    expect(glyphFor(['Yoruba', 'Bengali'])).toBe('অ')
-  })
-
-  // Guessing a script from a name nobody listed would put a Latin A on a board
-  // of Yoruba proverbs. Being confidently wrong about somebody's language is
-  // worse than being blank.
-  it('says nothing about a language it does not know', () => {
-    expect(glyphFor(['Yoruba'])).toBe('')
-    expect(glyphFor([])).toBe('')
   })
 })
 
@@ -58,16 +60,23 @@ describe('the default cover', () => {
   })
 
   // The stated fallback: "for others, use the tippani mark".
-  it('falls back to the app mark for a proverb board in a language it cannot draw', () => {
-    render(<BoardCover board={board({ kind: 'proverb', languages: ['Yoruba'] })} />)
-    expect(glyph()).toBeNull()
-    expect(art()).toBeNull()
-  })
-
-  it('falls back to the app mark on a plain board', () => {
-    render(<BoardCover board={board({ kind: 'plain' })} />)
-    expect(glyph()).toBeNull()
-    expect(art()).toBeNull()
+  //
+  // One test over both boards rather than two: the pair of assertions is
+  // identical per board and only the board differs, so the collected list names
+  // every board that drew something of its own instead of falling back. Each
+  // row keeps the name of the it() it used to be.
+  it('falls back to the app mark', () => {
+    const drew = []
+    for (const [name, over] of [
+      ['for a proverb board in a language it cannot draw', { kind: 'proverb', languages: ['Yoruba'] }],
+      ['on a plain board', { kind: 'plain' }],
+    ]) {
+      const { unmount } = render(<BoardCover board={board(over)} />)
+      if (glyph() !== null) drew.push(`${name}: a glyph`)
+      if (art() !== null) drew.push(`${name}: cover art`)
+      unmount()
+    }
+    expect(drew).toEqual([])
   })
 
   // THE RULE 0036 SET. A cover keyed on the name would break the moment somebody

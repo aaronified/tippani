@@ -19,24 +19,27 @@ import { bucketTimeline, dotCount, dotUnit } from '../../src/StatsPage.jsx'
 const bucket = (works, quotes) => ({ start: 1900, works, quotes })
 
 describe('dotUnit', () => {
-  it('is 1 while everything fits at one dot each', () => {
-    expect(dotUnit([bucket(3, 9), bucket(1, 12)], 12)).toBe(1)
-  })
-
-  it('scales so the tallest column lands on the dot budget', () => {
-    // 48 quotes over 12 dots is 4 apiece.
-    expect(dotUnit([bucket(2, 48)], 12)).toBe(4)
-  })
-
-  it('sizes on the taller SERIES, never on their sum', () => {
-    // 7 + 8 = 15, which over a budget of 12 would ask for a unit of 2. Neither
-    // column is taller than 8, so one dot each still fits and the unit is 1.
-    expect(dotUnit([bucket(7, 8)], 12)).toBe(1)
-  })
-
-  it('gives both series the same unit — the works peak can set it', () => {
-    // A library of many films and few quotes off them: works is the tall series.
-    expect(dotUnit([bucket(60, 3)], 12)).toBe(5)
+  // One test over all five rows rather than five it()s: every case is the same
+  // one-line call — dotUnit(buckets, 12) — differing only in the bucket list and
+  // the expected unit, so comparing the whole column at once names every case
+  // that broke instead of dying on the first. The old it() titles survive as row
+  // names and each rationale rides on its own row: the arithmetic in those
+  // comments is the reason each row exists.
+  it('sizes one dot for both series', () => {
+    const rows = [
+      { name: 'is 1 while everything fits at one dot each', buckets: [bucket(3, 9), bucket(1, 12)], want: 1 },
+      // 48 quotes over 12 dots is 4 apiece.
+      { name: 'scales so the tallest column lands on the dot budget', buckets: [bucket(2, 48)], want: 4 },
+      // 7 + 8 = 15, which over a budget of 12 would ask for a unit of 2. Neither
+      // column is taller than 8, so one dot each still fits and the unit is 1.
+      { name: 'sizes on the taller SERIES, never on their sum', buckets: [bucket(7, 8)], want: 1 },
+      // A library of many films and few quotes off them: works is the tall series.
+      { name: 'gives both series the same unit — the works peak can set it', buckets: [bucket(60, 3)], want: 5 },
+      // 13 over 12 is 1.08 — a unit of 1 would want 13 dots and overflow the plot.
+      { name: 'rounds the unit up, so the budget is a ceiling and not a target', buckets: [bucket(0, 13)], want: 2 },
+    ]
+    const got = rows.map((r) => [r.name, dotUnit(r.buckets, 12)])
+    expect(got).toEqual(rows.map((r) => [r.name, r.want]))
   })
 
   it('never returns 0, whatever it is handed', () => {
@@ -44,31 +47,30 @@ describe('dotUnit', () => {
       expect(dotUnit(empty, 12)).toBe(1)
     }
   })
-
-  it('rounds the unit up, so the budget is a ceiling and not a target', () => {
-    // 13 over 12 is 1.08 — a unit of 1 would want 13 dots and overflow the plot.
-    expect(dotUnit([bucket(0, 13)], 12)).toBe(2)
-  })
 })
 
 describe('dotCount', () => {
-  it('draws one dot per item at unit 1', () => {
-    expect(dotCount(5, 1)).toBe(5)
-  })
-
-  it('draws nothing for nothing', () => {
-    // The empty bucket is the gap in time. It must stay empty.
-    for (const nil of [0, null, undefined, -3]) expect(dotCount(nil, 4)).toBe(0)
-  })
-
-  it('rounds up, so one book is never invisible', () => {
-    // The whole point: at a unit of 25, a single quote still shows.
-    expect(dotCount(1, 25)).toBe(1)
-    expect(dotCount(26, 25)).toBe(2)
-  })
-
-  it('survives a nonsense unit rather than dividing by zero', () => {
-    expect(dotCount(4, 0)).toBe(4)
+  // One test over all eight rows rather than four it()s: every assertion in those
+  // four was dotCount(value, unit) against a number, so a single comparison of
+  // the whole column names every case that broke instead of dying on the first.
+  // The old it() titles survive as row names. Eight rows, not seven: 'draws
+  // nothing for nothing' looped four nils and 'rounds up' asserted two values,
+  // and every one of those inputs is kept.
+  it('counts the dots a value is worth at a given unit', () => {
+    const rows = [
+      { name: 'draws one dot per item at unit 1', value: 5, unit: 1, want: 5 },
+      // The empty bucket is the gap in time. It must stay empty.
+      { name: 'draws nothing for nothing (0)', value: 0, unit: 4, want: 0 },
+      { name: 'draws nothing for nothing (null)', value: null, unit: 4, want: 0 },
+      { name: 'draws nothing for nothing (undefined)', value: undefined, unit: 4, want: 0 },
+      { name: 'draws nothing for nothing (-3)', value: -3, unit: 4, want: 0 },
+      // The whole point: at a unit of 25, a single quote still shows.
+      { name: 'rounds up, so one book is never invisible', value: 1, unit: 25, want: 1 },
+      { name: 'rounds up, so one book is never invisible (26 over 25)', value: 26, unit: 25, want: 2 },
+      { name: 'survives a nonsense unit rather than dividing by zero', value: 4, unit: 0, want: 4 },
+    ]
+    const got = rows.map((r) => [r.name, dotCount(r.value, r.unit)])
+    expect(got).toEqual(rows.map((r) => [r.name, r.want]))
   })
 
   it('keeps the tallest column inside the budget it was sized for', () => {

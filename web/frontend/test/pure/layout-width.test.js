@@ -102,39 +102,57 @@ describe('the width cap', () => {
 describe('the column ladders', () => {
   const LADDERS = { BOARD_COLUMNS, QUOTE_COLUMNS }
 
-  for (const [name, ladder] of Object.entries(LADDERS)) {
-    it(`${name} is ordered the way useColumnsAt reads it`, () => {
-      // The hook returns the FIRST rung whose min it clears, so an out-of-order
-      // ladder silently returns the wrong count rather than failing.
+  // Three tests over both ladders rather than three per ladder: nothing differed
+  // but the ladder array — same STEPS, same containerAt, same thresholds, no
+  // per-ladder setup — and `name` was already threaded through every failure
+  // message rather than living only in the title. Collecting the offenders means
+  // a failure names every bad rung on both ladders at once.
+  it('every ladder is ordered the way useColumnsAt reads it', () => {
+    // The hook returns the FIRST rung whose min it clears, so an out-of-order
+    // ladder silently returns the wrong count rather than failing.
+    const offenders = []
+    for (const [name, ladder] of Object.entries(LADDERS)) {
       for (let i = 1; i < ladder.length; i++) {
-        expect(ladder[i][0], `${name}[${i}] min`).toBeLessThan(ladder[i - 1][0])
-        expect(ladder[i][1], `${name}[${i}] cols`).toBeLessThan(ladder[i - 1][1])
+        if (!(ladder[i][0] < ladder[i - 1][0])) offenders.push(`${name}[${i}] min ${ladder[i][0]} is not below ${ladder[i - 1][0]}`)
+        if (!(ladder[i][1] < ladder[i - 1][1])) offenders.push(`${name}[${i}] cols ${ladder[i][1]} is not below ${ladder[i - 1][1]}`)
       }
-    })
+    }
+    expect(offenders).toEqual([])
+  })
 
-    it(`${name} keeps a card roughly one card wide at every rung`, () => {
-      // THE JOINT CLAIM, and the only one that catches either table drifting
-      // from the other. More room has to buy another column, not a fatter card.
+  it('every ladder keeps a card roughly one card wide at every rung', () => {
+    // THE JOINT CLAIM, and the only one that catches either table drifting
+    // from the other. More room has to buy another column, not a fatter card.
+    const offenders = []
+    for (const [name, ladder] of Object.entries(LADDERS)) {
       for (const [min, cols] of ladder) {
         const per = containerAt(min) / cols
-        expect(per, `${name}: ${cols} columns at ${min}px viewport`).toBeGreaterThan(280)
-        expect(per, `${name}: ${cols} columns at ${min}px viewport`).toBeLessThan(460)
+        if (!(per > 280 && per < 460)) {
+          offenders.push(`${name}: ${cols} columns at ${min}px viewport is ${Math.round(per)}px per card`)
+        }
       }
-    })
+    }
+    expect(offenders, 'a card has to stay between 280 and 460px wide').toEqual([])
+  })
 
-    it(`${name} gains a column wherever the container gains room`, () => {
-      // Every width step above the ladder's own floor must land on more columns
-      // than the step below it — otherwise that step is pure slack.
+  it('every ladder gains a column wherever the container gains room', () => {
+    // Every width step above the ladder's own floor must land on more columns
+    // than the step below it — otherwise that step is pure slack.
+    const offenders = []
+    for (const [name, ladder] of Object.entries(LADDERS)) {
       const steps = STEPS.filter(([min]) => min >= ladder[ladder.length - 1][0])
       for (let i = 1; i < steps.length; i++) {
         const before = columnsAt(ladder, steps[i - 1][0])
         const after = columnsAt(ladder, steps[i][0])
-        expect(after, `${name} at ${steps[i][0]}px`).toBeGreaterThanOrEqual(before)
+        if (after < before) offenders.push(`${name} at ${steps[i][0]}px drops from ${before} columns to ${after}`)
       }
       // And the widest screen genuinely gets more than the laptop did.
-      expect(columnsAt(ladder, 1920)).toBeGreaterThan(columnsAt(ladder, 1280))
-    })
-  }
+      if (!(columnsAt(ladder, 1920) > columnsAt(ladder, 1280))) {
+        offenders.push(`${name} at 1920px gets no more columns than at 1280px`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
 
   it('gives a text board its second column later than a cover board', () => {
     // A quote wrapped to 300px is a column of syllables. Covers are happy there.

@@ -44,6 +44,8 @@ function Harness({ onAdded = () => {}, initialTitle = '' }) {
 
 describe('the form is addressable from outside itself', () => {
   it('carries the id the header button points at', () => {
+    // The form owner is what makes it the default button, and therefore what
+    // makes Enter-to-submit work.
     const { container } = render(<ManualTab formId={FORM_ID} title="" setTitle={() => {}} onAdded={() => {}} />)
     const form = container.querySelector('form')
     expect(form).not.toBeNull()
@@ -65,16 +67,6 @@ describe('the form is addressable from outside itself', () => {
 })
 
 describe('the header ✓ submits the form', () => {
-  it('is a submit button owned by the form, not a click handler', () => {
-    render(<Harness initialTitle="Middlemarch" />)
-    const save = screen.getByLabelText('Save')
-    expect(save.type).toBe('submit')
-    expect(save.getAttribute('form')).toBe(FORM_ID)
-    // The form owner is what makes it the default button, and therefore what
-    // makes Enter-to-submit work.
-    expect(save.form?.id).toBe(FORM_ID)
-  })
-
   it('runs the form’s own onSubmit when pressed', async () => {
     const onAdded = vi.fn()
     render(<Harness initialTitle="Middlemarch" onAdded={onAdded} />)

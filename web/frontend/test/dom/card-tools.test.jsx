@@ -11,7 +11,7 @@
 // edit must not un-mask a cloze card, and must not write into the options.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 let SENT
 let ROW
@@ -65,15 +65,23 @@ beforeEach(() => {
 })
 
 describe('the panel is unreachable until the card is answered', () => {
-  it('is not offered beside an unanswered multiple choice', () => {
-    render(<QuizRunner mode="daily" cards={[mcq()]} />)
-    expect(screen.queryByText('fix or tag this')).toBeNull()
-  })
-
-  // The one that matters most: a cloze card's answer is the words themselves.
-  it('is not offered beside an unanswered cloze card', () => {
-    render(<QuizRunner mode="daily" cards={[cloze()]} />)
-    expect(screen.queryByText('fix or tag this')).toBeNull()
+  // One test over both card shapes rather than two: the render and the assertion
+  // are identical per row and only the fixture differs, so the aggregate names
+  // EVERY shape that leaked the panel instead of dying on the first. cleanup()
+  // runs per row because RTL only unmounts between tests, not between iterations.
+  it('is not offered beside an unanswered card, of either shape', () => {
+    const CARDS = [
+      ['multiple choice', mcq()],
+      // The one that matters most: a cloze card's answer is the words themselves.
+      ['cloze', cloze()],
+    ]
+    const offered = []
+    for (const [name, card] of CARDS) {
+      cleanup()
+      render(<QuizRunner mode="daily" cards={[card]} />)
+      if (screen.queryByText('fix or tag this') !== null) offered.push(name)
+    }
+    expect(offered).toEqual([])
   })
 
   // WITH THE CONFIRM STEP ON there is a real interval between choosing and

@@ -23,21 +23,34 @@ describe('isPartialDate', () => {
     }
   })
 
-  it('rejects a date the calendar does not have', () => {
-    for (const bad of [
+  // One test over all fifteen rejected inputs rather than three loops: every
+  // one is the same assertion — isPartialDate is strictly false — and only the
+  // string differs. The three groups keep their headings as comments, and the
+  // aggregate names every input that was wrongly accepted rather than stopping
+  // at the first.
+  it('rejects a date that is malformed, out of range, or not on the calendar', () => {
+    const bad = [
+      // rejects a date the calendar does not have
       '1944-02-30', // February has never had 30 days
       '1944-04-31', // nor April 31
       '2023-02-29', // 2023 is not a leap year
       '1900-02-29', // nor 1900 — divisible by 100, not by 400
-    ]) {
-      expect(isPartialDate(bad), bad).toBe(false)
-    }
-  })
-
-  it('rejects a month outside the year', () => {
-    for (const bad of ['1944-00', '1944-13', '1944-01-00', '1944-01-32']) {
-      expect(isPartialDate(bad), bad).toBe(false)
-    }
+      // rejects a month outside the year
+      '1944-00',
+      '1944-13',
+      '1944-01-00',
+      '1944-01-32',
+      // rejects anything that is not the shape
+      '',
+      '44',
+      '1944-1',
+      '1944-01-2',
+      'not a date',
+      '1944/01/23',
+      '1944-01-23T00:00:00',
+    ]
+    const accepted = bad.filter((s) => isPartialDate(s) !== false).map((s) => JSON.stringify(s))
+    expect(accepted).toEqual([])
   })
 
   it('rejects a year outside the bounds it claims', () => {
@@ -45,12 +58,6 @@ describe('isPartialDate', () => {
     expect(isPartialDate('3001')).toBe(false)
     expect(isPartialDate('1000')).toBe(true)
     expect(isPartialDate('3000')).toBe(true)
-  })
-
-  it('rejects anything that is not the shape', () => {
-    for (const bad of ['', '44', '1944-1', '1944-01-2', 'not a date', '1944/01/23', '1944-01-23T00:00:00']) {
-      expect(isPartialDate(bad), JSON.stringify(bad)).toBe(false)
-    }
   })
 })
 

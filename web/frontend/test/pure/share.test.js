@@ -58,15 +58,22 @@ describe('the format list', () => {
 })
 
 describe('quoting', () => {
-  it('uses curly quotes in plaintext', () => {
-    const out = buildShareText(earthsea(), only('quote'), 'plaintext')
-    expect(out).toBe('“Only in silence the word”')
-  })
+  // One test over all four formats rather than two: the second it() already
+  // held three of them in a loop, and folding plaintext in as a fourth row puts
+  // the contrast this describe asserts — curly quotes there, a blockquote
+  // everywhere else — in one place instead of leaving it implied by the word
+  // "else" in a title. Both original assertions survive as rows, and the
+  // aggregate names every format that drifted at once.
+  const delimited = [
+    ['plaintext', '“Only in silence the word”'], // uses curly quotes in plaintext
+    ['markdown', '> Only in silence the word'], // uses a blockquote everywhere else
+    ['reddit', '> Only in silence the word'],
+    ['whatsapp', '> Only in silence the word'],
+  ]
 
-  it('uses a blockquote everywhere else', () => {
-    for (const fmt of ['markdown', 'reddit', 'whatsapp']) {
-      expect(buildShareText(earthsea(), only('quote'), fmt)).toBe('> Only in silence the word')
-    }
+  it('uses curly quotes in plaintext and a blockquote everywhere else', () => {
+    const got = delimited.map(([fmt]) => [fmt, buildShareText(earthsea(), only('quote'), fmt)])
+    expect(got).toEqual(delimited)
   })
 
   // A multi-line passage has to keep its own line breaks, and every line needs
@@ -80,22 +87,24 @@ describe('quoting', () => {
 describe('emphasis per format', () => {
   const attribution = (fmt) => buildShareText(earthsea(), only('author', 'work'), fmt)
 
-  it('bolds the person and italicises the work in markdown', () => {
-    expect(attribution('markdown')).toBe('— **Ursula K. Le Guin**, *A Wizard of Earthsea*')
-  })
+  // One test over all four formats rather than four separate it()s: every body
+  // was a single call to attribution() on the same fixture and the same
+  // selection, differing only in the format and the expected string. Held as
+  // one table the four spellings can be read against each other — which is the
+  // whole point of the describe — and the aggregate names every format that
+  // drifted at once. This is the shape the file already uses fifteen lines
+  // below, in it('emphasises the actor in each format that has emphasis').
+  const wrapped = [
+    ['markdown', '— **Ursula K. Le Guin**, *A Wizard of Earthsea*'], // bolds the person, italicises the work
+    ['reddit', '— **Ursula K. Le Guin**, *A Wizard of Earthsea*'], // the same syntax as markdown
+    // WhatsApp's single-character wrappers are the reason emphasis is a format
+    // concern at all: * means bold there and italic in markdown.
+    ['whatsapp', '— *Ursula K. Le Guin*, _A Wizard of Earthsea_'],
+    ['plaintext', '— Ursula K. Le Guin, A Wizard of Earthsea'], // no styling at all
+  ]
 
-  it('uses the same syntax for reddit', () => {
-    expect(attribution('reddit')).toBe('— **Ursula K. Le Guin**, *A Wizard of Earthsea*')
-  })
-
-  // WhatsApp's single-character wrappers are the reason emphasis is a format
-  // concern at all: * means bold there and italic in markdown.
-  it('uses single-character wrappers for whatsapp', () => {
-    expect(attribution('whatsapp')).toBe('— *Ursula K. Le Guin*, _A Wizard of Earthsea_')
-  })
-
-  it('applies no styling at all in plaintext', () => {
-    expect(attribution('plaintext')).toBe('— Ursula K. Le Guin, A Wizard of Earthsea')
+  it('spells the person and the work the way each format spells emphasis', () => {
+    expect(wrapped.map(([fmt]) => [fmt, attribution(fmt)])).toEqual(wrapped)
   })
 })
 
@@ -194,12 +203,13 @@ describe('meta prefixes and emphasis', () => {
   // and the movie actor credit is the only payload that uses either. Deleting
   // both used to pass, silently degrading "Rick Blaine · played by Humphrey
   // Bogart" into an ambiguous "Rick Blaine · Humphrey Bogart".
-  it('carries the prefix in every format', () => {
-    for (const fmt of ['plaintext', 'markdown', 'reddit', 'whatsapp']) {
-      expect(buildShareText(casablanca(), only('actor'), fmt)).toContain('played by ')
-    }
-  })
-
+  //
+  // The prefix half of that used to be its own it('carries the prefix in every
+  // format'), asserting toContain('played by ') over these same four formats on
+  // this same input. Every one of the exact-string assertions below already
+  // contains that substring, so it was removed rather than kept as a weaker
+  // duplicate — the prefix is still asserted four times, character for
+  // character, here.
   it('emphasises the actor in each format that has emphasis', () => {
     expect(buildShareText(casablanca(), only('actor'), 'markdown')).toBe('played by **Humphrey Bogart**')
     expect(buildShareText(casablanca(), only('actor'), 'reddit')).toBe('played by **Humphrey Bogart**')

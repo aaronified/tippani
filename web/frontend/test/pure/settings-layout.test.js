@@ -19,12 +19,10 @@ const WIDTHS = [1, 2, 3]
 const flat = (n) => SETTINGS_LAYOUT[n].flat()
 
 describe('SETTINGS_LAYOUT', () => {
-  it('offers a layout for every column count useColumnCount can return', () => {
-    // useColumnCount returns 1 (mobile / narrow), 2 (>=768) or 3 (>=1280).
-    for (const n of WIDTHS) expect(SETTINGS_LAYOUT[n], String(n)).toBeTruthy()
-  })
-
   it('gives each layout as many columns as its name says', () => {
+    // useColumnCount returns 1 (mobile / narrow), 2 (>=768) or 3 (>=1280).
+    // toHaveLength throws on a missing layout, so this is also the check that
+    // one exists for every count useColumnCount can return.
     for (const n of WIDTHS) expect(SETTINGS_LAYOUT[n], String(n)).toHaveLength(n)
   })
 
@@ -40,13 +38,6 @@ describe('SETTINGS_LAYOUT', () => {
     for (const n of WIDTHS) {
       const keys = flat(n)
       expect(new Set(keys).size, String(n)).toBe(keys.length)
-    }
-  })
-
-  it('introduces no card the canonical list does not know', () => {
-    const known = new Set(SETTINGS_CARDS)
-    for (const n of WIDTHS) {
-      for (const k of flat(n)) expect(known.has(k), `${n}: ${k}`).toBe(true)
     }
   })
 

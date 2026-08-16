@@ -10,7 +10,7 @@
 
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { SearchBox } from '../../src/SearchPage.jsx'
 import { readSearchBox } from '../../src/facets.js'
 
@@ -62,36 +62,36 @@ describe('the dropdown', () => {
     expect(document.querySelector('.token-menu')).toBeNull()
   })
 
-  it('opens on a known field and a colon, offering that field’s vocabulary', () => {
-    render(<Harness />)
-    type('tag:')
-    expect(options()).toEqual(['tag:death', 'tag:stoicism', 'tag:gardening'])
-  })
+  // One test over all six rows rather than six: each was the identical
+  // three-step gesture — render the harness, type a string, compare the offered
+  // options — over the same default vocabulary, differing only in what was typed
+  // and what came back. Row names are the original it() titles, and the whole
+  // collection is compared at once so a failure names every menu that was wrong
+  // instead of dying on the first. cleanup() runs per row because RTL's
+  // auto-cleanup fires between TESTS, not between iterations, and a second
+  // mounted box would make box()/options() see two menus.
+  //
+  // The three tests below that assert the menu does NOT open are deliberately
+  // not rows here: they assert the converse, on a different target.
+  const TYPED = [
+    { name: 'opens on a known field and a colon, offering that field’s vocabulary', typed: 'tag:', want: ['tag:death', 'tag:stoicism', 'tag:gardening'] },
+    { name: 'narrows as you type', typed: 'tag:sto', want: ['tag:stoicism'] },
+    { name: 'forgives one typo', typed: 'tag:stoicsm', want: ['tag:stoicism'] },
+    { name: 'matches a name by any of its words', typed: 'author:guin', want: ['author:Ursula K. Le Guin'] },
+    // The 1.7.1 rename reaching all the way to the menu: the reader named this
+    // slot "doubt", so "doubt" is what is on offer and what is searched.
+    { name: 'offers a colour by the name the reader gave it', typed: 'colour:dou', want: ['colour:doubt'] },
+    { name: 'escapes one field without disarming the rest of the box', typed: 'note\\: to self tag:sto', want: ['tag:stoicism'] },
+  ]
 
-  it('narrows as you type', () => {
-    render(<Harness />)
-    type('tag:sto')
-    expect(options()).toEqual(['tag:stoicism'])
-  })
-
-  it('forgives one typo', () => {
-    render(<Harness />)
-    type('tag:stoicsm')
-    expect(options()).toEqual(['tag:stoicism'])
-  })
-
-  it('matches a name by any of its words', () => {
-    render(<Harness />)
-    type('author:guin')
-    expect(options()).toEqual(['author:Ursula K. Le Guin'])
-  })
-
-  // The 1.7.1 rename reaching all the way to the menu: the reader named this
-  // slot "doubt", so "doubt" is what is on offer and what is searched.
-  it('offers a colour by the name the reader gave it', () => {
-    render(<Harness />)
-    type('colour:dou')
-    expect(options()).toEqual(['colour:doubt'])
+  it('offers what was typed for, in the order it ranks it', () => {
+    const got = TYPED.map(({ name, typed }) => {
+      cleanup()
+      render(<Harness />)
+      type(typed)
+      return [name, options()]
+    })
+    expect(got).toEqual(TYPED.map(({ name, want }) => [name, want]))
   })
 
   it('offers nothing for a field nobody has values for', () => {
@@ -109,12 +109,6 @@ describe('the dropdown', () => {
     type('note\\: to self')
     expect(document.querySelector('.token-menu')).toBeNull()
     expect(screen.getByTestId('wire').textContent).toBe('')
-  })
-
-  it('escapes one field without disarming the rest of the box', () => {
-    render(<Harness />)
-    type('note\\: to self tag:sto')
-    expect(options()).toEqual(['tag:stoicism'])
   })
 })
 

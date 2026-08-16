@@ -19,47 +19,41 @@ import { render, screen } from '@testing-library/react'
 import { QuizSkipMark, skipReason } from '../../src/ui.jsx'
 
 describe('why the quiz will not draw this', () => {
-  it('says nothing about a row that is in the deck', () => {
-    expect(skipReason({ id: 1 }, 'book')).toBe('')
-    expect(skipReason({ id: 1, review_excluded: false, work_review_excluded: false }, 'book')).toBe('')
-  })
-
-  it('names the row itself when the row is the reason', () => {
-    expect(skipReason({ review_excluded: true }, 'book')).toBe('Not in the quiz')
-  })
-
-  // The load-bearing case: own flag FALSE, parent flag true. A card that read
-  // `review_excluded` alone shows nothing here, and the quiz has already
-  // stopped asking.
-  // Excluding a book now WRITES the flag onto its highlights, so a quote of a
-  // skipped book has both set — and the second one names where the decision was
-  // made, which is also where undoing it for the whole book lives.
-  it('names the work when the work is why', () => {
-    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'book'))
-      .toBe('Skipped with its book')
-    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'film'))
-      .toBe('Skipped with its film')
-    // A series is not a film, and the row does not carry media_type — the
-    // caller does, which is why the noun is a prop.
-    expect(skipReason({ review_excluded: true, work_review_excluded: true }, 'show'))
-      .toBe('Skipped with its show')
-  })
-
-  // THE STATE THE OLD RULE GOT WRONG, and it is reachable on purpose: put one
-  // highlight of a skipped book back in the quiz. Its own flag is clear, its
-  // book's is still set, and the deck WILL serve it — because the deck reads the
-  // quote's own column and nothing else. A mark here would be the same lie the
-  // old "back in the quiz" toast told, drawn instead of spoken.
-  it('says nothing when only the work is flagged, because the deck will serve it', () => {
-    expect(skipReason({ review_excluded: false, work_review_excluded: true }, 'book')).toBe('')
-    expect(skipReason({ work_review_excluded: true }, 'film')).toBe('')
-  })
-
-  // A standalone quote has no parent, so the caller names none. The fallback
-  // exists so a future kind cannot render the word "undefined".
-  it('falls back to a generic noun rather than an empty one', () => {
-    expect(skipReason({ review_excluded: true, work_review_excluded: true }))
-      .toBe('Skipped with its work')
+  // One test over all nine rows rather than five: every case is the same
+  // skipReason(row, parent) call on a pure function — no render, no state — so
+  // the aggregate names every row whose reason came out wrong at once instead of
+  // dying on the first. Each row keeps the rule it was written for as its name,
+  // and the comments naming the bugs travel with the rows they explain.
+  it('names the reason a row is out of the deck, and says nothing when it is in', () => {
+    const cases = [
+      // says nothing about a row that is in the deck
+      { name: 'a row with no flags at all is in the deck', row: { id: 1 }, parent: 'book', want: '' },
+      { name: 'a row with both flags clear is in the deck', row: { id: 1, review_excluded: false, work_review_excluded: false }, parent: 'book', want: '' },
+      { name: 'names the row itself when the row is the reason', row: { review_excluded: true }, parent: 'book', want: 'Not in the quiz' },
+      // The load-bearing case: own flag FALSE, parent flag true. A card that read
+      // `review_excluded` alone shows nothing here, and the quiz has already
+      // stopped asking.
+      // Excluding a book now WRITES the flag onto its highlights, so a quote of a
+      // skipped book has both set — and the second one names where the decision was
+      // made, which is also where undoing it for the whole book lives.
+      { name: 'names the work when the work is why', row: { review_excluded: true, work_review_excluded: true }, parent: 'book', want: 'Skipped with its book' },
+      { name: 'names the work when the work is why — a film', row: { review_excluded: true, work_review_excluded: true }, parent: 'film', want: 'Skipped with its film' },
+      // A series is not a film, and the row does not carry media_type — the
+      // caller does, which is why the noun is a prop.
+      { name: 'names the work when the work is why — a show', row: { review_excluded: true, work_review_excluded: true }, parent: 'show', want: 'Skipped with its show' },
+      // THE STATE THE OLD RULE GOT WRONG, and it is reachable on purpose: put one
+      // highlight of a skipped book back in the quiz. Its own flag is clear, its
+      // book's is still set, and the deck WILL serve it — because the deck reads the
+      // quote's own column and nothing else. A mark here would be the same lie the
+      // old "back in the quiz" toast told, drawn instead of spoken.
+      { name: 'says nothing when only the work is flagged, because the deck will serve it', row: { review_excluded: false, work_review_excluded: true }, parent: 'book', want: '' },
+      { name: 'says nothing when only the work is flagged — with the flag absent, not false', row: { work_review_excluded: true }, parent: 'film', want: '' },
+      // A standalone quote has no parent, so the caller names none. The fallback
+      // exists so a future kind cannot render the word "undefined".
+      { name: 'falls back to a generic noun rather than an empty one', row: { review_excluded: true, work_review_excluded: true }, parent: undefined, want: 'Skipped with its work' },
+    ]
+    const got = cases.map(({ name, row, parent }) => [name, skipReason(row, parent)])
+    expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 
   // Every label here is inside the house ceiling. A tooltip is one line on a

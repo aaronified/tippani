@@ -36,10 +36,6 @@ describe('parsePath', () => {
     expect(parsePath('/catalogue/7')).toEqual({ tab: 'movies', detail: { type: 'movie', id: 7 } })
   })
 
-  it('coerces the id to a number, not a string', () => {
-    expect(parsePath('/books/42').detail.id).toBe(42)
-  })
-
   // Asserted as a literal, not by looping over ROUTE_TABS imported from the
   // source. The loop version was tautological: deleting an entry from the table
   // just made it run one fewer iteration, so '/staging' could stop routing and
@@ -191,11 +187,17 @@ describe('the round trip', () => {
     ['movies', { type: 'movie', id: 7 }],
   ]
 
-  for (const [tab, detail] of states) {
-    it(`survives ${tab}${detail ? ` #${detail.id}` : ''}`, () => {
-      expect(parsePath(statePath(tab, detail))).toEqual({ tab, detail })
-    })
-  }
+  // One test over all twelve states rather than twelve one-line its: the body
+  // was identical per row and only the state varied. Each row is still named
+  // the way its it() was, and comparing the whole collected list at once names
+  // EVERY state that failed to survive instead of stopping at the first.
+  const name = ([tab, detail]) => `survives ${tab}${detail ? ` #${detail.id}` : ''}`
+
+  it('reads back everything statePath emits', () => {
+    const got = states.map((state) => [name(state), parsePath(statePath(...state))])
+    const want = states.map(([tab, detail]) => [name([tab, detail]), { tab, detail }])
+    expect(got).toEqual(want)
+  })
 
   // The legacy alias is the one input that deliberately does not round-trip
   // back to itself — it normalises to the canonical spelling instead.

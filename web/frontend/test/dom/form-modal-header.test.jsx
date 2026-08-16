@@ -84,6 +84,7 @@ describe('a form inside the dialog', () => {
 
 describe('the form says when it cannot be saved', () => {
   it('greys the ✓ and carries the reason', () => {
+    // It is shown as a tooltip on the disabled button, and tooltips are labels.
     openModal(<Demo />)
     const save = screen.getByLabelText('Save')
     expect(save.disabled).toBe(true)
@@ -94,12 +95,6 @@ describe('the form says when it cannot be saved', () => {
     expect(screen.getByLabelText('Save').disabled).toBe(true)
     await userEvent.type(screen.getByLabelText('Text'), 'a line')
     expect(screen.getByLabelText('Save').disabled).toBe(false)
-  })
-
-  it('keeps the reason inside the five-word rule', () => {
-    // It is shown as a tooltip on the disabled button, and tooltips are labels.
-    openModal(<Demo />)
-    expect('Write something first'.split(/\s+/).length).toBeLessThanOrEqual(5)
   })
 })
 

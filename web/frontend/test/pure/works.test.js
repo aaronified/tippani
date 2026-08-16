@@ -204,23 +204,21 @@ describe('groupWorks — general', () => {
 })
 
 describe('shelfState', () => {
-  it('prefers an explicit status', () => {
-    expect(shelfState('book', { status: 'paused', annotation_count: 0 })).toBe('paused')
-  })
-
-  it('reads an unquoted work with no status as a wishlist entry', () => {
-    expect(shelfState('book', { annotation_count: 0 })).toBe('wishlist')
-    expect(shelfState('movie', { dialogue_count: 0 })).toBe('wishlist')
-  })
-
-  it('reads a quoted work with no status as plainly in the library', () => {
-    expect(shelfState('book', { annotation_count: 3 })).toBe(null)
-  })
-
-  // The two sides count different columns; reading the wrong one would make
-  // every film look like a wishlist entry.
-  it('counts dialogues for the screen side, not annotations', () => {
-    expect(shelfState('movie', { annotation_count: 5, dialogue_count: 0 })).toBe('wishlist')
+  // One test over all five rows rather than four: every case is the same
+  // shelfState(kind, row) call with different arguments, so the aggregate names
+  // every row that reads wrong at once instead of dying on the first.
+  it('prefers an explicit status, then reads its own side’s count', () => {
+    const cases = [
+      { name: 'prefers an explicit status', kind: 'book', row: { status: 'paused', annotation_count: 0 }, want: 'paused' },
+      { name: 'reads an unquoted book with no status as a wishlist entry', kind: 'book', row: { annotation_count: 0 }, want: 'wishlist' },
+      { name: 'reads an unquoted film with no status as a wishlist entry', kind: 'movie', row: { dialogue_count: 0 }, want: 'wishlist' },
+      { name: 'reads a quoted work with no status as plainly in the library', kind: 'book', row: { annotation_count: 3 }, want: null },
+      // The two sides count different columns; reading the wrong one would make
+      // every film look like a wishlist entry.
+      { name: 'counts dialogues for the screen side, not annotations', kind: 'movie', row: { annotation_count: 5, dialogue_count: 0 }, want: 'wishlist' },
+    ]
+    const got = cases.map(({ name, kind, row }) => [name, shelfState(kind, row)])
+    expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 })
 
@@ -228,16 +226,18 @@ describe('wishFilter', () => {
   const count = (it) => it.n
   const list = [{ n: 0, title: 'empty' }, { n: 3, title: 'quoted' }]
 
-  it('passes everything through with no mode', () => {
-    expect(wishFilter(list, '', count)).toHaveLength(2)
-  })
-
-  it('keeps only unquoted works for wishlist', () => {
-    expect(wishFilter(list, 'wishlist', count).map((x) => x.title)).toEqual(['empty'])
-  })
-
-  it('keeps only quoted works for annotated', () => {
-    expect(wishFilter(list, 'annotated', count).map((x) => x.title)).toEqual(['quoted'])
+  // One test over all three modes rather than three: each case is the same
+  // wishFilter(list, mode, count) call over the same fixture, and the aggregate
+  // names every mode that keeps the wrong rows at once. The no-mode row compares
+  // titles rather than only counting them, which asserts strictly more.
+  it('keeps the works the chip’s mode asks for', () => {
+    const cases = [
+      { name: 'passes everything through with no mode', mode: '', want: ['empty', 'quoted'] },
+      { name: 'keeps only unquoted works for wishlist', mode: 'wishlist', want: ['empty'] },
+      { name: 'keeps only quoted works for annotated', mode: 'annotated', want: ['quoted'] },
+    ]
+    const got = cases.map(({ name, mode }) => [name, wishFilter(list, mode, count).map((x) => x.title)])
+    expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 
   // Documented in works.jsx: the filter keys on the count, NOT shelfState. A
@@ -253,17 +253,18 @@ describe('wishFilter', () => {
 describe('statusFilter', () => {
   const list = [{ status: 'reading' }, { status: 'paused' }, { status: undefined }]
 
-  it('treats an empty selection as every state', () => {
-    expect(statusFilter(list, [])).toHaveLength(3)
-    expect(statusFilter(list, undefined)).toHaveLength(3)
-  })
-
-  it('matches statusless works under "none"', () => {
-    expect(statusFilter(list, ['none'])).toHaveLength(1)
-  })
-
-  it('keeps the selected states', () => {
-    expect(statusFilter(list, ['reading', 'paused'])).toHaveLength(2)
+  // One test over all four rows rather than three: every case is the same
+  // statusFilter(list, selection) call over the same fixture, so the aggregate
+  // names every selection that keeps the wrong number at once.
+  it('keeps the works whose state the selection names', () => {
+    const cases = [
+      { name: 'treats an empty selection as every state', selection: [], want: 3 },
+      { name: 'treats a missing selection as every state', selection: undefined, want: 3 },
+      { name: 'matches statusless works under "none"', selection: ['none'], want: 1 },
+      { name: 'keeps the selected states', selection: ['reading', 'paused'], want: 2 },
+    ]
+    const got = cases.map(({ name, selection }) => [name, statusFilter(list, selection).length])
+    expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 })
 
@@ -373,51 +374,52 @@ describe('credit vocabulary by media type', () => {
 })
 
 describe('moveLabel', () => {
-  it('uses play wording for a game', () => {
-    expect(moveLabel('movie', '', 'playing')).toBe('Mark as playing')
-    expect(moveLabel('movie', 'completed', 'playing')).toBe('Play it again')
-    expect(moveLabel('movie', 'paused', 'playing')).toBe('Carry on playing')
-    expect(moveLabel('movie', 'playing', 'completed')).toBe('Mark as played')
-  })
-
-  it('leaves the film and book wording alone', () => {
-    expect(moveLabel('movie', '', 'watching')).toBe('Mark as watching')
-    expect(moveLabel('movie', 'watching', 'completed')).toBe('Mark as watched')
-    expect(moveLabel('book', '', 'reading')).toBe('Mark as reading')
-    expect(moveLabel('book', 'reading', 'completed')).toBe('Mark as read')
+  // One test over all eight rows rather than two: every case is the same
+  // moveLabel(kind, from, to) call with no setup, and holding the game rows and
+  // the film/book rows in one table keeps the property and its converse side by
+  // side — the aggregate names every label that drifted, in both halves at once.
+  it('uses play wording for a game and leaves the film and book wording alone', () => {
+    const cases = [
+      // uses play wording for a game
+      { name: 'game · nothing → playing', args: ['movie', '', 'playing'], want: 'Mark as playing' },
+      { name: 'game · completed → playing', args: ['movie', 'completed', 'playing'], want: 'Play it again' },
+      { name: 'game · paused → playing', args: ['movie', 'paused', 'playing'], want: 'Carry on playing' },
+      { name: 'game · playing → completed', args: ['movie', 'playing', 'completed'], want: 'Mark as played' },
+      // leaves the film and book wording alone
+      { name: 'film · nothing → watching', args: ['movie', '', 'watching'], want: 'Mark as watching' },
+      { name: 'film · watching → completed', args: ['movie', 'watching', 'completed'], want: 'Mark as watched' },
+      { name: 'book · nothing → reading', args: ['book', '', 'reading'], want: 'Mark as reading' },
+      { name: 'book · reading → completed', args: ['book', 'reading', 'completed'], want: 'Mark as read' },
+    ]
+    const got = cases.map(({ name, args }) => [name, moveLabel(...args)])
+    expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 })
 
 describe('positionLabel', () => {
-  it('reads a book position in pages', () => {
-    expect(positionLabel({ pos_unit: 'page', pos: 128, pos_total: 320 })).toBe('p. 128 of 320')
-  })
-
-  // Both halves are padded to the same width so a column of these cannot rag,
-  // and two digits is the floor even when the total needs one.
-  it('zero-pads an episode pair to a common width', () => {
-    expect(positionLabel({ pos_unit: 'episode', pos: 6, pos_total: 10, season: 2, season_total: 3 }))
-      .toBe('E06/10 · S02/03')
-    expect(positionLabel({ pos_unit: 'episode', pos: 6, pos_total: 456 })).toBe('E006/456')
-    expect(positionLabel({ pos_unit: 'episode', pos: 11, pos_total: 123 })).toBe('E011/123')
-  })
-
-  it('drops the season when there is no run to place it in', () => {
-    expect(positionLabel({ pos_unit: 'episode', pos: 3, pos_total: 8 })).toBe('E03/08')
-  })
-
-  // season and season_total are separate fields, so "I know it runs to three
-  // series, I have not said which I am on" is a real shape. It defaults to the
-  // first, not to a zeroth that does not exist.
-  it('defaults to season one when the run is known but the position is not', () => {
-    expect(positionLabel({ pos_unit: 'episode', pos: 6, pos_total: 10, season_total: 3 }))
-      .toBe('E06/10 · S01/03')
-  })
-
-  it('is empty for a work tracked as a bare percentage', () => {
-    expect(positionLabel({ pos: 40 })).toBe('')
-    expect(positionLabel(null)).toBe('')
-    expect(positionLabel({ pos_unit: 'page', pos: 10 })).toBe('')
+  // One test over all nine rows rather than five: every case is the same
+  // positionLabel(row) call on a pure function with no setup, and the aggregate
+  // names every row that formats wrong at once instead of dying on the first.
+  // Each row keeps the rule it was written for as its name.
+  it('formats a position per unit, or says nothing at all', () => {
+    const cases = [
+      { name: 'reads a book position in pages', row: { pos_unit: 'page', pos: 128, pos_total: 320 }, want: 'p. 128 of 320' },
+      // Both halves are padded to the same width so a column of these cannot rag,
+      // and two digits is the floor even when the total needs one.
+      { name: 'zero-pads an episode pair to a common width', row: { pos_unit: 'episode', pos: 6, pos_total: 10, season: 2, season_total: 3 }, want: 'E06/10 · S02/03' },
+      { name: 'pads the episode to the width of a three-digit run', row: { pos_unit: 'episode', pos: 6, pos_total: 456 }, want: 'E006/456' },
+      { name: 'pads a two-digit episode to the same three', row: { pos_unit: 'episode', pos: 11, pos_total: 123 }, want: 'E011/123' },
+      { name: 'drops the season when there is no run to place it in', row: { pos_unit: 'episode', pos: 3, pos_total: 8 }, want: 'E03/08' },
+      // season and season_total are separate fields, so "I know it runs to three
+      // series, I have not said which I am on" is a real shape. It defaults to the
+      // first, not to a zeroth that does not exist.
+      { name: 'defaults to season one when the run is known but the position is not', row: { pos_unit: 'episode', pos: 6, pos_total: 10, season_total: 3 }, want: 'E06/10 · S01/03' },
+      { name: 'is empty for a work tracked as a bare percentage', row: { pos: 40 }, want: '' },
+      { name: 'is empty for no work at all', row: null, want: '' },
+      { name: 'is empty for a unit with no total to measure against', row: { pos_unit: 'page', pos: 10 }, want: '' },
+    ]
+    const got = cases.map(({ name, row }) => [name, positionLabel(row)])
+    expect(got).toEqual(cases.map(({ name, want }) => [name, want]))
   })
 })
 

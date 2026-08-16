@@ -31,6 +31,13 @@ describe('splitCredits — ported from internal/metadata/credits_test.go', () =>
     ['A; B', def, ['A', 'B']],
     ['A , B ;C& D', def, ['A', 'B', 'C', 'D']],
     // Guards: a single name containing "and" is never shattered.
+    // ...and without any list separator, the guard still holds.
+    // (That sentence and this row used to be a separate it() below, the
+    // deliberate converse of 'lets a semicolon or ampersand unlock short-name
+    // "and" splitting'. It asserted this row's call character for character —
+    // same input, same `def`, same expected array — so it was folded back into
+    // the row it duplicated. The converse still reads: with a list separator,
+    // three names; without one, one firm.)
     ['Daniels and Sons', def, ['Daniels and Sons']],
     ['William and Mary', def, ['William and Mary']],
     // Suffixes re-attach to the previous component.
@@ -57,11 +64,19 @@ describe('splitCredits — ported from internal/metadata/credits_test.go', () =>
     ['a1,b2,c3,d4,e5,f6,g7,h8,i9,j10', def, ['a1', 'b2', 'c3', 'd4', 'e5', 'f6', 'g7', 'h8']],
   ]
 
-  for (const [input, config, want] of cases) {
-    it(`splits ${JSON.stringify(input)} into ${JSON.stringify(want)}`, () => {
-      expect(splitCredits(input, config)).toEqual(want)
-    })
-  }
+  // One test over all 23 rows rather than one it() minted per row: the assertion
+  // is identical for every case and only the data differs, so comparing the whole
+  // column in a single toEqual names EVERY row that disagrees with Go instead of
+  // dying on the first. The table above has not moved — it is still the Go port,
+  // case for case and in the same order, and adding a case there still adds it
+  // here. (Two rows are both 'Gaiman & Pratchett' and differ only in `config`;
+  // as separate it() blocks they reported under identical titles.)
+  it('matches the Go table case for case', () => {
+    const label = (input, i) => `#${i + 1} ${JSON.stringify(input)}`
+    const got = cases.map(([input, config], i) => [label(input, i), splitCredits(input, config)])
+    const want = cases.map(([input, , expected], i) => [label(input, i), expected])
+    expect(got).toEqual(want)
+  })
 
   // Not in the Go table because Go has no undefined: the JS signature defaults
   // the config, and every call site that omits it relies on that.
@@ -77,11 +92,6 @@ describe('splitCredits — ported from internal/metadata/credits_test.go', () =>
   it('lets a semicolon or ampersand unlock short-name "and" splitting', () => {
     expect(splitCredits('Gaiman & Pratchett and Adams', def)).toEqual(['Gaiman', 'Pratchett', 'Adams'])
     expect(splitCredits('Gaiman; Pratchett and Adams', def)).toEqual(['Gaiman', 'Pratchett', 'Adams'])
-  })
-
-  // ...and without any list separator, the guard still holds.
-  it('keeps a two-word firm whole when nothing established a list', () => {
-    expect(splitCredits('Daniels and Sons', def)).toEqual(['Daniels and Sons'])
   })
 
   it('drops "et al" with or without the full stop', () => {

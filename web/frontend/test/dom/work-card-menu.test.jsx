@@ -13,7 +13,7 @@
 // bar can do to a selection of one is on the card it came from.
 
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { WorkCard } from '../../src/works.jsx'
 import { actionsFor, bulkActionsFor } from '../../src/actions.jsx'
 
@@ -90,27 +90,32 @@ describe('the menu a cover opens', () => {
 describe('deleting one work from its cover', () => {
   // One tap and no typed phrase, unlike the bar — and the dialog has to say what
   // goes with it, because a cover gives no hint that twelve quotes are attached.
-  it('asks first, and names what the bin will be holding', () => {
-    openMenu()
-    fireEvent.click(screen.getByText('Delete'))
-    expect(screen.getByRole('dialog').textContent).toContain('12 quotes')
-    expect(screen.getByRole('dialog').textContent).toContain('Undo')
-  })
-
-  it('says it in the singular when there is one', () => {
-    openMenu({ ...BOOK, annotation_count: 1 })
-    fireEvent.click(screen.getByText('Delete'))
-    const said = screen.getByRole('dialog').textContent
-    expect(said).toContain('1 quote saved')
-    expect(said).not.toContain('1 quotes')
-  })
-
-  // An empty book has no subtree to warn about, and a sentence about "the 0
-  // quotes saved from it" is worse than no sentence.
-  it('drops the clause entirely for a work with nothing saved from it', () => {
-    openMenu({ ...BOOK, annotation_count: 0 })
-    fireEvent.click(screen.getByText('Delete'))
-    expect(screen.getByRole('dialog').textContent).not.toContain('0 quote')
+  //
+  // One test over all three counts rather than three: the gesture and the
+  // assertion target (the one dialog's text) are identical per row and only the
+  // count and the wording it should produce differ, so the aggregate names EVERY
+  // count whose sentence came out wrong at once. cleanup() runs per row so
+  // getByRole('dialog') still matches exactly one.
+  it('asks first, names what the bin will be holding, and gets the plural right', () => {
+    const CASES = [
+      // 'Undo' is not a count-varying claim; it is asserted here because this is
+      // the row where the dialog is doing its full job.
+      { name: 'twelve saved', count: 12, contains: ['12 quotes', 'Undo'], absent: [] },
+      { name: 'exactly one', count: 1, contains: ['1 quote saved'], absent: ['1 quotes'] },
+      // An empty book has no subtree to warn about, and a sentence about "the 0
+      // quotes saved from it" is worse than no sentence.
+      { name: 'nothing saved', count: 0, contains: [], absent: ['0 quote'] },
+    ]
+    const wrong = []
+    for (const { name, count, contains, absent } of CASES) {
+      cleanup()
+      openMenu({ ...BOOK, annotation_count: count })
+      fireEvent.click(screen.getByText('Delete'))
+      const said = screen.getByRole('dialog').textContent
+      for (const want of contains) if (!said.includes(want)) wrong.push(`${name}: does not say ${want}`)
+      for (const no of absent) if (said.includes(no)) wrong.push(`${name}: says ${no}`)
+    }
+    expect(wrong).toEqual([])
   })
 })
 

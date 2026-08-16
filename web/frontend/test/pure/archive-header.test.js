@@ -440,17 +440,13 @@ describe('passwordProblem', () => {
   // The exact edges of the printable range, which is where a regex written from
   // memory goes wrong: space (0x20) and tilde (0x7e) are IN, and the two
   // characters flanking them are OUT.
-  it('draws the printable range at space and tilde inclusive', () => {
-    const pad = at(PASSWORD_MIN - 1)
-    expect(passwordProblem(pad + ' ')).toBe('')
-    expect(passwordProblem(pad + '~')).toBe('')
-    expect(passwordProblem(pad + '\x1f')).not.toBe('')
-    expect(passwordProblem(pad + '\x7f')).not.toBe('')
-  })
-
+  //
   // Every printable ASCII character, one at a time, against the Go rule
   // (0x20..0x7e). A regex range typed as [\x20-\x7f] or [\x21-\x7e] passes every
-  // test above and fails here.
+  // test above and fails here. The four edge characters above were a separate
+  // it() until it was found to be a strict subset of this sweep: c = 0x20 and
+  // 0x7e assert the result is '' and c = 0x1f and 0x7f assert it is not, on the
+  // same `pad`, so nothing was lost by folding it in.
   it('accepts every character in the range and nothing outside it', () => {
     const pad = at(PASSWORD_MIN - 1)
     for (let c = 0; c < 0x100; c++) {

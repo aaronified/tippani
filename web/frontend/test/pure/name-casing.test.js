@@ -53,11 +53,13 @@ describe('it never lower-cases what you typed', () => {
     'DeLillo',
     'MacBeth',
   ]
-  for (const s of preserved) {
-    it(`keeps ${s} exactly as typed`, () => {
-      expect(capitalizeNames(s)).toBe(s)
-    })
-  }
+  // One test over all nine names rather than nine: the assertion is identical
+  // per row and only the string differs, and the aggregate names every name
+  // that came back corrupted instead of dying on the first one.
+  it('keeps every one of these exactly as typed', () => {
+    const corrupted = preserved.filter((s) => capitalizeNames(s) !== s).map((s) => `${s} -> ${capitalizeNames(s)}`)
+    expect(corrupted).toEqual([])
+  })
 
   it('differs from the genre rule on exactly that point', () => {
     // If these two ever agree, one of them has been changed into the other and

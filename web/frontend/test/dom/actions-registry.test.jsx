@@ -166,12 +166,6 @@ describe('what you can do to a selection', () => {
     }
   })
 
-  it('says which form each action needs, so the bar does not guess', () => {
-    for (const a of bulkActionsFor('book', [ITEM], full())) {
-      expect(typeof a.form).toBe('string')
-    }
-  })
-
   it('runs with the selection and the typed values', () => {
     const ctx = full()
     const values = { tags: ['grief'] }

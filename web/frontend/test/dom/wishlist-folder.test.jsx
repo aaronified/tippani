@@ -35,14 +35,25 @@ describe('what the folder shows', () => {
     expect(srcs.map((s) => s.match(/c(\d)\.jpg/)[1])).toEqual(['1', '2', '3', '4'])
   })
 
-  it('counts every one of them, not the four on its face', () => {
-    render(<WishlistFolder items={[1, 2, 3, 4, 5, 6].map(cover)} onOpen={() => {}} />)
-    expect(screen.getByText('6 books')).toBeTruthy()
-  })
-
-  it('says “book” in the singular for one', () => {
-    render(<WishlistFolder items={[cover(1)]} onOpen={() => {}} />)
-    expect(screen.getByText('1 book')).toBeTruthy()
+  // One test over all three captions rather than three: each case is the same
+  // render-and-read-the-caption and only the items and the kind differ, so the
+  // collected list names every caption that came out wrong instead of throwing
+  // on the first. Each row keeps the name of the it() it used to be, and this is
+  // the shape the sibling test below already uses.
+  it('captions the tile with the count, in the word its kind uses', () => {
+    const missing = []
+    for (const [name, props, caption] of [
+      // The count is of all six, though only four covers are drawn — that the
+      // caption counts the pile and not its face is the whole point of it.
+      ['counts every one of them, not the four on its face', { items: [1, 2, 3, 4, 5, 6].map(cover) }, '6 books'],
+      ['says “book” in the singular for one', { items: [cover(1)] }, '1 book'],
+      ['speaks the film side’s word when it is given films', { kind: 'movie', items: [cover(1), cover(2)] }, '2 titles'],
+    ]) {
+      const { unmount } = render(<WishlistFolder onOpen={() => {}} {...props} />)
+      if (screen.queryByText(caption) === null) missing.push(`${name}: no “${caption}”`)
+      unmount()
+    }
+    expect(missing).toEqual([])
   })
 
   it('fills the box with however many covers there are', () => {
@@ -92,10 +103,5 @@ describe('what the folder shows', () => {
     render(<WishlistFolder items={[cover(1)]} onOpen={() => (opened += 1)} />)
     fireEvent.click(screen.getByTitle(/nothing from yet/))
     expect(opened).toBe(1)
-  })
-
-  it('speaks the film side’s word when it is given films', () => {
-    render(<WishlistFolder kind="movie" items={[cover(1), cover(2)]} onOpen={() => {}} />)
-    expect(screen.getByText('2 titles')).toBeTruthy()
   })
 })

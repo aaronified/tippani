@@ -86,13 +86,6 @@ describe('what the bar says', () => {
     expect(screen.getByRole('button', { name: /1 quote selected/ })).toBeTruthy()
   })
 
-  // The badge carries the ACTION as well as the count, because it is a button: it
-  // empties the picks and leaves the bar standing.
-  it('names the action too, not only the count', () => {
-    bar()
-    expect(screen.getByRole('button', { name: /Deselect all/ })).toBeTruthy()
-  })
-
   it('renders nothing at all with nothing selected', () => {
     const { container } = render(<SelectionBar selection={selection({ ids: [], count: 0 })} />)
     expect(container.textContent).toBe('')
@@ -309,6 +302,8 @@ describe('following the Button labels preference', () => {
     }
   })
 
+  // The badge carries the ACTION as well as the count, because it is a button: it
+  // empties the picks and leaves the bar standing.
   it('gives the count badge the action as its word', () => {
     bar()
     const badge = screen.getByRole('button', { name: /Deselect all/ })
