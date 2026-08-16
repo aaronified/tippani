@@ -57,19 +57,28 @@ describe('the icon set', () => {
     expect(ICONS.length).toBeGreaterThan(25)
   })
 
-  it.each(ICONS.map(([n]) => n))('%s is hidden from screen readers', (name) => {
+  // One test over every reflected glyph rather than one test per glyph: the
+  // assertion is identical for each icon, and the aggregate form names every
+  // offender at once instead of dying on the first. Coverage is unchanged —
+  // each icon is still checked, as a loop iteration.
+  it('every glyph is hidden from screen readers', () => {
     // Every one of these sits inside a control that carries the words, so the
     // glyph itself must not be announced as well.
-    expect(drawn.get(name).hidden).toBe('true')
+    const loud = [...drawn].filter(([, g]) => g.hidden !== 'true').map(([n]) => n)
+    expect(loud).toEqual([])
   })
 
-  it.each(ICONS.map(([n]) => n))('%s draws at one stroke weight', (name) => {
-    const g = drawn.get(name)
-    // The view-toggle glyphs are a different size class: 15px in a 16 viewBox,
-    // inline beside their own words. Everything on the 24 grid is 1.85.
-    if (g.box !== '0 0 24 24') return
-    if (g.filled) return // IconQuote is filled, not stroked — see its comment
-    expect(g.stroke).toBe('1.85')
+  // Likewise one test over every reflected glyph rather than one per glyph.
+  it('every glyph draws at one stroke weight', () => {
+    const offenders = []
+    for (const [name, g] of drawn) {
+      // The view-toggle glyphs are a different size class: 15px in a 16 viewBox,
+      // inline beside their own words. Everything on the 24 grid is 1.85.
+      if (g.box !== '0 0 24 24') continue
+      if (g.filled) continue // IconQuote is filled, not stroked — see its comment
+      if (g.stroke !== '1.85') offenders.push(`${name} @ ${g.stroke}`)
+    }
+    expect(offenders).toEqual([])
   })
 
   it('no two glyphs are the same picture', () => {
@@ -111,9 +120,17 @@ describe('NavIcon', () => {
   // The nav strip collapses to icon-only when the window is narrow. A tab with
   // no case in the switch renders nothing there — not a fallback, nothing — so
   // it becomes an invisible gap in the strip rather than an error.
-  it.each(tabs)('%s has a glyph', (tab) => {
-    const { container } = render(<ui.NavIcon name={tab} />)
-    expect(container.querySelector('svg')).not.toBeNull()
+  //
+  // One test over all the tabs rather than one per tab: the assertion is
+  // identical for each, every tab is still rendered and checked as a loop
+  // iteration, and the aggregate names every gap in the strip at once.
+  it('every tab has a glyph', () => {
+    const missing = []
+    for (const tab of tabs) {
+      const { container } = render(<ui.NavIcon name={tab} />)
+      if (container.querySelector('svg') === null) missing.push(tab)
+    }
+    expect(missing).toEqual([])
   })
 
   it('an unknown tab renders nothing rather than throwing', () => {
@@ -218,15 +235,20 @@ describe('the nav glyphs carry the same optical weight', () => {
     return e
   }
 
-  it.each(NAV)('%s fills its box like the tabs beside it', (name) => {
-    const { w, h } = area(name)
-    // The set's own range, measured: nothing narrower than 14 or shorter than 13
-    // of the 24 grid. A glyph under that reads as a smaller icon rather than a
-    // different one.
-    expect(w, `${name} width`).toBeGreaterThanOrEqual(14)
-    expect(h, `${name} height`).toBeGreaterThanOrEqual(13)
-    expect(w, `${name} width`).toBeLessThanOrEqual(19)
-    expect(h, `${name} height`).toBeLessThanOrEqual(19)
+  // One test over all five nav glyphs rather than one per glyph: the four range
+  // assertions are identical for each, every glyph is still measured as a loop
+  // iteration, and the aggregate names every out-of-range glyph with its actual
+  // footprint instead of failing on the first.
+  it('each nav glyph fills its box like the tabs beside it', () => {
+    const offenders = []
+    for (const name of NAV) {
+      const { w, h } = area(name)
+      // The set's own range, measured: nothing narrower than 14 or shorter than 13
+      // of the 24 grid. A glyph under that reads as a smaller icon rather than a
+      // different one.
+      if (w < 14 || h < 13 || w > 19 || h > 19) offenders.push(`${name} ${w}x${h}`)
+    }
+    expect(offenders).toEqual([])
   })
 
   it('Quotes is no smaller than the two tabs it sits between', () => {
