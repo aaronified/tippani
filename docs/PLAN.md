@@ -1364,6 +1364,34 @@ Books, films and shows share one catalogue shape, and everything about where you
 
 <sub>post-1.3.0 — `docs/roadmap.html`</sub>
 
+### Games are a third `media_type` on `movies`, not a `games` table
+
+**Decided.** A game is a row in `movies` with `media_type = 'game'`, its studio in the `director` column, its voice cast in `cast_json`, its franchise in `series`, and one new column — `igdb_id` — beside `tmdb_id` and `tvdb_id`. Migration `0040_games.sql` is two statements. There is no `games` table and no fifth nav tab: games are a segment inside the Catalogue, alongside Films and Shows.
+
+**Why.** This is the move `0006` made for TV shows, and every part of the reasoning carried over. The payoff was measured rather than assumed: **20 Go files** query `movies` (search, stats, the bin, backup, restore, export, the review deck, import staging, bulk ops, dupes, portraits, reverify, vocabulary, admin, and the CLI), and they all understood games without being touched. A `games` table would have meant teaching every one of them a third noun, where the failure mode of missing one is silence — a game absent from search, or from a backup, with nothing raised.
+
+`'game'` needed no vocabulary change either, and that was by earlier design rather than luck: `media_type` has no CHECK (0006 validates it in app code and says so), `status` has none (0024), and `person_kinds` has none (0027). A studio therefore becomes a `people` row of kind `studio` with no DDL at all, inheriting image storage, the People panel, rename, merge and orphan GC. `0037` set the bar for a new person kind — it must have *behaviour*, not just a label — and a studio clears it: a logo, a click target, and its own slot on the overview page.
+
+**What I got wrong, and it is worth recording.** The plan this was built from stated the payoff as "eighteen Go files" and "~61 frontend `kind === 'movie'` switches". Recounted against the tree on 2026-08-16: **20 files**, and `kind === 'movie'` appears **9 times** (105 `'movie'` literals across 17 files). The conclusion was right and both supporting numbers were wrong, which is exactly the failure mode `AI.md` describes — confident documentation is not verified documentation. The corrected figures and the commands that reproduce them are in the migration header, where the next person to question the design will actually be standing.
+
+**The vocabulary stretch is deliberate and is the one real cost.** A game's studio lives in a column named `director`. That is defensible — a show already stores its *creator* there — but it means two person kinds share one column, told apart only by `media_type`, which is a hazard rather than a tidiness problem. See §6.
+
+**Approved.** My call, after the metadata research settled what could actually be fetched.
+
+<sub>0040 — `internal/store/migrations/0040_games.sql`</sub>
+
+### A game is played, and every shelf arm is named rather than defaulted
+
+**Decided.** `StatusPlaying` joins the status vocabulary; `activeStatus` and `normalizeStatus` take the media type as well as the kind; `shelfCap` gains a `game` arm of **3**; and its bare `default:` is gone, replaced by named arms plus a warned fallback (`TIP-SHELF-001`).
+
+**Why.** `shelfCap` ended in `default: return 2`, so a game would have inherited the film cap on the strength of a fallthrough rather than a decision. Three is the decision: more than a film, because a long game sits unfinished for months and two would nag constantly; fewer than a book, because you cannot really be playing five at once.
+
+The subtler one was `bulkSetStatus`, which validates **one** status word for a whole selection. A catalogue selection can hold films and games together, so the choices were to refuse mixed selections — which this file's own comment already rejects for the completed-work case, on the grounds that a bulk action must not fail on a property of its least convenient member — or to write the literal word through, which stamps `watching` onto a game. Neither. The word is validated against the *set* of active words for the kind and resolved **per row** against that row's own `media_type`.
+
+**Approved.** My call.
+
+<sub>0040 — `internal/httpapi/shelf.go`, `internal/httpapi/bulk_handlers.go`</sub>
+
 ## 6. People, Credits and Metadata Providers
 
 Credits are stored exactly as they arrive and split only when read, so a wrong split costs a wrong grouping and never a corrupted field. Providers are consulted on demand, pinned to an identity rather than a name, and never allowed to overwrite something you typed without being asked.
@@ -1807,6 +1835,48 @@ Dropping the whole row rather than leaving an empty flex box is the smaller half
 **Approved.** The reader's, in the form "if you fetch IMDB data, do that once a day only with optional user refresh. this is because otherwise Imdb blocks traffic" and "these will only be used for the actor chips in the movie itself. the person will retain his people chip as usual."
 
 <sub>Not shipped</sub>
+
+### IGDB for games, Wikidata for their voice cast, because nothing else exists
+
+**Decided.** Games are fetched from IGDB (Twitch client-credentials OAuth, an Apicalypse POST API) for title, year, summary, cover art, genres, franchise and the studio with its logo. The **voice cast comes from Wikidata**, joined on the IGDB slug, via three batched Action-API calls — no SPARQL, no new host. An empty cast is a normal outcome, not a failure, and the stored cast stays hand-editable.
+
+**Why, and this was measured against live APIs before any design.** Probed 24 well-known games on 2026-08-16. IGDB v4 has **no person endpoint and no credit endpoint at all** — its `characters` endpoint carries `akas, gender, mug_shot, species, description, games`, with no actor link. MobyGames' API exposes no credits endpoint. Giant Bomb returns an unroled flat `people` list. IMDb has the data and no API. So Wikidata is not the best of several options; it is the only structured free source that exists.
+
+And it is thin, which changed what got built:
+
+```text
+Skyrim          66 credits, 66 with a character role, 38 with a portrait
+Baldur's Gate 3 23 credits, 22 with a role
+Cyberpunk 2077  17 credits
+Elden Ring       9 credits, 9 with a role
+Witcher 3 · Mass Effect 3 · Persona 5 · Disco Elysium · BioShock  → ZERO
+```
+
+Two of the four games the feature was requested for have no cast at all. **Half the stated hope is not deliverable, and saying so is the design.** A blank the reader can type into is honest; a lookup that reports success and shows nothing is not.
+
+Two routes are walked, because the credits sit in two places: the game's own `P725` with its `P4633` character-name qualifier (which is already the shape `cast_json` wants), and a hop through `P674` characters to each character's own `P725` — the second is what rescues Half-Life 2, Final Fantasy VII and Persona 5.
+
+**The game is pinned by slug, not matched by title.** `P5794` holds the IGDB slug, so `haswbstatement:P5794=elden-ring` returns `Q64826862` and nothing else. This is load-bearing: during the research a fuzzy title search picked *Hades II* for "Hades", and a wrong cast attached to a right game is a defect that reads as correct.
+
+**Instead of.** A `games` cast table — there is nothing to put in it that `cast_json` does not already hold. SPARQL — `wbgetentities` batches 50 ids, which is what makes the plain Action API enough: Skyrim's 66 credits resolve in three requests rather than 133. A built-in shared IGDB key, as TMDB has — the credentials are per-application and rate-limited to 4 req/s, so a shared key is a shared quota.
+
+**Approved.** The reader's, after the research: accept the one-time Twitch key so games get cover art, fetch the cast by both Wikidata routes, and keep it hand-editable.
+
+<sub>0040 — `internal/metadata/igdb.go`, `internal/metadata/igdb_cast.go`</sub>
+
+### A studio and a director share one column, so every query keyed on either must name the media type
+
+**Decided.** `orphanRefQuery`, `personCreditSQL` and `handlePeopleNames` all narrow their `director` arm to `media_type <> 'game'` and gain a `studio` arm scoped to `media_type = 'game'`. `validPersonKind` is backed by an enumerable `personKinds` slice, and the invariant tests range over it.
+
+**Why.** This is the **third** appearance of a hazard this file already carries a twenty-line comment about. The first was `gcOrphanPeople`'s default-plus-overrides; the second was `handleRenamePerson`'s two separate switches; both were fixed. The third — `handlePeopleNames` — was missed, and the plan for this feature named only the first two. Left alone, the Metadata console's director list would have answered with every studio in the library, tallied, named as directors and **offered for renaming** — the identical sentence written up about translators and authors one kind earlier. Knowing the shape is not the same as having swept for it.
+
+The rename's blast radius is the larger one: `metadata.ReplaceCredit` matches a name as a *component* inside a joined credit, and rename has no undo.
+
+**What this also exposed.** Two invariant tests written specifically to catch this class were passing vacuously. `TestEveryValidKindHasAReferenceQuery` and `TestEveryValidKindIsRenameableOrExplicitlyNot` both carried hand-written kind lists under comments claiming they were "kept in step with validPersonKind by construction" — one listed six kinds, the other four, against a vocabulary of six. A seventh would have passed both without being checked. That is the same defect as the parity test in `AI.md` that skipped embedded structs: **a test whose coverage is a copy of the thing under test agrees with it forever.** Both now enumerate `personKinds`, and a third test asserts the media-type predicate is present in all six director/studio query strings — a sweep rather than an example.
+
+**Approved.** My call; the third-instance sweep was not in the plan and is the reason it was found.
+
+<sub>0040 — `internal/httpapi/people_handlers.go`, `internal/httpapi/people_gc_test.go`</sub>
 
 ## 7. Search and the Full-Text Index
 

@@ -45,7 +45,7 @@ export const ROUTE_TABS = ['search', 'quotes', 'tags', 'metadata', 'stats', 'set
 export const CONTENT_TABS = [
   ['home', 'Home', "Today's review"],
   ['library', 'Library', 'Your books'],
-  ['movies', 'Catalogue', 'Your films and shows'],
+  ['movies', 'Catalogue', 'Films, shows and games'],
   ['quotes', 'Quotes', 'Lines from anywhere else'],
 ]
 export const UTILITY_TABS = [

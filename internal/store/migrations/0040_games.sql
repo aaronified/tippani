@@ -1,0 +1,70 @@
+-- 0040: games, as a third media_type on `movies`.
+--
+-- WHY THERE IS NO `games` TABLE, AND NO 'game' VALUE DECLARED ANYWHERE.
+--
+-- This migration is two lines, and the interesting part is everything it does
+-- NOT contain. A games board looks like it needs a table: a game has a studio
+-- where a film has a director, a voice cast where a film has a cast, a franchise
+-- where a film has a series. Every one of those is a column `movies` already
+-- carries, holding the same kind of value for the same reason — which is exactly
+-- the argument 0006 made when it folded TV shows in rather than giving them a
+-- `shows` table, and none of that reasoning has weakened since.
+--
+-- The payoff is measured rather than hoped for: the TWENTY Go files that query
+-- `movies` (search, stats, the bin, import staging, bulk ops, the review deck,
+-- dupes, portraits, reverify, vocabulary, admin, and the CLI) keep working
+-- untouched, as do the 105 `'movie'` literals across 17 frontend files. A
+-- `games` table would have meant teaching all of them a third noun, and the
+-- failure mode of missing one is silence: a game absent from search, or from a
+-- backup, with nothing raised.
+--
+-- Those two counts were recounted against the tree on 2026-08-16 and both
+-- differed from the plan that specified this change, which said eighteen files
+-- and "~61 kind === 'movie' switches" — the latter is 9. Recount rather than
+-- trust; the commands are:
+--   rg -l 'FROM movies|INTO movies|UPDATE movies|JOIN movies' --glob '!*_test.go' internal cmd
+--   rg -o "'movie'" web/frontend/src | wc -l
+--
+--   Game concept   -> existing column   (precedent)
+--   studio         -> movies.director   (a show already stores its CREATOR there)
+--   voice cast     -> movies.cast_json  ([{character, actor, person_id, image_url}])
+--   a quoted line  -> a dialogues row   (timestamp is free text already)
+--   franchise      -> movies.series
+--   studio logo    -> a people row, kind 'studio'
+--
+-- 'game' ITSELF NEEDS NO SCHEMA CHANGE, and that is by earlier design rather
+-- than luck. Three vocabularies deliberately carry no CHECK constraint:
+--
+--   * `media_type` — 0006 validates it in app code, saying so in as many words.
+--   * `status`     — 0024, for the same reason.
+--   * `person_kinds` — 0027 keys `people` on (user_id, name) with roles in a
+--                      side table and no CHECK on kind.
+--
+-- So a studio becomes a `people` row of kind 'studio' with no DDL at all, and
+-- inherits image storage under MediaCover/, the People panel, rename, merge and
+-- orphan GC for free. 0037 set the bar for earning a new kind — it must have
+-- BEHAVIOUR, not just a label — and a studio clears it: a logo, a click target,
+-- and its own slot on the overview page where the director would be.
+--
+-- `movies_fts` indexes only (title, director, genre_text), all of which a game
+-- populates the same way a film does, so there is no FTS table and no trigger to
+-- change. That is the one place a missed column would have been silent.
+
+-- The IGDB id, beside tmdb_id and tvdb_id.
+--
+-- INTEGER, unlike 0038's imdb_id, because an IGDB id really is a number — there
+-- are no leading zeros to lose. NULL rather than 0 for "none", matching tmdb_id
+-- and tvdb_id, because this column is a dedupe key and a partial index has to be
+-- able to exclude the unset rows.
+ALTER TABLE movies ADD COLUMN igdb_id INTEGER;
+
+-- Per-user dedupe on the IGDB id, mirroring idx_movies_user_tmdb (0003) and
+-- idx_movies_user_tvdb (0006). Same justification as those two and not 0038's:
+-- this id is RESOLVED by a fetch rather than typed by hand, so two rows claiming
+-- the same supplier record is a real bug worth refusing, not a save that fails
+-- with a message about a row the reader cannot see.
+CREATE UNIQUE INDEX idx_movies_user_igdb ON movies(user_id, igdb_id) WHERE igdb_id IS NOT NULL;
+
+-- NOT BACKFILLED, and there is nothing to backfill: no game can exist before
+-- this migration, because no code path could write media_type 'game' until the
+-- handler in this same change learned to accept it.

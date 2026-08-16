@@ -55,17 +55,63 @@ func TestOrphanRefQueryHasNoDefault(t *testing.T) {
 // validPersonKind without adding its case here fails this test instead of
 // deleting data.
 func TestEveryValidKindHasAReferenceQuery(t *testing.T) {
-	// Kept in step with validPersonKind by construction: any kind it accepts has
-	// to appear here, and the loop below proves each one is mapped.
-	kinds := []string{"author", "actor", "director", "speaker", "translator", "editor", "narrator", "composer"}
-	for _, k := range kinds {
+	// RANGES OVER personKinds ITSELF. This used to be a hand-written list with a
+	// comment claiming it was "kept in step with validPersonKind by construction",
+	// which it was not: the seventh kind ('studio', 0040) was added to the
+	// vocabulary and this test kept passing while covering six. A test whose
+	// coverage is a copy of the thing under test agrees with it forever — the
+	// same shape as the parity test that skipped embedded structs.
+	if len(personKinds) == 0 {
+		t.Fatal("personKinds is empty; this test would assert nothing")
+	}
+	for _, k := range personKinds {
 		if !validPersonKind(k) {
-			continue // not accepted yet; nothing to map
+			t.Errorf("personKinds lists %q but validPersonKind rejects it", k)
+			continue
 		}
 		if orphanRefQuery(k) == "" {
 			t.Errorf("validPersonKind accepts %q but orphanRefQuery has no case for it.\n"+
 				"gcOrphanPeople would skip it (safe), but the kind's orphans would never be collected —\n"+
 				"and if the case is ever added carelessly as a fallthrough it deletes the wrong rows.", k)
+		}
+	}
+	// The other half: a kind nobody accepts must still map to nothing.
+	for _, k := range []string{"narrator", "composer", "illustrator"} {
+		if validPersonKind(k) {
+			t.Fatalf("%q became valid; add it to the mapped-kind expectations above", k)
+		}
+	}
+}
+
+// TestDirectorAndStudioQueriesAreDisjoint is hazard 1 stated as an invariant
+// over the SQL rather than as a case.
+//
+// 0040 puts a game's studio in movies.director, so the two kinds share one
+// column and are separated only by a media_type predicate. Every query keyed on
+// either kind must carry that predicate: without it, asking for directors
+// answers with studios, renaming a director rewrites studios, and the orphan
+// sweep deletes people it should not. Checking the strings is what makes this a
+// sweep instead of one example — a fourth query added later without the filter
+// fails here.
+func TestDirectorAndStudioQueriesAreDisjoint(t *testing.T) {
+	dirScan, dirUpdate, _ := personCreditSQL("director")
+	stuScan, stuUpdate, _ := personCreditSQL("studio")
+	checks := []struct{ name, sql, want string }{
+		{"orphanRefQuery(director)", orphanRefQuery("director"), "media_type <> 'game'"},
+		{"orphanRefQuery(studio)", orphanRefQuery("studio"), "media_type = 'game'"},
+		{"personCreditSQL(director).scan", dirScan, "media_type <> 'game'"},
+		{"personCreditSQL(director).update", dirUpdate, "media_type <> 'game'"},
+		{"personCreditSQL(studio).scan", stuScan, "media_type = 'game'"},
+		{"personCreditSQL(studio).update", stuUpdate, "media_type = 'game'"},
+	}
+	for _, c := range checks {
+		if c.sql == "" {
+			t.Errorf("%s is empty", c.name)
+			continue
+		}
+		if !strings.Contains(c.sql, c.want) {
+			t.Errorf("%s does not narrow by media type.\nwant it to contain: %s\ngot: %s",
+				c.name, c.want, c.sql)
 		}
 	}
 }
@@ -90,12 +136,22 @@ func TestPersonCreditSQLHasNoDefault(t *testing.T) {
 // books arm — they could disagree with each other, scanning every book's author
 // and stamping the rewritten strings onto dialogue rows by matching id.
 func TestPersonCreditSQLScanAndUpdateAgreeOnTheTable(t *testing.T) {
-	// translator and editor both read and write `books`, which is exactly the pair
-	// this test exists to check: three of the five arms now name the same table, so
+	// author, translator and editor all read and write `books`, and director and
+	// studio both read and write `movies` — which is exactly what this test
+	// exists to check: five of the seven arms share a table with another arm, so
 	// "did the scan and the update agree" stops being obvious by inspection.
 	table := map[string]string{
 		"author": "books", "actor": "dialogues", "director": "movies",
 		"translator": "books", "editor": "books",
+		"speaker": "utterances", "studio": "movies",
+	}
+	// The map is a hand-written copy of the vocabulary, so it needs a guard that
+	// it has not fallen behind it — 'speaker' and 'studio' were both missing here
+	// while the test read as though it covered everything.
+	for _, k := range personKinds {
+		if _, ok := table[k]; !ok {
+			t.Errorf("personKinds has %q but this test's table does not name its table", k)
+		}
 	}
 	for kind, want := range table {
 		scan, update, ok := personCreditSQL(kind)
@@ -113,11 +169,16 @@ func TestPersonCreditSQLScanAndUpdateAgreeOnTheTable(t *testing.T) {
 
 // Every renameable kind must be mapped, so adding a kind without a credit
 // column fails here rather than rewriting the wrong table.
+//
+// This ranged over a hand-written list of FOUR kinds while the vocabulary had
+// grown to seven, so translator, editor and studio were never checked — the same
+// stale-copy defect as TestEveryValidKindHasAReferenceQuery above. It ranges over
+// personKinds now, which is the only version that stays true.
 func TestEveryValidKindIsRenameableOrExplicitlyNot(t *testing.T) {
-	for _, k := range []string{"author", "actor", "director", "speaker"} {
-		if !validPersonKind(k) {
-			continue
-		}
+	if len(personKinds) == 0 {
+		t.Fatal("personKinds is empty; this test would assert nothing")
+	}
+	for _, k := range personKinds {
 		if _, _, ok := personCreditSQL(k); !ok {
 			t.Errorf("validPersonKind accepts %q but personCreditSQL has no case for it —\n"+
 				"handleRenamePerson now refuses rather than guessing, which is safe, but the kind\n"+

@@ -32,6 +32,7 @@ var coverHosts = map[string]bool{
 	"m.media-amazon.com":              true, // og:image host on product pages
 	"commons.wikimedia.org":           true, // Wikidata P18 author photo (Special:FilePath entry point)
 	"upload.wikimedia.org":            true, // ^ the redirect target that serves the actual image bytes
+	"images.igdb.com":                 true, // IGDB game covers AND studio logos (one host serves both)
 }
 
 // olArchiveHost matches the Internet Archive node hosts OpenLibrary's cover

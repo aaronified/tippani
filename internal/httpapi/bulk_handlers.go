@@ -577,7 +577,10 @@ func (s *Server) bulkSetStatus(w http.ResponseWriter, r *http.Request, kind stri
 		writeErr(w, http.StatusBadRequest, "too many titles (max 2000)")
 		return
 	}
-	if msg := normalizeStatus(kind, &req.Status); msg != "" {
+	// The SET of active words, not one of them: a catalogue selection can hold
+	// films and games together, and each row gets its own in-progress word
+	// resolved from its own media_type inside the loop below.
+	if msg := normalizeBulkStatus(kind, &req.Status); msg != "" {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
@@ -605,21 +608,30 @@ func (s *Server) bulkSetStatus(w http.ResponseWriter, r *http.Request, kind stri
 	}
 	defer tx.Rollback()
 
+	// media_type comes back with the status for a film row, because "in progress"
+	// is a different word for a game than for a film and the row is the only
+	// thing that knows which it is. Books have no media type and select neither.
+	sel := `SELECT status, '' FROM books WHERE id = ? AND user_id = ?`
+	if kind == "movie" {
+		sel = `SELECT status, media_type FROM movies WHERE id = ? AND user_id = ?`
+	}
+
 	updated, skipped := 0, 0
 	for _, id := range owned {
-		var from string
-		if err := tx.QueryRow(`SELECT status FROM `+table+` WHERE id = ? AND user_id = ?`, id, uid).Scan(&from); err != nil {
+		var from, mediaType string
+		if err := tx.QueryRow(sel, id, uid).Scan(&from, &mediaType); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue // raced away between the ownership filter and here
 			}
 			internalError(w, r, "bulk status: load", err)
 			return
 		}
-		if !statusTransitionAllowed(kind, from, req.Status) {
+		status := resolveActiveStatus(kind, mediaType, req.Status)
+		if !statusTransitionAllowed(kind, mediaType, from, status) {
 			skipped++
 			continue
 		}
-		if err := applyStatusChange(tx, kind, uid, id, from, statusChange{Status: req.Status}); err != nil {
+		if err := applyStatusChange(tx, kind, mediaType, uid, id, from, statusChange{Status: status}); err != nil {
 			internalError(w, r, "bulk status: apply", err)
 			return
 		}

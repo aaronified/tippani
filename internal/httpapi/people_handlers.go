@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 
@@ -131,17 +132,38 @@ func (s *Server) personKindsOf(personID int64) []string {
 	return out
 }
 
+// personKinds is the accepted vocabulary, in the order the 400 messages list it.
+// Directors (and TV "creators") are sourced from movies.director, the way authors
+// come from books.author, actors from dialogues.actor and speakers from
+// utterances.speaker.
+//
+// "studio" is the odd one and earns its place by having BEHAVIOUR rather than a
+// label (the bar 0037 set): a logo, a click target, and its own slot on a game's
+// overview page where a film shows its director. It shares movies.director with
+// directors, split by media_type — which is exactly why every query keyed on this
+// vocabulary has to name the media type rather than just the column.
+//
+// A SLICE RATHER THAN A CHAIN OF ||, so the vocabulary can be ENUMERATED. The
+// invariant tests in people_gc_test.go assert that every accepted kind has a
+// reference query and a rename pair, and their comment claimed they were "kept
+// in step with validPersonKind by construction" while actually carrying a
+// hand-written list — so adding this seventh kind would have passed them
+// vacuously, which is the exact shape of the parity test that skipped embedded
+// structs. Ranging over this makes the claim true.
+var personKinds = []string{"author", "actor", "director", "speaker", "translator", "editor", "studio"}
+
 func validPersonKind(k string) bool {
-	return k == "author" || k == "actor" || k == "director" || k == "speaker" ||
-		k == "translator" || k == "editor"
+	return slices.Contains(personKinds, k)
 }
 
-// personKindsList names the accepted kinds in the order the 400 messages list
-// them — keep it in step with validPersonKind above. Directors (and TV
-// "creators") are sourced from movies.director, the way authors come from
-// books.author, actors from dialogues.actor and speakers from
-// utterances.speaker.
-const personKindsList = "author, actor, director, speaker, translator or editor"
+// personKindsList renders personKinds for a 400 message ("a, b or c"), so the
+// message cannot fall behind the vocabulary the way the literal it replaced did.
+var personKindsList = func() string {
+	if len(personKinds) < 2 {
+		return strings.Join(personKinds, "")
+	}
+	return strings.Join(personKinds[:len(personKinds)-1], ", ") + " or " + personKinds[len(personKinds)-1]
+}()
 
 // creditSeps loads the caller's separator configuration for multi-author
 // splitting (the creditSeparators preference). Best-effort: a prefs load
@@ -183,8 +205,20 @@ func orphanRefQuery(kind string) string {
 		return `SELECT TRIM(d.actor) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		        WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`
 	case "director":
+		// media_type <> 'game' IS LOAD-BEARING, not tidiness. 0040 puts a game's
+		// STUDIO in this same column, so an unfiltered query answers "who are my
+		// directors" with every studio in the library — and the orphan sweep then
+		// deletes a director whose name happens to match no film but does match a
+		// game studio. This is the third appearance of the hazard the header above
+		// describes; the first two were fixed and the third was missed.
 		return `SELECT TRIM(director) FROM movies
-		        WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`
+		        WHERE user_id = ? AND media_type <> 'game'
+		          AND director IS NOT NULL AND TRIM(director) <> ''`
+	case "studio":
+		// The mirror image: the same column, the other side of the split.
+		return `SELECT TRIM(director) FROM movies
+		        WHERE user_id = ? AND media_type = 'game'
+		          AND director IS NOT NULL AND TRIM(director) <> ''`
 	case "speaker":
 		// No parent join: an utterance carries its own user_id (0026).
 		return `SELECT TRIM(speaker) FROM utterances
@@ -230,10 +264,27 @@ func personCreditSQL(kind string) (scan, update string, ok bool) {
 		        WHERE m.user_id = ? AND d.actor IS NOT NULL AND TRIM(d.actor) <> ''`,
 			`UPDATE dialogues SET actor = ?, updated_at = datetime('now') WHERE id = ?`, true
 	case "director":
+		// Scoped to non-games for the reason orphanRefQuery's director arm gives,
+		// and the blast radius is the larger one described in this function's own
+		// header: rename matches a name as a COMPONENT of a joined credit, so an
+		// unfiltered rename of "Bethesda" as a director would rewrite the studio
+		// of every Bethesda game in place, with no undo.
+		//
+		// The UPDATE is keyed by the id the SELECT returned, so narrowing the scan
+		// is sufficient — but both arms name the media type anyway, because these
+		// two are returned together precisely so they cannot disagree.
 		return `SELECT id, TRIM(director) FROM movies
-		        WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) <> ''`,
+		        WHERE user_id = ? AND media_type <> 'game'
+		          AND director IS NOT NULL AND TRIM(director) <> ''`,
 			// The movies_fts triggers re-index the director column automatically.
-			`UPDATE movies SET director = ?, updated_at = datetime('now') WHERE id = ?`, true
+			`UPDATE movies SET director = ?, updated_at = datetime('now')
+			 WHERE id = ? AND media_type <> 'game'`, true
+	case "studio":
+		return `SELECT id, TRIM(director) FROM movies
+		        WHERE user_id = ? AND media_type = 'game'
+		          AND director IS NOT NULL AND TRIM(director) <> ''`,
+			`UPDATE movies SET director = ?, updated_at = datetime('now')
+			 WHERE id = ? AND media_type = 'game'`, true
 	case "speaker":
 		// The utterances_fts triggers re-index the speaker column automatically.
 		// The DEDUPE HASH does not follow, and cannot: it is a SHA over
@@ -638,8 +689,24 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	case "director":
 		// One director string per movie row, so COUNT(*) grouped by director is
 		// the number of the caller's films crediting them.
+		//
+		// media_type <> 'game' is the same load-bearing filter personCreditSQL and
+		// orphanRefQuery carry, and this is the arm where its absence would be
+		// VISIBLE rather than merely destructive: 0040 stores a game's studio in
+		// movies.director, so without it the Metadata console's director list
+		// answers with every studio in the library — tallied, named as directors,
+		// and offered for renaming. That is the identical sentence this switch's
+		// own header writes about translators and authors, one kind later.
 		q = `SELECT TRIM(director), COUNT(*) FROM movies
-			WHERE user_id = ? AND director IS NOT NULL AND TRIM(director) != ''
+			WHERE user_id = ? AND media_type <> 'game'
+			  AND director IS NOT NULL AND TRIM(director) != ''
+			GROUP BY TRIM(director)`
+	case "studio":
+		// The other side of the same column. COUNT(*) is the number of the
+		// caller's games crediting that studio.
+		q = `SELECT TRIM(director), COUNT(*) FROM movies
+			WHERE user_id = ? AND media_type = 'game'
+			  AND director IS NOT NULL AND TRIM(director) != ''
 			GROUP BY TRIM(director)`
 	case "speaker":
 		// The count is QUOTES, not works: a speaker has no works, and two lines

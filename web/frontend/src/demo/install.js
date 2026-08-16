@@ -121,17 +121,29 @@ const MOVIES = [
   // ((2-1) + 6/10) / 3 = 53%, whole earlier seasons counting in full.
   { id: 3, title: 'Reel Seven', director: 'A. Costa', release_year: 2021, genres: ['drama'], series: '', series_index: 0, favorite: false, media_type: 'show', status: 'watching', progress: 53, pos_unit: 'episode', pos: 6, pos_total: 10, season: 2, season_total: 3, poster_path: '' },
   { id: 4, title: 'Southline', director: 'R. Whitfield', release_year: 1982, genres: ['drama'], series: 'Northline Diptych', series_index: 2, favorite: false, media_type: 'movie', status: '', progress: 0, poster_path: '' },
+  // A GAME (0040), so the demo exercises the third media type rather than
+  // showing a catalogue that cannot have one. `director` holds the STUDIO —
+  // that is the whole design, and a fixture that used a separate field would
+  // have the demo disagreeing with the server about where a studio lives.
+  // Status is 'playing', not 'watching': a shim carrying the wrong word here
+  // would render the Games chip over a board whose shelf bar says Watching.
+  { id: 5, title: 'Hollow Reach', director: 'Lantern Works', release_year: 2019, genres: ['adventure'], series: 'Reach', series_index: 1, favorite: true, media_type: 'game', status: 'playing', progress: 35, igdb_id: 90210, poster_path: coverArt('#101A18', '#7FB7A8', 'HOLLOW', 'REACH') },
 ]
 const MOVIE_DESCRIPTIONS = {
   1: 'Two strangers share a night train north; neither says where they are going.',
   2: 'A single unbroken take through a city that keeps changing behind the camera.',
   4: 'The companion piece, twenty years on, heading the other way.',
+  5: 'A lantern, a flooded stairwell, and whatever is still down there.',
 }
 const CAST = {
   1: [{ character: 'Mira', actor: 'E. Sen' }, { character: 'Joel', actor: 'D. Kapoor' }],
   2: [{ character: 'Vaughn', actor: 'T. Marsh' }],
   3: [{ character: 'Ana', actor: 'L. Reyes' }],
   4: [{ character: 'Mira', actor: 'E. Sen' }],
+  // A game's voice cast is the same {character, actor} shape as a film's — it is
+  // the same cast_json column, which is why the Wikidata walk returns CastMember
+  // rather than a games-only type.
+  5: [{ character: 'The Warden', actor: 'N. Achebe' }],
 }
 // EVERY LINE CARRIES A COLOUR, because every dialogues row on the server does:
 // the column is TEXT NOT NULL DEFAULT 'yellow', so "no colour" is not a state
@@ -813,8 +825,13 @@ export function route(method, path, params, body) {
     case path === '/stats': return [200, stats()]
     case path === '/metadata/library': return [200, metadataLibrary()]
     case path === '/metadata/duplicates': return [200, { groups: [] }]
-    case path === '/metadata/status': return [200, { tmdb: { source: 'none' }, tvdb: { source: 'none' }, google_books: { key_set: false }, books_lookup: { ok: null, error: '', checked_at: '' } }]
-    case path === '/admin/metadata-keys': return [200, { tmdb_key_set: false, tvdb_key_set: false, google_books_key_set: false, amazon_cookie_set: false, amazon_domain: '', tmdb_source: 'none', tvdb_source: 'none' }]
+    // Field for field against handleMetadataStatus / handleGetMetadataKeys. The
+    // igdb keys are reported as a PAIR of booleans on the admin route and as one
+    // source on the status route, exactly as the server does — a shim that
+    // collapsed them would have Settings claiming the key is set when only the
+    // client id is.
+    case path === '/metadata/status': return [200, { tmdb: { source: 'none' }, tvdb: { source: 'none' }, igdb: { source: 'none' }, igdb_key_set: false, google_books: { key_set: false }, books_lookup: { ok: null, error: '', checked_at: '' } }]
+    case path === '/admin/metadata-keys': return [200, { tmdb_key_set: false, tvdb_key_set: false, google_books_key_set: false, amazon_cookie_set: false, amazon_domain: '', tmdb_source: 'none', tvdb_source: 'none', igdb_client_id_set: false, igdb_secret_set: false, igdb_source: 'none' }]
     case path === '/admin/users': return [200, { users: [{ id: 1, username: 'reader', is_admin: true, created_at: '2026-01-05' }] }]
     // Settings' Devices and Backup cards. Both were falling through to the
     // catch-all below, which answers 200 {} — so `r.data.devices` came back
@@ -832,10 +849,18 @@ export function route(method, path, params, body) {
     case path === '/search': return [200, search(params.get('q'), params.get('scope'))]
     case path === '/people/names': {
       const kind = params.get('kind')
+      // DIRECTOR AND STUDIO SPLIT ON media_type, the same way the server's
+      // queries do. Answering both from an unfiltered MOVIES scan would list
+      // every studio under Directors — which is the exact defect the real
+      // handler carries a filter to prevent, reproduced in the shim.
       const referenced = kind === 'actor'
         ? [...new Set(DIALOGUES.map((d) => d.actor).filter(Boolean))]
         : kind === 'speaker'
         ? [...new Set(UTTERANCES.map((u) => u.speaker).filter(Boolean))]
+        : kind === 'director'
+        ? [...new Set(MOVIES.filter((m) => m.media_type !== 'game').map((m) => m.director).filter(Boolean))]
+        : kind === 'studio'
+        ? [...new Set(MOVIES.filter((m) => m.media_type === 'game').map((m) => m.director).filter(Boolean))]
         : [...new Set(BOOKS.map((b) => b.author).filter((a) => a && a !== '(unknown)'))]
       const rows = new Map()
       for (const n of referenced) rows.set(n.toLowerCase(), { name: n, saved: false, links: '' })

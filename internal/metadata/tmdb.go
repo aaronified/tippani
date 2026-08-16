@@ -119,9 +119,9 @@ type CastMember struct {
 // identify it generically (both TMDB and TVDB, movies and shows); TMDBID is kept
 // populated for TMDB movie hits so older callers keep working.
 type MovieCandidate struct {
-	Source      string `json:"source"`     // "tmdb" | "tvdb"
-	SourceID    string `json:"source_id"`  // id within the source (TMDB int as string, TVDB id)
-	MediaType   string `json:"media_type"` // "movie" | "show"
+	Source      string `json:"source"`     // "tmdb" | "tvdb" | "igdb"
+	SourceID    string `json:"source_id"`  // id within the source (TMDB int as string, TVDB id, IGDB id)
+	MediaType   string `json:"media_type"` // "movie" | "show" | "game"
 	TMDBID      int64  `json:"tmdb_id"`
 	Title       string `json:"title"`
 	ReleaseYear int    `json:"release_year"`
@@ -130,25 +130,37 @@ type MovieCandidate struct {
 }
 
 type MovieDetails struct {
-	Source    string // "tmdb" | "tvdb"
+	Source    string // "tmdb" | "tvdb" | "igdb"
 	SourceID  string
-	MediaType string // "movie" | "show"
+	MediaType string // "movie" | "show" | "game"
 	TMDBID    int64
 	TVDBID    int64
+	IGDBID    int64
+	// Slug is IGDB's URL slug, and it is carried for one reason: it is the join
+	// key to Wikidata. Wikidata's P5794 holds the IGDB SLUG rather than the id,
+	// so `haswbstatement:P5794=elden-ring` names one entity exactly where a title
+	// search does not — during the research for this feature a fuzzy title search
+	// picked Hades II for "Hades". Empty for every other supplier.
+	Slug string
 	// IMDbID is a STRING because an IMDb id is `tt0111161` — the leading zeros
 	// are part of it, and storing the number would give back a URL that 404s.
 	// Nothing fetches WITH it (IMDb has no public API); it is carried because it
 	// is the id a reader is most likely to have to hand, and because it names a
 	// title unambiguously when quoting dialogue.
-	IMDbID      string
-	Title       string
-	Director    string // "creator" for shows; stored in the director column
-	ReleaseYear int
-	Overview    string
-	Genres      []string
-	Series      string       // franchise/collection name, where the source has it
-	Cast        []CastMember // top 20 in billing order
-	PosterURL   string
+	IMDbID   string
+	Title    string
+	Director string // "creator" for shows, "studio" for games; stored in the director column
+	// StudioLogoURL is the developer/publisher logo for a game, and is empty for
+	// every other media type. It is separate from PosterURL because it is not the
+	// work's own art: it becomes the portrait on a `people` row of kind 'studio',
+	// which is what puts a studio icon where a film shows its director.
+	StudioLogoURL string
+	ReleaseYear   int
+	Overview      string
+	Genres        []string
+	Series        string       // franchise/collection name, where the source has it
+	Cast          []CastMember // top 20 in billing order
+	PosterURL     string
 	// PosterThumbURL is the same art at picker size. A details fetch is normally
 	// on its way to storage and so wants PosterURL (full size), but a lookup
 	// pinned to a supplier id shows its record in the same grid of thumbnails as

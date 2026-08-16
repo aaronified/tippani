@@ -9,6 +9,7 @@
 package metadata
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -57,6 +58,48 @@ func httpGet(ctx context.Context, url, bearer string) ([]byte, int, error) {
 	}
 	olog.Tracef("[meta] GET %s -> %d (%d bytes)", redactURL(url), resp.StatusCode, len(body))
 	return body, resp.StatusCode, nil
+}
+
+// httpPost performs one hygienic outbound POST and returns body + HTTP status,
+// applying exactly the same rules as httpGet: shared User-Agent, the 10 s client
+// timeout, io.LimitReader on the body, and a redacted trace line.
+//
+// It exists because IGDB is the first provider here that is not a GET API —
+// Apicalypse queries travel as a POST body, and the Twitch token exchange is a
+// form POST. Duplicating httpGet was the alternative and was rejected: the
+// hygiene above is the thing that must not drift between providers, and two
+// copies of it drift the first time one is edited.
+//
+// extra headers are set after the shared ones, so a caller can add Client-ID
+// without being able to quietly drop the User-Agent.
+func httpPost(ctx context.Context, url, contentType string, body []byte, bearer string, extra map[string]string) ([]byte, int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	for k, v := range extra {
+		req.Header.Set(k, v)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		olog.Tracef("[meta] POST %s failed: %v", redactURL(url), err)
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	out, err := io.ReadAll(io.LimitReader(resp.Body, maxJSONBody))
+	if err != nil {
+		olog.Tracef("[meta] POST %s -> %d, body read failed: %v", redactURL(url), resp.StatusCode, err)
+		return nil, 0, err
+	}
+	olog.Tracef("[meta] POST %s -> %d (%d bytes)", redactURL(url), resp.StatusCode, len(out))
+	return out, resp.StatusCode, nil
 }
 
 // redactURL hides provider secrets before a URL goes into a trace line: the v3

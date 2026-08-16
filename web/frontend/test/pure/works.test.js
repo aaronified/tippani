@@ -9,10 +9,16 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  SHELF_CAPS,
+  activeStatusFor,
   capKeyFor,
+  creditLabelFor,
+  creditNounFor,
   decadeOf,
   groupWorks,
   isActive,
+  moveLabel,
+  personKindFor,
   pinInProgress,
   posUnitFor,
   positionLabel,
@@ -297,6 +303,89 @@ describe('pinInProgress', () => {
     expect(isActive('movie', { status: 'watching' })).toBe(true)
     expect(isActive('book', { status: 'watching' })).toBe(false)
   })
+
+  // A game is PLAYED. isActive used to key on the kind alone, so a game — which
+  // is a movies-table row — would have been measured against 'watching' and
+  // never pinned to the top of its own board, with nothing raised.
+  it('pins on playing for a game, not watching', () => {
+    const game = { id: 2, media_type: 'game', status: 'playing' }
+    expect(isActive('movie', game)).toBe(true)
+    expect(pinInProgress([{ id: 1 }, game], 'movie').map((x) => x.id)).toEqual([2, 1])
+    // The film's word must NOT count as active on a game, or a stale 'watching'
+    // left on a game row would pin it.
+    expect(isActive('movie', { media_type: 'game', status: 'watching' })).toBe(false)
+    // And the reverse: a film is not active because it says 'playing'.
+    expect(isActive('movie', { media_type: 'movie', status: 'playing' })).toBe(false)
+  })
+
+  it('gives each media type its own in-progress word', () => {
+    expect(activeStatusFor('book', {})).toBe('reading')
+    expect(activeStatusFor('movie', {})).toBe('watching')
+    expect(activeStatusFor('movie', { media_type: 'show' })).toBe('watching')
+    expect(activeStatusFor('movie', { media_type: 'game' })).toBe('playing')
+  })
+})
+
+// The shelf caps mirror shelfCap() in internal/httpapi/shelf.go, which ends in a
+// NAMED arm per media type rather than a bare default — a game inheriting the
+// film cap of two was the failure that guard exists for.
+describe('SHELF_CAPS', () => {
+  it('gives games their own cap rather than the film default', () => {
+    expect(SHELF_CAPS.book).toBe(5)
+    expect(SHELF_CAPS.movie).toBe(2)
+    expect(SHELF_CAPS.show).toBe(5)
+    expect(SHELF_CAPS.game).toBe(3)
+  })
+
+  it('has a cap for every cap key capKeyFor can produce', () => {
+    for (const item of [{}, { media_type: 'show' }, { media_type: 'game' }]) {
+      expect(SHELF_CAPS[capKeyFor('movie', item)]).toBeGreaterThan(0)
+    }
+    expect(SHELF_CAPS[capKeyFor('book', {})]).toBeGreaterThan(0)
+  })
+})
+
+describe('credit vocabulary by media type', () => {
+  // One definition each, because these were four inline ternaries across the add
+  // form, the edit form and the detail header before games existed.
+  it('names the primary credit', () => {
+    expect(creditNounFor('movie')).toBe('Director')
+    expect(creditNounFor('show')).toBe('Creator')
+    expect(creditNounFor('game')).toBe('Studio')
+    expect(creditNounFor(undefined)).toBe('Director')
+  })
+
+  it('labels the credit line', () => {
+    expect(creditLabelFor('movie')).toBe('DIR.')
+    expect(creditLabelFor('show')).toBe('CREATED BY')
+    expect(creditLabelFor('game')).toBe('STUDIO')
+  })
+
+  // A studio and a director share movies.director and are told apart only by
+  // media_type — so the people-console kind has to follow the media type, or a
+  // studio is looked up among the film directors and renamed across the wrong
+  // half of the catalogue.
+  it('routes a game credit to the studio kind', () => {
+    expect(personKindFor('game')).toBe('studio')
+    expect(personKindFor('movie')).toBe('director')
+    expect(personKindFor('show')).toBe('director')
+  })
+})
+
+describe('moveLabel', () => {
+  it('uses play wording for a game', () => {
+    expect(moveLabel('movie', '', 'playing')).toBe('Mark as playing')
+    expect(moveLabel('movie', 'completed', 'playing')).toBe('Play it again')
+    expect(moveLabel('movie', 'paused', 'playing')).toBe('Carry on playing')
+    expect(moveLabel('movie', 'playing', 'completed')).toBe('Mark as played')
+  })
+
+  it('leaves the film and book wording alone', () => {
+    expect(moveLabel('movie', '', 'watching')).toBe('Mark as watching')
+    expect(moveLabel('movie', 'watching', 'completed')).toBe('Mark as watched')
+    expect(moveLabel('book', '', 'reading')).toBe('Mark as reading')
+    expect(moveLabel('book', 'reading', 'completed')).toBe('Mark as read')
+  })
 })
 
 describe('positionLabel', () => {
@@ -340,9 +429,10 @@ describe('decadeOf / capKeyFor / posUnitFor', () => {
     expect(decadeOf(0)).toBe(null)
   })
 
-  it('separates films from shows for the shelf cap', () => {
+  it('separates films from shows and games for the shelf cap', () => {
     expect(capKeyFor('book', {})).toBe('book')
     expect(capKeyFor('movie', { media_type: 'show' })).toBe('show')
+    expect(capKeyFor('movie', { media_type: 'game' })).toBe('game')
     expect(capKeyFor('movie', {})).toBe('movie')
   })
 

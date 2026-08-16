@@ -64,18 +64,34 @@ import { selectionClick, selectionMenuItems } from './selection.jsx'
 // ACTIVE_STATUS is the in-progress word for a side — the only state that pins a
 // work to the top of its board and the only one the shelf cap counts. Mirrors
 // activeStatus() in internal/httpapi/shelf.go.
-export const ACTIVE_STATUS = { book: 'reading', movie: 'watching' }
+//
+// KEYED BY CAP KEY, NOT BY KIND, since 0040. A game is PLAYED, not watched, and
+// games share the movies table — so `ACTIVE_STATUS[kind]` would have handed every
+// game the word "watching" and quietly excluded it from its own board's pinned
+// row. `.book` and `.movie` still read the same, so the callers that genuinely
+// mean "the books side" are unchanged; anything holding an item should go through
+// activeStatusFor instead.
+export const ACTIVE_STATUS = { book: 'reading', movie: 'watching', show: 'watching', game: 'playing' }
 
 // SHELF_CAPS — how many works may be in progress at once before the cap dialog
 // asks whether you mean it. Films are capped hardest: two at a time is already
 // unusual, whereas five part-read books is an ordinary shelf. Keyed the way the
-// board asks: books, then films and shows separately (a binge-watched series
-// should not crowd out a film). Mirrors shelfCap() on the server.
-export const SHELF_CAPS = { book: 5, movie: 2, show: 5 }
+// board asks: books, then films, shows and games separately (a binge-watched
+// series should not crowd out a film). Games get three — more than a film,
+// because a long game sits unfinished for months and two would nag constantly,
+// fewer than a book, because you cannot really be playing five at once.
+// Mirrors shelfCap() on the server.
+export const SHELF_CAPS = { book: 5, movie: 2, show: 5, game: 3 }
+
+// activeStatusFor is the in-progress word for one ROW, which is the only version
+// that can tell a game from a film.
+export function activeStatusFor(kind, item = {}) {
+  return ACTIVE_STATUS[capKeyFor(kind, item)]
+}
 
 // isActive says whether a row is the in-progress one for its side.
 export function isActive(kind, item) {
-  return item.status === ACTIVE_STATUS[kind]
+  return item.status === activeStatusFor(kind, item)
 }
 
 // shelfState names the state a tile/detail should draw, or null when a work is
@@ -86,10 +102,37 @@ export function shelfState(kind, item) {
   return count === 0 ? 'wishlist' : null
 }
 
-// capKeyFor picks which cap pool a work belongs to: books, films, or shows.
+// capKeyFor picks which cap pool a work belongs to: books, films, shows or games.
 export function capKeyFor(kind, item) {
   if (kind === 'book') return 'book'
-  return (item.media_type || 'movie') === 'show' ? 'show' : 'movie'
+  const mt = item.media_type || 'movie'
+  if (mt === 'show') return 'show'
+  if (mt === 'game') return 'game'
+  return 'movie'
+}
+
+// creditNounFor / creditLabelFor name the primary credit for a media type — the
+// column is movies.director for all three. ONE definition rather than the four
+// inline `isShow ? 'Creator' : 'Director'` ternaries that were spread across the
+// add form, the edit form and the detail header, because a fourth media type is
+// four places to forget rather than one.
+export function creditNounFor(mediaType) {
+  if (mediaType === 'game') return 'Studio'
+  if (mediaType === 'show') return 'Creator'
+  return 'Director'
+}
+
+export function creditLabelFor(mediaType) {
+  if (mediaType === 'game') return 'STUDIO'
+  if (mediaType === 'show') return 'CREATED BY'
+  return 'DIR.'
+}
+
+// personKindFor is the people-console kind a work's primary credit belongs to.
+// It matters because a studio and a director share movies.director and are told
+// apart only by media_type — the same split the server's people queries make.
+export function personKindFor(mediaType) {
+  return mediaType === 'game' ? 'studio' : 'director'
 }
 
 // decadeOf floors a year to its decade using the full 4-digit year, so old
@@ -617,7 +660,9 @@ function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
 }
 
 export function ShelfControl({ kind, item = {}, status, progress = 0, pos, reads = [], wishlist, onSelect, onProgress, onReadsChanged, busy }) {
-  const active = ACTIVE_STATUS[kind]
+  // Per ROW, not per kind: this control is what offers "start playing" on a game
+  // and "start watching" on a film, and both are movies-table rows.
+  const active = activeStatusFor(kind, item)
   const unit = posUnitFor(kind, item)
   // Which moves are offered. From completed the only way on is to start again —
   // pausing or abandoning something you already finished is not a thing that
@@ -738,9 +783,18 @@ function transitionItems(kind, from, moves, busy, close, onSelect) {
 
 // moveLabel words a transition the way a person would say it, given where the
 // work is now. Starting again after finishing is a reread, not a fresh start.
+// moveLabel names the button for one shelf transition.
+//
+// It switches on the DESTINATION word rather than on the kind, which is what lets
+// games join without a third branch everywhere: 'playing' is its own case, and a
+// completed game reads "Play it again" rather than "Watch it again".
 export function moveLabel(kind, from, to) {
   const book = kind === 'book'
   switch (to) {
+    case 'playing':
+      if (from === 'completed') return 'Play it again'
+      if (from === 'paused') return 'Carry on playing'
+      return 'Mark as playing'
     case 'reading':
     case 'watching':
       if (from === 'completed') return book ? 'Read it again' : 'Watch it again'
@@ -751,6 +805,10 @@ export function moveLabel(kind, from, to) {
     case 'abandoned':
       return book ? 'Give up on it' : 'Give up on it'
     case 'completed':
+      // The finished word follows what you DID with it, so a game reads
+      // "Mark as played" where a film reads "Mark as watched". `from` carries
+      // that: only a game is ever moved to completed from 'playing'.
+      if (from === 'playing') return 'Mark as played'
       return book ? 'Mark as read' : 'Mark as watched'
     default:
       return 'Clear the shelf tag'
@@ -1418,6 +1476,10 @@ export function WorkListScaffold({
   states = [], // shelf states to keep; [] = every state
   setStates,
   kind = 'book', // 'book' | 'movie' — which side's words the state control uses
+  // The in-progress word(s) this board can hold. A single-medium board has one;
+  // the catalogue has two once it contains a game, because a game is played and
+  // a film is watched and both are movies-table rows.
+  activeStates = [ACTIVE_STATUS[kind]],
   noun = 'book', // what a row is, for the "show only" chip tooltips
   // Books group into a "series"; films and shows into a "collection" — the same
   // movies.series column, but "series" already means a TV show on that page.
@@ -1521,7 +1583,11 @@ export function WorkListScaffold({
       values={states}
       onChange={setStates}
       options={[
-        [ACTIVE_STATUS[kind], shelfLabel(ACTIVE_STATUS[kind], kind), SHELF_META[ACTIVE_STATUS[kind]].color],
+        // One row per in-progress word the board can actually hold. A catalogue
+        // with games has two ('watching' and 'playing'), and they are separate
+        // options rather than one merged row because they are separate stored
+        // values — merging them would filter to neither.
+        ...activeStates.map((s) => [s, shelfLabel(s, kind), SHELF_META[s].color]),
         ['paused', 'Paused', SHELF_META.paused.color],
         ['abandoned', 'Abandoned', SHELF_META.abandoned.color],
         ['completed', 'Completed', SHELF_META.completed.color],

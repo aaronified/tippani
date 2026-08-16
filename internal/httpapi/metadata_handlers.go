@@ -45,6 +45,8 @@ func (s *Server) coverWidth(name string) int {
 const (
 	settingTMDBKey        = "tmdb_key"
 	settingTVDBKey        = "tvdb_key"
+	settingIGDBClientID   = "igdb_client_id" // not secret on its own, but stored write-only with its partner
+	settingIGDBSecret     = "igdb_secret"    // secret: write-only, never echoed
 	settingGoogleBooksKey = "google_books_key"
 	settingAmazonCookie   = "amazon_cookie" // secret: write-only, never echoed
 	settingAmazonDomain   = "amazon_domain" // not secret: e.g. www.amazon.com
@@ -105,6 +107,33 @@ func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 	return nil, "none"
 }
 
+// resolveIGDB returns the games client to use, or nil when no COMPLETE pair of
+// credentials is available, plus the source enum for /metadata/status.
+//
+// The pair is atomic on purpose. IGDB needs a Twitch client id and a client
+// secret, and half a pair fails at the token exchange with Twitch's "invalid
+// client" — which arrives as a lookup failure rather than as a missing key, so
+// the reader is told the lookup broke when the truth is that one field is blank.
+// Treating the pair as one setting turns that into the honest 503.
+//
+// There is no built-in fallback, unlike TMDB: the credentials are per-application
+// and rate-limited to 4 req/s, so a shared key would be a shared quota.
+func (s *Server) resolveIGDB() (*metadata.IGDB, string) {
+	base, tokenURL := "", ""
+	if s.IGDB != nil {
+		if s.IGDB.ClientID != "" && s.IGDB.ClientSecret != "" {
+			return s.IGDB, "direct"
+		}
+		base, tokenURL = s.IGDB.BaseURL, s.IGDB.TokenURL
+	}
+	id, err1 := s.Store.GetSetting(settingIGDBClientID)
+	secret, err2 := s.Store.GetSetting(settingIGDBSecret)
+	if err1 == nil && err2 == nil && id != "" && secret != "" {
+		return &metadata.IGDB{ClientID: id, ClientSecret: secret, BaseURL: base, TokenURL: tokenURL}, "custom"
+	}
+	return nil, "none"
+}
+
 // handleMetadataStatus implements GET /metadata/status: which TMDB key is in
 // effect, whether a Google Books key is saved, and how the last book lookup
 // went — the Settings page chips (LOOKUP FAILING etc.) hang off this.
@@ -121,9 +150,12 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 	if rec := s.booksLookup.Load(); rec != nil {
 		lookup["ok"], lookup["error"], lookup["checked_at"] = rec.OK, rec.Error, rec.CheckedAt
 	}
+	_, igdbSource := s.resolveIGDB()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tmdb":         map[string]string{"source": source},
 		"tvdb":         map[string]string{"source": tvdbSource},
+		"igdb":         map[string]string{"source": igdbSource},
+		"igdb_key_set": igdbSource != "none",
 		"google_books": map[string]bool{"key_set": gkey != ""},
 		"books_lookup": lookup,
 	})
@@ -139,12 +171,15 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	acookie, err3 := s.Store.GetSetting(settingAmazonCookie)
 	adomain, err4 := s.Store.GetSetting(settingAmazonDomain)
 	vkey, err5 := s.Store.GetSetting(settingTVDBKey)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil {
-		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5))
+	igdbID, err6 := s.Store.GetSetting(settingIGDBClientID)
+	igdbSec, err7 := s.Store.GetSetting(settingIGDBSecret)
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil || err6 != nil || err7 != nil {
+		internalError(w, r, "load metadata keys", errors.Join(err1, err2, err3, err4, err5, err6, err7))
 		return
 	}
 	_, source := s.resolveTMDB()
 	_, tvdbSource := s.resolveTVDB()
+	_, igdbSource := s.resolveIGDB()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"tmdb_key_set":         tkey != "",
 		"tvdb_key_set":         vkey != "",
@@ -153,6 +188,12 @@ func (s *Server) handleGetMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		"amazon_domain":        adomain,
 		"tmdb_source":          source,
 		"tvdb_source":          tvdbSource,
+		// Reported separately rather than as one igdb_key_set, so the Settings
+		// card can point at the half that is missing instead of saying the pair
+		// is unset when one field is filled in.
+		"igdb_client_id_set": igdbID != "",
+		"igdb_secret_set":    igdbSec != "",
+		"igdb_source":        igdbSource,
 	})
 }
 
@@ -168,6 +209,8 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 		GoogleBooksKey *string `json:"google_books_key"`
 		AmazonCookie   *string `json:"amazon_cookie"`
 		AmazonDomain   *string `json:"amazon_domain"`
+		IGDBClientID   *string `json:"igdb_client_id"`
+		IGDBSecret     *string `json:"igdb_secret"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -197,6 +240,18 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := set(settingAmazonDomain, req.AmazonDomain); err != nil {
 		internalError(w, r, "save amazon domain", err)
+		return
+	}
+	// Saved independently, matching the partial-save rule above: the id and the
+	// secret arrive from two fields and are typed at different moments, so
+	// requiring both in one request would make correcting a mistyped secret mean
+	// re-entering the id.
+	if err := set(settingIGDBClientID, req.IGDBClientID); err != nil {
+		internalError(w, r, "save igdb client id", err)
+		return
+	}
+	if err := set(settingIGDBSecret, req.IGDBSecret); err != nil {
+		internalError(w, r, "save igdb secret", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

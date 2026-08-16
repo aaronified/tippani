@@ -88,6 +88,15 @@ const (
 	CodeMetaLookupFailed   Code = "TIP-META-014"   // a book/movie provider lookup failed (Google Books / Open Library / TMDB / TheTVDB)
 	CodePeopleLookupFailed Code = "TIP-PEOPLE-003" // a person link/portrait lookup failed (Open Library / TMDB)
 
+	// GAMES (0040). Two codes because the two failures need different answers:
+	// the first is the operator's key, the second is nobody's fault at all.
+	CodeMetaIGDBLookup Code = "TIP-META-017" // an IGDB game lookup failed (rejected Twitch credentials, quota, or a bad status)
+	CodeMetaGameNoCast Code = "TIP-META-018" // no Wikidata item claims a game's IGDB slug, so no voice cast could be fetched
+
+	// A shelf cap was asked for a media type nothing recognises. Warned rather
+	// than defaulted silently — see shelfCap in internal/httpapi/shelf.go.
+	CodeShelfMediaType Code = "TIP-SHELF-001"
+
 	// IMPORT — the staging queue a bulk import lands in before it is approved.
 	CodeImportStage    Code = "TIP-IMPORT-001" // a parsed import could not be written into the staging tables; nothing was staged
 	CodeImportRowScan  Code = "TIP-IMPORT-002" // a staged batch/work/quote row could not be scanned while listing the queue
@@ -167,6 +176,11 @@ var Registry = map[Code]string{
 
 	CodeMetaLookupFailed:   "An on-demand book/movie lookup failed at the provider (Google Books / Open Library / TMDB / TheTVDB); the client saw a generic 502.",
 	CodePeopleLookupFailed: "An on-demand person link/portrait lookup failed at the provider (Open Library / TMDB); the client saw a generic 502.",
+
+	CodeMetaIGDBLookup: "An IGDB game lookup failed — most often the Twitch client id or secret is wrong or expired; the client saw a generic 502 or a missing-key 503.",
+	CodeMetaGameNoCast: "No Wikidata item claims this game's IGDB slug, so no voice cast could be fetched. Expected for most games and not an error: the cast is left blank for you to type in.",
+
+	CodeShelfMediaType: "A shelf cap was requested for an unrecognised media_type; the tightest (film) cap was used. Indicates a media type reached the shelf that shelfCap was never taught.",
 
 	CodeImportStage:    "A parsed import could not be written into the staging tables; the batch was rolled back and nothing was staged.",
 	CodeImportRowScan:  "A staged batch, work or quote row could not be scanned while listing the import queue; that row was left out of the response.",

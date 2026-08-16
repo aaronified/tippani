@@ -1331,10 +1331,14 @@ export function PeopleConsole({ onFlash, compact = false, onReverify, onSearch }
       <div className="flex flex-wrap items-center gap-2">
         <h2 style={H2}>People</h2>
         {/* §4: the verbose "what this fetches" copy now lives in a tooltip. */}
-        <InfoDot text="Photos and reference pages, matched to the right person — an author by their books, an actor or director from the film's credits. Actor and director photos need a TMDB key (Settings); author photos need none." />
+        <InfoDot text="Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio from a game's. Actor and director photos need a TMDB key; the rest come from Wikidata." />
         {!compact && <MonoLabel>{shown.length} shown</MonoLabel>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {[['author', 'Authors'], ['actor', 'Actors'], ['director', 'Directors'], ['speaker', 'Speakers']].map(([k, label]) => (
+          {/* Studios are their own row, not folded in with directors, because the
+              two share movies.director and are told apart only by media_type —
+              listing them together would offer a studio for renaming as a
+              director, which rewrites the wrong half of the catalogue. */}
+          {[['author', 'Authors'], ['actor', 'Actors'], ['director', 'Directors'], ['studio', 'Studios'], ['speaker', 'Speakers']].map(([k, label]) => (
             <button key={k} className={'tp-filter-chip' + (kind === k ? ' active' : '')} onClick={() => setKind(k)}>
               {label}
             </button>

@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1] - 2026-08-17
+
+**This release carries a schema migration (`0040`).** It adds one column and a third media type;
+nothing existing is rewritten and no data is touched, but the database is upgraded on first start and
+an older binary will refuse to open it afterwards, which is the usual forward-only rule. Take the
+backup you would take for a minor release.
+
+### Added
+
+- **Games, as a third kind of title in the Catalogue.** Films, shows and now games share one board
+  and one type filter; the Games chip appears once you have a game, and a films-only catalogue looks
+  exactly as it did. A game's credit is its **studio** where a film's is its director — the same slot
+  on the page, with the studio's logo where a face would be — and a game is **played** rather than
+  watched, so it reads *start playing* and *played*, with three in progress allowed against a film's
+  two.
+
+  There is no `games` table and no new nav tab. A game is a third `media_type` on the same table TV
+  shows were folded into, which is why search, stats, the bin, backup, restore, export, the review
+  deck and the import queue all understood it without being told.
+
+- **Game lookup through IGDB, with the voice cast from Wikidata.** One Twitch client id and secret in
+  Settings → Metadata sources gets you cover art, the studio and its logo, the year, genres and the
+  franchise. Nothing else is required to keep a game — manual entry works with no key at all, as it
+  does for films.
+
+  **The cast is honest about being thin, and that is the feature.** IGDB has no person endpoint and
+  no credit endpoint; MobyGames exposes none; Giant Bomb returns an unroled list; IMDb has the data
+  and no API. Wikidata is the only free structured source there is, and of 24 well-known titles
+  checked it had a usable cast for ten — Skyrim has 66 credits, Elden Ring 9, and The Witcher 3,
+  Mass Effect 3, Persona 5, Disco Elysium and BioShock have none at all. So a game with no credits on
+  file shows a **blank you can type into**, not a lookup that reports success and displays nothing.
+  Voice-cast photos need no key, because they come from Wikidata too.
+
+  The game is pinned by IGDB **slug** rather than matched by title, because a fuzzy title search
+  picked *Hades II* for "Hades" while this was being measured, and a wrong cast on a right game is a
+  defect that reads as correct.
+
+### Fixed
+
+- **Renaming a film director no longer risks rewriting a game studio.** Both live in the same column,
+  told apart only by media type, and three separate queries read it unfiltered — the rename, the
+  orphan sweep, and the Metadata console's director list, which would have offered every studio in
+  the library for renaming as a director. This is the third appearance of a hazard the code already
+  carried a twenty-line comment about; it is now an invariant over the SQL rather than a comment.
+
+- **Two invariant tests were passing without testing anything.** The pair that assert every person
+  kind has a reference query and a rename mapping both claimed to be "kept in step by construction"
+  while carrying hand-written lists — one covered six of six kinds, the other four. Adding a seventh
+  would have sailed past both. They enumerate the vocabulary itself now.
+
 ## [1.15.0] - 2026-08-15
 
 ### Added

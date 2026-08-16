@@ -916,10 +916,20 @@ export const SHELF_META = {
   wishlist: { color: "var(--faint)", book: "Wishlist", movie: "Wishlist" },
   reading: { color: SHELF_BLUE, book: "Reading", movie: "Watching" },
   watching: { color: SHELF_BLUE, book: "Reading", movie: "Watching" },
+  // A game is played. Same blue as the other two in-progress words, because the
+  // colour means "in flight" rather than "a film"; the word is what differs.
+  // Both sides read "Playing" — a game only ever lives on the catalogue side, so
+  // there is no book wording for it to fall back to.
+  playing: { color: SHELF_BLUE, book: "Playing", movie: "Playing" },
   paused: { color: "var(--amber)", book: "Paused", movie: "Paused" },
   abandoned: { color: "var(--error)", book: "Abandoned", movie: "Abandoned" },
   completed: { color: "var(--ok)", book: "Completed", movie: "Completed" },
 };
+
+// IN_FLIGHT_STATES are the shelf states that mean "started, not finished" — the
+// ones StatusBar draws as a partial progress bar rather than a solid strip.
+// Every settled state is solid; there is no partial "completed".
+export const IN_FLIGHT_STATES = new Set(["reading", "watching", "playing"]);
 
 // shelfLabel is the word one side uses for a state ('reading' vs 'watching').
 export function shelfLabel(state, kind = "book") {
@@ -942,7 +952,11 @@ export function shelfLabel(state, kind = "book") {
 export function StatusBar({ state, progress = 0, radius = 0, title }) {
   const meta = SHELF_META[state];
   if (!meta) return null;
-  const inFlight = state === "reading" || state === "watching";
+  // IN_FLIGHT_STATES rather than a two-way ||, which is what this was: adding
+  // 'playing' to the vocabulary without adding it here would have drawn a game's
+  // progress bar as a solid finished strip at 100% — no error, just a game that
+  // looks completed the moment you start it.
+  const inFlight = IN_FLIGHT_STATES.has(state);
   const pct = inFlight ? Math.max(0, Math.min(100, progress)) : 100;
   const label = title || `${shelfLabel(state)}${inFlight && pct > 0 ? ` — ${pct}%` : ""}`;
   return (

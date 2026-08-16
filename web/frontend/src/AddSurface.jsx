@@ -36,11 +36,11 @@ import {
   useDismiss,
 } from './ui.jsx'
 
-// One card, three kinds. "Film" and "Show" both map to the movies flow (they
-// differ only by media_type); "Book" uses the books flow. Manual entry is no
-// longer a sibling mode — it's the "Add manually" escape hatch under the results,
-// which opens the right hand-entry popup for the chosen kind.
-const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show']]
+// One card, four kinds. "Film", "Show" and "Game" all map to the movies flow
+// (they differ only by media_type); "Book" uses the books flow. Manual entry is
+// no longer a sibling mode — it's the "Add manually" escape hatch under the
+// results, which opens the right hand-entry popup for the chosen kind.
+const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show'], ['game', 'Game']]
 
 // workFromBook / workFromMovie normalise a freshly-created record into the lean
 // {kind,id,title,sub,tag} shape the capture picker (and WorkPicker) speak, so an
@@ -65,7 +65,9 @@ export function workFromMovie(m) {
 // (and, for books, auto-runs) the search; `hideManual` drops the manual
 // affordances where the host offers its own.
 export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false }) {
-  const [kind, setKind] = useState(initialKind === 'film' || initialKind === 'show' ? initialKind : 'book')
+  const [kind, setKind] = useState(
+    initialKind === 'film' || initialKind === 'show' || initialKind === 'game' ? initialKind : 'book',
+  )
   const [q, setQ] = useState(initialQuery || '')
   const [year, setYear] = useState('')
   const [candidates, setCandidates] = useState(null)
@@ -76,7 +78,10 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
   const [noKey, setNoKey] = useState(false) // TMDB/TVDB missing → film/show lookup 503s
   const [openGroup, setOpenGroup] = useState(-1) // index of the expanded edition group
   const isBook = kind === 'book'
-  const mediaType = kind === 'show' ? 'show' : 'movie'
+  // 'film' is the UI word and 'movie' the stored one, so this maps rather than
+  // passing the chip key through. A game is its own media type AND its own
+  // supplier — the lookup routes to IGDB on the strength of this value.
+  const mediaType = kind === 'show' ? 'show' : kind === 'game' ? 'game' : 'movie'
 
   // Book results fold same-title-same-author printings into one row (see
   // groupEditions); film/show results are one row per title already.
@@ -218,9 +223,14 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
         </button>
       </form>
 
+      {/* The hint NAMES THE SUPPLIER, because they are different keys and the
+          generic wording sent people to the TMDB field to fix a games lookup.
+          IGDB also needs a PAIR, which is the half people miss. */}
       {!isBook && noKey && (
         <p className="microcopy" style={{ color: 'var(--soft)' }}>
-          no movie-lookup key configured — “Add manually” below always works.
+          {kind === 'game'
+            ? 'no IGDB key configured — it needs a Twitch client id and secret. “Add manually” below always works.'
+            : 'no movie-lookup key configured — “Add manually” below always works.'}
         </p>
       )}
       <ErrorText>{error}</ErrorText>

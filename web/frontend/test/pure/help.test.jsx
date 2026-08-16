@@ -47,7 +47,9 @@ describe('every screen you can reach has help', () => {
   // opening a work, and helpScreen derives them from `detail.type`.
   it('a book and a film detail resolve too', () => {
     expect(helpFor(helpScreen('library', { type: 'book', id: 1 }))?.title).toBe('Book')
-    expect(helpFor(helpScreen('movies', { type: 'movie', id: 1 }))?.title).toBe('Film or show')
+    // 'Film, show or game' since 0040 — all three are movies rows split by
+    // media_type, so one help screen covers them.
+    expect(helpFor(helpScreen('movies', { type: 'movie', id: 1 }))?.title).toBe('Film, show or game')
   })
 
   // Both are rendered with a literal screen= prop rather than through

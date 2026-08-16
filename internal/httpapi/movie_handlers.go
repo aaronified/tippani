@@ -18,6 +18,12 @@ import (
 const tmdbKeyMissing = "TMDB API key not configured (add one in Settings)"
 const tvdbKeyMissing = "TheTVDB API key not configured (set TIPPANI_TVDB_API_KEY or save a key in Settings)"
 
+// igdbKeyMissing names BOTH halves, because the commonest failure is having
+// saved one of them: a client id with no secret is indistinguishable from no key
+// at all, and "IGDB key not configured" would send you looking at the field you
+// already filled in.
+const igdbKeyMissing = "IGDB needs a Twitch client id AND secret (add both in Settings)"
+
 type movieReq struct {
 	// TMDBID/TVDBID are the supplier ids, and they are POINTERS on purpose:
 	// nil means "field omitted, leave the column alone" and 0 means "clear it".
@@ -26,6 +32,7 @@ type movieReq struct {
 	// has never heard of it must not be able to wipe it by omission.
 	TMDBID *int64 `json:"tmdb_id"`
 	TVDBID *int64 `json:"tvdb_id"`
+	IGDBID *int64 `json:"igdb_id"` // games (0040); same pointer contract as the two above
 	// IMDbID is full-state like the ordinary fields rather than a pointer like
 	// the two above, and the difference is what each id is FOR. Those two are
 	// what a re-sync pulls from, so an old client omitting one must not wipe it;
@@ -68,6 +75,9 @@ func (m *movieReq) validate() string {
 	}
 	if idOrZero(m.TVDBID) < 0 {
 		return "tvdb_id must be a positive number"
+	}
+	if idOrZero(m.IGDBID) < 0 {
+		return "igdb_id must be a positive number"
 	}
 	return ""
 }
@@ -125,15 +135,16 @@ func imdbOrKeep(tx *sql.Tx, uid, id int64, found string) string {
 }
 
 // normalizeMediaType defaults an empty media_type to "movie" and rejects
-// anything outside the {movie, show} vocabulary (validated in app code — the
-// column has no CHECK, matching the 0004 convention).
+// anything outside the {movie, show, game} vocabulary (validated in app code —
+// the column has no CHECK, matching the 0004 convention, which is what let 0040
+// add games with two lines of DDL and no constraint change).
 func normalizeMediaType(mt *string) string {
 	switch *mt {
 	case "", "movie":
 		*mt = "movie"
-	case "show":
+	case "show", "game":
 	default:
-		return "media_type must be 'movie' or 'show'"
+		return "media_type must be 'movie', 'show' or 'game'"
 	}
 	return ""
 }
@@ -151,6 +162,7 @@ type movieDetail struct {
 	ReleaseCirca bool                  `json:"release_circa"`
 	TMDBID       int64                 `json:"tmdb_id"`
 	TVDBID       int64                 `json:"tvdb_id"`
+	IGDBID       int64                 `json:"igdb_id"`
 	IMDbID       string                `json:"imdb_id"`
 	MediaType    string                `json:"media_type"`
 	PosterPath   string                `json:"poster_path"`
@@ -172,13 +184,13 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 	var castJSON string
 	err := s.Store.DB.QueryRow(`
 		SELECT id, title, COALESCE(director, ''), COALESCE(release_year, 0), release_circa, COALESCE(tmdb_id, 0),
-		       COALESCE(tvdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
+		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at,
 		       COALESCE(imdb_id, '')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
-			&m.TVDBID, &m.MediaType, &m.PosterPath, &m.Description,
+			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
 			&castJSON, &m.CreatedAt, &m.IMDbID)
@@ -339,11 +351,11 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 		return
 	}
 	res, err := tx.Exec(`
-		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, media_type,
-		                    poster_path, description, series, cast_json, source_metadata, imdb_id)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, igdb_id,
+		                    media_type, poster_path, description, series, cast_json, source_metadata, imdb_id)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
-		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
+		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), nullableInt64(d.IGDBID), d.MediaType,
 		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), d.IMDbID)
 	if err != nil {
 		s.removeCoverFile(posterPath)
@@ -416,6 +428,41 @@ func (s *Server) movieIDClash(uid, id int64, column string, value int64) (bool, 
 func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, mediaType string) (*metadata.MovieDetails, string, int) {
 	show := mediaType == "show"
 	switch source {
+	case "igdb":
+		igdb, _ := s.resolveIGDB()
+		if igdb == nil {
+			return nil, igdbKeyMissing, http.StatusServiceUnavailable
+		}
+		d, err := igdb.Details(ctx, sourceID)
+		if err != nil {
+			olog.Errorf(olog.CodeMetaIGDBLookup, "[movie] igdb details source_id=%s failed: %v", sourceID, err)
+			if errors.Is(err, metadata.ErrIGDBAuth) {
+				return nil, "IGDB rejected the credentials — re-check BOTH the client id and the secret " +
+					"in Settings → Metadata sources", http.StatusBadGateway
+			}
+			return nil, "IGDB lookup failed", http.StatusBadGateway
+		}
+		// THE CAST IS A SECOND SUPPLIER, and it has to be, because IGDB has no
+		// person or credit endpoint at all. Wikidata is the only structured free
+		// source of game voice credits, joined on the IGDB slug through P5794.
+		//
+		// Best-effort on purpose: most games have no cast there (measured — two of
+		// the four games this feature was asked for have none), so a failure here
+		// must not fail the whole fetch. The game is saved with an empty,
+		// hand-editable cast and the reason goes to the log, which is the honest
+		// answer rather than a lookup that reports success and shows nothing.
+		if d.Slug != "" {
+			cast, cerr := metadata.GameVoiceCast(ctx, d.Slug)
+			switch {
+			case errors.Is(cerr, metadata.ErrNoWikidataGame):
+				olog.Warnf(olog.CodeMetaGameNoCast, "[movie] no wikidata item for igdb slug %q; cast left blank", d.Slug)
+			case cerr != nil:
+				olog.Warnf(olog.CodeMetaIGDBLookup, "[movie] wikidata cast for %q failed: %v; cast left blank", d.Slug, cerr)
+			default:
+				d.Cast = cast
+			}
+		}
+		return d, "", 0
 	case "tvdb":
 		tvdb, _ := s.resolveTVDB()
 		if tvdb == nil {
@@ -688,7 +735,7 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	idCols := []struct {
 		column string
 		value  *int64
-	}{{"tmdb_id", req.TMDBID}, {"tvdb_id", req.TVDBID}}
+	}{{"tmdb_id", req.TMDBID}, {"tvdb_id", req.TVDBID}, {"igdb_id", req.IGDBID}}
 
 	// A hand-typed id that another title already holds would fail as a unique
 	// constraint mid-transaction; catch it first so the answer names the problem.
@@ -865,12 +912,12 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 		poster = newPoster
 	}
 	res, err := tx.Exec(`
-		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?, tvdb_id = ?,
+		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?, tvdb_id = ?, igdb_id = ?,
 		                  media_type = ?, poster_path = ?, description = ?, series = ?,
 		                  cast_json = ?, source_metadata = ?, imdb_id = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
-		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), d.MediaType,
+		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), nullableInt64(d.IGDBID), d.MediaType,
 		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw),
 		// A re-sync that found no id must not ERASE one the reader typed: the
 		// supplier is the authority on what it knows, not on what it does not.

@@ -28,6 +28,7 @@ const (
 	StatusNone      = ""
 	StatusReading   = "reading"  // books
 	StatusWatching  = "watching" // films + shows
+	StatusPlaying   = "playing"  // games
 	StatusPaused    = "paused"
 	StatusAbandoned = "abandoned"
 	StatusCompleted = "completed"
@@ -40,14 +41,28 @@ const (
 	ReadAbandoned = "abandoned"
 )
 
-// activeStatus is the "in progress" word for a kind: the only status that pins a
+// activeStatus is the "in progress" word for a work: the only status that pins a
 // work to the top of its board and the only one the shelf cap counts.
-func activeStatus(kind string) string {
-	if kind == "movie" {
+//
+// It takes the media type as well as the kind because a game is PLAYED, not
+// watched, and games share the movies table. Taking only the kind — as this did
+// until 0040 — would have handed every game the word "watching" with nothing
+// raised, which is the silent shape this repo keeps writing up.
+func activeStatus(kind, mediaType string) string {
+	switch {
+	case kind == "book":
+		return StatusReading
+	case mediaType == "game":
+		return StatusPlaying
+	default:
 		return StatusWatching
 	}
-	return StatusReading
 }
+
+// movieActiveWords is every in-progress word a row in the movies table may
+// carry. Bulk actions need the SET rather than one value, because a selection
+// can hold films and games together.
+var movieActiveWords = []string{StatusWatching, StatusPlaying}
 
 // shelfCap is how many works may be in progress at once before the client's cap
 // dialog asks whether you really mean it. Films are capped hardest: people rarely
@@ -55,28 +70,85 @@ func activeStatus(kind string) string {
 //
 // The cap is a client-side nudge, deliberately NOT enforced here — the user can
 // always wave it through, and a second device must never be told "no".
+//
+// EVERY ARM IS NAMED AND THERE IS NO BARE DEFAULT. This function used to end in
+// `default: return 2`, which meant a media type nobody had thought about
+// inherited the film cap silently — a game would have been capped at two
+// in-progress on the strength of a fallthrough rather than a decision. Three is
+// the decision for games: more than a film, because a long game sits unfinished
+// for months and two would nag constantly, but fewer than a book, because you
+// cannot really be playing five at once.
 func shelfCap(kind, mediaType string) int {
 	switch {
 	case kind == "book":
 		return 5
 	case mediaType == "show":
 		return 5
+	case mediaType == "game":
+		return 3
+	case mediaType == "movie", mediaType == "":
+		return 2
 	default:
+		// An unrecognised media type is a bug upstream, not a shelf policy. Take
+		// the tightest cap so the nudge appears early rather than never, and say
+		// so in the log rather than deciding silently.
+		olog.Warnf(olog.CodeShelfMediaType, "[shelf] unknown media_type %q for kind %q; using the film cap", mediaType, kind)
 		return 2
 	}
 }
 
-// normalizeStatus validates a status against the vocabulary for one side,
+// normalizeStatus validates a status against the vocabulary for one work,
 // defaulting "" through unchanged. Returns an error message, "" if ok.
-func normalizeStatus(kind string, status *string) string {
+func normalizeStatus(kind, mediaType string, status *string) string {
 	*status = strings.ToLower(strings.TrimSpace(*status))
 	switch *status {
 	case StatusNone, StatusPaused, StatusAbandoned, StatusCompleted:
 		return ""
-	case activeStatus(kind):
+	case activeStatus(kind, mediaType):
 		return ""
 	}
-	return fmt.Sprintf("status must be one of '', %q, 'paused', 'abandoned' or 'completed'", activeStatus(kind))
+	return fmt.Sprintf("status must be one of '', %q, 'paused', 'abandoned' or 'completed'", activeStatus(kind, mediaType))
+}
+
+// normalizeBulkStatus validates the ONE status word a bulk action carries for a
+// selection that may hold more than one media type.
+//
+// A selection of films and games has no single in-progress word, and the two
+// alternatives are both worse than accepting either. Refusing mixed selections
+// makes a bulk action fail on a property of its least convenient member, which
+// this file's own comment already rejects for the completed-work case. Sending
+// the literal word through would write "watching" onto a game. So either active
+// word is accepted here and translated PER ROW in the loop, against that row's
+// own media type.
+func normalizeBulkStatus(kind string, status *string) string {
+	*status = strings.ToLower(strings.TrimSpace(*status))
+	switch *status {
+	case StatusNone, StatusPaused, StatusAbandoned, StatusCompleted:
+		return ""
+	}
+	if kind == "book" {
+		if *status == StatusReading {
+			return ""
+		}
+		return fmt.Sprintf("status must be one of '', %q, 'paused', 'abandoned' or 'completed'", StatusReading)
+	}
+	for _, w := range movieActiveWords {
+		if *status == w {
+			return ""
+		}
+	}
+	return fmt.Sprintf("status must be one of '', %q, %q, 'paused', 'abandoned' or 'completed'",
+		StatusWatching, StatusPlaying)
+}
+
+// resolveActiveStatus maps a bulk request's in-progress word onto the word this
+// particular row should carry. Non-active statuses pass through unchanged.
+func resolveActiveStatus(kind, mediaType, requested string) string {
+	if requested == StatusNone || requested == StatusPaused ||
+		requested == StatusAbandoned || requested == StatusCompleted {
+		return requested
+	}
+	return activeStatus(kind, mediaType)
 }
 
 // partialDate matches the three shapes a read date may take: a bare year, a
@@ -248,7 +320,7 @@ type statusChange struct {
 // validate normalizes the request for one side. `mediaType` is the film row's
 // movie|show (ignored for books). Returns a message, "" if ok.
 func (c *statusChange) validate(kind, mediaType string) string {
-	if msg := normalizeStatus(kind, &c.Status); msg != "" {
+	if msg := normalizeStatus(kind, mediaType, &c.Status); msg != "" {
 		return msg
 	}
 	if msg := normalizePartialDate("started_at", &c.StartedAt); msg != "" {
@@ -278,12 +350,12 @@ func (c *statusChange) validate(kind, mediaType string) string {
 // Clearing back to "" stays open from every status, completed included — it is
 // the undo for a mis-tap, not a lifecycle move, and without it a wrong click
 // would be permanent.
-func statusTransitionAllowed(kind, from, to string) bool {
+func statusTransitionAllowed(kind, mediaType, from, to string) bool {
 	if from == to || to == StatusNone {
 		return true
 	}
 	if from == StatusCompleted {
-		return to == activeStatus(kind)
+		return to == activeStatus(kind, mediaType)
 	}
 	return true
 }
@@ -309,8 +381,8 @@ func statusTransitionAllowed(kind, from, to string) bool {
 //	                    alone, since those did happen.
 //
 // progressFor is applied to the work row; the caller has already validated.
-func applyStatusChange(tx *sql.Tx, kind string, uid, id int64, from string, c statusChange) error {
-	active := activeStatus(kind)
+func applyStatusChange(tx *sql.Tx, kind, mediaType string, uid, id int64, from string, c statusChange) error {
+	active := activeStatus(kind, mediaType)
 
 	// The open read, if any.
 	var openID int64
@@ -516,7 +588,7 @@ func applyImportedShelf(tx *sql.Tx, kind, mediaType string, uid, workID int64, i
 		table = "books"
 	}
 	status, progress, pos := in.Status, in.Progress, in.Pos
-	if msg := normalizeStatus(kind, &status); msg != "" {
+	if msg := normalizeStatus(kind, mediaType, &status); msg != "" {
 		status, progress, pos = StatusNone, 0, position{}
 	}
 	if pos.validate(kind, mediaType) != "" {
@@ -640,12 +712,12 @@ func (s *Server) setWorkStatus(w http.ResponseWriter, r *http.Request, kind stri
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
-	if !statusTransitionAllowed(kind, from, req.Status) {
+	if !statusTransitionAllowed(kind, mediaType, from, req.Status) {
 		writeErr(w, http.StatusConflict, fmt.Sprintf(
-			"a completed %s can only be started again (%s) or cleared", kind, activeStatus(kind)))
+			"a completed %s can only be started again (%s) or cleared", kind, activeStatus(kind, mediaType)))
 		return
 	}
-	if err := applyStatusChange(tx, kind, uid, id, from, req); err != nil {
+	if err := applyStatusChange(tx, kind, mediaType, uid, id, from, req); err != nil {
 		internalError(w, r, "set status: apply", err)
 		return
 	}

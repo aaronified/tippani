@@ -35,6 +35,10 @@ type Server struct {
 	TMDB         *metadata.TMDB // Key = env-provided key; resolveTMDB falls through to settings/built-in
 	TMDBBuiltin  string         // built-in app key, the last fallback before 503 (defaultTMDBKey in cmd/tippani)
 	TVDB         *metadata.TVDB // Key = env-provided TheTVDB key; resolveTVDB falls through to settings (no built-in)
+	// IGDB is the games supplier (0040). Unlike the others it needs a PAIR of
+	// credentials — a Twitch client id and secret — so resolveIGDB treats them
+	// as one setting that is either complete or absent.
+	IGDB *metadata.IGDB
 
 	// Devices holds the bearer credentials native clients carry (the Android app
 	// under mobile/). Separate from Sessions on purpose — see auth.DeviceTokens.

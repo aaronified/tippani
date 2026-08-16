@@ -110,22 +110,36 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title     string `json:"title"`
 		Year      int    `json:"year"`
-		MediaType string `json:"media_type"` // "movie" (default) | "show"
+		MediaType string `json:"media_type"` // "movie" (default) | "show" | "game"
 		TMDBID    int64  `json:"tmdb_id"`    // pin TMDB's record for this id
 		TVDBID    int64  `json:"tvdb_id"`    // pin TheTVDB's record for this id
+		IGDBID    int64  `json:"igdb_id"`    // pin IGDB's record for this id
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
 	req.Title = strings.TrimSpace(req.Title)
-	if req.Title == "" && req.TMDBID <= 0 && req.TVDBID <= 0 {
-		writeErr(w, http.StatusBadRequest, "title, tmdb_id, or tvdb_id is required")
+	if req.Title == "" && req.TMDBID <= 0 && req.TVDBID <= 0 && req.IGDBID <= 0 {
+		writeErr(w, http.StatusBadRequest, "title, tmdb_id, tvdb_id, or igdb_id is required")
 		return
 	}
 	mediaType := "movie"
-	if req.MediaType == "show" {
-		mediaType = "show"
+	switch req.MediaType {
+	case "show", "game":
+		mediaType = req.MediaType
 	}
+
+	// GAMES TAKE A DIFFERENT SUPPLIER ENTIRELY, so they branch before the
+	// TMDB/TVDB pair rather than joining their candidate merge. Neither of those
+	// two has games at all, so running them for a game would spend two requests
+	// to guarantee zero hits — and, worse, a title that happens to name both a
+	// film and a game ("Alan Wake") would return the FILM as a candidate for a
+	// game lookup, which reads as a successful match.
+	if mediaType == "game" {
+		s.gameLookup(w, r, req.Title, req.Year, req.IGDBID)
+		return
+	}
+
 	olog.Tracef("[meta] handleMovieLookup title=%q year=%d media=%s tmdb_id=%d tvdb_id=%d",
 		req.Title, req.Year, mediaType, req.TMDBID, req.TVDBID)
 
@@ -226,6 +240,75 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		default:
 			writeErr(w, http.StatusBadGateway, "movie lookup failed")
 		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+}
+
+// gameLookup is the games arm of POST /movies/lookup. Same response shape as the
+// film path — {candidates: [...]} — so the picker needs no second code path.
+//
+// A 503 for "no key" rather than an empty result, matching the film path: an
+// empty candidate list means "IGDB has no such game", and answering that when the
+// truth is "you never entered a key" sends the reader looking for a game that is
+// there.
+func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string, year int, igdbID int64) {
+	olog.Tracef("[meta] gameLookup title=%q year=%d igdb_id=%d", title, year, igdbID)
+	igdb, _ := s.resolveIGDB()
+	if igdb == nil {
+		writeErr(w, http.StatusServiceUnavailable, igdbKeyMissing)
+		return
+	}
+
+	cands := []metadata.MovieCandidate{}
+	seen := map[string]bool{}
+	add := func(found []metadata.MovieCandidate) {
+		for _, c := range found {
+			if seen[c.SourceID] {
+				continue
+			}
+			seen[c.SourceID] = true
+			cands = append(cands, c)
+		}
+	}
+
+	// The pinned record first, exactly as the film path does it: an id names one
+	// game and a title search cannot.
+	var pinMsg string
+	if igdbID > 0 {
+		if d, err := igdb.Details(r.Context(), strconv.FormatInt(igdbID, 10)); err == nil {
+			add([]metadata.MovieCandidate{d.Candidate()})
+		} else {
+			olog.Tracef("[meta] game lookup pin igdb#%d failed: %v", igdbID, err)
+			pinMsg = "that IGDB id did not resolve to a game"
+			if errors.Is(err, metadata.ErrIGDBAuth) {
+				pinMsg = ""
+			}
+		}
+	}
+
+	var searchErr error
+	if title != "" {
+		if c, err := igdb.Search(r.Context(), title, year); err != nil {
+			searchErr = err
+		} else {
+			add(c)
+		}
+	}
+
+	if len(cands) == 0 && searchErr == nil && pinMsg != "" {
+		writeErr(w, http.StatusNotFound, pinMsg)
+		return
+	}
+	if len(cands) == 0 && searchErr != nil {
+		olog.Errorf(olog.CodeMetaIGDBLookup, "[meta] game lookup %q year=%d failed: %v", title, year, searchErr)
+		if errors.Is(searchErr, metadata.ErrIGDBAuth) {
+			writeErr(w, http.StatusBadGateway,
+				"IGDB rejected the credentials. Twitch answers a wrong client id OR secret the same way, "+
+					"so re-check both in Settings → Metadata sources.")
+			return
+		}
+		writeErr(w, http.StatusBadGateway, "game lookup failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})

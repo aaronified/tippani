@@ -28,6 +28,9 @@ import {
   WorkListScaffold,
   capKeyFor,
   countQuotes,
+  creditLabelFor,
+  creditNounFor,
+  personKindFor,
   groupWorks,
   isActive,
   moveLabel,
@@ -291,6 +294,22 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
 
   const tmdbSource = status?.tmdb?.source
   const hasShows = (movies || []).some((m) => (m.media_type || 'movie') === 'show')
+  const hasGames = (movies || []).some((m) => m.media_type === 'game')
+  // ONE list, rendered twice. The desktop row and the mobile sheet used to carry
+  // their own copies of the same array, which is two places to forget a type —
+  // and the mobile one is the copy nobody looks at.
+  //
+  // A chip only appears when the catalogue actually holds that type, so a
+  // films-and-games library is not offered a Shows filter that matches nothing.
+  const typeChips = useMemo(() => {
+    const out = [['', 'All'], ['movie', 'Movies']]
+    if (hasShows) out.push(['show', 'Shows'])
+    if (hasGames) out.push(['game', 'Games'])
+    return out
+  }, [hasShows, hasGames])
+  // The gate is on the whole catalogue rather than the filtered view, so the row
+  // cannot vanish underneath the filter that is using it.
+  const showTypeRow = hasShows || hasGames
   // Most-common genres first — the select lists them in that order, so the ones
   // you actually use are at the top of it.
   const genres = useMemo(() => {
@@ -422,20 +441,23 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
       creditNoun="actor"
       seriesNoun="collection"
       sortOptions={[['recent', 'Recent'], ['title', 'Title'], ['year', 'Year'], ['series', 'Collection'], ['read', 'Last watched']]}
+      // The catalogue can hold two in-progress words at once, so the shelf-state
+      // filter lists both rather than only the film's.
+      activeStates={hasGames ? ['watching', 'playing'] : ['watching']}
       leading={
-        hasShows &&
-        [['', 'All'], ['movie', 'Movies'], ['show', 'Shows']].map(([k, label]) => (
+        showTypeRow &&
+        typeChips.map(([k, label]) => (
           <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
             {label}
           </button>
         ))
       }
       leadingMobile={
-        hasShows && (
+        showTypeRow && (
           <div>
             <MonoLabel className="mb-2 block">type</MonoLabel>
             <div className="flex flex-wrap items-center gap-2">
-              {[['', 'All'], ['movie', 'Movies'], ['show', 'Shows']].map(([k, label]) => (
+              {typeChips.map(([k, label]) => (
                 <button key={k} className={filterChipClass(mediaType === k)} onClick={() => setMediaType(k)}>
                   {label}
                 </button>
@@ -467,9 +489,17 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
           open={exporting}
           title="Export catalogue"
           body={(() => {
+            // Counted per type rather than "everything that is not a show", which
+            // is what this was: games would have been tallied as movies and the
+            // dialog would have said "3 movies" over a selection holding one.
             const shows = shown.filter((m) => (m.media_type || 'movie') === 'show').length
-            const films = shown.length - shows
-            const parts = [films > 0 && `${films} movie${films === 1 ? '' : 's'}`, shows > 0 && `${shows} show${shows === 1 ? '' : 's'}`].filter(Boolean)
+            const games = shown.filter((m) => m.media_type === 'game').length
+            const films = shown.length - shows - games
+            const parts = [
+              films > 0 && `${films} movie${films === 1 ? '' : 's'}`,
+              shows > 0 && `${shows} show${shows === 1 ? '' : 's'}`,
+              games > 0 && `${games} game${games === 1 ? '' : 's'}`,
+            ].filter(Boolean)
             return <>{parts.join(' · ') || '0 titles'} in view will be exported as a single Markdown file.</>
           })()}
           confirmLabel="Export"
@@ -647,7 +677,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
       <div className="grid gap-2.5 sm:grid-cols-2">
         <NameInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <NameInput
-          placeholder={isShow ? 'Creator' : 'Director'}
+          placeholder={creditNounFor(mediaType)}
           value={director}
           onChange={(e) => setDirector(e.target.value)}
         />
@@ -672,10 +702,18 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
   )
 }
 
-// MediaTypeToggle — the Movie | Show switch, reused by the add + edit forms
-// (TV is folded into movies via media_type).
+// MediaTypeToggle — the Movie | Show | Game switch, reused by the add + edit
+// forms. All three are movies rows split by media_type: TV was folded in by
+// 0006 and games by 0040, for the same reason both times.
 export function MediaTypeToggle({ value, onChange }) {
-  return <Toggle ariaLabel="Media type" value={value} onChange={onChange} options={[['movie', 'Movie'], ['show', 'Show']]} />
+  return (
+    <Toggle
+      ariaLabel="Media type"
+      value={value}
+      onChange={onChange}
+      options={[['movie', 'Movie'], ['show', 'Show'], ['game', 'Game']]}
+    />
+  )
 }
 
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
@@ -703,7 +741,13 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const [capBusyId, setCapBusyId] = useState(null)
   const [capError, setCapError] = useState('')
   const [shelfBusy, setShelfBusy] = useState(false)
-  const { map: directorMap } = usePeople('director') // name→metadata, for the director/creator face chip
+  // The primary credit's people map. The KIND follows the media type, because a
+  // game's studio and a film's director share movies.director and the people
+  // console tells them apart only by kind — asking for 'director' on a game
+  // returns the film directors, so every studio would draw a blank face chip.
+  const detailMediaType = movie?.media_type || 'movie'
+  const creditKind = personKindFor(detailMediaType)
+  const { map: directorMap } = usePeople(creditKind) // name→metadata, for the credit face chip
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
@@ -730,6 +774,11 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   // The films and shows caps are separate pools (2 · 5): a binge-watched series
   // should not crowd out the one film you have on the go.
   const capKey = movie ? capKeyFor('movie', movie) : 'movie'
+  // The in-progress word for THIS row. 'watching' for a film or a show,
+  // 'playing' for a game — the catalogue holds both, so a single ACTIVE_STATUS
+  // .movie would offer a game the wrong verb and then fail the server's
+  // validation with a 400 the reader cannot act on.
+  const activeWord = ACTIVE_STATUS[capKey]
 
   async function save(status, date) {
     setShelfBusy(true)
@@ -744,7 +793,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
       season: movie?.season || 0,
       season_total: movie?.season_total || 0,
     }
-    if (status === ACTIVE_STATUS.movie) body.started_at = date || ''
+    if (status === activeWord) body.started_at = date || ''
     else if (status === 'completed' || status === 'abandoned') body.finished_at = date || ''
     const r = await json('PUT', `/movies/${id}/status`, body)
     setShelfBusy(false)
@@ -754,7 +803,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
 
   async function pick(next) {
     if (!movie) return
-    if (next === ACTIVE_STATUS.movie && movie.status !== 'paused') {
+    if (next === activeWord && movie.status !== 'paused') {
       const r = await json('GET', '/movies')
       if (!r.ok) return setError(errText(r))
       const pool = (r.data.movies || []).filter(
@@ -778,7 +827,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
     const left = capPool.filter((m) => m.id !== item.id)
     if (left.length < SHELF_CAPS[capKey]) {
       setCapPool(null)
-      setPending({ status: ACTIVE_STATUS.movie, date: todayPartial() })
+      setPending({ status: activeWord, date: todayPartial() })
       return
     }
     setCapPool(left)
@@ -811,9 +860,11 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   }
 
   const isShow = movie && (movie.media_type || 'movie') === 'show'
-  // "DIR./CREATED BY X · YEAR · Series #n · TMDB/TVDB #id" — the mono credit line.
-  // The director/creator name(s) are clickable (open the People panel), styled to
-  // inherit the amber mono voice; co-credits split like book authors do.
+  // "DIR./CREATED BY/STUDIO X · YEAR · Series #n" — the mono credit line.
+  // The director/creator/studio name(s) are clickable (open the People panel),
+  // styled to inherit the amber mono voice; co-credits split like book authors do.
+  // detailMediaType / creditKind are computed above, beside the usePeople call
+  // they also select.
   const dirNames = movie?.director ? splitCredits(movie.director, creditSeps) : []
   // The credit line mixes portrait chips (tall) with mono text, so it lays out as
   // an inline flex row that vertically CENTRES everything — otherwise the text
@@ -821,12 +872,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
   const directorNode =
     dirNames.length > 0 ? (
       <span key="director" style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 6, rowGap: 2 }}>
-        <span>{isShow ? 'CREATED BY' : 'DIR.'}</span>
+        <span>{creditLabelFor(detailMediaType)}</span>
         {dirNames.map((n, i) => (
           <Fragment key={n}>
             {i > 0 && <span aria-hidden="true" style={{ marginLeft: -2 }}>,</span>}
             <PersonCredit
-              kind="director"
+              kind={creditKind}
               name={n}
               person={directorMap[n]}
               size={28}
@@ -872,8 +923,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                 items={[
                   {
                     icon: <IconWatching size={24} />,
-                    label: moveLabel('movie', movie?.status || '', ACTIVE_STATUS.movie),
-                    onClick: () => pick(ACTIVE_STATUS.movie),
+                    label: moveLabel('movie', movie?.status || '', activeWord),
+                    onClick: () => pick(activeWord),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
                   { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
@@ -950,8 +1001,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
             actions={
               mobile ? null : (
                 <>
-                  <GhostButton onClick={() => pick(ACTIVE_STATUS.movie)} disabled={shelfBusy}>
-                    {moveLabel('movie', movie.status || '', ACTIVE_STATUS.movie)}
+                  <GhostButton onClick={() => pick(activeWord)} disabled={shelfBusy}>
+                    {moveLabel('movie', movie.status || '', activeWord)}
                   </GhostButton>
                   {!DEMO && (
                     <IconButton
@@ -999,12 +1050,12 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
         error={capError}
         onRelease={releaseWatching}
         onCancel={() => setCapPool(null)}
-        onProceed={() => { setCapPool(null); setPending({ status: ACTIVE_STATUS.movie, date: todayPartial() }) }}
+        onProceed={() => { setCapPool(null); setPending({ status: activeWord, date: todayPartial() }) }}
       />
       <ShelfDateDialog
         open={!!pending}
         title={pending ? moveLabel('movie', movie?.status || '', pending.status) : ''}
-        label={pending?.status === ACTIVE_STATUS.movie ? 'Started' : pending?.status === 'abandoned' ? 'Gave up' : 'Finished'}
+        label={pending?.status === activeWord ? 'Started' : pending?.status === 'abandoned' ? 'Gave up' : 'Finished'}
         value={pending?.date || ''}
         onChange={(v) => setPending((p) => (p ? { ...p, date: v } : p))}
         onCancel={() => setPending(null)}
@@ -1155,7 +1206,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       <div className="grid gap-2.5 sm:grid-cols-2">
         <NameInput placeholder="Title (required)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <NameInput
-          placeholder={isShow ? 'Creator' : 'Director'}
+          placeholder={creditNounFor(mediaType)}
           value={director}
           onChange={(e) => setDirector(e.target.value)}
         />
