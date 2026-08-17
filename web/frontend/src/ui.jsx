@@ -2508,9 +2508,6 @@ const HOVER_HIDE_MS = 3000;
 
 export function Tooltip({ label, side = "top", className = "", onContextMenu, children }) {
   const timer = useRef(null);
-  // Separate from `timer`, which is the touch long-press. One ref for two
-  // unrelated schedules is how a hover cancels a long press.
-  const autoHide = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
   const wrap = useRef(null);
@@ -2520,10 +2517,7 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, ch
   const held = useRef(0);
   // Unmount is a close: clicking a control that opens a modal takes the wrapper
   // (and its pointerleave) with it, which would otherwise pin the label forever.
-  useEffect(() => () => {
-    clearTimeout(autoHide.current);
-    hideHint(held.current);
-  }, []);
+  useEffect(() => () => hideHint(held.current), []);
   if (!label) return children;
 
   // An open InfoDot / Help sheet suppresses its own trigger's bubble: the tap
@@ -2537,16 +2531,15 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, ch
   // `auto` is false for keyboard focus: somebody reading a label with the
   // keyboard has not asked for it to vanish mid-sentence, and their bubble is
   // closed by blur, which — unlike pointerleave — always arrives.
+  // `auto` is the hover path and takes the cap; keyboard focus holds, and is
+  // closed by blur. The timer itself is the HOST's now — one mechanism for every
+  // bubble, rather than one this component remembered and Toggle did not.
   const open = (auto = false) => {
     if (suppressed) return;
     hideHint(held.current);
-    held.current = showHint(label, box(), side);
-    clearTimeout(autoHide.current);
-    autoHide.current = auto ? setTimeout(close, HOVER_HIDE_MS) : null;
+    held.current = showHint(label, box(), side, !auto);
   };
   const close = () => {
-    clearTimeout(autoHide.current);
-    autoHide.current = null;
     hideHint(held.current);
     held.current = 0;
   };
@@ -3063,6 +3056,13 @@ export function InfoDot({ text, title }) {
           e.stopPropagation();
           // Clicking a hover-opened popover pins it; clicking a pinned one (or a
           // tapped one, which is pinned) closes it.
+          //
+          // PINNING IS THE POINT AND NOT AN OBSTACLE. This tests `pinned` rather
+          // than `open` on purpose: a dot you have clicked is meant to stay
+          // until you click it again, so that text you want to re-read or copy
+          // does not evaporate when the pointer drifts. Making the click a plain
+          // toggle against `open` would take that away — a hover-opened popover
+          // would close on the very click that was asking it to stay.
           if (pinned) shut();
           else { hold(); setOpen(true); setPinned(true) }
         }}
@@ -5500,10 +5500,21 @@ export function toast(msg, action) {
 // a stale close is simply ignored.
 
 // showHint pins a label until hideHint — the hover / keyboard-focus path.
-export function showHint(msg, rect, side) {
+//
+// `hold` OPTS OUT OF THE CAP, and the default is that there IS one. It was the
+// other way round until the bubbles started sticking: the cap lived in Tooltip,
+// as a timer that component set for itself, and Toggle — the only other caller —
+// opened its labels straight through this function with no timer at all. So a
+// toggle's label closed on pointerleave and on nothing else, and pointerleave is
+// not a promise: the control re-renders under the pointer, a panel opens over
+// it, the row reflows, and the label sits there until the page is reloaded.
+//
+// A cap that one of two callers remembers is not a cap. It lives in the host
+// now, on the way through, so a third caller inherits it without knowing.
+export function showHint(msg, rect, side, hold = false) {
   if (!hintSink) return 0
   const token = ++hintSeq
-  hintSink({ msg, rect: rect || null, side, sticky: true, token })
+  hintSink({ msg, rect: rect || null, side, sticky: true, hold, token })
   return token
 }
 
@@ -5579,7 +5590,7 @@ export function ToastHost() {
         // is already gone: React bails out of a re-render on an identical value,
         // and closes arrive in pairs (pointerleave, then blur).
         if (m.hide != null) return m.hide === s.token && s.msg ? { ...s, msg: "" } : s
-        return { msg: m.msg, rect: m.rect, side: m.side || "top", sticky: m.sticky, token: m.token, n: s.n + 1 }
+        return { msg: m.msg, rect: m.rect, side: m.side || "top", sticky: m.sticky, hold: !!m.hold, token: m.token, n: s.n + 1 }
       })
     return () => { toastSink = null; hintSink = null }
   }, [])
@@ -5589,9 +5600,18 @@ export function ToastHost() {
     return () => clearTimeout(id)
   }, [t])
   useEffect(() => {
-    // A hovered label has no timer — the pointer leaving is what closes it.
-    if (!h.msg || h.sticky) return
-    const id = setTimeout(() => setH((s) => ({ ...s, msg: "" })), HINT_MS)
+    // EVERY BUBBLE GETS A TIMER HERE, which is the change. The long-press toast
+    // always had one; a hovered label was left to its opener on the reasoning
+    // that "the pointer leaving is what closes it" — true only while the control
+    // stays under the pointer, and false every time one re-renders, gets covered
+    // or reflows. Those labels then stayed up for the rest of the session.
+    //
+    // `hold` is the one exception and it is keyboard focus: somebody reading a
+    // label with the keyboard has not asked for it to vanish mid-sentence, and
+    // their bubble is closed by blur, which — unlike pointerleave — always
+    // arrives.
+    if (!h.msg || h.hold) return
+    const id = setTimeout(() => setH((s) => ({ ...s, msg: "" })), h.sticky ? HOVER_HIDE_MS : HINT_MS)
     return () => clearTimeout(id)
   }, [h])
   return (
