@@ -8,6 +8,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { usePractice } from './review.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -60,6 +61,7 @@ import {
   IconFilter,
   IconHelp,
   IconPlus,
+  IconQuiz,
   IconSearch,
   IconReading,
   Masonry,
@@ -583,6 +585,12 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
 // ---- book detail (§8.5, mockups 08–09) ----
 
 function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
+  // A THEMED ROUND OVER THIS BOOK. The engine has taken `?book=` since themed
+  // practice shipped (review_theme.go) and the action registry has carried a
+  // Practise entry for a work all along — it was only ever offered from a
+  // person's panel and from a colour on Stats, so the one screen where "quiz me
+  // on this" is the obvious thing to want had no way to ask.
+  const { practise, practiceDialog } = usePractice()
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
@@ -796,6 +804,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                   // with no way to ask it. Desktop needs no entry here: the bar is
                   // still up there.
                   { icon: <IconSearch />, label: 'Search', onClick: () => onSearch?.() },
+                  { icon: <IconQuiz />, label: 'Practise this book', onClick: () => book && practise({ book: book.id, label: book.title }) },
                   { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
                   { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
@@ -888,6 +897,8 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
                       tooltip="Export as Markdown"
                     />
                   )}
+                  <IconButton icon={<IconQuiz />} label="Practise"
+            ariaLabel="Practise this book" onClick={() => practise({ book: book.id, label: book.title })} tooltip="Quiz me on this book" />
                   <IconButton icon={<IconDetails />} label="Details"
             ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
                   <IconButton
@@ -940,6 +951,7 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce 
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help: the sticky bar has no room
           for a "?", so the ⋯ menu opens the same panel the desktop button does. */}
+      {practiceDialog}
       <ScreenHelpSheet screen="book-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
     </section>
   )

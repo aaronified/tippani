@@ -14,6 +14,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues, workSeedChip } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { CreditFaces, PersonCredit, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { usePractice } from './review.jsx'
 import {
   ACTIVE_STATUS,
   GroupHeading,
@@ -66,6 +67,7 @@ import {
   IconHelp,
   IconMetadata,
   IconPlus,
+  IconQuiz,
   IconSearch,
   IconWatching,
   Lightbox,
@@ -719,6 +721,9 @@ export function MediaTypeToggle({ value, onChange }) {
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
 
 function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
+  // A themed round over this title — films, shows and games alike, since the
+  // engine keys the theme on the movies row rather than on the medium.
+  const { practise, practiceDialog } = usePractice()
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
@@ -936,6 +941,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                   // with no way to ask it. Desktop needs no entry here: the bar is
                   // still up there.
                   { icon: <IconSearch />, label: 'Search', onClick: () => onSearch?.() },
+                  { icon: <IconQuiz />, label: 'Practise this title', onClick: () => movie && practise({ movie: movie.id, label: movie.title }) },
                   { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
                   { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },
@@ -1025,6 +1031,8 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
                       tooltip="Export as Markdown"
                     />
                   )}
+                  <IconButton icon={<IconQuiz />} label="Practise"
+            ariaLabel="Practise this title" onClick={() => practise({ movie: movie.id, label: movie.title })} tooltip="Quiz me on this title" />
                   <IconButton icon={<IconDetails />} label="Details"
             ariaLabel="Details" onClick={() => setEditing(true)} tooltip="Details and metadata" />
                   <IconButton
@@ -1076,6 +1084,7 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
       {movie && <Dialogues movieId={movie.id} cast={movie.cast || []} movie={movie} creditSeps={creditSeps} onStats={setLineStats} mobileFilterOpen={mobileFilter} onMobileFilterOpen={setMobileFilter} onAdd={onAdd} dataNonce={dataNonce} />}
       {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help — see the Library twin. */}
+      {practiceDialog}
       <ScreenHelpSheet screen="movie-detail" open={helpOpen} onClose={() => setHelpOpen(false)} />
     </section>
   )
