@@ -275,11 +275,17 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   // BOOKS, like an author — so all three say "books", and only actors, directors
   // and speakers differ.
   const BOOK_ROLES = kind === 'author' || kind === 'translator' || kind === 'editor'
-  const noun = BOOK_ROLES ? 'books' : kind === 'speaker' ? 'quotes' : 'films'
+  const noun = BOOK_ROLES ? 'books' : kind === 'speaker' ? 'quotes' : kind === 'studio' ? 'games' : 'films'
   // The row that carries the credit, per kind: a book's author, translator or
-  // editor, a dialogue's actor, a film's director/creator, a standalone quote's
-  // speaker.
-  const entity = BOOK_ROLES ? 'book' : kind === 'actor' ? 'dialogue' : kind === 'speaker' ? 'quote' : 'film'
+  // editor, a dialogue's actor, a film's director/creator, a game's studio, a
+  // standalone quote's speaker.
+  const entity = BOOK_ROLES ? 'book' : kind === 'actor' ? 'dialogue' : kind === 'speaker' ? 'quote' : kind === 'studio' ? 'game' : 'film'
+
+  // A STUDIO IS NOT A PERSON, and three labels on this form said otherwise. It
+  // is not born and it does not die; it is founded, and it closes. Its picture
+  // is a logo rather than a photograph. Small words, but they are the ones on
+  // screen when somebody opens Electronic Arts and is asked when it died.
+  const isOrg = kind === 'studio'
 
   // rename rewrites this name across every book/film that uses it (and folds the
   // saved metadata onto the new spelling) — the fix for two transliterations of
@@ -348,12 +354,12 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
           calendar when the record actually says one. The lifespan line above shows
           just the years either way. */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <PartialDateField label="Born" value={born} onChange={setBorn} placeholder="e.g. 1920" />
-        <PartialDateField label="Died" value={died} onChange={setDied} placeholder="e.g. 2001" />
+        <PartialDateField label={isOrg ? 'Founded' : 'Born'} value={born} onChange={setBorn} placeholder="e.g. 1982" />
+        <PartialDateField label={isOrg ? 'Closed' : 'Died'} value={died} onChange={setDied} placeholder={isOrg ? 'e.g. 2011' : 'e.g. 2001'} />
       </div>
       <div>
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <MonoLabel>Photo URL</MonoLabel>
+          <MonoLabel>{isOrg ? 'Logo URL' : 'Photo URL'}</MonoLabel>
           {/* No keyless portrait API, so offer a web image search: find one,
               copy its address, paste it here (this field also takes any cover
               image URL). */}
@@ -406,7 +412,10 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
             {renaming ? 'Renaming…' : 'Rename everywhere'}
           </GhostButton>
         </div>
-        <p className="microcopy">rewrites this name on every {noun} that credits them and merges the saved details — use it to unify two spellings.</p>
+        {/* `entity`, not `noun`: this reads "on every ___", so it needs the
+            singular. It has said "on every films" for as long as the line has
+            existed. */}
+        <p className="microcopy">rewrites this name on every {entity} that credits {isOrg ? 'it' : 'them'} and merges the saved details — use it to unify two spellings.</p>
       </div>
       <ErrorText>{error}</ErrorText>
       <div className="flex justify-end gap-2">

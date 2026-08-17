@@ -90,12 +90,36 @@ export function CoverPreview({ url, label, showRes = false, compact = false, cla
   return <Placeholder kind={label} className={className} />
 }
 
-// hiResPoster upgrades a TMDB picker-thumbnail URL (w342) to the original so
-// what gets stored from a cover search is full quality, not the preview size.
+// hiResPoster upgrades a picker-thumbnail URL to the full-size one, so what gets
+// stored from a cover search is storage quality rather than preview quality.
 // Exported because the work Details merge screen adopts a candidate's poster
 // directly and has to make the same upgrade — a match taking the thumbnail
 // would store a worse image than the cover search stores for the same title.
-export const hiResPoster = (u) => (u || '').replace('/t/p/w342/', '/t/p/original/')
+//
+// IT KNEW ONLY TMDB, AND GAMES ARRIVED THROUGH THE SAME DOOR. IGDB serves its
+// sizes as path segments too, and the picker asks for `t_cover_small` — 90×128.
+// An IGDB URL therefore fell straight through this replace unchanged, so every
+// cover chosen for a game was stored at thumbnail size and looked it everywhere
+// afterwards. Nothing failed; the image was simply tiny, which is the kind of
+// defect you notice on the board rather than in a log.
+//
+// One expression per supplier, in the one place the sizes are decided.
+export const hiResPoster = (u) =>
+  (u || '')
+    .replace('/t/p/w342/', '/t/p/original/')
+    .replace('/t_cover_small/', '/t_cover_big_2x/')
+
+// SOURCE_BADGE / coverSourceLabel — who answers, per medium and per candidate.
+// Both existed as inline ternaries over TMDB and TheTVDB, written before the
+// Catalogue held games, and both quietly told a lie about every game.
+const SOURCE_BADGE = { tvdb: 'TVDB', tmdb: 'TMDB', igdb: 'IGDB', wikidata: 'Wikidata' }
+
+export function coverSourceLabel(mediaType) {
+  // Wikidata is the floor under IGDB rather than a second opinion (see
+  // wikidata_games.go), so it is named — a reader whose IGDB key is missing
+  // still gets results and should know where from.
+  return mediaType === 'game' ? 'Search IGDB & Wikidata' : 'Search TMDB & TheTVDB'
+}
 
 // idNum reads a supplier id off a form field or a stored record and returns a
 // positive number, or 0 for "not set". A field holds a string, a record holds a
@@ -147,15 +171,22 @@ export function CoverControls({
         year: search?.year ? Number(search.year) : undefined,
         media_type: search?.mediaType || 'movie',
         // The stored ids name the exact record, so its art leads the strip
-        // instead of whatever a same-name film happened to match.
+        // instead of whatever a same-name title happened to match. A game's id
+        // is its own — sending only the two film ids meant a game with a pinned
+        // IGDB record still searched by title and could come back with the art
+        // of a different game of the same name.
         tmdb_id: idNum(search?.tmdbId) || undefined,
         tvdb_id: idNum(search?.tvdbId) || undefined,
+        igdb_id: idNum(search?.igdbId) || undefined,
       })
       if (!r.ok) {
         setSearching(false)
         return setErr(errText(r, 'lookup failed'))
       }
-      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), c.source === 'tvdb' ? 'TVDB' : 'TMDB')
+      // The badge under each candidate says where it came from, so it has to
+      // read the source rather than guess from a two-way ternary — which
+      // labelled every IGDB and Wikidata game cover "TMDB".
+      for (const c of r.data.candidates || []) add(hiResPoster(c.poster_url), SOURCE_BADGE[c.source] || 'TMDB')
     } else {
       const body = {}
       if (search?.isbn?.trim()) body.isbn = search.isbn.trim()
@@ -235,9 +266,11 @@ export function CoverControls({
             ariaLabel={`Search ${label.toLowerCase()}s`}
             onClick={searchCovers}
             disabled={searching}
-            tooltip={kind === 'movies'
-              ? 'Search TMDB & TheTVDB'
-              : 'Search Books, Library & Amazon'}
+            // NAMED BY WHAT ACTUALLY ANSWERS. A game's lookup goes to IGDB —
+            // it has since 0040, and the request below already carries the
+            // media type — but the button said "Search TMDB & TheTVDB", which
+            // is a promise about a supplier that is never asked.
+            tooltip={kind === 'movies' ? coverSourceLabel(search?.mediaType) : 'Search Books, Library & Amazon'}
             boxed
             busy={searching}
           />
@@ -576,7 +609,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
           ariaLabel="Search"
           onClick={look}
           disabled={busy}
-          tooltip="Search TMDB & TheTVDB"
+          tooltip={coverSourceLabel(mediaType)}
           className="shrink-0"
         />
       </div>

@@ -374,6 +374,80 @@ func igdbYear(ts int64) int {
 // term would be parsed as syntax. Backslash-escape the two characters that can
 // end or continue a string literal, and strip the newline that would let a term
 // open a second clause.
+// igdbCompany is one row of the /companies endpoint — a studio or a publisher.
+type igdbCompany struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Logo     *struct{ ImageID string `json:"image_id"` } `json:"logo"`
+	Websites []struct {
+		Category int    `json:"category"`
+		URL      string `json:"url"`
+	} `json:"websites"`
+}
+
+// CompanyLinks resolves a studio name to its reference pages and a logo.
+//
+// A STUDIO IS NOT A PERSON, and that is the whole reason this exists. Every
+// other credit in this app is somebody with a life: an author goes to Open
+// Library, an actor and a director go to TMDB. A game studio sent to either
+// answers with whatever human happens to share the name, or with nothing —
+// Electronic Arts came back as an Open Library AUTHOR page, which is not wrong
+// about the string and is completely wrong about the thing.
+//
+// Games are IGDB's from end to end (0040), and companies are one of its
+// endpoints, so this is the same key answering the same question about the same
+// catalogue. Returns the links and the logo image id; the caller builds the URL,
+// because IGDBCoverURL is where the size lives.
+func (g *IGDB) CompanyLinks(ctx context.Context, name string) (map[string]string, string, error) {
+	if strings.TrimSpace(name) == "" {
+		return map[string]string{}, "", nil
+	}
+	q := fmt.Sprintf("search %s; fields id,name,url,logo.image_id,websites.category,websites.url; limit 5;",
+		apicalypseString(name))
+	body, err := g.query(ctx, "/companies", q)
+	if err != nil {
+		return nil, "", err
+	}
+	var cos []igdbCompany
+	if err := json.Unmarshal(body, &cos); err != nil {
+		return nil, "", fmt.Errorf("igdb: %w", err)
+	}
+	links := map[string]string{}
+	logo := ""
+	for _, c := range cos {
+		// EXACT NAME ONLY, case-insensitively. `search` ranks rather than filters,
+		// so "Electronic Arts" happily returns "Electronic Arts Seattle" — and a
+		// near-miss here is a wrong logo and a wrong link presented as fact.
+		if !strings.EqualFold(strings.TrimSpace(c.Name), strings.TrimSpace(name)) {
+			continue
+		}
+		if c.URL != "" {
+			links["igdb"] = c.URL
+		}
+		for _, w := range c.Websites {
+			// 1 is the company's own site in IGDB's website categories; 4 is
+			// Wikipedia. Anything else here is a storefront or a social account,
+			// which is not a reference page.
+			switch w.Category {
+			case 1:
+				if w.URL != "" && links["official"] == "" {
+					links["official"] = w.URL
+				}
+			case 4:
+				if w.URL != "" && links["wikipedia"] == "" {
+					links["wikipedia"] = w.URL
+				}
+			}
+		}
+		if c.Logo != nil && c.Logo.ImageID != "" {
+			logo = c.Logo.ImageID
+		}
+		break
+	}
+	return links, logo, nil
+}
+
 func apicalypseString(s string) string {
 	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ", "\r", " ")
 	return `"` + r.Replace(strings.TrimSpace(s)) + `"`

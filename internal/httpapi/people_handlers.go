@@ -844,6 +844,32 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 	switch req.Kind {
 	case "author", "translator", "editor":
 		links, err = s.authorLinks(r.Context(), req.Name)
+	case "studio":
+		// A STUDIO IS NOT A PERSON, and neither of the other two branches can
+		// say so. Sent to Open Library it comes back as an AUTHOR page —
+		// "Electronic Arts" resolves to an openlibrary.org/authors/ record,
+		// which is not wrong about the string and completely wrong about the
+		// thing. Sent to TMDB it resolves to whatever human shares the name.
+		//
+		// Games are IGDB's from end to end (0040), and companies are one of its
+		// endpoints, so this is the same key answering the same question about
+		// the same catalogue.
+		igdb, _ := s.resolveIGDB()
+		if igdb == nil {
+			writeErr(w, http.StatusServiceUnavailable,
+				"studio links come from IGDB — add the IGDB client id and secret in Settings first")
+			return
+		}
+		var logo string
+		links, logo, err = igdb.CompanyLinks(r.Context(), req.Name)
+		if err == nil && logo != "" {
+			// The logo rides back on the same call rather than needing a second
+			// one: it is the portrait for this row, and the two are one fact.
+			if links == nil {
+				links = map[string]string{}
+			}
+			links["logo_url"] = metadata.IGDBCoverURL(logo)
+		}
 	default:
 		// Actors, directors and speakers are TMDB people, resolved by name.
 		tmdb, _ := s.resolveTMDB()

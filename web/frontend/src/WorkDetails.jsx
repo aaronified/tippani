@@ -87,10 +87,49 @@ const BOOK_FIELDS = [
   { key: 'description', label: 'Description', kind: 'long' },
 ]
 
-const MOVIE_FIELDS = [
+// MEDIA_LABELS — the words that change with the MEDIUM rather than with the kind.
+//
+// One table, and it exists because the ad-hoc version had already gone wrong.
+// The only per-medium label used to be `labelShow`, resolved at two call sites
+// by `spec.key === 'director' && isShow`. That covers films and shows and says
+// nothing about games — so a game's studio was labelled Director, two releases
+// after 0040 started storing games as `movies` rows.
+//
+// A game credits a STUDIO (0040 puts the developer in `director`, the same
+// column a show's creator uses) and its franchise is a SERIES, not a Collection,
+// which is a word films use.
+const MEDIA_LABELS = {
+  show: { director: 'Creator' },
+  game: { director: 'Studio', series: 'Series', series_index: 'Series #' },
+}
+
+// The three things a Catalogue row can be, and what each is called. One list, so
+// the display and the picker cannot offer different sets — which is how a game
+// came to read as a Film with no way to correct it.
+export const MEDIA_TYPES = [['movie', 'Film'], ['show', 'Show'], ['game', 'Game']]
+
+// labelFor is the one place a spec's label is resolved. Both call sites go
+// through it, so a medium cannot be handled on one screen and missed on the
+// other — which is exactly how Director survived on a game.
+export function labelFor(spec, mediaType) {
+  return MEDIA_LABELS[mediaType]?.[spec.key] || spec.label
+}
+
+// specsFor drops the fields a medium has no use for.
+//
+// A GAME HAS NO TMDB, THETVDB OR IMDB ID, and showing all three was not merely
+// clutter: those are the ids the fetch uses, so a game's Details page offered
+// three film identifiers that nothing would ever look it up by, and omitted the
+// one that does. `media` names the media types a field belongs to; absent means
+// all of them.
+export function specsFor(specs, mediaType) {
+  return specs.filter((sp) => !sp.media || sp.media.includes(mediaType))
+}
+
+export const MOVIE_FIELDS = [
   { key: 'title', label: 'Title', nameCase: true },
-  { key: 'media_type', label: 'Type', kind: 'mediaType', hint: 'A show’s dialogue carries a season and episode; a film’s does not. Changing this does not move any lines you have already saved.' },
-  { key: 'director', label: 'Director', labelShow: 'Creator', nameCase: true },
+  { key: 'media_type', label: 'Type', kind: 'mediaType', hint: 'A show’s dialogue carries a season and episode; a film’s and a game’s do not. Changing this does not move any lines you have already saved.' },
+  { key: 'director', label: 'Director', nameCase: true },
   { key: 'release_year', label: 'Year', kind: 'year', circaKey: 'release_circa' },
   { key: 'series', label: 'Collection', nameCase: true, hint: 'The franchise this title belongs to — the film side of a book’s series.' },
   { key: 'series_index', label: 'Collection #', kind: 'number' },
@@ -98,6 +137,7 @@ const MOVIE_FIELDS = [
     key: 'tmdb_id',
     label: 'TMDB id',
     kind: 'id',
+    media: ['movie', 'show'],
     hint: 'The Movie Database’s id for this title — the number in its URL. Picking a match under “Fetch metadata” sets it, and you can also type it: a title search cannot tell two films of the same name apart, and an id can. Once it is set, every later search fetches that exact record first. Clear it by emptying the field.',
     href: (it) => `https://www.themoviedb.org/${(it.media_type || 'movie') === 'show' ? 'tv' : 'movie'}/${it.tmdb_id}`,
   },
@@ -105,6 +145,7 @@ const MOVIE_FIELDS = [
     key: 'tvdb_id',
     label: 'TheTVDB id',
     kind: 'id',
+    media: ['movie', 'show'],
     hint: 'TheTVDB’s id, typed or fetched the same way. Optional — it usually has better coverage for long-running shows, so it is worth filling in when TMDB has a show only half-catalogued.',
     // The dereferrer resolves a bare numeric id to the right series/movie page.
     href: (it) => `https://thetvdb.com/dereferrer/${(it.media_type || 'movie') === 'show' ? 'series' : 'movie'}/${it.tvdb_id}`,
@@ -112,8 +153,19 @@ const MOVIE_FIELDS = [
   {
     key: 'imdb_id',
     label: 'IMDb id',
+    media: ['movie', 'show'],
     hint: 'IMDb’s id for this title — the ttNNNNNNN in its URL. Nothing is fetched with it: IMDb has no public API, so this is the one id that is only ever carried, not used. It is here because it is the id you are most likely to have to hand, and because it names one title exactly. Paste the whole URL if that is easier.',
     href: (it) => `https://www.imdb.com/title/${it.imdb_id}/`,
+  },
+  {
+    key: 'igdb_id',
+    label: 'IGDB id',
+    kind: 'id',
+    media: ['game'],
+    // NO href. IGDB addresses its pages by SLUG and this is the numeric id, so a
+    // link built from it would 404 — and a link that goes nowhere is worse than
+    // no link, because it invites the one click that proves it broken.
+    hint: 'IGDB’s id for this game — the database the games lookup runs on. Picking a match under “Fetch metadata” sets it, and you can type it: two games can share a title and an id cannot. Once it is set, every later search fetches that exact record first. Clear it by emptying the field.',
   },
   { key: 'genres', label: 'Genres', kind: 'tokens' },
   { key: 'description', label: 'Description', kind: 'long' },
@@ -157,6 +209,7 @@ function fullState(kind, it) {
     // its name — every save re-states the record exactly as it stands.
     tmdb_id: it.tmdb_id || 0,
     tvdb_id: it.tvdb_id || 0,
+    igdb_id: it.igdb_id || 0,
     // And the IMDb id genuinely IS full-state, so leaving it out of this would
     // clear it on the next save of any other field — the trap 0034, 0035, 0036
     // and 0037 each caught in turn.
@@ -206,8 +259,11 @@ function blank(v, kind) {
 
 export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) {
   const path = kind === 'book' ? 'books' : 'movies'
-  const isShow = kind === 'movie' && (item?.media_type || 'movie') === 'show'
-  const specs = kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS
+  // The medium, which decides three things on this screen: what the credit is
+  // called, which supplier ids are worth showing, and what "Type" reads as.
+  // `book` has no media type of its own, so it is its own answer.
+  const mediaType = kind === 'book' ? 'book' : item?.media_type || 'movie'
+  const specs = specsFor(kind === 'book' ? BOOK_FIELDS : MOVIE_FIELDS, mediaType)
   const [view, setView] = useState('fields') // fields | lookup | merge
   const [merge, setMerge] = useState(null) // { rows, candidate }
   const [busy, setBusy] = useState('')
@@ -340,7 +396,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
       if (same) continue
       rows.push({
         key: spec.key,
-        label: spec.key === 'director' && isShow ? spec.labelShow : spec.label,
+        label: labelFor(spec, mediaType),
         spec,
         current,
         next,
@@ -413,7 +469,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
           kind={kind}
           item={item}
           specs={specs}
-          isShow={isShow}
+          mediaType={mediaType}
           busy={busy}
           genreSuggestions={genreSuggestions}
           onSaveField={saveField}
@@ -479,7 +535,7 @@ export function WorkDetails({ open, onClose, kind, item, onChanged, onDelete }) 
 
 // ---- the resting view ------------------------------------------------------
 
-function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete }) {
+function FieldList({ kind, item, specs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onCover, onChanged, onFetch, onDelete }) {
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
   // THE MASTER SAVE. Every row still saves itself — that is what the panel is
   // for, and changing one field should not cost more than one press. What it
@@ -516,7 +572,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
         onUploaded={(rec) => onChanged?.(rec)}
         search={kind === 'book'
           ? { isbn: item.isbn, title: item.title, author: item.author, asin: item.asin }
-          : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id }}
+          : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id, igdbId: item.igdb_id }}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -543,7 +599,7 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
 
       <div>
         {specs.map((spec) => {
-          const label = spec.key === 'director' && isShow ? spec.labelShow : spec.label
+          const label = labelFor(spec, mediaType)
           const value = resting(spec, item)
           if (spec.kind === 'id') {
             // A supplier id edits like any other field, but reads as a link to
@@ -595,13 +651,19 @@ function FieldList({ kind, item, specs, isShow, busy, genreSuggestions, onSaveFi
                 fieldKey={spec.key}
                 label={label}
                 value={value}
-                display={value === 'show' ? 'Show' : 'Film'}
+                // THREE MEDIA, NOT TWO. This read `value === 'show' ? 'Show' :
+                // 'Film'`, so a game — stored as a movies row since 0040 —
+                // reported itself as a Film on its own Details page, and the
+                // picker below offered no way to say otherwise. Naming the
+                // options once, in a table, is what stops a fourth medium
+                // landing in the same hole.
+                display={MEDIA_TYPES.find(([k]) => k === value)?.[1] || 'Film'}
                 hint={spec.hint}
                 busy={!!busy}
                 onSave={(d) => onSaveField(spec, d)}
                 input={({ value: v, onChange }) => (
                   <div className="flex gap-2">
-                    {[['movie', 'Film'], ['show', 'Show']].map(([k, l]) => (
+                    {MEDIA_TYPES.map(([k, l]) => (
                       <button
                         key={k}
                         type="button"

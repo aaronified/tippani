@@ -958,7 +958,10 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
             color: 'var(--soft)',
           }}
         >
-          ← Movies
+          {/* The board's own name, which has been Catalogue since it started
+              holding shows and games. This still read "Movies" — the one label
+              on the way back to a screen that calls itself something else. */}
+          ← Catalogue
         </button>
       )}
       <ErrorText>{error}</ErrorText>
