@@ -196,6 +196,12 @@ func (s *Server) Handler() http.Handler {
 
 	// Serendipity (roadmap §1). Neither touches item_reviews — see the header of
 	// serendipity_handlers.go for why that is a rule rather than an omission.
+	// Find and replace across a selection (roadmap §7). TWO ROUTES, NOT ONE WITH
+	// A FLAG: the preview writes nothing and the apply writes everything, and a
+	// caller cannot reach the second by getting a boolean wrong.
+	mux.Handle("POST /replace/preview", s.requireAuth(s.handleReplacePreview))
+	mux.Handle("POST /replace/apply", s.requireAuth(s.handleReplaceApply))
+
 	mux.Handle("GET /shuffle", s.requireAuth(s.handleShuffle))
 	mux.Handle("GET /on-this-day", s.requireAuth(s.handleOnThisDay))
 
@@ -456,7 +462,23 @@ func logRequests(next http.Handler) http.Handler {
 			return
 		}
 		rid := nextReqID()
-		r = r.WithContext(context.WithValue(r.Context(), ctxReqID, rid))
+		// WHO, as well as what. The roadmap's line for this section is
+		// "method · path · user · outcome · cause", and the user was the one part
+		// missing — which on a multi-user instance is the difference between "a
+		// request failed" and "this account's request failed", the question an
+		// operator actually has.
+		//
+		// A POINTER IN THE CONTEXT, because of the order the middleware runs in.
+		// requireAuth wraps individual handlers and puts the identity on ITS copy
+		// of the request; this logger wraps the whole chain and only sees the
+		// outer one, so a plain context value written downstream is invisible up
+		// here. A pointer placed before the chain runs and filled in by
+		// requireAuth is the one shape that survives that, and it costs one
+		// allocation per request.
+		who := &reqUser{}
+		ctx := context.WithValue(r.Context(), ctxReqID, rid)
+		ctx = context.WithValue(ctx, ctxReqUser, who)
+		r = r.WithContext(ctx)
 		rec := &statusRecorder{ResponseWriter: w}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
@@ -465,9 +487,15 @@ func logRequests(next http.Handler) http.Handler {
 		}
 		// rid ties this summary line to any [error]/[warn]/[trace] lines the
 		// handler logged for the same request (they all carry "(req rNNN)").
-		log.Printf("%s %s %d %s %dB %s %s",
+		// An unauthenticated request logs "-" rather than an empty column, so the
+		// fields stay in the same positions for anything reading these lines.
+		name := who.name
+		if name == "" {
+			name = "-"
+		}
+		log.Printf("%s %s %d %s %dB %s %s %s",
 			r.Method, r.URL.RequestURI(), rec.status,
-			time.Since(start).Round(time.Millisecond), rec.bytes, r.RemoteAddr, rid)
+			time.Since(start).Round(time.Millisecond), rec.bytes, r.RemoteAddr, name, rid)
 	})
 }
 
@@ -527,6 +555,7 @@ const (
 	ctxUsername
 	ctxIsAdmin
 	ctxReqID
+	ctxReqUser
 )
 
 // reqSeq numbers requests within a process run so every log line for one request
@@ -539,6 +568,20 @@ func nextReqID() string { return "r" + strconv.FormatUint(reqSeq.Add(1), 10) }
 // reqID returns the current request's correlation id (empty outside a served
 // request, e.g. in tests that bypass logRequests).
 func reqID(r *http.Request) string { v, _ := r.Context().Value(ctxReqID).(string); return v }
+
+// reqUser is the slot the access logger hands downstream for requireAuth to fill
+// in. Written once, on one goroutine, before the response is written and read
+// after ServeHTTP returns — so it needs no lock.
+type reqUser struct{ name string }
+
+// noteRequestUser records who this request turned out to be, for the access
+// line. A no-op when there is no slot, which is every call from a test that
+// builds a request by hand.
+func noteRequestUser(r *http.Request, name string) {
+	if u, ok := r.Context().Value(ctxReqUser).(*reqUser); ok && u != nil {
+		u.name = name
+	}
+}
 
 // reqSuffix renders the request id for a log line as " (req rNNN)", or "" if none.
 func reqSuffix(r *http.Request) string {
@@ -592,6 +635,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "not logged in")
 			return
 		}
+		noteRequestUser(r, uname)
 		ctx := context.WithValue(r.Context(), ctxUserID, uid)
 		ctx = context.WithValue(ctx, ctxUsername, uname)
 		ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
