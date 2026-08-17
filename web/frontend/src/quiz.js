@@ -151,3 +151,83 @@ export function toggle(state, deck, id) {
   }
   return { ...state, [deck]: ORDER.filter((x) => list.includes(x) || x === id) }
 }
+
+// ---- the numbers behind the schedule (1.16.0) ------------------------------
+//
+// review_questions.go handed over WHAT the deck asks. This is HOW HARD it is.
+// Every one of these was a package constant until now, which made the review
+// loop the one part of the app whose behaviour was an opinion you could not
+// disagree with.
+//
+// The bounds mirror clampTuning in Go, and they are not decoration: these
+// multiply a half-life on EVERY answer, so a bad one does not produce a wrong
+// screen, it produces a quietly useless schedule. A grow below 1 shortens a card
+// on every correct answer — a quote you know perfectly, asked more and more
+// often, for ever. Nothing errors and nothing looks broken.
+export const TUNING_FIELDS = [
+  {
+    key: 'grow', label: 'Correct answer stretches by', min: 1.1, max: 5, step: 0.1, unit: '×', decimals: 2,
+    hint: 'Adaptive scheduling only. A correct recall multiplies the half-life by this. 2.5 is SM-2’s classic ease — higher means longer gaps sooner, and more forgetting between them.',
+  },
+  {
+    key: 'shrink', label: 'A lapse shortens by', min: 0.1, max: 0.95, step: 0.05, unit: '×', decimals: 2,
+    hint: 'Adaptive scheduling only. A miss multiplies the half-life by this rather than resetting it. 0.5 halves it. It cannot be 1 or more, which would make forgetting a card lengthen its interval.',
+  },
+  {
+    key: 'clozeGrow', label: 'Typed answers earn', min: 1, max: 3, step: 0.05, unit: '×', decimals: 2,
+    hint: 'Fill-in-the-blank is recall with nothing to lean on, where a multiple choice has three quarters of the work done for you. This is how much more a typed answer is worth when you get it right.',
+  },
+  {
+    key: 'clozeShrink', label: 'And cost', min: 0.2, max: 1, step: 0.05, unit: '×', decimals: 2,
+    hint: 'The other half, and the one that makes it fair rather than generous: failing the hardest question in the deck is weak evidence that you have forgotten the quote, where failing to recognise it among four is strong evidence.',
+  },
+  {
+    key: 'clozeWords', label: 'Multi-word blanks from', min: 1, max: 100, step: 1, unit: ' days', decimals: 0,
+    hint: 'A blank hides one word until a quote has been remembered this long, and only then may it hide a phrase. Set it to 1 to allow wide blanks immediately.',
+  },
+  { key: 'ladder1', label: 'Ladder rung 1', min: 7, max: 100, step: 1, unit: ' days', decimals: 0,
+    hint: 'The fixed ladder’s first rung, and where any lapse drops a card back to. Ignored when Adaptive intervals is on.' },
+  { key: 'ladder2', label: 'Ladder rung 2', min: 7, max: 100, step: 1, unit: ' days', decimals: 0, hint: 'The middle rung.' },
+  { key: 'ladder3', label: 'Ladder rung 3', min: 7, max: 100, step: 1, unit: ' days', decimals: 0,
+    hint: 'The top rung. Cards sit here for as long as the correct answers keep coming.' },
+]
+
+export const DEFAULT_TUNING = {
+  grow: 2.5, shrink: 0.5, clozeGrow: 1.25, clozeShrink: 0.85, clozeWords: 30,
+  ladder1: 7, ladder2: 30, ladder3: 100,
+}
+
+export function parseTuning(blob) {
+  const out = { ...DEFAULT_TUNING }
+  if (!blob) return out
+  try {
+    const raw = JSON.parse(blob)
+    if (raw && typeof raw === 'object') {
+      for (const k of Object.keys(DEFAULT_TUNING)) {
+        if (typeof raw[k] === 'number') out[k] = raw[k]
+      }
+    }
+  } catch {
+    return { ...DEFAULT_TUNING }
+  }
+  return out
+}
+
+// tuningBlob renders back to storage, empty when it matches the defaults — so an
+// untouched account picks up any later change to them.
+//
+// THE LADDER MUST ASCEND. The server reverts a ladder that does not, silently,
+// which would be a slider that moves and then does nothing; the panel refuses
+// instead, the way the question toggles do.
+export function tuningProblem(t) {
+  if (!(t.ladder1 < t.ladder2 && t.ladder2 < t.ladder3)) {
+    return 'The three rungs have to climb — each one longer than the one before it.'
+  }
+  return ''
+}
+
+export function tuningBlob(t) {
+  const same = Object.keys(DEFAULT_TUNING).every((k) => Number(t[k]) === DEFAULT_TUNING[k])
+  if (same) return ''
+  return JSON.stringify(Object.fromEntries(Object.keys(DEFAULT_TUNING).map((k) => [k, Number(t[k])])))
+}

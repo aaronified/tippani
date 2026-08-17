@@ -23,7 +23,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
-import { lockedOff, parseQuestions, questionsBlob, questionsFor, REVIEW_DECKS, toggle as toggleQuestion } from './quiz.js'
+import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
@@ -1140,17 +1140,30 @@ function SRSettings({ user, onPreferences }) {
 // your finger and explains nothing.
 function SRDeepControls({ p, set, onClose }) {
   const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
+  const [tune, setTune] = useState(() => parseTuning(p.srTuning))
   const commit = (next) => {
     setQs(next)
     set({ srQuestions: questionsBlob(next) })
   }
+  // THE LADDER HAS TO CLIMB, and the server reverts one that does not — silently,
+  // which would be three sliders that move and then do nothing. So the panel
+  // refuses and says why, the same way a question toggle does, and the PUT is
+  // simply not sent until it is legal again.
+  const tuneErr = tuningProblem(tune)
+  const commitTune = (key, v) => {
+    const next = { ...tune, [key]: v }
+    setTune(next)
+    if (!tuningProblem(next)) set({ srTuning: tuningBlob(next) })
+  }
   const reset = () => {
     setQs(parseQuestions(''))
+    setTune(parseTuning(''))
     // Every review preference, not only the questions: a reader who presses
     // "Back to defaults" inside the in-depth panel means the panel, and leaving
     // three switches behind would make it the least trustworthy button here.
     set({
       srQuestions: '',
+      srTuning: '',
       srPracticeCounts: false,
       srSubmit: false,
       srAdaptive: false,
@@ -1238,6 +1251,37 @@ function SRDeepControls({ p, set, onClose }) {
           </div>
           <Slider label="Seeing lengthens half-life by" hideLabel min={1} max={1.5} step={0.05} value={p.srSeen || 1} unit="×" decimals={2} onCommit={(v) => set({ srSeen: v })} />
         </div>
+      </div>
+      {/* The numbers behind the schedule. Sliders rather than boxes because every
+          one of them is bounded, and a bounded value typed into a box is a value
+          that can be refused after the fact. */}
+      <div>
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>How the schedule moves</MonoLabel>
+          <InfoDot text="These multiply a quote's half-life on every answer, and are bounded rather than free: a multiplier below 1 would shorten a card every time you got it right, which never looks broken — it just asks the same quote for ever." />
+        </div>
+        <div className="space-y-4">
+          {TUNING_FIELDS.map((f) => (
+            <div key={f.key}>
+              <div className="mb-1 flex items-center gap-1.5">
+                <MonoLabel style={{ fontSize: 10 }}>{f.label}</MonoLabel>
+                <InfoDot text={f.hint} />
+              </div>
+              <Slider
+                label={f.label}
+                hideLabel
+                min={f.min}
+                max={f.max}
+                step={f.step}
+                unit={f.unit}
+                decimals={f.decimals}
+                value={tune[f.key]}
+                onCommit={(v) => commitTune(f.key, v)}
+              />
+            </div>
+          ))}
+        </div>
+        <ErrorText>{tuneErr}</ErrorText>
       </div>
       <div className="flex justify-between gap-2 pt-1">
         <Tooltip label="Undo every change on this panel">

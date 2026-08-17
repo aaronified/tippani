@@ -376,6 +376,12 @@ type prefs struct {
 	// rules that stop a reader configuring the deck into something that cannot
 	// ask them anything.
 	SRQuestions string `json:"srQuestions"`
+	// SRTuning: the numbers behind the schedule — the multipliers, the difficulty
+	// weighting and the ladder's rungs. A JSON document stored as a STRING for the
+	// same reason as the two above, and clamped on read as well as on write: these
+	// multiply a half-life on every answer, so a bad one produces a quietly
+	// useless schedule rather than a visible error. See review_tuning.go.
+	SRTuning string `json:"srTuning"`
 	// SRSeen is the "seeing" multiplier — practising (not skipping), sharing, or
 	// favouriting a card lengthens its half-life marginally. 1.0 = off (default),
 	// so this reinforcement is entirely opt-in.
@@ -610,6 +616,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	// or arrived through a restore, or was edited by hand — is corrected before
 	// any deck is built from it.
 	p.SRQuestions = normalizeReviewQuestions(p.SRQuestions)
+	p.SRTuning = normalizeReviewTuning(p.SRTuning)
 	if !tourStates[p.Tour] {
 		p.Tour = ""
 	}
@@ -654,6 +661,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRDaily             *int     `json:"srDaily"`
 		SRReviewScope       *string  `json:"srReviewScope"`
 		SRQuestions         *string  `json:"srQuestions"`
+		SRTuning            *string  `json:"srTuning"`
 		SRSeen              *float64 `json:"srSeen"`
 		SRPracticeCounts    *bool    `json:"srPracticeCounts"`
 		SRAdaptive          *bool    `json:"srAdaptive"`
@@ -802,6 +810,10 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// the Back-to-defaults button does.
 	if in.SRQuestions != nil {
 		cur.SRQuestions = normalizeReviewQuestions(*in.SRQuestions)
+	}
+	// Empty is "back to defaults" here too, so presence is the pointer.
+	if in.SRTuning != nil {
+		cur.SRTuning = normalizeReviewTuning(*in.SRTuning)
 	}
 	if in.SRSeen != nil && *in.SRSeen != 0 {
 		cur.SRSeen = *in.SRSeen

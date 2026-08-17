@@ -127,10 +127,10 @@ const (
 // directionWeight returns the (reward, penalty) multipliers for a direction.
 // An unknown direction weighs 1 - a direction added without a weight behaves
 // exactly as everything did before rather than silently scoring zero.
-func directionWeight(direction string) (grow, shrink float64) {
+func directionWeight(direction string, t reviewTuning) (grow, shrink float64) {
 	switch direction {
 	case dirCloze:
-		return clozeGrowWeight, clozeShrinkWeight
+		return t.ClozeGrow, t.ClozeShrink
 	default:
 		return 1, 1
 	}
@@ -145,8 +145,8 @@ func directionWeight(direction string) (grow, shrink float64) {
 // with both scheduling rules: the fixed ladder and the adaptive multiplier each
 // hand back a half-life, and neither needs to know a weight exists. The bounds
 // are re-applied because a stretched move can leave the range.
-func weighByDifficulty(direction, result string, cur, next float64) float64 {
-	grow, shrink := directionWeight(direction)
+func weighByDifficulty(direction, result string, cur, next float64, t reviewTuning) float64 {
+	grow, shrink := directionWeight(direction, t)
 	w := grow
 	if result != "got" {
 		w = shrink
@@ -171,26 +171,26 @@ func weighByDifficulty(direction, result string, cur, next float64) float64 {
 // branch here multiplies or picks, and both operations can leave the range: the
 // version of this function that clamped per-branch was correct in four places and
 // wrong in the fifth, which is the failure mode a single exit removes.
-func nextStability(adaptive bool, result string, cur, elapsed float64, succeeded bool) float64 {
+func nextStability(adaptive bool, result string, cur, elapsed float64, succeeded bool, t reviewTuning) float64 {
 	clamp := func(v float64) float64 { return min(max(v, reviewMinStability), reviewMaxStability) }
 	if result == "got" && !succeeded {
 		// max(), not assignment: a "seen"-lengthened half-life must never be
 		// shortened by a correct answer.
-		return clamp(max(cur, reviewLadder[0]))
+		return clamp(max(cur, t.Ladder1))
 	}
 	if !adaptive {
 		if result == "got" {
-			return clamp(nextRung(cur))
+			return clamp(nextRung(cur, t.ladder()))
 		}
-		return clamp(reviewLadder[0]) // lapse: straight back to the first rung
+		return clamp(t.Ladder1) // lapse: straight back to the first rung
 	}
 	if result == "got" {
 		// Grow multiplicatively, but never award less than the elapsed gap itself
 		// warrants: remembering something 90 days after the last review is direct
 		// evidence the half-life is around 90, not around cur*2.5.
-		return clamp(max(cur*reviewGrow, elapsed*reviewLate))
+		return clamp(max(cur*t.Grow, elapsed*reviewLate))
 	}
-	return clamp(cur * reviewShrink) // lapse: shortened, not reset
+	return clamp(cur * t.Shrink) // lapse: shortened, not reset
 }
 
 // reviewLadder is the fixed spaced-repetition ladder (days): a correct recall
@@ -203,8 +203,8 @@ var reviewLadder = [...]float64{reviewMinStability, 30, reviewMaxStability}
 
 // nextRung is the half-life a successful recall earns: the smallest rung
 // strictly above the current one, or the top rung once there is none.
-func nextRung(cur float64) float64 {
-	for _, r := range reviewLadder {
+func nextRung(cur float64, ladder [3]float64) float64 {
+	for _, r := range ladder {
 		if r > cur {
 			return r
 		}
@@ -1450,7 +1450,7 @@ func distractorScore(own, cand workRef) int {
 // The flip card is what makes the signature honest: it needs no distractor pool,
 // no second work to be wrong with, and no maskable span, so there is always a
 // question to ask about any quote with words in it.
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool) (reviewCard, bool) {
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords float64) (reviewCard, bool) {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -1461,14 +1461,14 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 		}
 	}
 	// The preferred direction, then every other one this kind allows.
-	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed) {
+	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords) {
 		return card, true
 	}
 	for _, d := range directionsForMode(c.card.Kind, scored, on) {
 		if d == preferred {
 			continue
 		}
-		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed) {
+		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed, clozeWords) {
 			return card, true
 		}
 	}
@@ -1503,7 +1503,7 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 // carrying quote options — the correct quote among them — while the client
 // rendered it as something else entirely. A default that returns false makes an
 // unknown direction produce no card instead of the wrong one.
-func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
+func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, clozeWords float64) bool {
 	switch card.Direction {
 	case dirSource, dirQuote:
 		return attachMCQ(card, ownKey, p, seed)
@@ -1512,7 +1512,7 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64) b
 		// on the other, both of which the card already carries.
 		return true
 	case dirCloze:
-		return attachCloze(card)
+		return attachCloze(card, clozeWords)
 	case dirSpeaker:
 		return attachSpeaker(card, ownKey, p, seed)
 	default:
@@ -1599,7 +1599,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 // THE ANSWER IS NOT SENT. Unlike an MCQ, whose `answer` is an index that means
 // nothing without the options beside it, a cloze answer IS the thing being
 // recalled — so it stays on the server and the attempt is graded there.
-func attachCloze(card *reviewCard) bool {
+func attachCloze(card *reviewCard, multiWordFrom float64) bool {
 	text := card.Quote
 	if strings.TrimSpace(text) == "" {
 		text = card.Note // a note-only quote is still words worth recalling
@@ -1607,7 +1607,7 @@ func attachCloze(card *reviewCard) bool {
 	// The blank is ONE WORD until the card has been remembered long enough to
 	// deserve a wider one — see clozeMultiWordFrom. The card already carries its
 	// half-life, so nothing has to be threaded in for this.
-	masked, _, ok := clozeSpan(text, card.Kind, card.ID, clozeMaxWordsFor(card.Stability))
+	masked, _, ok := clozeSpan(text, card.Kind, card.ID, clozeMaxWordsFor(card.Stability, multiWordFrom))
 	if !ok {
 		return false
 	}
@@ -1728,6 +1728,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	// request rather than per card, and passed down rather than consulted at the
 	// bottom, so the question of what may be asked is answered in one place.
 	onDaily := parseReviewQuestions(pf.SRQuestions).forDeck(reviewDeckDaily)
+	tuning := parseReviewTuning(pf.SRTuning)
 	day, seed, mod := reviewDay(offset)
 	answered, got, forgot, err := s.dailyTally(uid, day)
 	if err != nil {
@@ -1767,7 +1768,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 			// A card with too little material to be asked a GRADED question is
 			// left out rather than downgraded to a self-marked one.
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily); ok {
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords); ok {
 				items = append(items, card)
 			}
 		}
@@ -1807,6 +1808,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	}
 	scope := scopeFlags(pf.SRReviewScope)
 	onPractice := parseReviewQuestions(pf.SRQuestions).forDeck(reviewDeckPractice)
+	tuning := parseReviewTuning(pf.SRTuning)
 	// "Quiz me on this book / tag / colour / person." Absent parameters mean the
 	// whole pool, which is what Practice has always served.
 	theme := parseReviewTheme(r.URL.Query())
@@ -1852,7 +1854,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 				preferred = dirFlip
 			}
 		}
-		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice); ok {
+		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords); ok {
 			items = append(items, card)
 		}
 	}
@@ -1925,6 +1927,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "review answer prefs", err)
 		return
 	}
+	tuning := parseReviewTuning(pf.SRTuning)
 	owned, err := s.ownsItem(uid, req.Kind, req.ID)
 	if err != nil {
 		internalError(w, r, "review answer ownership", err)
@@ -1953,7 +1956,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "review answer cloze stability", err)
 			return
 		}
-		_, answerText, ok := clozeSpan(text, req.Kind, req.ID, clozeMaxWordsFor(stabilityNow))
+		_, answerText, ok := clozeSpan(text, req.Kind, req.ID, clozeMaxWordsFor(stabilityNow, tuning.ClozeWords))
 		if !ok {
 			// The card could not have been a cloze card, so the attempt is about
 			// a question that was never asked. Refused rather than graded: a
@@ -2024,7 +2027,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// two rules the reviewer is on.
 		prev := stability
 		stability = nextStability(pf.SRAdaptive, req.Result, stability,
-			elapsedDays(lastReviewed), found && reviewCount > lapseCount)
+			elapsedDays(lastReviewed), found && reviewCount > lapseCount, tuning)
 		// THE DIFFICULTY IS DERIVED, NOT DECLARED. A client-sent "direction" would
 		// be the client telling the server what its own answer was worth, and the
 		// obvious abuse - claim every answer was the hardest kind - would inflate a
@@ -2035,7 +2038,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		if req.Attempt != nil {
 			dir = dirCloze
 		}
-		stability = weighByDifficulty(dir, req.Result, prev, stability)
+		stability = weighByDifficulty(dir, req.Result, prev, stability, tuning)
 		if found {
 			q := `UPDATE item_reviews SET stability = ?, review_count = review_count + 1,
 			       last_result = ?, last_reviewed_at = datetime('now'), last_touched_at = datetime('now')`

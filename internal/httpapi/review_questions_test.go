@@ -173,3 +173,90 @@ func TestPreferencesNormaliseTheQuestionBlob(t *testing.T) {
 		t.Fatalf("back to defaults left %q behind", me.Preferences.SRQuestions)
 	}
 }
+
+// ---- the numbers behind the schedule ---------------------------------------
+//
+// EVERY VALUE IS CLAMPED, AND THE CLAMPS ARE THE FEATURE. These multiply a
+// half-life on every answer, so a bad one does not produce a wrong screen — it
+// produces a schedule that is quietly useless and stays that way. A grow of 0.5
+// SHORTENS a card on every correct answer, so a quote you know perfectly is
+// asked more and more often for ever. Nothing errors, nothing looks broken, and
+// it would take weeks to notice.
+
+func TestReviewTuningRefusesANumberThatMeansItsOpposite(t *testing.T) {
+	d := defaultReviewTuning()
+	for _, tc := range []struct {
+		name string
+		blob string
+	}{
+		{"a grow below 1 shortens on every success", `{"grow":0.5}`},
+		{"a shrink of 1 or more lengthens on every failure", `{"shrink":1.5}`},
+		{"a shrink of exactly 1 does nothing at all", `{"shrink":1}`},
+		{"a harder question worth less than an easy one", `{"clozeGrow":0.4}`},
+		{"a grow of zero freezes every card", `{"grow":0}`},
+	} {
+		got := parseReviewTuning(tc.blob)
+		if got.Grow != d.Grow || got.Shrink != d.Shrink || got.ClozeGrow != d.ClozeGrow {
+			t.Errorf("%s: %s — want the defaults back", tc.name, got)
+		}
+	}
+}
+
+// A rung outside the bounds every due-ness query floors and caps against is a
+// card that is due for ever or never; a ladder that does not ascend is a card
+// that cannot climb.
+func TestReviewTuningRequiresALadderThatClimbs(t *testing.T) {
+	d := defaultReviewTuning()
+	for _, blob := range []string{
+		`{"ladder1":30,"ladder2":7,"ladder3":100}`,
+		`{"ladder1":7,"ladder2":7,"ladder3":100}`,
+		`{"ladder1":7,"ladder2":30,"ladder3":100000}`,
+		`{"ladder1":0,"ladder2":30,"ladder3":100}`,
+	} {
+		got := parseReviewTuning(blob)
+		if got.ladder() != d.ladder() {
+			t.Errorf("%s gave %v, want the default ladder", blob, got.ladder())
+		}
+	}
+	// And a legal one is kept.
+	// Inside the bounds every due-ness query clamps to: reviewMinStability is the
+	// floor, so a rung below it is a rung the schedule would raise anyway.
+	if got := parseReviewTuning(`{"ladder1":10,"ladder2":20,"ladder3":60}`); got.ladder() != [3]float64{10, 20, 60} {
+		t.Errorf("a climbing ladder inside the bounds must be kept: %v", got.ladder())
+	}
+}
+
+func TestReviewTuningDefaultsStoreNothing(t *testing.T) {
+	if got := defaultReviewTuning().blob(); got != "" {
+		t.Fatalf("blob = %q, want empty so a later change to the defaults reaches the account", got)
+	}
+	if got := parseReviewTuning(""); got != defaultReviewTuning() {
+		t.Fatalf("empty must read as the defaults: %s", got)
+	}
+	for _, blob := range []string{"{", "null", "[]", `{"grow":"fast"}`, "nonsense"} {
+		if got := parseReviewTuning(blob); got != defaultReviewTuning() {
+			t.Errorf("%q must read as the defaults, got %s", blob, got)
+		}
+	}
+}
+
+// The tuning has to reach the scheduler, or it is a settings screen with no
+// effect — which is the failure a preference is most likely to have.
+func TestReviewTuningReachesTheSchedule(t *testing.T) {
+	slow := clampTuning(reviewTuning{Grow: 1.2, Shrink: 0.9, ClozeGrow: 1, ClozeShrink: 1,
+		ClozeWords: 30, Ladder1: 7, Ladder2: 30, Ladder3: 100})
+	fast := defaultReviewTuning()
+	// Adaptive, correct answer, same card: a smaller grow must give a shorter
+	// half-life. If the tuning were ignored these would be equal.
+	gotSlow := nextStability(true, "got", 10, 1, true, slow)
+	gotFast := nextStability(true, "got", 10, 1, true, fast)
+	if !(gotSlow < gotFast) {
+		t.Fatalf("grow is not reaching nextStability: %g vs %g", gotSlow, gotFast)
+	}
+	// And the cloze weighting.
+	heavy := fast
+	heavy.ClozeGrow = 2
+	if weighByDifficulty(dirCloze, "got", 10, 20, heavy) <= weighByDifficulty(dirCloze, "got", 10, 20, fast) {
+		t.Fatal("clozeGrow is not reaching weighByDifficulty")
+	}
+}

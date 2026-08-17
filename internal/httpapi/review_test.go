@@ -362,7 +362,7 @@ func TestNextRung(t *testing.T) {
 		{60, 100}, {99.9, 100}, {100, 100}, {365, 100},
 	}
 	for _, c := range cases {
-		if got := nextRung(c.cur); got != c.want {
+		if got := nextRung(c.cur, defaultReviewTuning().ladder()); got != c.want {
 			t.Fatalf("nextRung(%v) = %v, want %v", c.cur, got, c.want)
 		}
 	}

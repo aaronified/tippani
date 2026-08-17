@@ -146,8 +146,8 @@ func clozeTokenAt(text string, start, end int) clozeToken {
 // make a decent card — too short, too little context left, or a script the
 // stopword list does not read.
 // clozeMaxWordsFor is how wide this card's blank may be. See clozeMultiWordFrom.
-func clozeMaxWordsFor(stability float64) int {
-	if stability >= clozeMultiWordFrom {
+func clozeMaxWordsFor(stability, multiWordFrom float64) int {
+	if stability >= multiWordFrom {
 		return clozeMaxWords
 	}
 	return 1

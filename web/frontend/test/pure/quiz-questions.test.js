@@ -138,3 +138,87 @@ describe('what gets stored', () => {
     expect(parseQuestions(blob)).toEqual(s)
   })
 })
+
+// ---- the numbers behind the schedule ---------------------------------------
+
+import { DEFAULT_TUNING, TUNING_FIELDS, parseTuning, tuningBlob, tuningProblem } from '../../src/quiz.js'
+
+const goTuning = readFileSync(join(repo, 'internal', 'httpapi', 'review_tuning.go'), 'utf8')
+
+describe('the tuning defaults agree with Go', () => {
+  it('on every value', () => {
+    // defaultReviewTuning() builds from the package constants, so the numbers are
+    // read from where they are DECLARED rather than from the struct literal.
+    const constOf = (name) => {
+      const m = readFileSync(join(repo, 'internal', 'httpapi', 'review_handlers.go'), 'utf8')
+        .match(new RegExp(name + '\\s*=\\s*([0-9.]+)'))
+      return m ? Number(m[1]) : null
+    }
+    expect(DEFAULT_TUNING.grow).toBe(constOf('reviewGrow'))
+    expect(DEFAULT_TUNING.shrink).toBe(constOf('reviewShrink'))
+    expect(DEFAULT_TUNING.clozeGrow).toBe(constOf('clozeGrowWeight'))
+    expect(DEFAULT_TUNING.clozeShrink).toBe(constOf('clozeShrinkWeight'))
+  })
+
+  it('and every field the panel shows has a bound on both sides', () => {
+    for (const f of TUNING_FIELDS) {
+      expect(typeof f.min, f.key).toBe('number')
+      expect(typeof f.max, f.key).toBe('number')
+      expect(f.min, f.key).toBeLessThan(f.max)
+      expect(DEFAULT_TUNING[f.key], `${f.key} default is inside its own bounds`)
+        .toBeGreaterThanOrEqual(f.min)
+      expect(DEFAULT_TUNING[f.key], f.key).toBeLessThanOrEqual(f.max)
+    }
+  })
+
+  // THE BOUNDS ARE THE FEATURE, so they must not be looser than the server's.
+  // A slider that offers a value the server then reverts is a control that moves
+  // and does nothing.
+  it('and no slider offers a value the server would refuse', () => {
+    // Read WITHOUT a regex. The line is `t.Grow = pick(t.Grow, 1.1, 5, d.Grow)`,
+    // and splitting it on its own punctuation is both shorter and impossible to
+    // get subtly wrong in a way that silently matches nothing — which is how a
+    // parity test passes while comparing two empty lists.
+    const goRange = (name) => {
+      const line = goTuning.split('\n').find((l) => l.includes('t.' + name + ' = pick('))
+      if (!line) return null
+      const args = line.slice(line.indexOf('pick(') + 5, line.lastIndexOf(')')).split(',').map((x) => x.trim())
+      return [Number(args[1]), args[2]]
+    }
+    for (const [field, name] of [['grow', 'Grow'], ['shrink', 'Shrink'], ['clozeGrow', 'ClozeGrow'], ['clozeShrink', 'ClozeShrink']]) {
+      const r = goRange(name)
+      const f = TUNING_FIELDS.find((x) => x.key === field)
+      expect(r, `${name} has a clamp in Go`).not.toBeNull()
+      expect(f.min, `${field} min`).toBeGreaterThanOrEqual(r[0])
+      if (/^[0-9.]+$/.test(r[1])) expect(f.max, `${field} max`).toBeLessThanOrEqual(Number(r[1]))
+    }
+  })
+})
+
+describe('the ladder', () => {
+  // The server reverts a ladder that does not ascend — silently, because there is
+  // nowhere to report it from. The panel refuses instead.
+  it('must climb, and says so rather than being quietly undone', () => {
+    expect(tuningProblem(DEFAULT_TUNING)).toBe('')
+    expect(tuningProblem({ ...DEFAULT_TUNING, ladder2: 5 })).toMatch(/climb/)
+    expect(tuningProblem({ ...DEFAULT_TUNING, ladder3: 2 })).toMatch(/climb/)
+  })
+})
+
+describe('what gets stored for the tuning', () => {
+  it('is nothing at all when it matches the defaults', () => {
+    expect(tuningBlob(DEFAULT_TUNING)).toBe('')
+    expect(tuningBlob(parseTuning(''))).toBe('')
+  })
+
+  it('and round-trips otherwise', () => {
+    const t = { ...DEFAULT_TUNING, grow: 3 }
+    expect(parseTuning(tuningBlob(t))).toEqual(t)
+  })
+
+  it('reading anything unparseable as the defaults', () => {
+    for (const blob of ['{', 'null', '[]', '{"grow":"fast"}', 'nonsense']) {
+      expect(parseTuning(blob), blob).toEqual(DEFAULT_TUNING)
+    }
+  })
+})

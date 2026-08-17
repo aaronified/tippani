@@ -88,11 +88,36 @@ func TestPracticeServesStandaloneQuotes(t *testing.T) {
 	seedReviewQuotes(t, c, "Franklin D. Roosevelt", "first inaugural address", 2)
 	ageSeededItems(t, srv)
 
-	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
-	if len(deck.Items) != 4 {
-		t.Fatalf("expected four cards, got %d", len(deck.Items))
-	}
+	// ASK UNTIL BOTH TURN UP, because Practice picks its direction at RANDOM and
+	// this deck is four cards long. Unscored Practice leads with the flip card
+	// half the time and then draws uniformly, so the chance that four cards
+	// include neither a source nor a quote card is about one in three — and this
+	// test asserted it saw both from a single round.
+	//
+	// It was flaky before this loop and had been since it was written: one run in
+	// six, on a schedule nobody controls. A test that fails a third of the time
+	// teaches people to re-run rather than to read, which costs more than the test
+	// is worth. The per-card assertions below still run on every card of every
+	// round, so nothing is weakened — only the "I saw one of each" claim is given
+	// enough rounds to be true.
 	var sawSource, sawQuote bool
+	var deck practiceDeckResp
+	for round := 0; round < 24 && !(sawSource && sawQuote); round++ {
+		deck = decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+		if len(deck.Items) != 4 {
+			t.Fatalf("expected four cards, got %d", len(deck.Items))
+		}
+		checkUtteranceCards(t, deck, &sawSource, &sawQuote)
+	}
+	if !sawSource || !sawQuote {
+		t.Fatalf("in 24 rounds no card carried a source (%v) or a quote (%v) direction", sawSource, sawQuote)
+	}
+}
+
+// checkUtteranceCards asserts everything that must hold for EVERY card, and
+// records which directions this round happened to draw.
+func checkUtteranceCards(t *testing.T, deck practiceDeckResp, sawSource, sawQuote *bool) {
+	t.Helper()
 	for _, card := range deck.Items {
 		if card.Kind != kindUtterance {
 			t.Fatalf("wrong kind: %q", card.Kind)
@@ -113,22 +138,19 @@ func TestPracticeServesStandaloneQuotes(t *testing.T) {
 			// The quote and its source, both already on the card, graded by the
 			// reader. Nothing to assert about options because it has none.
 		case dirSource:
-			sawSource = true
+			*sawSource = true
 			// The answer is the occasion the quote came from.
 			if card.Options[card.Answer] != card.Title {
 				t.Fatalf("source card's answer is not its own occasion: %q vs %q",
 					card.Options[card.Answer], card.Title)
 			}
 		case dirQuote:
-			sawQuote = true
+			*sawQuote = true
 			if card.Options[card.Answer] != card.Quote {
 				t.Fatalf("quote card's answer is not its own quote: %q vs %q",
 					card.Options[card.Answer], card.Quote)
 			}
 		}
-	}
-	if !sawSource && !sawQuote {
-		t.Fatal("no card carried a direction")
 	}
 }
 

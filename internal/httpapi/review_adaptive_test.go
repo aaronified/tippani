@@ -76,7 +76,7 @@ func TestNextStability(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := nextStability(c.adaptive, c.result, c.cur, c.elapsed, c.succeeded)
+			got := nextStability(c.adaptive, c.result, c.cur, c.elapsed, c.succeeded, defaultReviewTuning())
 			// Tolerance, not equality, because 50*1.2 is not exactly 60 in
 			// binary. It is a no-op for the ladder rows, whose expectations come
 			// straight back out of reviewLadder as integral literals.
@@ -101,7 +101,7 @@ func TestNextStabilityStaysInBounds(t *testing.T) {
 			for _, cur := range []float64{0, 1, 7, 30, 99, 100, 1000} {
 				for _, elapsed := range []float64{0, 1, 500, 10000} {
 					for _, succeeded := range []bool{false, true} {
-						got := nextStability(adaptive, result, cur, elapsed, succeeded)
+						got := nextStability(adaptive, result, cur, elapsed, succeeded, defaultReviewTuning())
 						if got < reviewMinStability || got > reviewMaxStability {
 							t.Fatalf("nextStability(adaptive=%v, %s, cur=%g, elapsed=%g, succeeded=%v) = %g, outside [%g, %g]",
 								adaptive, result, cur, elapsed, succeeded, got, reviewMinStability, reviewMaxStability)

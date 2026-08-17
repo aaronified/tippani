@@ -157,7 +157,7 @@ func TestClozeCardCarriesNoAnswer(t *testing.T) {
 	ageSeededItems(t, srv)
 
 	// The live card is fresh, so its blank is one word wide (clozeMultiWordFrom).
-	_, answer, ok := clozeSpan(clozeQuote, kindBook, id, clozeMaxWordsFor(reviewMinStability))
+	_, answer, ok := clozeSpan(clozeQuote, kindBook, id, clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom))
 	if !ok {
 		t.Fatal("the seeded quote makes no cloze card")
 	}
@@ -199,7 +199,7 @@ func TestClozeAttemptIsGradedServerSide(t *testing.T) {
 	// The width the SERVER will use for a card at the starting half-life — not
 	// clozeMaxWords, which is only earned at the 30-day rung. Deriving it keeps this
 	// test about grading rather than about which words happen to be masked.
-	_, answer, _ := clozeSpan(clozeQuote, kindBook, id, clozeMaxWordsFor(reviewMinStability))
+	_, answer, _ := clozeSpan(clozeQuote, kindBook, id, clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom))
 
 	// A wrong attempt, sent with result "got" — the server must ignore the
 	// client's claim and grade the words.
@@ -248,29 +248,29 @@ func TestClozeAttemptOnAnUnmaskableQuoteIsRefused(t *testing.T) {
 // reached the ladder's 30-day rung is one you demonstrably know, and widening the
 // blank is the only way left to ask more of it.
 func TestClozeSpanWidthIsEarned(t *testing.T) {
-	if got := clozeMaxWordsFor(reviewMinStability); got != 1 {
+	if got := clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom); got != 1 {
 		t.Fatalf("a new card gets a one-word blank, got %d", got)
 	}
-	if got := clozeMaxWordsFor(clozeMultiWordFrom - 0.01); got != 1 {
+	if got := clozeMaxWordsFor(clozeMultiWordFrom - 0.01, clozeMultiWordFrom); got != 1 {
 		t.Fatalf("just under the rung is still one word, got %d", got)
 	}
-	if got := clozeMaxWordsFor(clozeMultiWordFrom); got != clozeMaxWords {
+	if got := clozeMaxWordsFor(clozeMultiWordFrom, clozeMultiWordFrom); got != clozeMaxWords {
 		t.Fatalf("at the rung the blank widens, got %d", got)
 	}
-	if got := clozeMaxWordsFor(reviewMaxStability); got != clozeMaxWords {
+	if got := clozeMaxWordsFor(reviewMaxStability, clozeMultiWordFrom); got != clozeMaxWords {
 		t.Fatalf("a mature card gets the widest blank, got %d", got)
 	}
 
 	// And the width actually reaches the span: the same quote and card blanks one
 	// word at the floor and more than one once it has climbed.
-	_, narrow, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMinStability))
+	_, narrow, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMinStability, clozeMultiWordFrom))
 	if !ok {
 		t.Fatal("a one-word blank must still build")
 	}
 	if n := len(strings.Fields(narrow)); n != 1 {
 		t.Fatalf("narrow answer %q is %d words, want 1", narrow, n)
 	}
-	_, wide, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMaxStability))
+	_, wide, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMaxStability, clozeMultiWordFrom))
 	if !ok {
 		t.Fatal("the wide blank must build too")
 	}
