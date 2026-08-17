@@ -4755,6 +4755,12 @@ export function IconPalette({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 // exactly what turning the bar into icons does. So the picture flips too.
 //
 // A flash card, because that is what the quiz puts in front of you.
+// IconShuffle — the two crossing arrows every player uses for shuffle. Drawn
+// rather than borrowed from IconReel or IconQuiz: this opens a surface that has
+// nothing to do with the review loop, and sharing a glyph with the deck would
+// say the opposite of what the feature is for.
+export function IconShuffle({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M3 7h3.5l3 4"/><path d="M14.5 16H18"/><path d="M3 17h3.5l7-10H18"/><path d="M16 5l2.5 2L16 9"/><path d="M16 14l2.5 2L16 18"/></svg> }
+
 export function IconQuiz({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M9.9 10.2a2.2 2.2 0 1 1 2.7 2.1c-.42.13-.63.42-.63.85v.5"/><path d="M11.97 16.1v.01"/></svg> }
 export function IconQuizSkip({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="m6.6 17.4 10.8-10.8"/></svg> }
 // IconSeal — one sticker across a whole selection. A medal rather than a sticker

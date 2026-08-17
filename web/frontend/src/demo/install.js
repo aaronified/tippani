@@ -891,6 +891,25 @@ export function route(method, path, params, body) {
         movie: tally(DIALOGUES, (d) => String(d.movie_id)),
       }]
     }
+    // Serendipity (roadmap §1). The fallback's `{}` would leave `quotes`
+    // undefined, and the card maps over it — a crash rather than a thin demo.
+    case path === '/shuffle': {
+      const pool = [
+        ...ANNOTATIONS.map((a) => ({ kind: 'book', row: a, work: BOOKS.find((b) => b.id === a.book_id) })),
+        ...DIALOGUES.map((d) => ({ kind: 'screen', row: d, work: MOVIES.find((m) => m.id === d.movie_id) })),
+      ].filter((x) => x.row.quote)
+      // Deterministic in the demo: a screenshot harness that re-shot a different
+      // quote every run would make every visual diff noise.
+      const x = pool[0]
+      return [200, { quote: x ? {
+        kind: x.kind, id: x.row.id, quote: x.row.quote, note: x.row.note || '',
+        color: x.row.color, title: x.work?.title || '',
+        credit: x.kind === 'book' ? x.work?.author || '' : x.row.actor || '',
+        work_id: x.work?.id || 0, created_at: x.row.noted_at || '',
+      } : null }]
+    }
+    case path === '/on-this-day':
+      return [200, { date: '01-01', quotes: [] }]
     case path === '/search/vocabulary':
       return [200, {
         tags: TAGS.map((t) => t.name),

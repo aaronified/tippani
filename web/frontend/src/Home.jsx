@@ -38,6 +38,7 @@ import {
   HandNote,
   Hearts,
   IconDelete,
+  IconShuffle,
   InfoDot,
   IconButton,
   Masonry,
@@ -428,9 +429,9 @@ function quoteFav(u) {
     text: u.quote || u.note,
     note: u.quote ? u.note : '',
     tags: u.tags || [],
-    source: [u.speaker, u.occasion].filter(Boolean).join(' \u00b7 '),
+    source: [u.speaker, u.occasion].filter(Boolean).join(' · '),
     // No speaker in `meta` \u2014 the expanded tile chips them. See bookFav.
-    meta: rest.join(' \u00b7 '),
+    meta: rest.join(' · '),
     createdAt: u.created_at,
     openLabel: 'Go to your quotes',
     raw: u,
@@ -710,6 +711,16 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         </Tooltip>
       </div>
 
+      {/* SERENDIPITY (roadmap §1). Two ways back into your own library that are
+          not the review loop and not a search: one line at random, and what you
+          saved on this date in other years.
+
+          Neither moves a schedule — the endpoints touch item_reviews at all, and
+          there is a test saying so, because these draw the same quote card the
+          deck does and a "seen" bump from idle shuffling would inflate the
+          half-life of whatever the random number generator liked. */}
+      <SerendipityRow onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} onGoQuotes={onGoQuotes} />
+
       {favs.length > 0 && (
         <section>
           <div className="mb-2.5 flex items-center gap-3">
@@ -985,6 +996,93 @@ function FavouriteTile({
           )}
         </>
       {menu}
+    </HandCard>
+  )
+}
+
+// ---- Shuffle & On this day (roadmap §1) ------------------------------------
+//
+// One component for both, because they are the same card twice: a quote, where
+// it came from, and a way through to it. The difference is only which endpoint
+// filled it.
+//
+// SHUFFLE IS FETCHED ON DEMAND, NOT ON LOAD. A random quote that arrives with
+// the page is a random quote nobody asked for, and it would change under you
+// every time you came Home — which turns a small pleasure into noise. Pressing
+// the button is the whole gesture.
+//
+// ON THIS DAY DRAWS NOTHING WHEN THE DAY IS EMPTY. A card that says "nothing on
+// this day" every day for most of a first year is a card that teaches you to
+// skip the part of the screen it sits in.
+function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
+  const [shuffled, setShuffled] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [today, setToday] = useState([])
+
+  useEffect(() => {
+    let stale = false
+    json('GET', '/on-this-day').then((r) => {
+      if (!stale && r.ok) setToday(r.data?.quotes || [])
+    })
+    return () => { stale = true }
+  }, [])
+
+  const shuffle = async () => {
+    setBusy(true)
+    const r = await json('GET', '/shuffle')
+    setBusy(false)
+    if (r.ok) setShuffled(r.data?.quote || null)
+  }
+
+  // Where a card goes when you press it: its parent, or the Quotes board for a
+  // standalone quote, which has no parent to open.
+  const open = (q) => {
+    if (q.kind === 'book' && q.work_id) onOpenBook?.(q.work_id)
+    else if (q.kind === 'screen' && q.work_id) onOpenMovie?.(q.work_id)
+    else onGoQuotes?.()
+  }
+
+  if (!today.length && !shuffled) {
+    return (
+      <div className="flex justify-center">
+        <Tooltip label="One line, at random">
+          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>Shuffle</GhostButton>
+        </Tooltip>
+      </div>
+    )
+  }
+  return (
+    <section className="space-y-3">
+      {today.length > 0 && (
+        <>
+          <MonoLabel className="block">On this day · {today.length}</MonoLabel>
+          <div className="space-y-2">
+            {today.slice(0, 3).map((q) => (
+              <SerendipityCard key={`${q.kind}${q.id}`} q={q} onOpen={() => open(q)} />
+            ))}
+          </div>
+        </>
+      )}
+      <div className="flex items-center gap-3">
+        <Tooltip label="One line, at random">
+          <GhostButton icon={<IconShuffle />} keepLabel onClick={shuffle} disabled={busy}>Shuffle</GhostButton>
+        </Tooltip>
+        <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+      </div>
+      {shuffled && <SerendipityCard q={shuffled} onOpen={() => open(shuffled)} />}
+    </section>
+  )
+}
+
+function SerendipityCard({ q, onOpen }) {
+  return (
+    <HandCard colorBar={q.color || 'yellow'} className="cursor-pointer" style={{ padding: '12px 15px' }} onClick={onOpen} role="button" tabIndex={0}>
+      <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
+        {q.kind === 'screen' ? q.quote : `“${q.quote}”`}
+      </p>
+      <MonoLabel className="mt-1.5 block" style={{ fontSize: 10.5 }}>
+        {[q.title, q.credit].filter(Boolean).join(' · ')}
+      </MonoLabel>
     </HandCard>
   )
 }

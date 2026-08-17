@@ -194,6 +194,11 @@ func (s *Server) Handler() http.Handler {
 	// them in would put thirty GROUP BYs behind every keystroke of a typeahead.
 	mux.Handle("GET /search/facets", s.requireAuth(s.handleSearchFacetCounts))
 
+	// Serendipity (roadmap §1). Neither touches item_reviews — see the header of
+	// serendipity_handlers.go for why that is a rule rather than an omission.
+	mux.Handle("GET /shuffle", s.requireAuth(s.handleShuffle))
+	mux.Handle("GET /on-this-day", s.requireAuth(s.handleOnThisDay))
+
 	// One-shot quote-image downloads (share_handlers.go). The GET is public by
 	// design: the single-use crypto-random token is the credential, because
 	// WebView wrappers download outside the page's cookie jar.
