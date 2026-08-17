@@ -399,22 +399,23 @@ type igdbCompany struct {
 // endpoints, so this is the same key answering the same question about the same
 // catalogue. Returns the links and the logo image id; the caller builds the URL,
 // because IGDBCoverURL is where the size lives.
-func (g *IGDB) CompanyLinks(ctx context.Context, name string) (map[string]string, string, error) {
+func (g *IGDB) CompanyLinks(ctx context.Context, name string) (map[string]string, string, int64, error) {
 	if strings.TrimSpace(name) == "" {
-		return map[string]string{}, "", nil
+		return map[string]string{}, "", 0, nil
 	}
 	q := fmt.Sprintf("search %s; fields id,name,url,logo.image_id,websites.category,websites.url; limit 5;",
 		apicalypseString(name))
 	body, err := g.query(ctx, "/companies", q)
 	if err != nil {
-		return nil, "", err
+		return nil, "", 0, err
 	}
 	var cos []igdbCompany
 	if err := json.Unmarshal(body, &cos); err != nil {
-		return nil, "", fmt.Errorf("igdb: %w", err)
+		return nil, "", 0, fmt.Errorf("igdb: %w", err)
 	}
 	links := map[string]string{}
 	logo := ""
+	var id int64
 	for _, c := range cos {
 		// EXACT NAME ONLY, case-insensitively. `search` ranks rather than filters,
 		// so "Electronic Arts" happily returns "Electronic Arts Seattle" — and a
@@ -443,9 +444,10 @@ func (g *IGDB) CompanyLinks(ctx context.Context, name string) (map[string]string
 		if c.Logo != nil && c.Logo.ImageID != "" {
 			logo = c.Logo.ImageID
 		}
+		id = c.ID
 		break
 	}
-	return links, logo, nil
+	return links, logo, id, nil
 }
 
 func apicalypseString(s string) string {

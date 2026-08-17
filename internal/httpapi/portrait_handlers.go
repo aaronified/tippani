@@ -155,6 +155,43 @@ func (s *Server) resolvePersonPortrait(ctx context.Context, uid int64, kind, nam
 	case "director":
 		source, sourceID, imageURL, bio, born, died = s.resolveDirectorMeta(ctx, uid, name)
 		return source, sourceID, imageURL, bio, born, died, links, nil
+	case "studio":
+		// A STUDIO IS NOT A PERSON, AND THIS IS THE PATH THAT WROTE THE ROW.
+		//
+		// Everything below falls to the Open Library AUTHOR lookup, which was a
+		// complete description of the world until 0040 added a seventh person
+		// kind that is not a person. So "fill in automatically" on Electronic
+		// Arts resolved it to openlibrary.org/authors/OL7329153A, stored that as
+		// the identity, and the panel then said "VIA OPENLIBRARY" — truthfully,
+		// which is the worst part.
+		//
+		// Fixing the /people/lookup button alone was not enough and is worth
+		// recording as the mistake it was: THIS is the endpoint that persists a
+		// source, a source id, a portrait and a bio, so it is the one that had
+		// been writing the wrong answer into the database all along.
+		igdb, _ := s.resolveIGDB()
+		if igdb == nil {
+			// No key is not an error here: the caller reports resolved=false and
+			// offers the manual fields, exactly as an unfound author does.
+			return "", "", "", "", "", "", links, nil
+		}
+		l, logo, id, cerr := igdb.CompanyLinks(ctx, name)
+		if cerr != nil {
+			// Best-effort, like the actor and director paths. A studio whose
+			// logo could not be fetched is still a studio.
+			olog.Warnf(olog.CodePeopleLookupFailed, "[people] studio %q: %v", name, cerr)
+			return "", "", "", "", "", "", links, nil
+		}
+		if l != nil {
+			links = l
+		}
+		if id > 0 {
+			source, sourceID = "igdb", strconv.FormatInt(id, 10)
+		}
+		// No bio, no born, no died: IGDB's company records carry none, and
+		// inventing a founding date for a studio is exactly the sort of
+		// confident wrongness this app refuses elsewhere.
+		return source, sourceID, metadata.IGDBCoverURL(logo), "", "", "", links, nil
 	}
 	// Everything else falls to the Open Library author path, and WHICH COLUMN
 	// disambiguates it is the whole question. The titles are what turn a name into

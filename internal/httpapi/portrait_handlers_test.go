@@ -176,3 +176,45 @@ func TestPersonPortraitUnresolved(t *testing.T) {
 		t.Fatalf("unresolved portrait wrote %d rows, want 0", n)
 	}
 }
+
+// A studio's portrait does not come from a book database.
+//
+// THIS IS THE PATH THAT WRITES THE ROW, and it is the one I missed first time.
+// `resolvePersonPortrait` handled actor and director and fell EVERYTHING ELSE to
+// the Open Library author lookup — a complete description of the world until
+// 0040 added a seventh person kind that is not a person at all. So "fill in
+// automatically" on Electronic Arts resolved it to an openlibrary.org/authors/
+// record and stored that as its identity.
+//
+// Fixing /people/lookup (the "refetch links" button) left this untouched, which
+// is why the wrong answer kept arriving: the button was never what put it there.
+func TestStudioPortraitNeverUsesTheAuthorPath(t *testing.T) {
+	srv := newTestServer(t)
+	// The author resolver is the thing that must NOT be reached. If it is, the
+	// test fails by recording the call rather than by asserting on a URL, which
+	// would pass for the wrong reason if the provider simply had no record.
+	called := false
+	srv.resolveAuthor = func(ctx context.Context, name string, titles []string) (metadata.AuthorResolution, error) {
+		called = true
+		return metadata.AuthorResolution{Key: "OL7329153A", ImageURL: "https://covers.openlibrary.org/a/olid/OL7329153A-L.jpg"}, nil
+	}
+	c := signupAdmin(t, srv.Handler())
+
+	// No IGDB key configured: the honest outcome is "nothing pinned", offering
+	// the manual fields — NOT a fallback into a database of book authors.
+	res := decode[portraitResp](t, c.mustDo("POST", "/people/portrait",
+		map[string]any{"kind": "studio", "name": "Electronic Arts"}, 200))
+	if called {
+		t.Fatal("a studio was looked up as a book author — that is where openlibrary.org/authors/ came from")
+	}
+	if res.Resolved {
+		t.Errorf("resolved = true with no IGDB key: %+v", res)
+	}
+	// And an author still goes to the author path, so the guard above is a
+	// narrowing rather than a break.
+	called = false
+	c.mustDo("POST", "/people/portrait", map[string]any{"kind": "author", "name": "Ursula K. Le Guin"}, 200)
+	if !called {
+		t.Error("an author must still resolve through Open Library")
+	}
+}

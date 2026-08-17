@@ -861,7 +861,7 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var logo string
-		links, logo, err = igdb.CompanyLinks(r.Context(), req.Name)
+		links, logo, _, err = igdb.CompanyLinks(r.Context(), req.Name)
 		if err == nil && logo != "" {
 			// The logo rides back on the same call rather than needing a second
 			// one: it is the portrait for this row, and the two are one fact.

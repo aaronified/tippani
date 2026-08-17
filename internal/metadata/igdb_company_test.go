@@ -44,9 +44,12 @@ func TestIGDBCompanyLinksResolvesAStudio(t *testing.T) {
 		"logo": {"image_id": "cl1x"},
 		"websites": [{"category": 1, "url": "https://www.ea.com"}, {"category": 4, "url": "https://en.wikipedia.org/wiki/Electronic_Arts"}]
 	}]`)
-	links, logo, err := g.CompanyLinks(context.Background(), "Electronic Arts")
+	links, logo, id, err := g.CompanyLinks(context.Background(), "Electronic Arts")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if id != 1 {
+		t.Errorf("id = %d — the portrait path pins an identity with it", id)
 	}
 	if links["igdb"] == "" {
 		t.Fatalf("links = %v, want the IGDB page", links)
@@ -79,9 +82,12 @@ func TestIGDBCompanyLinksRequireAnExactName(t *testing.T) {
 		{"id": 2, "name": "Electronic Arts Seattle", "url": "https://www.igdb.com/companies/ea-seattle", "logo": {"image_id": "wrong"}},
 		{"id": 1, "name": "Electronic Arts", "url": "https://www.igdb.com/companies/electronic-arts", "logo": {"image_id": "right"}}
 	]`)
-	links, logo, err := g.CompanyLinks(context.Background(), "Electronic Arts")
+	links, logo, id, err := g.CompanyLinks(context.Background(), "Electronic Arts")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if id != 1 {
+		t.Errorf("id = %d, want the exact match's", id)
 	}
 	if logo != "right" || !strings.Contains(links["igdb"], "/electronic-arts") {
 		t.Fatalf("links = %v, logo = %q — the near-miss won", links, logo)
@@ -92,7 +98,7 @@ func TestIGDBCompanyLinksRequireAnExactName(t *testing.T) {
 // falls through to the manual fields.
 func TestIGDBCompanyLinksAreEmptyRatherThanAnError(t *testing.T) {
 	g := newIGDBCompanyStub(t, `[]`)
-	links, logo, err := g.CompanyLinks(context.Background(), "A Studio Nobody Catalogued")
+	links, logo, _, err := g.CompanyLinks(context.Background(), "A Studio Nobody Catalogued")
 	if err != nil || len(links) != 0 || logo != "" {
 		t.Fatalf("got %v / %q / %v — an unknown studio is empty, not an error", links, logo, err)
 	}
@@ -101,7 +107,7 @@ func TestIGDBCompanyLinksAreEmptyRatherThanAnError(t *testing.T) {
 func TestIGDBCompanyLinksIgnoreABlankName(t *testing.T) {
 	// No stub call at all: a blank name must not reach the API.
 	g := &IGDB{ClientID: "id", ClientSecret: "s", BaseURL: "http://127.0.0.1:0"}
-	if links, _, err := g.CompanyLinks(context.Background(), "   "); err != nil || len(links) != 0 {
+	if links, _, _, err := g.CompanyLinks(context.Background(), "   "); err != nil || len(links) != 0 {
 		t.Fatalf("got %v, %v", links, err)
 	}
 }
