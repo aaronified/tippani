@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -90,19 +91,6 @@ func TestQuoteMarkdownAll(t *testing.T) {
 	}
 }
 
-// A per-quote binding beats the heading, so a hand-written file that repeats
-// the occasion on each line still works.
-func TestQuoteMarkdownBindingBeatsHeading(t *testing.T) {
-	us, err := QuoteMarkdownAll(strings.NewReader(
-		"---\ntype: quotes\n---\n\n## a rally\n\n> a line\n- occasion: a letter\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(us) != 1 || us[0].Occasion != "a letter" {
-		t.Fatalf("binding did not override the heading: %+v", us)
-	}
-}
-
 func TestQuoteMarkdownRejectsRubbish(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"empty", ""},
@@ -116,62 +104,71 @@ func TestQuoteMarkdownRejectsRubbish(t *testing.T) {
 	}
 }
 
-// A multi-line blockquote collapses to one quote, as in every other parser —
-// a wrapped paragraph is one thing said, not four.
-func TestQuoteMarkdownJoinsWrappedLines(t *testing.T) {
-	us, err := QuoteMarkdownAll(strings.NewReader(
-		"---\ntype: quotes\n---\n\n> Give me blood,\n> and I will give\n> you freedom\n- speaker: Bose\n"))
-	if err != nil {
-		t.Fatal(err)
+// Each case is a single-quote file, parsed and pinned field by field. The last
+// two rows are a property and its converse and must stay adjacent: keys fold
+// case, values do not.
+func TestQuoteMarkdownBindings(t *testing.T) {
+	cases := []struct {
+		name string
+		md   string
+		want Utterance
+	}{
+		{
+			// A per-quote binding beats the heading, so a hand-written file that repeats
+			// the occasion on each line still works.
+			name: "a per-quote binding beats the heading",
+			md:   "---\ntype: quotes\n---\n\n## a rally\n\n> a line\n- occasion: a letter\n",
+			want: Utterance{Quote: "a line", Occasion: "a letter"},
+		},
+		{
+			// A multi-line blockquote collapses to one quote, as in every other parser —
+			// a wrapped paragraph is one thing said, not four.
+			name: "a wrapped blockquote joins into one quote",
+			md:   "---\ntype: quotes\n---\n\n> Give me blood,\n> and I will give\n> you freedom\n- speaker: Bose\n",
+			want: Utterance{Quote: "Give me blood, and I will give you freedom", Speaker: "Bose"},
+		},
+		{
+			// A HAND-WRITTEN FILE CAPITALISES ITS KEYS, and every parser used to ignore that
+			// silently: the line parsed, the key matched no case, and the value was dropped with
+			// no warning — an import that reported success and quietly lost the speaker.
+			//
+			// Checked here for the quote format and asserted across the shared helper, since
+			// bindingKey is what the book and film parsers call too.
+			name: "binding keys ignore case",
+			md: "---\ntype: quotes\n---\n\n> Give me blood\n" +
+				"- Speaker: Subhas Chandra Bose\n" +
+				"- OCCASION: Burma Radio broadcast\n" +
+				"- Occasion_Date: 1944\n" +
+				"- Category: proverb\n",
+			want: Utterance{
+				Quote:        "Give me blood",
+				Speaker:      "Subhas Chandra Bose",
+				Occasion:     "Burma Radio broadcast",
+				OccasionDate: "1944",
+				Category:     "proverb",
+			},
+		},
+		{
+			// The VALUE keeps its case. A key is a keyword; a value is content, and folding it
+			// would be a different and much worse bug — every speaker arriving in lower case.
+			name: "binding values keep their case",
+			md:   "---\ntype: quotes\n---\n\n> A line\n- speaker: Subhas Chandra Bose\n",
+			want: Utterance{Quote: "A line", Speaker: "Subhas Chandra Bose"},
+		},
 	}
-	if len(us) != 1 || us[0].Quote != "Give me blood, and I will give you freedom" {
-		t.Fatalf("wrapped lines did not join: %+v", us)
-	}
-}
 
-// A HAND-WRITTEN FILE CAPITALISES ITS KEYS, and every parser used to ignore that
-// silently: the line parsed, the key matched no case, and the value was dropped with
-// no warning — an import that reported success and quietly lost the speaker.
-//
-// Checked here for the quote format and asserted across the shared helper, since
-// bindingKey is what the book and film parsers call too.
-func TestBindingKeysIgnoreCase(t *testing.T) {
-	md := "---\ntype: quotes\n---\n\n> Give me blood\n" +
-		"- Speaker: Subhas Chandra Bose\n" +
-		"- OCCASION: Burma Radio broadcast\n" +
-		"- Occasion_Date: 1944\n" +
-		"- Category: proverb\n"
-	us, err := QuoteMarkdownAll(strings.NewReader(md))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(us) != 1 {
-		t.Fatalf("expected one quote, got %d", len(us))
-	}
-	u := us[0]
-	if u.Speaker != "Subhas Chandra Bose" {
-		t.Errorf("Speaker: %q", u.Speaker)
-	}
-	if u.Occasion != "Burma Radio broadcast" {
-		t.Errorf("OCCASION: %q", u.Occasion)
-	}
-	if u.OccasionDate != "1944" {
-		t.Errorf("Occasion_Date: %q", u.OccasionDate)
-	}
-	if u.Category != "proverb" {
-		t.Errorf("Category: %q", u.Category)
-	}
-}
-
-// The VALUE keeps its case. A key is a keyword; a value is content, and folding it
-// would be a different and much worse bug — every speaker arriving in lower case.
-func TestBindingValuesKeepTheirCase(t *testing.T) {
-	md := "---\ntype: quotes\n---\n\n> A line\n- speaker: Subhas Chandra Bose\n"
-	us, err := QuoteMarkdownAll(strings.NewReader(md))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if us[0].Speaker != "Subhas Chandra Bose" {
-		t.Fatalf("value was folded: %q", us[0].Speaker)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			us, err := QuoteMarkdownAll(strings.NewReader(tc.md))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(us) != 1 {
+				t.Fatalf("expected one quote, got %d: %+v", len(us), us)
+			}
+			if !reflect.DeepEqual(us[0], tc.want) {
+				t.Fatalf("utterance = %+v, want %+v", us[0], tc.want)
+			}
+		})
 	}
 }

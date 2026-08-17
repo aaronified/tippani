@@ -37,42 +37,100 @@ func boardByID(t *testing.T, c *testClient, id int64) boardRow {
 	return boardRow{}
 }
 
-// The offer the whole feature exists for: a reader with no quotes could not reach
-// Proverbs at all after 0036, because its seed reads FROM utterances.
-func TestAProverbBoardCanBeMadeOnAnEmptyAccount(t *testing.T) {
+// What one POST /boards makes of the kind and the languages it was sent. Every
+// row is the same three lines — create, read the row back, compare — so they
+// differ only in the body and the outcome.
+//
+// No row saves a quote, so the precondition the first row exists for holds for
+// the whole run: this account has nothing 0036's seed could have made a board out
+// of.
+func TestBoardCreationTakesItsKindAndLanguages(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
 
 	// Nothing has been saved, so there is nothing for 0036's seed to have made.
+	// Asserted here, above the table, where the account is still untouched.
 	if got := listBoards(t, c); len(got.Boards) != 0 {
 		t.Fatalf("a fresh account should start with no boards, got %+v", got.Boards)
 	}
 
-	b := newProverbBoard(t, c, "Proverbs", "Bengali", "Hindi")
-	if b.Kind != "proverb" {
-		t.Fatalf("kind = %q, want proverb", b.Kind)
+	cases := []struct {
+		name       string
+		body       map[string]any
+		wantStatus int
+		wantKind   string
+		wantLangs  []string
+	}{
+		// The offer the whole feature exists for: a reader with no quotes could
+		// not reach Proverbs at all after 0036, because its seed reads FROM
+		// utterances. The languages come back in the order they went in.
+		{
+			name: "a proverb board can be made on an empty account",
+			body: map[string]any{
+				"name": "Proverbs", "kind": "proverb",
+				"languages": []string{"Bengali", "Hindi"},
+			},
+			wantStatus: http.StatusCreated,
+			wantKind:   "proverb",
+			wantLangs:  []string{"Bengali", "Hindi"},
+		},
+		// A board with no kind is plain, so every client written against 1.14.0
+		// and every board in an older export keeps working untouched.
+		{
+			name:       "a board with no kind is plain",
+			body:       map[string]any{"name": "Kennedy"},
+			wantStatus: http.StatusCreated,
+			wantKind:   "plain",
+			wantLangs:  []string{},
+		},
+		// The language list is tidied rather than trusted: blank entries,
+		// whitespace, and the same language twice in two casings. The FIRST
+		// spelling wins, so a reader's own capitalisation is what is kept rather
+		// than whichever casing happened to arrive last. (Named differently from
+		// the first row's board because board names are unique per reader,
+		// case-insensitively.)
+		{
+			name: "the language list is tidied rather than trusted",
+			body: map[string]any{
+				"name": "Sayings", "kind": "proverb",
+				"languages": []string{" Bengali ", "", "   ", "bengali", "Hindi"},
+			},
+			wantStatus: http.StatusCreated,
+			wantKind:   "proverb",
+			wantLangs:  []string{"Bengali", "Hindi"},
+		},
+		{
+			name:       "an unknown kind is refused",
+			body:       map[string]any{"name": "Songs", "kind": "song"},
+			wantStatus: http.StatusBadRequest,
+		},
 	}
-	got := boardByID(t, c, b.ID)
-	if got.Kind != "proverb" || len(got.Languages) != 2 {
-		t.Fatalf("board did not come back as it went in: %+v", got)
-	}
-	if got.Languages[0] != "Bengali" || got.Languages[1] != "Hindi" {
-		t.Fatalf("languages lost their order: %+v", got.Languages)
-	}
-}
 
-// A board with no kind is plain, so every client written against 1.14.0 and
-// every board in an older export keeps working untouched.
-func TestABoardWithNoKindIsPlain(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	b := newBoard(t, c, "Kennedy")
-	if b.Kind != "plain" {
-		t.Fatalf("kind = %q, want plain", b.Kind)
-	}
-	// And it is [] rather than null, so a client never has to check for both.
-	if got := boardByID(t, c, b.ID); got.Languages == nil {
-		t.Fatal("languages came back null; it must always be an array")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sub := &testClient{t: t, h: h, cookie: c.cookie}
+			rec := sub.mustDo("POST", "/boards", tc.body, tc.wantStatus)
+			if tc.wantStatus != http.StatusCreated {
+				return
+			}
+			b := decode[boardRow](t, rec)
+			if b.Kind != tc.wantKind {
+				t.Fatalf("kind = %q, want %q", b.Kind, tc.wantKind)
+			}
+			got := boardByID(t, sub, b.ID)
+			if got.Kind != tc.wantKind {
+				t.Fatalf("board did not come back as it went in: %+v", got)
+			}
+			// Languages are [] rather than null, so a client never has to check
+			// for both. A length comparison alone passes on nil, so the null case
+			// gets its own check.
+			if got.Languages == nil {
+				t.Fatal("languages came back null; it must always be an array")
+			}
+			if !sameStrings(got.Languages, tc.wantLangs) {
+				t.Fatalf("languages = %+v, want %+v", got.Languages, tc.wantLangs)
+			}
+		})
 	}
 }
 
@@ -147,30 +205,4 @@ func TestLanguagesAreDroppedFromAPlainBoard(t *testing.T) {
 	if got := boardByID(t, c, b.ID); len(got.Languages) != 0 {
 		t.Fatalf("a plain board kept its languages: %+v", got.Languages)
 	}
-}
-
-func TestTheLanguageListIsTidiedRatherThanTrusted(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	b := decode[boardRow](t, c.mustDo("POST", "/boards", map[string]any{
-		"name": "Proverbs", "kind": "proverb",
-		// Blank entries, whitespace, and the same language twice in two casings.
-		"languages": []string{" Bengali ", "", "   ", "bengali", "Hindi"},
-	}, http.StatusCreated))
-
-	got := boardByID(t, c, b.ID)
-	if len(got.Languages) != 2 {
-		t.Fatalf("languages were not deduplicated: %+v", got.Languages)
-	}
-	// The FIRST spelling wins, so a reader's own capitalisation is what is kept
-	// rather than whichever casing happened to arrive last.
-	if got.Languages[0] != "Bengali" || got.Languages[1] != "Hindi" {
-		t.Fatalf("languages = %+v, want [Bengali Hindi]", got.Languages)
-	}
-}
-
-func TestAnUnknownKindIsRefused(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/boards", map[string]any{"name": "Songs", "kind": "song"}, http.StatusBadRequest)
 }

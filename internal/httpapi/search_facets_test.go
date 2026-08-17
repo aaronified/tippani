@@ -348,27 +348,50 @@ func TestNoteFacetTreatsWhitespaceAsNoNote(t *testing.T) {
 
 // ---- the request contract --------------------------------------------------
 
-func TestUnknownFacetIsRejected(t *testing.T) {
-	// A typo'd facet that is quietly dropped returns a WIDER result set that
-	// looks exactly like a correct answer. Rejecting it is the only way the
-	// reader ever finds out the narrowing did not happen.
+// Every way a search request is refused before a single row is read: an
+// unknown facet key, a facet value outside its vocabulary, a request carrying
+// nothing to search for, and a work facet that is not an id. All of them are
+// the same call — one GET that must answer 400 — so the rows share one server:
+// none of them seeds anything, so no row can see another row's state.
+func TestSearchRejectsAMalformedRequest(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
 
-	c.mustDo("GET", "/search?q=x&tags=stoicism", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?q=x&colours=blue", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?q=x&nonsense=1", nil, http.StatusBadRequest)
-}
+	for _, tc := range []struct {
+		name string
+		path string
+	}{
+		// A typo'd facet that is quietly dropped returns a WIDER result set that
+		// looks exactly like a correct answer. Rejecting it is the only way the
+		// reader ever finds out the narrowing did not happen.
+		{"unknown facet key: tags", "/search?q=x&tags=stoicism"},
+		{"unknown facet key: colours", "/search?q=x&colours=blue"},
+		{"unknown facet key: nonsense", "/search?q=x&nonsense=1"},
 
-func TestMalformedFacetValuesAreRejected(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
+		// The colour vocabulary is closed by a CHECK constraint, so a seventh colour
+		// can never match and saying so beats an empty result.
+		{"malformed facet value: a colour outside the vocabulary", "/search?q=x&colour=turquoise"},
+		{"malformed facet value: a year that is not a number", "/search?q=x&year=nineteen"},
+		{"malformed facet value: a favourite that is neither yes nor no", "/search?q=x&favourite=maybe"},
 
-	// The colour vocabulary is closed by a CHECK constraint, so a seventh colour
-	// can never match and saying so beats an empty result.
-	c.mustDo("GET", "/search?q=x&colour=turquoise", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?q=x&year=nineteen", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?q=x&favourite=maybe", nil, http.StatusBadRequest)
+		// Neither free text nor a facet is not a search, it is a request for the
+		// whole library.
+		{"nothing to go on: no query and no facet", "/search"},
+		{"nothing to go on: a scope and nothing else", "/search?scope=books"},
+
+		// The chip shows a title and sends an id. A title arriving here means the
+		// two halves have come apart, which is worth a 400 rather than no results.
+		{"a work facet that is not an id: a book title", "/search?q=x&book=The+Dispossessed"},
+		{"a work facet that is not an id: book zero", "/search?q=x&book=0"},
+		{"a work facet that is not an id: a negative movie id", "/search?q=x&movie=-3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Rebound to this subtest's t so a row that answers anything but 400
+			// fails as that row, rather than as a Goexit out of the parent.
+			sub := &testClient{t: t, h: h, cookie: c.cookie}
+			sub.mustDo("GET", tc.path, nil, http.StatusBadRequest)
+		})
+	}
 }
 
 func TestBothSpellingsOfTheBritishFacetsAreAccepted(t *testing.T) {
@@ -382,15 +405,6 @@ func TestBothSpellingsOfTheBritishFacetsAreAccepted(t *testing.T) {
 		res := searchWith(t, c, q)
 		wantTitles(t, q, utteranceTexts(res.Quotes), []string{"a blue line"})
 	}
-}
-
-func TestSearchStillNeedsSomethingToGoOn(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	// Neither free text nor a facet is not a search, it is a request for the
-	// whole library.
-	c.mustDo("GET", "/search", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?scope=books", nil, http.StatusBadRequest)
 }
 
 func TestAFacetAloneIsAWholeSearch(t *testing.T) {
@@ -627,15 +641,9 @@ func TestAWorkIDIsNotAWayIntoAnotherAccount(t *testing.T) {
 	}
 }
 
-func TestAWorkFacetMustBeAnID(t *testing.T) {
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-	// The chip shows a title and sends an id. A title arriving here means the
-	// two halves have come apart, which is worth a 400 rather than no results.
-	c.mustDo("GET", "/search?q=x&book=The+Dispossessed", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?q=x&book=0", nil, http.StatusBadRequest)
-	c.mustDo("GET", "/search?q=x&movie=-3", nil, http.StatusBadRequest)
-}
+// The malformed-work-facet cases (a title where an id belongs, a zero id, a
+// negative id) live in TestSearchRejectsAMalformedRequest with the rest of the
+// 400s.
 
 // ---- what a facet cannot describe ------------------------------------------
 

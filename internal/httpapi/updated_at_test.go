@@ -5,11 +5,6 @@ import (
 	"testing"
 )
 
-// books.updated_at and movies.updated_at arrived in 0020 and were never written:
-// no INSERT set them, no UPDATE bumped them. 0022 maintains both with triggers,
-// because these tables are written from many places and forgetting one is exactly
-// how the column came to be dead in the first place.
-
 func updatedAt(t *testing.T, srv *Server, table string, id int64) string {
 	t.Helper()
 	var v string
@@ -20,53 +15,54 @@ func updatedAt(t *testing.T, srv *Server, table string, id int64) string {
 	return v
 }
 
-func TestBookUpdatedAtIsMaintained(t *testing.T) {
+// books.updated_at and movies.updated_at arrived in 0020 and were never written:
+// no INSERT set them, no UPDATE bumped them. 0022 maintains both with triggers,
+// because these tables are written from many places and forgetting one is exactly
+// how the column came to be dead in the first place.
+func TestUpdatedAtIsMaintained(t *testing.T) {
+	type idOnly struct {
+		ID int64 `json:"id"`
+	}
+
+	cases := []struct {
+		name  string
+		table string
+		path  string
+		title string
+	}{
+		{"book", "books", "/books", "Invisible Cities"},
+		{"movie", "movies", "/movies", "Stalker"},
+	}
+
+	// One server serves both rows: each row reads and writes only the table it
+	// created its own row in ("books" vs "movies"), keyed by that row's own id,
+	// so no assertion here can observe the other row's data.
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	id := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Invisible Cities"}, http.StatusCreated)).ID
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id := decode[idOnly](t, c.mustDo("POST", tc.path,
+				map[string]any{"title": tc.title}, http.StatusCreated)).ID
 
-	created := updatedAt(t, srv, "books", id)
-	if created == "" {
-		t.Fatal("a newly created book must have updated_at set, not NULL")
-	}
+			created := updatedAt(t, srv, tc.table, id)
+			if created == "" {
+				t.Fatalf("a newly created %s must have updated_at set, not NULL", tc.name)
+			}
 
-	// Backdate it so the bump is observable without depending on clock resolution.
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE books SET updated_at = datetime('now', '-2 days') WHERE id = ?`, id); err != nil {
-		t.Fatal(err)
-	}
-	stale := updatedAt(t, srv, "books", id)
+			// Backdate it so the bump is observable without depending on clock resolution.
+			if _, err := srv.Store.DB.Exec(
+				`UPDATE `+tc.table+` SET updated_at = datetime('now', '-2 days') WHERE id = ?`, id); err != nil {
+				t.Fatal(err)
+			}
+			stale := updatedAt(t, srv, tc.table, id)
 
-	c.mustDo("PUT", "/books/"+itoa(id), map[string]any{"title": "Invisible Cities (rev)"}, http.StatusOK)
-	if got := updatedAt(t, srv, "books", id); got == stale {
-		t.Fatalf("editing a book must bump updated_at, still %q", got)
-	}
-}
-
-func TestMovieUpdatedAtIsMaintained(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	id := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
-
-	if updatedAt(t, srv, "movies", id) == "" {
-		t.Fatal("a newly created movie must have updated_at set, not NULL")
-	}
-
-	if _, err := srv.Store.DB.Exec(
-		`UPDATE movies SET updated_at = datetime('now', '-2 days') WHERE id = ?`, id); err != nil {
-		t.Fatal(err)
-	}
-	stale := updatedAt(t, srv, "movies", id)
-
-	c.mustDo("PUT", "/movies/"+itoa(id), map[string]any{"title": "Stalker (rev)"}, http.StatusOK)
-	if got := updatedAt(t, srv, "movies", id); got == stale {
-		t.Fatalf("editing a movie must bump updated_at, still %q", got)
+			c.mustDo("PUT", tc.path+"/"+itoa(id), map[string]any{"title": tc.title + " (rev)"}, http.StatusOK)
+			if got := updatedAt(t, srv, tc.table, id); got == stale {
+				t.Fatalf("editing a %s must bump updated_at, still %q", tc.name, got)
+			}
+		})
 	}
 }
 

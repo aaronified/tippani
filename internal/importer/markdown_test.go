@@ -24,58 +24,93 @@ isbn: 9780000000000
 - loc: p.142
 `
 
-func TestMarkdownFull(t *testing.T) {
-	res, err := Markdown(strings.NewReader(mdFull))
-	if err != nil {
-		t.Fatal(err)
+// Each case parses one inline markdown file and pins the whole result — the
+// book header and every field of every annotation.
+func TestMarkdownParses(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       string
+		wantBook Book
+		want     []Annotation
+	}{
+		{
+			name:     "the full frontmatter example",
+			in:       mdFull,
+			wantBook: Book{Title: "The Book Title", Author: "Author Name", ISBN: "9780000000000"},
+			want: []Annotation{{
+				Quote:    "The quote text, which may span multiple lines.",
+				Note:     "my thought about it",
+				Chapter:  "Chapter 3 — The Turning Point",
+				Location: "p.142",
+				Color:    "yellow",
+				Tags:     []string{"philosophy", "memory"},
+			}},
+		},
+		{
+			// The same file behind a BOM and CRLF endings must parse identically — that
+			// this row's expectation repeats the row above is the point of the case.
+			name:     "a BOM and CRLF line endings",
+			in:       "\ufeff" + strings.ReplaceAll(mdFull, "\n", "\r\n"),
+			wantBook: Book{Title: "The Book Title", Author: "Author Name", ISBN: "9780000000000"},
+			want: []Annotation{{
+				Quote:    "The quote text, which may span multiple lines.",
+				Note:     "my thought about it",
+				Chapter:  "Chapter 3 — The Turning Point",
+				Location: "p.142",
+				Color:    "yellow",
+				Tags:     []string{"philosophy", "memory"},
+			}},
+		},
+		{
+			name:     "quotes with no metadata under them",
+			in:       "---\ntitle: T\n---\n\n> bare quote\n\n> second   quote\n> continued\n",
+			wantBook: Book{Title: "T"},
+			want: []Annotation{
+				{Quote: "bare quote"},
+				{Quote: "second quote continued"}, // whitespace collapsed
+			},
+		},
+		{
+			name: "edges: junk prose, an empty quote, a repeated key, empty tags",
+			in: "---\ntitle: T\nbogus: ignored\n---\n" +
+				"junk prose line\n" +
+				">\n\n" + // empty quote dropped
+				"> q1\n- note: first\n- note: second\n- tags: a, , b ,\n" + // last wins; empty tags dropped
+				"> new quote after metadata\n",
+			wantBook: Book{Title: "T"},
+			want: []Annotation{
+				{Quote: "q1", Note: "second", Tags: []string{"a", "b"}},
+				{Quote: "new quote after metadata"},
+			},
+		},
+		{
+			name: "favorite parsing",
+			in: "---\ntitle: T\n---\n\n" +
+				"> q1\n- favorite: yes\n\n" +
+				"> q2\n- favorite: 1\n\n" +
+				"> q3\n- favorite: nope\n- location: loc 9\n",
+			wantBook: Book{Title: "T"},
+			want: []Annotation{
+				{Quote: "q1", Favorite: true},
+				{Quote: "q2", Favorite: true},
+				{Quote: "q3", Location: "loc 9"}, // "location" alias
+			},
+		},
 	}
-	want := Book{Title: "The Book Title", Author: "Author Name", ISBN: "9780000000000"}
-	if !reflect.DeepEqual(res.Book, want) {
-		t.Fatalf("book = %+v", res.Book)
-	}
-	if len(res.Annotations) != 1 {
-		t.Fatalf("got %d annotations", len(res.Annotations))
-	}
-	a := res.Annotations[0]
-	if a.Quote != "The quote text, which may span multiple lines." {
-		t.Fatalf("quote = %q", a.Quote)
-	}
-	if a.Note != "my thought about it" || a.Color != "yellow" || a.Location != "p.142" {
-		t.Fatalf("bindings = %+v", a)
-	}
-	if a.Chapter != "Chapter 3 — The Turning Point" {
-		t.Fatalf("chapter = %q", a.Chapter)
-	}
-	if !reflect.DeepEqual(a.Tags, []string{"philosophy", "memory"}) {
-		t.Fatalf("tags = %v", a.Tags)
-	}
-}
 
-func TestMarkdownBOMCRLF(t *testing.T) {
-	in := "\ufeff" + strings.ReplaceAll(mdFull, "\n", "\r\n")
-	res, err := Markdown(strings.NewReader(in))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Annotations) != 1 || res.Annotations[0].Quote != "The quote text, which may span multiple lines." {
-		t.Fatalf("annotations = %+v", res.Annotations)
-	}
-}
-
-func TestMarkdownQuoteWithoutMetadata(t *testing.T) {
-	in := "---\ntitle: T\n---\n\n> bare quote\n\n> second   quote\n> continued\n"
-	res, err := Markdown(strings.NewReader(in))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Annotations) != 2 {
-		t.Fatalf("got %d annotations", len(res.Annotations))
-	}
-	if a := res.Annotations[0]; a.Quote != "bare quote" || a.Note != "" || a.Color != "" || a.Tags != nil {
-		t.Fatalf("first = %+v", a)
-	}
-	if got := res.Annotations[1].Quote; got != "second quote continued" { // whitespace collapsed
-		t.Fatalf("second = %q", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := Markdown(strings.NewReader(tc.in))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(res.Book, tc.wantBook) {
+				t.Fatalf("book = %+v, want %+v", res.Book, tc.wantBook)
+			}
+			if !reflect.DeepEqual(res.Annotations, tc.want) {
+				t.Fatalf("annotations = %+v, want %+v", res.Annotations, tc.want)
+			}
+		})
 	}
 }
 
@@ -89,28 +124,6 @@ func TestMarkdownMissingFrontmatter(t *testing.T) {
 	// frontmatter present but no title
 	if _, err := Markdown(strings.NewReader("---\nauthor: A\n---\n")); err == nil {
 		t.Fatal("no error for missing title")
-	}
-}
-
-func TestMarkdownEdges(t *testing.T) {
-	in := "---\ntitle: T\nbogus: ignored\n---\n" +
-		"junk prose line\n" +
-		">\n\n" + // empty quote dropped
-		"> q1\n- note: first\n- note: second\n- tags: a, , b ,\n" + // last wins; empty tags dropped
-		"> new quote after metadata\n"
-	res, err := Markdown(strings.NewReader(in))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Annotations) != 2 {
-		t.Fatalf("got %d annotations: %+v", len(res.Annotations), res.Annotations)
-	}
-	a := res.Annotations[0]
-	if a.Note != "second" || !reflect.DeepEqual(a.Tags, []string{"a", "b"}) {
-		t.Fatalf("first = %+v", a)
-	}
-	if res.Annotations[1].Quote != "new quote after metadata" {
-		t.Fatalf("second = %+v", res.Annotations[1])
 	}
 }
 
@@ -146,29 +159,6 @@ func TestMarkdownFrontmatterFixture(t *testing.T) {
 	a = res.Annotations[3]
 	if !a.Favorite || a.Color != "blue" { // "colour" alias
 		t.Fatalf("favorite/colour = %+v", a)
-	}
-}
-
-func TestMarkdownFavoriteParsing(t *testing.T) {
-	in := "---\ntitle: T\n---\n\n" +
-		"> q1\n- favorite: yes\n\n" +
-		"> q2\n- favorite: 1\n\n" +
-		"> q3\n- favorite: nope\n- location: loc 9\n"
-	res, err := Markdown(strings.NewReader(in))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Annotations) != 3 {
-		t.Fatalf("got %d annotations", len(res.Annotations))
-	}
-	if a := res.Annotations[0]; !a.Favorite {
-		t.Fatalf("q1 = %+v", a)
-	}
-	if a := res.Annotations[1]; !a.Favorite {
-		t.Fatalf("q2 = %+v", a)
-	}
-	if a := res.Annotations[2]; a.Favorite || a.Location != "loc 9" { // "location" alias
-		t.Fatalf("q3 = %+v", a)
 	}
 }
 

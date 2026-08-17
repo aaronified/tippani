@@ -7,21 +7,6 @@ import (
 	"testing"
 )
 
-func TestLooksLikeMovieMarkdown(t *testing.T) {
-	movie := "---\ntitle: Arrival\ndirector: Denis Villeneuve\nyear: 2016\n---\n\n> A quote.\n- character: Louise\n"
-	book := "---\ntitle: Dune\nauthor: Frank Herbert\nisbn: 9780441013593\n---\n\n> A quote.\n- loc: p.12\n"
-	movieNoDir := "---\ntitle: X\nyear: 2020\n---\n\n> Line.\n- timestamp: 00:10\n" // detected via binding
-	if !LooksLikeMovieMarkdown([]byte(movie)) {
-		t.Error("director frontmatter should read as movie")
-	}
-	if LooksLikeMovieMarkdown([]byte(book)) {
-		t.Error("author/isbn should read as book")
-	}
-	if !LooksLikeMovieMarkdown([]byte(movieNoDir)) {
-		t.Error("timestamp binding should read as movie")
-	}
-}
-
 func TestMovieMarkdownAll(t *testing.T) {
 	multi := "---\ntitle: Arrival\ndirector: Denis Villeneuve\nyear: 2016\ngenres: Science Fiction, Drama\n---\n\n" +
 		"> If you could see your whole life, would you change things?\n- character: Louise Banks\n- actor: Amy Adams\n- timestamp: 1:41:00\n- tags: beautiful\n- favorite: true\n\n" +
@@ -134,6 +119,22 @@ func TestLooksLikeMovieMarkdownRouting(t *testing.T) {
 		{
 			"CRLF line endings",
 			"---\r\ntitle: Stalker\r\ntype: movie\r\n---\r\n\r\n> A line.\r\n",
+			true,
+		},
+		{
+			"director, year and a character binding all at once",
+			"---\ntitle: Arrival\ndirector: Denis Villeneuve\nyear: 2016\n---\n\n> A quote.\n- character: Louise\n",
+			true,
+		},
+		{
+			"author, isbn and a loc binding all at once",
+			"---\ntitle: Dune\nauthor: Frank Herbert\nisbn: 9780441013593\n---\n\n> A quote.\n- loc: p.12\n",
+			false,
+		},
+		{
+			// detected via binding — the only coverage of the "- timestamp:" signal.
+			"a timestamp binding with no director at all",
+			"---\ntitle: X\nyear: 2020\n---\n\n> Line.\n- timestamp: 00:10\n",
 			true,
 		},
 	} {

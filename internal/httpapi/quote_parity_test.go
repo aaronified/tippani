@@ -168,33 +168,42 @@ func TestDialogueColorRoundTrips(t *testing.T) {
 	}
 }
 
-// Same default as an annotation: a line you didn't colour is yellow, not blank,
-// so nothing looks categorised that wasn't.
-func TestDialogueColorDefaultsToYellow(t *testing.T) {
+// What the create handler does with the colour it is (or isn't) given. The
+// ?color= FILTER validation lives in TestDialogueColorFilter — a different
+// handler, and crud_test.go:355 documents why both halves exist separately.
+func TestDialogueColorOnCreate(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
 		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
 
-	got := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID, "quote": "No colour given.",
-	}, http.StatusCreated))
-	if got.Color != "yellow" {
-		t.Fatalf("colour = %q want yellow", got.Color)
+	for _, tc := range []struct {
+		name, quote, color string
+		omit               bool
+		wantStatus         int
+		wantColor          string
+	}{
+		// Same default as an annotation: a line you didn't colour is yellow, not blank,
+		// so nothing looks categorised that wasn't.
+		{"defaults to yellow when omitted", "No colour given.", "", true, http.StatusCreated, "yellow"},
+
+		{"rejects a colour off the palette", "Chartreuse, please.", "chartreuse", false, http.StatusBadRequest, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := map[string]any{"movie_id": movieID, "quote": tc.quote}
+			if !tc.omit {
+				body["color"] = tc.color
+			}
+			rec := c.mustDo("POST", "/dialogues", body, tc.wantStatus)
+			if tc.wantStatus != http.StatusCreated {
+				return
+			}
+			if got := decode[dialogueRow](t, rec).Color; got != tc.wantColor {
+				t.Fatalf("colour = %q want %s", got, tc.wantColor)
+			}
+		})
 	}
-}
-
-func TestDialogueRejectsBadColor(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
-
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID, "quote": "Chartreuse, please.", "color": "chartreuse",
-	}, http.StatusBadRequest)
 }
 
 // The ?color= filter now works on both kinds, from the same helper.
@@ -281,88 +290,111 @@ func TestDialogueColorSurvivesExportImport(t *testing.T) {
 	}
 }
 
-// TestBareFilmExportReimportsAsFilm is the end-to-end version of the routing bug:
-// a film with no director, no collection, and no character/actor/timestamp on any
-// line used to re-import as a BOOK, because nothing in its own export said
-// "film". The catalogue export now always carries a type line.
-func TestBareFilmExportReimportsAsFilm(t *testing.T) {
+// A catalogue export has to say what kind of work it came from, and the importer
+// has to read that back: each row exports one work and re-imports the server's
+// own output into a clean account.
+func TestExportStatesItsMediaTypeAndReimports(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
 
-	// Deliberately bare: only a title, and one unattributed line.
-	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Stalker"}, http.StatusCreated)).ID
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID, "quote": "Let everything that has been planned come true.",
-	}, http.StatusCreated)
+	count := func(i int) *int { return &i }
 
-	md := c.mustDo("GET", "/movies/"+strconv.FormatInt(movieID, 10)+"/export", nil, http.StatusOK).Body.String()
-	if !strings.Contains(md, "type: movie") {
-		t.Fatalf("a bare film export must state its type:\n%s", md)
-	}
+	for _, tc := range []struct {
+		name          string
+		importer      string
+		create        map[string]any
+		quote         string
+		file          string
+		wantTypeLine  string
+		wantTitle     string // "" = the original test did not pin the title
+		wantMediaType string
+		// wantBooks/wantDialogues are asserted only when set — the bare-film row
+		// checks where the re-import landed; the show row never did.
+		wantBooks     *int
+		wantDialogues *int
+	}{
+		{
+			// TestBareFilmExportReimportsAsFilm is the end-to-end version of the routing bug:
+			// a film with no director, no collection, and no character/actor/timestamp on any
+			// line used to re-import as a BOOK, because nothing in its own export said
+			// "film". The catalogue export now always carries a type line.
+			name:     "a bare film export re-imports as a film",
+			importer: "bob",
+			// Deliberately bare: only a title, and one unattributed line.
+			create:        map[string]any{"title": "Stalker"},
+			quote:         "Let everything that has been planned come true.",
+			file:          "stalker.md",
+			wantTypeLine:  "type: movie",
+			wantTitle:     "Stalker",
+			wantMediaType: "movie",
+			wantBooks:     count(0),
+			wantDialogues: count(1),
+		},
+		{
+			// A show must round-trip its type too — the old exporter got this case right, so
+			// this is the guard that making the line unconditional didn't break it.
+			name:          "a show export keeps its media type",
+			importer:      "carol",
+			create:        map[string]any{"title": "Andor", "media_type": "show"},
+			quote:         "One way out.",
+			file:          "andor.md",
+			wantTypeLine:  "type: show",
+			wantMediaType: "show",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
+				tc.create, http.StatusCreated)).ID
+			c.mustDo("POST", "/dialogues", map[string]any{
+				"movie_id": movieID, "quote": tc.quote,
+			}, http.StatusCreated)
 
-	// Re-import into a clean account: it must land in the catalogue, not the library.
-	other := addUser(t, h, c, "bob")
-	rec := other.importApprove("/import/markdown", "stalker.md", []byte(md))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
-	}
+			md := c.mustDo("GET", "/movies/"+strconv.FormatInt(movieID, 10)+"/export", nil, http.StatusOK).Body.String()
+			if !strings.Contains(md, tc.wantTypeLine) {
+				t.Fatalf("the export must state %q:\n%s", tc.wantTypeLine, md)
+			}
 
-	movies := decode[struct {
-		Movies []struct {
-			Title     string `json:"title"`
-			MediaType string `json:"media_type"`
-		} `json:"movies"`
-	}](t, other.mustDo("GET", "/movies", nil, http.StatusOK))
-	if len(movies.Movies) != 1 || movies.Movies[0].Title != "Stalker" {
-		t.Fatalf("bare film did not re-import as a film: %+v", movies.Movies)
-	}
-	if movies.Movies[0].MediaType != "movie" {
-		t.Fatalf("media_type = %q want movie", movies.Movies[0].MediaType)
-	}
+			// Re-import into a clean account: it must land in the catalogue, not the
+			// library. A FRESH importer per row (the admin's server is shared, the
+			// importing account is not), so the second import cannot anchor onto the
+			// first row's catalogue — the clean account is the point of both cases.
+			other := addUser(t, h, c, tc.importer)
+			rec := other.importApprove("/import/markdown", tc.file, []byte(md))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
+			}
 
-	books := decode[pagedBooks](t, other.mustDo("GET", "/books", nil, http.StatusOK))
-	if len(books.Books) != 0 {
-		t.Fatalf("re-import leaked into the library as %d book(s): %+v", len(books.Books), books.Books)
-	}
+			movies := decode[struct {
+				Movies []struct {
+					Title     string `json:"title"`
+					MediaType string `json:"media_type"`
+				} `json:"movies"`
+			}](t, other.mustDo("GET", "/movies", nil, http.StatusOK))
+			if len(movies.Movies) != 1 {
+				t.Fatalf("expected exactly one re-imported work: %+v", movies.Movies)
+			}
+			if tc.wantTitle != "" && movies.Movies[0].Title != tc.wantTitle {
+				t.Fatalf("did not re-import under its own title: %+v", movies.Movies)
+			}
+			if movies.Movies[0].MediaType != tc.wantMediaType {
+				t.Fatalf("media_type = %q want %q", movies.Movies[0].MediaType, tc.wantMediaType)
+			}
 
-	dlgs := decode[struct {
-		Dialogues []dialogueRow `json:"dialogues"`
-	}](t, other.mustDo("GET", "/dialogues", nil, http.StatusOK))
-	if len(dlgs.Dialogues) != 1 {
-		t.Fatalf("expected the line to arrive as a dialogue, got %d", len(dlgs.Dialogues))
-	}
-}
-
-// A show must round-trip its type too — the old exporter got this case right, so
-// this is the guard that making the line unconditional didn't break it.
-func TestShowExportKeepsItsMediaType(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	movieID := decode[movieDetail](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "Andor", "media_type": "show"}, http.StatusCreated)).ID
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": movieID, "quote": "One way out.",
-	}, http.StatusCreated)
-
-	md := c.mustDo("GET", "/movies/"+strconv.FormatInt(movieID, 10)+"/export", nil, http.StatusOK).Body.String()
-	if !strings.Contains(md, "type: show") {
-		t.Fatalf("show export lost its type:\n%s", md)
-	}
-
-	other := addUser(t, h, c, "bob")
-	if rec := other.importApprove("/import/markdown", "andor.md", []byte(md)); rec.Code != http.StatusOK {
-		t.Fatalf("re-import: %d %s", rec.Code, rec.Body)
-	}
-	movies := decode[struct {
-		Movies []struct {
-			MediaType string `json:"media_type"`
-		} `json:"movies"`
-	}](t, other.mustDo("GET", "/movies", nil, http.StatusOK))
-	if len(movies.Movies) != 1 || movies.Movies[0].MediaType != "show" {
-		t.Fatalf("show did not round-trip: %+v", movies.Movies)
+			if tc.wantBooks != nil {
+				books := decode[pagedBooks](t, other.mustDo("GET", "/books", nil, http.StatusOK))
+				if len(books.Books) != *tc.wantBooks {
+					t.Fatalf("re-import leaked into the library as %d book(s): %+v", len(books.Books), books.Books)
+				}
+			}
+			if tc.wantDialogues != nil {
+				dlgs := decode[struct {
+					Dialogues []dialogueRow `json:"dialogues"`
+				}](t, other.mustDo("GET", "/dialogues", nil, http.StatusOK))
+				if len(dlgs.Dialogues) != *tc.wantDialogues {
+					t.Fatalf("expected %d line(s) to arrive as dialogue, got %d", *tc.wantDialogues, len(dlgs.Dialogues))
+				}
+			}
+		})
 	}
 }

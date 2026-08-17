@@ -220,54 +220,91 @@ func TestMissingStoredDecidesWhatMayBeFilled(t *testing.T) {
 	}
 }
 
-func TestFillNeedsSomethingToFill(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	c.mustDo("POST", "/metadata/fill", map[string]any{}, http.StatusBadRequest)
-	many := make([]int64, maxReverifyItems+1)
-	c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": many}, http.StatusBadRequest)
-}
-
-func TestFillReportsAnUnpinnedBookRatherThanGuessing(t *testing.T) {
-	// A book with no isbn/asin/google id has no identity to re-check, and
-	// re-guessing by title is how a fill run quietly rewrites the wrong book's
-	// description. Same refusal re-verify makes, reported per item so a selection
-	// of fifteen where two are unpinned still fills the other thirteen.
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	id := createBook(t, c, "typed in by hand")
-
-	got := decode[struct {
-		Results []fillResult `json:"results"`
-		Checked int          `json:"checked"`
-		Filled  int          `json:"filled"`
-		Fields  int          `json:"fields"`
-	}](t, c.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{id}}, 200))
-	if got.Checked != 1 || len(got.Results) != 1 {
-		t.Fatalf("fill = %+v", got)
-	}
-	if got.Results[0].Status != "unpinned" {
-		t.Errorf("status = %q, want unpinned", got.Results[0].Status)
-	}
-	if got.Filled != 0 || got.Fields != 0 {
-		t.Errorf("it claimed to fill something: %+v", got)
-	}
-}
-
-func TestFillOnlyTouchesAnotherAccountsRowsToSayNotFound(t *testing.T) {
+// One POST /metadata/fill per row: what the endpoint refuses outright, and what
+// it reports per item rather than guessing at.
+//
+// No row reaches a provider — an unpinned book short-circuits before any fetch
+// and another account's id never resolves — so these are pure request/response
+// rows that write nothing, and one account, one book and one server serve them
+// all.
+func TestMetadataFillOverASelection(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
 	bob := addUser(t, h, alice, "bob")
-	aliceBook := createBook(t, alice, "Alice's book")
+	aliceBook := createBook(t, alice, "typed in by hand")
+	tooMany := make([]int64, maxReverifyItems+1)
 
-	got := decode[struct {
-		Results []fillResult `json:"results"`
-	}](t, bob.mustDo("POST", "/metadata/fill", map[string]any{"book_ids": []int64{aliceBook}}, 200))
-	if len(got.Results) != 1 || got.Results[0].Status != "not_found" {
-		t.Errorf("fill over somebody else's book = %+v, want not_found", got.Results)
+	cases := []struct {
+		name       string
+		as         *testClient
+		body       map[string]any
+		wantHTTP   int
+		wantStatus string // results[0].Status; "" means the row asserts no body
+		// Only the unpinned row asserts the run's totals today, so the rest leave
+		// them alone rather than have the merge add something unverified.
+		checkTotals bool
+		wantChecked int
+		wantFilled  int
+		wantFields  int
+	}{
+		{
+			name: "a fill with nothing to fill", as: alice,
+			body: map[string]any{}, wantHTTP: http.StatusBadRequest,
+		},
+		{
+			name: "more ids than one run may hold", as: alice,
+			body: map[string]any{"book_ids": tooMany}, wantHTTP: http.StatusBadRequest,
+		},
+		{
+			// A book with no isbn/asin/google id has no identity to re-check, and
+			// re-guessing by title is how a fill run quietly rewrites the wrong
+			// book's description. Same refusal re-verify makes, reported per item
+			// so a selection of fifteen where two are unpinned still fills the
+			// other thirteen.
+			name: "an unpinned book is reported rather than guessed at", as: alice,
+			body:     map[string]any{"book_ids": []int64{aliceBook}},
+			wantHTTP: 200, wantStatus: "unpinned",
+			checkTotals: true, wantChecked: 1, wantFilled: 0, wantFields: 0,
+		},
+		{
+			// Another account's row is only ever touched to say not_found: any
+			// other answer would confirm to Bob that the id exists.
+			name: "another account's book reads as not_found", as: bob,
+			body:     map[string]any{"book_ids": []int64{aliceBook}},
+			wantHTTP: 200, wantStatus: "not_found",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sub := &testClient{t: t, h: h, cookie: tc.as.cookie}
+			rec := sub.mustDo("POST", "/metadata/fill", tc.body, tc.wantHTTP)
+			if tc.wantStatus == "" {
+				return
+			}
+			got := decode[struct {
+				Results []fillResult `json:"results"`
+				Checked int          `json:"checked"`
+				Filled  int          `json:"filled"`
+				Fields  int          `json:"fields"`
+			}](t, rec)
+			if len(got.Results) != 1 {
+				t.Fatalf("fill = %+v, want one result", got)
+			}
+			if got.Results[0].Status != tc.wantStatus {
+				t.Errorf("status = %q, want %q", got.Results[0].Status, tc.wantStatus)
+			}
+			if !tc.checkTotals {
+				return
+			}
+			if got.Checked != tc.wantChecked {
+				t.Fatalf("fill = %+v, want checked %d", got, tc.wantChecked)
+			}
+			if got.Filled != tc.wantFilled || got.Fields != tc.wantFields {
+				t.Errorf("it claimed to fill something: %+v", got)
+			}
+		})
 	}
 }
 

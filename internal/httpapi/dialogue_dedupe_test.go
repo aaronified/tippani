@@ -16,118 +16,158 @@ import (
 	"tippani/internal/store"
 )
 
-// TestRecurringLineAcrossEpisodesStaysDistinct is the bug this all exists for: a
-// catchphrase said in two episodes is two quotes, not one.
-func TestRecurringLineAcrossEpisodesStaysDistinct(t *testing.T) {
+// TestDialogueDedupeAcrossLocators runs the handler-level script once per locator
+// shape: build a parent, post the same line two or three times with different
+// locators, then check what the parent is left holding.
+func TestDialogueDedupeAcrossLocators(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
-	show := newShow(c, "Reel Seven")
 
-	const line = "You cut the part where I was happy."
+	n := func(i int) *int { return &i }
 
-	first := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show, "quote": line, "season": 1, "episode": 2,
-	}, http.StatusCreated))
-
-	// Same words, a different episode. Before the fix this answered 409 and handed
-	// back the S1E2 row, discarding the episode the caller actually typed.
-	second := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show, "quote": line, "season": 3, "episode": 7,
-	}, http.StatusCreated))
-
-	if first.ID == second.ID {
-		t.Fatalf("two episodes' occurrences collapsed into row %d", first.ID)
+	type post struct {
+		season, episode *int
+		wantStatus      int
 	}
-	rows := listDialogues(c, show)
-	if len(rows) != 2 {
-		t.Fatalf("expected both occurrences, got %d (%v)", len(rows), labels(rows))
+	cases := []struct {
+		name        string
+		film        bool
+		parentTitle string
+		line        string
+		posts       []post
+		wantRows    int
+		// wantLabels is asserted only when set: the exact locators, in served order.
+		wantLabels             []string
+		wantDistinctIDs        bool
+		conflictCarriesFirstID bool
+	}{
+		{
+			// TestRecurringLineAcrossEpisodesStaysDistinct is the bug this all exists for: a
+			// catchphrase said in two episodes is two quotes, not one.
+			name:        "a recurring line across episodes stays distinct",
+			parentTitle: "Reel Seven",
+			line:        "You cut the part where I was happy.",
+			posts: []post{
+				{season: n(1), episode: n(2), wantStatus: http.StatusCreated},
+				// Same words, a different episode. Before the fix this answered 409 and handed
+				// back the S1E2 row, discarding the episode the caller actually typed.
+				{season: n(3), episode: n(7), wantStatus: http.StatusCreated},
+			},
+			wantRows:        2,
+			wantLabels:      []string{"S1E2", "S3E7"},
+			wantDistinctIDs: true,
+		},
+		{
+			// A season with no episode still discriminates — "somewhere in season 4" and
+			// "somewhere in season 6" are different claims about the same words.
+			name:        "a recurring line across seasons without episodes",
+			parentTitle: "Reel Seven",
+			line:        "She stopped asking.",
+			posts: []post{
+				{season: n(4), wantStatus: http.StatusCreated},
+				{season: n(6), wantStatus: http.StatusCreated},
+			},
+			wantRows: 2,
+		},
+		{
+			// The dedupe that SHOULD still fire: the same line, in the same episode, twice.
+			name:        "the same line in the same episode still deduplicates",
+			parentTitle: "Reel Seven",
+			line:        "Seven reels, seven ways to lie about a summer.",
+			posts: []post{
+				{season: n(2), episode: n(3), wantStatus: http.StatusCreated},
+				{season: n(2), episode: n(3), wantStatus: http.StatusConflict},
+			},
+			wantRows: 1,
+			// 409 carrying the row that already holds the slot, so a retried offline flush
+			// stays idempotent — the contract the annotation path also keeps.
+			conflictCarriesFirstID: true,
+		},
+		{
+			// Two un-episoded lines on a show dedupe exactly as they did before: the file
+			// said nothing about where they came from, so there is nothing to tell them apart.
+			name:        "un-episoded show lines still deduplicate",
+			parentTitle: "Reel Seven",
+			line:        "The pilot never aired.",
+			posts: []post{
+				{wantStatus: http.StatusCreated},
+				{wantStatus: http.StatusConflict},
+			},
+			wantRows: 1,
+		},
+		{
+			// A film has one runtime and no episodes, so its dedupe is untouched by any of
+			// this — including when a caller sends episode numbers a film cannot have (they
+			// are cleared by normalize, and must not leak into the hash and defeat dedupe).
+			name:        "film dialogue dedupe unchanged",
+			film:        true,
+			parentTitle: "Casablanca",
+			line:        "Round up the usual suspects.",
+			posts: []post{
+				{wantStatus: http.StatusCreated},
+				{wantStatus: http.StatusConflict},
+				// Same line again, this time with a season attached. normalize strips it for a
+				// film, so it must still read as the duplicate it is.
+				{season: n(2), episode: n(4), wantStatus: http.StatusConflict},
+			},
+			wantRows: 1,
+		},
 	}
-	if got := labels(rows); got[0] != "S1E2" || got[1] != "S3E7" {
-		t.Fatalf("expected S1E2 then S3E7, got %v", got)
-	}
-}
 
-// A season with no episode still discriminates — "somewhere in season 4" and
-// "somewhere in season 6" are different claims about the same words.
-func TestRecurringLineAcrossSeasonsWithoutEpisodes(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	show := newShow(c, "Reel Seven")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// A fresh parent per row, NOT a shared one. listDialogues filters by movie_id
+			// and the dedupe index is UNIQUE (movie_id, dedupe_hash), so a row whose whole
+			// assertion is "this work now holds N lines" must not be able to see — or
+			// dedupe against — another row's fixtures. Sharing one show here made three
+			// rows count every earlier row's lines too (4, 5, 6 instead of 2, 1, 1).
+			parent := newShow(c, tc.parentTitle)
+			if tc.film {
+				parent = newFilm(c, tc.parentTitle)
+			}
 
-	const line = "She stopped asking."
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show, "quote": line, "season": 4,
-	}, http.StatusCreated)
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show, "quote": line, "season": 6,
-	}, http.StatusCreated)
+			var created []int64
+			for _, p := range tc.posts {
+				body := map[string]any{"movie_id": parent, "quote": tc.line}
+				if p.season != nil {
+					body["season"] = *p.season
+				}
+				if p.episode != nil {
+					body["episode"] = *p.episode
+				}
+				rec := c.mustDo("POST", "/dialogues", body, p.wantStatus)
+				if p.wantStatus == http.StatusCreated {
+					created = append(created, decode[dialogueRow](t, rec).ID)
+					continue
+				}
+				if p.wantStatus == http.StatusConflict && tc.conflictCarriesFirstID {
+					if !strings.Contains(rec.Body.String(), itoa(created[0])) {
+						t.Fatalf("the 409 should carry the existing row %d, got %s", created[0], rec.Body)
+					}
+				}
+			}
 
-	if rows := listDialogues(c, show); len(rows) != 2 {
-		t.Fatalf("expected two seasons' occurrences, got %d (%v)", len(rows), labels(rows))
-	}
-}
+			if tc.wantDistinctIDs {
+				seen := map[int64]bool{}
+				for _, id := range created {
+					if seen[id] {
+						t.Fatalf("two episodes' occurrences collapsed into row %d", id)
+					}
+					seen[id] = true
+				}
+			}
 
-// The dedupe that SHOULD still fire: the same line, in the same episode, twice.
-func TestSameLineSameEpisodeStillDeduplicates(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	show := newShow(c, "Reel Seven")
-
-	const line = "Seven reels, seven ways to lie about a summer."
-	first := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show, "quote": line, "season": 2, "episode": 3,
-	}, http.StatusCreated))
-
-	// 409 carrying the row that already holds the slot, so a retried offline flush
-	// stays idempotent — the contract the annotation path also keeps.
-	body := c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": show, "quote": line, "season": 2, "episode": 3,
-	}, http.StatusConflict).Body.String()
-	if !strings.Contains(body, itoa(first.ID)) {
-		t.Fatalf("the 409 should carry the existing row %d, got %s", first.ID, body)
-	}
-	if rows := listDialogues(c, show); len(rows) != 1 {
-		t.Fatalf("expected one row, got %d", len(rows))
-	}
-}
-
-// Two un-episoded lines on a show dedupe exactly as they did before: the file
-// said nothing about where they came from, so there is nothing to tell them apart.
-func TestUnepisodedShowLinesStillDeduplicate(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	show := newShow(c, "Reel Seven")
-
-	const line = "The pilot never aired."
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": show, "quote": line}, http.StatusCreated)
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": show, "quote": line}, http.StatusConflict)
-}
-
-// A film has one runtime and no episodes, so its dedupe is untouched by any of
-// this — including when a caller sends episode numbers a film cannot have (they
-// are cleared by normalize, and must not leak into the hash and defeat dedupe).
-func TestFilmDialogueDedupeUnchanged(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	film := newFilm(c, "Casablanca")
-
-	const line = "Round up the usual suspects."
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": film, "quote": line}, http.StatusCreated)
-	c.mustDo("POST", "/dialogues", map[string]any{"movie_id": film, "quote": line}, http.StatusConflict)
-
-	// Same line again, this time with a season attached. normalize strips it for a
-	// film, so it must still read as the duplicate it is.
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film, "quote": line, "season": 2, "episode": 4,
-	}, http.StatusConflict)
-
-	if rows := listDialogues(c, film); len(rows) != 1 {
-		t.Fatalf("a film should still hold one copy, got %d", len(rows))
+			rows := listDialogues(c, parent)
+			if len(rows) != tc.wantRows {
+				t.Fatalf("expected %d occurrence(s), got %d (%v)", tc.wantRows, len(rows), labels(rows))
+			}
+			if tc.wantLabels != nil {
+				if got := labels(rows); !sameStrings(got, tc.wantLabels) {
+					t.Fatalf("expected %v, got %v", tc.wantLabels, got)
+				}
+			}
+		})
 	}
 }
 

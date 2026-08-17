@@ -54,23 +54,42 @@ func TestFetchImageHappyPath(t *testing.T) {
 	}
 }
 
-func TestFetchImageOversize(t *testing.T) {
+// The two ways a fetched body is refused: past the size cap, and not an image
+// at all.
+func TestFetchImageRejects(t *testing.T) {
 	allowAny(t)
-	big := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, maxImageBytes)...)
-	srv := imageServer(t, big)
 
-	_, err := FetchImage(context.Background(), srv.URL, t.TempDir())
-	if err == nil || !strings.Contains(err.Error(), "exceeds") {
-		t.Fatalf("err = %v, want size cap rejection", err)
+	cases := []struct {
+		name string
+		body []byte
+		// Empty means "any error will do", which is all the non-image case
+		// asserted before the merge.
+		wantErrContains string
+	}{
+		{
+			name:            "a body past the size cap",
+			body:            append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, maxImageBytes)...),
+			wantErrContains: "exceeds",
+		},
+		{
+			name:            "a body that is not an image",
+			body:            []byte("<html>not an image</html>"),
+			wantErrContains: "",
+		},
 	}
-}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// A fresh server per row: each row serves its own body.
+			srv := imageServer(t, tc.body)
 
-func TestFetchImageNotAnImage(t *testing.T) {
-	allowAny(t)
-	srv := imageServer(t, []byte("<html>not an image</html>"))
-
-	if _, err := FetchImage(context.Background(), srv.URL, t.TempDir()); err == nil {
-		t.Fatal("want rejection for non-image content")
+			_, err := FetchImage(context.Background(), srv.URL, t.TempDir())
+			if err == nil {
+				t.Fatalf("err = nil, want rejection")
+			}
+			if tc.wantErrContains != "" && !strings.Contains(err.Error(), tc.wantErrContains) {
+				t.Fatalf("err = %v, want it to mention %q", err, tc.wantErrContains)
+			}
+		})
 	}
 }
 

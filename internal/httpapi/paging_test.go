@@ -43,65 +43,81 @@ func seedAnnotations(t *testing.T, c *testClient, bookID int64, n int) {
 	}
 }
 
+// pagedRow reads the id off a row of any list. Each list names its rows after
+// its own kind — "books", "annotations" — and both handlers return exactly one
+// top-level key, so reading whichever key came back lets one walk cover both
+// endpoints without a per-kind type.
+type pagedRow struct {
+	ID int64 `json:"id"`
+}
+
+func pagedIDs(t *testing.T, c *testClient, path string) []int64 {
+	t.Helper()
+	body := decode[map[string][]pagedRow](t, c.mustDo("GET", path, nil, http.StatusOK))
+	if len(body) != 1 {
+		t.Fatalf("GET %s returned %d top-level keys, want 1: %v", path, len(body), body)
+	}
+	ids := []int64{}
+	for _, rows := range body {
+		for _, r := range rows {
+			ids = append(ids, r.ID)
+		}
+	}
+	return ids
+}
+
 // Walking with limit+offset must cover every row exactly once — no duplicates
 // across page boundaries, no gaps. A client that silently loses a quote here
 // would be worse than one that can't page at all.
-func TestPagingWalksBooksExactlyOnce(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedBooks(t, c, 12)
+func TestPagingWalksEveryRowExactlyOnce(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		path string
+		seed func(t *testing.T, c *testClient)
+	}{
+		{"books", "/books", func(t *testing.T, c *testClient) {
+			seedBooks(t, c, 12)
+		}},
+		{"annotations", "/annotations", func(t *testing.T, c *testClient) {
+			seedAnnotations(t, c, newTestBook(t, c, "Invisible Cities"), 12)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// A server per row, deliberately: both walks assert "twelve rows and
+			// no more", and the annotations row has to create a book to hang its
+			// quotes off — a shared library would make that book a thirteenth one
+			// for the books row to walk.
+			srv := newTestServer(t)
+			h := srv.Handler()
+			c := signupAdmin(t, h)
+			tc.seed(t, c)
 
-	seen := map[int64]int{}
-	for offset := 0; ; offset += 5 {
-		page := decode[pagedBooks](t, c.mustDo("GET",
-			fmt.Sprintf("/books?limit=5&offset=%d", offset), nil, http.StatusOK))
-		if len(page.Books) == 0 {
-			break
-		}
-		if len(page.Books) > 5 {
-			t.Fatalf("page at offset %d returned %d rows, limit was 5", offset, len(page.Books))
-		}
-		for _, b := range page.Books {
-			seen[b.ID]++
-		}
-		if offset > 100 {
-			t.Fatal("paging did not terminate")
-		}
-	}
+			seen := map[int64]int{}
+			for offset := 0; ; offset += 5 {
+				ids := pagedIDs(t, c, fmt.Sprintf("%s?limit=5&offset=%d", tc.path, offset))
+				if len(ids) == 0 {
+					break
+				}
+				if len(ids) > 5 {
+					t.Fatalf("page at offset %d returned %d rows, limit was 5", offset, len(ids))
+				}
+				for _, id := range ids {
+					seen[id]++
+				}
+				if offset > 100 {
+					t.Fatal("paging did not terminate")
+				}
+			}
 
-	if len(seen) != 12 {
-		t.Fatalf("walked %d distinct books, want 12", len(seen))
-	}
-	for id, n := range seen {
-		if n != 1 {
-			t.Fatalf("book %d appeared %d times across pages", id, n)
-		}
-	}
-}
-
-func TestPagingWalksAnnotationsExactlyOnce(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := newTestBook(t, c, "Invisible Cities")
-	seedAnnotations(t, c, bookID, 12)
-
-	seen := map[int64]int{}
-	for offset := 0; offset < 20; offset += 5 {
-		page := decode[pagedAnnotations](t, c.mustDo("GET",
-			fmt.Sprintf("/annotations?limit=5&offset=%d", offset), nil, http.StatusOK))
-		for _, a := range page.Annotations {
-			seen[a.ID]++
-		}
-	}
-	if len(seen) != 12 {
-		t.Fatalf("walked %d distinct annotations, want 12", len(seen))
-	}
-	for id, n := range seen {
-		if n != 1 {
-			t.Fatalf("annotation %d appeared %d times", id, n)
-		}
+			if len(seen) != 12 {
+				t.Fatalf("walked %d distinct %s, want 12", len(seen), tc.name)
+			}
+			for id, n := range seen {
+				if n != 1 {
+					t.Fatalf("%s row %d appeared %d times across pages", tc.name, id, n)
+				}
+			}
+		})
 	}
 }
 

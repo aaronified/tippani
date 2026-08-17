@@ -7,38 +7,49 @@ import "testing"
 // it rejects "the shapes the regexp lets through but a calendar would not, so a
 // stored date is always a real one" — and it used to check only that the day was
 // between 1 and 31, which accepted 30 February and 31 April.
-func TestPartialDateAcceptsTheThreeShapes(t *testing.T) {
-	for _, good := range []string{"1944", "1944-01", "1944-01-23", "2024-02-29", ""} {
-		v := good
-		if msg := normalizePartialDate("date", &v); msg != "" {
-			t.Errorf("normalizePartialDate(%q) rejected it: %s", good, msg)
-		}
-	}
-}
+func TestNormalizePartialDate(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    string
+		valid bool
+	}{
+		// The three shapes it accepts, plus the leap day and the empty value.
+		{"a bare year", "1944", true},
+		{"a year and a month", "1944-01", true},
+		{"a full date", "1944-01-23", true},
+		{"the 2024 leap day", "2024-02-29", true},
+		{"an empty value", "", true},
 
-func TestPartialDateRejectsDatesThatDoNotExist(t *testing.T) {
-	// The whole point of a partial date is that it can be vague. It cannot be
-	// wrong: "1944" is honest, "1944-02-30" is a typo that would sort between
-	// two real dates and never resolve to a day.
-	for _, bad := range []string{
-		"1944-02-30", // February has never had 30 days
-		"1944-04-31", // nor April 31
-		"2023-02-29", // 2023 is not a leap year
-		"1900-02-29", // nor 1900 — divisible by 100, not by 400
-	} {
-		v := bad
-		if msg := normalizePartialDate("date", &v); msg == "" {
-			t.Errorf("normalizePartialDate(%q) accepted a date that does not exist", bad)
-		}
-	}
-}
+		// The whole point of a partial date is that it can be vague. It cannot be
+		// wrong: "1944" is honest, "1944-02-30" is a typo that would sort between
+		// two real dates and never resolve to a day.
+		{"a date that does not exist: 30 February", "1944-02-30", false},         // February has never had 30 days
+		{"a date that does not exist: 31 April", "1944-04-31", false},            // nor April 31
+		{"a date that does not exist: 29 February in 2023", "2023-02-29", false}, // 2023 is not a leap year
+		{"a date that does not exist: 29 February in 1900", "1900-02-29", false}, // nor 1900 — divisible by 100, not by 400
 
-func TestPartialDateRejectsMalformedInput(t *testing.T) {
-	for _, bad := range []string{"44", "not a date", "1944-13", "1944-00", "1944-01-32", "1944-01-00", "0999", "3001"} {
-		v := bad
-		if msg := normalizePartialDate("date", &v); msg == "" {
-			t.Errorf("normalizePartialDate(%q) accepted it", bad)
-		}
+		// Malformed input: the shapes that are not dates at all.
+		{"malformed: a two-digit year", "44", false},
+		{"malformed: prose", "not a date", false},
+		{"malformed: month 13", "1944-13", false},
+		{"malformed: month 00", "1944-00", false},
+		{"malformed: day 32", "1944-01-32", false},
+		{"malformed: day 00", "1944-01-00", false},
+		{"malformed: a year below the accepted range", "0999", false},
+		{"malformed: a year above the accepted range", "3001", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			v := tc.in
+			msg := normalizePartialDate("date", &v)
+			if tc.valid && msg != "" {
+				t.Errorf("normalizePartialDate(%q) rejected it: %s", tc.in, msg)
+			}
+			if !tc.valid && msg == "" {
+				t.Errorf("normalizePartialDate(%q) accepted it", tc.in)
+			}
+		})
 	}
 }
 

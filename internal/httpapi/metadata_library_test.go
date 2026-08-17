@@ -201,103 +201,116 @@ func setDialogue(t *testing.T, srv *Server, id int64, character, actor string) {
 	}
 }
 
-func TestRemapRewritesOneNameInsideAnEnsemble(t *testing.T) {
+// TestRemapSpeakerComponents is the whole component family as one table: seed a
+// dialogue into a known (character, actor) state, POST ONE mapping, read the row
+// back. Only the seed pair, the mapping and the two expected strings vary.
+//
+// Each row builds its OWN movie (vendetta) on the shared server, so the movie_id
+// filter leaves Dialogues[0] unambiguous inside every subtest; the server and the
+// signup are shared because no row can see another row's movie.
+func TestRemapSpeakerComponents(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
-	m := vendetta(t, srv, c)
 
-	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": m.ID, "quote": "Beneath this mask.", "character": "x"}, http.StatusCreated))
-	setDialogue(t, srv, d.ID, "V Codename, Evey Hammond", "Hugo Weaving, Natalie Portman")
-
-	res := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
-		"mappings": []map[string]any{{"from": "V Codename", "character": "V", "actor": "Hugo Weaving"}},
-	}, 200))
-	if res.Remapped != 1 {
-		t.Fatalf("remapped = %d, want 1 — an ensemble line must be reachable", res.Remapped)
+	cases := []struct {
+		name          string
+		quote         string
+		seedCharacter string
+		seedActor     string
+		from          string
+		toCharacter   string
+		toActor       string
+		// wantRemapped is -1 where the case never asserted the count.
+		wantRemapped  int
+		wantCharacter string
+		wantActor     string
+	}{
+		{
+			// Only the matched component moves. The co-credit and the separator survive
+			// exactly, which is what metadata.ReplaceCredit is for.
+			name:          "one name inside an ensemble is rewritten",
+			quote:         "Beneath this mask.",
+			seedCharacter: "V Codename, Evey Hammond",
+			seedActor:     "Hugo Weaving, Natalie Portman",
+			from:          "V Codename", toCharacter: "V", toActor: "Hugo Weaving",
+			wantRemapped:  1,
+			wantCharacter: "V, Evey Hammond",
+			wantActor:     "Hugo Weaving, Natalie Portman",
+		},
+		{
+			// The actor is spliced AT THE SAME INDEX, not appended and not overwritten.
+			// Slot 1 replaced, slot 0 untouched. Getting this backwards would credit
+			// Natalie Portman with V's line.
+			name:          "the actor is spliced at the matching position",
+			quote:         "Remember, remember.",
+			seedCharacter: "V, Evey Hammond",
+			seedActor:     "Hugo Weaving, WRONG NAME",
+			from:          "Evey Hammond", toCharacter: "Evey", toActor: "Natalie Portman",
+			wantRemapped:  -1,
+			wantCharacter: "V, Evey",
+			wantActor:     "Hugo Weaving, Natalie Portman",
+		},
+		{
+			// WHEN THE LISTS DO NOT LINE UP, THE ACTOR IS LEFT ALONE. Imported rows carry
+			// a different number of actors than characters often enough that guessing a
+			// slot is the wrong default: a wrong pairing is invisible and would be read as
+			// data the user entered. The character rename still happens — that part is
+			// unambiguous.
+			//
+			// Three characters, one actor: nothing in the row says which one it belongs to.
+			name:          "the actor is left alone when it cannot tell which is which",
+			quote:         "Ideas are bulletproof.",
+			seedCharacter: "V, Evey Hammond, Finch",
+			seedActor:     "Hugo Weaving",
+			from:          "Evey Hammond", toCharacter: "Evey", toActor: "Natalie Portman",
+			wantRemapped:  -1,
+			wantCharacter: "V, Evey, Finch",
+			wantActor:     "Hugo Weaving",
+		},
+		{
+			// The single-speaker path is the common one and must be unchanged: both fields
+			// set outright, which is what fills a missing actor from the cast.
+			//
+			// This case used to build its row through POST /dialogues with character
+			// "Evey Hammond". That label doesn't match this cast, so the create path
+			// leaves the actor empty (TestRemapSpeakers pins exactly that) — seeding
+			// ("Evey Hammond", "") reproduces the same state.
+			name:          "both fields are still set for one speaker",
+			quote:         "People should not be afraid.",
+			seedCharacter: "Evey Hammond",
+			seedActor:     "",
+			from:          "Evey Hammond", toCharacter: "Evey", toActor: "",
+			wantRemapped:  -1,
+			wantCharacter: "Evey",
+			wantActor:     "Natalie Portman",
+		},
 	}
-	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
-	// Only the matched component moved. The co-credit and the separator survive
-	// exactly, which is what metadata.ReplaceCredit is for.
-	if got.Character != "V, Evey Hammond" {
-		t.Fatalf("character = %q, want \"V, Evey Hammond\"", got.Character)
-	}
-	if got.Actor != "Hugo Weaving, Natalie Portman" {
-		t.Fatalf("actor = %q — the spliced slot should match and the other stay", got.Actor)
-	}
-}
 
-// The actor is spliced AT THE SAME INDEX, not appended and not overwritten.
-func TestRemapSplicesTheActorAtTheMatchingPosition(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	m := vendetta(t, srv, c)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Rebound to the subtest's t so a failed request names its own subtest.
+			c := &testClient{t: t, h: h, cookie: c.cookie}
+			m := vendetta(t, srv, c)
 
-	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": m.ID, "quote": "Remember, remember.", "character": "x"}, http.StatusCreated))
-	setDialogue(t, srv, d.ID, "V, Evey Hammond", "Hugo Weaving, WRONG NAME")
+			d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
+				map[string]any{"movie_id": m.ID, "quote": tc.quote, "character": "x"}, http.StatusCreated))
+			setDialogue(t, srv, d.ID, tc.seedCharacter, tc.seedActor)
 
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
-		"mappings": []map[string]any{{"from": "Evey Hammond", "character": "Evey", "actor": "Natalie Portman"}},
-	}, 200)
+			res := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
+				"mappings": []map[string]any{{"from": tc.from, "character": tc.toCharacter, "actor": tc.toActor}},
+			}, 200))
+			if tc.wantRemapped >= 0 && res.Remapped != tc.wantRemapped {
+				t.Fatalf("remapped = %d, want %d — an ensemble line must be reachable", res.Remapped, tc.wantRemapped)
+			}
 
-	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
-	if got.Character != "V, Evey" {
-		t.Fatalf("character = %q", got.Character)
-	}
-	// Slot 1 replaced, slot 0 untouched. Getting this backwards would credit
-	// Natalie Portman with V's line.
-	if got.Actor != "Hugo Weaving, Natalie Portman" {
-		t.Fatalf("actor = %q, want the SECOND slot replaced", got.Actor)
-	}
-}
-
-// WHEN THE LISTS DO NOT LINE UP, THE ACTOR IS LEFT ALONE. Imported rows carry a
-// different number of actors than characters often enough that guessing a slot is
-// the wrong default: a wrong pairing is invisible and would be read as data the
-// user entered. The character rename still happens — that part is unambiguous.
-func TestRemapLeavesTheActorAloneWhenItCannotTellWhichIsWhich(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	m := vendetta(t, srv, c)
-
-	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": m.ID, "quote": "Ideas are bulletproof.", "character": "x"}, http.StatusCreated))
-	// Three characters, one actor: nothing in the row says which one it belongs to.
-	setDialogue(t, srv, d.ID, "V, Evey Hammond, Finch", "Hugo Weaving")
-
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
-		"mappings": []map[string]any{{"from": "Evey Hammond", "character": "Evey", "actor": "Natalie Portman"}},
-	}, 200)
-
-	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
-	if got.Character != "V, Evey, Finch" {
-		t.Fatalf("the character rename must still happen: %q", got.Character)
-	}
-	if got.Actor != "Hugo Weaving" {
-		t.Fatalf("actor = %q, want it untouched rather than guessed", got.Actor)
-	}
-}
-
-// The single-speaker path is the common one and must be unchanged: both fields set
-// outright, which is what fills a missing actor from the cast.
-func TestRemapStillSetsBothFieldsForOneSpeaker(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	m := vendetta(t, srv, c)
-
-	c.mustDo("POST", "/dialogues",
-		map[string]any{"movie_id": m.ID, "quote": "People should not be afraid.", "character": "Evey Hammond"}, http.StatusCreated)
-	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/remap-speakers", map[string]any{
-		"mappings": []map[string]any{{"from": "Evey Hammond", "character": "Evey", "actor": ""}},
-	}, 200)
-
-	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
-	if got.Character != "Evey" || got.Actor != "Natalie Portman" {
-		t.Fatalf("single speaker: %+v", got)
+			got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(m.ID), nil, 200)).Dialogues[0]
+			if got.Character != tc.wantCharacter {
+				t.Fatalf("character = %q, want %q — the rename must still happen", got.Character, tc.wantCharacter)
+			}
+			if got.Actor != tc.wantActor {
+				t.Fatalf("actor = %q, want %q — the right slot, untouched rather than guessed", got.Actor, tc.wantActor)
+			}
+		})
 	}
 }

@@ -54,7 +54,8 @@ func addRead(t *testing.T, srv *Server, uid, bookID int64, started, finished, ou
 
 func TestLastReadAtIsTheMostRecentTimeYouHadIt(t *testing.T) {
 	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
+	h := srv.Handler()
+	c := signupAdmin(t, h)
 	uid := int64(1)
 
 	mk := func(title string) int64 {
@@ -85,16 +86,34 @@ func TestLastReadAtIsTheMostRecentTimeYouHadIt(t *testing.T) {
 	undated := mk("Undated Read")
 	addRead(t, srv, uid, undated, "", "", "finished")
 
+	// The schema stores 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' and relies on them
+	// sorting lexically against each other. MAX() over the mixed shapes is only
+	// meaningful because of that, so the last two books say so.
+	mixed := mk("Mixed precision")
+	addRead(t, srv, uid, mixed, "", "2019", "finished")
+	addRead(t, srv, uid, mixed, "", "2019-05", "finished")
+
+	// A longer string is not a later date: 2020 beats 2019-12-31.
+	later := mk("Mixed with a later year")
+	addRead(t, srv, uid, later, "", "2019", "finished")
+	addRead(t, srv, uid, later, "", "2019-05", "finished")
+	addRead(t, srv, uid, later, "", "2020", "finished")
+
 	for _, want := range []struct{ title, at string }{
 		{"Read Twice", "2024-02-01"},
 		{"Currently Open", "2025-05-01"},
 		{"Given Up On", "2023-07-15"},
 		{"Never Read", ""},
 		{"Undated Read", ""},
+		{"Mixed precision", "2019-05"},
+		{"Mixed with a later year", "2020"},
 	} {
-		if got := bookNamed(t, c, want.title).LastReadAt; got != want.at {
-			t.Errorf("%s: last_read_at = %q, want %q", want.title, got, want.at)
-		}
+		t.Run(want.title, func(t *testing.T) {
+			sub := &testClient{t: t, h: h, cookie: c.cookie}
+			if got := bookNamed(t, sub, want.title).LastReadAt; got != want.at {
+				t.Errorf("%s: last_read_at = %q, want %q", want.title, got, want.at)
+			}
+		})
 	}
 
 	// And the counter it sits beside still answers its own question: only
@@ -139,28 +158,6 @@ func TestLastReadAtHoldsOnlyWorksWithADate(t *testing.T) {
 	}
 	if _, ok := m[never]; ok {
 		t.Error("a work that was never read put an entry in the map")
-	}
-}
-
-func TestLastReadAtComparesPartialDatesAsText(t *testing.T) {
-	// The schema stores 'YYYY' | 'YYYY-MM' | 'YYYY-MM-DD' and relies on them
-	// sorting lexically against each other. MAX() over the mixed shapes is only
-	// meaningful because of that, so it is worth one test that says so.
-	srv := newTestServer(t)
-	c := signupAdmin(t, srv.Handler())
-	uid := int64(1)
-	id := decode[bookDetail](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Mixed"}, http.StatusCreated)).ID
-
-	addRead(t, srv, uid, id, "", "2019", "finished")
-	addRead(t, srv, uid, id, "", "2019-05", "finished")
-	if got := bookNamed(t, c, "Mixed").LastReadAt; got != "2019-05" {
-		t.Fatalf("last_read_at = %q, want the more precise later date 2019-05", got)
-	}
-	// A longer string is not a later date: 2020 beats 2019-12-31.
-	addRead(t, srv, uid, id, "", "2020", "finished")
-	if got := bookNamed(t, c, "Mixed").LastReadAt; got != "2020" {
-		t.Fatalf("last_read_at = %q, want 2020", got)
 	}
 }
 

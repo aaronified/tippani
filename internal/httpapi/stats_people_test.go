@@ -67,46 +67,69 @@ func TestOnePersonWithABookAndAFilmIsOneRow(t *testing.T) {
 	}
 }
 
-func TestTwoCreditsOnOneWorkDoNotCountTwice(t *testing.T) {
-	// The one place merging the roles can double count. A dialogue is the only
-	// quote carrying two credits, and Eastwood directs and stars in the same
-	// film — so a naive union would give him two quotes for one line and a
-	// leaderboard that rewards holding two jobs.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
-
-	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Unforgiven", "director": "Clint Eastwood",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film.ID, "quote": "Deserve's got nothin' to do with it", "actor": "Clint Eastwood",
-	}, http.StatusCreated)
-
-	w, q, ok := breakdownRow(t, c, "people", "Clint Eastwood")
-	if !ok {
-		t.Fatal("Clint Eastwood is missing from the people breakdown")
+// One person credited twice over one work is one row holding one work and one
+// quote — however the two credits happen to be spelled.
+//
+// EVERY ROW BUILDS ITS OWN SERVER. Both rows credit the same person, so one
+// shared database would hand Eastwood two works and two quotes and break both
+// expectations. The merge here is structural, not a wall-clock saving.
+func TestCombinedPeopleBreakdownCountsAPersonOnce(t *testing.T) {
+	cases := []struct {
+		name                  string
+		title                 string
+		director              string
+		actor                 string
+		quote                 string
+		wantWorks, wantQuotes int
+	}{
+		{
+			// The one place merging the roles can double count. A dialogue is the only
+			// quote carrying two credits, and Eastwood directs and stars in the same
+			// film — so a naive union would give him two quotes for one line and a
+			// leaderboard that rewards holding two jobs.
+			name:      "two credits on one work",
+			title:     "Unforgiven",
+			director:  "Clint Eastwood",
+			actor:     "Clint Eastwood",
+			quote:     "Deserve's got nothin' to do with it",
+			wantWorks: 1, wantQuotes: 1,
+		},
+		{
+			// tallyMap folds case, so the set feeding it must too — otherwise "Clint
+			// Eastwood" the director and "clint eastwood" the actor arrive as two people
+			// and the double count comes straight back through the side door.
+			name:     "the two credits differ only in case",
+			title:    "Gran Torino",
+			director: "Clint Eastwood",
+			actor:    "clint eastwood",
+			quote:    "Get off my lawn",
+			// The works tally was unasserted before the merge; it is asserted here
+			// only because the folded row was confirmed to report 1.
+			wantWorks: 1, wantQuotes: 1,
+		},
 	}
-	if w != 1 || q != 1 {
-		t.Errorf("people row: works=%d quotes=%d, want 1/1 — one film, one line", w, q)
-	}
-}
 
-func TestCreditSpellingDoesNotSplitAPerson(t *testing.T) {
-	// tallyMap folds case, so the set feeding it must too — otherwise "Clint
-	// Eastwood" the director and "clint eastwood" the actor arrive as two people
-	// and the double count comes straight back through the side door.
-	h := newTestServer(t).Handler()
-	c := signupAdmin(t, h)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newTestServer(t).Handler()
+			c := signupAdmin(t, h)
 
-	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
-		"title": "Gran Torino", "director": "Clint Eastwood",
-	}, http.StatusCreated))
-	c.mustDo("POST", "/dialogues", map[string]any{
-		"movie_id": film.ID, "quote": "Get off my lawn", "actor": "clint eastwood",
-	}, http.StatusCreated)
+			film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+				"title": tc.title, "director": tc.director,
+			}, http.StatusCreated))
+			c.mustDo("POST", "/dialogues", map[string]any{
+				"movie_id": film.ID, "quote": tc.quote, "actor": tc.actor,
+			}, http.StatusCreated)
 
-	if _, q, ok := breakdownRow(t, c, "people", "Clint Eastwood"); !ok || q != 1 {
-		t.Errorf("people row: quotes=%d found=%v, want one line counted once", q, ok)
+			w, q, ok := breakdownRow(t, c, "people", "Clint Eastwood")
+			if !ok {
+				t.Fatal("Clint Eastwood is missing from the people breakdown")
+			}
+			if w != tc.wantWorks || q != tc.wantQuotes {
+				t.Errorf("people row: works=%d quotes=%d, want %d/%d — one film, one line counted once",
+					w, q, tc.wantWorks, tc.wantQuotes)
+			}
+		})
 	}
 }
 

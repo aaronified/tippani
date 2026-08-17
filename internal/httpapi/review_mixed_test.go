@@ -76,6 +76,10 @@ func TestDailyDeckServesEveryMediumFromAMixedLibrary(t *testing.T) {
 // The scope preference is what decides which pools the deck draws from, and it
 // is stored as one string. Every value the server accepts must actually work,
 // including the two the Settings screen has never been able to send.
+//
+// One server and one seeded library for the whole table: GET /review/practice
+// only reads (it serves the whole in-scope pool and records nothing), and every
+// row PUTs its own scope before it draws, so no row can see another row's state.
 func TestEveryAcceptedScopeDrawsWhatItNames(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -86,10 +90,24 @@ func TestEveryAcceptedScopeDrawsWhatItNames(t *testing.T) {
 		scope string
 		want  []string
 	}{
+		// ---- one medium at a time ------------------------------------------
 		{"books", []string{kindBook}},
 		{"movies", []string{kindScreen}},
 		{"quotes", []string{kindUtterance}},
 		{"both", []string{kindBook, kindScreen, kindUtterance}},
+
+		// ---- lists ----------------------------------------------------------
+		// The three media are independent choices, so every combination of them
+		// has to work — including the two that were unsayable until the
+		// preference learned to hold a list. "books,quotes" is the case that
+		// motivated it: a reader who does not want film lines in the deck should
+		// not have to give up standalone quotes to say so.
+		{"books,quotes", []string{kindBook, kindUtterance}},
+		{"movies,quotes", []string{kindScreen, kindUtterance}},
+		{"books,movies", []string{kindBook, kindScreen}},
+		{"books,movies,quotes", []string{kindBook, kindScreen, kindUtterance}},
+		{"quotes,books", []string{kindBook, kindUtterance}},  // order is not meaning
+		{"Books, Quotes", []string{kindBook, kindUtterance}}, // spacing and case are not meaning
 	} {
 		t.Run(tc.scope, func(t *testing.T) {
 			c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srReviewScope": tc.scope}, 200)
@@ -113,57 +131,6 @@ func TestEveryAcceptedScopeDrawsWhatItNames(t *testing.T) {
 					}
 				}
 				if !found {
-					t.Errorf("scope %q served %s, which it does not name: %v", tc.scope, k, seen)
-				}
-			}
-		})
-	}
-}
-
-// The three media are independent choices, so every combination of them has to
-// work — including the two that were unsayable until the preference learned to
-// hold a list. "books,quotes" is the case that motivated it: a reader who does
-// not want film lines in the deck should not have to give up standalone quotes
-// to say so.
-func TestScopeAcceptsAnyCombination(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	seedMixedLibrary(t, srv, c)
-
-	for _, tc := range []struct {
-		scope string
-		want  []string
-	}{
-		{"books,quotes", []string{kindBook, kindUtterance}},
-		{"movies,quotes", []string{kindScreen, kindUtterance}},
-		{"books,movies", []string{kindBook, kindScreen}},
-		{"books,movies,quotes", []string{kindBook, kindScreen, kindUtterance}},
-		{"quotes,books", []string{kindBook, kindUtterance}},  // order is not meaning
-		{"Books, Quotes", []string{kindBook, kindUtterance}}, // spacing and case are not meaning
-	} {
-		t.Run(tc.scope, func(t *testing.T) {
-			c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srReviewScope": tc.scope}, 200)
-			seen := map[string]int{}
-			for day := 0; day < 12; day++ {
-				deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
-				for k, n := range kindsIn(deck.Items) {
-					seen[k] += n
-				}
-			}
-			for _, want := range tc.want {
-				if seen[want] == 0 {
-					t.Errorf("scope %q served no %s: %v", tc.scope, want, seen)
-				}
-			}
-			for k := range seen {
-				ok := false
-				for _, want := range tc.want {
-					if k == want {
-						ok = true
-					}
-				}
-				if !ok {
 					t.Errorf("scope %q served %s, which it does not name: %v", tc.scope, k, seen)
 				}
 			}

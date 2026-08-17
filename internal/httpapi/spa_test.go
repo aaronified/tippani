@@ -41,28 +41,39 @@ func get(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
 	return rec
 }
 
-func TestTheRootServesTheApp(t *testing.T) {
+// Both of the ways a request has to end up at the app: the root, which is served
+// directly, and a client route, which reaches index.html through the fallback.
+func TestTheAppIsServedForTheRootAndClientRoutes(t *testing.T) {
+	// One fixture for every row: each row is a read-only GET against a static
+	// FS holding nothing but index.html, so no row's assertion can observe
+	// another row's data. This is the same sharing the client-route loop
+	// already did across its five paths.
 	h := spaServer(t, map[string]string{"index.html": indexHTML})
-	rec := get(t, h, "/")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /: %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "index-abc.js") {
-		t.Fatalf("GET / did not serve index.html: %s", rec.Body)
-	}
-}
 
-func TestAClientRouteFallsBackToTheApp(t *testing.T) {
-	// The whole reason the fallback exists. These are not files and never will be.
-	h := spaServer(t, map[string]string{"index.html": indexHTML})
-	for _, route := range []string{"/library", "/quotes", "/library/12", "/settings", "/bin"} {
-		rec := get(t, h, route)
-		if rec.Code != http.StatusOK {
-			t.Errorf("%s: got %d, a client route must be answered with the app", route, rec.Code)
-		}
-		if !strings.Contains(rec.Body.String(), "index-abc.js") {
-			t.Errorf("%s: did not serve the app", route)
-		}
+	cases := []struct {
+		name string
+		path string
+	}{
+		{"the root serves the app", "/"},
+
+		// The whole reason the fallback exists. These are not files and never will be.
+		{"a client route falls back to the app: /library", "/library"},
+		{"a client route falls back to the app: /quotes", "/quotes"},
+		{"a client route falls back to the app: /library/12", "/library/12"},
+		{"a client route falls back to the app: /settings", "/settings"},
+		{"a client route falls back to the app: /bin", "/bin"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := get(t, h, tc.path)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: got %d, this must be answered with the app", tc.path, rec.Code)
+			}
+			if !strings.Contains(rec.Body.String(), "index-abc.js") {
+				t.Fatalf("%s: did not serve index.html: %s", tc.path, rec.Body)
+			}
+		})
 	}
 }
 

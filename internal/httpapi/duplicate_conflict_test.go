@@ -33,23 +33,53 @@ func TestDuplicateAnnotationReturnsExisting(t *testing.T) {
 	bookID := newTestBook(t, c, "Invisible Cities")
 
 	quote := "Cities, like dreams, are made of desires and fears."
-	first := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "quote": quote,
-	}, http.StatusCreated))
+	note := "Calvino's cities are all Venice, seen from different angles."
 
-	rec := c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "quote": quote,
-	}, http.StatusConflict)
-	got := decode[conflictBody](t, rec)
+	// The rows share one book: a quote and a note hash differently, so neither
+	// row's create can collide with the other's, and each row's assertions look
+	// only at the row it just wrote.
+	cases := []struct {
+		name    string
+		payload map[string]any
+		// An empty want means "this row does not assert that field", so the
+		// merge adds no assertion the separate tests did not already make.
+		wantQuote string
+		wantNote  string
+	}{
+		{
+			name:      "a duplicate quote",
+			payload:   map[string]any{"book_id": bookID, "quote": quote},
+			wantQuote: quote,
+		},
+		// Note-only annotations dedupe on the note (annotationReq.hash), so the 409 has
+		// to find the existing row by that hash too, not by an empty quote.
+		{
+			name:     "a duplicate note-only annotation",
+			payload:  map[string]any{"book_id": bookID, "note": note},
+			wantNote: note,
+		},
+	}
 
-	if got.Error == "" {
-		t.Fatal("409 should still carry a human-readable error")
-	}
-	if got.Existing.ID != first.ID {
-		t.Fatalf("409 existing.id = %d, want the original %d", got.Existing.ID, first.ID)
-	}
-	if got.Existing.Quote != quote {
-		t.Fatalf("409 existing.quote = %q, want %q", got.Existing.Quote, quote)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			first := decode[annotationRow](t, c.mustDo("POST", "/annotations", tc.payload, http.StatusCreated))
+
+			rec := c.mustDo("POST", "/annotations", tc.payload, http.StatusConflict)
+			got := decode[conflictBody](t, rec)
+
+			if got.Error == "" {
+				t.Fatal("409 should still carry a human-readable error")
+			}
+			if got.Existing.ID != first.ID {
+				t.Fatalf("409 existing.id = %d, want the original %d", got.Existing.ID, first.ID)
+			}
+			if tc.wantQuote != "" && got.Existing.Quote != tc.wantQuote {
+				t.Fatalf("409 existing.quote = %q, want %q", got.Existing.Quote, tc.wantQuote)
+			}
+			if tc.wantNote != "" && got.Existing.Note != tc.wantNote {
+				t.Fatalf("409 existing.note = %q, want %q", got.Existing.Note, tc.wantNote)
+			}
+		})
 	}
 }
 
@@ -90,31 +120,6 @@ func TestSameQuoteInDifferentBookIsNotDuplicate(t *testing.T) {
 	quote := "The traveller finds again a past of his."
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": first, "quote": quote}, http.StatusCreated)
 	c.mustDo("POST", "/annotations", map[string]any{"book_id": second, "quote": quote}, http.StatusCreated)
-}
-
-// Note-only annotations dedupe on the note (annotationReq.hash), so the 409 has
-// to find the existing row by that hash too, not by an empty quote.
-func TestDuplicateNoteOnlyAnnotationReturnsExisting(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-	bookID := newTestBook(t, c, "Invisible Cities")
-
-	note := "Calvino's cities are all Venice, seen from different angles."
-	first := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "note": note,
-	}, http.StatusCreated))
-
-	got := decode[conflictBody](t, c.mustDo("POST", "/annotations", map[string]any{
-		"book_id": bookID, "note": note,
-	}, http.StatusConflict))
-
-	if got.Existing.ID != first.ID {
-		t.Fatalf("409 existing.id = %d, want the original %d", got.Existing.ID, first.ID)
-	}
-	if got.Existing.Note != note {
-		t.Fatalf("409 existing.note = %q, want %q", got.Existing.Note, note)
-	}
 }
 
 // The scenario the whole change exists for, end to end over a device token:

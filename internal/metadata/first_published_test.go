@@ -16,49 +16,61 @@ func cand(source, title, author string, year int) BookCandidate {
 	return BookCandidate{Source: source, Title: title, Author: author, PublishedYear: year}
 }
 
-func TestAnEditionYearGivesWayToTheFirstPublication(t *testing.T) {
-	cands := []BookCandidate{
-		cand("google", "Meditations", "Marcus Aurelius", 2006),
-		cand("openlibrary", "Meditations", "Marcus Aurelius Antoninus", 180),
+func TestAdoptFirstPublished(t *testing.T) {
+	cases := []struct {
+		name      string
+		cands     []BookCandidate
+		wantYears []int
+	}{
+		{
+			name: "an edition year gives way to the first publication",
+			cands: []BookCandidate{
+				cand("google", "Meditations", "Marcus Aurelius", 2006),
+				cand("openlibrary", "Meditations", "Marcus Aurelius Antoninus", 180),
+			},
+			wantYears: []int{180, 180},
+		},
+		{
+			// The fallback that was actually asked for: if no first-publication year is
+			// available, keep the edition date rather than blanking the field.
+			// And the one with nothing gains the year its twin had.
+			name: "the edition year survives when nothing knows better",
+			cands: []BookCandidate{
+				cand("google", "Some Novel", "A Writer", 1994),
+				cand("openlibrary", "Some Novel", "A Writer", 0),
+			},
+			wantYears: []int{1994, 1994},
+		},
+		{
+			// Ulysses is Joyce's and Tennyson's. Folding on title alone would date the
+			// novel to 1842 — a wrong answer that looks authoritative.
+			name: "two different works with one name do not merge",
+			cands: []BookCandidate{
+				cand("google", "Ulysses", "James Joyce", 1922),
+				cand("openlibrary", "Ulysses", "Alfred Tennyson", 1842),
+			},
+			wantYears: []int{1922, 1842},
+		},
+		{
+			// normalizeWork drops what follows a colon, which is exactly the difference
+			// between how the two providers title the same book.
+			name: "a subtitle does not stop the match",
+			cands: []BookCandidate{
+				cand("google", "The Republic: Book One", "Plato", 2007),
+				cand("openlibrary", "The Republic", "Plato", -380),
+			},
+			wantYears: []int{-380, -380},
+		},
 	}
-	adoptFirstPublished(cands, false)
-	for _, c := range cands {
-		if c.PublishedYear != 180 {
-			t.Errorf("%s: published_year = %d, want 180", c.Source, c.PublishedYear)
-		}
-	}
-}
-
-func TestTheEditionYearSurvivesWhenNothingKnowsBetter(t *testing.T) {
-	// The fallback that was actually asked for: if no first-publication year is
-	// available, keep the edition date rather than blanking the field.
-	cands := []BookCandidate{
-		cand("google", "Some Novel", "A Writer", 1994),
-		cand("openlibrary", "Some Novel", "A Writer", 0),
-	}
-	adoptFirstPublished(cands, false)
-	if cands[0].PublishedYear != 1994 {
-		t.Errorf("google year lost: %d", cands[0].PublishedYear)
-	}
-	// And the one with nothing gains the year its twin had.
-	if cands[1].PublishedYear != 1994 {
-		t.Errorf("openlibrary year not backfilled: %d", cands[1].PublishedYear)
-	}
-}
-
-func TestTwoDifferentWorksWithOneNameDoNotMerge(t *testing.T) {
-	// Ulysses is Joyce's and Tennyson's. Folding on title alone would date the
-	// novel to 1842 — a wrong answer that looks authoritative.
-	cands := []BookCandidate{
-		cand("google", "Ulysses", "James Joyce", 1922),
-		cand("openlibrary", "Ulysses", "Alfred Tennyson", 1842),
-	}
-	adoptFirstPublished(cands, false)
-	if cands[0].PublishedYear != 1922 {
-		t.Errorf("Joyce dated to %d", cands[0].PublishedYear)
-	}
-	if cands[1].PublishedYear != 1842 {
-		t.Errorf("Tennyson dated to %d", cands[1].PublishedYear)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adoptFirstPublished(tc.cands, false)
+			for i, c := range tc.cands {
+				if c.PublishedYear != tc.wantYears[i] {
+					t.Errorf("%s: published_year = %d, want %d", c.Source, c.PublishedYear, tc.wantYears[i])
+				}
+			}
+		})
 	}
 }
 
@@ -136,19 +148,6 @@ func TestMergingKeepsAYearWhenTheOtherSourceHasNone(t *testing.T) {
 	})
 	if got[0].PublishedYear != 1994 {
 		t.Fatalf("year = %d, want the edition date kept", got[0].PublishedYear)
-	}
-}
-
-func TestASubtitleDoesNotStopTheMatch(t *testing.T) {
-	// normalizeWork drops what follows a colon, which is exactly the difference
-	// between how the two providers title the same book.
-	cands := []BookCandidate{
-		cand("google", "The Republic: Book One", "Plato", 2007),
-		cand("openlibrary", "The Republic", "Plato", -380),
-	}
-	adoptFirstPublished(cands, false)
-	if cands[0].PublishedYear != -380 {
-		t.Errorf("published_year = %d, want -380", cands[0].PublishedYear)
 	}
 }
 

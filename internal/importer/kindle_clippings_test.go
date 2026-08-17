@@ -2,6 +2,7 @@ package importer
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -15,250 +16,234 @@ func parseClips(t *testing.T, s string) ([]*Result, ClippingStats) {
 	return res, stats
 }
 
-// The user's own file: no "Added on" date at all, "Page N" where most files say
-// "location", and a section name where most say a date. Parsing this is the
-// whole reason the parser reads structure instead of English.
-func TestKindleClippingsUserSample(t *testing.T) {
-	const in = "We Are Here (Michael Marshall)\n" +
-		"- Your Highlight on Page 11 | Chapter 2\n" +
-		"\n" +
-		"That meant a change was coming.\n" +
-		"==========\n" +
-		"We Are Here (Michael Marshall)\n" +
-		"- Your Highlight on Page 8 | Chapter 10\n" +
-		"\n" +
-		"Love is a fire that burns in the soul.\n" +
-		"==========\n" +
-		"Grimm's Fairy Tales (Margaret Hunt, Wilhelm Grimm, Frances Jenkins Olcott, Jacob Grimm)\n" +
-		"- Your Highlight on Page 8 | THE ROBBER BRIDEGROOM\n" +
-		"\n" +
-		"‘Alas, poor child, thou hast got into a murderer’s den.’\n" +
-		"==========\n"
+// Each case feeds one My Clippings.txt to the parser and pins the WHOLE result:
+// every book, every annotation field, and all four counters of ClippingStats.
+// Each row names the specific parser failure it guards against.
+func TestKindleClippingsParses(t *testing.T) {
+	cases := []struct {
+		name      string
+		in        string
+		want      []Result
+		wantStats ClippingStats
+	}{
+		{
+			// The user's own file: no "Added on" date at all, "Page N" where most files say
+			// "location", and a section name where most say a date. Parsing this is the
+			// whole reason the parser reads structure instead of English.
+			name: "the user's own sample: page numbers, section names, no date at all",
+			in: "We Are Here (Michael Marshall)\n" +
+				"- Your Highlight on Page 11 | Chapter 2\n" +
+				"\n" +
+				"That meant a change was coming.\n" +
+				"==========\n" +
+				"We Are Here (Michael Marshall)\n" +
+				"- Your Highlight on Page 8 | Chapter 10\n" +
+				"\n" +
+				"Love is a fire that burns in the soul.\n" +
+				"==========\n" +
+				"Grimm's Fairy Tales (Margaret Hunt, Wilhelm Grimm, Frances Jenkins Olcott, Jacob Grimm)\n" +
+				"- Your Highlight on Page 8 | THE ROBBER BRIDEGROOM\n" +
+				"\n" +
+				"‘Alas, poor child, thou hast got into a murderer’s den.’\n" +
+				"==========\n",
+			want: []Result{
+				{
+					Book: Book{Title: "We Are Here", Author: "Michael Marshall"},
+					Annotations: []Annotation{
+						{Quote: "That meant a change was coming.", Chapter: "Chapter 2", Location: "p.11"},
+						{Quote: "Love is a fire that burns in the soul.", Chapter: "Chapter 10", Location: "p.8"},
+					},
+				},
+				{
+					// A four-name author list is kept verbatim: re-ordering it would be a guess,
+					// and the same guess would mangle "(Marshall, Michael)".
+					Book: Book{Title: "Grimm's Fairy Tales", Author: "Margaret Hunt, Wilhelm Grimm, Frances Jenkins Olcott, Jacob Grimm"},
+					Annotations: []Annotation{
+						// The section name lands as the chapter.
+						{Quote: "‘Alas, poor child, thou hast got into a murderer’s den.’", Chapter: "THE ROBBER BRIDEGROOM", Location: "p.8"},
+					},
+				},
+			},
+			// Nothing should be skipped.
+			wantStats: ClippingStats{},
+		},
+		{
+			// A chapter title made of words that look like keywords must not steal the
+			// classification. "NOTES" must not make it a note, "CLOCK" must not read as
+			// "Loc", "PAGEANT" must not read as "page".
+			name: "an adversarial chapter title must not steal the classification",
+			in: "Some Book (An Author)\n" +
+				"- Your Highlight on Page 9 | NOTES ON THE CLOCK TOWER PAGEANT\n" +
+				"\n" +
+				"The body text.\n" +
+				"==========\n",
+			want: []Result{{
+				Book: Book{Title: "Some Book", Author: "An Author"},
+				// Must stay a highlight, not become a note: Quote set, Note empty, and the
+				// chapter not swallowed.
+				Annotations: []Annotation{
+					{Quote: "The body text.", Chapter: "NOTES ON THE CLOCK TOWER PAGEANT", Location: "p.9"},
+				},
+			}},
+			wantStats: ClippingStats{},
+		},
+		{
+			// The canonical English shape: location range plus an "Added on" date.
+			name: "the canonical English shape, a location range plus an Added on date",
+			in: "Dune (Frank Herbert)\n" +
+				"- Your Highlight on page 42 | Location 610-612 | Added on Sunday, 5 January 2020 21:41:19\n" +
+				"\n" +
+				"Fear is the mind-killer.\n" +
+				"==========\n",
+			want: []Result{{
+				Book: Book{Title: "Dune", Author: "Frank Herbert"},
+				Annotations: []Annotation{
+					// The first position wins ("p.42", not the location range), and a date is
+					// not a chapter — Chapter stays empty.
+					{Quote: "Fear is the mind-killer.", Location: "p.42", NotedAt: "Added on Sunday, 5 January 2020 21:41:19"},
+				},
+			}},
+			wantStats: ClippingStats{},
+		},
+		{
+			// A German file must land as a highlight and a note, with the note merged onto
+			// the highlight it annotates.
+			name: "a German note merges onto the highlight it annotates",
+			in: "Der Prozess (Franz Kafka)\n" +
+				"- Ihre Markierung bei Position 610-612 | Hinzugefügt am Montag, 5. Januar 2015 21:41:19\n" +
+				"\n" +
+				"Jemand musste Josef K. verleumdet haben.\n" +
+				"==========\n" +
+				"Der Prozess (Franz Kafka)\n" +
+				"- Ihre Notiz bei Position 610-612 | Hinzugefügt am Montag, 5. Januar 2015 21:42:03\n" +
+				"\n" +
+				"der beste erste Satz\n" +
+				"==========\n",
+			want: []Result{{
+				Book: Book{Title: "Der Prozess", Author: "Franz Kafka"},
+				Annotations: []Annotation{{
+					Quote:    "Jemand musste Josef K. verleumdet haben.",
+					Note:     "der beste erste Satz",
+					Location: "610-612",
+					NotedAt:  "Hinzugefügt am Montag, 5. Januar 2015 21:41:19",
+				}},
+			}},
+			wantStats: ClippingStats{NotesMerged: 1},
+		},
+		{
+			// With no position to key on, a note must NOT be attached to whatever happened
+			// to precede it — it stands alone.
+			name: "a note without a position stands alone",
+			in: "A Book (An Author)\n" +
+				"- Your Highlight\n" +
+				"\n" +
+				"the highlight\n" +
+				"==========\n" +
+				"A Book (An Author)\n" +
+				"- Your Note\n" +
+				"\n" +
+				"the note\n" +
+				"==========\n",
+			want: []Result{{
+				Book: Book{Title: "A Book", Author: "An Author"},
+				Annotations: []Annotation{
+					{Quote: "the highlight"},
+					{Note: "the note"},
+				},
+			}},
+			// Nothing should have merged.
+			wantStats: ClippingStats{},
+		},
+		{
+			// Bookmarks carry no text. They are skipped and counted — and a book made
+			// ENTIRELY of them must not be created as an empty phantom row.
+			name: "bookmarks are skipped and a bookmark-only book is not created",
+			in: "Kept Book (An Author)\n" +
+				"- Your Bookmark on page 5 | Added on Monday, 6 January 2020 10:00:00\n" +
+				"\n" +
+				"==========\n" +
+				"Kept Book (An Author)\n" +
+				"- Your Highlight on page 6\n" +
+				"\n" +
+				"real text\n" +
+				"==========\n" +
+				"Phantom Book (Nobody)\n" +
+				"- Your Bookmark on page 1 | Added on Monday, 6 January 2020 10:00:00\n" +
+				"\n" +
+				"==========\n",
+			want: []Result{{
+				Book:        Book{Title: "Kept Book", Author: "An Author"},
+				Annotations: []Annotation{{Quote: "real text", Location: "p.6"}},
+			}},
+			wantStats: ClippingStats{Bookmarks: 2},
+		},
+		{
+			// Editing a highlight makes Kindle append the whole record again. Keep the
+			// longer text, once.
+			name: "an extended highlight deduplicates and the longer text wins",
+			in: "A Book (An Author)\n" +
+				"- Your Highlight on page 12 | Location 100-101\n" +
+				"\n" +
+				"Fear is the\n" +
+				"==========\n" +
+				"A Book (An Author)\n" +
+				"- Your Highlight on page 12 | Location 100-103\n" +
+				"\n" +
+				"Fear is the mind-killer.\n" +
+				"==========\n" +
+				"A Book (An Author)\n" +
+				"- Your Highlight on page 12 | Location 100-103\n" +
+				"\n" +
+				"Fear is the mind-killer.\n" +
+				"==========\n",
+			want: []Result{{
+				Book:        Book{Title: "A Book", Author: "An Author"},
+				Annotations: []Annotation{{Quote: "Fear is the mind-killer.", Location: "p.12"}},
+			}},
+			wantStats: ClippingStats{Duplicates: 2},
+		},
+		{
+			// BOM, CRLF, a missing trailing separator, and a garbage block.
+			name: "a BOM, CRLF endings, a garbage block and no trailing separator",
+			in: "\ufeffFirst Book (An Author)\r\n" +
+				"- Your Highlight on page 1\r\n" +
+				"\r\n" +
+				"one\r\n" +
+				"==========\r\n" +
+				"a stray line with no metadata line at all\r\n" +
+				"==========\r\n" +
+				"First Book (An Author)\r\n" +
+				"- Your Highlight on page 2\r\n" +
+				"\r\n" +
+				"two", // no trailing separator
+			want: []Result{{
+				// The BOM must not survive into the title.
+				Book: Book{Title: "First Book", Author: "An Author"},
+				Annotations: []Annotation{
+					{Quote: "one", Location: "p.1"},
+					// The last record has no separator and must still land.
+					{Quote: "two", Location: "p.2"},
+				},
+			}},
+			// The stray block should be counted.
+			wantStats: ClippingStats{Malformed: 1},
+		},
+	}
 
-	res, stats := parseClips(t, in)
-	if len(res) != 2 {
-		t.Fatalf("want 2 books, got %d", len(res))
-	}
-	if res[0].Book.Title != "We Are Here" || res[0].Book.Author != "Michael Marshall" {
-		t.Fatalf("book 1: %+v", res[0].Book)
-	}
-	if len(res[0].Annotations) != 2 {
-		t.Fatalf("book 1 annotations: %d", len(res[0].Annotations))
-	}
-	a := res[0].Annotations[0]
-	if a.Quote != "That meant a change was coming." {
-		t.Fatalf("quote: %q", a.Quote)
-	}
-	if a.Location != "p.11" {
-		t.Fatalf("location: %q", a.Location)
-	}
-	if a.Chapter != "Chapter 2" {
-		t.Fatalf("chapter: %q", a.Chapter)
-	}
-	if a.NotedAt != "" {
-		t.Fatalf("no date in this file, got %q", a.NotedAt)
-	}
-	// A four-name author list is kept verbatim: re-ordering it would be a guess,
-	// and the same guess would mangle "(Marshall, Michael)".
-	if got := res[1].Book.Author; got != "Margaret Hunt, Wilhelm Grimm, Frances Jenkins Olcott, Jacob Grimm" {
-		t.Fatalf("multi-author: %q", got)
-	}
-	if res[1].Annotations[0].Chapter != "THE ROBBER BRIDEGROOM" {
-		t.Fatalf("section name as chapter: %q", res[1].Annotations[0].Chapter)
-	}
-	if stats.Bookmarks != 0 || stats.Malformed != 0 {
-		t.Fatalf("nothing should be skipped: %+v", stats)
-	}
-}
-
-// A chapter title made of words that look like keywords must not steal the
-// classification. "NOTES" must not make it a note, "CLOCK" must not read as
-// "Loc", "PAGEANT" must not read as "page".
-func TestKindleClippingsAdversarialChapter(t *testing.T) {
-	const in = "Some Book (An Author)\n" +
-		"- Your Highlight on Page 9 | NOTES ON THE CLOCK TOWER PAGEANT\n" +
-		"\n" +
-		"The body text.\n" +
-		"==========\n"
-	res, _ := parseClips(t, in)
-	a := res[0].Annotations[0]
-	if a.Quote != "The body text." {
-		t.Fatalf("must stay a highlight, not become a note: %+v", a)
-	}
-	if a.Note != "" {
-		t.Fatalf("note must be empty: %q", a.Note)
-	}
-	if a.Chapter != "NOTES ON THE CLOCK TOWER PAGEANT" {
-		t.Fatalf("chapter swallowed: %q", a.Chapter)
-	}
-	if a.Location != "p.9" {
-		t.Fatalf("location: %q", a.Location)
-	}
-}
-
-// The canonical English shape: location range plus an "Added on" date.
-func TestKindleClippingsCanonicalEnglish(t *testing.T) {
-	const in = "Dune (Frank Herbert)\n" +
-		"- Your Highlight on page 42 | Location 610-612 | Added on Sunday, 5 January 2020 21:41:19\n" +
-		"\n" +
-		"Fear is the mind-killer.\n" +
-		"==========\n"
-	res, _ := parseClips(t, in)
-	a := res[0].Annotations[0]
-	if a.Quote != "Fear is the mind-killer." {
-		t.Fatalf("quote: %q", a.Quote)
-	}
-	if a.Location != "p.42" {
-		t.Fatalf("first position wins: %q", a.Location)
-	}
-	if !strings.Contains(a.NotedAt, "2020") {
-		t.Fatalf("date field: %q", a.NotedAt)
-	}
-	if a.Chapter != "" {
-		t.Fatalf("a date is not a chapter: %q", a.Chapter)
-	}
-}
-
-// A German file must land as a highlight and a note, with the note merged onto
-// the highlight it annotates.
-func TestKindleClippingsGermanNoteMerge(t *testing.T) {
-	const in = "Der Prozess (Franz Kafka)\n" +
-		"- Ihre Markierung bei Position 610-612 | Hinzugefügt am Montag, 5. Januar 2015 21:41:19\n" +
-		"\n" +
-		"Jemand musste Josef K. verleumdet haben.\n" +
-		"==========\n" +
-		"Der Prozess (Franz Kafka)\n" +
-		"- Ihre Notiz bei Position 610-612 | Hinzugefügt am Montag, 5. Januar 2015 21:42:03\n" +
-		"\n" +
-		"der beste erste Satz\n" +
-		"==========\n"
-	res, stats := parseClips(t, in)
-	if len(res) != 1 || len(res[0].Annotations) != 1 {
-		t.Fatalf("note should merge onto its highlight: %d books, %d annotations", len(res), len(res[0].Annotations))
-	}
-	a := res[0].Annotations[0]
-	if a.Quote == "" || a.Note != "der beste erste Satz" {
-		t.Fatalf("merged annotation: %+v", a)
-	}
-	if a.Location != "610-612" {
-		t.Fatalf("location: %q", a.Location)
-	}
-	if stats.NotesMerged != 1 {
-		t.Fatalf("NotesMerged: %+v", stats)
-	}
-}
-
-// With no position to key on, a note must NOT be attached to whatever happened
-// to precede it — it stands alone.
-func TestKindleClippingsNoteWithoutPositionStandsAlone(t *testing.T) {
-	const in = "A Book (An Author)\n" +
-		"- Your Highlight\n" +
-		"\n" +
-		"the highlight\n" +
-		"==========\n" +
-		"A Book (An Author)\n" +
-		"- Your Note\n" +
-		"\n" +
-		"the note\n" +
-		"==========\n"
-	res, stats := parseClips(t, in)
-	if len(res[0].Annotations) != 2 {
-		t.Fatalf("want 2 separate annotations, got %d", len(res[0].Annotations))
-	}
-	if res[0].Annotations[1].Note != "the note" || res[0].Annotations[1].Quote != "" {
-		t.Fatalf("orphan note: %+v", res[0].Annotations[1])
-	}
-	if stats.NotesMerged != 0 {
-		t.Fatalf("nothing should have merged: %+v", stats)
-	}
-}
-
-// Bookmarks carry no text. They are skipped and counted — and a book made
-// ENTIRELY of them must not be created as an empty phantom row.
-func TestKindleClippingsBookmarksSkipped(t *testing.T) {
-	const in = "Kept Book (An Author)\n" +
-		"- Your Bookmark on page 5 | Added on Monday, 6 January 2020 10:00:00\n" +
-		"\n" +
-		"==========\n" +
-		"Kept Book (An Author)\n" +
-		"- Your Highlight on page 6\n" +
-		"\n" +
-		"real text\n" +
-		"==========\n" +
-		"Phantom Book (Nobody)\n" +
-		"- Your Bookmark on page 1 | Added on Monday, 6 January 2020 10:00:00\n" +
-		"\n" +
-		"==========\n"
-	res, stats := parseClips(t, in)
-	if len(res) != 1 || res[0].Book.Title != "Kept Book" {
-		t.Fatalf("a bookmark-only book must not be created: %d books", len(res))
-	}
-	if len(res[0].Annotations) != 1 {
-		t.Fatalf("annotations: %d", len(res[0].Annotations))
-	}
-	if stats.Bookmarks != 2 {
-		t.Fatalf("Bookmarks: %+v", stats)
-	}
-}
-
-// Editing a highlight makes Kindle append the whole record again. Keep the
-// longer text, once.
-func TestKindleClippingsDeduplicatesExtendedHighlight(t *testing.T) {
-	const in = "A Book (An Author)\n" +
-		"- Your Highlight on page 12 | Location 100-101\n" +
-		"\n" +
-		"Fear is the\n" +
-		"==========\n" +
-		"A Book (An Author)\n" +
-		"- Your Highlight on page 12 | Location 100-103\n" +
-		"\n" +
-		"Fear is the mind-killer.\n" +
-		"==========\n" +
-		"A Book (An Author)\n" +
-		"- Your Highlight on page 12 | Location 100-103\n" +
-		"\n" +
-		"Fear is the mind-killer.\n" +
-		"==========\n"
-	res, stats := parseClips(t, in)
-	if len(res[0].Annotations) != 1 {
-		t.Fatalf("want 1 deduped annotation, got %d", len(res[0].Annotations))
-	}
-	if got := res[0].Annotations[0].Quote; got != "Fear is the mind-killer." {
-		t.Fatalf("longer text should win: %q", got)
-	}
-	if stats.Duplicates != 2 {
-		t.Fatalf("Duplicates: %+v", stats)
-	}
-}
-
-// BOM, CRLF, a missing trailing separator, and a garbage block.
-func TestKindleClippingsBOMCRLFAndGarbage(t *testing.T) {
-	in := "\ufeffFirst Book (An Author)\r\n" +
-		"- Your Highlight on page 1\r\n" +
-		"\r\n" +
-		"one\r\n" +
-		"==========\r\n" +
-		"a stray line with no metadata line at all\r\n" +
-		"==========\r\n" +
-		"First Book (An Author)\r\n" +
-		"- Your Highlight on page 2\r\n" +
-		"\r\n" +
-		"two" // no trailing separator
-	res, stats := parseClips(t, in)
-	if len(res) != 1 {
-		t.Fatalf("books: %d", len(res))
-	}
-	if res[0].Book.Title != "First Book" {
-		t.Fatalf("BOM not stripped from the title: %q", res[0].Book.Title)
-	}
-	if len(res[0].Annotations) != 2 {
-		t.Fatalf("the last record has no separator and must still land: %d", len(res[0].Annotations))
-	}
-	if res[0].Annotations[1].Quote != "two" {
-		t.Fatalf("trailing record: %q", res[0].Annotations[1].Quote)
-	}
-	if stats.Malformed != 1 {
-		t.Fatalf("the stray block should be counted: %+v", stats)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, stats := parseClips(t, tc.in)
+			got := make([]Result, len(res))
+			for i, r := range res {
+				got[i] = *r
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("books = %+v, want %+v", got, tc.want)
+			}
+			if stats != tc.wantStats {
+				t.Fatalf("stats = %+v, want %+v", stats, tc.wantStats)
+			}
+		})
 	}
 }
 
