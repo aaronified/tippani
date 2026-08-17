@@ -38,6 +38,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   obvious next thing with no way to ask it. It is in the ⋯ menu now. Desktop needs no entry: the
   bar is still up there.
 
+### Changed
+
+- **The roadmap stops listing what has shipped.** Its own opening paragraph says nothing shipped is
+  listed there, "because a roadmap that doubles as a trophy cabinet stops answering the only
+  question it is for" — and eight items were doing exactly that. Seven were carrying a "Shipped in
+  1.15.0" line inside the backlog (cloze review, undo the last answer, themed review, editing from
+  inside a card, leech handling, the flip card, "who said this?"), and *Trash & undo* was still
+  described as "the piece the rest of the app is waiting on" two releases after the bin shipped.
+  They are gone; the changelog is where they live.
+
+  What stayed, and why, since the point is that this is a judgement per item and not a sweep:
+  *merge two films or shows* is still open (`POST /books/merge` exists, the catalogue side does
+  not), and *a source with no key should read as inactive* asks for a greyed-out entry in the
+  lookup picker, which is more than the warning line 1.15.3 added.
+
 ### Added
 
 - **Games fall back to Wikidata when IGDB cannot answer.** Games were the only medium in the app

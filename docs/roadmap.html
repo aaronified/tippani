@@ -556,118 +556,6 @@
     point at if I could only build one.
   </p>
   <ul>
-    <li>
-      <strong>Cloze review — blank out a phrase and recall it.</strong> The most
-      natural way to test a <em>quote</em>, as opposed to a fact, and nobody in this
-      space does it. The masked span is chosen at request time from the quote's own
-      words and derived from the card's id alone — <strong>no schema and no
-      storage</strong>, and deliberately independent of the DAY, so the endpoint
-      that grades your attempt reconstructs the same blank you were shown.
-      Grading is fuzzy, through the edit distance already in
-      <code>internal/search/levenshtein.go</code>, and it happens on the
-      <strong>server</strong>: an option index means nothing without the options
-      beside it, but a cloze answer <em>is</em> the words being recalled, so it
-      never travels until the attempt is in.
-      <br><br>
-      One limit, stated rather than discovered: the stopword list is English, and
-      an English list matches <em>zero</em> Devanagari or Cyrillic tokens — so
-      every word reads as a content word and the blank falls confidently in text
-      it cannot read. Cloze is offered only on predominantly Latin quotes;
-      everything else gets one of the other directions, which are all
-      script-agnostic.
-      <span class="mono">Shipped in 1.15.0.</span>
-    </li>
-    <li>
-      <strong>Undo the last answer</strong> — <em>replaced rather than built.</em>
-      An exact undo needs the half-life the card had before you answered, and
-      nothing stores it; adding a per-answer history table would be a schema this
-      whole section promises not to need. So the <em>misplaced tap</em> the
-      control exists for is prevented instead: an opt-in confirm step, where a
-      tap chooses and a button commits, and until then you can change your mind.
-      Better than undo for a misclick, worse for a considered answer you regret —
-      which is a case this line never claimed.
-      <span class="mono">Shipped in 1.15.0.</span>
-    </li>
-    <li>
-      <strong>Themed review</strong> — “quiz me on this book / film / tag /
-      colour / person”, as parameters on Practice. A person is matched across
-      every role at once, because “quiz me on Austen” and “quiz me on Bogart”
-      are the same request and only the column differs; a theme about something
-      a kind cannot have drops that kind entirely rather than leaving it
-      unfiltered, which is how an ignored clause serves everything instead of
-      nothing.
-      <br><br>
-      <strong>The Daily Quiz is deliberately NOT themeable.</strong> The daily
-      deck <em>is</em> the schedule: filter it and the cards actually due go
-      unasked while the streak still counts the day as cleared, which turns the
-      one authoritative surface into a second practice mode. The clause is also
-      kept out of the shared eligibility string on purpose — two of the five
-      queries that splice it are Daily's own badge and status row, and a theme
-      there would narrow both.
-      <br><br>
-      <strong>The buttons are contextual, not central.</strong> There is no
-      &ldquo;pick a theme&rdquo; screen: you are already looking at the book, the
-      tag, the person or the colour when you want to be asked about it, and a
-      picker would mean choosing a book from a list one screen after leaving the
-      list of books. So a round starts from the work tile&rsquo;s own menu, the
-      person panel, the tag card, and the colour rows in Stats &mdash; the four
-      places where each of those is a named thing with a count beside it. It
-      opens over the screen you were on, because the round is a detour and
-      coming back to the shelf is the shape of it.
-      <span class="mono">Shipped in 1.15.0.</span>
-    </li>
-    <li>
-      <strong>Edit, ♥ or re-tag from inside the card.</strong> Review is exactly
-      when you notice the typo, the missing tag, or that you love it — and it
-      was the one screen from which you could do nothing about any of that. One
-      panel now does all three.
-      <br><br>
-      <strong>It opens only after the card is graded</strong>, and that gate is
-      the feature rather than a nicety. An edit form carries the quote, the title
-      and the credit: on a &ldquo;which book?&rdquo; card that <em>is</em> the
-      answer, and on a cloze card it is the masked words in full. A pencil beside
-      an unanswered question would be a way to read the answer without answering
-      it. With the confirm step on there is a real interval between choosing and
-      committing, and the gate holds across it too.
-      <br><br>
-      The panel reads the whole row (<code>?id=</code> on the three quote lists,
-      added for this) and sends the whole row back, because every one of those
-      PUTs is full-state — a field left out of the payload is a field an edit to
-      the words silently blanks. What folds back onto the card is a short list on
-      purpose: the note always, the quote unless the card is a cloze one whose
-      text is the server&rsquo;s mask, and the options never. They were the
-      question.
-      <span class="mono">Shipped in 1.15.0.</span>
-    </li>
-    <li>
-      <strong>Leech handling</strong> — <code>lapse_count</code> was already
-      stored and nothing read it. At five lapses the card now says so once you
-      have answered it, and offers to be set aside rather than grinding on.
-      <em>Neither suspended nor shortened</em>, as this line used to promise: a
-      card that vanished because a counter reached five would be the app
-      deciding something nobody asked it to, and a half-life quietly altered
-      behind the reader is the schedule lying about itself. It is an offer, it
-      arrives with the answer that earns it, and the other button says keep
-      asking. <span class="mono">Shipped in 1.15.0.</span>
-    </li>
-    <li>
-      <strong>The traditional flip card</strong> — the quote on one side, its
-      source on the other, and <em>you</em> say whether you had it. The one card
-      type that works for every quote regardless of what else is in the library:
-      multiple choice needs a second work to be wrong with, and a single-title
-      library used to get an empty deck while the badge counted the cards anyway.
-      <span class="mono">Shipped in 1.15.0.</span>
-    </li>
-    <li>
-      <strong>Who said this?</strong> — a screen-only card whose options are
-      <em>actors</em>, not characters: you pick a face. <code>dialogues.actor</code>
-      has been stored per line since the beginning and <code>movies.cast_json</code>
-      holds the whole billed cast, so the hard, interesting wrong answers — the
-      other people in this same film — were already on disk. No API call, as
-      promised. Three faces is the floor: a choice between two is a coin toss, and
-      a card that cannot reach three simply gets asked another way.
-      <span class="mono">Shipped in 1.15.0.</span>
-    </li>
     <li><strong>More card types from data already held</strong> — <em>which chapter or act?</em> and <em>type the next line</em> where two annotations sit adjacent by location in one book.</li>
     <li><strong>A recall-history sparkline</strong> on the quote's pop-up, drawn from <code>item_reviews</code>.</li>
   </ul>
@@ -705,7 +593,6 @@
     that decides most of its shape.
   </p>
   <ul>
-    <li><strong>Trash &amp; undo</strong> — soft-delete with a restorable trash for books, films, quotes and users, so a mis-click (or a cascading user delete) isn't final; emptied on demand or after a grace period. This is the piece the rest of the app is waiting on.</li>
     <li><strong>Sign in through the reverse proxy you already run</strong> — <strong>OIDC</strong>, and the cheaper half first, <strong>forward-auth</strong>: trust a configured identity header when <code>TRUSTED_PROXY</code> is set, which is the same trust boundary the login rate limiter already reasons about for <code>X-Forwarded-For</code>. Anyone fronting their box with Authelia, Authentik or Tinyauth wants their whole estate behind one sign-in, and it is the most-asked thing on this list. Local passwords stay, and stay the default.</li>
     <li><strong>Stronger sign-in (opt-in)</strong> — <strong>passkeys (WebAuthn)</strong> and <strong>TOTP 2FA</strong> layered over today's password + hashed-token sessions, for boxes reachable past the LAN. Off unless you turn it on; the password stays the fallback.</li>
     <li><strong>Scope the API tokens, and add webhooks.</strong> Device tokens exist; what they have no notion of is <em>scope</em> — a token that may read stats but not write quotes, which is what an Obsidian sync or the dashboard widget actually wants. Outbound <strong>webhooks</strong> on events are the other half.</li>
