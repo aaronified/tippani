@@ -313,7 +313,24 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
 // `typed: false` because there is no vocabulary of titles to offer; they stay
 // out of the panel through that same flag rather than through a second decision
 // that could drift from the first. Adding a field to the grammar adds it here.
-function FacetPanel({ vocabulary, chips, onAdd, onRemove, onClear, onClose }) {
+function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, onClose }) {
+  // The counts, fetched when the panel opens and again whenever the narrowing
+  // moves. Their own endpoint, because they are about thirty GROUP BYs and are
+  // wanted exactly here — behind /search they would ride every keystroke of a
+  // debounced typeahead.
+  //
+  // `null` until they arrive, and that is not the same as zero: a value with no
+  // number yet renders plain, a value counted at zero renders greyed. Treating
+  // the two alike would grey the entire panel for the moment before the fetch
+  // lands, which is the frame the reader is looking at.
+  const [counts, setCounts] = useState(null)
+  useEffect(() => {
+    let stale = false
+    json('GET', `/search/facets?${querystring}`).then((r) => {
+      if (!stale && r.ok) setCounts(r.data)
+    })
+    return () => { stale = true }
+  }, [querystring])
   // A field with hundreds of values (authors, in any real library) is not a
   // control until it can be narrowed, so each group carries its own filter box.
   // narrowFacetOptions is the SAME ranking the typed dropdown uses — an exact
@@ -359,15 +376,29 @@ function FacetPanel({ vocabulary, chips, onAdd, onRemove, onClear, onClose }) {
               {shown.map((o) => {
                 const chip = makeChip(f.name, o)
                 const on = chips.some((c) => sameChip(c, chip))
+                // The count is keyed by the WIRE value for the fields whose
+                // label differs from it — a renamed colour, a work's id — and
+                // by the label everywhere else, because that is what the server
+                // grouped by. Looking up both is one line and removes the whole
+                // class of "the number is on the wrong pill".
+                const n = counts ? (counts[f.name]?.[o.value] ?? counts[f.name]?.[o.label] ?? 0) : null
+                const dead = n === 0 && !on
                 return (
                   <button
                     key={o.value}
                     type="button"
-                    className={'facet-pill' + (on ? ' on' : '')}
+                    className={'facet-pill' + (on ? ' on' : '') + (dead ? ' none' : '')}
                     aria-pressed={on}
+                    // Greyed, not hidden, and still pressable. A value that
+                    // disappears when you narrow leaves you wondering whether
+                    // you mis-remembered your own library; a grey one says "not
+                    // under this question", which is the answer and points at
+                    // the chip to take off.
+                    title={dead ? `No hits under the current search` : undefined}
                     onClick={() => (on ? onRemove(chip) : onAdd(f.name, o.value, o.label))}
                   >
                     {o.label}
+                    {n !== null && <span className="facet-n">{n}</span>}
                   </button>
                 )
               })}
@@ -816,6 +847,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
           <FacetPanel
             vocabulary={vocabulary}
             chips={chips}
+            querystring={querystring}
             onAdd={addFacet}
             onRemove={(chip) => setChips((cs) => cs.filter((c) => !sameChip(c, chip)))}
             onClear={() => setChips([])}

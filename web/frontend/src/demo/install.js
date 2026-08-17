@@ -859,6 +859,38 @@ export function route(method, path, params, body) {
     // the real handler returns is answered here, in the real handler's shapes:
     // bare strings for the credit and label lists, {key,name} pairs for the
     // three whose chip shows one thing and whose wire carries another.
+    // Counts for the Filters panel. THE FALLBACK IS ACTIVELY WRONG HERE, which
+    // is why this cannot be left to it: `{}` reads as "every value counted
+    // zero", and the panel greys a zero — so the demo would show a complete
+    // panel with every option dimmed, looking like a library with nothing in
+    // it. Counting over the demo's own rows is a dozen lines and cannot lie.
+    case path === '/search/facets': {
+      const tally = (rows, pick) => {
+        const out = {}
+        for (const r of rows) for (const v of [pick(r)].flat().filter(Boolean)) out[v] = (out[v] || 0) + 1
+        return out
+      }
+      const quotes = [...ANNOTATIONS, ...DIALOGUES, ...UTTERANCES]
+      const works = [...BOOKS, ...MOVIES]
+      return [200, {
+        tag: tally(quotes, (r) => r.tags || []),
+        genre: tally(works, (w) => w.genres || []),
+        colour: tally(quotes, (r) => r.color),
+        shelf: tally(works, (w) => w.status),
+        series: tally(works, (w) => w.series),
+        year: tally(works, (w) => String(w.published_year || w.release_year || '') || null),
+        author: tally(ANNOTATIONS, (a) => (BOOKS.find((b) => b.id === a.book_id) || {}).author),
+        director: tally(DIALOGUES, (d) => (MOVIES.find((m) => m.id === d.movie_id) || {}).director),
+        actor: tally(DIALOGUES, (d) => d.actor),
+        character: tally(DIALOGUES, (d) => d.character),
+        speaker: tally(UTTERANCES, (u) => u.speaker),
+        favourite: tally(quotes, (r) => (r.favorite ? 'yes' : 'no')),
+        note: tally(quotes, (r) => (r.note ? 'yes' : 'no')),
+        wishlist: tally(BOOKS, (b) => (ANNOTATIONS.some((a) => a.book_id === b.id) ? 'no' : 'yes')),
+        book: tally(ANNOTATIONS, (a) => String(a.book_id)),
+        movie: tally(DIALOGUES, (d) => String(d.movie_id)),
+      }]
+    }
     case path === '/search/vocabulary':
       return [200, {
         tags: TAGS.map((t) => t.name),

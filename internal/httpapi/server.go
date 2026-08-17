@@ -189,6 +189,10 @@ func (s *Server) Handler() http.Handler {
 	// The reader's own vocabulary, for the facet dropdown: one call on first focus,
 	// held for the session, narrowed in the browser. Per user without exception.
 	mux.Handle("GET /search/vocabulary", s.requireAuth(s.handleSearchVocabulary))
+	// Its own route rather than a flag on /search: the counts are wanted when
+	// the Filters panel is open and never while somebody is typing, and folding
+	// them in would put thirty GROUP BYs behind every keystroke of a typeahead.
+	mux.Handle("GET /search/facets", s.requireAuth(s.handleSearchFacetCounts))
 
 	// One-shot quote-image downloads (share_handlers.go). The GET is public by
 	// design: the single-use crypto-random token is the credential, because

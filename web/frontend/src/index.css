@@ -1917,6 +1917,16 @@
     background: color-mix(in srgb, var(--accent) 14%, transparent);
     border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   }
+  /* Nothing under the current search. Dimmed and STILL PRESSABLE — a value that
+     vanishes when you narrow makes you doubt your own library; one that goes
+     grey says "not under this question", and pressing it is a legitimate way to
+     find that out for yourself. */
+  .facet-pill.none { opacity: .45; }
+  .facet-pill.none:hover { opacity: .75; }
+  .facet-n {
+    margin-left: 6px; opacity: .6;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* A name inside a result card that narrows the search when pressed — the
      character on a line of dialogue. It sits INSIDE a run of mono text, so it
