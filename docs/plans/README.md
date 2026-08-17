@@ -42,6 +42,16 @@ and 14.
 Then `review-loop-deepened.md`, `review-exclusion-per-quote.md` and
 `font-settings.md`, all shipped in 1.15.0 and folded into sections 8 and 15.
 
+Then `speaker-discovery.md`, which shipped in 1.16.0 — and `quick-wins.md`,
+`review-loop-cards.md` and `search-precision.md`, which retired the OTHER way:
+half of what they specified shipped, the rest was dropped, and the roadmap
+sections they were written against were removed. That is the second exit and it
+is worth naming, because the first version of this rule only had one. **A plan
+for something nobody intends to build fails the directory's promise exactly as a
+shipped one does** — every sentence still true, none of it coming. Their
+verification passes are in `PLAN.md` §12, including the three claims the roadmap
+made about the code that the code did not support.
+
 The first of those is the strongest argument this directory has for existing.
 Its *What already exists* pass, verified against a named commit, found three
 defects live in the shipped app before a line of the feature was written — and

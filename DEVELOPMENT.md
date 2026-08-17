@@ -20,7 +20,7 @@ link to it by name, because a summary is a copy that drifts more quietly than it
 | `README.md` | Should I run this, and how do I run it? |
 | **`DEVELOPMENT.md`** (this file) | I want to change the code — where does it go, and how do I know it worked? |
 | `docs/PLAN.md` | Why is it built this way, what was rejected, and what did I get wrong? |
-| `docs/plans/*.md` | How will one specific unbuilt feature work? (Folded into `PLAN.md` and deleted once it ships.) |
+| `docs/plans/*.md` | How will one specific unbuilt feature work? (Folded into `PLAN.md` and deleted once it ships — or once it is dropped.) |
 | `docs/ui-glossary.html` | What is this bit of the interface called? |
 | [`docs/roadmap.html`](https://aaronified.github.io/tippani/roadmap.html) | What is coming next? (generated — never hand-edited) |
 | `AI.md` | How was this written, and what does that mean for trusting it? |
@@ -335,7 +335,7 @@ The shared modules do:
 | Path | What it is |
 | --- | --- |
 | `docs/PLAN.md` | The decision log — every design decision, its reasoning, and the reversals. |
-| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/PLAN.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2, three more at 1.15.0, and speaker discovery at 1.16.0. |
+| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/PLAN.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2, three more at 1.15.0, and speaker discovery at 1.16.0. Three more retired the other way in 1.16.0 — half shipped, the rest dropped with their roadmap sections — which is the directory’s second exit and is recorded in its README. |
 | `docs/roadmap.html` · `docs/roadmap.backup.html` | The published roadmap, and its last known-good copy. Generated regions — do not hand-edit between the markers. |
 | `docs/ui-glossary.html` | Every part of the interface, named and rendered live in all four theme combinations. |
 | `docs/landing.html` | The published site's front page. Carries absolute canonical and social URLs. |

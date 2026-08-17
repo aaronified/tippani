@@ -57,7 +57,7 @@
         "  person; this only widens coverage, which is why it is small enough to say yes to.",
         "</p>",
         "<p>",
-        "  It should land after <a href=\"#metadata-sources\">§12</a>, not before: once sources",
+        "  It should land after <a href=\"#metadata-sources\">§9</a>, not before: once sources",
         "  are mine to pick, looking a person up should query Wikidata and not waste a call on",
         "  TMDB. Doing it in the other order would bake in the fan-out that section exists to end.",
         "</p>"
@@ -108,7 +108,7 @@
         "should be able to shout, and that case alone justifies this even if no summary ever gets",
         "generated. <br> This sat in the numbered backlog until I moved it here deliberately,",
         "because anything that pushes needs something that wakes up on its own. The cheap end of",
-        "the ask needs none of it: the app-icon badge in <a href=\"#quick-wins\">§1</a> shows a due-card",
+        "the ask needs none of it: the app-icon badge already shipped and shows a due-card",
         "count with no server work and nothing scheduled."
       ]
     },
@@ -144,10 +144,9 @@
     "9": {
       "title": "Semantic search",
       "html": [
-        "(<code>sqlite-vec</code>) — note that <a href=\"#search-precision\">§3</a>'s \"more like",
-        "this\", built from the term",
-        "dictionaries already in the database, ships first and costs no dependency at all. It may",
-        "remove the need for this entirely."
+        "(<code>sqlite-vec</code>) — a dependency, an indexing pass and a model, on a box budgeted",
+        "at 20–40 MB RSS. Deferred indefinitely rather than left unsaid: the two read the same",
+        "from outside and only one of them is honest."
       ]
     },
     "10": {
