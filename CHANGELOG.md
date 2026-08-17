@@ -90,7 +90,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is not empty and is empty for every book you own. The switch that would do it is held, with the
   reason beside it, instead of being accepted and quietly undone.
 
+- **Start a themed round from the work you are looking at.** "Quiz me on this book", on the
+  book's own page, and the same for a film, show or game. The engine has taken a work id since
+  themed practice shipped and it was wired from a person's panel and a colour tile on Stats —
+  and from nowhere on the one screen that is entirely about a single work.
+
+- **Edit a whole selection, field by field, and merge two titles into one.** Books gain
+  translator, editor, year, description and favourite; the Catalogue gains type, year,
+  description and favourite; quotes gain their note and their whole locator.
+
+  Everything except the one thing that names the row. A work's title and a quote's own words
+  are not editable over a selection: every other field can sensibly hold one value across five
+  records, and a title cannot — setting it does not correct five, it destroys four and leaves
+  five nothing can tell apart. The supplier ids are out for a harder reason: each is unique per
+  row, so a bulk set is a constraint violation rather than a bad idea.
+
+  Each field warns before it overwrites, and says how many rows and how many **different**
+  values are about to become one. A field that is empty across the whole selection says nothing
+  at all — filling a blank cannot lose anything, and a warning on every field is a warning on
+  none.
+
+  Films, shows and games can be merged too, which books have been able to do since duplicates
+  became findable.
+
+- **Every number behind the schedule is yours.** The multipliers a right and a wrong answer move
+  a half-life by, the extra credit a typed answer earns over a multiple choice, the point at
+  which a blank may hide more than one word, and the ladder's three rungs. All of them were
+  constants, which made the review loop the one part of this app whose behaviour was an opinion
+  you could not disagree with.
+
+  They are bounded rather than free, and the bounds are the feature: a correct-answer multiplier
+  below 1 shortens a card every time you get it right, so a quote you know perfectly gets asked
+  more and more often, for ever. That does not look broken — it just is.
+
+- **Exact phrases.** `"to be or not to be"` is one phrase now instead of six words in any order.
+  A quotation mark you did not close is not an error: the words simply search loosely.
+
+- **A date range, not just a day.** "What did I save in the first half of last year", as two
+  chips.
+
+- **Shuffle, and On this day.** One line at random, and what you saved on this date in other
+  years — both on Home. Neither touches your schedule: landing on a quote by chance is not
+  answering a card, and there is a test that shuffles eleven times and counts.
+
 ### Fixed
+
+- **Games are not films.** Every game report in one place: the Details page said Type "Film" with
+  no way to correct it, called its studio a Director, offered three film ids and not the one that
+  works, fetched covers at 90×128 and stored them that way, said "Search TMDB & TheTVDB" on a
+  game, looked studios up in Open Library, asked when Electronic Arts was *born*, and the
+  Catalogue's back button still said "Movies".
+
+  The cover one is worth singling out: the details fetch always asked for the full size, so only
+  covers picked from the **search strip** were tiny — which is why it looked intermittent rather
+  than broken.
+
+- **Labels that go away.** A hover label closed when the pointer left and on nothing else, and
+  the pointer leaving is not a promise — the control re-renders, a panel opens over it, a row
+  reflows, and the label sits there for the rest of the session. Three seconds, wherever it was
+  opened from. Info dots are unaffected: one you have clicked is meant to stay until you click
+  it again.
 
 - **Copy and share on a favourite, this time actually.** 1.15.3 said these moved onto the collapsed
   tile. The row was added and it drew nothing, for every favourite that came from a book.

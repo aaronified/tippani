@@ -1,6 +1,8 @@
 # Quick wins — roadmap §1
 
-**Status:** designed, not built.
+**Status:** Shuffle and On this day shipped in 1.16.0 — their decisions are in
+[`../PLAN.md`](../PLAN.md) §12. What is left is Saved views and keeping the
+capture form filled.
 
 Roadmap section [`#quick-wins`](../roadmap.html#quick-wins), tracked as issue
 #15. Its framing: *things that are an afternoon each and pay for themselves
@@ -60,34 +62,26 @@ built once, for both, and it stops being a quick win.
 
 ## What gets built
 
-### Shuffle
+### Shuffle and On this day — **shipped 1.16.0, with one departure**
 
-One random quote, full width, nothing else on screen. The library has no random
-surface at all and every other quote app has one.
+Both landed on Home rather than at their own routes.
 
-- **Route** `/shuffle`, a real page rather than a modal, so it bookmarks and
-  survives a refresh — the reasoning `routes.js` already gives for `bin`.
-- **Not a nav tab.** `routes.js` states the contract: *every nav tab must have a
-  URL; a URL is free not to be a tab.* Shuffle is reached from Home and from the
-  drawer, not from a permanent slot in the strip.
-- **Server-side random, one row.** `ORDER BY RANDOM() LIMIT 1` over the three
-  quote kinds, not a fetch-everything-and-pick-locally, which stops being free
-  at the size where this feature starts being fun.
-- **It must not disturb the review schedule.** Landing on a quote here is not
-  answering a card; nothing touches `item_reviews`. Worth a test, because the
-  quote card component is shared with the surface that *does*.
+The plan said `/shuffle` should be a real page, on the reasoning `routes.js`
+gives for the bin: a route bookmarks and survives a refresh. That is true and it
+is not worth the routing surface here — a card you press buys the same pleasure,
+and pressing is the whole gesture. The plan's argument stands if Shuffle ever
+wants its own screen.
 
-### On this day
+Two things the plan got right and one it left open:
 
-What you saved on this date in earlier years, off `created_at` and `noted_at`.
-
-- A card on Home, and a query that is `strftime('%m-%d')` over both columns.
-- **`noted_at` wins where it is set.** It is when *you* saved the line; the
-  roadmap names both columns and does not say which, and the answer matters on
-  every imported row, where `created_at` is the day of the import and means
-  nothing to a reader.
-- Nothing on screen when the day is empty. A card that says *"nothing on this
-  day"* every day for most of a first year is a card that trains you to skip it.
+- **Nothing touches `item_reviews`.** Written as a caution; it turned out to be
+  the assertion the tests are built around, because these draw the same quote
+  card the deck does.
+- **Kind before row.** Not in the plan at all, and it is what makes Shuffle
+  usable: drawing uniformly across every quote shows a film line once in a
+  hundred tries in a library that is mostly highlights.
+- **`noted_at` over `created_at`** — the plan called this out as the thing the
+  roadmap left unsaid, and it was right to.
 
 ### Saved views
 

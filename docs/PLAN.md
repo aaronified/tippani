@@ -2855,6 +2855,20 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 
 <sub>1.16.0 — `internal/httpapi/review_questions.go` · `web/frontend/src/quiz.js` · `web/frontend/src/Settings.jsx`</sub>
 
+### The numbers behind the schedule are bounded, not free
+
+**Decided.** The multipliers, the difficulty weighting, the multi-word cloze threshold and the ladder's three rungs are per-user preferences. Every one is clamped, and out-of-range falls back to the **default** rather than to the nearest bound.
+
+**Why the clamps rather than free numbers.** These multiply a half-life on every answer, so a bad one does not produce a wrong screen — it produces a schedule that is quietly useless and stays that way. A grow of 0.5 shortens a card on every *correct* answer, so a quote you know perfectly is asked more and more often for ever. A shrink of 1.5 lengthens it on every failure. Neither errors, neither looks broken, and both would take weeks to notice. So grow is `> 1` and shrink is `< 1` by construction, each range closing exactly where the number would start meaning its opposite.
+
+Falling back to the default rather than the nearest bound is the smaller of two wrongs: somebody who typed 0.5 into "correct answer multiplier" meant something, and silently handing them 1.1 answers a question they did not ask. The default is at least a number whose behaviour is written down.
+
+**The ladder is the one the interface refuses rather than corrects.** It has to ascend and has to stay inside the bounds the due-ness SQL floors and caps against — a rung outside them is a card that is due for ever or never. The server reverts one that does not, silently, because there is nowhere to report it from; so the panel says why and does not send the PUT. A test asserts the sliders' own bounds against the Go clamps, because a slider offering a value the server throws away is a control that moves and does nothing.
+
+**Instead of.** Leaving them constants — which made the review loop the one part of this app whose behaviour was an opinion the reader could not disagree with.
+
+<sub>1.16.0 — `internal/httpapi/review_tuning.go` · `web/frontend/src/quiz.js`</sub>
+
 ## 9. Import and the Staging Queue
 
 Imports used to parse and write in one shot, which meant a misdetected file was reported after it had already reached search and the review deck. Everything now lands in separate staging tables where nothing is irreversible, and every parser reads structure rather than English.
@@ -3878,6 +3892,20 @@ The navigation shape is the single most re-litigated decision in the project, mo
 **Approved.** Mine, and I approved deletion as the standing answer rather than a comment marking it dead.
 
 <sub>1.7.2, and 1.4.1 before it — `CHANGELOG.md`</sub>
+
+### Serendipity is not the review loop, and must not touch its schedule
+
+**Decided.** Shuffle and On this day live on Home and write nothing. `GET /shuffle` picks the KIND at random first and then a row within it; On this day matches on month-day, prefers `noted_at` over `created_at`, and excludes the current year.
+
+**Why the kind comes first.** Drawing uniformly across every quote is honest about the proportions and useless as a way of rediscovering the smaller shelves: a library of four thousand highlights and forty film lines shows a film line once in a hundred shuffles. Kinds with nothing in them are dropped before the draw, so a library with no films is not a third of the way to showing nothing.
+
+**Why nothing is written.** These draw the same quote card the deck does, and the `srSeen` multiplier exists precisely to lengthen a half-life when a quote is *seen*. Wiring that here would inflate a schedule through a surface meant for enjoying the library rather than working at it, in favour of whatever the random number generator liked, with nothing anywhere to report it. The test shuffles eleven times and counts the review rows either side.
+
+**`noted_at` over `created_at`**, which the roadmap named both of without deciding. On an imported row `created_at` is the day of the *import* — the same day for thousands of quotes — and means nothing to a reader.
+
+**Instead of.** Their own routes, which the plan specified and which is recorded there as a departure: a route bookmarks, and a card you press buys the same pleasure for none of the routing surface.
+
+<sub>1.16.0 — `internal/httpapi/serendipity_handlers.go` · `web/frontend/src/Home.jsx`</sub>
 
 ## 13. Controls, Labels, Icons and Help
 

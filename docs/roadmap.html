@@ -504,17 +504,6 @@
   </p>
   <ul>
     <li>
-      <strong>Shuffle</strong> — one random quote, full width, nothing else on
-      screen. The library has no random surface at all today; every other quote app
-      has one, and there is a reason.
-    </li>
-    <li>
-      <strong>On this day</strong> — what you saved on this date in earlier years,
-      off <code>created_at</code> and <code>noted_at</code>. Both are already
-      indexed, and the date facet already exists to link into, so this is a query and
-      a card.
-    </li>
-    <li>
       <strong>Saved views</strong> — "let me keep that combination of filters", as a
       <code>(name, url)</code> row and a list in the drawer. <em>This entry used to
       say the filter state was "already serialised into the URL in full", and it is
@@ -563,8 +552,6 @@
     hundred quotes you add — which is why it sits this high.
   </p>
   <ul>
-    <li><strong>Exact phrases in quotes</strong>: <code>"to be or not to be"</code> becomes one FTS5 phrase query instead of six independent prefix terms. There is currently no way to ask for a phrase at all, which for a library <em>made of phrases</em> is the odd gap.</li>
-    <li><strong>Date ranges</strong> — the date facet parses a single day; <code>2025-01..2025-06</code> and "last 30 days" are the obvious extensions, and the Stats calendar already links into that facet.</li>
     <li><strong>"More like this", without an embedding model.</strong> Semantic search via <code>sqlite-vec</code> sits under Later and would cost a dependency and an indexing pass. There is an 80% version that costs neither: take the quote's highest-value terms from the <code>*_fts_vocab</code> views that already exist for typo correction, and run them as one <code>OR</code> match. Worth shipping first, because it may well be enough.</li>
     <li><strong>Neighbouring highlights</strong> — "what else did I mark near here", from the annotations either side of this one by <code>location</code> in the same book. <code>locSortVal</code> parses those locators — but in the browser, in <code>Library.jsx</code>, over a page of rows already fetched. Deciding two highlights are adjacent means ordering the whole book, which is server work, so this needs the same parser in Go and one shared table of cases testing both. Nothing else in this category can do it, because nothing else keeps the locator.</li>
     <li><strong>Cross-work duplicate quotes</strong> — a passage saved under two editions of the same book is easy to miss. Surfacing them pairs with the merge that already exists.</li>
@@ -747,7 +734,6 @@
   <ul>
     <li><strong>Find and replace across a selection</strong>, preview then apply, reusing the review-before-apply flow already built for metadata re-verify. This is the single most useful post-import tool, and it stops being optional the moment OCR capture lands.</li>
     <li><strong>A shared text-cleanup pass</strong> — de-hyphenate across line breaks, drop page numbers and running heads, normalise the quote marks and ligatures that get mangled in transit. <a href="#android">§24</a> lists all of this as OCR post-processing, but it belongs <strong>server-side and shared</strong>, because every import source produces some of it and the typographic-folding normaliser already exists for the dedupe hash.</li>
-    <li><strong>Merge two films or shows.</strong> <code>POST /books/merge</code> exists; the catalogue side does not, even though duplicate detection already covers both.</li>
     <li><strong>The bulk bar on Library and Catalogue.</strong> It is on Search, Metadata and staging but not on the two main browse screens — which are where you actually notice that forty rows need the same correction.</li>
     <li><strong>Per-batch import rollback.</strong> <code>import_batches</code> already records the source and filename, so "undo that whole import" is the natural completion of the staging story; approval is currently a one-way door.</li>
   </ul>
