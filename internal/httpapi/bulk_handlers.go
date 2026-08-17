@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"tippani/internal/olog"
@@ -75,6 +76,25 @@ type bulkTagReq struct {
 	// about these" — stated as the thing a reader wants rather than as the column,
 	// which is the negative of it.
 	Review *bool `json:"review"`
+	// The rest of the locator (1.16.0), per kind. Sent to a kind that has no such
+	// column they are refused rather than ignored — see bulkQuoteCols.
+	//
+	// THE WORDS THEMSELVES ARE NOT HERE. `quote` is the row; setting it across a
+	// selection does not correct forty quotes, it replaces forty different
+	// sentences with one and loses thirty-nine of them irrecoverably. `note` IS
+	// here, because a note is a remark ABOUT a quote and "same thought about all
+	// of these" is a real thing to want — but it warns like every other field,
+	// because it still overwrites.
+	Note      *string `json:"note"`
+	Chapter   *string `json:"chapter"`   // annotation
+	Location  *string `json:"location"`  // annotation
+	Character *string `json:"character"` // dialogue
+	Actor     *string `json:"actor"`     // dialogue
+	Timestamp *string `json:"timestamp"` // dialogue
+	Speaker   *string `json:"speaker"`   // quote
+	Occasion  *string `json:"occasion"`  // quote
+	Place     *string `json:"place"`     // quote
+	Medium    *string `json:"medium"`    // quote
 	// Which board these are filed on (0036). STANDALONE QUOTES ONLY — an
 	// annotation belongs to its book and a dialogue to its film, and neither has
 	// a board to be moved between. Sent to either of those kinds it is refused
@@ -123,6 +143,41 @@ var binnableKinds = map[string]quoteBulkKind{
 	"movie":      {Table: "movies"},
 }
 
+// quoteFieldKinds names, per optional field, the kinds that actually have the
+// column. One table, so "which fields does a dialogue take" has one answer and
+// adding a column means editing a list rather than remembering a switch.
+var quoteFieldKinds = map[string][]string{
+	"note":      {"annotation", "dialogue", "quote"},
+	"chapter":   {"annotation"},
+	"location":  {"annotation"},
+	"character": {"dialogue"},
+	"actor":     {"dialogue"},
+	"timestamp": {"dialogue"},
+	"speaker":   {"quote"},
+	"occasion":  {"quote"},
+	"place":     {"quote"},
+	"medium":    {"quote"},
+}
+
+// unsupportedQuoteField returns the name of the first field this kind cannot
+// take, or "".
+func unsupportedQuoteField(kind string, req *bulkTagReq) string {
+	for name, p := range map[string]*string{
+		"note": req.Note, "chapter": req.Chapter, "location": req.Location,
+		"character": req.Character, "actor": req.Actor, "timestamp": req.Timestamp,
+		"speaker": req.Speaker, "occasion": req.Occasion,
+		"place": req.Place, "medium": req.Medium,
+	} {
+		if p == nil {
+			continue
+		}
+		if !slices.Contains(quoteFieldKinds[name], kind) {
+			return name
+		}
+	}
+	return ""
+}
+
 // bulkTag applies a bulkTagReq to owned rows of `kind`
 // (annotation|dialogue|utterance).
 func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
@@ -146,6 +201,15 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	}
 	if req.Color != nil && !validColor(*req.Color) {
 		writeErr(w, http.StatusBadRequest, "invalid color")
+		return
+	}
+	// A FIELD THIS KIND HAS NO COLUMN FOR IS A 400, NOT A SILENT DROP. `character`
+	// on a shelf of standalone quotes is a request the caller has got wrong, and
+	// answering 200 to it reports a narrowing that never happened — the same rule
+	// parseSearchFacets states for an unknown facet, and the same failure: a
+	// success that did nothing looks exactly like a success that did something.
+	if bad := unsupportedQuoteField(kind, &req); bad != "" {
+		writeErr(w, http.StatusBadRequest, bad+" does not apply to this kind")
 		return
 	}
 	uid := userID(r)
@@ -197,6 +261,26 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.Favorite != nil {
 		if err := bulkSetChild(tx, table, "favorite", boolToInt(*req.Favorite), owned); err != nil {
 			internalError(w, r, "bulk tag: favorite", err)
+			return
+		}
+	}
+	// The per-kind columns. A field this kind does not have has already been
+	// refused above, so anything reaching here is a column that exists.
+	for _, f := range []struct {
+		col string
+		p   *string
+	}{
+		{"note", req.Note},
+		{"chapter", req.Chapter}, {"location", req.Location},
+		{"character", req.Character}, {"actor", req.Actor}, {"timestamp", req.Timestamp},
+		{"speaker", req.Speaker}, {"occasion", req.Occasion},
+		{"place", req.Place}, {"medium", req.Medium},
+	} {
+		if f.p == nil {
+			continue
+		}
+		if err := bulkSetChild(tx, table, f.col, nullable(strings.TrimSpace(*f.p)), owned); err != nil {
+			internalError(w, r, "bulk tag: "+f.col, err)
 			return
 		}
 	}
@@ -298,6 +382,32 @@ func bulkSetChild(tx *sql.Tx, table, col string, val any, ids []int64) error {
 	return err
 }
 
+// nullableFromPtr / intFromPtr / boolIntFromPtr adapt an optional request field
+// to what the column stores. They exist so the bulk setters can be driven from a
+// TABLE rather than from one if-block per column — nine of those in a row is
+// nine chances to paste the wrong column name beside the right value, which is a
+// mistake no test catches because both halves compile.
+func nullableFromPtr(p *string) any {
+	if p == nil {
+		return nil
+	}
+	return nullable(strings.TrimSpace(*p))
+}
+
+func intFromPtr(p *int) any {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
+func boolIntFromPtr(p *bool) any {
+	if p == nil {
+		return 0
+	}
+	return boolToInt(*p)
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -338,6 +448,15 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		// 0033, mirroring books: a property of the film or show, inherited by the
 		// lines saved from it afterwards.
 		Review *bool `json:"review"`
+		// The rest of the record (1.16.0). See handleBulkUpdateBooks for why the
+		// title and the supplier ids are absent — the same two reasons, and
+		// tmdb_id/tvdb_id/igdb_id each carry a UNIQUE index per user, so a bulk
+		// set of one is a constraint violation rather than a bad idea.
+		MediaType    *string `json:"media_type"`
+		ReleaseYear  *int    `json:"release_year"`
+		ReleaseCirca *bool   `json:"release_circa"`
+		Description  *string `json:"description"`
+		Favorite     *bool   `json:"favorite"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -392,6 +511,40 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 	if req.SeriesIndex != nil {
 		if err := set("series_index", nullableFloat(*req.SeriesIndex)); err != nil {
 			internalError(w, r, "bulk movies: series_index", err)
+			return
+		}
+	}
+	// media_type is validated rather than trusted: it is a CHECK'd column, so a
+	// bad value is a 500 from the driver rather than a 400 the reader can act on.
+	if req.MediaType != nil {
+		mt := strings.TrimSpace(*req.MediaType)
+		// normalizeMediaType is the single-record validator, reused rather than
+		// re-spelled: a second list of the three legal values is a second thing to
+		// forget when a fourth medium lands.
+		if msg := normalizeMediaType(&mt); msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+		if err := set("media_type", mt); err != nil {
+			internalError(w, r, "bulk movies: media_type", err)
+			return
+		}
+	}
+	for _, f := range []struct {
+		col string
+		val any
+		on  bool
+	}{
+		{"description", nullableFromPtr(req.Description), req.Description != nil},
+		{"release_year", intFromPtr(req.ReleaseYear), req.ReleaseYear != nil},
+		{"release_circa", boolIntFromPtr(req.ReleaseCirca), req.ReleaseCirca != nil},
+		{"favorite", boolIntFromPtr(req.Favorite), req.Favorite != nil},
+	} {
+		if !f.on {
+			continue
+		}
+		if err := set(f.col, f.val); err != nil {
+			internalError(w, r, "bulk movies: "+f.col, err)
 			return
 		}
 	}

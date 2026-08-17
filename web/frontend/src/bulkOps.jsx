@@ -157,3 +157,87 @@ export function useBulkOps({ kind, ids = [], onDone }) {
 
   return { busy, routes, count, post, setShelf, fillGaps, remove }
 }
+
+// ---- editing a whole selection, field by field (1.16.0) ---------------------
+//
+// The bulk bar could set an author, a series and a set of genres. Everything
+// else on a record needed opening each row in turn, which for forty imported
+// films with the wrong medium is forty round trips through a modal.
+//
+// EVERY FIELD EXCEPT THE ONE THAT NAMES THE ROW. A work's title and a quote's
+// own words are not editable here, and that is a rule rather than an omission:
+// every other field can sensibly hold one value across a selection — five books
+// by one author, one series, one year — and a title cannot. Setting it over a
+// selection does not correct five records, it destroys four and leaves five rows
+// nothing can tell apart afterwards. The supplier ids are out for a harder
+// reason still: each carries a UNIQUE index per user, so a bulk set is a
+// constraint violation rather than merely a bad idea.
+//
+// THE WARNING IS PER FIELD AND COUNTS ONLY WHAT IT WOULD DESTROY. Filling a
+// blank is never a loss, so a field that is empty across the whole selection
+// says nothing at all — the same non-destructive default the work Details merge
+// screen uses when it pre-ticks only the fields you have nothing in. A field
+// with values warns, and says how many DISTINCT ones are about to become one,
+// because "overwrites 12" and "overwrites 12 different answers" are different
+// sizes of mistake.
+
+// BULK_WORK_FIELDS / BULK_QUOTE_FIELDS — what may be set, per kind.
+// `kinds` names the record kinds that have the column; absent means all of them.
+export const BULK_WORK_FIELDS = [
+  { key: 'author', label: 'Author', kinds: ['book'] },
+  { key: 'translator', label: 'Translator', kinds: ['book'] },
+  { key: 'editor', label: 'Editor', kinds: ['book'] },
+  { key: 'director', label: 'Director', kinds: ['movie'] },
+  { key: 'media_type', label: 'Type', kinds: ['movie'], options: [['movie', 'Film'], ['show', 'Show'], ['game', 'Game']] },
+  { key: 'published_year', label: 'Year', kinds: ['book'], number: true },
+  { key: 'release_year', label: 'Year', kinds: ['movie'], number: true },
+  { key: 'series', label: 'Series' },
+  { key: 'series_index', label: 'Series #', number: true },
+  { key: 'description', label: 'Description', long: true },
+]
+
+export const BULK_QUOTE_FIELDS = [
+  { key: 'note', label: 'Note', long: true },
+  { key: 'chapter', label: 'Chapter', kinds: ['annotation'] },
+  { key: 'location', label: 'Location', kinds: ['annotation'] },
+  { key: 'character', label: 'Character', kinds: ['dialogue'] },
+  { key: 'actor', label: 'Actor', kinds: ['dialogue'] },
+  { key: 'timestamp', label: 'Timestamp', kinds: ['dialogue'] },
+  { key: 'speaker', label: 'Speaker', kinds: ['quote'] },
+  { key: 'occasion', label: 'Occasion', kinds: ['quote'] },
+  { key: 'place', label: 'Place', kinds: ['quote'] },
+  { key: 'medium', label: 'Medium', kinds: ['quote'] },
+]
+
+export function bulkFieldsFor(kind) {
+  const table = kind === 'book' || kind === 'movie' ? BULK_WORK_FIELDS : BULK_QUOTE_FIELDS
+  return table.filter((f) => !f.kinds || f.kinds.includes(kind))
+}
+
+// overwriteWarning describes what setting `key` across `rows` would destroy.
+//
+// Returns null when nothing would be lost — which is the case the owner asked
+// for by name: "fields that are empty across the full selection do not need
+// warnings". A blank being filled is not an overwrite.
+export function overwriteWarning(rows, key) {
+  const present = []
+  const seen = new Set()
+  for (const r of rows || []) {
+    const v = r?.[key]
+    // 0 and false are real values for a year and a flag; only "" / null / undefined
+    // count as empty. `== null` catches both null and undefined and nothing else.
+    if (v == null || v === '') continue
+    present.push(v)
+    seen.add(String(v))
+  }
+  if (present.length === 0) return null
+  return {
+    rows: present.length,
+    distinct: seen.size,
+    // One sentence, five words or fewer per the house rule where it can be —
+    // this one cannot, and it is a warning rather than a label.
+    text: seen.size === 1
+      ? `overwrites ${present.length} that already say “${[...seen][0]}”`
+      : `overwrites ${present.length}, with ${seen.size} different values`,
+  }
+}

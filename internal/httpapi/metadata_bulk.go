@@ -102,6 +102,27 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		// of the BOOK, so a highlight added to it tomorrow inherits the answer —
 		// which is what somebody excluding a reference manual meant.
 		Review *bool `json:"review"`
+		// The rest of the record (1.16.0). Everything a book HAS, except the one
+		// thing that names it.
+		//
+		// THE TITLE IS NOT HERE AND CANNOT BE. Every other field can sensibly hold
+		// the same value across a selection — five books by one author, one series,
+		// one year. A title cannot: setting it over a selection does not correct
+		// five records, it destroys four of them and leaves five rows that are
+		// indistinguishable afterwards. The same reasoning keeps a quote's own
+		// words out of the quote endpoints.
+		//
+		// THE SUPPLIER IDS ARE NOT HERE EITHER, and for a harder reason than
+		// taste: isbn is UNIQUE per user, and google_id/asin name ONE edition. A
+		// bulk set of any of them either fails on the constraint or points five
+		// books at one record, which is a worse lie than a wrong author because
+		// every later re-sync then rewrites all five from it.
+		Translator    *string  `json:"translator"`
+		Editor        *string  `json:"editor"`
+		PublishedYear *int     `json:"published_year"`
+		PublishedCirca *bool   `json:"published_circa"`
+		Description   *string  `json:"description"`
+		Favorite      *bool    `json:"favorite"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -148,6 +169,26 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 	if req.SeriesIndex != nil {
 		if err := bulkSetBooks(tx, "series_index", nullableFloat(*req.SeriesIndex), owned, uid); err != nil {
 			internalError(w, r, "bulk books: series_index", err)
+			return
+		}
+	}
+	for _, f := range []struct {
+		col string
+		val any
+		set bool
+	}{
+		{"translator", nullableFromPtr(req.Translator), req.Translator != nil},
+		{"editor", nullableFromPtr(req.Editor), req.Editor != nil},
+		{"description", nullableFromPtr(req.Description), req.Description != nil},
+		{"published_year", intFromPtr(req.PublishedYear), req.PublishedYear != nil},
+		{"published_circa", boolIntFromPtr(req.PublishedCirca), req.PublishedCirca != nil},
+		{"favorite", boolIntFromPtr(req.Favorite), req.Favorite != nil},
+	} {
+		if !f.set {
+			continue
+		}
+		if err := bulkSetBooks(tx, f.col, f.val, owned, uid); err != nil {
+			internalError(w, r, "bulk books: "+f.col, err)
 			return
 		}
 	}
@@ -364,5 +405,120 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.gcOrphanPeople(uid, "author") // merged-away books may drop an author
+	writeJSON(w, http.StatusOK, map[string]any{"into": req.Into, "merged": len(from)})
+}
+
+// handleMergeMovies: POST /movies/merge {into, from[]} — the Catalogue's half of
+// the merge that books have had since duplicates became findable.
+//
+// IT MIRRORS handleMergeBooks DELIBERATELY, statement for statement, rather than
+// being generalised into one function over a table name. Two things stopped
+// that: the genre join table and the child table differ per side, and the orphan
+// sweep at the end names a person KIND — and getting a shared version subtly
+// wrong here would silently delete the wrong rows in a transaction that is over
+// before anybody sees a screen. The duplication is three statements; the shared
+// version would need four parameters and a comment explaining each.
+//
+// THE ORPHAN SWEEP NAMES TWO KINDS, and that is the one line that is not a
+// mirror. movies.director holds a film's director, a show's creator AND a game's
+// studio (0040), split by media_type — so merging away a game can orphan a
+// studio row that sweeping only 'director' would leave behind for ever.
+func (s *Server) handleMergeMovies(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Into int64   `json:"into"`
+		From []int64 `json:"from"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if req.Into <= 0 || len(req.From) == 0 {
+		writeErr(w, http.StatusBadRequest, "into and from are required")
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[meta] handleMergeMovies uid=%v into=%v from=%d", uid, req.Into, len(req.From))
+	all := append([]int64{req.Into}, req.From...)
+	owned, err := s.ownedRowIDs("movies", uid, all)
+	if err != nil {
+		internalError(w, r, "merge: ownership", err)
+		return
+	}
+	ownedSet := map[int64]bool{}
+	for _, id := range owned {
+		ownedSet[id] = true
+	}
+	if !ownedSet[req.Into] {
+		writeErr(w, http.StatusNotFound, "target title not found")
+		return
+	}
+	from := []int64{}
+	for _, id := range req.From {
+		if id != req.Into && ownedSet[id] {
+			from = append(from, id)
+		}
+	}
+	if len(from) == 0 {
+		writeErr(w, http.StatusBadRequest, "no distinct source titles to merge")
+		return
+	}
+
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "merge: begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	genreSet := map[string]bool{}
+	union := []string{}
+	for _, id := range append([]int64{req.Into}, from...) {
+		g, err := genresOf(tx, "movie", id)
+		if err != nil {
+			internalError(w, r, "merge: read genres", err)
+			return
+		}
+		for _, n := range g {
+			if !genreSet[strings.ToLower(n)] {
+				genreSet[strings.ToLower(n)] = true
+				union = append(union, n)
+			}
+		}
+	}
+
+	// Re-point the lines; OR IGNORE skips one that would collide with a line
+	// already on the target (it stays on the source and goes with it).
+	fromArgs := make([]any, 0, len(from)+1)
+	fromArgs = append(fromArgs, req.Into)
+	for _, id := range from {
+		fromArgs = append(fromArgs, id)
+	}
+	if _, err := tx.Exec(
+		`UPDATE OR IGNORE dialogues SET movie_id = ? WHERE movie_id IN (`+inClause(len(from))+`)`, fromArgs...); err != nil {
+		internalError(w, r, "merge: move dialogues", err)
+		return
+	}
+
+	delArgs := make([]any, 0, len(from)+1)
+	for _, id := range from {
+		delArgs = append(delArgs, id)
+	}
+	delArgs = append(delArgs, uid)
+	if _, err := tx.Exec(
+		`DELETE FROM movies WHERE id IN (`+inClause(len(from))+`) AND user_id = ?`, delArgs...); err != nil {
+		internalError(w, r, "merge: delete sources", err)
+		return
+	}
+
+	if err := setGenres(tx, "movie", uid, req.Into, union); err != nil {
+		internalError(w, r, "merge: set genres", err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "merge: commit", err)
+		return
+	}
+	// Both kinds — see the header. A merged-away game can orphan a studio.
+	s.gcOrphanPeople(uid, "director")
+	s.gcOrphanPeople(uid, "studio")
 	writeJSON(w, http.StatusOK, map[string]any{"into": req.Into, "merged": len(from)})
 }

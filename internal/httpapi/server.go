@@ -346,6 +346,7 @@ func (s *Server) Handler() http.Handler {
 	// duplicate detection, and merge — books.
 	mux.Handle("POST /books/bulk", s.requireAuth(s.handleBulkUpdateBooks))
 	mux.Handle("POST /books/merge", s.requireAuth(s.handleMergeBooks))
+	mux.Handle("POST /movies/merge", s.requireAuth(s.handleMergeMovies))
 	mux.Handle("GET /metadata/duplicates", s.requireAuth(s.handleBookDuplicates))
 	// Bulk actions over a selection (e.g. from search results): tag a set of
 	// annotations/dialogues, field-correct a set of films/shows.
