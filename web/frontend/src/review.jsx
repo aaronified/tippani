@@ -6,6 +6,7 @@
 // tag, this person, this colour") is started from a work tile, a person panel, a
 // tag card and the Stats colour breakdown — and every one of those modules sits
 // BELOW Home.jsx: Home imports Library and Movies, which import works.jsx, which
+import { installShortcuts } from './keys.js'
 // draws the tiles. A dialog exported from Home and imported by works.jsx would
 // have closed that loop. So the runner moved down to a module whose own imports
 // are all leaves (ui, api, people, bulkOps, theme, text), and Home imports it
@@ -30,6 +31,7 @@ import {
   IconHeart,
   MonoLabel,
   toast,
+  Tooltip,
 } from './ui.jsx'
 
 // tzOffsetMinutes — the client's UTC offset, east positive, sent with every
@@ -522,6 +524,23 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const committed = cloze ? graded != null : twoStep ? committedFlag : picked != null
   const setCommitted = setCommittedFlag
 
+  // REVIEW SHORTCUTS LIVE HERE, NOT IN THE SHELL'S DISPATCHER. A grade only means
+  // something to the card in front of you, so the component holding that card is
+  // the only one that can answer for it — and binding them globally would let a
+  // stray `2` grade a card on a screen with no quiz on it.
+  //
+  // Guarded on the same conditions the BUTTONS are: `1` and `2` do nothing until
+  // a flip card has been revealed, exactly as the Got it / Forgot buttons do not
+  // appear until then, so the key and the button can never disagree about
+  // whether the card is answerable.
+  useEffect(() => installShortcuts((id) => {
+    if (saving) return
+    if (id === 'reveal' && flip && !shown) return setShown(true)
+    if (flip && !shown) return // nothing else is answerable yet
+    if (id === 'grade-got') grade('got')
+    else if (id === 'grade-forgot') grade('forgot')
+  }), [saving, flip, shown, i, card?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function advance() {
     posRef.current = i + 1
     setSaving(false) // a still-flying grade must never gate the next card
@@ -724,30 +743,38 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 <SourceLines card={card} maps={personMaps} />
               </div>
               {graded == null ? (
+                // The keys are on the buttons, per the rule that a shortcut is
+                // only real once the control that shares its job says so.
                 <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="tp-btn tactile"
-                    disabled={saving}
-                    onClick={() => selfGrade('forgot')}
-                  >
-                    Forgot
-                  </button>
-                  <button
-                    type="button"
-                    className="tp-btn tp-btn-primary tactile"
-                    disabled={saving}
-                    onClick={() => selfGrade('got')}
-                  >
-                    Got it
-                  </button>
+                  <Tooltip label="Forgot" shortcut="grade-forgot">
+                    <button
+                      type="button"
+                      className="tp-btn tactile"
+                      disabled={saving}
+                      onClick={() => selfGrade('forgot')}
+                    >
+                      Forgot
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Got it" shortcut="grade-got">
+                    <button
+                      type="button"
+                      className="tp-btn tp-btn-primary tactile"
+                      disabled={saving}
+                      onClick={() => selfGrade('got')}
+                    >
+                      Got it
+                    </button>
+                  </Tooltip>
                 </div>
               ) : null}
             </>
           ) : (
-            <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setShown(true)}>
-              Show me
-            </button>
+            <Tooltip label="Reveal the answer" shortcut="reveal">
+              <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setShown(true)}>
+                Show me
+              </button>
+            </Tooltip>
           )}
         </div>
       )}

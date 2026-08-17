@@ -4,6 +4,7 @@ import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, cat
 // replaces those call sites, then the compat block can shrink.
 import { Children, Component, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
 
@@ -2506,7 +2507,14 @@ const LONG_PRESS_SLOP = 10;
 // read as broken — a label you have finished with is in the way immediately.
 const HOVER_HIDE_MS = 3000;
 
-export function Tooltip({ label, side = "top", className = "", onContextMenu, children }) {
+// `shortcut` is an ACTION ID from keys.js, not a key string. The registry owns
+// the binding and the bubble reads it, so a key changed in one place changes the
+// label on every control that runs that action — which is the whole of the
+// owner's rule that a shortcut "must always be spelled out in the corresponding
+// button's tooltip". Passing an id with no binding leaves the label untouched,
+// so any Tooltip can name an action speculatively.
+export function Tooltip({ label, side = "top", className = "", onContextMenu, shortcut, children }) {
+  label = withShortcut(label, shortcut);
   const timer = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);

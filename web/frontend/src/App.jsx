@@ -4,6 +4,7 @@ import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
+import { installShortcuts } from './keys.js'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
@@ -1149,6 +1150,27 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // seeded chips, a globe in the lens.
   const openSearch = () =>
     globalSearch ? searchScoped('all') : searchScoped(searchScope(tab, detail), takeSearchSeed())
+
+  // THE DISPATCHER. keys.js knows which key means which ACTION and nothing about
+  // what an action does; this is the other half, and it is deliberately a plain
+  // table rather than a chain of ifs — an action with no case here does nothing,
+  // which is the right behaviour for a binding whose screen is not open.
+  //
+  // The review actions are NOT here: a grade only means something to the card in
+  // front of you, so QuizRunner owns those and this dispatcher never sees them.
+  useEffect(() => installShortcuts((id) => {
+    switch (id) {
+      case 'search': openSearch(); break
+      case 'capture': openAdd('quote'); break
+      case 'palette': openSearch(); break
+      case 'go-home': go('home'); break
+      case 'go-library': go('library'); break
+      case 'go-catalogue': go('movies'); break
+      case 'go-quotes': go('quotes'); break
+      case 'go-stats': go('stats'); break
+      default: break
+    }
+  }), [tab, detail, globalSearch]) // eslint-disable-line react-hooks/exhaustive-deps
   // RIGHT-CLICK ONLY, WITH NO ON-SCREEN AFFORDANCE, and that cost is accepted
   // rather than overlooked: a visible switch for this would be a permanent
   // control in the busiest row of the app, answering a question most readers
@@ -1185,7 +1207,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     <div className={'min-h-screen' + (!detail ? ' has-mobile-topbar' : '')}>
       <header className="topbar">
         <div className="topbar-inner">
-          <Tooltip label="Go home to today's review" side="bottom" className="shrink-0">
+          <Tooltip shortcut="go-home" label="Go home to today's review" side="bottom" className="shrink-0">
             <button type="button" className="brand" onClick={() => selectTab('home')}>
               {/* the mark matches the 28px nav tab icons so the row reads level */}
               <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="28" height="28" />
@@ -1225,6 +1247,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 (Quote capture lives inside the ＋ Add surface's Capture tab —
                 no separate top-bar pill.) */}
             <Tooltip
+              shortcut="search"
               label={globalSearch ? 'Searching everything' : 'Search'}
               side="bottom"
               className="shrink-0"
@@ -1262,7 +1285,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 <IconMenu />
               </button>
             </Tooltip>
-            <Tooltip label="Go home to today's review" side="bottom" className="min-w-0">
+            <Tooltip shortcut="go-home" label="Go home to today's review" side="bottom" className="min-w-0">
               <button type="button" className="brand" onClick={() => selectTab('home')}>
                 <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="26" height="26" />
                 <span className="wordmark">tippani</span>
@@ -1272,7 +1295,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             <span className="flex-1" />
             {/* ＋ · Search · ? · chip — the same four the desktop bar carries, in
                 the same order, all reading the current route. */}
-            <Tooltip label={pendingImport > 0 ? `${pendingImport} imports awaiting review` : addLabel} side="bottom" className="shrink-0">
+            <Tooltip shortcut="capture" label={pendingImport > 0 ? `${pendingImport} imports awaiting review` : addLabel} side="bottom" className="shrink-0">
               <button type="button" className="mobile-topbar-btn" data-tour="add" aria-label={addLabel} onClick={() => openAdd(addKind, addFor)}>
                 <IconPlus />
                 {importBadge}
@@ -1285,7 +1308,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
                 glyph says, and the one place that can flip it is the one place
                 the gesture exists. The drawer's Search below stays global
                 unconditionally, as it always has. */}
-            <Tooltip label={globalSearch ? 'Searching everything' : 'Search'} side="bottom" className="shrink-0">
+            <Tooltip shortcut="search" label={globalSearch ? 'Searching everything' : 'Search'} side="bottom" className="shrink-0">
               <button
                 type="button"
                 className="mobile-topbar-btn"
