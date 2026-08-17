@@ -444,3 +444,59 @@ func TestGameLookupDoesNotConsultWikidataWhenIGDBAnswers(t *testing.T) {
 		t.Fatal("Wikidata was consulted while IGDB was answering — it is a floor, not a second opinion")
 	}
 }
+
+// A studio stops claiming it came from Open Library (0041).
+//
+// Fixing the two code paths stopped NEW rows being written that way and did
+// nothing about the ones already there — so the panel kept reading "VIA
+// OPENLIBRARY" under a studio that had just been re-fetched from IGDB and
+// correctly found nothing. A stale provenance line is worse than none: it is the
+// interface stating, in the present tense, where a fact came from, and being
+// wrong.
+func TestMigrationClearsStudioProvenanceFromTheAuthorPath(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	uid := int64(1)
+
+	// A studio written the old way, and an author written the right way.
+	for _, p := range []struct{ name, kind string }{{"Electronic Arts", "studio"}, {"Ursula K. Le Guin", "author"}} {
+		res, err := srv.Store.DB.Exec(
+			`INSERT INTO people (user_id, name, source, source_id, links, bio, born)
+			 VALUES (?, ?, 'openlibrary', 'OL1A', '{"openlibrary":"x"}', 'a bio', '1929')`, uid, p.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := res.LastInsertId()
+		if _, err := srv.Store.DB.Exec(
+			`INSERT INTO person_kinds (person_id, kind) VALUES (?, ?)`, id, p.kind); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Re-run the migration over the seeded rows — newTestServer migrated before
+	// they existed, which is exactly the order a real upgrade cannot have.
+	if _, err := srv.Store.DB.Exec(`
+		UPDATE people SET source = '', source_id = '', links = '', bio = '', born = '', died = ''
+		 WHERE source = 'openlibrary'
+		   AND EXISTS (SELECT 1 FROM person_kinds pk WHERE pk.person_id = people.id AND pk.kind = 'studio')`); err != nil {
+		t.Fatal(err)
+	}
+
+	var src, bio string
+	if err := srv.Store.DB.QueryRow(
+		`SELECT source, bio FROM people WHERE name = 'Electronic Arts'`).Scan(&src, &bio); err != nil {
+		t.Fatal(err)
+	}
+	if src != "" || bio != "" {
+		t.Errorf("a studio still carries an author record: source=%q bio=%q", src, bio)
+	}
+	// AND THE AUTHOR IS UNTOUCHED, which is the half that makes the clause worth
+	// scoping: an over-broad fix would wipe every author's bio in the library.
+	if err := srv.Store.DB.QueryRow(
+		`SELECT source, bio FROM people WHERE name = 'Ursula K. Le Guin'`).Scan(&src, &bio); err != nil {
+		t.Fatal(err)
+	}
+	if src != "openlibrary" || bio == "" {
+		t.Errorf("an author lost their Open Library identity: source=%q bio=%q", src, bio)
+	}
+	_ = c
+}

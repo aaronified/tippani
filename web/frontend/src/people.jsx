@@ -207,7 +207,13 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
         </div>
       </div>
       {zoom && <Lightbox path={person.image_path} title={name} onClose={() => setZoom(false)} />}
-      <div className="flex justify-end gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+      {/* WRAPS ON A NARROW SCREEN. Three buttons with `mr-auto` on the first is a
+          layout that assumes the row is wider than its contents — true on a
+          desktop, false on a phone, where Practise / Delete / Edit ran into each
+          other and sat at three different widths against the panel edge.
+          flex-wrap plus a gap that applies in both directions lets them fall onto
+          a second line intact instead of being squeezed. */}
+      <div className="flex flex-wrap items-center justify-end gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
         {/* FIRST IN THE ROW, and away from Delete. "Quiz me on Austen" is the one
             thing you might want from this panel repeatedly; editing a bio is
             something you do once. It reads across every role the person holds —
