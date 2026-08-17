@@ -99,6 +99,65 @@ const (
 	reviewLate   = 1.2 // late-recall credit: recalling it this long after the last review is itself evidence
 )
 
+// ---- difficulty weighting (1.16.0) -----------------------------------------
+//
+// NOT EVERY QUESTION IS THE SAME QUESTION, and the schedule used to pretend it
+// was. Picking the right book out of four is recognition with three quarters of
+// the work already done for you; typing the missing words back is recall with
+// nothing to lean on. Both moved the half-life by the same multiplier, so a
+// reader who kept getting the easy ones right was told they knew a quote as well
+// as one who could reproduce it.
+//
+// A harder question pays more when you get it right and costs LESS when you do
+// not, and the second half is what makes it fair rather than merely generous:
+// failing the hardest question in the deck is weak evidence that you have
+// forgotten the quote, where failing to recognise it among four is strong
+// evidence.
+//
+//	MCQ (source / quote / speaker)   x1.00 up   x1.00 down   the baseline
+//	cloze - type the missing words   x1.25 up   x0.85 down   nothing to lean on
+//
+// A flip card carries no weight because it never reaches a scored deck (see
+// directionsForMode), and in unscored Practice there is nothing to multiply.
+const (
+	clozeGrowWeight   = 1.25
+	clozeShrinkWeight = 0.85
+)
+
+// directionWeight returns the (reward, penalty) multipliers for a direction.
+// An unknown direction weighs 1 - a direction added without a weight behaves
+// exactly as everything did before rather than silently scoring zero.
+func directionWeight(direction string) (grow, shrink float64) {
+	switch direction {
+	case dirCloze:
+		return clozeGrowWeight, clozeShrinkWeight
+	default:
+		return 1, 1
+	}
+}
+
+// weighByDifficulty scales the MOVE an answer earned, not the value it landed on.
+// `next` is what nextStability returned and `cur` is where the card was, so
+// next-cur is the distance the baseline rules chose and the weight stretches or
+// shortens it in place.
+//
+// Working on the distance rather than the result is what keeps this composable
+// with both scheduling rules: the fixed ladder and the adaptive multiplier each
+// hand back a half-life, and neither needs to know a weight exists. The bounds
+// are re-applied because a stretched move can leave the range.
+func weighByDifficulty(direction, result string, cur, next float64) float64 {
+	grow, shrink := directionWeight(direction)
+	w := grow
+	if result != "got" {
+		w = shrink
+	}
+	if w == 1 {
+		return next
+	}
+	out := cur + (next-cur)*w
+	return min(max(out, reviewMinStability), reviewMaxStability)
+}
+
 // nextStability is the half-life an answer earns. Both scheduling rules live
 // here, together, because the only way to be sure the opt-in rule differs from
 // the default ONLY where it is meant to is to read them side by side.
@@ -190,11 +249,55 @@ const (
 // make the loop deeper rather than to ask one question more often — but it is a
 // visible change to every existing account, so it is decided here, in the table,
 // where changing it is changing one line.
+// THE DAILY QUIZ DOES NOT ASK A SELF-SCORED QUESTION (1.16.0), and that is a
+// deliberate decision rather than a simplification.
+//
+// A flip card shows the quote, reveals the source, and asks the reader to say
+// whether they had it. Nothing checks the answer, so the grade is whatever they
+// say — and that grade moves the SCHEDULE. Every other card in the daily deck is
+// marked by the server against a right answer, so one card in five being
+// self-marked does not make the deck slightly softer, it makes the whole number
+// mean something else: a streak and an accuracy figure that mix graded and
+// self-graded answers can be read as neither. The daily score is the one thing
+// in this app that is meant to be earned.
+//
+// It stays in Practice, where it belongs and where it is the DEFAULT — no
+// options to recognise the answer from, no distractors doing half the work, just
+// the quote and your own honesty. When Practice scoring is turned on it drops out
+// there too, for exactly the same reason.
+//
+// THE FALLBACK IS THE CLOZE, and that is what makes taking flip out safe. Flip
+// was the card that could never fail to build, because it needs no distractors —
+// so removing it looks like it would leave a one-book library with an empty deck.
+// It does not: a cloze needs no distractors either. It masks a phrase out of the
+// card's OWN words, so one quote from one book is a complete question, and the
+// server grades the typed answer typo-tolerantly. The hole left is only the one
+// cloze genuinely cannot fill — a quote too short to mask, or one outside the
+// Latin script the stopword list understands — and a card with no gradable
+// question is left out of the round rather than downgraded to a self-marked one.
 func directionsFor(kind string) []string {
+	return directionsForMode(kind, false)
+}
+
+// directionsForMode is directionsFor with the one axis that changes: whether the
+// answers are being SCORED. Self-scored cards are offered only when nothing is
+// counting.
+//
+// One function rather than two lists, because the two must not be able to drift:
+// the daily builder and the practice builder both come through here, so a
+// direction added to one is added to both by construction and the only question
+// left is whether it may be self-marked.
+func directionsForMode(kind string, scored bool) []string {
+	dirs := []string{dirSource, dirQuote, dirCloze}
 	if kind == kindScreen {
-		return []string{dirSource, dirQuote, dirFlip, dirCloze, dirSpeaker}
+		// A book has no cast, which is why this is per-kind: it can never be
+		// asked who said the line.
+		dirs = append(dirs, dirSpeaker)
 	}
-	return []string{dirSource, dirQuote, dirFlip, dirCloze}
+	if !scored {
+		dirs = append(dirs, dirFlip)
+	}
+	return dirs
 }
 
 // item kinds in item_reviews.
@@ -391,7 +494,8 @@ func recallStatus(seen bool, stability, elapsedDays, ageDays float64, lastResult
 // other, which reads as the quiz having moods. A second hash off the same inputs
 // keeps them independent.
 func dailyDirection(kind string, id, seed int64) string {
-	dirs := directionsFor(kind)
+	// The daily deck is always scored, so it is never offered a flip card.
+	dirs := directionsForMode(kind, true)
 	h := uint64(id)*0x9E3779B97F4A7C15 + kindSalt(kind)*31 + uint64(seed)*0xBF58476D1CE4E5B9
 	h ^= h >> 29
 	return dirs[h%uint64(len(dirs))]
@@ -1323,7 +1427,7 @@ func distractorScore(own, cand workRef) int {
 // The flip card is what makes the signature honest: it needs no distractor pool,
 // no second work to be wrong with, and no maskable span, so there is always a
 // question to ask about any quote with words in it.
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) reviewCard {
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool) (reviewCard, bool) {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -1333,20 +1437,37 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64) revi
 			cardSeed = 1
 		}
 	}
-	// The preferred direction, then every other one this kind allows, then the
-	// flip card — which needs no distractors and therefore cannot fail.
+	// The preferred direction, then every other one this kind allows.
 	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed) {
-		return card
+		return card, true
 	}
-	for _, d := range directionsFor(c.card.Kind) {
+	for _, d := range directionsForMode(c.card.Kind, scored) {
 		if d == preferred {
 			continue
 		}
 		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed) {
-			return card
+			return card, true
 		}
 	}
-	return finishCard(c, dirFlip)
+	// A SCORED DECK HAS NO ESCAPE HATCH, and that is the change. This used to end
+	// `return finishCard(c, dirFlip)`: the flip card needs no distractors, so it
+	// could never fail, which made it the guaranteed fallback for a card with too
+	// little material around it. In a scored deck that guarantee is the bug — it
+	// would put a self-marked card into the daily score, which is the one thing
+	// 1.16.0 exists to stop.
+	//
+	// Almost nothing reaches here. The cloze above needs no distractors either,
+	// only words: one quote from one book is a complete question. What is left is
+	// a quote too short to mask a phrase out of, or one outside the Latin script
+	// clozeReadable gates on — and for those there is honestly no question to ask,
+	// so the card sits out the round.
+	//
+	// ok=false is impossible for an unscored deck, because flip is always
+	// available there — which is why Practice can still show you everything.
+	if scored {
+		return reviewCard{}, false
+	}
+	return finishCard(c, dirFlip), true
 }
 
 // attachDirection fills in whatever a card's direction needs, and REFUSES a
@@ -1460,7 +1581,10 @@ func attachCloze(card *reviewCard) bool {
 	if strings.TrimSpace(text) == "" {
 		text = card.Note // a note-only quote is still words worth recalling
 	}
-	masked, _, ok := clozeSpan(text, card.Kind, card.ID)
+	// The blank is ONE WORD until the card has been remembered long enough to
+	// deserve a wider one — see clozeMultiWordFrom. The card already carries its
+	// half-life, so nothing has to be threaded in for this.
+	masked, _, ok := clozeSpan(text, card.Kind, card.ID, clozeMaxWordsFor(card.Stability))
 	if !ok {
 		return false
 	}
@@ -1614,7 +1738,11 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			if len(items) >= slots {
 				break
 			}
-			items = append(items, buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools, seed))
+			// A card with too little material to be asked a GRADED question is
+			// left out rather than downgraded to a self-marked one.
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools, seed, true); ok {
+				items = append(items, card)
+			}
 		}
 	}
 	states, err := s.reviewStates(uid, scope)
@@ -1672,12 +1800,28 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "practice pool", err)
 		return
 	}
+	// WHETHER PRACTICE IS SCORED DECIDES WHETHER IT MAY SELF-MARK. With
+	// srPracticeCounts off — the default — Practice moves no schedule and keeps no
+	// grade worth defending, so the flip card belongs here and leads. Turn scoring
+	// on and it drops out, for the same reason the Daily Quiz never offers it.
+	scored := pf.SRPracticeCounts
 	items := make([]reviewCard, 0, len(cands))
 	for _, c := range cands {
 		// Practice picks from the same table the daily deck does, at random
 		// rather than by hash — varying between rounds is the point here.
-		dirs := directionsFor(c.card.Kind)
-		items = append(items, buildQuestion(c, dirs[rand.IntN(len(dirs))], pools, 0))
+		dirs := directionsForMode(c.card.Kind, scored)
+		preferred := dirs[rand.IntN(len(dirs))]
+		if !scored {
+			// THE DEFAULT, weighted rather than merely available: unscored
+			// Practice leads with the flip card and the graded kinds are the
+			// variety around it. A flat pick would make it one direction in five.
+			if rand.IntN(2) == 0 {
+				preferred = dirFlip
+			}
+		}
+		if card, ok := buildQuestion(c, preferred, pools, 0, scored); ok {
+			items = append(items, card)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pool": len(items)})
 }
@@ -1764,7 +1908,19 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "review answer item text", err)
 			return
 		}
-		_, answerText, ok := clozeSpan(text, req.Kind, req.ID)
+		// THE SAME WIDTH THE CARD WAS BUILT WITH, which means the half-life as it
+		// was BEFORE this answer moves it. Read here rather than reused from the
+		// scheduling block below, because that block runs after this one — and
+		// grading a one-word blank against a three-word answer would mark a
+		// correct reader wrong, silently, only on cards at the 30-day rung.
+		var stabilityNow float64 = reviewMinStability
+		if err := s.Store.DB.QueryRow(
+			`SELECT stability FROM item_reviews WHERE kind = ? AND item_id = ?`,
+			req.Kind, req.ID).Scan(&stabilityNow); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			internalError(w, r, "review answer cloze stability", err)
+			return
+		}
+		_, answerText, ok := clozeSpan(text, req.Kind, req.ID, clozeMaxWordsFor(stabilityNow))
 		if !ok {
 			// The card could not have been a cloze card, so the attempt is about
 			// a question that was never asked. Refused rather than graded: a
@@ -1833,8 +1989,20 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// at all trivially has not. nextStability turns that, the grade and the
 		// gap since the last review into the new half-life under whichever of the
 		// two rules the reviewer is on.
+		prev := stability
 		stability = nextStability(pf.SRAdaptive, req.Result, stability,
 			elapsedDays(lastReviewed), found && reviewCount > lapseCount)
+		// THE DIFFICULTY IS DERIVED, NOT DECLARED. A client-sent "direction" would
+		// be the client telling the server what its own answer was worth, and the
+		// obvious abuse - claim every answer was the hardest kind - would inflate a
+		// schedule invisibly. The one direction that pays differently is the cloze,
+		// and the server knows a cloze when it sees one: it graded the attempt
+		// itself, a few lines above, against an answer that never left the machine.
+		dir := ""
+		if req.Attempt != nil {
+			dir = dirCloze
+		}
+		stability = weighByDifficulty(dir, req.Result, prev, stability)
 		if found {
 			q := `UPDATE item_reviews SET stability = ?, review_count = review_count + 1,
 			       last_result = ?, last_reviewed_at = datetime('now'), last_touched_at = datetime('now')`

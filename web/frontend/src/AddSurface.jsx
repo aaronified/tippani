@@ -249,8 +249,14 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
           IGDB also needs a PAIR, which is the half people miss. */}
       {kindHasNoKey && (
         <p className="microcopy" style={{ color: 'var(--soft)' }}>
+          {/* A GAME STILL SEARCHES WITHOUT A KEY (1.16.0), so this no longer says
+              the lookup is off — it says what you are getting. Wikidata is the
+              fallback and it is thinner: usually no cover art, and a one-line
+              description where IGDB gives a paragraph. Saying "no key" and
+              stopping would send somebody to Settings for a credential they may
+              not need. */}
           {kind === 'game'
-            ? 'no IGDB key configured — it needs a Twitch client id and secret. “Add manually” below always works.'
+            ? 'no IGDB key — searching Wikidata instead, which rarely has cover art. A Twitch client id and secret in Settings gets the full record; “Add manually” always works.'
             : 'no movie-lookup key configured — “Add manually” below always works.'}
         </p>
       )}

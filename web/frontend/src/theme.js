@@ -101,9 +101,20 @@ export function applyLabels(pref) {
   applyLabelsNow()
 }
 
+// TWO ATTRIBUTES, because the resolved answer cannot express the difference
+// that matters. `data-labels` is the concrete on/off every clip rule reads.
+// `data-labels-mode` is the RAW preference, and it exists so an explicit choice
+// can outrank the app's own exceptions: a handful of buttons opt out of the
+// collapse with keepLabel — primary submits, destructive confirms, the doors to
+// a settings panel — and those exceptions are defaults, not rules. Under 'auto'
+// they stand, which is what makes auto the recommended setting. Under an
+// explicit 'off' they do not: a reader who has said "glyphs only" has answered
+// the question the exception was guessing at, and an app that keeps overriding
+// them has a preference in name only.
 function applyLabelsNow() {
   const on = labelPref === 'auto' ? !narrow.matches : labelPref === 'on'
   document.documentElement.dataset.labels = on ? 'on' : 'off'
+  document.documentElement.dataset.labelsMode = labelPref
 }
 
 // labelsPref returns the stored preference ('auto' by default) — Settings

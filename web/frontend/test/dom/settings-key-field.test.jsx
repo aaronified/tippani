@@ -167,6 +167,73 @@ describe('what the card no longer says', () => {
   })
 })
 
+// ---- the games pair ------------------------------------------------------
+//
+// THE GAP THIS CLOSES. 1.15.1 shipped games, an IGDB lookup, an endpoint that
+// accepts igdb_client_id and igdb_secret, a GET that reports the two halves
+// SEPARATELY — with a comment saying it does so "so the Settings card can point
+// at the half that is missing" — and an Add sheet that says "no IGDB key
+// configured; it needs a Twitch client id and secret". The two rows in Settings
+// never landed, so the app named a screen that had no field on it and a game
+// lookup 503'd with nowhere to go. Every layer was tested except the one a
+// reader touches.
+//
+// So these assert the rows exist and write the right field names. A test that
+// only posted to the endpoint would have passed throughout the release the rows
+// were missing.
+describe('the IGDB pair', () => {
+  it('offers a row for each half', async () => {
+    await page()
+    expect(editBtn('IGDB client id')).toBeTruthy()
+    expect(editBtn('IGDB secret')).toBeTruthy()
+  })
+
+  it('says which halves are stored', async () => {
+    KEYS = { igdb_client_id_set: true, igdb_secret_set: true }
+    await page()
+    await waitFor(() => expect(badge('IGDB client id')).not.toBeNull())
+    expect(badge('IGDB secret')).not.toBeNull()
+  })
+
+  it.each([
+    ['igdb_client_id', 'IGDB client id', /Twitch client id/],
+    ['igdb_secret', 'IGDB secret', /Twitch client secret/],
+  ])('saves %s under the name the server decodes', async (field, label, placeholder) => {
+    // The field NAME is the whole of the wiring: the endpoint decodes every key
+    // as a pointer, so a misspelt one is silently left alone and the save
+    // reports success having stored nothing.
+    await page()
+    fireEvent.click(editBtn(label))
+    fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value: 'v1' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`save ${label}`, 'i') }))
+    await waitFor(() =>
+      expect(PUTS.some(([p, b]) => p === '/admin/metadata-keys' && b[field] === 'v1')).toBe(true),
+    )
+  })
+
+  it('says nothing when neither half is set', async () => {
+    // An instance with no games in it is not misconfigured, and a standing red
+    // line about a key nobody needs is the "Untested" chip wearing a new label.
+    KEYS = { igdb_client_id_set: false, igdb_secret_set: false }
+    await page()
+    await waitFor(() => expect(editBtn('IGDB secret')).toBeTruthy())
+    expect(screen.queryByText(/IGDB needs both halves/)).toBeNull()
+  })
+
+  it.each([
+    [{ igdb_client_id_set: true, igdb_secret_set: false }, /the secret is still/],
+    [{ igdb_client_id_set: false, igdb_secret_set: true }, /the client id is still/],
+  ])('names the missing half when only one is set', async (keys, says) => {
+    // Half a pair fails at the Twitch token exchange with "invalid client",
+    // which arrives as a lookup failure — so the reader is told games are broken
+    // when the truth is that one field is blank. This is the state the split
+    // booleans exist for.
+    KEYS = keys
+    await page()
+    await waitFor(() => expect(screen.getByText(says)).toBeTruthy())
+  })
+})
+
 describe('multi-author credits', () => {
   it('lives inside the metadata card rather than beside it', async () => {
     // Four chips and a label is a footnote to a subject, not a subject. The

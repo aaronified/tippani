@@ -66,6 +66,7 @@ import {
   IconHelp,
   IconMetadata,
   IconPlus,
+  IconSearch,
   IconWatching,
   Lightbox,
   Masonry,
@@ -114,7 +115,7 @@ import {
 // shell's one ＋ Add surface (`onAdd`), which since 1.4.1 opens on the right
 // thing for the page it is on; `dataNonce` is how anything saved there tells
 // whichever list it changed — the poster grid or a title's lines — to refetch.
-export default function Movies({ openId, onOpen, onClose, creditSeparators, onAdd, dataNonce }) {
+export default function Movies({ openId, onOpen, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
   if (openId) {
     return (
       <MovieDetail
@@ -122,8 +123,7 @@ export default function Movies({ openId, onOpen, onClose, creditSeparators, onAd
         onClose={onClose}
         creditSeparators={creditSeparators}
         onAdd={onAdd}
-        dataNonce={dataNonce}
-      />
+        dataNonce={dataNonce} onSearch={onSearch} />
     )
   }
   return <MovieList onOpen={onOpen} creditSeparators={creditSeparators} dataNonce={dataNonce} />
@@ -718,7 +718,7 @@ export function MediaTypeToggle({ value, onChange }) {
 
 // ---- movie detail (§8.7): poster header + filmstrip of dialogues ----
 
-function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
+function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
   const [movie, setMovie] = useState(null)
   const [editing, setEditing] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
@@ -927,6 +927,15 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                     onClick: () => pick(activeWord),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (movie) window.location.href = `/api/movies/${movie.id}/export` } }]),
+                  // SEARCH, ON A PHONE ONLY BECAUSE THAT IS WHERE IT IS MISSING.
+                  // The top bar's Search already lands scoped to whatever you are
+                  // looking at — searchScope reads the open work — so the
+                  // work-details screen has had a context-aware search all along.
+                  // MobileDetailBar replaces that bar, which left the one screen
+                  // where "find another line like this" is the obvious next thing
+                  // with no way to ask it. Desktop needs no entry here: the bar is
+                  // still up there.
+                  { icon: <IconSearch />, label: 'Search', onClick: () => onSearch?.() },
                   { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
                   { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },

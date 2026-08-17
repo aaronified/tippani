@@ -2,8 +2,13 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"tippani/internal/metadata"
 )
 
 // createWork posts a movies-table row of the given media_type and returns its id.
@@ -330,5 +335,112 @@ func TestRefillingActorsOnAGame(t *testing.T) {
 	}, http.StatusOK))
 	if res.Refilled != 1 {
 		t.Fatalf("refilled = %d, want 1 — a game's voice cast fills its lines like a film's", res.Refilled)
+	}
+}
+
+// ---- the Wikidata fallback (1.16.0) ---------------------------------------
+//
+// GAMES WERE THE ONE MEDIUM WITH NO FLOOR. Books need no key, films run on a
+// shared built-in TMDB key, and a game needed a Twitch application, a client id
+// and a secret before it could be looked up at all — so the medium with the
+// highest setup cost was also the only one that answered 503 and told you to
+// type it in yourself. Wikidata is the floor under it.
+//
+// The rule these pin is that it is a FLOOR AND NOT A SECOND OPINION: it must
+// answer when IGDB cannot, and must not run at all while IGDB is answering.
+// Getting that backwards would be invisible in the response — the candidate list
+// would simply be longer, with thinner records mixed into good ones.
+
+// wikidataGameServer stubs the two Action API calls the fallback makes.
+func wikidataGameServer(t *testing.T, title string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case q.Get("action") == "query":
+			_, _ = w.Write([]byte(`{"query":{"search":[{"title":"Q1","snippet":"a video game"}]}}`))
+		case q.Get("action") == "wbgetentities":
+			if q.Get("props") == "claims" {
+				_, _ = w.Write([]byte(`{"entities":{"Q1":{"claims":{` +
+					`"P31":[{"mainsnak":{"datavalue":{"value":{"id":"Q7889"}}}}],` +
+					`"P577":[{"mainsnak":{"datavalue":{"value":{"time":"+2010-05-18T00:00:00Z"}}}}]}}}}`))
+				return
+			}
+			_, _ = fmt.Fprintf(w, `{"entities":{"Q1":{"labels":{"en":{"value":%q}}}}}`, title)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestGameLookupFallsBackToWikidataWithNoIGDBKey(t *testing.T) {
+	srv := newTestServer(t)
+	wd := wikidataGameServer(t, "Alan Wake")
+	metadata.SetWikidataBaseForTest(t, wd.URL)
+	// No IGDB credentials at all, which is the ordinary state of a fresh
+	// instance: this used to be a flat 503 with nothing to choose from.
+	srv.IGDB = nil
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	got := decode[lookupResp](t, c.mustDo("POST", "/movies/lookup",
+		map[string]any{"title": "Alan Wake", "media_type": "game"}, http.StatusOK))
+	if len(got.Candidates) != 1 {
+		t.Fatalf("want one wikidata candidate, got %+v", got.Candidates)
+	}
+	cand := got.Candidates[0]
+	if cand.Source != "wikidata" {
+		t.Fatalf("source = %q — the picker has to be able to say the record is the thinner one", cand.Source)
+	}
+	if cand.MediaType != "game" || cand.Title != "Alan Wake" || cand.ReleaseYear != 2010 {
+		t.Fatalf("candidate = %+v", cand)
+	}
+}
+
+// With no key AND no title there is nothing to fall back WITH, so the missing
+// pair is still the honest answer — "no results" would be false, because nothing
+// was asked.
+func TestGameLookupStillReportsTheMissingKeyWhenItCannotFallBack(t *testing.T) {
+	srv := newTestServer(t)
+	srv.IGDB = nil
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	c.mustDo("POST", "/movies/lookup",
+		map[string]any{"igdb_id": 123, "media_type": "game"}, http.StatusServiceUnavailable)
+}
+
+// The half that cannot be seen in a response: with IGDB answering, Wikidata must
+// not be consulted at all. The stub fails the test if it is touched.
+func TestGameLookupDoesNotConsultWikidataWhenIGDBAnswers(t *testing.T) {
+	srv := newTestServer(t)
+	touched := false
+	wd := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		touched = true
+		http.NotFound(w, r)
+	}))
+	defer wd.Close()
+	metadata.SetWikidataBaseForTest(t, wd.URL)
+
+	igdb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "token") {
+			_, _ = w.Write([]byte(`{"access_token":"t","expires_in":3600}`))
+			return
+		}
+		_, _ = w.Write([]byte(`[{"id":7,"name":"Alan Wake","slug":"alan-wake","first_release_date":1274140800}]`))
+	}))
+	defer igdb.Close()
+	srv.IGDB = &metadata.IGDB{ClientID: "id", ClientSecret: "secret", BaseURL: igdb.URL, TokenURL: igdb.URL + "/token"}
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	got := decode[lookupResp](t, c.mustDo("POST", "/movies/lookup",
+		map[string]any{"title": "Alan Wake", "media_type": "game"}, http.StatusOK))
+	if len(got.Candidates) == 0 || got.Candidates[0].Source != "igdb" {
+		t.Fatalf("IGDB must answer for itself: %+v", got.Candidates)
+	}
+	if touched {
+		t.Fatal("Wikidata was consulted while IGDB was answering — it is a floor, not a second opinion")
 	}
 }

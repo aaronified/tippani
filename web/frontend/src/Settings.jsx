@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, coverImgURL, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, UNSET_LABEL } from './theme.js'
-import { applyLanguageMarks, currentLanguageMarks, languageMarksBlob, languageMarksState, LanguageMark, MARK_PALETTE } from './languages.jsx'
+import {
+  applyLanguageMarks,
+  currentLanguageEntries,
+  LANGUAGE_NAME_MAX_RUNES,
+  languageMarksBlob,
+  languageMarksState,
+  LanguageMark,
+  MARK_MAX_RUNES,
+  MAX_CUSTOM_MARKS,
+} from './languages.jsx'
 import {
   applyFonts,
   fontState,
@@ -41,6 +50,7 @@ import {
   IconExport,
   IconKey,
   IconLanguages,
+  IconPlus,
   IconRefresh,
   IconRestore,
   IconRevert,
@@ -791,24 +801,33 @@ function collectFonts(rows) {
 
 // LanguageMarksSettings — what a proverb wears where every other quote wears a
 // face. A POP-UP off the Appearance card since 1.15.2, for the same reason Type
-// is: a row per language, each opening a tray of flags, is a long list standing
-// open beside cards you can read at a glance, and a mark is a matter of
-// appearance. It renders its own body only — the dialog carries the heading.
+// is: a row per language, each opening a tray, is a long list standing open
+// beside cards you can read at a glance, and a mark is a matter of appearance.
+// It renders its own body only — the dialog carries the heading.
 //
-// FLAGS ARE OFFERED AND NOT ASSUMED, which is the one decision this card exists
-// to make visible. The ask was "use flags for languages", and a flag is what many
-// readers will reach for — but a flag is a country and a language is not. Bengali
-// is spoken either side of a border, Hindi has no flag of its own, and Spanish,
-// Portuguese, Arabic and English have a dozen each with nothing to choose between
-// them. Shipping a default would be this app telling somebody which country owns
-// their mother tongue.
+// NO FLAGS (1.16.0). The tray used to offer twenty-four of them, first and in a
+// grid, on the reasoning that offering is not mapping — nothing in the code ever
+// said which flag belonged to which language. The reasoning held and the screen
+// still did the thing it was defending against: a grid of flags at the top of a
+// language's tray is a recommendation whoever wrote it, and it made the picker a
+// geography quiz whose right answer did not exist. A flag is still one keystroke
+// away, by typing it, which is the difference between a tool and a suggestion.
 //
-// So the built-in is a letter from the language's own script, the tray offers
-// flags first, and one tap makes it a flag for good. Anything typable also works:
-// a script the tray has no flag for, a symbol, an emoji nobody thought of.
+// WHAT A LANGUAGE OFFERS NOW IS ITS OWN SCRIPT: four letters, from the script it
+// is written in. Below them sit the reader's OWN marks — up to four, per
+// language — which is where a typed flag, symbol or emoji lands and stays, so
+// picking it again next month is a tap rather than a hunt for the character map.
+//
+// THE WHOLE ROW OPENS THE TRAY. It was a 22px disc, which is a target you have
+// to aim at next to a name you cannot press — the name being the thing that
+// looks like the subject. The row is the button now and the disc is what it
+// draws; only the reset glyph stays a separate control, because "put this back"
+// is not "let me look at this".
 function LanguageMarksSettings({ prefs, onSaved }) {
   const [rows, setRows] = useState(() => languageMarksState())
   const [picking, setPicking] = useState(null) // the language whose tray is open
+  const [draft, setDraft] = useState('') // the "add your own" box, per open tray
+  const [adding, setAdding] = useState('') // the new-language box, '' = closed
   const [err, setErr] = useState('')
 
   // Re-seed when the session prefs change under us — another tab, or the account
@@ -816,16 +835,20 @@ function LanguageMarksSettings({ prefs, onSaved }) {
   // screen rather than with a stale prop, exactly as the colour card does.
   useEffect(() => { setRows(languageMarksState()) }, [prefs])
 
-  async function save(key, mark) {
-    const next = { ...currentLanguageMarks(), [key]: mark }
-    if (!mark) delete next[key]
-    const blob = languageMarksBlob(next)
+  // save takes the WHOLE next entry rather than a mark, because every control in
+  // the tray changes a different field of one row and a mark-shaped save would
+  // have to be three of them.
+  async function save(key, patch) {
+    const all = currentLanguageEntries()
+    const cur = all[key] || { mark: '', customs: [], name: '' }
+    all[key] = { ...cur, ...patch }
+    const blob = languageMarksBlob(all)
     applyLanguageMarks({ languageMarks: blob })
-    setRows(languageMarksState())
+    setRows(languageMarksState(Object.keys(all)))
     const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
     if (!r.ok) {
       setErr(errText(r, 'could not save'))
-      // Back to what the server still believes, so the card can never show a
+      // Back to what the server still believes, so the panel can never show a
       // mark that was refused.
       applyLanguageMarks(prefs || {})
       setRows(languageMarksState())
@@ -835,85 +858,218 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     onSaved?.({ languageMarks: blob })
   }
 
+  // addCustom appends to this language's own marks and selects it. Selecting is
+  // not a convenience: somebody who has just typed a mark has said which one they
+  // want, and leaving it unselected would make adding a two-step act with an
+  // invisible second step.
+  function addCustom(row, raw) {
+    const g = String(raw || '').trim()
+    setDraft('')
+    if (!g) return
+    if (row.customs.includes(g)) return save(row.key, { mark: g })
+    if (row.customs.length >= MAX_CUSTOM_MARKS) {
+      setErr(`${row.name} already keeps ${MAX_CUSTOM_MARKS} marks of its own — remove one first.`)
+      return
+    }
+    return save(row.key, { customs: [...row.customs, g], mark: g })
+  }
+
+  // Removing the mark currently in use falls back to the script letter rather
+  // than leaving the row drawing something it no longer offers.
+  function removeCustom(row, g) {
+    const customs = row.customs.filter((c) => c !== g)
+    return save(row.key, { customs, mark: row.mark === g ? '' : row.mark })
+  }
+
+  function addLanguage(raw) {
+    const name = String(raw || '').trim()
+    setAdding('')
+    if (!name) return
+    const key = name.toLowerCase()
+    if (rows.some((r) => r.key === key)) {
+      setPicking(key)
+      return
+    }
+    // A language is added by being GIVEN something to store — a display name is
+    // the only field an unmarked language has, and without one the entry would
+    // serialise to nothing and the row would vanish on the next reload.
+    setPicking(key)
+    return save(key, { name })
+  }
+
   return (
     <>
       <p className="microcopy mb-3">
-        A proverb has nobody to credit, so its card leads with its language instead of a face. The
-        built-in is a letter from that script; a flag is one tap away and never assumed — a flag is a
-        country, and a language is not.
+        A proverb has nobody to credit, so its card leads with its language instead of a face. Each
+        language offers four letters from its own script; anything else you type — a symbol, a flag,
+        an emoji — is kept as one of that language’s own marks.
       </p>
       <div>
-        {rows.map((row) => (
-          <div key={row.key} className="inline-field">
-            <div className={'inline-field-head' + (picking === row.key ? '' : ' is-flush')} style={{ gap: 10 }}>
-              <Tooltip label={`Change the ${row.name} mark`}>
+        {rows.map((row) => {
+          const open = picking === row.key
+          const full = row.customs.length >= MAX_CUSTOM_MARKS
+          return (
+            <div key={row.key} className="inline-field">
+              {/* THE ROW IS THE TRIGGER. The mark and the name are inside one
+                  button that fills the row; the reset stays outside it, because
+                  a control nested in a control is invalid markup and, worse,
+                  ambiguous to press. */}
+              <div className={'inline-field-head' + (open ? '' : ' is-flush')} style={{ gap: 6 }}>
                 <button
                   type="button"
-                  className="color-dot-btn"
-                  aria-label={`Change the ${row.name} mark`}
-                  aria-expanded={picking === row.key}
-                  onClick={() => setPicking(picking === row.key ? null : row.key)}
+                  className="lang-row-btn"
+                  aria-expanded={open}
+                  // Named explicitly, because the mark inside it carries its own
+                  // "in Bengali" label for the quote cards and a row announcing
+                  // "in Bengali Bengali" is the glyph's label leaking into a
+                  // context it was not written for.
+                  aria-label={row.name}
+                  onClick={() => { setPicking(open ? null : row.key); setDraft('') }}
                 >
-                  <LanguageMark languages={[row.name]} size={22} ring="var(--card)" />
+                  <LanguageMark languages={[row.canonical]} size={22} ring="var(--card)" />
+                  <span className="min-w-0 flex-1 text-left" style={{ fontWeight: 600 }}>{row.name}</span>
+                  {/* The canonical name stays visible on a renamed row. Quotes
+                      are still stored and matched under it, so hiding it would
+                      make "why does my Bangla board say Bengali" unanswerable. */}
+                  {row.renamed && <MonoLabel style={{ color: 'var(--faint)' }}>{row.canonical}</MonoLabel>}
+                  <IconChevron open={open} size={18} />
                 </button>
-              </Tooltip>
-              <div className="min-w-0 flex-1" style={{ fontWeight: 600 }}>{row.name}</div>
-              {row.mark && (
-                <FieldIconButton
-                  icon={<IconRevert />}
-                  ariaLabel={`Reset the ${row.name} mark`}
-                  onClick={() => save(row.key, '')}
-                  tooltip="Back to the script letter"
-                />
+                {(row.mark || row.renamed) && (
+                  <FieldIconButton
+                    icon={<IconRevert />}
+                    ariaLabel={`Reset the ${row.canonical} mark`}
+                    onClick={() => save(row.key, { mark: '', name: '' })}
+                    tooltip="Back to the script letter"
+                  />
+                )}
+              </div>
+              {open && (
+                <div className="space-y-3 pb-2">
+                  {row.glyphs.length > 0 ? (
+                    <div>
+                      <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>script</MonoLabel>
+                      <div className="cat-palette" role="listbox" aria-label={`Script letters for ${row.canonical}`}>
+                        {row.glyphs.map((g, i) => (
+                          <button
+                            key={g}
+                            type="button"
+                            role="option"
+                            // The first is the default, so an unset mark selects
+                            // it: the row is already drawing it.
+                            aria-selected={row.mark === g || (!row.mark && i === 0)}
+                            aria-label={g}
+                            className={'cat-swatch' + (row.mark === g || (!row.mark && i === 0) ? ' is-on' : '')}
+                            style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
+                            onClick={() => save(row.key, { mark: i === 0 ? '' : g })}
+                          >
+                            {g}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    // A language the app has never heard of has no script to
+                    // offer, and guessing one would put a Latin A on a board of
+                    // Yoruba proverbs. It gets the custom bar and nothing else.
+                    <p className="microcopy">
+                      No script letters for {row.canonical} — give it a mark of your own below.
+                    </p>
+                  )}
+
+                  <div>
+                    <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>
+                      your own · {row.customs.length}/{MAX_CUSTOM_MARKS}
+                    </MonoLabel>
+                    {row.customs.length > 0 && (
+                      <div className="cat-palette" role="listbox" aria-label={`Your own marks for ${row.canonical}`}>
+                        {row.customs.map((g) => (
+                          <span key={g} className="lang-custom">
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={row.mark === g}
+                              aria-label={g}
+                              className={'cat-swatch' + (row.mark === g ? ' is-on' : '')}
+                              style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
+                              onClick={() => save(row.key, { mark: g })}
+                            >
+                              {g}
+                            </button>
+                            <FieldIconButton
+                              icon={<IconClose />}
+                              ariaLabel={`Remove ${g} from ${row.canonical}`}
+                              onClick={() => removeCustom(row, g)}
+                              tooltip="Remove this mark"
+                              danger
+                            />
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* The box goes away when the bar is full rather than
+                        refusing on submit: a field you can type into and cannot
+                        save from is worse than no field. */}
+                    {full ? (
+                      <p className="microcopy">
+                        {row.canonical} keeps {MAX_CUSTOM_MARKS} marks of its own — remove one to add another.
+                      </p>
+                    ) : (
+                      <Field
+                        label="Add one of your own"
+                        value={draft}
+                        placeholder="any letter, symbol or emoji"
+                        maxLength={MARK_MAX_RUNES}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onBlur={(e) => addCustom(row, e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}
+                      />
+                    )}
+                  </div>
+
+                  {/* RENAMING IS A DISPLAY NAME AND NOTHING ELSE. The quote keeps
+                      the language it was stored with, so calling Bengali "বাংলা"
+                      cannot orphan a quote, cannot break the board form's
+                      matching, and round-trips through an export untouched —
+                      the same rule the colour categories have always followed. */}
+                  <Field
+                    label={`Shown as (stored as “${row.canonical}”)`}
+                    defaultValue={row.name}
+                    key={`name-${row.key}-${row.name}`}
+                    placeholder={row.canonical}
+                    maxLength={LANGUAGE_NAME_MAX_RUNES}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim()
+                      if (v !== row.name) save(row.key, { name: v })
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  />
+                </div>
               )}
             </div>
-            {picking === row.key && (
-              <div className="space-y-2 pb-2">
-                <div className="cat-palette" role="listbox" aria-label={`Mark for ${row.name}`}>
-                  {/* The script letter first, because it is the default and the
-                      one thing in this tray that is about the language rather
-                      than about a country. */}
-                  {row.glyph && (
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={!row.mark}
-                      aria-label={`The ${row.name} script letter`}
-                      className={'cat-swatch' + (!row.mark ? ' is-on' : '')}
-                      style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
-                      onClick={() => { setPicking(null); save(row.key, '') }}
-                    >
-                      {row.glyph}
-                    </button>
-                  )}
-                  {MARK_PALETTE.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      role="option"
-                      aria-selected={row.mark === m}
-                      aria-label={m}
-                      className={'cat-swatch' + (row.mark === m ? ' is-on' : '')}
-                      style={{ background: 'var(--raised)', fontSize: 15, lineHeight: 1 }}
-                      onClick={() => { setPicking(null); save(row.key, m) }}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-                <Field
-                  label="Or type one"
-                  value={row.mark}
-                  placeholder="any letter or symbol"
-                  maxLength={8}
-                  onChange={(e) => setRows(rows.map((r) => (r.key === row.key ? { ...r, mark: e.target.value } : r)))}
-                  onBlur={(e) => save(row.key, e.target.value.trim())}
-                  onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                />
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        })}
+      </div>
+
+      {/* Adding a language, because the ten built in are the ten most spoken and
+          not the ten anybody's library is in. A board form already accepts any
+          language as free text; this is the same list reached from the side that
+          edits it, so a language typed there can be marked here without having
+          to go and find a quote in it first. */}
+      <div className="mt-3">
+        {adding === null ? null : adding === '' ? (
+          <GhostButton icon={<IconPlus />} onClick={() => setAdding(' ')}>Add a language</GhostButton>
+        ) : (
+          <Field
+            label="Language name"
+            autoFocus
+            value={adding.trimStart()}
+            placeholder="Yoruba, Swahili, Tamil…"
+            maxLength={LANGUAGE_NAME_MAX_RUNES}
+            onChange={(e) => setAdding(e.target.value || ' ')}
+            onBlur={(e) => addLanguage(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setAdding('') }}
+          />
+        )}
       </div>
       <ErrorText>{err}</ErrorText>
     </>
@@ -2737,7 +2893,7 @@ function Metadata({ user, onPreferences }) {
 
   return (
     <Card data-tour="metadata-keys">
-      <SectionTitle info="Books come from Google Books and Open Library merged, and need no key. Films and shows need a TMDB key unless this build ships one; TheTVDB is optional. Each field saves on its own, and manual entry always works.">
+      <SectionTitle info="Books need no key: Google Books and Open Library, merged. Films run on TMDB unless this build ships one (TheTVDB optional), games on an IGDB pair with no built-in behind it. Each field saves on its own, and manual entry always works.">
         Metadata sources
       </SectionTitle>
 
@@ -2799,6 +2955,47 @@ function Metadata({ user, onPreferences }) {
             busy={saving}
             onSave={(v) => saveKey('tvdb_key', v)}
           />
+          {/* IGDB IS A PAIR, AND BOTH HALVES GET A ROW. The endpoint has
+              accepted these since 1.15.1 and reports the two halves separately —
+              its comment says "so the Settings card can point at the half that is
+              missing" — but the rows themselves never landed, so the Add sheet
+              told you to configure a key on a screen with no field for it, and a
+              game lookup 503'd with nowhere to go. There is no built-in fallback
+              here as there is for TMDB: IGDB credentials are per-application and
+              rate-limited, so a shared key would be a shared quota.
+
+              Write-only like the other secrets. A client id is not secret on its
+              own, but it is stored beside its partner and never echoed, so there
+              is no value to pre-fill and the saved badge is the whole answer. */}
+          <KeyField
+            label="IGDB client id"
+            hint="Games only, and IGDB authenticates through Twitch: dev.twitch.tv/console → Register Your Application → the client id is shown there. The secret below is the other half; one on its own looks nothing up."
+            set={keys?.igdb_client_id_set}
+            placeholder="Twitch client id — needed for games"
+            busy={saving}
+            onSave={(v) => saveKey('igdb_client_id', v)}
+          />
+          <KeyField
+            label="IGDB secret"
+            hint="The other half of the pair, from the same Twitch application: press “New Secret” on it. It is shown once. With no key at all, game lookups return 503 — manual entry always works."
+            set={keys?.igdb_secret_set}
+            placeholder="Twitch client secret — needed for games"
+            busy={saving}
+            onSave={(v) => saveKey('igdb_secret', v)}
+          />
+          {/* THE ONE IGDB STATE WORTH INTERRUPTING FOR, and the reason the server
+              reports the halves separately rather than as one igdb_key_set.
+              Neither set is the ordinary state of an instance with no games in
+              it, and a chip for that would be the "Untested" mistake again. Half
+              a pair is different: it fails at the Twitch token exchange with
+              "invalid client", which surfaces as a lookup failure, so the reader
+              is told games are broken when the truth is that one field is blank. */}
+          {keys && (!!keys.igdb_client_id_set !== !!keys.igdb_secret_set) && (
+            <p className="microcopy mt-1" style={{ color: 'var(--error)' }}>
+              IGDB needs both halves — the {keys.igdb_client_id_set ? 'secret' : 'client id'} is still
+              blank, so game lookups will fail as if the key were wrong.
+            </p>
+          )}
         </div>
       )}
 

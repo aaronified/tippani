@@ -255,10 +255,6 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string, year int, igdbID int64) {
 	olog.Tracef("[meta] gameLookup title=%q year=%d igdb_id=%d", title, year, igdbID)
 	igdb, _ := s.resolveIGDB()
-	if igdb == nil {
-		writeErr(w, http.StatusServiceUnavailable, igdbKeyMissing)
-		return
-	}
 
 	cands := []metadata.MovieCandidate{}
 	seen := map[string]bool{}
@@ -275,7 +271,7 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 	// The pinned record first, exactly as the film path does it: an id names one
 	// game and a title search cannot.
 	var pinMsg string
-	if igdbID > 0 {
+	if igdbID > 0 && igdb != nil {
 		if d, err := igdb.Details(r.Context(), strconv.FormatInt(igdbID, 10)); err == nil {
 			add([]metadata.MovieCandidate{d.Candidate()})
 		} else {
@@ -288,7 +284,7 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 	}
 
 	var searchErr error
-	if title != "" {
+	if title != "" && igdb != nil {
 		if c, err := igdb.Search(r.Context(), title, year); err != nil {
 			searchErr = err
 		} else {
@@ -296,6 +292,48 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 		}
 	}
 
+	// WIKIDATA IS THE FLOOR UNDER IGDB, and it runs only when IGDB did not
+	// answer — never as a second opinion beside it.
+	//
+	// Games were the one medium in the app with no floor. Books need no key,
+	// films run on a shared built-in TMDB key, and a game needed a Twitch
+	// application, a client id and a secret before it could be looked up at all
+	// — so the medium with the highest setup cost was also the only one that
+	// answered 503 and told you to type it in yourself. It now degrades the way
+	// the others do.
+	//
+	// Thinner, and deliberately tagged so: a Wikidata game usually arrives with
+	// no cover art (the art is not freely licensed) and a one-line description
+	// where IGDB gives a paragraph. The candidate carries `source: "wikidata"`,
+	// so the picker can say where a record came from and the reader can see that
+	// this one is the fallback before choosing it.
+	//
+	// The THREE cases are one case: unconfigured (igdb == nil), refused
+	// credentials, and a query that errored all leave the reader with nothing,
+	// which is the only thing this is for.
+	if len(cands) == 0 && title != "" {
+		if igdb == nil || searchErr != nil {
+			wd, wdErr := metadata.SearchGamesWikidata(r.Context(), title, year)
+			if wdErr != nil {
+				olog.Tracef("[meta] game lookup wikidata fallback %q failed: %v", title, wdErr)
+			} else {
+				add(wd)
+			}
+			if len(cands) > 0 {
+				olog.Tracef("[meta] game lookup %q served %d candidate(s) from wikidata", title, len(cands))
+				// The fallback answering is not an error, so a search failure that
+				// it covered for must not be reported as one below.
+				searchErr, pinMsg = nil, ""
+			}
+		}
+	}
+
+	// Nothing anywhere, and no key at all: the message names the missing pair,
+	// because "no results" would be false — nothing was asked.
+	if len(cands) == 0 && igdb == nil && searchErr == nil {
+		writeErr(w, http.StatusServiceUnavailable, igdbKeyMissing)
+		return
+	}
 	if len(cands) == 0 && searchErr == nil && pinMsg != "" {
 		writeErr(w, http.StatusNotFound, pinMsg)
 		return

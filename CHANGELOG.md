@@ -5,6 +5,97 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.3] - 2026-08-17
+
+### Fixed
+
+- **The IGDB key can be entered now.** Games have needed a Twitch client id and secret since 1.15.1,
+  and Settings → Metadata sources had no field for either — so a game lookup returned 503, the Add
+  sheet said "no IGDB key configured", and the screen it sent you to had nothing on it to fill in.
+  Two rows now, beside the TMDB and TheTVDB keys, each saving on its own.
+
+  Everything behind them already shipped: the endpoint has accepted `igdb_client_id` and
+  `igdb_secret` since that release and reports the two halves *separately* — its own comment says it
+  does so "so the Settings card can point at the half that is missing". It was pointing at a card
+  that did not exist. Games were the one feature in the app whose key could only be set by editing
+  the database.
+
+  **Half a pair now says so.** IGDB authenticates through Twitch, so one field alone fails at the
+  token exchange with "invalid client" — which arrives as a lookup failure, telling you games are
+  broken when the truth is that one box is blank. With *neither* set the card says nothing, on the
+  rule that removed "Untested" in 1.15.2: an instance with no games in it is not misconfigured.
+
+- **Copy and share are on a favourite without opening it.** They were inside the expanded tile, so
+  the two things you most often do *with* a favourite cost a tap to unfold it first — on the one
+  board in the app that exists to hold the lines you liked most. Every other quote surface puts them
+  on the resting card; Home now does too, hidden until hover on a desktop and standing on a phone.
+  The ♥ and the colour dots stay behind the expander, because un-hearting takes the tile off the
+  board and a mis-tap there is destructive in a way copy is not.
+
+- **A work's own page can start a search on a phone.** The top bar's Search has always landed scoped
+  to whatever you were looking at, the open book or film included — but on a phone the detail bar
+  replaces that top bar, which left the one screen where "find another line like this" is the
+  obvious next thing with no way to ask it. It is in the ⋯ menu now. Desktop needs no entry: the
+  bar is still up there.
+
+### Added
+
+- **Games fall back to Wikidata when IGDB cannot answer.** Games were the only medium in the app
+  with no floor under them: books need no key, films run on a shared built-in TMDB key, and a game
+  needed a Twitch application before it could be looked up at all — so the medium with the highest
+  setup cost was the only one that answered 503 and told you to type it in yourself.
+
+  It is a floor and not a second opinion: it runs when IGDB is unconfigured, refused or erroring, and
+  is never consulted while IGDB is answering. It is also thinner, and says so — a Wikidata game
+  usually arrives with no cover art, because game art is not freely licensed — so the candidate is
+  tagged with its source and the picker shows which record came from where. It still finds the
+  studio, the year, the genres and the franchise, and where the record carries an IGDB slug it can
+  still fetch the voice cast.
+
+### Changed
+
+- **Language marks offer a script, not a country.** The tray used to lead with two dozen flags. The
+  reasoning was that offering is not mapping — nothing in the code ever said which flag belonged to
+  which language — and the reasoning held while the screen did the thing it was defending against: a
+  grid of flags at the top of a language's tray is a recommendation whoever wrote it, and it made
+  the picker a geography quiz whose right answer did not exist.
+
+  Each language now offers **four letters of its own script**, and below them sits a bar of **your
+  own marks for that language** — up to four, where a typed flag, symbol or emoji lands and stays,
+  so choosing it again next month is a tap rather than a hunt through a character map. The whole row
+  opens the tray, where it used to be a 22px disc beside a name you could not press. You can add a
+  language the built-in ten never heard of, and rename any of them — call Bengali "বাংলা" if that is what
+  you call it. The rename is a display name only: the language stored on every quote is untouched,
+  so nothing is orphaned and an export still round-trips.
+
+- **"Hide" now hides.** Button labels has three settings and the most explicit one was partly
+  ignored: a handful of buttons opt out of the collapse — primary submits, destructive confirms —
+  and they kept their words whatever you chose. Those opt-outs are the app's defaults about which
+  words are worth the room, and they still stand under **Auto**, which is why Auto is the
+  recommended setting. They no longer stand over a reader who has answered the question themselves.
+
+- **The Daily Quiz no longer asks a question it cannot mark.** The flip card — read the quote, reveal
+  the source, tell it whether you knew — is gone from the daily deck. Nothing checks that answer and
+  it moved the same schedule as a graded one, which made the streak and the accuracy figure a mix of
+  earned and self-awarded that could be read as neither.
+
+  It stays in **Practice**, where it is the default and where being honest with yourself is the whole
+  exercise; turn Practice scoring on and it drops out there too. Nothing is lost from the daily on a
+  small library, because the card that fills the no-distractor hole is the **fill-in-the-blank**,
+  which needs no distractors either — one quote from one book is a complete graded question.
+
+- **A blank is one word until the card has earned a wider one.** A three-word hole in a quote you met
+  yesterday is not a harder version of the same question; it is a worse one, with too little of the
+  sentence left to reason from. The blank widens once a card's half-life reaches the 30-day rung —
+  a quote you demonstrably know, where widening it is the only way left to ask more.
+
+- **A harder question is worth more.** Picking the right book out of four is recognition with three
+  quarters of the work done for you; typing the missing words back is recall with nothing to lean on,
+  and both used to move the schedule by exactly the same amount. A fill-in-the-blank now pays 25%
+  more when you get it right and costs 15% less when you do not — the second half being what makes
+  it fair rather than generous, since failing the hardest question in the deck is weak evidence that
+  you have forgotten the quote.
+
 ## [1.15.2] - 2026-08-17
 
 A settings pass: one crash, one chip nobody could act on, and three screens that were showing their

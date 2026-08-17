@@ -86,7 +86,16 @@ func seedReviewBook(t *testing.T, c *testClient, title string, n int) (int64, []
 	ids := make([]int64, 0, n)
 	for i := 0; i < n; i++ {
 		a := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
-			"book_id": book.ID, "quote": fmt.Sprintf("%s passage %d", title, i),
+			// A REAL SENTENCE, not "Dune passage 2". These fixtures were three
+			// words long, which is too short for clozeSpan to mask a phrase out
+			// of — so every cloze card silently failed to build and the deck fell
+			// through to whatever could not fail. That made the fixtures, not the
+			// code, decide which directions the tests ever exercised, and it hid
+			// the fact that a cloze needs no distractors: one quote from one book
+			// is a complete question. Long enough to have content words in it, so
+			// the direction the deck actually reaches is the one a reader gets.
+			"book_id": book.ID, "quote": fmt.Sprintf(
+				"%s passage %d: the sleeper must awaken and the spice must flow across the desert", title, i),
 		}, http.StatusCreated))
 		ids = append(ids, a.ID)
 	}
@@ -174,9 +183,18 @@ func TestDailyQuizMCQ(t *testing.T) {
 	if len(deck.Items) != 3 {
 		t.Fatalf("single-title deck should serve flip cards, not nothing: %+v", deck)
 	}
+	// It was a FLIP card until 1.16.0 and is a CLOZE now. The Daily Quiz stopped
+	// offering self-marked cards — a grade the reader awards themselves moves the
+	// same schedule as a graded one, which makes the daily number unreadable — and
+	// the card that fills the no-distractor hole is the cloze, which needs none
+	// either: it masks a word out of the quote's own text, so one quote from one
+	// book is a complete graded question.
 	for _, it := range deck.Items {
-		if it.Direction != dirFlip || len(it.Options) != 0 {
-			t.Fatalf("single-title card should be a flip card with no options: %+v", it)
+		if it.Direction == dirFlip {
+			t.Fatalf("the Daily Quiz must never self-mark: %+v", it)
+		}
+		if it.Direction != dirCloze || len(it.Options) != 0 {
+			t.Fatalf("single-title card should be a cloze with no options: %+v", it)
 		}
 	}
 
@@ -202,7 +220,11 @@ func TestDailyQuizMCQ(t *testing.T) {
 		if !askable(it) {
 			t.Fatalf("card is not answerable: %+v", it)
 		}
-		if it.Direction != dirFlip {
+		// Only the MULTIPLE-CHOICE directions have an option to check. A cloze
+		// carries no options at all — the answer never leaves the server — so
+		// indexing Options here crashed rather than failed once the daily deck
+		// started reaching cloze cards on a small library.
+		if it.Direction == dirSource || it.Direction == dirQuote {
 			// The correct option is the card's title (source) or its quote (quote).
 			want := it.Title
 			if it.Direction == dirQuote {

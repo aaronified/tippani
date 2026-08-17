@@ -60,6 +60,7 @@ import {
   IconFilter,
   IconHelp,
   IconPlus,
+  IconSearch,
   IconReading,
   Masonry,
   MobileSheet,
@@ -103,7 +104,7 @@ const QUOTE_STYLE = { fontFamily: 'var(--font-display)', fontWeight: 'var(--font
 // shell's one ＋ Add surface (`onAdd`), which since 1.4.1 knows it is on this
 // page and opens on the right thing; `dataNonce` is how anything saved there
 // tells whichever list it changed — the book grid or a book's quotes — to refetch.
-export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, onAdd, dataNonce }) {
+export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSeparators, onAdd, onSearch, dataNonce }) {
   if (openId) {
     return (
       <BookDetail
@@ -111,8 +112,7 @@ export default function Library({ openId, onOpen, onClose, onOpenMovie, creditSe
         onClose={onClose}
         creditSeparators={creditSeparators}
         onAdd={onAdd}
-        dataNonce={dataNonce}
-      />
+        dataNonce={dataNonce} onSearch={onSearch} />
     )
   }
   return <BookList onOpen={onOpen} onOpenMovie={onOpenMovie} creditSeparators={creditSeparators} dataNonce={dataNonce} />
@@ -582,7 +582,7 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
 
 // ---- book detail (§8.5, mockups 08–09) ----
 
-function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
+function BookDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce }) {
   const [book, setBook] = useState(null)
   const [editing, setEditing] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false) // phone: help opens from the ⋯ menu
@@ -787,6 +787,15 @@ function BookDetail({ id, onClose, creditSeparators, onAdd, dataNonce }) {
                     onClick: () => pick(ACTIVE_STATUS.book),
                   },
                   ...(DEMO ? [] : [{ icon: <IconExport />, label: 'Export .md', onClick: () => { if (book) window.location.href = `/api/books/${book.id}/export` } }]),
+                  // SEARCH, ON A PHONE ONLY BECAUSE THAT IS WHERE IT IS MISSING.
+                  // The top bar's Search already lands scoped to whatever you are
+                  // looking at — searchScope reads the open work — so the
+                  // work-details screen has had a context-aware search all along.
+                  // MobileDetailBar replaces that bar, which left the one screen
+                  // where "find another line like this" is the obvious next thing
+                  // with no way to ask it. Desktop needs no entry here: the bar is
+                  // still up there.
+                  { icon: <IconSearch />, label: 'Search', onClick: () => onSearch?.() },
                   { icon: <IconDetails />, label: 'Details', onClick: () => setEditing(true) },
                   { icon: <IconHelp size={24} />, label: 'What’s on this screen', onClick: () => setHelpOpen(true) },
                   { icon: <IconDelete />, label: 'Delete', onClick: remove, danger: true },

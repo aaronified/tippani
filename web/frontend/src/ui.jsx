@@ -403,12 +403,21 @@ export function BulkBar({ n, onClear, children }) {
 // disappear, not one that merely has a glyph. That class is what squares the
 // button to 44px under data-labels="off", so a keepLabel button carrying it
 // would be crushed to icon width with its words still inside.
+//
+// `has-fixed-label` is its counterpart and marks the other case — a glyphed
+// button whose words are held BY AN EXCEPTION rather than by the preference. It
+// squares under an explicit "Hide" only (see index.css), because keepLabel is
+// the app's default about which words are worth the room and a reader who has
+// asked for glyphs has already answered that. Two classes rather than one with
+// two meanings: `has-btn-icon` must keep matching only the collapsible buttons,
+// or `[data-labels="off"]` would square the opt-outs with their words inside —
+// the bug this comment was originally written about.
 function PlayfulButton({ base, className = "", icon, keepLabel, onClick, children, ...rest }) {
   const { play, animClass, onAnimationEnd } = usePlayful("anim-btn", 3);
   return (
     <button
       {...rest}
-      className={`tp-btn tactile ${base} ${animClass}${icon && !keepLabel ? " has-btn-icon" : ""} ${className}`}
+      className={`tp-btn tactile ${base} ${animClass}${icon && !keepLabel ? " has-btn-icon" : ""}${icon && keepLabel ? " has-fixed-label" : ""} ${className}`}
       onClick={(e) => {
         play();
         onClick?.(e);

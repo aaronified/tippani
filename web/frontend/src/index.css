@@ -846,10 +846,31 @@
      theme.js resolves auto→on/off against the mobile breakpoint and writes the
      concrete value, so there is no second copy of this block inside a media
      query. .btn-label-fixed is the opt-out (primary submits, destructive
-     confirms) and deliberately has no rule here at all. */
+     confirms, the doors to a settings panel) and has no rule under
+     [data-labels] at all — see the explicit-hide block below, which is the one
+     thing that outranks it. */
   html[data-labels="off"] .btn-label {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  /* AN EXPLICIT "HIDE" OUTRANKS keepLabel, and nothing else does.
+     [data-labels-mode] carries the RAW preference where [data-labels] carries
+     the resolved one, and only the raw value can tell "the reader asked for
+     glyphs" from "auto resolved to off on a phone". The opt-outs are the app's
+     own defaults about which words are worth the room; they stand under auto,
+     which is why auto is the recommended setting. They do not stand over a
+     reader who has answered the question themselves — a preference the app
+     overrides in the cases it picked is not a preference. "Show" needs no rule
+     here: nothing clips anything under it. */
+  html[data-labels-mode="off"] .btn-label-fixed {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  html[data-labels-mode="off"] .tp-btn.has-fixed-label {
+    width: 44px;
+    padding-left: 0;
+    padding-right: 0;
+    gap: 0;
   }
   /* With the words gone the button is a square, not a pill with a glyph
      rattling around in it. 44px matches IconButton, so a converted row lines up
@@ -3252,6 +3273,45 @@
     border-radius: 999px; /* so the focus ring is a pill, not a rectangle */
   }
   .color-dot-btn:hover .color-dot { opacity: 1; }
+
+  /* ---- language marks (Appearance → Language marks) ---------------------- */
+  /* THE WHOLE ROW IS THE TRIGGER. It was a 22px disc beside a name you could not
+     press — a target you have to aim at, next to the thing that looks like the
+     subject. The button now fills the row and carries the mark, the name, the
+     stored name when it has been renamed, and the chevron; only the reset glyph
+     stays outside it, because a control nested in a control is invalid markup
+     and ambiguous to press.
+
+     Transparent and borderless at rest: this is a list of languages, and a row
+     of ten outlined buttons reads as a form rather than as a list. The hover
+     tint is the whole affordance, which is what the settings rows beside it do. */
+  .lang-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 6px;
+    margin: -8px -6px;
+    border: 0;
+    background: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+  .lang-row-btn:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .lang-row-btn svg { flex: none; color: var(--faint); }
+  /* A custom mark and its remove ✕ travel as one unit inside the palette grid,
+     so the ✕ cannot wrap onto a line away from the swatch it belongs to. */
+  .lang-custom {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+  .lang-custom .cat-swatch { flex: 1 1 auto; }
   .color-dot.active { opacity: 1; outline: 2px solid var(--accent-ui); outline-offset: 2px; }
   .tp-error { font-size: 13.5px; color: var(--error); }
   .tp-empty {

@@ -273,7 +273,13 @@ func TestLeechIsReportedByTheAnswerThatCausesIt(t *testing.T) {
 
 	book := createBook(t, c, "Persuasion")
 	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "a line I never remember"}, http.StatusCreated).Body.Bytes())
+		map[string]any{"book_id": book,
+			// Long enough to be askable: a three-word quote cannot be clozed, and
+			// with the flip card gone from the daily deck an unaskable card sits
+			// the round out — which would make this test about fixture length
+			// rather than about the leech flag.
+			"quote": "a line I never remember however often the quiz brings it back around to me"},
+		http.StatusCreated).Body.Bytes())
 	ageSeededItems(t, srv)
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, http.StatusOK)
 
@@ -300,7 +306,13 @@ func TestPracticeThatDoesNotCountDoesNotMakeALeech(t *testing.T) {
 
 	book := createBook(t, c, "Persuasion")
 	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "a line I never remember"}, http.StatusCreated).Body.Bytes())
+		map[string]any{"book_id": book,
+			// Long enough to be askable. With the flip card gone from the daily
+			// deck a card that can be asked NOTHING sits the round out, so a
+			// three-word fixture would make this test about quote length rather
+			// than about the leech flag reaching the deck.
+			"quote": "a line I never remember however often the quiz brings it back around again"},
+		http.StatusCreated).Body.Bytes())
 	ageSeededItems(t, srv)
 
 	for i := 0; i < reviewLeechLapses+2; i++ {
@@ -319,7 +331,13 @@ func TestDeckCarriesTheLeechFlag(t *testing.T) {
 
 	book := createBook(t, c, "Persuasion")
 	id := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "a line I never remember"}, http.StatusCreated).Body.Bytes())
+		map[string]any{"book_id": book,
+			// Long enough to be askable. With the flip card gone from the daily
+			// deck a card that can be asked NOTHING sits the round out, so a
+			// three-word fixture would make this test about quote length rather
+			// than about the leech flag reaching the deck.
+			"quote": "a line I never remember however often the quiz brings it back around again"},
+		http.StatusCreated).Body.Bytes())
 	ageSeededItems(t, srv)
 
 	if _, err := srv.Store.DB.Exec(

@@ -17,7 +17,7 @@ import (
 const clozeQuote = "It is a truth universally acknowledged that a single man in possession of a good fortune must be in want of a wife"
 
 func TestClozeSpanIsStableAndIndependentOfTheDay(t *testing.T) {
-	masked, answer, ok := clozeSpan(clozeQuote, kindBook, 42)
+	masked, answer, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWords)
 	if !ok {
 		t.Fatal("no span for a long English quote")
 	}
@@ -32,20 +32,20 @@ func TestClozeSpanIsStableAndIndependentOfTheDay(t *testing.T) {
 	// day seed at all, which is what makes the grading endpoint able to
 	// reconstruct the question the reader actually saw.
 	for i := 0; i < 5; i++ {
-		m2, a2, _ := clozeSpan(clozeQuote, kindBook, 42)
+		m2, a2, _ := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWords)
 		if m2 != masked || a2 != answer {
 			t.Fatalf("span moved between calls: %q/%q then %q/%q", masked, answer, m2, a2)
 		}
 	}
 	// A different card gets its own.
-	if _, a3, _ := clozeSpan(clozeQuote, kindBook, 43); a3 == "" {
+	if _, a3, _ := clozeSpan(clozeQuote, kindBook, 43, clozeMaxWords); a3 == "" {
 		t.Fatal("a different id produced no span at all")
 	}
 }
 
 func TestClozeNeverBlanksStopwordsOrTheWholeQuote(t *testing.T) {
 	for _, id := range []int64{1, 2, 3, 5, 8, 13, 21, 34} {
-		masked, answer, ok := clozeSpan(clozeQuote, kindBook, id)
+		masked, answer, ok := clozeSpan(clozeQuote, kindBook, id, clozeMaxWords)
 		if !ok {
 			t.Fatalf("id %d: no span", id)
 		}
@@ -67,7 +67,7 @@ func TestClozeNeverBlanksStopwordsOrTheWholeQuote(t *testing.T) {
 // producing a degenerate one.
 func TestClozeRefusesWhatItCannotAsk(t *testing.T) {
 	for _, q := range []string{"", "   ", "No.", "Yes, and?", "to be or not to be"} {
-		if _, _, ok := clozeSpan(q, kindBook, 1); ok {
+		if _, _, ok := clozeSpan(q, kindBook, 1, clozeMaxWords); ok {
 			t.Errorf("made a cloze card out of %q", q)
 		}
 	}
@@ -97,7 +97,7 @@ func TestClozeIsOfferedOnlyWhereTheStopwordListMeansSomething(t *testing.T) {
 			if got := clozeReadable(c.text); got != c.want {
 				t.Errorf("clozeReadable(%s) = %v, want %v", c.name, got, c.want)
 			}
-			if _, _, ok := clozeSpan(c.text, kindBook, 7); ok != c.want {
+			if _, _, ok := clozeSpan(c.text, kindBook, 7, clozeMaxWords); ok != c.want {
 				t.Errorf("clozeSpan(%s) ok = %v, want %v", c.name, ok, c.want)
 			}
 		})
@@ -156,7 +156,8 @@ func TestClozeCardCarriesNoAnswer(t *testing.T) {
 		map[string]any{"book_id": book, "quote": clozeQuote}, http.StatusCreated).Body.Bytes())
 	ageSeededItems(t, srv)
 
-	_, answer, ok := clozeSpan(clozeQuote, kindBook, id)
+	// The live card is fresh, so its blank is one word wide (clozeMultiWordFrom).
+	_, answer, ok := clozeSpan(clozeQuote, kindBook, id, clozeMaxWordsFor(reviewMinStability))
 	if !ok {
 		t.Fatal("the seeded quote makes no cloze card")
 	}
@@ -195,7 +196,10 @@ func TestClozeAttemptIsGradedServerSide(t *testing.T) {
 	id := idOf(t, c.mustDo("POST", "/annotations",
 		map[string]any{"book_id": book, "quote": clozeQuote}, http.StatusCreated).Body.Bytes())
 	ageSeededItems(t, srv)
-	_, answer, _ := clozeSpan(clozeQuote, kindBook, id)
+	// The width the SERVER will use for a card at the starting half-life — not
+	// clozeMaxWords, which is only earned at the 30-day rung. Deriving it keeps this
+	// test about grading rather than about which words happen to be masked.
+	_, answer, _ := clozeSpan(clozeQuote, kindBook, id, clozeMaxWordsFor(reviewMinStability))
 
 	// A wrong attempt, sent with result "got" — the server must ignore the
 	// client's claim and grade the words.
@@ -234,4 +238,53 @@ func TestClozeAttemptOnAnUnmaskableQuoteIsRefused(t *testing.T) {
 	c.mustDo("POST", "/review/answer", map[string]any{
 		"kind": kindBook, "id": id, "result": "got", "mode": "practice", "attempt": "anything",
 	}, http.StatusBadRequest)
+}
+
+// The blank is ONE WORD until the card has earned a wider one.
+//
+// A three-word hole in a quote you met yesterday is not a harder version of the
+// same question — it is a different and much worse one, with too little of the
+// sentence left to reason from. So width is earned: a card whose half-life has
+// reached the ladder's 30-day rung is one you demonstrably know, and widening the
+// blank is the only way left to ask more of it.
+func TestClozeSpanWidthIsEarned(t *testing.T) {
+	if got := clozeMaxWordsFor(reviewMinStability); got != 1 {
+		t.Fatalf("a new card gets a one-word blank, got %d", got)
+	}
+	if got := clozeMaxWordsFor(clozeMultiWordFrom - 0.01); got != 1 {
+		t.Fatalf("just under the rung is still one word, got %d", got)
+	}
+	if got := clozeMaxWordsFor(clozeMultiWordFrom); got != clozeMaxWords {
+		t.Fatalf("at the rung the blank widens, got %d", got)
+	}
+	if got := clozeMaxWordsFor(reviewMaxStability); got != clozeMaxWords {
+		t.Fatalf("a mature card gets the widest blank, got %d", got)
+	}
+
+	// And the width actually reaches the span: the same quote and card blanks one
+	// word at the floor and more than one once it has climbed.
+	_, narrow, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMinStability))
+	if !ok {
+		t.Fatal("a one-word blank must still build")
+	}
+	if n := len(strings.Fields(narrow)); n != 1 {
+		t.Fatalf("narrow answer %q is %d words, want 1", narrow, n)
+	}
+	_, wide, ok := clozeSpan(clozeQuote, kindBook, 42, clozeMaxWordsFor(reviewMaxStability))
+	if !ok {
+		t.Fatal("the wide blank must build too")
+	}
+	if len(strings.Fields(wide)) < 2 {
+		t.Fatalf("wide answer %q did not widen", wide)
+	}
+}
+
+// A SHORT QUOTE IS STILL ASKABLE, which is the half that makes taking the flip
+// card out of the daily deck safe: a cloze needs no distractors, only a content
+// word, so one quote from one book is a complete graded question.
+func TestClozeAsksAShortQuoteWithOneWord(t *testing.T) {
+	const short = "the sleeper must awaken across the wide desert"
+	if _, _, ok := clozeSpan(short, kindBook, 9, 1); !ok {
+		t.Fatalf("a one-word blank should build from %q", short)
+	}
 }

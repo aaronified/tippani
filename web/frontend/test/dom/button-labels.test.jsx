@@ -65,7 +65,7 @@ describe('a collapsible button', () => {
 describe('a keepLabel button', () => {
   const b = () => btn(<GhostButton icon={<IconEdit />} keepLabel>Reset all data</GhostButton>)
 
-  it('uses the span that has no clip rule', () => {
+  it('uses the span the resolved preference does not clip', () => {
     expect(b().querySelector('.btn-label-fixed')?.textContent).toBe('Reset all data')
     expect(b().querySelector('.btn-label')).toBeNull()
   })
@@ -76,11 +76,26 @@ describe('a keepLabel button', () => {
     expect(b().className).not.toContain('has-btn-icon')
   })
 
+  it('IS marked as squarable by an explicit hide', () => {
+    // Its counterpart, and the two must stay distinct: has-btn-icon is read by
+    // [data-labels] (the resolved value) and has-fixed-label by
+    // [data-labels-mode] (the raw one). One class doing both jobs would square
+    // every opt-out on every phone, words and all.
+    expect(b().className).toContain('has-fixed-label')
+  })
+
   it('applies to every button base, not just the ghost', () => {
     const s = btn(<StickerButton icon={<IconEdit />} keepLabel>Update password</StickerButton>)
     expect(s.className).toContain('btn-sticker')
     expect(s.className).not.toContain('has-btn-icon')
     expect(s.querySelector('.btn-label-fixed')).not.toBeNull()
+  })
+
+  it('a button with no glyph is marked neither way', () => {
+    // Nothing to square down to. A wordless text button is a blank button.
+    const plain = btn(<GhostButton keepLabel>Log out</GhostButton>)
+    expect(plain.className).not.toContain('has-btn-icon')
+    expect(plain.className).not.toContain('has-fixed-label')
   })
 })
 
@@ -93,12 +108,59 @@ describe('the stylesheet holds up its half', () => {
     expect(css).toMatch(/html\[data-labels="off"\]\s*\.tp-btn\.has-btn-icon\s*\{/)
   })
 
-  it('has no rule that would clip .btn-label-fixed', () => {
-    // The opt-out works by having no rule at all. A selector matching it — even
-    // an attribute-prefix one like [class^="btn-label"] — would silently defeat
-    // every keepLabel in the app.
+  it('clips .btn-label-fixed under an explicit hide, and under nothing else', () => {
+    // THE OPT-OUT USED TO WORK BY HAVING NO RULE AT ALL, and this test said so.
+    // It now has exactly one, and which selector carries it is the whole of the
+    // change: [data-labels-mode="off"] is the RAW preference, so it fires only
+    // when a reader has chosen "Hide" and never when auto resolved to off on a
+    // phone. A rule reached through [data-labels] — the resolved value — would
+    // defeat every keepLabel in the app on every phone, which is the failure
+    // this test was originally written to prevent and still is.
     const rules = css.match(/^[^{}\n]*\{/gm) || []
-    const offending = rules.filter((r) => /btn-label-fixed|btn-label[^-\s,{:]*\*|\^="btn-label/.test(r))
-    expect(offending).toEqual([])
+    const touching = rules
+      .map((r) => r.trim())
+      .filter((r) => /btn-label-fixed|btn-label[^-\s,{:]*\*|\^="btn-label/.test(r))
+    expect(touching).toEqual(['html[data-labels-mode="off"] .btn-label-fixed {'])
+  })
+
+  it('squares the opt-outs under an explicit hide only', () => {
+    expect(css).toMatch(/html\[data-labels-mode="off"\]\s*\.tp-btn\.has-fixed-label\s*\{/)
+    // And never through the resolved attribute, which is on for every phone.
+    expect(css).not.toMatch(/html\[data-labels="off"\][^{]*has-fixed-label/)
+  })
+})
+
+// The preference has three settings and the third one had no teeth.
+//
+// "Auto" and "Show" always worked. "Hide" did not mean hide: a keepLabel button
+// kept its words whatever the reader chose, because the opt-out was written
+// against the RESOLVED value and there was nothing in the DOM that could tell
+// "the reader asked for glyphs" apart from "auto resolved to off". So the app
+// had a setting whose most explicit option it partly ignored, in exactly the
+// cases it had decided were important — which is the definition of a preference
+// in name only.
+describe('the raw preference reaches the DOM', () => {
+  const html = () => document.documentElement
+
+  it.each([
+    ['auto', 'auto'],
+    ['on', 'on'],
+    ['off', 'off'],
+  ])('%s is written as data-labels-mode', async (pref, expected) => {
+    const { applyLabels } = await import('../../src/theme.js')
+    applyLabels(pref)
+    expect(html().dataset.labelsMode).toBe(expected)
+  })
+
+  it('still resolves the concrete value beside it', async () => {
+    const { applyLabels } = await import('../../src/theme.js')
+    applyLabels('on')
+    expect(html().dataset.labels).toBe('on')
+    applyLabels('off')
+    expect(html().dataset.labels).toBe('off')
+    // Auto resolves against the breakpoint, so it is on or off but never 'auto'.
+    applyLabels('auto')
+    expect(['on', 'off']).toContain(html().dataset.labels)
+    expect(html().dataset.labelsMode).toBe('auto')
   })
 })

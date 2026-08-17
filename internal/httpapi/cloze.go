@@ -27,10 +27,22 @@ const (
 	// quote's own text would be indistinguishable from the mask.
 	clozeBlank = "￼" // OBJECT REPLACEMENT CHARACTER
 
-	clozeMinWords   = 1  // shortest span worth blanking
-	clozeMaxWords   = 3  // longest — a blank of four words is a rewrite, not a recall
-	clozeMinContext = 15 // runes that must remain around the blank, or there is no question
-	clozeMinTokens  = 6  // a quote shorter than this has nothing to hide
+	clozeMinWords = 1 // shortest span worth blanking
+	clozeMaxWords = 3 // longest — a blank of four words is a rewrite, not a recall
+	// THE SPAN GROWS WITH THE CARD (1.16.0). One word is the ordinary blank and
+	// the widest is earned: a three-word hole in a quote you met yesterday is not
+	// a harder version of the same question, it is a different and much worse one
+	// — there is not enough of the sentence left to reason from, so it tests
+	// verbatim memory of something you have barely read. A quote whose half-life
+	// has already reached the ladder's second rung is one you demonstrably know,
+	// and widening the blank is the only way left to ask more of it.
+	//
+	// 30 days is that rung (reviewLadder[1]) rather than a number picked to feel
+	// right, and it is written as the literal here because cloze.go is deliberately
+	// free of the scheduler's imports.
+	clozeMultiWordFrom = 30.0
+	clozeMinContext    = 15 // runes that must remain around the blank, or there is no question
+	clozeMinTokens     = 6  // a quote shorter than this has nothing to hide
 )
 
 // clozeStopwords is a small, explicit English list. NOT a dependency, and not a
@@ -133,7 +145,21 @@ func clozeTokenAt(text string, start, end int) clozeToken {
 // Returns the masked text and the answer, or ok=false when this quote cannot
 // make a decent card — too short, too little context left, or a script the
 // stopword list does not read.
-func clozeSpan(text string, kind string, id int64) (masked, answer string, ok bool) {
+// clozeMaxWordsFor is how wide this card's blank may be. See clozeMultiWordFrom.
+func clozeMaxWordsFor(stability float64) int {
+	if stability >= clozeMultiWordFrom {
+		return clozeMaxWords
+	}
+	return 1
+}
+
+func clozeSpan(text string, kind string, id int64, maxWords int) (masked, answer string, ok bool) {
+	if maxWords < 1 {
+		maxWords = 1
+	}
+	if maxWords > clozeMaxWords {
+		maxWords = clozeMaxWords
+	}
 	text = strings.TrimSpace(text)
 	if !clozeReadable(text) {
 		return "", "", false
@@ -151,7 +177,7 @@ func clozeSpan(text string, kind string, id int64) (masked, answer string, ok bo
 			continue
 		}
 		j := i
-		for j+1 < len(toks) && toks[j+1].content && j-i+1 < clozeMaxWords {
+		for j+1 < len(toks) && toks[j+1].content && j-i+1 < maxWords {
 			j++
 		}
 		runs = append(runs, run{i, j})

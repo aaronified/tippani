@@ -98,10 +98,18 @@ describe('the hand-entry popup', () => {
 
 describe('the missing-key warning', () => {
   // The one that would have stopped the user reaching the film form at all.
+  //
+  // WHAT IT SAYS CHANGED IN 1.16.0 and the assertion changed with it. A game
+  // without an IGDB key still SEARCHES now — Wikidata is the fallback — so the
+  // old wording ("no IGDB key configured") described a lookup that was off when
+  // it is merely thinner, and would have sent somebody to Settings for a
+  // credential they may not need. What has to survive is that the message names
+  // the GAME supplier rather than the film one, and says what you are getting.
   it('names IGDB on Game when only the game supplier is unconfigured', async () => {
     STATUS = { tmdb: { source: 'custom' }, igdb: { source: 'none' } }
     render(<AddLookup initialKind="game" onAdded={() => {}} />)
-    expect(await screen.findByText(/no IGDB key configured/)).toBeTruthy()
+    const msg = await screen.findByText(/no IGDB key/)
+    expect(msg.textContent).toMatch(/Wikidata/)
     expect(screen.queryByText(/no movie-lookup key configured/)).toBeNull()
   })
 
@@ -111,7 +119,7 @@ describe('the missing-key warning', () => {
     STATUS = { tmdb: { source: 'none' }, igdb: { source: 'custom' } }
     render(<AddLookup initialKind="game" onAdded={() => {}} />)
     await waitFor(() => expect(CALLS.some((c) => c.path === '/metadata/status')).toBe(true))
-    expect(screen.queryByText(/no IGDB key configured/)).toBeNull()
+    expect(screen.queryByText(/no IGDB key/)).toBeNull()
     expect(screen.queryByText(/no movie-lookup key configured/)).toBeNull()
   })
 

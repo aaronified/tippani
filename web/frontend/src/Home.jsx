@@ -882,6 +882,26 @@ function FavouriteTile({
               <ClampMore open={open} />
             </button>
           </Tooltip>
+          {/* COPY AND SHARE ON THE COLLAPSED TILE (1.15.3). They were inside the
+              expanded branch below, so the two things you most often do WITH a
+              favourite — send it to somebody, paste it somewhere — cost a tap to
+              open the tile first, on the one board in the app that exists to
+              hold the lines you liked most. Every other quote surface puts them
+              on the resting card; this now does too.
+
+              Not `alwaysVisible`: the row follows the same rule the Library's
+              does — hidden until hover on a desktop, standing on a phone, where
+              there is no hover to wait for. The ♥ and the colour dots stay
+              behind the expander, because un-hearting takes the tile off this
+              board and a mis-tap there is destructive in a way copy is not. */}
+          {!open && (
+            <div className="mt-1 flex items-center gap-x-3">
+              <QuoteTools actions={atRow(acts)} />
+              <span className="ml-auto flex items-center">
+                <QuoteActions actions={atOverflow(acts)} />
+              </span>
+            </div>
+          )}
           {open && (
             <div className="mt-2.5 space-y-2">
               {f.note && <HandNote>{f.note}</HandNote>}

@@ -1328,6 +1328,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpenMovie={openMovie}
               creditSeparators={user.preferences?.creditSeparators}
               onAdd={openAdd}
+              onSearch={openSearch}
               dataNonce={dataNonce}
             />
           </div>
@@ -1340,6 +1341,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onClose={() => go('movies', null)}
               creditSeparators={user.preferences?.creditSeparators}
               onAdd={openAdd}
+              onSearch={openSearch}
               dataNonce={dataNonce}
             />
           </div>

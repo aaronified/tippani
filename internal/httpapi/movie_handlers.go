@@ -463,6 +463,20 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 			}
 		}
 		return d, "", 0
+	case "wikidata":
+		// The fallback's own details fetch, reached only by picking a candidate
+		// the fallback produced — the picker tags every row with its source, so
+		// this is the reader having chosen the thinner record knowingly.
+		//
+		// It needs no key, which is the entire point: this path is what a game
+		// lookup does when IGDB is unconfigured or refusing, and asking for a
+		// credential here would put the wall back one screen further on.
+		d, err := metadata.GameDetailsWikidata(ctx, sourceID)
+		if err != nil {
+			olog.Errorf(olog.CodeMetaIGDBLookup, "[movie] wikidata game details qid=%s failed: %v", sourceID, err)
+			return nil, "that Wikidata record could not be read", http.StatusBadGateway
+		}
+		return d, "", 0
 	case "tvdb":
 		tvdb, _ := s.resolveTVDB()
 		if tvdb == nil {
