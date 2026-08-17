@@ -3927,6 +3927,36 @@ The navigation shape is the single most re-litigated decision in the project, mo
 
 <sub>1.16.0 — `docs/roadmap.html` · `docs/plans/`</sub>
 
+### A shortcut is not real until the button that shares its job says so
+
+**Decided.** One table (`keys.js`) binds every key to an ACTION id, and `Tooltip` takes a `shortcut` prop that reads from it — so `<Tooltip label="Search" shortcut="search">` renders "Search · /". Bind a key and the control starts announcing it; change the key and the control changes with it.
+
+**Why the registry rather than handlers per screen.** There was no global registry at all, which for a text app with a large library was the biggest single desktop gap. The alternative — a keydown handler on each screen — fails twice: a shortcut that works on one screen and silently does nothing on the next is worse than none, and bindings enforced in a dozen places will disagree with each other. There is one window listener, and it knows which key means which action and nothing about what an action does.
+
+**Typing is never a shortcut**, and that single rule decides whether the feature is usable or infuriating. `n` is "capture a quote" and also the fourteenth letter of a note somebody is writing, so a key pressed inside an editable target is just a letter — and "editable" has to include `contenteditable`, not only `input`/`textarea`, or a rich-text field would eat its own content.
+
+**Invariants the table is tested against:** no id twice, no key bound to two actions (which is a coin toss dressed as a feature), and no single key that is also the first key of a sequence — pressing it would have to fire immediately or wait to find out, and both are wrong. `?` and `/` are kept distinct because one is Shift-ed and the other is not; folding Shift in would open the help sheet when somebody meant to search.
+
+**The review keys are the exception and belong to the card.** A grade only means something to the card in front of you, so `QuizRunner` owns `1`, `2` and `Space`, gated on the same conditions the buttons are — the key and the button can never disagree about whether a card is answerable.
+
+**Instead of.** A key legend in the help sheet only, which is where shortcuts go to be forgotten.
+
+<sub>1.16.x — `web/frontend/src/keys.js` · `web/frontend/src/ui.jsx`</sub>
+
+### A replace is previewed because its damage is the only kind you cannot see
+
+**Decided.** Find-and-replace over a selection is two endpoints — `/replace/preview` writes nothing, `/replace/apply` writes everything — and takes literal text with optional case-matching and whole-word, never a regular expression.
+
+**Why the split rather than a flag.** Every other bulk action in this app leaves evidence: a wrong tag is a tag you can see and remove, a wrong colour is a colour. A wrong replace has rewritten the words, and the words are the thing the app exists to keep. So the preview returns the before and after of every row it would touch, and the decision is made against what will happen rather than against a pattern somebody believes they understand. Two routes also mean a caller cannot reach the destructive one by getting a boolean wrong.
+
+**No regular expressions**, and that is a decision rather than an unfinished feature: `.*` is one keystroke away from `.` and would empty every quote in the selection. Literal text covers the actual post-import complaints — a doubled space, a stray running head, a mangled quote mark — and cannot express "delete everything". Whole-word is implemented without a pattern for the same reason.
+
+**An empty `find` is refused outright.** It matches at every position, so it would thread the replacement through every character of every quote in the selection — the most destructive thing the endpoint could be asked to do, and the easiest to ask for by accident by leaving a box blank.
+
+**Unlike the bulk field editor, the quote's own words ARE replaceable here**, and the preview is what makes the difference legitimate: bulk-setting a quote replaces forty different sentences with one, while replacing "teh" with "the" leaves forty different sentences forty different sentences.
+
+<sub>1.16.x — `internal/httpapi/replace_handlers.go`</sub>
+
 ## 13. Controls, Labels, Icons and Help
 
 Two mechanisms for explaining a control both widened the page and neither worked on touch, so tooltips, info dots and per-screen help were rebuilt as one system with a five-word ceiling. The rule that came out of it is that a glyph is something you must already have learned.

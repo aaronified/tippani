@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Keyboard shortcuts, and every one of them written on the button that does the same thing.**
+  `/` searches, `N` captures a quote, `?` opens the help sheet, `⌘K`/`Ctrl-K` the palette, and
+  `G` then `L`, `C`, `Q` or `S` goes to the Library, Catalogue, Quotes or Stats. In a quiz, `1`
+  and `2` grade and `Space` reveals a flip card.
+
+  There was no shortcut registry at all before this — the biggest single desktop gap in a text
+  app with a large library. There is one table now, and the tooltip reads from it: bind a key and
+  the button that shares its job starts saying so; change the key and the button changes with it.
+  A shortcut nobody can discover is a shortcut for the person who wrote it.
+
+  Typing is never a shortcut. `N` is "capture a quote" and also the fourteenth letter of a note
+  somebody is writing, so a key pressed inside any editable field — including a rich-text one — is
+  just a letter. Two keys are never bound to one action, no single key is also the first key of a
+  sequence, and `?` and `/` stay separate because one is Shift-ed and the other is not.
+
+  The review keys live with the card rather than in the global listener: a grade only means
+  something to the card in front of you, and they are gated on exactly the conditions the buttons
+  are, so a key and a button can never disagree about whether a card is answerable.
+
+- **Find and replace across a selection, previewed before it runs.** Fix a typo, a doubled space
+  or a stray running head across four hundred rows at once.
+
+  **The preview is the feature, not a courtesy.** This is the most destructive bulk operation in
+  the app and the only one whose damage is invisible afterwards: a wrong bulk tag is a tag you can
+  see and remove, and a wrong replace has rewritten the words — which are the thing this app
+  exists to keep. So it is two endpoints rather than one with a flag, and the preview shows the
+  before and after of every row it would touch.
+
+  **No regular expressions**, deliberately: `.*` is one keystroke from `.` and would empty every
+  quote in the selection. Literal text with optional case-matching and whole-word covers the
+  actual complaints and cannot express "delete everything". An empty search is refused outright —
+  it matches at every position, so it would thread the replacement through every character of
+  every quote, and it is the easiest thing to ask for by accident by leaving a box blank.
+
+- **The access log says who.** Every request line already carried method, path, outcome, duration
+  and a request id tying it to any error lines beneath it; it now names the account too. On a
+  multi-user instance that is the difference between "a request failed" and "this account's
+  request failed", which is the question an operator actually has.
+
 ## [1.16.0] - 2026-08-17
 
 ### Added
