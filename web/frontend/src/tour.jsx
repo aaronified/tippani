@@ -298,9 +298,19 @@ const TOUR_STEPS = [
 ]
 
 // tourSteps — the steps a given user actually sees (admin-only steps drop out
-// for everyone else). tourFeatures — the named subset for the Settings list.
+// for everyone else). tourFeatures — the named subset, for the Settings section
+// picker.
+//
+// EACH FEATURE CARRIES `at`, ITS INDEX IN tourSteps, and that index is taken
+// before the filter rather than after it. The two lists are not the same length:
+// `welcome` and `done` have no name, so the nth feature is not the nth step, and
+// `admin` drops two more steps for a non-admin. Settings starts the tour by
+// index (onStartTour(step) → FeatureTour startStep), so a picker built on the
+// filtered list would open the wrong screen for every feature after the first —
+// silently, because every index is still a valid step.
 export const tourSteps = (isAdmin) => TOUR_STEPS.filter((s) => !s.admin || isAdmin)
-export const tourFeatures = (isAdmin) => tourSteps(isAdmin).filter((s) => s.name)
+export const tourFeatures = (isAdmin) =>
+  tourSteps(isAdmin).map((s, at) => ({ ...s, at })).filter((s) => s.name)
 
 // findVisible — the first match that actually renders (desktop and mobile
 // top bars both mount the same controls; CSS hides one set).

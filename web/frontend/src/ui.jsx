@@ -4642,6 +4642,26 @@ export function IconRestore({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 // IconRefresh — do it again against the live sources: re-verify, look up, refetch
 // links, check for updates, start the tour over.
 export function IconRefresh({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M20.5 12a8.5 8.5 0 1 1-2.9-6.4"/><path d="M20.5 3.5V9.2h-5.7"/></svg> }
+// IconTour — a pennant on a pole: the guided tour, whether it is being started
+// for the first time, replayed, or resumed. A flag rather than a circular arrow,
+// because IconRefresh beside it in the same row means the narrower thing — from
+// the beginning — and two ways of saying "the tour" would leave neither saying
+// which.
+export function IconTour({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 21V3.5"/><path d="M6 4.5h11.5l-2.6 3.8 2.6 3.8H6"/></svg> }
+// IconBookmark — one place inside something longer. It opens the picker that
+// replays a SINGLE tour step, which is the whole difference between it and the
+// flag it sits beside.
+export function IconBookmark({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6.5 3.5h11v17l-5.5-4.2-5.5 4.2z"/></svg> }
+// IconType — a serifed capital T: the Type panel, where every face the app uses
+// is chosen. A letterform rather than a slider or a page, because the subject is
+// the drawing of the letters themselves and nothing else on this screen is.
+export function IconType({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 7V4.5h16V7"/><path d="M12 4.5v15"/><path d="M8.5 19.5h7"/></svg> }
+// IconLanguages — a letterform from one script and a letterform from another,
+// which is the language-marks panel's whole subject: what a proverb wears where
+// every other quote wears a face. Deliberately NOT a globe or a flag — a flag is
+// a country and a language is not, and that decision is the reason the panel
+// exists (see LanguageMarksSettings).
+export function IconLanguages({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M2.5 5.5h8.5"/><path d="M6.8 3.5v2"/><path d="M9 5.5c0 3.7-2.4 6.8-6.5 8.3"/><path d="M4.4 8.9c1.1 2.3 3 4 5.4 4.9"/><path d="m12.8 20.5 4.6-10.5 4.6 10.5"/><path d="M14.4 16.8h6"/></svg> }
 // IconMoveTo — send the selection somewhere else (staging's "move to…", which
 // re-parents quotes onto the right book or film).
 export function IconMoveTo({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M3.5 12h11"/><path d="m10.5 8 4 4-4 4"/><path d="M19 4.5v15"/></svg> }

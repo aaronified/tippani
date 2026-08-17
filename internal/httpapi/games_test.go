@@ -232,3 +232,103 @@ func TestBulkStatusResolvesPerRow(t *testing.T) {
 			"resolve to each row's own word, not write the literal onto a game.", got, StatusPlaying)
 	}
 }
+
+// TestRemappingSpeakersOnAGame is a coverage gap closed rather than a bug fixed.
+//
+// The Metadata console's speaker remap already works on a game, and works for
+// the reason 0040 predicted: a game IS a movies row, its lines ARE dialogues
+// rows, and handleRemapSpeakers selects on (id, user_id) with no media_type
+// anywhere in it. handleMetadataLibrary lists every movies row the same way, so
+// the picker offers a game with dialogue without being told games exist.
+//
+// Nothing pinned that. Every remap test in metadata_library_test.go runs on a
+// film, so the first `AND media_type <> 'game'` added to either query — and
+// people_handlers.go is full of that exact clause, correctly, for the studio
+// split — would take games out of the remap silently. There is no error to see:
+// the title simply stops being in the dropdown, or the remap reports 0 rows
+// changed, which reads as "there was nothing to do".
+//
+// The voice cast is what a game keeps in cast_json (0040), so the fixture is a
+// game whose imported label is a shouted screen name and whose cast has the
+// character properly spelled — the same shape as the film case, in the medium
+// that had no test.
+func TestRemappingSpeakersOnAGame(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	game := createGame(t, c, "Portal 2", "Valve")
+	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
+		`[{"character":"GLaDOS","actor":"Ellen McLain"},{"character":"Wheatley","actor":"Stephen Merchant"}]`,
+		game); err != nil {
+		t.Fatal(err)
+	}
+	// "GLADOS AI" is the label an import leaves behind: it matches no cast
+	// member, so the actor comes back empty.
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": game, "quote": "The cake is a lie.", "character": "GLADOS AI",
+	}, http.StatusCreated))
+	if d.Actor != "" {
+		t.Fatalf("actor should be empty before the remap: %+v", d)
+	}
+
+	// The title has to be OFFERED before it can be remapped, and that is the half
+	// a media_type filter on the listing query would break on its own.
+	lib := decode[struct {
+		Movies []struct {
+			ID            int64  `json:"id"`
+			MediaType     string `json:"media_type"`
+			DialogueCount int    `json:"dialogue_count"`
+		} `json:"movies"`
+	}](t, c.mustDo("GET", "/metadata/library", nil, http.StatusOK))
+	offered := false
+	for _, m := range lib.Movies {
+		if m.ID == game && m.MediaType == "game" && m.DialogueCount == 1 {
+			offered = true
+		}
+	}
+	if !offered {
+		t.Fatalf("the console lists no game with dialogue, so none can be picked: %+v", lib.Movies)
+	}
+
+	res := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(game)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{{"from": "GLADOS AI", "character": "GLaDOS", "actor": ""}},
+	}, http.StatusOK))
+	if res.Remapped != 1 {
+		t.Fatalf("remapped = %d, want 1 — a game's dialogue must remap like a film's", res.Remapped)
+	}
+	got := decode[dlgList](t, c.mustDo("GET", "/dialogues?movie_id="+itoa(game), nil, http.StatusOK))
+	if len(got.Dialogues) != 1 || got.Dialogues[0].Character != "GLaDOS" || got.Dialogues[0].Actor != "Ellen McLain" {
+		t.Fatalf("after remap: %+v — the actor must fill from the voice cast", got.Dialogues)
+	}
+}
+
+// TestRefillingActorsOnAGame is the remap's other half: no mappings at all, just
+// "fill the actors in from the cast". It runs through refillMovieActors, which is
+// a second query over `dialogues` that a media_type filter could equally reach.
+func TestRefillingActorsOnAGame(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	game := createGame(t, c, "Disco Elysium", "ZA/UM")
+	if _, err := srv.Store.DB.Exec(`UPDATE movies SET cast_json = ? WHERE id = ?`,
+		`[{"character":"Kim Kitsuragi","actor":"Jullian Champenois"}]`, game); err != nil {
+		t.Fatal(err)
+	}
+	d := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": game, "quote": "It is a shithole.", "character": "Kim Kitsuragi",
+	}, http.StatusCreated))
+	// The character already matches the cast, so it auto-filled on create. Empty
+	// it so the refill has something to do.
+	if _, err := srv.Store.DB.Exec(`UPDATE dialogues SET actor = NULL WHERE id = ?`, d.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	res := decode[remapResp](t, c.mustDo("POST", "/movies/"+itoa(game)+"/remap-speakers", map[string]any{
+		"mappings": []map[string]any{}, "refill": true,
+	}, http.StatusOK))
+	if res.Refilled != 1 {
+		t.Fatalf("refilled = %d, want 1 — a game's voice cast fills its lines like a film's", res.Refilled)
+	}
+}

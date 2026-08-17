@@ -143,10 +143,21 @@ describe('what the card no longer says', () => {
     expect(screen.getByText(/timed out/)).toBeTruthy()
   })
 
-  it('still says when no lookup has been tried since the server started', async () => {
-    STATUS = { tmdb: { source: 'custom' }, books_lookup: null }
+  it('says nothing at all when no lookup has been tried since the server started', async () => {
+    // 1.15.2. `books_lookup.ok` is null until the first lookup of a server's
+    // life, so "Untested" greeted every admin on a fresh instance with a word
+    // that sounds like a warning, describes no fault, and clears itself the
+    // moment anybody uses the app. The row must not render either: an empty flex
+    // box under the heading reads as an element that failed to load.
+    // source: 'none' is the anchor, not decoration — it renders the TMDB chip,
+    // which is the proof that /metadata/status has resolved and the row has been
+    // rendered from it. Asserting absence against a fetch that has not landed
+    // would pass for the wrong reason, and keep passing if the chip came back.
+    STATUS = { tmdb: { source: 'none' }, books_lookup: null }
     await page()
-    await waitFor(() => expect(screen.getByText('Untested')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('No key')).toBeTruthy())
+    expect(screen.queryByText('Untested')).toBeNull()
+    expect(screen.queryByText('Lookup failing')).toBeNull()
   })
 
   it('says so when there is no key at all', async () => {

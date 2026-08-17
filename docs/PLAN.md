@@ -1588,7 +1588,7 @@ That was sound about the id and wrong about the search that produces it: it defe
 
 ### A status chip appears only where there is something to say, and "working" is silence
 
-**Decided.** The chip row under Metadata sources carries a chip for a failed book lookup, for one not yet attempted since this server started ("Untested"), and for TMDB running on the shared built-in key or on no key at all. A working lookup produces **no chip**, and the row itself is not rendered when both are absent.
+**Decided.** The chip row under Metadata sources carries a chip for a **failed** book lookup, and for TMDB running on the shared built-in key or on no key at all. A working lookup produces **no chip**, a lookup nobody has tried yet produces **no chip**, and the row itself is not rendered when both are absent.
 
 **Why.** The chip had three states and one of them was "OK". A badge that is present exactly when there is nothing to do about it, and absent the moment there is, teaches the reader to look at a place that is empty in every case that matters — and it spends a row under the heading to say so. Silence is the healthy state; the heading's info dot explains that, so the absence is documented rather than merely quiet.
 
@@ -1596,11 +1596,15 @@ Dropping the whole row rather than leaving an empty flex box is the smaller half
 
 **Instead of** keeping "OK" and toning it down — grey instead of green, or smaller. Rejected because the objection is not that it is loud, it is that it carries no information.
 
-**Instead of** dropping "Untested" with it. That one *is* information a key field cannot give: whether anything has been tried since the process started, which is the difference between "your key is fine" and "nobody has asked yet".
+**Reversal (1.15.2).** "Untested" was kept in 1.7.9 on this reasoning, which I now think was wrong:
 
-**Approved.** Mine — I raised the chip as serving no purpose.
+> **Instead of** dropping "Untested" with it. That one *is* information a key field cannot give: whether anything has been tried since the process started, which is the difference between "your key is fine" and "nobody has asked yet".
 
-<sub>1.7.9 — `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/settings-key-field.test.jsx` · `CHANGELOG.md`</sub>
+The distinction is real and the chip was still the "OK" mistake wearing a duller colour. `books_lookup.ok` is null until the first book lookup of a *process's* life, so the chip greeted every admin on a freshly started or freshly restarted server — the exact moment they are least sure the thing works — with a word that sounds like a warning, describes no fault, names nothing to do, and clears itself as soon as anybody uses the app. "Whether anything has been tried yet" turned out to be a fact about the server's uptime dressed as a fact about the reader's configuration. The owner asked for it to go; I agree with the ask, and the reasoning above is what it corrects.
+
+**Approved.** Mine for the original chip cull; the owner's for the reversal.
+
+<sub>1.7.9, revised 1.15.2 — `web/frontend/src/Settings.jsx` · `web/frontend/test/dom/settings-key-field.test.jsx` · `CHANGELOG.md`</sub>
 
 ### Covers are downloaded once and served locally, never hotlinked
 
@@ -4124,6 +4128,34 @@ So: **44px can be named and opts in with `label`; 34px is nameless by constructi
 
 <sub>1.14.0 — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/test/dom/field-icon-button.test.jsx` · `docs/ui-glossary.html`</sub>
 
+### The Onboarding card lists nothing; a section picker replays one step, and the index comes from the unfiltered list
+
+**Decided.** Settings → Onboarding is two buttons. **Replay the tour** (or Resume, or Start) starts at step 0 or at the parked step, and now wears a flag glyph with `keepLabel`, because that button carries the step count when it is a Resume. **Refresh one section** opens a picker of every named step, with its blurb, and choosing one starts the tour there.
+
+**Why the list went.** The card had tried twice to be a table of contents. It began as a dozen two-line rows, which pushed the start button off a phone screen; the blurbs went behind info dots, which left a dozen names each trailing a dot. Either shape is a list you cannot press, sitting above the one button that does anything, answering "is this covered?" — and nobody opens Settings → Onboarding to ask that. They open it having forgotten how one screen works, and the old card had no answer for them short of sitting through the whole tour again.
+
+**So the same list becomes the picker.** Same source — `tourFeatures`, so it still cannot drift from the tour it describes — and the blurbs come back as blurbs, because a dialog has the room the card did not. The difference is that a name now *does* something.
+
+**`tourFeatures` carries `at`, and that is the load-bearing part.** The tour is started by index, and `tourFeatures` is `tourSteps` FILTERED: `welcome` and `done` have no name and drop out, and two more steps drop out for a non-admin. So the nth feature is not the nth step, and the gap widens down the list. The failure that would cause is the quiet kind — every index is a valid step, so a picker built on the filtered list opens a real screen with real copy, just not the one asked for, and nothing errors. `at` is taken before the filter and asserted against `tourSteps` at both admin levels.
+
+**Instead of** a per-screen "show me this again" button on every screen. That is a control on twelve screens to serve a need that arises on one visit in fifty, and the tour already knows how to navigate itself.
+
+**Approved.** The owner's: "Onboarding does not need the list of pages with infodots. all it needs is a replay button (already there, needs a glyph), and another button (with glyph) to open a popup where the user can specify the section for which they want the refresher."
+
+<sub>1.15.2 — `web/frontend/src/Settings.jsx` · `web/frontend/src/tour.jsx` · `web/frontend/test/dom/onboarding-card.test.jsx` · `web/frontend/test/pure/tour-sections.test.js`</sub>
+
+### A setting names the reader's own screens, not the media on them
+
+**Decided.** The Review covers chips read **Library**, **Catalogue** and **Quotes** — the names on the nav strip — where they read Books, Films & shows and Quotes. The stored keys (`books`, `movies`, `quotes`) are untouched.
+
+**Why.** Two of the three named the medium instead of the board, and the nav strip is two inches away saying something else. A setting that renames the reader's own screens makes them do the translation, on a screen whose whole job is to be unambiguous. "Films & shows" had also gone quietly wrong in 1.15.1: the Catalogue holds games now, and a game's lines have always joined the deck through that chip, so the label was undercounting what turning it off would do.
+
+**The keys stay because they are a wire format.** `srReviewScope` is parsed on both sides — `parseScope` here and `scopeFlags` on the server, with the agreement asserted from both ends — and renaming a stored token would empty the deck of every account that had ever narrowed it. A label is not a key, and this is the release where that stopped being obvious.
+
+**Approved.** The owner's, against a screenshot of the chip row.
+
+<sub>1.15.2 — `web/frontend/src/Settings.jsx` · `web/frontend/test/pure/review-scope.test.js`</sub>
+
 ## 14. Boards, Cards, Charts and Popups
 
 A popup that places itself in CSS is correct exactly once, and a board that re-packs while you read moves everything you were not looking at — both were fixed by one primitive rather than nine local patches. Charts are here too, because most chart decisions turned out to be about what a number means.
@@ -5189,11 +5221,17 @@ were nothing but this rule applied to text that had accumulated.
 
 **Where an element already sets its own weight or italic, the companion is dropped** rather than left to fight it — 89 such sites, found by walking each object literal and rule block rather than by eye.
 
-**"Monospace" was asked for and is not here, and the picker says so.** Whether a face is monospaced is a property of how it was drawn; no CSS makes a proportional face monospaced, so a switch by that name could only lie. `font-variant-numeric: tabular-nums` is the real thing behind the request and ships as "Lining figures". Small caps and all caps are absent from the Bengali and Devanagari rows, which have no case at all.
+**"Monospace" was asked for and is not here.** Whether a face is monospaced is a property of how it was drawn; no CSS makes a proportional face monospaced, so a switch by that name could only lie. `font-variant-numeric: tabular-nums` is the real thing behind the request and ships as "Lining figures". Small caps and all caps are absent from the Bengali and Devanagari rows, which have no case at all.
 
-**Approved.** The reader's for the list, mine for the two substitutions, both stated on screen.
+**Reversal (1.15.2).** The screen no longer says any of that. The clause this entry used to carry was:
 
-<sub>1.15.0 — `web/frontend/src/index.css` · `web/frontend/src/fonts.js`</sub>
+> **"Monospace" was asked for and is not here, and the picker says so.**
+
+It said so in a paragraph under the Labels row's style chips, shown to every reader who opened that row, forever, because one reader once asked for a control. That is an answer with no question attached: the paragraph names a switch that is not on the screen, so the only way to understand it is to have wanted the switch. Explaining an absence to the person who never noticed it is how a settings panel turns into a transcript of its own arguments. The reasoning belongs where reasoning goes — this entry, and the comment over `FONT_STYLES` in `fonts.js` — and "Lining figures" still ships, still named after what it does.
+
+**Approved.** The reader's for the list, mine for the two substitutions; the owner's for dropping the on-screen explanation.
+
+<sub>1.15.0, revised 1.15.2 — `web/frontend/src/index.css` · `web/frontend/src/fonts.js` · `web/frontend/src/Settings.jsx`</sub>
 
 ### An uploaded font is stored and never parsed, and the script check runs in the browser
 
@@ -5238,6 +5276,36 @@ were nothing but this rule applied to text that had accumulated.
 **Approved.** The reader's, in the form "use flags for languages (replacement for people chips for proverbs). let the user change them if needed as well." The second half is the mechanism rather than an escape hatch.
 
 <sub>1.15.0 — `web/frontend/src/languages.jsx` · `internal/httpapi/language_marks.go`</sub>
+
+### Type and Language marks are pop-ups off the Appearance card, not cards in the settings grid
+
+**Decided.** Settings holds eight cards, and Type and Language marks are not among them. Both are buttons at the foot of the Appearance card — a glyph and its words — opening a `FormModal` each. The panels are otherwise unchanged: they lose the `Card` frame and the `SectionTitle`, which the dialog carries, and their heading blurbs come out from behind info dots into a lead paragraph, because a dialog has the room a 300px column did not.
+
+**Why.** Both are long, and both are settled once. Type is six roles, each with a live specimen, a face picker, an upload control and a row of style chips; Language marks is a row per language with a tray of two dozen flags behind every one. That was two columns of the settings page permanently unrolled, and a settings page is read at a glance — the cost is paid by every visit for a choice made on one of them.
+
+**Why Appearance and not somewhere else.** Both answer the same question that card answers: what the app looks like. Language marks used to sit under Metadata and Colours on the argument that all three are about what a quote is *labelled with*; that argument survives for Colours, which is a vocabulary, and gives out for marks, which is a glyph. What a proverb *wears* is appearance.
+
+**Instead of** collapsing them in place, as accordions on their own cards. Rejected because it keeps the card, the heading and the row of chrome and buys only the height — and a settings page of eight collapsed cards is a page with nothing on it.
+
+**Instead of** leaving them and shortening the panels. There is nothing in either to cut: the specimen *is* the type picker, and every language in the list is one somebody may want to mark.
+
+**Approved.** The owner's, in the form "the language marks and Type sections should be two buttons (glyphed) under appearance section that opens their own pop ups".
+
+<sub>1.15.2 — `web/frontend/src/Settings.jsx` · `web/frontend/src/ui.jsx` · `web/frontend/test/dom/appearance-panels.test.jsx`</sub>
+
+### A component used in JSX and never imported is caught by reading every capitalised tag, not every `Icon*`
+
+**Decided.** `icon-imports.test.js` reads every `.jsx` screen for a capitalised JSX tag that appears in no import and no local declaration. It resolves named, default and namespace imports, top-level declarations, and a component taken as a renamed prop with a default (`{ form: Form = AnnotationForm }`), and it is handed the broken shape directly so a clean tree cannot pass it for the wrong reason.
+
+**Why it was widened.** It was scoped to `Icon*` when it was written, on the stated grounds that glyphs are the ones passed as props and buried in branches and that "the narrow rule is one nobody has to argue with". Then Settings' language-mark tray shipped `<Field>` with no import: same branch shape, same silence, same `ReferenceError` on the one click the card exists for — and the test watched it go past because the missing name did not begin with `Icon`. A test that names a class of bug and then catches one spelling of it is not catching the class.
+
+**A rename with no default is deliberately not matched.** `key: Value = default` is legal only in a destructuring pattern, never in an object literal, so requiring the `=` is what keeps this from quietly blessing `{ icon: IconFoo }` written without an import. A bare rename would be reported as missing — which is the right direction to fail: loud, one file named, one line to fix here.
+
+**Instead of** adding ESLint. There is no lint step in this project and adding one for a single rule is a dependency, a config and a CI job to keep the rule that a twenty-line test already keeps.
+
+**Approved.** Mine, prompted by the crash.
+
+<sub>1.15.2 — `web/frontend/test/pure/icon-imports.test.js` · `web/frontend/src/Settings.jsx`</sub>
 
 ## 16. Serving and Running It: HTTP Surface, Logging, TLS and Updates
 

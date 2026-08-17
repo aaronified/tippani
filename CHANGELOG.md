@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.2] - 2026-08-17
+
+A settings pass: one crash, one chip nobody could act on, and three screens that were showing their
+working instead of doing their job. No schema change and no migration.
+
+### Fixed
+
+- **Changing a language's glyph no longer takes the screen down.** Opening the tray under any row of
+  Settings → Language marks threw `Field is not defined` and blanked the page — the "or type one"
+  box was rendered from a component the file never imported. Because the reference sits inside the
+  branch that opens the tray, the module parsed, the bundle built and the page loaded; the error
+  waited for the one click the card exists for.
+
+  The check that was written for exactly this class of bug watched it go past. It reads every screen
+  for a component used in JSX and absent from the imports, and it was scoped to glyphs — `Icon*` —
+  on the grounds that glyphs are the ones passed as props and buried in branches. They are not the
+  only ones. It reads every capitalised tag now, and it is fed the broken shape directly so a clean
+  tree cannot pass it for the wrong reason.
+
+- **"Untested" is gone from Metadata sources.** It appeared under the heading of every freshly
+  started server, because the flag behind it is unset until the first book lookup of that process's
+  life. It sounded like a warning, described no fault, named nothing to do, and cleared itself the
+  moment anybody used the app. "Lookup failing" stays — that one is worth interrupting for.
+
+### Changed
+
+- **Type and Language marks are two buttons on the Appearance card, and a pop-up apiece.** Both were
+  full cards standing open in the settings grid: six type roles with a specimen, a face picker and a
+  row of style chips each, and a row per language with a tray of two dozen flags behind every one.
+  That is a lot of screen, permanently unrolled, for choices most readers make once — and both are
+  questions about how the app looks, which is what the card above them is for.
+
+  The panels themselves are unchanged. They lose their card frame and their heading, which the
+  dialog now carries, and each button wears a glyph: a serifed **T** for Type, and two letterforms
+  from different scripts for Language marks. Deliberately not a globe or a flag for the second one —
+  a flag is a country and a language is not, which is the decision that panel exists to make visible.
+
+- **Settings → Onboarding no longer lists what the tour covers.** It offers **Replay the tour**,
+  which now has a glyph, and **Refresh one section**, which opens a picker: choose a section and the
+  tour opens on that screen and carries on from there.
+
+  The card had tried twice to be a table of contents. It started as a dozen two-line rows, which
+  pushed the start button off a phone screen; the blurbs went behind info dots, which left a dozen
+  names each trailing a dot. Either way it was a list you could not press, sitting above the one
+  button that did anything, answering "is this covered?" — and nobody opens Settings → Onboarding
+  asking that. They open it having forgotten how one screen works. Same list, same source, but
+  choosing a name now does the thing the name suggested.
+
+- **The Review covers chips are named after the screens they draw from** — Library, Catalogue and
+  Quotes, where they said Books and Films & shows. The nav strip two inches away has always called
+  them that, and a setting that renames the reader's own screens makes them work out which is which.
+  The second label had also gone quietly wrong in 1.15.1: the Catalogue holds games now, and a game's
+  lines have always joined the deck through that chip. The stored values are untouched — they are a
+  wire format the server parses, and renaming them would empty the deck of every account that had set
+  one.
+
+- **The Type panel no longer explains why there is no monospace switch.** Whether a face is
+  monospaced is still how it was drawn, there is still no switch for it, and "Lining figures" is
+  still the real thing behind the request — but the Labels row said so every time it was opened, to
+  everybody, as an answer to a question they had not asked and could not see the subject of. The
+  reasoning lives in `fonts.js`, beside the style table it is about.
+
+- **The Metadata console's speaker remap is pinned on games.** It already worked on one: a game is a
+  `movies` row, its lines are `dialogues` rows, and neither the remap nor the console's listing has a
+  media-type filter anywhere in it — which is the payoff `0040` predicted rather than an accident.
+  Nothing tested it, though, so the first `AND media_type <> 'game'` added to either query would have
+  dropped games out of the picker in silence. Two tests now say otherwise, in the medium that had
+  none.
+
 ## [1.15.1] - 2026-08-17
 
 **This release carries a schema migration (`0040`).** It adds one column and a third media type;

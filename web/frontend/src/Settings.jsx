@@ -21,12 +21,15 @@ import {
   CloseButton,
   ConfirmDialog,
   ErrorText,
+  Field,
   FieldIconButton,
+  FormModal,
   IconChevron,
   filterChipClass,
   frameCode,
   GhostButton,
   IconArchive,
+  IconBookmark,
   IconCheck,
   IconClose,
   IconCopy,
@@ -37,9 +40,12 @@ import {
   IconEyeOff,
   IconExport,
   IconKey,
+  IconLanguages,
   IconRefresh,
   IconRestore,
   IconRevert,
+  IconTour,
+  IconType,
   IconUpload,
   IconUserPlus,
   InfoDot,
@@ -89,7 +95,9 @@ function useColumnCount() {
 // SETTINGS_CARDS — every card, in the order a single column shows them. This is
 // the canonical list; SETTINGS_LAYOUT below has to agree with it, and a test
 // says so.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'marks', 'type', 'sr', 'devices', 'trash', 'upd', 'backup']
+// Language marks and Type are NOT here. They are two buttons on the Appearance
+// card and a pop-up apiece (1.15.2) — see the note above `Appearance`.
+export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -115,20 +123,22 @@ export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'marks', 'type', 'sr
 // layout below. It will not render until you do — the render walks the layout,
 // not the card list — which is a loud failure rather than a card appearing
 // somewhere unpredictable. settings-layout.test.js checks the three agree.
-// Colours and language marks sit directly under Metadata in every layout, and
-// that is a rule rather than an arrangement: all three are about what a quote is
-// LABELLED with — where the facts about a work come from, what the colour on a
-// highlight is called, and what a proverb wears where every other quote wears a
-// face — so reading down one column reads as one subject.
+// Colours sits directly under Metadata in every layout, and that is a rule
+// rather than an arrangement: both are about what a quote is LABELLED with —
+// where the facts about a work come from, and what the colour on a highlight is
+// called — so reading down one column reads as one subject. Language marks was
+// the third card in that family and is now a pop-up off Appearance, which is the
+// same argument reaching its conclusion: what a proverb WEARS is a matter of
+// appearance, and settings-layout.test.js still pins the pair that remain.
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
-    ['meta', 'colors', 'marks', 'onboard'],
-    ['sr', 'type', 'devices', 'trash', 'upd', 'backup'],
+    ['meta', 'colors', 'onboard'],
+    ['sr', 'devices', 'trash', 'upd', 'backup'],
   ],
   3: [
-    ['meta', 'colors', 'marks'], // the tall one, and the two cards that belong under it
-    ['sr', 'type', 'onboard'],
+    ['meta', 'colors'], // the tall one, and the card that belongs under it
+    ['sr', 'onboard'],
     ['devices', 'trash', 'upd', 'backup'],
   ],
 }
@@ -150,8 +160,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     meta: <Metadata user={user} onPreferences={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
-    marks: <LanguageMarksCard prefs={user.preferences} onSaved={onPreferences} />,
-    type: <TypeCard prefs={user.preferences} onSaved={onPreferences} />,
     devices: <DevicesCard />,
     // Every account has a bin, so this is not admin-gated — unlike the two cards
     // below it. It sits beside Backup because that is the corner of Settings you
@@ -171,7 +179,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
       <div className={mobile ? 'mobile-sticky-bar' : ''}>
         <PageHeader title="Settings" counts={user.is_admin ? 'admin' : user.username} />
       </div>
-      <Appearance onPreferences={onPreferences} />
+      <Appearance prefs={user.preferences} onPreferences={onPreferences} />
       {/* align-items:start so a short column stays short instead of stretching
           its last card to match the tallest column. */}
       <div
@@ -462,9 +470,19 @@ function collect(rows) {
 // You cannot turn the last one off. An empty scope is a deck with nothing in it,
 // which looks exactly like a deck you have finished — so the last remaining chip
 // says why it will not budge instead of leaving you to discover it.
+//
+// THE CHIPS ARE NAMED AFTER THE SCREENS THEY DRAW FROM (1.15.2), not after the
+// kind of thing on them. "Books" and "Films & shows" described the media; the
+// nav strip two inches away says Library, Catalogue and Quotes, and a setting
+// that renames the reader's own screens makes them work out which is which. The
+// second was also wrong on its face after 1.15.1: the Catalogue holds games too,
+// and their lines have always joined the deck through the same 'movies' scope,
+// so "Films & shows" undercounted what the chip actually turned off. The STORED
+// keys are untouched — they are a wire format the server parses (scopeFlags),
+// and renaming them would empty the deck of every account that had set one.
 const REVIEW_MEDIA = [
-  ['books', 'Books', 'Your book highlights'],
-  ['movies', 'Films & shows', 'Dialogue from the catalogue'],
+  ['books', 'Library', 'Your book highlights'],
+  ['movies', 'Catalogue', 'Dialogue from films, shows and games'],
   ['quotes', 'Quotes', 'Speeches, letters, anything else'],
 ]
 
@@ -519,7 +537,12 @@ export function ReviewScope({ value, onChange }) {
   )
 }
 
-// TypeCard — Settings → Type. Every face the app uses, doing its actual job.
+// TypeSettings — Appearance → Type. Every face the app uses, doing its actual
+// job. A POP-UP off the Appearance card since 1.15.2 rather than a card of its
+// own: eleven roles, each with a specimen, a face picker and a row of style
+// chips, is the tallest thing on the settings page by a wide margin, and it was
+// standing open in a column beside cards you can read at a glance. It renders
+// its own body only — the dialog carries the heading and the close.
 //
 // EACH ROW SETS ITS OWN ROLE'S REAL TEXT, not a specimen sentence. A type list
 // that puts "The quick brown fox" in every face tells you nothing about the one
@@ -531,7 +554,7 @@ export function ReviewScope({ value, onChange }) {
 // Every alternate is BUNDLED, not fetched. Tippani never contacts the network on
 // its own, and a type picker that loaded Google Fonts would be the first thing
 // in the app that did — on a screen about how your own words look. All OFL-1.1.
-function TypeCard({ prefs, onSaved }) {
+function TypeSettings({ prefs, onSaved }) {
   const [rows, setRows] = useState(fontState)
   const [openRole, setOpenRole] = useState(null)
   const [err, setErr] = useState('')
@@ -602,12 +625,11 @@ function TypeCard({ prefs, onSaved }) {
   }
 
   return (
-    <Card>
-      <SectionTitle
-        info="Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with the app and free to use — nothing here is fetched from anywhere."
-      >
-        Type
-      </SectionTitle>
+    <>
+      <p className="microcopy mb-3">
+        Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with
+        the app and free to use — nothing here is fetched from anywhere.
+      </p>
       <div>
         {rows.map((row) => {
           const open = openRole === row.key
@@ -737,18 +759,13 @@ function TypeCard({ prefs, onSaved }) {
                         )
                       })}
                     </div>
-                    {/* THE ONE CONTROL THAT WAS ASKED FOR AND IS NOT HERE. Whether
-                        a face is monospaced is a property of how it was drawn: no
-                        CSS makes a proportional face monospaced. "Lining figures"
-                        is the real thing behind the request — it lines the numbers
-                        up in columns — and the picker above is where you change
-                        the face itself. */}
-                    {row.key === 'mono' && (
-                      <p className="microcopy mt-1.5">
-                        There is no &ldquo;monospace&rdquo; switch: whether a face is monospaced is how it was
-                        drawn, not a style. Change the face above instead.
-                      </p>
-                    )}
+                    {/* NO PARAGRAPH ABOUT MONOSPACE. Whether a face is monospaced
+                        is still a property of how it was drawn and there is still
+                        no switch for it — but the mono row's style list showed
+                        that paragraph every time it was opened, as an answer to a
+                        question the reader had not asked and could not see the
+                        subject of. The reasoning survives where reasoning goes,
+                        in fonts.js beside the style table it explains. */}
                   </div>
                 </div>
               )}
@@ -757,7 +774,7 @@ function TypeCard({ prefs, onSaved }) {
         })}
       </div>
       <ErrorText>{err}</ErrorText>
-    </Card>
+    </>
   )
 }
 
@@ -772,7 +789,11 @@ function collectFonts(rows) {
   return out
 }
 
-// LanguageMarksCard — what a proverb wears where every other quote wears a face.
+// LanguageMarksSettings — what a proverb wears where every other quote wears a
+// face. A POP-UP off the Appearance card since 1.15.2, for the same reason Type
+// is: a row per language, each opening a tray of flags, is a long list standing
+// open beside cards you can read at a glance, and a mark is a matter of
+// appearance. It renders its own body only — the dialog carries the heading.
 //
 // FLAGS ARE OFFERED AND NOT ASSUMED, which is the one decision this card exists
 // to make visible. The ask was "use flags for languages", and a flag is what many
@@ -785,7 +806,7 @@ function collectFonts(rows) {
 // So the built-in is a letter from the language's own script, the tray offers
 // flags first, and one tap makes it a flag for good. Anything typable also works:
 // a script the tray has no flag for, a symbol, an emoji nobody thought of.
-function LanguageMarksCard({ prefs, onSaved }) {
+function LanguageMarksSettings({ prefs, onSaved }) {
   const [rows, setRows] = useState(() => languageMarksState())
   const [picking, setPicking] = useState(null) // the language whose tray is open
   const [err, setErr] = useState('')
@@ -815,12 +836,12 @@ function LanguageMarksCard({ prefs, onSaved }) {
   }
 
   return (
-    <Card>
-      <SectionTitle
-        info="A proverb has nobody to credit, so its card leads with its language instead of a face. The built-in is a letter from that script; a flag is one tap away and never assumed — a flag is a country, and a language is not."
-      >
-        Language marks
-      </SectionTitle>
+    <>
+      <p className="microcopy mb-3">
+        A proverb has nobody to credit, so its card leads with its language instead of a face. The
+        built-in is a letter from that script; a flag is one tap away and never assumed — a flag is a
+        country, and a language is not.
+      </p>
       <div>
         {rows.map((row) => (
           <div key={row.key} className="inline-field">
@@ -895,7 +916,7 @@ function LanguageMarksCard({ prefs, onSaved }) {
         ))}
       </div>
       <ErrorText>{err}</ErrorText>
-    </Card>
+    </>
   )
 }
 
@@ -1337,20 +1358,34 @@ function ChangelogDialog({ current, onClose }) {
 // by a release. The roadmap link survives, in the Updates card, where "what
 // version am I on" and "what is coming" are the same question asked twice.
 
-// OnboardingCard — the guided tour's home (ROADMAP: onboarding). Lists every
-// feature (the same tourFeatures the tour walks, so the list can't drift), and
-// starts / replays / resumes the tour. The tour runs by itself on a user's
-// first launch; "finish later" parks it here as a Resume button. The sample
-// content is built in — onboarding never asks for the user's files.
+// OnboardingCard — the guided tour's home (ROADMAP: onboarding). Starts,
+// replays or resumes the tour, and replays ONE step of it. The tour runs by
+// itself on a user's first launch; "finish later" parks it here as a Resume
+// button. The sample content is built in — onboarding never asks for the user's
+// files.
 //
-// The card's own explanation and each feature's blurb are InfoDots now: the
-// blurbs made a wall of ~12 two-line rows that pushed the Start button off a
-// phone screen, and the feature NAMES are the part worth scanning.
+// THE LIST OF FEATURES IS GONE (1.15.2), and it is the second time this card has
+// tried to be a table of contents. It started as a dozen two-line rows, which
+// pushed the Start button off a phone screen; the blurbs went behind InfoDots,
+// which left a dozen names each trailing a dot — a list you cannot act on, above
+// the one button that does anything. A name in that list answered "is this
+// covered?", and nobody arrives at Settings → Onboarding asking that. They
+// arrive having forgotten how one screen works.
+//
+// So the list becomes a PICKER, behind the second button, where choosing a name
+// does the thing the name suggested. Same source (tourFeatures, so it still
+// cannot drift from the tour), one fewer standing wall of text, and the blurbs
+// come back as blurbs rather than as dots — a dialog has the room a 300px column
+// did not.
 function OnboardingCard({ user, onStartTour }) {
   const state = user.preferences?.tour || ''
   const step = user.preferences?.tourStep || 0
+  const [picking, setPicking] = useState(false)
   const feats = tourFeatures(user.is_admin)
   const total = tourSteps(user.is_admin).length
+  // `at` is the feature's index in tourSteps, which is what onStartTour takes —
+  // NOT its index in this filtered list. See tourFeatures.
+  const start = (at) => { setPicking(false); onStartTour?.(at) }
   return (
     <Card>
       <SectionTitle
@@ -1361,27 +1396,48 @@ function OnboardingCard({ user, onStartTour }) {
         Onboarding
       </SectionTitle>
       <div className="flex flex-wrap items-center gap-2">
+        {/* keepLabel on the primary: it carries the step count when it is a
+            Resume, and a bare flag on a phone would drop the only part of that
+            button anybody reads. */}
         {state === 'postponed' ? (
           <>
-            <StickerButton onClick={() => onStartTour?.(step)}>
+            <StickerButton icon={<IconTour />} keepLabel onClick={() => start(step)}>
               Resume tour · step {Math.min(step + 1, total)} of {total}
             </StickerButton>
-            <GhostButton icon={<IconRefresh />} onClick={() => onStartTour?.(0)}>Start over</GhostButton>
+            <GhostButton icon={<IconRefresh />} onClick={() => start(0)}>Start over</GhostButton>
           </>
         ) : (
-          <StickerButton onClick={() => onStartTour?.(0)}>
+          <StickerButton icon={<IconTour />} keepLabel onClick={() => start(0)}>
             {state ? 'Replay the tour' : 'Start the tour'}
           </StickerButton>
         )}
+        {/* keepLabel for the same reason the two Appearance doors have it: this
+            is the only way to the picker, and an unlabelled bookmark on a phone
+            is a feature nobody finds. "Start over" above keeps none, and should
+            not — it is a secondary variant of the labelled button beside it, so
+            the row it sits in already says what it is about. */}
+        <GhostButton icon={<IconBookmark />} keepLabel onClick={() => setPicking(true)}>Refresh one section</GhostButton>
       </div>
-      <ul className="mt-4 space-y-1.5" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-        {feats.map((f) => (
-          <li key={f.key} className="flex items-center gap-1.5" style={{ fontSize: 12.5, lineHeight: 1.45 }}>
-            <span>{f.name}</span>
-            <InfoDot title={f.name} text={f.blurb} />
-          </li>
-        ))}
-      </ul>
+      <FormModal open={picking} onClose={() => setPicking(false)} title="Refresh one section" maxWidth={520}>
+        <p className="microcopy mb-3">
+          The tour opens on that screen and carries on from there — Next moves to the next section,
+          and &ldquo;finish later&rdquo; parks it back here.
+        </p>
+        <div>
+          {feats.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              className="tactile w-full text-left"
+              style={{ borderTop: '1px solid var(--line)', padding: '9px 2px' }}
+              onClick={() => start(f.at)}
+            >
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{f.name}</span>
+              <span className="microcopy block">{f.blurb}</span>
+            </button>
+          ))}
+        </div>
+      </FormModal>
     </Card>
   )
 }
@@ -2288,7 +2344,24 @@ function PresetCard({ spec, accentHex, code, selected, auto, dimmed, onClick }) 
 
 const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches
 
-function Appearance({ onPreferences }) {
+// Appearance — the theme presets, the accent, the two size sliders, the label
+// density, and the doors to the two long panels that used to be cards.
+//
+// TYPE AND LANGUAGE MARKS ARE POP-UPS OFF THIS CARD (1.15.2), not cards in the
+// column grid beside it. Both belong to this subject — the faces the app draws
+// with, and what a proverb wears where every other quote wears a face — and
+// neither is a control panel: Type is eleven roles deep with a specimen apiece,
+// and Language marks is a row per language with a tray of flags behind each. The
+// settings page is read at a glance, and those two were the whole of two columns
+// standing open, permanently, for a choice most readers make once.
+//
+// So they become two buttons: a glyph and its words, which is what every other
+// door in this app is. The panels themselves are unchanged apart from losing
+// their card frame and heading, which the dialog now carries.
+function Appearance({ prefs, onPreferences }) {
+  // Which long panel is open, if either. One piece of state rather than two
+  // booleans: they are alternatives, and two flags can both be true.
+  const [panel, setPanel] = useState(null)
   // Seed from the appearance actually applied (getResolvedTheme reads the
   // concrete aesthetic off the DOM + the raw theme preference). The stored
   // theme pref maps to this panel's model: 'system' ⇒ syncSystem; 'light'/'dark'
@@ -2399,6 +2472,37 @@ function Appearance({ onPreferences }) {
         <SizeSlider label="Catalogue poster size" storageKey="tippani:size:movies" def={150} />
         <LabelDensity />
       </div>
+
+      {/* The two doors, and they KEEP THEIR WORDS at every width.
+
+          Button labels normally lets a glyphed button drop its text on a phone,
+          and the buttons that opt out are named ones: primary submits and
+          destructive confirms. This is a third case with the same shape. A card
+          action that loses its words still sits on a card full of context, and
+          the reader can afford to guess; these two are the ONLY way into two
+          whole settings panels, so a bare letterform is not a button whose
+          meaning is merely unlabelled — it is a screen nobody finds. They were
+          headed cards until 1.15.2, which is the standard being kept.
+
+          The tooltips say something the labels do not, which is the only reason
+          to carry both. */}
+      <div className="mt-7 flex flex-wrap items-center gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+        <Tooltip label="Every face the app uses">
+          <GhostButton icon={<IconType />} keepLabel onClick={() => setPanel('type')}>Type</GhostButton>
+        </Tooltip>
+        <Tooltip label="What a proverb wears">
+          <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setPanel('marks')}>Language marks</GhostButton>
+        </Tooltip>
+      </div>
+
+      {/* No form registers with either dialog, so neither grows a ✓: both panels
+          save on the tap, as they did as cards. The close is the only action. */}
+      <FormModal open={panel === 'type'} onClose={() => setPanel(null)} title="Type" maxWidth={620}>
+        <TypeSettings prefs={prefs} onSaved={onPreferences} />
+      </FormModal>
+      <FormModal open={panel === 'marks'} onClose={() => setPanel(null)} title="Language marks" maxWidth={560}>
+        <LanguageMarksSettings prefs={prefs} onSaved={onPreferences} />
+      </FormModal>
     </Card>
   )
 }
@@ -2590,16 +2694,16 @@ function Metadata({ user, onPreferences }) {
 
   const source = status?.tmdb?.source
   const lookup = status?.books_lookup
-  // NO CHIP FOR "WORKING". A green OK under the heading is a pill that appears
-  // when there is nothing to tell you and vanishes the moment there is — the
-  // reader learns to read it, and then it is gone exactly when they need it.
-  // Silence is the healthy state; a chip here always means something to act on
-  // (the last lookup failed) or something not yet known (none has been tried
-  // since this server started).
-  const booksChip =
-    lookup?.ok === false ? ['error', 'Lookup failing']
-      : lookup?.ok === true ? null
-        : ['muted', 'Untested']
+  // NO CHIP FOR "WORKING", AND NONE FOR "NOT YET TRIED" EITHER. A green OK under
+  // the heading is a pill that appears when there is nothing to tell you and
+  // vanishes the moment there is — the reader learns to read it, and then it is
+  // gone exactly when they need it. "Untested" (1.15.2) was the same pill in a
+  // duller colour: `books_lookup.ok` is null until the first lookup of the
+  // server's life, so a freshly started instance greeted every admin with a word
+  // that sounds like a warning, describes no fault, and clears itself the moment
+  // anybody uses the app. Nothing was ever wrong and there was nothing to do.
+  // Silence is the healthy state; a chip here means something to act on.
+  const booksChip = lookup?.ok === false ? ['error', 'Lookup failing'] : null
   // A CHIP ONLY WHERE THE KEY FIELDS CANNOT ANSWER. "Custom key" beside TMDB
   // said exactly what the saved badge on the TMDB field says one line below it,
   // and "No key (optional)" beside TheTVDB said nothing at all — an optional key
@@ -2647,12 +2751,10 @@ function Metadata({ user, onPreferences }) {
           a key field only knows whether it is filled. So the chips move up into
           one row and the headings go.
 
-          The chips travel ALONE. Each used to carry its own InfoDot, and with a
-          custom TMDB key set — the state where tmdbChip is null — what was left
-          was the word "Untested" trailed by two dots explaining services the
-          word was not about. Two dots side by side are not two explanations, they
-          are a puzzle about which one answers you; both blurbs are in the
-          heading's dot now, which is where a reader looks for what a section is.
+          The chips travel ALONE. Each used to carry its own InfoDot, and two
+          dots side by side are not two explanations, they are a puzzle about
+          which one answers you; both blurbs are in the heading's dot now, which
+          is where a reader looks for what a section is.
 
           The row itself goes when both chips do: an empty flex box under the
           heading is a gap that reads as a missing element rather than as

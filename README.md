@@ -20,7 +20,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/aaronified/tippani/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/aaronified/tippani/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/aaronified/tippani/releases"><img alt="Release" src="https://img.shields.io/github/v/release/aaronified/tippani?sort=semver&color=blue"></a>
   <a href="https://aaronified.github.io/tippani/roadmap.html"><img alt="Roadmap" src="https://img.shields.io/badge/roadmap-what's%20next-B4482D"></a>
   <a href="go.mod"><img alt="Go" src="https://img.shields.io/github/go-mod/go-version/aaronified/tippani"></a>
