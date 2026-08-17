@@ -23,10 +23,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does, so the two cannot disagree. That is the rule `facets.js` opens by stating, and a panel
   building its own query object would have broken it one file away instead of one process away.
 
-  **No counts beside each value**, deliberately. The count worth having is hits under the *current*
-  query, and `/search` is already about fifteen queries — so it is fifteen more per value per field.
-  Counting the library instead is worse than nothing: it would print a number next to a value that
-  yields nothing under the chip already up. It is on the roadmap with its own budget.
+- **Every facet value says how many hits it would give.** `Austen · 12`, under the search you are
+  actually running — not a count of your whole library, which would print a number beside a value
+  that yields nothing under the chip already up.
+
+  Which narrowing applies while counting a field is decided by the same rule that decides what a
+  second chip does. Two tags narrow, so the number beside a second tag is how many wear **both**.
+  Two authors widen, so the number beside a second author is what allowing them **as well** would
+  give. Count them the same way and one of the two is a lie: make it all-narrow and every unpicked
+  colour reads 0 for ever, which looks broken exactly when it is working.
+
+  A zero goes **grey and stays pressable** rather than disappearing. A value that vanishes when you
+  narrow leaves you wondering whether you mis-remembered your own shelves; a grey one says "not
+  under this question", which is the answer and points at the chip to take off.
+
+  These were deliberately left out when the panel shipped, on the grounds that they were fifteen
+  queries per value per field. That was a bad estimate of a design I had not worked out: it is one
+  grouped count per field, on its own route, so the panel pays for them and typing does not.
 
 - **`book:` and `movie:` are grammar now, and the dropdown pages.** Both fields were deliberately
   untypeable, on the reasoning that "there is no vocabulary of titles to offer". A library *is* a
