@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/url"
 	"testing"
+	"time"
 )
 
 // Counts beside each facet value.
@@ -235,4 +236,55 @@ func TestFacetCountsRejectAnUnknownFacet(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	c.mustDo("GET", "/search/facets?q=x&"+url.Values{"nonsense": {"1"}}.Encode(), nil, 400)
+}
+
+// Date ranges (roadmap §3). The single-day `date_added` facet has existed since
+// the Stats calendar linked into it; a RANGE is what "what did I save in the
+// first half of last year" needs.
+func TestSearchNarrowsToAnAddedOnRange(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	b := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "Ranged"}, 201).Body.Bytes())
+	id := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": b, "quote": "a line about time"}, 201).Body.Bytes())
+
+	// Everything is created "now", so a range around today includes it and a
+	// range that ends yesterday does not.
+	today := time.Now().UTC().Format("2006-01-02")
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	tomorrow := time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")
+
+	in := decode[searchResults](t, c.mustDo("GET",
+		"/search?q=time&added_from="+yesterday+"&added_to="+tomorrow, nil, 200))
+	if len(in.Annotations) != 1 || in.Annotations[0].ID != id {
+		t.Fatalf("a range containing today missed it: %+v", in.Annotations)
+	}
+
+	// THE UPPER BOUND IS THE ONE THAT BREAKS. created_at is a datetime, so a
+	// naive `<= today` compares '2026-08-17' against '2026-08-17 14:32:00' as
+	// SMALLER and silently drops everything saved after midnight on the last day
+	// of every range anybody asks for.
+	sameDay := decode[searchResults](t, c.mustDo("GET",
+		"/search?q=time&added_from="+today+"&added_to="+today, nil, 200))
+	if len(sameDay.Annotations) != 1 {
+		t.Fatalf("a single-day range lost a quote saved during that day: %+v", sameDay.Annotations)
+	}
+
+	out := decode[searchResults](t, c.mustDo("GET",
+		"/search?q=time&added_to="+yesterday, nil, 200))
+	if len(out.Annotations) != 0 {
+		t.Fatalf("a range ending yesterday included today: %+v", out.Annotations)
+	}
+
+	// A malformed date is a 400, like every other malformed facet — answering
+	// with an unnarrowed result set would look exactly like a correct answer.
+	c.mustDo("GET", "/search?q=time&added_from=last%20tuesday", nil, 400)
+
+	// And the range alone is a whole search: no free text needed, the same rule
+	// a chips-only search follows.
+	only := decode[searchResults](t, c.mustDo("GET",
+		"/search?added_from="+yesterday+"&added_to="+tomorrow, nil, 200))
+	if len(only.Annotations) != 1 {
+		t.Fatalf("a range with no query is still a search: %+v", only.Annotations)
+	}
 }

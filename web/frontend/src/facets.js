@@ -61,6 +61,14 @@ export const FACET_FIELDS = [
   // carry the same name, and only an id says which one you meant.
   { name: 'book', vocab: 'books', combine: 'or' },
   { name: 'movie', vocab: 'movies', combine: 'or' },
+  // The added-on range (roadmap §3). SEEDED, NOT TYPED — `typed: false` for the
+  // reason the work fields USED to carry it and no longer do, which is that
+  // there genuinely is no vocabulary here: a dropdown of every date in your
+  // library is a calendar, and a calendar is a different control. The chips are
+  // real chips and go on the wire; they arrive from the Stats calendar and from
+  // a hand-edited URL.
+  { name: 'added_from', vocab: null, combine: 'or', typed: false, exclusive: true },
+  { name: 'added_to', vocab: null, combine: 'or', typed: false, exclusive: true },
 ]
 
 // The vocabularies that arrive as {key, name} pairs rather than bare strings,

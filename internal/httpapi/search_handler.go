@@ -447,9 +447,12 @@ func facetedHits[T any](s *Server, k rowKind, r hitReq, f searchFacets, uid int6
 		from, where, order = src.plainFrom, src.userCond, src.plainOrder
 		args = append(args, uid)
 	} else {
-		match := search.PrefixQuery(r.q)
+		// PhraseQuery, not PrefixQuery: a quoted run is one FTS5 phrase and the
+		// loose words keep the typeahead prefix behaviour. A query with no quotes
+		// in it produces exactly what PrefixQuery always did.
+		match := search.PhraseQuery(r.q)
 		if r.ftsCols != "" {
-			match = search.ColumnPrefixQuery(r.ftsCols, r.q)
+			match = search.ColumnPhraseQuery(r.ftsCols, r.q)
 		}
 		from = src.ftsFrom
 		where = src.ftsTable + " MATCH ? AND " + src.userCond

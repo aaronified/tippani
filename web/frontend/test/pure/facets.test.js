@@ -56,7 +56,7 @@ describe('the field registry', () => {
     expect(FACET_NAMES).toEqual([
       'tag', 'colour', 'author', 'speaker', 'actor', 'character', 'director',
       'genre', 'series', 'shelf', 'year', 'favourite', 'note', 'wishlist',
-      'book', 'movie',
+      'book', 'movie', 'added_from', 'added_to',
     ])
   })
 

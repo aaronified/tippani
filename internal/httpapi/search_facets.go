@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Facets — saying which field you meant.
@@ -79,6 +80,11 @@ type searchFacets struct {
 	// because a title is not unique and an id is.
 	bookIDs  []int64
 	movieIDs []int64
+	// Added-on range (roadmap §3). Half-open [from, to): a day is stored as a
+	// datetime, so "to 2026-07-14" has to mean "before the 15th" or the last day
+	// of every range silently loses everything saved after midnight.
+	addedFrom string
+	addedTo   string
 	// Flags. nil means "not asked about", which is not the same as false: a
 	// bare *bool is the difference between "show me favourites", "show me
 	// things I have not starred", and "I did not mention favourites".
@@ -92,6 +98,7 @@ func (f searchFacets) any() bool {
 		len(f.series) > 0 || len(f.years) > 0 || len(f.authors) > 0 || len(f.directors) > 0 ||
 		len(f.actors) > 0 || len(f.characters) > 0 || len(f.speakers) > 0 ||
 		len(f.bookIDs) > 0 || len(f.movieIDs) > 0 ||
+		f.addedFrom != "" || f.addedTo != "" ||
 		f.favourite != nil || f.note != nil || f.wishlist != nil
 }
 
@@ -176,6 +183,23 @@ func parseSearchFacets(vals url.Values) (searchFacets, error) {
 				} else {
 					f.movieIDs = append(f.movieIDs, n)
 				}
+			}
+		case "added_from", "added_to":
+			// YYYY-MM-DD only. A partial date is not accepted here because the two
+			// ends mean different things when widened — "from 2025-06" is the 1st
+			// and "to 2025-06" is the 30th — and guessing which a reader meant is
+			// how a range quietly excludes a month.
+			v := strings.TrimSpace(vs[len(vs)-1])
+			if v == "" {
+				continue
+			}
+			if _, err := time.Parse("2006-01-02", v); err != nil {
+				return f, searchFacetError{key + " must be a date (YYYY-MM-DD): " + v}
+			}
+			if key == "added_from" {
+				f.addedFrom = v
+			} else {
+				f.addedTo = v
 			}
 		case "favourite", "favorite":
 			b, err := parseFacetFlag(key, vs)
@@ -421,6 +445,25 @@ func (f searchFacets) where(k rowKind, uid int64) (string, []any, bool) {
 			ids[i] = id
 		}
 		add("m.id IN ("+placeholders(len(ids))+")", ids...)
+	}
+
+	// The added-on range. created_at is on every kind — it is the one column all
+	// five share — so unlike every other facet here this one never excludes a
+	// kind, and there is no `false` return to write.
+	//
+	// TEXT COMPARISON, deliberately. created_at is stored as `datetime('now')`,
+	// which is `YYYY-MM-DD HH:MM:SS` — lexically ordered, so `>=` and `<` on the
+	// string are the same answer date() would give without paying for a function
+	// call per row. The upper bound is EXCLUSIVE and one day past what was asked,
+	// because `<= '2026-07-14'` compares against `'2026-07-14 09:31:00'` as
+	// SMALLER and would drop everything saved after midnight on the last day.
+	if f.addedFrom != "" {
+		add(self+".created_at >= ?", f.addedFrom)
+	}
+	if f.addedTo != "" {
+		if d, err := time.Parse("2006-01-02", f.addedTo); err == nil {
+			add(self+".created_at < ?", d.AddDate(0, 0, 1).Format("2006-01-02"))
+		}
 	}
 
 	// favourite is the one facet every kind has.

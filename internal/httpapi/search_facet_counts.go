@@ -288,7 +288,7 @@ func (s *Server) countOneFacet(field string, k rowKind, q string, f searchFacets
 		// a count is answering "how many hits", and hits are the union of those
 		// sections. Counting one column would report a smaller number than the
 		// screen is about to show.
-		args = append(args, search.PrefixQuery(q), uid)
+		args = append(args, search.PhraseQuery(q), uid)
 	}
 	where += fc
 	args = append(args, fargs...)
