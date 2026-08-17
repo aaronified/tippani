@@ -296,3 +296,109 @@ describe('the vocabulary', () => {
     expect(onFirstFocus).toHaveBeenCalled()
   })
 })
+
+// ---- the Filters panel, and the paged dropdown (1.16.0) ---------------------
+//
+// THE FACETS SHIPPED IN 1.10.0 AND NOBODY COULD FIND THEM. The grammar, the
+// dropdown, the chips, the vocabulary endpoint and the SQL were all complete;
+// the only thing on screen that said so was a placeholder string, gone the
+// moment you typed a character. The report was three words long and correct:
+// "I do not see search facets yet."
+//
+// So the panel exists to be the visible door. Its ONE invariant — the one this
+// block is really for — is that pressing a value in it produces exactly the chip
+// that typing the same facet produces. Two ways in, one chip out. A panel that
+// assembled its own query object would be the render-versus-match divergence
+// facets.js opens by refusing, moved one file closer.
+
+import { FACET_MENU_PAGE, FACET_FIELDS, makeChip } from '../../src/facets.js'
+
+const moreBtn = () => [...document.querySelectorAll('.token-opt')].find((b) => /^More/.test(b.textContent))
+
+describe('the dropdown pages rather than pouring', () => {
+  // A real library has hundreds of titles. A menu you can fall down is not a
+  // menu, so it shows a page and offers another.
+  const many = { tags: Array.from({ length: 14 }, (_, i) => `tag-${String(i).padStart(2, '0')}`) }
+
+  it('shows one page, and says how many are behind it', () => {
+    render(<Harness vocabulary={many} />)
+    type('tag:')
+    expect(options().filter((t) => !/^More/.test(t))).toHaveLength(FACET_MENU_PAGE)
+    expect(moreBtn().textContent).toBe(`More (${14 - FACET_MENU_PAGE})`)
+  })
+
+  it('reveals another page on More, and stops offering it at the end', () => {
+    render(<Harness vocabulary={many} />)
+    type('tag:')
+    // mouseDown, not click: the dismiss handler listens on pointerdown, so a
+    // click would close the menu out from under the button. Pinned because the
+    // symptom — the menu vanishing on the one press meant to grow it — reads as
+    // "the button does nothing" rather than as an event-order bug.
+    fireEvent.mouseDown(moreBtn())
+    expect(options().filter((t) => !/^More/.test(t))).toHaveLength(FACET_MENU_PAGE * 2)
+    fireEvent.mouseDown(moreBtn())
+    expect(options().filter((t) => !/^More/.test(t))).toHaveLength(14)
+    expect(moreBtn()).toBeUndefined()
+  })
+
+  it('and starts again at one page when the question changes', () => {
+    render(<Harness vocabulary={many} />)
+    type('tag:')
+    fireEvent.mouseDown(moreBtn())
+    expect(options().filter((t) => !/^More/.test(t))).toHaveLength(FACET_MENU_PAGE * 2)
+    // Typing narrows to a different list; leaving ten of the old one on screen
+    // would be showing a page of a question nobody asked.
+    type('tag:tag-0')
+    expect(options().filter((t) => !/^More/.test(t)).length).toBeLessThanOrEqual(FACET_MENU_PAGE)
+  })
+})
+
+describe('the work fields are grammar now', () => {
+  // They carried `typed: false` until 1.16.0, on the reasoning that there was no
+  // vocabulary of titles to offer. A library IS a list of its own titles; the
+  // reasoning described a query nobody had written.
+  const works = {
+    books: [{ key: '7', name: 'The Dispossessed' }],
+    movies: [{ key: '9', name: 'Casablanca' }],
+  }
+
+  it('offer this library’s own titles, and send the id', () => {
+    render(<Harness vocabulary={works} />)
+    type('book:')
+    expect(options()).toEqual(['book:The Dispossessed'])
+    fireEvent.click(document.querySelector('.token-opt'))
+    // The chip reads the title; the wire carries the id, because a title is not
+    // unique and an id is.
+    expect(screen.getByTestId('wire').textContent).toBe('book=7')
+    expect(screen.getByText('book:The Dispossessed')).toBeTruthy()
+  })
+
+  it('and the same for a film', () => {
+    render(<Harness vocabulary={works} />)
+    type('movie:casab')
+    expect(options()).toEqual(['movie:Casablanca'])
+  })
+})
+
+describe('every field the panel will list can be labelled', () => {
+  // The panel prints the combining rule on each group — two tags narrow, two
+  // authors widen — so a field added to the grammar without deciding what a
+  // second pick MEANS would render a group with no answer to the question the
+  // reader is about to ask.
+  it('because every one of them declares how it combines', () => {
+    for (const f of FACET_FIELDS) {
+      expect(['and', 'or'], `${f.name} has no combine rule`).toContain(f.combine)
+    }
+  })
+
+  // The invariant the whole panel exists for, asserted at the seam both surfaces
+  // share: one chip factory, so pressing and typing cannot disagree.
+  it('and the panel builds its chip with the same factory the box does', () => {
+    render(<Harness />)
+    type('tag:stoicism')
+    fireEvent.click(document.querySelector('.token-opt'))
+    const typed = screen.getByTestId('wire').textContent
+    const pressed = makeChip('tag', { value: 'stoicism', label: 'stoicism' })
+    expect(typed).toBe(`${pressed.field}=${pressed.value}`)
+  })
+})

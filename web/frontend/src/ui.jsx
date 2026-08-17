@@ -1593,6 +1593,7 @@ export function Toggle({
   label,
   ariaLabel,
   className = "",
+  disabled = false,
 }) {
   const ref = useRef(null);
   const thumbRef = useRef(null);
@@ -1684,6 +1685,7 @@ export function Toggle({
     }
   };
   const onPointerDown = (e) => {
+    if (disabled) return;
     const el = ref.current;
     const thumb = thumbRef.current;
     if (!el || !thumb || rawIdx < 0 || (e.button != null && e.button !== 0))
@@ -1720,7 +1722,8 @@ export function Toggle({
       ref={ref}
       role="tablist"
       aria-label={ariaLabel || label}
-      className={`tp-toggle tactile ${className}`}
+      className={`tp-toggle tactile${disabled ? " is-disabled" : ""} ${className}`}
+      aria-disabled={disabled || undefined}
       onPointerDown={onPointerDown}
     >
       <span ref={thumbRef} className="tp-toggle-thumb" aria-hidden="true" />
@@ -1732,6 +1735,7 @@ export function Toggle({
           aria-selected={value === k}
           aria-pressed={value === k}
           className={"tp-toggle-opt" + (value === k ? " is-on" : "")}
+          disabled={disabled}
           // A third element in an option tuple is its hover label. Driven from
           // here rather than by wrapping each button in a <Tooltip>: the thumb is
           // positioned from each option's offsetLeft, and .tp-tip-wrap is

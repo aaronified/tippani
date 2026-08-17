@@ -155,6 +155,21 @@ type speakerHits struct {
 	Quotes []utteranceHit `json:"quotes"`
 }
 
+// characterHits is the same shape for the OTHER kind of speaker — the one on a
+// line of dialogue, in a film, a show or a game.
+//
+// IT CARRIES NO PORTRAIT AND NO ACTOR, and that is the decision rather than an
+// omission. Every other credit section here is a section about a PERSON, and the
+// client hangs a `people` row's photograph on the name. A character is not a
+// person: there is nobody to photograph, and attaching the actor's face would
+// answer a question nobody asked and get it wrong the moment a part is recast or
+// a role is shared. The review loop settled the same point for its "who said
+// this?" card — name only.
+type characterHits struct {
+	Name      string        `json:"name"`
+	Dialogues []dialogueHit `json:"dialogues"`
+}
+
 type noteHits struct {
 	Annotations []annotationHit `json:"annotations"`
 	Dialogues   []dialogueHit   `json:"dialogues"`
@@ -217,11 +232,12 @@ type searchResults struct {
 	Books       []bookHit       `json:"books"`       // title / series matches
 	Annotations []annotationHit `json:"annotations"` // quote matches
 	Movies      []movieHit      `json:"movies"`      // title / series matches
-	Dialogues   []dialogueHit   `json:"dialogues"`   // quote / character matches
+	Dialogues   []dialogueHit   `json:"dialogues"`   // quote matches
 	Quotes      []utteranceHit  `json:"quotes"`      // standalone quote / occasion matches
 	Authors     []authorHits    `json:"authors"`
 	Directors   []directorHits  `json:"directors"`
 	Actors      []actorHits     `json:"actors"`
+	Characters  []characterHits `json:"characters"`
 	Speakers    []speakerHits   `json:"speakers"`
 	Notes       noteHits        `json:"notes"`
 	Tags        []tagHits       `json:"tags"`
@@ -966,8 +982,9 @@ func fillDialogueGenres(by map[int64][]string, hits []dialogueHit) {
 // handleSearch implements
 // GET /search?q=&scope=all|books|annotations|movies|dialogues|quotes&limit=
 // (PLAN §4, § sectioned search). Results come back faceted by what matched —
-// books/movies (title·series), annotations/dialogues (quote·character),
-// quotes (quote·occasion), authors/directors/actors/speakers (credit columns),
+// books/movies (title·series), annotations/dialogues (quote),
+// quotes (quote·occasion), authors/directors/actors/characters/speakers (credit
+// columns),
 // notes, tags, genres — plus the
 // structured decade ("1990s") and date-added ("2026-07-14") facets. Structured
 // filters (tag/color/book_id/movie_id) live on the list endpoints instead —
@@ -1006,7 +1023,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Books: []bookHit{}, Annotations: []annotationHit{},
 		Movies: []movieHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{},
 		Authors: []authorHits{}, Directors: []directorHits{}, Actors: []actorHits{},
-		Speakers: []speakerHits{},
+		Characters: []characterHits{}, Speakers: []speakerHits{},
 		Notes:    noteHits{Annotations: []annotationHit{}, Dialogues: []dialogueHit{}, Quotes: []utteranceHit{}},
 		Tags:     []tagHits{}, Genres: []genreHits{},
 	}
@@ -1120,7 +1137,19 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if sc.dialogues {
-			hits, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue", ftsCols: "quote character", q: qq, limit: limit}, f, uid, scanDialogueHit)
+			// THE WORDS ONLY. `character` used to be in this column list, so a
+			// character match arrived as a bare line under the film it came from.
+			// That was never a decision — it was the absence of the Characters
+			// section below, and it made the two credits on a line behave
+			// differently for no reason: `actor` has never been indexed here, so
+			// searching an actor has always produced an Actors section and an
+			// empty Dialogues one.
+			//
+			// Now both behave the same way. Dialogues answers "these words
+			// matched"; Characters answers "this speaker matched". A query that
+			// hits both still gets both — they are separate queries and separate
+			// sections, so nothing is lost by the split.
+			hits, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue", ftsCols: "quote", q: qq, limit: limit}, f, uid, scanDialogueHit)
 			if err != nil {
 				return 0, err
 			}
@@ -1128,6 +1157,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			total += len(hits)
 
 			resp.Actors = resp.Actors[:0]
+			resp.Characters = resp.Characters[:0]
 			resp.Notes.Dialogues = []dialogueHit{}
 			if qq != "" {
 				byActor, err := facetedHits(s, rowDialogue, hitReq{what: "actor dialogue", ftsCols: "actor", q: qq, limit: limit}, f, uid, scanDialogueHit)
@@ -1137,13 +1167,25 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 				for _, g := range groupByCredit(byActor, func(d dialogueHit) string { return d.Actor }, seps, tokens, limit) {
 					resp.Actors = append(resp.Actors, actorHits{Name: g.Name, Dialogues: g.Hits})
 				}
+				// The character is grouped through the SAME helper as every other
+				// credit, separators and all, so a two-hander credited
+				// "Rosencrantz & Guildenstern" is two names here and two options
+				// in the vocabulary — which is the only way `character:` can match
+				// either of them.
+				byCharacter, err := facetedHits(s, rowDialogue, hitReq{what: "character dialogue", ftsCols: "character", q: qq, limit: limit}, f, uid, scanDialogueHit)
+				if err != nil {
+					return 0, err
+				}
+				for _, g := range groupByCredit(byCharacter, func(d dialogueHit) string { return d.Character }, seps, tokens, limit) {
+					resp.Characters = append(resp.Characters, characterHits{Name: g.Name, Dialogues: g.Hits})
+				}
 				noteHitsD, err := facetedHits(s, rowDialogue, hitReq{what: "dialogue note", ftsCols: "note", q: qq, limit: limit}, f, uid, scanDialogueHit)
 				if err != nil {
 					return 0, err
 				}
 				resp.Notes.Dialogues = noteHitsD
 			}
-			total += len(resp.Actors) + len(resp.Notes.Dialogues)
+			total += len(resp.Actors) + len(resp.Characters) + len(resp.Notes.Dialogues)
 		}
 
 		if sc.utterances {

@@ -444,8 +444,25 @@ function quoteFav(u) {
 // standalone quotes meant either a third leg on every one of them or this. Every
 // entry is something the tile genuinely has to know, and a kind missing from
 // here fails loudly at the lookup rather than silently rendering as a book.
+// FAV_KINDS — the three kinds of favourite, and everything that differs between
+// them, in one table.
+//
+// `actionKind` IS THE NAME THE ACTION REGISTRY KNOWS, and it is here because it
+// is NOT the key. A favourite of kind `book` is a highlight OUT OF a book — an
+// annotation — and passing `book` to actionsFor said the opposite: isWorkKind()
+// reads `book` as the work itself, so `available: !isWork && !!ctx.copy` took
+// copy and share off the list. Every book favourite in the app therefore had an
+// empty tools row, and the row 1.15.3 added to the collapsed tile rendered
+// nothing at all, because QuoteTools returns null on an empty list.
+//
+// The symptom was the whole feature silently missing on the one board that
+// exists to hold the lines you liked most, with no error anywhere: the tile drew
+// correctly, the handlers were wired, and the registry had quietly decided they
+// did not apply. Library and Catalogue never hit it because they pass
+// 'annotation' and 'dialogue' literally.
 const FAV_KINDS = {
   book: {
+    actionKind: 'annotation',
     label: () => 'BOOK',
     labelColor: 'var(--accent-ui)',
     path: '/annotations',
@@ -463,6 +480,7 @@ const FAV_KINDS = {
     openIcon: 'library',
   },
   screen: {
+    actionKind: 'dialogue',
     label: (f) => f.media,
     labelColor: 'var(--amber)',
     path: '/dialogues',
@@ -477,6 +495,7 @@ const FAV_KINDS = {
     openIcon: 'movies',
   },
   quote: {
+    actionKind: 'quote',
     label: () => 'QUOTE',
     labelColor: 'var(--accent-ui)',
     path: '/quotes',
@@ -778,7 +797,7 @@ function FavouriteTile({
   const meta = FAV_KINDS[f.kind]
   // From the registry (actions.jsx): a favourite is one of the three kinds of
   // quote seen from a different screen, so it gets the same set in the same order.
-  const acts = actionsFor(f.kind === 'screen' ? 'dialogue' : f.kind, f, {
+  const acts = actionsFor(meta.actionKind, f, {
     copy: onCopy && (() => onCopy()),
     share: onShare && (() => onShare()),
     edit: onEditStart && (() => onEditStart()),

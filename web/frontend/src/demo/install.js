@@ -639,7 +639,7 @@ function search(q, scope) {
 
   const out = {
     books: [], annotations: [], movies: [], dialogues: [], quotes: [],
-    authors: [], directors: [], actors: [], speakers: [],
+    authors: [], directors: [], actors: [], characters: [], speakers: [],
     notes: { annotations: [], dialogues: [], quotes: [] },
     tags: [], genres: [], decade: null, date_added: null,
   }
@@ -670,8 +670,14 @@ function search(q, scope) {
     for (const m of MOVIES.filter((m) => hit(m.director))) credit(out.directors, m.director, 'movies', movieHit, m)
   }
   if (wantDialogues) {
-    out.dialogues = DIALOGUES.filter((d) => hit(d.quote) || hit(d.character)).map(dlgHit)
+    // The WORDS only. `character` moved out of this filter in 1.16.0 and into
+    // its own section below, mirroring the server exactly — see the long note in
+    // search_handler.go. Leaving it here would put every character match under a
+    // film poster in the demo and under a name in the real app, which is the
+    // demo-shim drift this file keeps being bitten by.
+    out.dialogues = DIALOGUES.filter((d) => hit(d.quote)).map(dlgHit)
     for (const d of DIALOGUES.filter((d) => hit(d.actor))) credit(out.actors, d.actor, 'dialogues', dlgHit, d)
+    for (const d of DIALOGUES.filter((d) => hit(d.character))) credit(out.characters, d.character, 'dialogues', dlgHit, d)
     out.notes.dialogues = DIALOGUES.filter((d) => hit(d.note)).map(dlgHit)
   }
   if (wantAnnotations || wantDialogues) {
@@ -847,6 +853,27 @@ export function route(method, path, params, body) {
     case path === '/admin/backup':
       return [200, { backup: { name: 'tippani-backup-20260803-114500.tpbk', size: 4823910, created: '2026-08-03T11:45:00Z', key: 'account', account: 'reader' } }]
     case path === '/search': return [200, search(params.get('q'), params.get('scope'))]
+    // The Filters panel and the `field:` dropdown both read this, and both read
+    // it by MAPPING over each list — so the fallback's `{}` would not be a thin
+    // demo, it would be a panel with nothing in it and no clue why. Every key
+    // the real handler returns is answered here, in the real handler's shapes:
+    // bare strings for the credit and label lists, {key,name} pairs for the
+    // three whose chip shows one thing and whose wire carries another.
+    case path === '/search/vocabulary':
+      return [200, {
+        tags: TAGS.map((t) => t.name),
+        genres: [...GENRES],
+        series: [...new Set([...BOOKS, ...MOVIES].map((w) => w.series).filter(Boolean))],
+        authors: [...new Set(BOOKS.map((b) => b.author).filter(Boolean))],
+        directors: [...new Set(MOVIES.map((m) => m.director).filter(Boolean))],
+        actors: [...new Set(DIALOGUES.map((d) => d.actor).filter(Boolean))],
+        characters: [...new Set(DIALOGUES.map((d) => d.character).filter(Boolean))],
+        speakers: [...new Set(UTTERANCES.map((u) => u.speaker).filter(Boolean))],
+        shelves: [...new Set([...BOOKS, ...MOVIES].map((w) => w.status).filter(Boolean))],
+        books: BOOKS.map((b) => ({ key: String(b.id), name: b.title })),
+        movies: MOVIES.map((m) => ({ key: String(m.id), name: m.title })),
+        colours: ['yellow', 'blue', 'pink', 'orange', 'green', 'purple'].map((k) => ({ key: k, name: k })),
+      }]
     case path === '/people/names': {
       const kind = params.get('kind')
       // DIRECTOR AND STUDIO SPLIT ON media_type, the same way the server's

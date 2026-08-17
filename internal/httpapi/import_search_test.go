@@ -437,10 +437,24 @@ func TestSearchScopes(t *testing.T) {
 		len(res.Actors[0].Dialogues) != 1 || res.Actors[0].Dialogues[0].Timestamp != "01:15:00" {
 		t.Fatalf("q=bogart: %+v", res)
 	}
-	// A character query stays a dialogue hit.
+	// Character names land in Characters ("everything Rick Blaine says"), which
+	// is the same treatment the actor above gets and for the same reason:
+	// searching a name is asking about the speaker, not about the words.
+	//
+	// THIS USED TO BE A DIALOGUE HIT, and the old assertion here said so. That
+	// was never a decision — `character` was in the dialogue query's column list
+	// because there was no Characters section for it to land in, which made the
+	// two credits on one line behave differently for no reason at all. Splitting
+	// them means a query matching BOTH the words and the speaker still gets both
+	// sections; nothing is lost, and "everything this character says" stops being
+	// something you assemble yourself out of six film covers.
 	res = decode[searchResults](t, c.mustDo("GET", "/search?q=blaine&scope=dialogues", nil, 200))
-	if len(res.Dialogues) != 1 || res.Dialogues[0].MovieTitle != "Casablanca" {
+	if len(res.Characters) != 1 || res.Characters[0].Name != "Rick Blaine" ||
+		len(res.Characters[0].Dialogues) != 1 || res.Characters[0].Dialogues[0].MovieTitle != "Casablanca" {
 		t.Fatalf("q=blaine: %+v", res)
+	}
+	if len(res.Dialogues) != 0 {
+		t.Fatalf("a character match must not ALSO arrive as a bare line: %+v", res.Dialogues)
 	}
 	// Prefix search (typeahead): every token matches by prefix, so a partial
 	// word still finds the row — "herb"→Herbert, "casab"→Casablanca.

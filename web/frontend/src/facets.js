@@ -29,6 +29,10 @@ export const FACET_FIELDS = [
   { name: 'author', vocab: 'authors', combine: 'or' },
   { name: 'speaker', vocab: 'speakers', combine: 'or' },
   { name: 'actor', vocab: 'actors', combine: 'or' },
+  // The one credit field that is not a person. It combines like the rest — a
+  // line has one speaker, so two characters means EITHER — and differs only in
+  // what the interface hangs on it: a name, and never a face.
+  { name: 'character', vocab: 'characters', combine: 'or' },
   { name: 'director', vocab: 'directors', combine: 'or' },
   { name: 'genre', vocab: 'genres', combine: 'and' },
   { name: 'series', vocab: 'series', combine: 'or' },
@@ -42,14 +46,27 @@ export const FACET_FIELDS = [
   { name: 'favourite', vocab: 'yesno', combine: 'or', exclusive: true },
   { name: 'note', vocab: 'yesno', combine: 'or', exclusive: true },
   { name: 'wishlist', vocab: 'yesno', combine: 'or', exclusive: true },
-  // One work, by id. SEEDED, NEVER TYPED — `typed: false` keeps them out of the
-  // grammar entirely. There is no vocabulary of titles to offer, so typing
-  // `movie:blade runner` could only ever open a dropdown with nothing in it;
-  // left in the grammar it would swallow those words instead of searching for
-  // them, which is precisely what somebody typing that wants.
-  { name: 'book', vocab: null, combine: 'or', typed: false },
-  { name: 'movie', vocab: null, combine: 'or', typed: false },
+  // One work, by id — the chip reads the title, the wire carries the id.
+  //
+  // THESE WERE `typed: false` UNTIL 1.16.0, on the reasoning that "there is no
+  // vocabulary of titles to offer, so typing `movie:blade runner` could only
+  // ever open a dropdown with nothing in it". That was wrong: a personal library
+  // is exactly a list of its own titles, it is no bigger than the author list
+  // this endpoint was already sending, and `book:` is the most obvious thing in
+  // the box to reach for. The reasoning described a missing query, not a missing
+  // vocabulary — so the query got written.
+  //
+  // The id is what makes them worth having as their own fields rather than as a
+  // title search: two editions, a translation and the film of the book can all
+  // carry the same name, and only an id says which one you meant.
+  { name: 'book', vocab: 'books', combine: 'or' },
+  { name: 'movie', vocab: 'movies', combine: 'or' },
 ]
+
+// The vocabularies that arrive as {key, name} pairs rather than bare strings,
+// because their chip shows one thing and their wire carries another: a renamed
+// colour slot, and a work's title over its id.
+const PAIR_VOCABS = new Set(['colours', 'books', 'movies'])
 
 export const FACET_NAMES = FACET_FIELDS.map((f) => f.name)
 
@@ -150,10 +167,23 @@ export function liftFacet(text, draft) {
 // backspace.
 //
 // Two answers to one question is how that happens, so now there is one answer.
+// FACET_MENU_PAGE / FACET_MENU_MAX — the dropdown shows a PAGE at a time.
+//
+// Five is what fits above a phone keyboard without the menu becoming the screen,
+// and it is the number the capture sheet's book picker already settled on. "More"
+// reveals another five rather than the whole list, because `book:` over a real
+// library is hundreds of titles and a menu you can fall down is not a menu.
+//
+// MAX is where ranking stops, not where the menu stops: everything below it can
+// still be reached by typing another character, which is faster than paging and
+// is what the narrowing is for.
+export const FACET_MENU_PAGE = 5
+export const FACET_MENU_MAX = 50
+
 export function readSearchBox(q, vocabulary) {
   const draft = readFacetDraft(q)
   const options = draft
-    ? narrowFacetOptions(facetOptions(draft.field, vocabulary, draft.value), draft.value)
+    ? narrowFacetOptions(facetOptions(draft.field, vocabulary, draft.value), draft.value, FACET_MENU_MAX)
     : []
   // A draft with nothing to offer is not a half-written instruction, it is just
   // words — so it stays in the query rather than being stripped out of it.
@@ -187,8 +217,8 @@ export function facetOptions(field, vocabulary = {}, typed = '') {
     return /^-?\d{1,4}$/.test(n) ? [{ value: n, label: n }] : []
   }
   const raw = vocabulary[spec.vocab] || []
-  if (spec.vocab === 'colours') {
-    return raw.map((c) => ({ value: c.key, label: c.name || c.key }))
+  if (PAIR_VOCABS.has(spec.vocab)) {
+    return raw.map((c) => ({ value: String(c.key), label: c.name || c.key }))
   }
   return raw.map((v) => ({ value: v, label: v }))
 }

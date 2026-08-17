@@ -23,6 +23,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
+import { lockedOff, parseQuestions, questionsBlob, questionsFor, REVIEW_DECKS, toggle as toggleQuestion } from './quiz.js'
 import { createPortal } from 'react-dom'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
@@ -51,6 +52,7 @@ import {
   IconKey,
   IconLanguages,
   IconPlus,
+  IconQuiz,
   IconRefresh,
   IconRestore,
   IconRevert,
@@ -1085,6 +1087,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
 // via the partial-merge preferences PUT.
 function SRSettings({ user, onPreferences }) {
   const p = user.preferences || {}
+  const [deep, setDeep] = useState(false)
   function set(patch) {
     onPreferences?.(patch)
     json('PUT', '/auth/me/preferences', patch)
@@ -1098,9 +1101,100 @@ function SRSettings({ user, onPreferences }) {
       >
         Daily quiz &amp; practice
       </SectionTitle>
+      {/* TWO CONTROLS ON THE CARD, the rest behind the door.
+
+          The deck size and what it covers are the two a reader changes and then
+          stops thinking about. Everything else — which questions get asked, how
+          the ladder behaves, whether Practice counts — is worth having and is
+          not worth scrolling past every time you come here to change a font. */}
       <div className="space-y-5">
         <Slider label="Daily quiz cards / day" min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
         <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
+        <Tooltip label="Every question, both decks">
+          <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>In-depth controls</GhostButton>
+        </Tooltip>
+      </div>
+      {deep && (
+        <FormModal title="In-depth quiz controls" onClose={() => setDeep(false)} maxWidth={620}>
+          <SRDeepControls p={p} set={set} onClose={() => setDeep(false)} />
+        </FormModal>
+      )}
+    </Card>
+  )
+}
+
+// SRDeepControls — everything the two decks can be told, in one pop-up.
+//
+// WHAT IS NEW HERE IS THE REPERTOIRE. Until 1.16.0 the deck's question types
+// were a constant: `directionsForMode` returned the same table for everybody,
+// and the only thing a reader could say about the review loop was how many cards
+// and which medium. That is a strange place to draw the line in the one part of
+// this app with no equivalent elsewhere — somebody who cannot bear multiple
+// choice, or who wants the daily deck to be nothing but fill-in-the-blank, had
+// no way to say so.
+//
+// THE RULES REFUSE RATHER THAN REVERT. quiz.js mirrors the server's normaliser,
+// so a switch that would leave a deck with no question it can ask of a book is
+// disabled WITH ITS REASON on screen. The alternative — accept it, PUT it, and
+// have the server hand back the defaults — is a control that flips back under
+// your finger and explains nothing.
+function SRDeepControls({ p, set, onClose }) {
+  const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
+  const commit = (next) => {
+    setQs(next)
+    set({ srQuestions: questionsBlob(next) })
+  }
+  const reset = () => {
+    setQs(parseQuestions(''))
+    // Every review preference, not only the questions: a reader who presses
+    // "Back to defaults" inside the in-depth panel means the panel, and leaving
+    // three switches behind would make it the least trustworthy button here.
+    set({
+      srQuestions: '',
+      srPracticeCounts: false,
+      srSubmit: false,
+      srAdaptive: false,
+      srSeen: 1,
+    })
+  }
+  return (
+    <div className="space-y-6">
+      {REVIEW_DECKS.map(([deck, deckLabel]) => (
+        <div key={deck}>
+          <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>{deckLabel} asks</MonoLabel>
+            <InfoDot
+              text={
+                deck === 'daily'
+                  ? 'The daily deck is marked by the server from end to end, so it never offers a self-marked card. That is why the flip card is missing from this list rather than switched off in it.'
+                  : 'Practice leads with the flip card and varies the rest. Turn Practice scoring on and the flip card drops out, because nothing checks a self-marked answer.'
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            {questionsFor(deck).map((q) => {
+              const on = qs[deck].includes(q.id)
+              const locked = lockedOff(qs, deck, q.id)
+              return (
+                <div key={q.id} className="flex items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate">{q.label}</span>
+                    <InfoDot text={locked ? `${q.hint} ${locked}` : q.hint} />
+                  </span>
+                  <Toggle
+                    ariaLabel={`${deckLabel}: ${q.label}`}
+                    disabled={!!locked}
+                    value={on ? 'on' : 'off'}
+                    onChange={() => commit(toggleQuestion(qs, deck, q.id))}
+                    options={[['off', 'No'], ['on', 'Yes']]}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="space-y-5">
         <div>
           <div className="mb-2 flex items-center gap-1.5">
             <MonoLabel>Practice moves the schedule</MonoLabel>
@@ -1145,7 +1239,13 @@ function SRSettings({ user, onPreferences }) {
           <Slider label="Seeing lengthens half-life by" hideLabel min={1} max={1.5} step={0.05} value={p.srSeen || 1} unit="×" decimals={2} onCommit={(v) => set({ srSeen: v })} />
         </div>
       </div>
-    </Card>
+      <div className="flex justify-between gap-2 pt-1">
+        <Tooltip label="Undo every change on this panel">
+          <GhostButton icon={<IconRevert />} keepLabel onClick={reset}>Back to defaults</GhostButton>
+        </Tooltip>
+        <GhostButton onClick={onClose}>Done</GhostButton>
+      </div>
+    </div>
   )
 }
 

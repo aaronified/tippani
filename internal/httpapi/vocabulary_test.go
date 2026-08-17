@@ -23,8 +23,11 @@ type vocabResp struct {
 	Series    []string      `json:"series"`
 	Authors   []string      `json:"authors"`
 	Directors []string      `json:"directors"`
-	Actors    []string      `json:"actors"`
-	Speakers  []string      `json:"speakers"`
+	Actors     []string      `json:"actors"`
+	Characters []string      `json:"characters"`
+	Speakers   []string      `json:"speakers"`
+	Books      []vocabColour `json:"books"`
+	Movies     []vocabColour `json:"movies"`
 	Shelves   []string      `json:"shelves"`
 	Colours   []vocabColour `json:"colours"`
 }
@@ -61,6 +64,7 @@ func TestVocabularyListsWhatTheLibraryUses(t *testing.T) {
 	}, 201).Body.Bytes())
 	c.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": movieID, "quote": "a film line", "actor": "Humphrey Bogart",
+		"character": "Rick Blaine",
 	}, 201)
 	c.mustDo("POST", "/quotes", map[string]any{"quote": "a spoken line", "speaker": "Subhas Chandra Bose"}, 201)
 
@@ -76,11 +80,23 @@ func TestVocabularyListsWhatTheLibraryUses(t *testing.T) {
 		{"authors", v.Authors, "Ursula K. Le Guin"},
 		{"directors", v.Directors, "Michael Curtiz"},
 		{"actors", v.Actors, "Humphrey Bogart"},
+		{"characters", v.Characters, "Rick Blaine"},
 		{"speakers", v.Speakers, "Subhas Chandra Bose"},
 	} {
 		if !has(tc.list, tc.want) {
 			t.Errorf("%s does not offer %q: %v", tc.name, tc.want, tc.list)
 		}
+	}
+
+	// Books and films come back as id + title, because the chip shows the title
+	// and the wire carries the id — a title is not unique and an id is. They were
+	// left out of the grammar entirely until 1.16.0 on the reasoning that there
+	// was no vocabulary of titles to offer; there is, and this is it.
+	if len(v.Books) != 1 || v.Books[0].Name != "The Dispossessed" || v.Books[0].Key == "" {
+		t.Errorf("books = %+v, want one id/title pair", v.Books)
+	}
+	if len(v.Movies) != 1 || v.Movies[0].Name != "Casablanca" || v.Movies[0].Key == "" {
+		t.Errorf("movies = %+v, want one id/title pair", v.Movies)
 	}
 }
 
@@ -124,6 +140,7 @@ func TestVocabularyIsOnlyEverYourOwn(t *testing.T) {
 	}, 201).Body.Bytes())
 	admin.mustDo("POST", "/dialogues", map[string]any{
 		"movie_id": adminMovie, "quote": "mine too", "actor": "Humphrey Bogart",
+		"character": "Rick Blaine",
 	}, 201)
 	admin.mustDo("POST", "/quotes", map[string]any{"quote": "mine as well", "speaker": "Bose"}, 201)
 
@@ -139,10 +156,21 @@ func TestVocabularyIsOnlyEverYourOwn(t *testing.T) {
 		{"authors", v.Authors, "Ursula K. Le Guin"},
 		{"directors", v.Directors, "Michael Curtiz"},
 		{"actors", v.Actors, "Humphrey Bogart"},
+		{"characters", v.Characters, "Rick Blaine"},
 		{"speakers", v.Speakers, "Bose"},
 	} {
 		if has(tc.list, tc.leak) {
 			t.Errorf("%s offered bob somebody else's %q: %v", tc.name, tc.leak, tc.list)
+		}
+	}
+
+	// The two id-bearing lists are the newest leak surface and the worst-shaped
+	// one: a title is a whole sentence out of somebody else's library, and the id
+	// beside it is directly usable as a book: facet against an endpoint that
+	// would then correctly refuse it. Both must simply be empty.
+	for name, pairs := range map[string][]vocabColour{"books": v.Books, "movies": v.Movies} {
+		for _, p := range pairs {
+			t.Errorf("%s offered bob somebody else's %q (id %s)", name, p.Name, p.Key)
 		}
 	}
 }
@@ -192,7 +220,8 @@ func TestVocabularyIsEmptyRatherThanNullOnAFreshAccount(t *testing.T) {
 	v := vocabOf(t, c)
 	for name, list := range map[string][]string{
 		"tags": v.Tags, "genres": v.Genres, "series": v.Series, "authors": v.Authors,
-		"directors": v.Directors, "actors": v.Actors, "speakers": v.Speakers, "shelves": v.Shelves,
+		"directors": v.Directors, "actors": v.Actors, "characters": v.Characters,
+		"speakers": v.Speakers, "shelves": v.Shelves,
 	} {
 		if list == nil {
 			t.Errorf("%s came back null rather than an empty list", name)

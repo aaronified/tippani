@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"tippani/internal/metadata"
@@ -60,6 +61,14 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		{"directors", `SELECT DISTINCT director FROM movies WHERE user_id = ? AND director IS NOT NULL AND director <> ''`, true},
 		{"actors", `SELECT DISTINCT d.actor FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		            WHERE m.user_id = ? AND d.actor IS NOT NULL AND d.actor <> ''`, true},
+		// Characters come off the same table as actors and are split the same way,
+		// which is the point rather than a convenience: a line credited
+		// "Rosencrantz & Guildenstern" has to be offered as two options or
+		// `character:` matches neither of them. The join covers films, shows AND
+		// games in one query — a game is a movies row (0040), so there is nothing
+		// media-specific to add here and nothing to forget.
+		{"characters", `SELECT DISTINCT d.character FROM dialogues d JOIN movies m ON m.id = d.movie_id
+		                WHERE m.user_id = ? AND d.character IS NOT NULL AND d.character <> ''`, true},
 		{"speakers", `SELECT DISTINCT speaker FROM utterances WHERE user_id = ? AND speaker <> ''`, true},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''
 		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''`, false},
@@ -77,6 +86,32 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 			vals = splitAll(vals, seps)
 		}
 		out[spec.key] = vals
+	}
+
+	// Books and films/shows/games, as id + title.
+	//
+	// THESE ARE THE TWO FIELDS THAT SEND AN ID, and that is why they are a
+	// separate shape from everything above. `author:` matches a name against a
+	// column; `book:` narrows to ONE work, and a title is not unique — two
+	// editions, a translation and the film of the book can all be called the same
+	// thing. So the chip reads the title and the wire carries the id, exactly the
+	// split the colour slots already use.
+	//
+	// They were left out of the grammar entirely until 1.16.0, on the reasoning
+	// that "there is no vocabulary of titles to offer". That was wrong twice
+	// over: a personal library HAS a list of its own titles, it is the same size
+	// as the author list already being sent, and typing `book:` is the most
+	// obvious thing in the box to want. The cost is one query each.
+	for _, spec := range []struct{ key, query string }{
+		{"books", `SELECT id, title FROM books WHERE user_id = ? AND title <> '' ORDER BY title`},
+		{"movies", `SELECT id, title FROM movies WHERE user_id = ? AND title <> '' ORDER BY title`},
+	} {
+		pairs, err := s.vocabPairs(spec.query, uid)
+		if err != nil {
+			olog.Warnf(olog.CodeSearchVocab, "[search] vocabulary %s: %v", spec.key, err)
+			pairs = []vocabColour{}
+		}
+		out[spec.key] = pairs
 	}
 
 	// The six colour slots, in slot order, with whatever this reader called them.
@@ -103,6 +138,36 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 // colourSlots is the stored colour word per category slot, in slot order — the same
 // order the CHECK constraint lists and the client's palette follows.
 var colourSlots = []string{"yellow", "blue", "pink", "orange", "green", "purple"}
+
+// vocabPairs runs a two-column (id, label) query for the fields whose chip shows
+// one thing and whose wire carries another. It reuses vocabColour rather than
+// declaring a second identical struct: the shape IS {key, name}, and the name of
+// the type is the only thing about it that mentions colour.
+//
+// Untitled rows are already excluded by the queries. A duplicate TITLE is not —
+// two editions of one book are two rows, two options and two distinct ids, which
+// is the honest answer to "which of them did you mean".
+func (s *Server) vocabPairs(query string, uid int64) ([]vocabColour, error) {
+	rows, err := s.Store.DB.Query(query, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []vocabColour{}
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			olog.Warnf(olog.CodeSearchVocab, "[search] vocabulary pair scan: %v", err)
+			continue
+		}
+		if name = strings.TrimSpace(name); name == "" {
+			continue
+		}
+		out = append(out, vocabColour{Key: strconv.FormatInt(id, 10), Name: name})
+	}
+	return out, rows.Err()
+}
 
 // vocabList runs one single-column query with `uid` repeated `n` times (some are
 // UNIONs over two tables), and returns non-empty values, sorted and deduplicated.

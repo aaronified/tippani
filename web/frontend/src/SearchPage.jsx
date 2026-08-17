@@ -4,10 +4,15 @@ import { coverImgURL, json, errText } from './api.js'
 import {
   addChip,
   chipText,
+  FACET_FIELDS,
+  FACET_MENU_PAGE,
+  facetOptions,
   liftFacet,
   makeChip,
+  narrowFacetOptions,
   readSearchBox,
   removeChipAt,
+  sameChip,
   searchQueryString,
 } from './facets.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
@@ -28,6 +33,7 @@ import {
   ErrorText,
   FilterChip,
   formatPartialDate,
+  FormModal,
   GhostButton,
   HandCard,
   HandNote,
@@ -35,6 +41,7 @@ import {
   IconBooks,
   IconClose,
   IconDialogue,
+  IconFilter,
   IconHighlight,
   IconOpen,
   IconQuote,
@@ -137,6 +144,12 @@ const SCOPES = [
 export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, onFirstFocus }) {
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(0)
+  // How many of the ranked options are on show. FACET_MENU_PAGE at a time, and
+  // it RESETS whenever the question changes — paging to twenty titles and then
+  // typing a letter must not leave twenty of a different list on screen.
+  const [shown, setShown] = useState(FACET_MENU_PAGE)
+  const draftKey = draft ? `${draft.field}:${draft.value}` : ''
+  useEffect(() => { setShown(FACET_MENU_PAGE) }, [draftKey])
   const boxRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -162,13 +175,22 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
     inputRef.current?.focus()
   }
 
+  // The visible page, and the keyboard is bounded by IT rather than by the whole
+  // ranked list — arrowing past the last visible row would otherwise highlight
+  // something nobody can see. Instead it reveals the next page, which is the
+  // same gesture as pressing More and one the hands already know.
+  const page = options.slice(0, shown)
+  const hasMore = options.length > shown
+  const more = () => setShown((n) => n + FACET_MENU_PAGE)
+
   const onKey = (e) => {
     if (menuOpen && (e.key === 'Enter' || e.key === 'Tab')) {
       e.preventDefault()
-      pick(options[hi] || options[0])
+      pick(page[hi] || page[0])
     } else if (menuOpen && e.key === 'ArrowDown') {
       e.preventDefault()
-      setHi((h) => Math.min(h + 1, options.length - 1))
+      if (hi === page.length - 1 && hasMore) more()
+      setHi((h) => Math.min(h + 1, (hasMore ? page.length : page.length - 1)))
     } else if (menuOpen && e.key === 'ArrowUp') {
       e.preventDefault()
       setHi((h) => Math.max(h - 1, 0))
@@ -213,7 +235,7 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
       </div>
       {menuOpen && createPortal(
         <ul ref={popRef} className="token-menu" style={style}>
-          {options.map((o, i) => (
+          {page.map((o, i) => (
             <li key={`${draft.field}:${o.value}`}>
               <button
                 type="button"
@@ -225,6 +247,21 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
               </button>
             </li>
           ))}
+          {hasMore && (
+            <li>
+              {/* onMouseDown, not onClick. The dismiss handler listens on
+                  pointerdown, so a click here would close the menu out from
+                  under the button before its own handler ran — the menu would
+                  simply vanish on the one press that is supposed to grow it. */}
+              <button
+                type="button"
+                className="token-opt token-more"
+                onMouseDown={(e) => { e.preventDefault(); more() }}
+              >
+                More ({options.length - shown})
+              </button>
+            </li>
+          )}
         </ul>,
         document.body,
       )}
@@ -251,6 +288,103 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
   )
 }
 
+// ---- the Filters panel ------------------------------------------------------
+//
+// THE FACETS SHIPPED IN 1.10.0. A WAY TO FIND THEM DID NOT, and that is the
+// whole of this component.
+//
+// Everything else was already there — the grammar, the dropdown, the chips, the
+// vocabulary endpoint, the SQL. The only thing on screen that said so was one
+// placeholder string, `Search, or type tag: author: colour:…`, which is visible
+// until you type a single character and then gone. Using facets required having
+// read that line, remembered it, inferred that the trailing `…` meant there were
+// more fields than the three named, and guessed which. On a phone it sat over a
+// keyboard that had just covered half the screen, with no tab key to complete
+// with. So the honest description of the feature was: a faceted search only its
+// author could operate.
+//
+// IT ADDS CHIPS. IT DOES NOT ADD A SECOND GRAMMAR. Every value here goes through
+// the same addFacet the typed dropdown uses, so a chip built by pressing is
+// indistinguishable from a chip built by typing — same wire value, same URL
+// parameter, same persistence. A panel that assembled its own query object is
+// precisely the drift facets.js exists to prevent.
+//
+// THE FIELD LIST IS FACET_FIELDS, not a copy of it. `book` and `movie` carry
+// `typed: false` because there is no vocabulary of titles to offer; they stay
+// out of the panel through that same flag rather than through a second decision
+// that could drift from the first. Adding a field to the grammar adds it here.
+function FacetPanel({ vocabulary, chips, onAdd, onRemove, onClear, onClose }) {
+  // A field with hundreds of values (authors, in any real library) is not a
+  // control until it can be narrowed, so each group carries its own filter box.
+  // narrowFacetOptions is the SAME ranking the typed dropdown uses — an exact
+  // prefix never losing to a fuzzy match on another word — so the two surfaces
+  // offer the same thing in the same order.
+  const [filters, setFilters] = useState({})
+  const fields = FACET_FIELDS.filter((f) => f.typed !== false)
+  return (
+    <div className="space-y-4">
+      <p className="microcopy">
+        Or type them: <code>tag:</code> <code>author:</code> <code>character:</code> in the box.
+      </p>
+      {fields.map((f) => {
+        const typed = filters[f.name] || ''
+        const all = facetOptions(f.name, vocabulary, typed)
+        // Ranked and capped when filtering; a plain slice otherwise, so a short
+        // list shows whole and a long one shows its head rather than nothing.
+        const shown = typed ? narrowFacetOptions(all, typed, 12) : all.slice(0, 12)
+        if (all.length === 0) return null
+        return (
+          <div key={f.name} className="space-y-1.5">
+            <div className="flex items-baseline gap-2">
+              <MonoLabel>{f.name}</MonoLabel>
+              {/* The combining rule, written down rather than discovered. Two
+                  tags narrow; two authors widen. facets.js has carried `combine`
+                  since 1.10.0 as "the copy the help screen quotes" — this is
+                  that copy finally having somewhere to be read. */}
+              <span className="microcopy">
+                {f.exclusive ? 'one or the other' : f.combine === 'and' ? 'all of them' : 'any of them'}
+              </span>
+            </div>
+            {all.length > 12 && (
+              <input
+                className="tp-input"
+                style={{ fontSize: 13, padding: '5px 9px' }}
+                placeholder={`filter ${f.name}…`}
+                value={typed}
+                aria-label={`Filter ${f.name}`}
+                onChange={(e) => setFilters((m) => ({ ...m, [f.name]: e.target.value }))}
+              />
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {shown.map((o) => {
+                const chip = makeChip(f.name, o)
+                const on = chips.some((c) => sameChip(c, chip))
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    className={'facet-pill' + (on ? ' on' : '')}
+                    aria-pressed={on}
+                    onClick={() => (on ? onRemove(chip) : onAdd(f.name, o.value, o.label))}
+                  >
+                    {o.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+      <div className="flex justify-between gap-2 pt-1">
+        <GhostButton icon={<IconClose />} disabled={chips.length === 0} onClick={onClear}>
+          Clear all
+        </GhostButton>
+        <GhostButton onClick={onClose}>Done</GhostButton>
+      </div>
+    </div>
+  )
+}
+
 // SearchPage (§8.9, § sectioned search): one big Newsreader box + scope chips.
 // Results come back from the server faceted by WHAT matched and render as one
 // section per facet (only the non-empty ones): Books · Movies · Authors ·
@@ -267,11 +401,23 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   // The active facets, persisted alongside the query and the scope — leaving
   // Search and coming back restores the whole question, not two thirds of it.
   const [chips, setChips] = usePersistedState('tippani:search:chips', [])
+  // ONE WAY IN FOR EVERY CHIP ON THIS SCREEN. The typed grammar, the Filters
+  // panel and the press-to-narrow names on a card all arrive here and all go
+  // through makeChip/addChip.
+  //
+  // facets.js opens by saying why the syntax lives on one side only: "a grammar
+  // the client parses for chips and the server re-parses for SQL is a grammar
+  // that drifts, and the drift does not announce itself". A second place that
+  // assembled its own chip would reintroduce exactly that — one file apart
+  // instead of one process apart, and just as silent.
+  const addFacet = (field, value, label) =>
+    setChips((cs) => addChip(cs, makeChip(field, { value, label: label ?? value })))
   const [vocabulary, loadVocabulary] = useSearchVocabulary()
   const [results, setResults] = useState(null)
   const [error, setError] = useState('')
   const [view, setView] = usePersistedState('tippani:searchview', 'tiles') // tiles | list | table
   const [group, setGroup] = usePersistedState('tippani:search:group', 'none') // none|series|author|decade|genre (tiles/list)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
@@ -346,7 +492,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
   // is what a quotes-only library would have seen.
   const total = results
     ? [r.books, r.annotations, r.movies, r.dialogues, r.quotes,
-       r.authors, r.directors, r.actors, r.speakers,
+       r.authors, r.directors, r.actors, r.characters, r.speakers,
        r.notes?.annotations, r.notes?.dialogues, r.notes?.quotes, r.tags, r.genres]
         .reduce((n, a) => n + (a?.length || 0), 0) +
       (r.decade ? 1 : 0) + (r.date_added ? 1 : 0)
@@ -358,7 +504,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
     <WorkResult key={`b${g.id}`} kind="book" g={g} view={view} terms={terms} onOpen={onOpenBook} onOpenQuote={setQuote} onOpenPerson={setPerson} people={authors.map} creditSeps={creditSeps} />
   )
   const renderMovie = (g) => (
-    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={setPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} />
+    <WorkResult key={`m${g.id}`} kind="movie" g={g} view={view} terms={terms} onOpen={onOpenMovie} onOpenQuote={setQuote} onOpenPerson={setPerson} people={directors.map} actorMap={actors.map} creditSeps={creditSeps} onFacet={addFacet} />
   )
 
   return (
@@ -392,6 +538,25 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
             onClick={() => setScope(value)}
           />
         ))}
+        {/* The door to the facets. It sits in the scope row because that row
+            already answers "what am I searching"; narrowing is the same
+            question asked more precisely.
+
+            Opening it warms the vocabulary the way focusing the box does, so the
+            panel is never empty on first open — which is the state it would
+            otherwise be in exactly once per session, for the reader who has
+            never seen it before. */}
+        <FilterChip
+          active={chips.length > 0}
+          icon={<IconFilter />}
+          keepLabel
+          label={chips.length > 0 ? `Filters · ${chips.length}` : 'Filters'}
+          tooltip="Narrow by tag, author, character…"
+          onClick={() => {
+            loadVocabulary()
+            setFiltersOpen(true)
+          }}
+        />
         {results && !empty && (
           <span className="ml-auto flex items-center gap-3 view-toggle-row">
             {view !== 'table' && (
@@ -557,6 +722,37 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
               render={renderMovie}
             />
           )}
+          {/* Characters — who said it, in a film, a show or a game.
+
+              A section of its own for the same reason Actors is: searching a
+              name is asking about the speaker, not about the words. Before this
+              existed a character match arrived as a bare line under a film
+              cover, so finding "everything Tyrion says" meant reading six
+              posters and assembling the answer yourself.
+
+              The name is a plain chip and a button — no portrait, because a
+              character is not a person and there is nobody to photograph. */}
+          {results?.characters?.length > 0 && (
+            <section className="space-y-4">
+              <MonoLabel className="block">Characters · {results.characters.length}</MonoLabel>
+              {results.characters.map((ch) => (
+                <div key={ch.name} className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Tooltip label={`Everything ${ch.name} says`}>
+                      <button type="button" className="tp-chip facet-mini" onClick={() => addFacet('character', ch.name)}>
+                        {ch.name}
+                      </button>
+                    </Tooltip>
+                    <MonoLabel style={{ color: 'var(--accent-ui)' }}>{ch.dialogues.length}</MonoLabel>
+                    <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+                  </div>
+                  <Board view={view}>
+                    {groupMovies({ movies: [], dialogues: ch.dialogues }).map(renderMovie)}
+                  </Board>
+                </div>
+              ))}
+            </section>
+          )}
           {/* Standalone quotes (§24). Their own section rather than folded into
               Annotations, because they are not from a book: matching one is a
               different answer to a different question. */}
@@ -613,6 +809,19 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
             <GenreSection genres={results.genres} view={view} renderBook={renderBook} renderMovie={renderMovie} />
           )}
         </>
+      )}
+
+      {filtersOpen && (
+        <FormModal title="Narrow the search" onClose={() => setFiltersOpen(false)}>
+          <FacetPanel
+            vocabulary={vocabulary}
+            chips={chips}
+            onAdd={addFacet}
+            onRemove={(chip) => setChips((cs) => cs.filter((c) => !sameChip(c, chip)))}
+            onClear={() => setChips([])}
+            onClose={() => setFiltersOpen(false)}
+          />
+        </FormModal>
       )}
 
       {quote && (
@@ -1210,7 +1419,7 @@ function ChildHit({ color, hit, parent = '', onClick, children }) {
 // Clicking a child opens the quote modal; the cover/title opens the parent; a
 // credit chip opens that person. `people` is the credit map for the chips
 // (authors / directors), `actorMap` the per-dialogue actor chips.
-function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, people = {}, actorMap = {}, creditSeps }) {
+function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, people = {}, actorMap = {}, creditSeps, onFacet }) {
   const isBook = kind === 'book'
   // Joined credits split into individual, clickable people (ROADMAP §11), the
   // same treatment the detail pages and group-by headings use.
@@ -1271,7 +1480,17 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
                 {/* Actor face(s) on the dialogue hit (split for multi-speaker lines). */}
                 <CreditFaces names={splitCredits(h.actor, creditSeps)} map={actorMap} size={22} ring="var(--raised)" />
                 <MonoLabel className="block min-w-0 truncate">
-                  {h.character && <Highlight text={h.character} terms={terms} />}
+                  {/* The character is a BUTTON. Pressing it narrows the whole
+                      search to that speaker, which is what turns "I found the
+                      line" into "I found who says it". stopPropagation because
+                      the row underneath opens this one line, and both gestures
+                      are wanted.
+
+                      Split on the credit separators like every other credit, so
+                      a two-hander gives two names and two chips — the same split
+                      the vocabulary and the grouping use, or pressing one would
+                      send a joined name that matches nothing. */}
+                  <CharacterCredits names={splitCredits(h.character, creditSeps)} terms={terms} onFacet={onFacet} />
                   {h.character && h.actor ? ' · ' : ''}
                   {h.actor && <Highlight text={h.actor} terms={terms} />}
                   {episodeLabel(h) ? `  ·  ${episodeLabel(h)}` : ''}
@@ -1286,6 +1505,40 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
   )
 }
 
+
+// CharacterCredits renders the speaker(s) of a line as press-to-narrow names.
+//
+// NO PORTRAIT, and it is the one credit in this file that gets none. Authors,
+// directors, actors and speakers all resolve to a `people` row with a
+// photograph; a character resolves to nobody, because there is nobody. Hanging
+// the actor's face here would answer a question that was not asked and get it
+// wrong the moment a part is recast or shared.
+//
+// Falls back to plain text when there is no `onFacet` — the same markup this
+// used to be — so a caller that cannot narrow still renders the name.
+function CharacterCredits({ names, terms, onFacet }) {
+  if (!names.length) return null
+  return names.map((name, i) => (
+    <span key={name}>
+      {i > 0 ? ' · ' : ''}
+      {onFacet ? (
+        <button
+          type="button"
+          className="facet-mini"
+          title={`Everything ${name} says`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onFacet('character', name)
+          }}
+        >
+          <Highlight text={name} terms={terms} />
+        </button>
+      ) : (
+        <Highlight text={name} terms={terms} />
+      )}
+    </span>
+  ))
+}
 
 // ResultSection renders one kind's groups — flat when group === 'none', else
 // bucketed into labelled sub-sections. renderItem(g) returns a keyed card.

@@ -54,7 +54,7 @@ describe('the field registry', () => {
   // renders happily and comes back a 400.
   it('names exactly the fields the server takes', () => {
     expect(FACET_NAMES).toEqual([
-      'tag', 'colour', 'author', 'speaker', 'actor', 'director',
+      'tag', 'colour', 'author', 'speaker', 'actor', 'character', 'director',
       'genre', 'series', 'shelf', 'year', 'favourite', 'note', 'wishlist',
       'book', 'movie',
     ])
@@ -127,18 +127,36 @@ describe('readFacetDraft', () => {
     expect(readFacetDraft('Tag:sto').field).toBe('tag')
   })
 
-  // `book` and `movie` are chip fields but not GRAMMAR: they are seeded from a
-  // work's own page and carry an id the reader has no way to know. There is no
-  // vocabulary of titles, so typing one could only ever open an empty dropdown
-  // — and leaving them in the grammar would make `movie:blade runner` a draft
-  // rather than the search for Blade Runner that it plainly is.
-  it('does not read the seeded work fields as typed', () => {
-    expect(readFacetDraft('book:')).toBe(null)
-    expect(readFacetDraft('movie:blade runner')).toBe(null)
-    expect(readFacetDraft('the book: of the new sun')).toBe(null)
-    // They are still valid chip fields, and still go on the wire.
-    expect(facetField('book').name).toBe('book')
-    expect(facetParams([{ field: 'book', value: '42', label: 'x' }])).toEqual([['book', '42']])
+  // `book` and `movie` ARE grammar as of 1.16.0, and this test used to assert
+  // the opposite.
+  //
+  // The old reasoning was "there is no vocabulary of titles, so typing one could
+  // only ever open an empty dropdown". That described a query nobody had
+  // written, not a fact about libraries: a library IS a list of its own titles,
+  // no longer than the author list the vocabulary endpoint was already sending.
+  // `book:` is also the single most obvious thing in the box to reach for, and
+  // it was the one field that answered by doing nothing.
+  //
+  // The id still goes on the wire — a title is not unique, and two editions of
+  // one book are two options — so these stay {key, name} pairs like the colours.
+  it('reads the work fields as typed, and offers this library’s own titles', () => {
+    expect(readFacetDraft('book:')).toEqual({ field: 'book', value: '', start: 0 })
+    expect(readFacetDraft('movie:blade runner').field).toBe('movie')
+    // The label is the title; the value is the id that goes on the wire.
+    const opts = facetOptions('book', { books: [{ key: '42', name: 'The Dispossessed' }] })
+    expect(opts).toEqual([{ value: '42', label: 'The Dispossessed' }])
+    expect(facetParams([{ field: 'book', value: '42', label: 'The Dispossessed' }])).toEqual([['book', '42']])
+  })
+
+  // THE COST OF THAT CHANGE, stated rather than discovered. "the book: of the
+  // new sun" now reads as a facet, exactly as `note:` and `series:` have since
+  // 1.10.0 — and it has the same way out, which is the escape this grammar was
+  // given precisely so that ordinary English words could become operators
+  // without becoming unsearchable.
+  it('and “the book: of the new sun” therefore needs the escape, like every other word-field', () => {
+    expect(readFacetDraft('the book: of the new sun').field).toBe('book')
+    expect(readFacetDraft('the book\\: of the new sun')).toBe(null)
+    expect(unescapeFacetColons('the book\\: of the new sun')).toBe('the book: of the new sun')
   })
 })
 

@@ -276,7 +276,7 @@ const (
 // Latin script the stopword list understands — and a card with no gradable
 // question is left out of the round rather than downgraded to a self-marked one.
 func directionsFor(kind string) []string {
-	return directionsForMode(kind, false)
+	return directionsForMode(kind, false, nil)
 }
 
 // directionsForMode is directionsFor with the one axis that changes: whether the
@@ -287,7 +287,18 @@ func directionsFor(kind string) []string {
 // the daily builder and the practice builder both come through here, so a
 // direction added to one is added to both by construction and the only question
 // left is whether it may be self-marked.
-func directionsForMode(kind string, scored bool) []string {
+//
+// `on` is the READER'S repertoire (review_questions.go) — nil means everything
+// this build can ask, which is what every caller passed before the in-depth
+// controls existed and what the internal callers still pass.
+//
+// THE FILTER IS APPLIED LAST AND CANNOT EMPTY THE RESULT. review_questions.go
+// guarantees each deck keeps a direction that applies to every kind, so the
+// intersection here is non-empty for every kind — but a guarantee made in
+// another file is a guarantee that can be broken by a change to that file, and
+// the failure would be an empty deck rather than a compile error. So it is also
+// checked here, where the cost is one branch.
+func directionsForMode(kind string, scored bool, on map[string]bool) []string {
 	dirs := []string{dirSource, dirQuote, dirCloze}
 	if kind == kindScreen {
 		// A book has no cast, which is why this is per-kind: it can never be
@@ -297,7 +308,19 @@ func directionsForMode(kind string, scored bool) []string {
 	if !scored {
 		dirs = append(dirs, dirFlip)
 	}
-	return dirs
+	if on == nil {
+		return dirs
+	}
+	kept := make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		if on[d] {
+			kept = append(kept, d)
+		}
+	}
+	if len(kept) == 0 {
+		return dirs
+	}
+	return kept
 }
 
 // item kinds in item_reviews.
@@ -493,9 +516,9 @@ func recallStatus(seen bool, stability, elapsedDays, ageDays float64, lastResult
 // asked one way clusters at one end of the session and the other way at the
 // other, which reads as the quiz having moods. A second hash off the same inputs
 // keeps them independent.
-func dailyDirection(kind string, id, seed int64) string {
+func dailyDirection(kind string, id, seed int64, on map[string]bool) string {
 	// The daily deck is always scored, so it is never offered a flip card.
-	dirs := directionsForMode(kind, true)
+	dirs := directionsForMode(kind, true, on)
 	h := uint64(id)*0x9E3779B97F4A7C15 + kindSalt(kind)*31 + uint64(seed)*0xBF58476D1CE4E5B9
 	h ^= h >> 29
 	return dirs[h%uint64(len(dirs))]
@@ -1427,7 +1450,7 @@ func distractorScore(own, cand workRef) int {
 // The flip card is what makes the signature honest: it needs no distractor pool,
 // no second work to be wrong with, and no maskable span, so there is always a
 // question to ask about any quote with words in it.
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool) (reviewCard, bool) {
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool) (reviewCard, bool) {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -1441,7 +1464,7 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed) {
 		return card, true
 	}
-	for _, d := range directionsForMode(c.card.Kind, scored) {
+	for _, d := range directionsForMode(c.card.Kind, scored, on) {
 		if d == preferred {
 			continue
 		}
@@ -1701,6 +1724,10 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope := scopeFlags(pf.SRReviewScope)
+	// The reader'''s repertoire for THIS deck (review_questions.go). Read once per
+	// request rather than per card, and passed down rather than consulted at the
+	// bottom, so the question of what may be asked is answered in one place.
+	onDaily := parseReviewQuestions(pf.SRQuestions).forDeck(reviewDeckDaily)
 	day, seed, mod := reviewDay(offset)
 	answered, got, forgot, err := s.dailyTally(uid, day)
 	if err != nil {
@@ -1740,7 +1767,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 			// A card with too little material to be asked a GRADED question is
 			// left out rather than downgraded to a self-marked one.
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed), pools, seed, true); ok {
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily); ok {
 				items = append(items, card)
 			}
 		}
@@ -1779,6 +1806,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	scope := scopeFlags(pf.SRReviewScope)
+	onPractice := parseReviewQuestions(pf.SRQuestions).forDeck(reviewDeckPractice)
 	// "Quiz me on this book / tag / colour / person." Absent parameters mean the
 	// whole pool, which is what Practice has always served.
 	theme := parseReviewTheme(r.URL.Query())
@@ -1809,9 +1837,14 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	for _, c := range cands {
 		// Practice picks from the same table the daily deck does, at random
 		// rather than by hash — varying between rounds is the point here.
-		dirs := directionsForMode(c.card.Kind, scored)
+		dirs := directionsForMode(c.card.Kind, scored, onPractice)
 		preferred := dirs[rand.IntN(len(dirs))]
-		if !scored {
+		// `onPractice[dirFlip]` is the reader's say, and it has to be checked HERE
+		// as well as in the table above. This branch does not pick from `dirs` —
+		// it overrides the pick — so a reader who turned the flip card off would
+		// otherwise get it half the time regardless, which is the loudest possible
+		// way for a setting to be ignored.
+		if !scored && onPractice[dirFlip] {
 			// THE DEFAULT, weighted rather than merely available: unscored
 			// Practice leads with the flip card and the graded kinds are the
 			// variety around it. A flat pick would make it one direction in five.
@@ -1819,7 +1852,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 				preferred = dirFlip
 			}
 		}
-		if card, ok := buildQuestion(c, preferred, pools, 0, scored); ok {
+		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice); ok {
 			items = append(items, card)
 		}
 	}

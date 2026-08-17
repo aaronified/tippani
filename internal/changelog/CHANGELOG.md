@@ -5,6 +5,115 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-08-17
+
+### Added
+
+- **Search facets you can see.** The facet grammar shipped in 1.10.0 complete on every layer —
+  parser, chips, vocabulary, SQL, URL round-trip — and the only thing on screen that said so was one
+  placeholder string, gone the moment you typed a character. Using facets meant having read that
+  line, remembered it, inferred that its trailing "…" meant more fields than the three named, and
+  guessed which. On a phone it sat over a keyboard that had just covered half the screen.
+
+  There is now a **Filters** button beside the scope chips, opening a panel with every field, every
+  value your own library uses, and — printed on each group rather than left to be discovered —
+  whether a second pick narrows or widens.
+
+  It adds chips; it does not add a second grammar. Pressing a value calls the same code typing one
+  does, so the two cannot disagree. That is the rule `facets.js` opens by stating, and a panel
+  building its own query object would have broken it one file away instead of one process away.
+
+  **No counts beside each value**, deliberately. The count worth having is hits under the *current*
+  query, and `/search` is already about fifteen queries — so it is fifteen more per value per field.
+  Counting the library instead is worse than nothing: it would print a number next to a value that
+  yields nothing under the chip already up. It is on the roadmap with its own budget.
+
+- **`book:` and `movie:` are grammar now, and the dropdown pages.** Both fields were deliberately
+  untypeable, on the reasoning that "there is no vocabulary of titles to offer". A library *is* a
+  list of its own titles, the list is no longer than the author list already being sent, and `book:`
+  is the most obvious thing in the box to reach for — it was the one field that answered by doing
+  nothing. Typing `book:` now offers your books, `movie:` your films, shows and games.
+
+  The chip reads the title and the wire carries the id, because two editions, a translation and the
+  film of the book can all share one name. The menu shows five at a time with a **More** row: five
+  is what fits above a phone keyboard, and a menu over hundreds of titles that you can fall down is
+  not a menu.
+
+  The cost, said plainly: `the book: of the new sun` now reads as a facet. That is the trade
+  thirteen ordinary English words already made in 1.10.0, and it has the same way out — `book\:`
+  searches for the words.
+
+- **Speaker discovery — find the character, not just the line.** Searching a character's name lands
+  in its own **Characters** section: the name, how many lines, and all of them. `character:` joins
+  tag, author, actor and the rest as a facet, and the name on any dialogue card is now a button that
+  narrows the search to everything that character says.
+
+  Character search has worked since 0003 — `dialogues_fts` has always indexed the column. What was
+  missing was anywhere for a match to *land*: it arrived as a bare line under the film it came from,
+  so "everything Tyrion says" meant reading six posters and assembling the answer yourself. Actors
+  have never behaved that way, and that asymmetry was never a decision — it was the absence of this
+  section.
+
+  **No portrait, and that is deliberate.** Every other credit section resolves to a person with a
+  photograph. A character resolves to nobody, and showing the actor's face would answer a question
+  nobody asked — wrongly, the moment a part is recast or shared. Games needed nothing: a game is a
+  Catalogue row, so its lines were covered from the start. There is a test saying so anyway.
+
+- **In-depth quiz controls, with a way back.** Which questions each deck asks is yours to set now,
+  per deck, behind one button on the Daily quiz & practice card. Until this release the repertoire
+  was a constant — the only thing you could say about the review loop was how many cards and which
+  medium, which is a strange place to stop in the one part of this app with no equivalent elsewhere.
+
+  The card keeps the two settings you change once: deck size, and what it covers. Everything else —
+  the question types, adaptive intervals, whether Practice counts, the confirm step, the seeing
+  multiplier — is behind **In-depth controls**, with **Back to defaults** at the bottom that resets
+  all of it rather than most of it.
+
+  **Three things it will not let you do**, because each fails silently: the daily deck cannot be
+  made self-marking (1.15.3's decision, which handing over the repertoire would otherwise have
+  handed back by accident); an unrecognised question type is dropped rather than rejected, so a
+  backup from a newer build still restores; and no deck can be emptied. That last one is sharper
+  than it sounds — "Who said this?" only applies to a line of dialogue, so a deck holding only that
+  is not empty and is empty for every book you own. The switch that would do it is held, with the
+  reason beside it, instead of being accepted and quietly undone.
+
+### Fixed
+
+- **Copy and share on a favourite, this time actually.** 1.15.3 said these moved onto the collapsed
+  tile. The row was added and it drew nothing, for every favourite that came from a book.
+
+  Home asked the action registry what could be done to a favourite and passed the favourite's own
+  kind. A favourite of kind `book` is a highlight *out of* a book — but `book` is what the registry
+  calls the book itself, and copy and share are gated on exactly that distinction, since a work has
+  no words of its own to put on a clipboard. So the list came back empty, and an empty tools row
+  renders as nothing at all, which looks precisely like a row nobody has added yet.
+
+  Library and Catalogue never hit it: they name the kind literally. Home was the only screen
+  deriving it, and the only one that could get it wrong.
+
+### Changed
+
+- **Five more shipped items left the roadmap**, on the same rule as 1.15.3's eight: the page opens
+  by promising that nothing shipped is listed on it. §1 was still offering the manifest shortcuts
+  and file handlers, the app-icon badge, and a rotating quote on the login screen — all three
+  already in the tree, the first one described almost field for field. §3 was still listing **field
+  operators** as future work fifteen releases after they shipped, and **highlighting the matched
+  words**, which the search screen has always done.
+
+  The field-operators entry is the one that matters. Somebody who could not find facets in the
+  interface and went to the roadmap to check was told, twice, that they did not exist.
+
+  Two entries that were **wrong rather than stale** were corrected instead of removed. "Saved views"
+  claimed the filter state is "already serialised into the URL in full" — it is not; the path is all
+  that is pushed, and every filter lives in local storage. So the real first half of that item is
+  putting the filter state on the URL, and it is not a quick win. "Neighbouring highlights" cited
+  `locSortVal` as though it were reusable; it runs in the browser over rows already fetched, and
+  adjacency needs the whole book ordered on the server.
+
+- **A character match no longer appears under the film it came from.** It appears under the
+  character. Dialogues answers "these words matched"; Characters answers "this speaker matched". A
+  search that hits both still gets both.
+
 ## [1.15.3] - 2026-08-17
 
 ### Fixed

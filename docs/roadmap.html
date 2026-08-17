@@ -515,31 +515,21 @@
       a card.
     </li>
     <li>
-      <strong>Manifest surfaces</strong>, none of which touch the server:
-      <ul>
-        <li><code>shortcuts</code> — long-press the installed icon for <em>Capture quote</em> · <em>Daily quiz</em> · <em>Pending imports</em>. The native long-press affordance, for free.</li>
-        <li><code>file_handlers</code> + <code>launch_handler</code> — tap a <code>.md</code>, a <code>My Clippings.txt</code> or a Bookcision <code>.json</code> in the file manager and it lands in import staging.</li>
-      </ul>
-    </li>
-    <li>
-      <strong>App-icon badge</strong> — <code>navigator.setAppBadge()</code> with due
-      cards plus pending imports, set by the client on load. Notifications proper need
-      something that wakes up on its own, which is why they sit under
-      <a href="#later">Later</a>; this gets most of the same value with
-      <strong>no server work and nothing scheduled</strong>.
-    </li>
-    <li>
-      <strong>Saved views</strong> — the filter state is already serialised into the
-      URL in full, so a saved view is a <code>(name, url)</code> row and a list in the
-      drawer. The cheapest possible answer to "let me keep that combination of
-      filters".
+      <strong>Saved views</strong> — "let me keep that combination of filters", as a
+      <code>(name, url)</code> row and a list in the drawer. <em>This entry used to
+      say the filter state was "already serialised into the URL in full", and it is
+      not:</em> <code>App.jsx</code> pushes the path only, and every filter, scope,
+      chip, view mode and grouping lives in <code>localStorage</code> behind
+      <code>usePersistedState</code>. So there is no URL to save yet, and the real
+      first half of this item is <strong>putting the filter state on the URL</strong>
+      — which is worth doing on its own, because a search you cannot link to a friend
+      is a search you cannot link to yourself tomorrow. It is no longer a quick win.
     </li>
     <li>
       <strong>Keep the form filled after saving a quote</strong> — work, colour and
       tags persist for the next one. Today a sitting of six quotes is six full
       re-entries.
     </li>
-    <li><strong>Rotate the quote on the login screen.</strong></li>
   </ul>
   </div>
 </details>
@@ -573,13 +563,12 @@
     hundred quotes you add — which is why it sits this high.
   </p>
   <ul>
-    <li><strong>Field operators</strong> — <code>author:austen tag:grief color:blue before:2025</code>. Every token currently becomes a prefix query because the box is a typeahead, which is right for browsing and leaves structured intent nowhere to go. The fix is to parse a small grammar off the front of the query <em>before</em> it reaches <code>search.ColumnPrefixQuery</code>, leaving bare words behaving exactly as they do today.</li>
-    <li><strong>Exact phrases in quotes</strong> fall out of the same work: <code>"to be or not to be"</code> becomes one FTS5 phrase query instead of six independent prefix terms. There is currently no way to ask for a phrase at all, which for a library <em>made of phrases</em> is the odd gap.</li>
+    <li><strong>Exact phrases in quotes</strong>: <code>"to be or not to be"</code> becomes one FTS5 phrase query instead of six independent prefix terms. There is currently no way to ask for a phrase at all, which for a library <em>made of phrases</em> is the odd gap.</li>
     <li><strong>Date ranges</strong> — the date facet parses a single day; <code>2025-01..2025-06</code> and "last 30 days" are the obvious extensions, and the Stats calendar already links into that facet.</li>
-    <li><strong>Highlight the matched words</strong> in results. The corrected query is already returned to the client for exactly this purpose on the fuzzy path; the exact-match path should do it too.</li>
     <li><strong>"More like this", without an embedding model.</strong> Semantic search via <code>sqlite-vec</code> sits under Later and would cost a dependency and an indexing pass. There is an 80% version that costs neither: take the quote's highest-value terms from the <code>*_fts_vocab</code> views that already exist for typo correction, and run them as one <code>OR</code> match. Worth shipping first, because it may well be enough.</li>
-    <li><strong>Neighbouring highlights</strong> — "what else did I mark near here", from the annotations either side of this one by <code>location</code> in the same book. <code>locSortVal</code> already parses those locators for the sortable table. Nothing else in this category can do it, because nothing else keeps the locator.</li>
+    <li><strong>Neighbouring highlights</strong> — "what else did I mark near here", from the annotations either side of this one by <code>location</code> in the same book. <code>locSortVal</code> parses those locators — but in the browser, in <code>Library.jsx</code>, over a page of rows already fetched. Deciding two highlights are adjacent means ordering the whole book, which is server work, so this needs the same parser in Go and one shared table of cases testing both. Nothing else in this category can do it, because nothing else keeps the locator.</li>
     <li><strong>Cross-work duplicate quotes</strong> — a passage saved under two editions of the same book is easy to miss. Surfacing them pairs with the merge that already exists.</li>
+    <li><strong>Counts beside each facet value</strong> — <code>Austen (12)</code> in the Filters panel. 1.16.0 shipped the panel without them deliberately: the count worth having is <em>hits under the current query</em>, and <code>/search</code> is already about fifteen queries, so that is fifteen more per value per field. The cheap version — counting the library rather than the result — is worse than nothing, because it would print a number beside a value that yields zero under the chip already up.</li>
     <li>Sort results by date or by length, not only by relevance; and a filter box inside a single work, which stops being optional somewhere around the three-hundredth highlight in one book.</li>
   </ul>
   </div>

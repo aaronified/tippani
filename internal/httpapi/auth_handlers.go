@@ -369,6 +369,13 @@ type prefs struct {
 	// study without distortion).
 	SRDaily       int    `json:"srDaily"`
 	SRReviewScope string `json:"srReviewScope"`
+	// SRQuestions: which questions each deck may ask, per deck. A JSON document
+	// stored as a STRING for the same reason LanguageMarks is — this struct is
+	// compared with `!=` in ui_test.go, so it cannot hold a map or a slice.
+	// Empty means the defaults. See review_questions.go, which owns the three
+	// rules that stop a reader configuring the deck into something that cannot
+	// ask them anything.
+	SRQuestions string `json:"srQuestions"`
 	// SRSeen is the "seeing" multiplier — practising (not skipping), sharing, or
 	// favouriting a card lengthens its half-life marginally. 1.0 = off (default),
 	// so this reinforcement is entirely opt-in.
@@ -599,6 +606,10 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 		p.SRReviewScope = "both"
 	}
 	p.SRSeen = clampFloat(p.SRSeen, 1.0, 1.5, reviewSeen)
+	// Normalised on READ as well as on write, so a blob that predates a rule —
+	// or arrived through a restore, or was edited by hand — is corrected before
+	// any deck is built from it.
+	p.SRQuestions = normalizeReviewQuestions(p.SRQuestions)
 	if !tourStates[p.Tour] {
 		p.Tour = ""
 	}
@@ -642,6 +653,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		TrashDays           *int     `json:"trashDays"`
 		SRDaily             *int     `json:"srDaily"`
 		SRReviewScope       *string  `json:"srReviewScope"`
+		SRQuestions         *string  `json:"srQuestions"`
 		SRSeen              *float64 `json:"srSeen"`
 		SRPracticeCounts    *bool    `json:"srPracticeCounts"`
 		SRAdaptive          *bool    `json:"srAdaptive"`
@@ -783,6 +795,13 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.SRReviewScope != nil && *in.SRReviewScope != "" {
 		cur.SRReviewScope = *in.SRReviewScope
+	}
+	// AN EMPTY STRING IS A REAL VALUE HERE — it is "back to defaults" — so this
+	// takes the pointer as presence, the way the colour names do, and not the
+	// `!= ""` shorthand the older string fields use. Sending `""` is exactly what
+	// the Back-to-defaults button does.
+	if in.SRQuestions != nil {
+		cur.SRQuestions = normalizeReviewQuestions(*in.SRQuestions)
 	}
 	if in.SRSeen != nil && *in.SRSeen != 0 {
 		cur.SRSeen = *in.SRSeen

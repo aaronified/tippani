@@ -2150,6 +2150,50 @@ The third answer is the one worth naming, because it is the one nobody reaches f
 
 <sub>deferred from 0.1.0 — `docs/PLAN.md` · `docs/roadmap.html`</sub>
 
+### A feature nobody can find has not shipped
+
+**Decided.** The facet grammar shipped in 1.10.0 complete on every layer — parser, chips, vocabulary endpoint, SQL, URL round-trip — and 1.16.0 shipped a **Filters panel** beside the scope chips that does nothing new except make it visible. Nothing about the engine changed.
+
+**Why.** The report was three words: *"I do not see search facets yet"*, then *"these should have landed before"*. Both were true at once, and that pairing is the whole finding. The only affordance the feature ever had was one placeholder string — `Search, or type tag: author: colour:…` — which is on screen until you type a single character and then gone. Using facets required having read that line, remembered it, inferred that the trailing `…` meant more fields than the three named, and guessed which. On a phone it sat over a keyboard that had just covered half the screen, with no tab key to complete with. So Tippani had a faceted search only its author could operate, and the correct description of that is not "shipped".
+
+Two further things made it worse and are recorded because they are the same mistake in a second place. `docs/roadmap.html` §3 still listed **"Field operators"** as a coming feature fifteen releases after it shipped, and **"Highlight the matched words"** likewise — so a reader who could not find facets in the interface and went to the roadmap to check was told, twice, that they did not exist. §1 was carrying three more (the manifest surfaces, the app-icon badge, the rotating login epigraph). All five came out in 1.16.0. That is thirteen shipped items culled across two releases, all of them in the hand-written backlog, which `scripts/roadmap-data.mjs --check` cannot see — it validates only the generated sections.
+
+**The rule the panel is built on.** It adds chips; it does not add a second grammar. Picking a value calls the same `makeChip`/`addChip` the dropdown calls, so a chip built by pressing is indistinguishable from one built by typing. `facets.js` opens by explaining why the syntax lives on one side only — *"a grammar the client parses for chips and the server re-parses for SQL is a grammar that drifts, and the drift does not announce itself"* — and a panel assembling its own query object would reintroduce exactly that, one file apart instead of one process apart.
+
+**Instead of.** Counts beside each value, which the panel deliberately does not show: the count worth having is hits under the *current query*, and `/search` is already about fifteen queries, so it is fifteen more per value per field. Counting the library instead is worse than nothing, because it prints a number beside a value that yields zero under the chip already up. It is on the roadmap as its own item with its own query budget.
+
+<sub>1.16.0 — `web/frontend/src/SearchPage.jsx` · `web/frontend/src/facets.js`</sub>
+
+### `book:` and `movie:` became grammar, reversing "there is no vocabulary of titles"
+
+**Decided.** Both fields carried `typed: false`, keeping them out of the grammar entirely on the reasoning that *"there is no vocabulary of titles to offer, so typing `movie:blade runner` could only ever open a dropdown with nothing in it"*. 1.16.0 removed the flag, added `books` and `movies` to `/search/vocabulary` as id/title pairs, and made both fields typeable like the rest.
+
+**Why I was wrong.** A personal library *is* a list of its own titles. The list is no longer than the author list the endpoint was already sending, and it costs one query each. The old reasoning described a query nobody had written, not a fact about libraries — and `book:` is the single most obvious thing in the box to reach for, which made it the one field that answered by doing nothing.
+
+The id is still what goes on the wire, and that is why these are their own fields rather than a title search: two editions, a translation and the film of the book can all carry one name, and only an id says which you meant. So they join the colour slots as `{key, name}` vocabularies — chip shows one thing, wire carries another.
+
+**The cost, stated rather than discovered.** `the book: of the new sun` now reads as a facet. That is the same trade thirteen ordinary English words already made in 1.10.0, and it has the same way out: `book\:` searches for the words. The escape exists precisely so a word can become an operator without becoming unsearchable.
+
+**Also.** The dropdown now shows five options at a time with a `More (n)` row, rather than a flat eight. Five is what fits above a phone keyboard; a menu over hundreds of titles that you can fall down is not a menu.
+
+<sub>1.16.0 — `web/frontend/src/facets.js` · `internal/httpapi/vocabulary_handler.go`</sub>
+
+### A character is not a person, and gets a section rather than a face
+
+**Decided.** Searching a character's name lands in a **Characters** section — the name, a count, and their lines — and `character:` is a fifth credit facet. The name is a plain chip and a button; there is no portrait.
+
+**Why.** `dialogues_fts` has indexed `character` since 0003, so character search worked all along. What was missing was anywhere for a match to *land*: `ftsCols: "quote character"` put it under the film it came from, so "everything Tyrion says" meant reading six posters and assembling the answer yourself. `actor` has never behaved that way — it is not in the dialogue query's columns at all, so an actor search has always produced an Actors section and an empty Dialogues one. The asymmetry was not a decision; it was the absence of the section.
+
+So `character` moved out of the dialogue columns into its own query. **Dialogues answers "these words matched"; Characters answers "this speaker matched".** A query hitting both still gets both. `import_search_test.go` used to assert the opposite — *"a character query stays a dialogue hit"* — and that assertion inverted, with the comment rewritten from a rule into a record of why it used to be true.
+
+No portrait, and that is the decision rather than an omission. Every other credit section here resolves to a `people` row with a photograph. A character resolves to nobody. Hanging the actor's face there would answer a question nobody asked and be wrong the moment a part is recast or shared — and the review loop had already settled the same point for its *"who said this?"* card: name only.
+
+Games needed nothing: a game is a `movies` row (0040), so its lines are `dialogues` and the whole feature covers them by construction. A regression test says so anyway, because a future `AND media_type <> 'game'` would drop them silently.
+
+**Instead of.** A `people` row per character, with portraits and a console — a different feature at a different price, and one the owner has already ruled against at the interface.
+
+<sub>1.16.0 — `internal/httpapi/search_handler.go` · `internal/httpapi/search_facets.go` · `web/frontend/src/SearchPage.jsx`</sub>
+
 ## 8. The Review Loop
 
 Spaced repetition is an exponential forgetting curve evaluated in SQL at query time, chosen so that due-ness needs no stored due date and no background sweep. Almost every subsequent decision here is a reversal, including the two that removed a feature and brought it back.
@@ -2770,6 +2814,28 @@ A standalone film fails the other way. Nothing scores highly, the distractors sh
 **Approved.** Mine.
 
 <sub>1.15.0 — `web/frontend/test/dom/quiz-runner.test.jsx` · `web/frontend/test/dom/card-tools.test.jsx`</sub>
+
+### The reader chooses the deck's repertoire, and three rules stop them breaking it
+
+**Decided.** Which question types each deck may ask is now a per-user preference, per deck, behind an **In-depth controls** pop-up. The card itself keeps only the two settings somebody changes and then stops thinking about — deck size and what it covers.
+
+**Why.** Until 1.16.0 the repertoire was a constant: `directionsForMode` returned one table for everybody, and the only thing a reader could say about the review loop was how many cards and which medium. That is a strange place to draw the line in the one part of this app with no equivalent elsewhere. Somebody who cannot bear multiple choice, or who wants the daily deck to be nothing but fill-in-the-blank, had no way to say so.
+
+**Stored as a string, like the language marks, and for the identical reason.** `preferences` is a flat comparable struct — `ui_test.go` declares a mirror and compares two values with `!=` — and a struct holding a map or a slice is not comparable in Go. So `srQuestions` is a small JSON document, normalised on read *and* on write.
+
+**The three rules are the feature, and all three fail silently without them.**
+
+1. *An unknown direction is dropped, not rejected*, so a backup taken on a newer build restores onto an older one.
+2. *The daily deck cannot be made self-scoring.* 1.15.3 took the flip card out of the daily deck deliberately — one self-marked card in five does not make the deck slightly softer, it makes the score mean something else — and handing over the repertoire would have handed that decision back by accident. `flip` is dropped from `daily` on the way in, wherever the preference came from.
+3. *No deck can be configured into nothing* — and the sharp half of this is why it is not simply a non-empty test. `speaker` applies only to a line of dialogue, because a book has no cast. A deck holding only *"who said this?"* is not empty and is empty for every book and every standalone quote in the library. So a deck must keep at least one direction that applies to **every** kind, or it reverts to its defaults.
+
+**The client mirrors the rules, which is a duplication this repo normally refuses.** `facets.js` opens by refusing exactly this shape. The reasoning differs here: the server *must* normalise, because a preference can arrive by PUT, by restore, or from somebody editing their own database; and the client must *also* know, or a switch that would empty a deck is accepted, sent, silently corrected, and flips back under the reader's finger explaining nothing. So the offending toggle is **disabled with its reason on screen**, and a test reads the Go source to check the two tables still say the same thing.
+
+**Back to defaults** sends `srQuestions: ""` — and because empty is a real value here, that field takes the pointer as presence rather than the `!= ""` shorthand the older string fields use. It resets every review preference on the panel, not only the questions: a reset that left three switches behind would be the least trustworthy button there.
+
+**Instead of.** Leaving the repertoire a constant; or letting the interface be the only thing enforcing the rules.
+
+<sub>1.16.0 — `internal/httpapi/review_questions.go` · `web/frontend/src/quiz.js` · `web/frontend/src/Settings.jsx`</sub>
 
 ## 9. Import and the Staging Queue
 
@@ -4173,6 +4239,22 @@ So: **44px can be named and opts in with `label`; 34px is nameless by constructi
 **Approved.** The owner's, against a screenshot of the chip row.
 
 <sub>1.15.2 — `web/frontend/src/Settings.jsx` · `web/frontend/test/pure/review-scope.test.js`</sub>
+
+### A screen asking the registry the wrong question is silent in every direction
+
+**Decided.** Home's favourite tiles map their own kind to the registry's kind through a table (`actionKind`) instead of passing it through. A book favourite reports itself as an `annotation`, which is what it is.
+
+**Why — and this one took two attempts, which is the point of writing it down.** `FavouriteTile` called `actionsFor(f.kind, …)`, and a favourite of kind `book` is a highlight *out of* a book. `book` is what the registry calls the book itself, and copy and share are gated on precisely that distinction — `available: !isWork && !!ctx.copy`, because a work has no words of its own to put on a clipboard. So every book favourite came back with an empty action row.
+
+Nothing anywhere reported it. The tile rendered correctly, the handlers were wired and correct, and `QuoteTools` returns `null` for an empty list — which looks exactly like a row nobody has added yet. That is what let it survive being fixed: 1.15.3 moved the tools row onto the collapsed tile, on the reasoning that copy and share should not cost a tap on the one board that exists to hold the lines you liked most. The row was genuinely added. It still drew nothing, and the report came back a release later in the same words.
+
+Library and Catalogue never met it because they pass `'annotation'` and `'dialogue'` as literals. Home was the only screen deriving the kind, and the only one that could get it wrong.
+
+**The test is registry-level and source-level, not render-level**, because the defect was in what the screen *asked* rather than in what it drew. A render test would have needed the exact tile, the exact hover state and the exact CSS, and would have proved less: it reads Home's table, asserts no entry names a work kind, and asserts the call site uses the table. Reverting either half fails it.
+
+**Instead of.** A ternary at the call site, which is what was there — `f.kind === 'screen' ? 'dialogue' : f.kind` — and which handled the one case somebody had thought about while passing the other two straight through.
+
+<sub>1.16.0 — `web/frontend/src/Home.jsx` · `web/frontend/test/pure/favourite-tools.test.js`</sub>
 
 ## 14. Boards, Cards, Charts and Popups
 

@@ -357,6 +357,14 @@
 
   /* ---- the one Toggle (§ design): a rubbery thumb slides under the active
      option; the thumb box is measured in JS so it tracks any label widths. ---- */
+  /* A toggle that legitimately refuses. The only user of this is the in-depth
+     quiz panel, where switching off the last question a deck can ask of a book
+     would leave that deck with nothing — so it is held, with its reason on the
+     info dot beside it. Dimmed rather than hidden: a control that disappears
+     when you get close to the edge is harder to understand than one that stays
+     put and says no. */
+  .tp-toggle.is-disabled { opacity: .5; cursor: not-allowed; }
+  .tp-toggle.is-disabled .tp-toggle-opt { cursor: not-allowed; }
   .tp-toggle {
     display: inline-flex;
     padding: 4px;
@@ -1887,6 +1895,40 @@
   }
   .token-x { border: none; background: none; color: inherit; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: .65; }
   .token-x:hover { opacity: 1; }
+
+  /* ---- the Filters panel: one pill per value a facet can take ----
+     Same family as .token-pill, because pressing one PRODUCES a .token-pill and
+     a control should look like what it makes. `.on` is the already-picked
+     state: pressing it again takes the chip back off, so it is a toggle rather
+     than an add button and has to say so. */
+  .facet-pill {
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures); font-size: 12px; line-height: 1;
+    color: var(--soft); background: none;
+    border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px;
+    cursor: pointer; transition: color .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .facet-pill:hover { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
+  .facet-pill.on {
+    color: var(--accent-ui);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  }
+
+  /* A name inside a result card that narrows the search when pressed — the
+     character on a line of dialogue. It sits INSIDE a run of mono text, so it
+     inherits the type rather than setting it, and stays underlined-on-hover
+     instead of growing a box: a border here would break the line it sits in. */
+  .facet-mini {
+    font: inherit; color: inherit; background: none; border: none; padding: 0;
+    cursor: pointer; text-decoration-color: transparent;
+    text-decoration-line: underline; text-underline-offset: 2px;
+    transition: color .18s ease, text-decoration-color .18s ease;
+  }
+  .facet-mini:hover { color: var(--accent-ui); text-decoration-color: currentColor; }
   .token-entry { flex: 1; min-width: 90px; border: none; background: none; outline: none; font-family: var(--font-ui);
  font-weight: var(--font-ui-weight);
  font-style: var(--font-ui-style);
@@ -1913,6 +1955,19 @@
  font-variant-numeric: var(--font-ui-figures); font-size: 14px; color: var(--ink); cursor: pointer;
   }
   .token-opt.hi, .token-opt:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-ui); }
+  /* "More (n)" — a page control, not a value, so it is quieter than the options
+     above it and separated by a rule. It never takes .hi: arrowing onto the last
+     row reveals the next page instead of landing here. */
+  .token-more {
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    text-transform: var(--font-mono-case);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: 11.5px; color: var(--soft);
+    border-top: 1px solid var(--line); border-radius: 0; margin-top: 3px; padding-top: 8px;
+  }
+  .token-more:hover { color: var(--accent-ui); background: none; }
 
   /* An inline editor fades + rises in when it replaces a read view (books/titles);
      annotations use the JS height-morph (EditReveal) so the list glides too. */

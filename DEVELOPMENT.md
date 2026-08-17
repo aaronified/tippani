@@ -195,6 +195,7 @@ The route groups themselves, so you can find the noun you want:
 | `people_handlers.go` · `portrait_handlers.go` | Credited people — bios, external links, and pinning a person to a stable external id so a re-fetch cannot drift to a namesake. |
 | `search_handler.go` | The FTS5 search across all five content tables, with facets and the zero-hit fuzzy pass. |
 | `review_handlers.go` | The spaced-repetition engine: both decks, the grading path, the interval ladder. |
+| `review_questions.go` | The one place the deck repertoire rules live: which question types a deck may ask, and the three that stop a reader configuring it into something that can ask them nothing. Mirrored client-side in `web/frontend/src/quiz.js`, which a test keeps in step by reading this file. |
 | `shelf.go` · `read_history_handlers.go` | Shelf status, the legal transitions, and the read log. |
 | `stats_handlers.go` | Everything the Stats page draws. |
 | `export_handlers.go` · `export_quotes.go` | Markdown export per work and for the whole library, and the standalone-quote `type:`. |
@@ -334,7 +335,7 @@ The shared modules do:
 | Path | What it is |
 | --- | --- |
 | `docs/PLAN.md` | The decision log — every design decision, its reasoning, and the reversals. |
-| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/PLAN.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2. |
+| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/PLAN.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2, three more at 1.15.0, and speaker discovery at 1.16.0. |
 | `docs/roadmap.html` · `docs/roadmap.backup.html` | The published roadmap, and its last known-good copy. Generated regions — do not hand-edit between the markers. |
 | `docs/ui-glossary.html` | Every part of the interface, named and rendered live in all four theme combinations. |
 | `docs/landing.html` | The published site's front page. Carries absolute canonical and social URLs. |

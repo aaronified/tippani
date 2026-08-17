@@ -69,10 +69,11 @@ type searchFacets struct {
 	shelves   []string
 	series    []string
 	years     []int
-	authors   []string
-	directors []string
-	actors    []string
-	speakers  []string
+	authors    []string
+	directors  []string
+	actors     []string
+	characters []string
+	speakers   []string
 	// One work, by id. These are what a search started from a work's own page
 	// narrows to: `book:The Dispossessed` shows the title and sends the id,
 	// because a title is not unique and an id is.
@@ -89,7 +90,7 @@ type searchFacets struct {
 func (f searchFacets) any() bool {
 	return len(f.tags) > 0 || len(f.genres) > 0 || len(f.colours) > 0 || len(f.shelves) > 0 ||
 		len(f.series) > 0 || len(f.years) > 0 || len(f.authors) > 0 || len(f.directors) > 0 ||
-		len(f.actors) > 0 || len(f.speakers) > 0 ||
+		len(f.actors) > 0 || len(f.characters) > 0 || len(f.speakers) > 0 ||
 		len(f.bookIDs) > 0 || len(f.movieIDs) > 0 ||
 		f.favourite != nil || f.note != nil || f.wishlist != nil
 }
@@ -160,6 +161,8 @@ func parseSearchFacets(vals url.Values) (searchFacets, error) {
 			f.directors = append(f.directors, nonEmpty(vs)...)
 		case "actor":
 			f.actors = append(f.actors, nonEmpty(vs)...)
+		case "character":
+			f.characters = append(f.characters, nonEmpty(vs)...)
 		case "speaker":
 			f.speakers = append(f.speakers, nonEmpty(vs)...)
 		case "book", "movie":
@@ -369,6 +372,19 @@ func (f searchFacets) where(k rowKind, uid int64) (string, []any, bool) {
 			return "", nil, false
 		}
 		c, a := creditAnyOf("d.actor", f.actors)
+		add(c, a...)
+	}
+	// character — the OTHER credit on a line of dialogue, and the only one of the
+	// five that is not a person. It behaves identically all the same: a line has
+	// one speaker, so two characters means EITHER, and it reaches nothing but a
+	// dialogue. A book has no characters as a column, so asking for one removes
+	// books from the search rather than quietly widening it back to every book in
+	// the library.
+	if len(f.characters) > 0 {
+		if k != rowDialogue {
+			return "", nil, false
+		}
+		c, a := creditAnyOf("d.character", f.characters)
 		add(c, a...)
 	}
 	if len(f.speakers) > 0 {
