@@ -3268,6 +3268,11 @@ export function HelpSheet({ open, title = "Help", onClose, children }) {
 // what it does. Its own component because two things open it — the "?" button on
 // most screens, and a ⋯ menu row on the detail screens, whose top bar has no
 // room for a sixth 44px control.
+// `asset` is the entry's picture, and it is drawn AFTER the words rather than
+// beside the term where `icon` goes. The two are different jobs: an icon is the
+// glyph the screen uses, so it belongs against the name and helps you recognise the
+// row before reading it; an asset — a gesture clip, a live control, a diagram — is
+// part of the answer, so it belongs where the answer is.
 export function HelpList({ entries = [] }) {
   return (
     <dl className="help-list">
@@ -3281,6 +3286,7 @@ export function HelpList({ entries = [] }) {
           <div className="min-w-0">
             <dt>{e.term}</dt>
             <dd>{e.what}</dd>
+            {e.asset && <div className="help-row-asset">{e.asset}</div>}
           </div>
         </div>
       ))}

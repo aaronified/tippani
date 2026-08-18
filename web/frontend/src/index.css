@@ -5203,3 +5203,96 @@ html[data-theme="dark"] .board-cover {
   /* The menu-row variant: no rule, just the cap pushed to the end. */
   .menu-item .kbd-legend { margin-left: auto; padding-left: 12px; }
   .kbd-pair { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+
+/* ---- gesture clips (help) ----
+   A touch gesture drawn instead of described. Every stroke is currentColor, so
+   one file is right in both themes; the animation carries the RHYTHM and the
+   still frame carries the meaning, which is what makes the reduced-motion rule
+   below a degradation rather than a loss.
+
+   Deliberately slow — 1.6s — and deliberately looping. This sits inside a help
+   panel somebody is reading, so it has to be re-watchable without a control, and
+   a fast loop beside prose is a distraction rather than an illustration. */
+.gesture { color: var(--ink); flex: none; overflow: visible; }
+
+.gesture .g-tip { opacity: 0.9; }
+
+/* Long press: the ring grows and fades under a fingertip that stays put. The tip
+   dips slightly, which is the only cue that a press is happening at all. */
+@keyframes g-hold-ring {
+  0%   { r: 10; opacity: 0.55; }
+  70%  { r: 22; opacity: 0; }
+  100% { r: 22; opacity: 0; }
+}
+@keyframes g-hold-tip {
+  0%, 100% { r: 8; }
+  60%      { r: 7; }
+}
+.gesture .g-ring { animation: g-hold-ring 1.6s ease-out infinite; }
+.gesture .g-hold { animation: g-hold-tip 1.6s ease-out infinite; }
+
+/* A swipe, and a two-finger swipe: the tip runs along the dashed trail in the
+   direction --gd / --gdy give it, fading in at the start and out at the end so
+   the loop has no visible snap back. One keyframe set for all eight directions,
+   because the direction is data. */
+@keyframes g-travel {
+  0%   { transform: translate(calc(var(--gd) * -14px), calc(var(--gdy) * -14px)); opacity: 0; }
+  15%  { opacity: 0.9; }
+  75%  { opacity: 0.9; }
+  100% { transform: translate(calc(var(--gd) * 14px), calc(var(--gdy) * 14px)); opacity: 0; }
+}
+.gesture .g-move { animation: g-travel 1.6s ease-in-out infinite; }
+
+/* A pinch: the two tips move toward each other and back. --gd is +1 for pinch-out
+   and -1 for pinch-in, which the component sets from the kind. */
+@keyframes g-pinch-a {
+  0%, 100% { transform: translateX(calc(var(--gd) * -6px)); }
+  50%      { transform: translateX(calc(var(--gd) * 6px)); }
+}
+@keyframes g-pinch-b {
+  0%, 100% { transform: translateX(calc(var(--gd) * 6px)); }
+  50%      { transform: translateX(calc(var(--gd) * -6px)); }
+}
+.gesture .g-pinch.g-a { animation: g-pinch-a 1.6s ease-in-out infinite; }
+.gesture .g-pinch.g-b { animation: g-pinch-b 1.6s ease-in-out infinite; }
+
+/* The second finger of a two-finger swipe trails the first by a beat, which is
+   what stops the pair reading as one wide finger. */
+.gesture .g-move.g-b { animation-delay: 0.12s; }
+
+/* THE POSE THAT SURVIVES. With motion off, every clip stops on the frame that
+   states the gesture: the ring at full size under a resting fingertip, the tip
+   at the END of its trail (so the dashed line and the disc together still read
+   as travel in that direction), the pinch pair at rest. Nothing disappears and
+   nothing is left mid-flight, which is the failure a plain `animation: none`
+   would produce on a keyframe that starts at opacity 0. */
+@media (prefers-reduced-motion: reduce) {
+  .gesture .g-ring {
+    animation: none;
+    r: 20;
+    opacity: 0.45;
+  }
+  .gesture .g-hold,
+  .gesture .g-pinch { animation: none; }
+  .gesture .g-move {
+    animation: none;
+    transform: translate(calc(var(--gd) * 12px), calc(var(--gdy) * 12px));
+    opacity: 0.9;
+  }
+}
+
+/* The clip with its name beside it — how a gesture appears in a help entry. The
+   label is the gesture's NAME, never an instruction; the outcome is the sentence
+   the caller writes after it. */
+.gesture-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  vertical-align: middle;
+}
+.gesture-chip-label {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em;
+  text-transform: uppercase; color: var(--faint); white-space: nowrap;
+}
+
+/* An entry's asset sits under its words, not beside its name: `icon` is the glyph
+   the screen uses and helps you find the row, an asset is part of the answer. */
+.help-row-asset { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
