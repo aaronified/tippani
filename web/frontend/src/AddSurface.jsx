@@ -45,6 +45,21 @@ import {
 // film and says nothing (see test/dom/add-manual-kind.test.jsx).
 export const KINDS = [['book', 'Book'], ['film', 'Film'], ['show', 'Show'], ['game', 'Game']]
 
+// Which SECTION each kind is filed in, so the ＋ offers what the reader has left
+// switched on (Settings → Features). A book belongs to the Library; a film, a show
+// and a game all belong to the Catalogue, which is why hiding one section takes
+// one chip away and hiding the other takes three.
+//
+// The chooser is gated and the FORMS are not. Hiding is cosmetic: nothing is
+// disabled, nothing is deleted, and a reader standing on a hidden section's list
+// by URL still gets its ＋. What goes is the invitation to start something in a
+// section they have put away.
+const KIND_SECTION = { book: 'library', film: 'movies', show: 'movies', game: 'movies' }
+
+export function kindsFor(sections) {
+  return KINDS.filter(([kind]) => sections?.[KIND_SECTION[kind]] !== false)
+}
+
 // workFromBook / workFromMovie normalise a freshly-created record into the lean
 // {kind,id,title,sub,tag} shape the capture picker (and WorkPicker) speak, so an
 // add made through the look-up card can immediately become the capture target.
@@ -70,10 +85,17 @@ export function workFromMovie(m) {
 // back the normalised work so an embedder can target it. `initialQuery` seeds
 // (and, for books, auto-runs) the search; `hideManual` drops the manual
 // affordances where the host offers its own.
-export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false }) {
-  const [kind, setKind] = useState(
-    initialKind === 'film' || initialKind === 'show' || initialKind === 'game' ? initialKind : 'book',
-  )
+export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false, sections }) {
+  const kinds = kindsFor(sections)
+  const [kind, setKind] = useState(() => {
+    const want = initialKind === 'film' || initialKind === 'show' || initialKind === 'game' ? initialKind : 'book'
+    // The default is 'book', and the Library is exactly what a reader may have
+    // switched off — so a toggle opening on a segment it does not draw would show
+    // no selection and search the wrong kind on the first Enter. Fall to the first
+    // kind actually on offer; there is always one, because the last content
+    // section cannot be hidden.
+    return kinds.some(([k]) => k === want) ? want : (kinds[0]?.[0] || 'book')
+  })
   const [q, setQ] = useState(initialQuery || '')
   const [year, setYear] = useState('')
   const [candidates, setCandidates] = useState(null)
@@ -217,7 +239,10 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
 
   return (
     <div className="space-y-3">
-      <Toggle ariaLabel="What to add" value={kind} onChange={switchKind} options={KINDS} />
+      {/* One kind left is not a choice — the Catalogue alone still needs its
+          Film / Show / Game toggle, but a lone "Book" segment is a label
+          pretending to be a control. */}
+      {kinds.length > 1 && <Toggle ariaLabel="What to add" value={kind} onChange={switchKind} options={kinds} />}
       <form onSubmit={(e) => { e.preventDefault(); doSearch() }} className="flex flex-wrap gap-2">
         <input
           className="tp-input min-w-0 flex-1"
@@ -844,6 +869,13 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           {/* The app's canonical look-up / add card, embedded: search a source to
               auto-fill cover + year + genres, or add by hand. On add it becomes
               the capture target. */}
+          {/* DELIBERATELY NOT GATED BY `sections`, unlike the ＋'s own chooser
+              above. This one is reached only after the reader has said the work
+              they are quoting is not in their library yet — a step inside a form,
+              not a door into a section — and it is the escape hatch that keeps
+              every kind creatable however the nav is configured. Gating a
+              chooser stops the app INVITING you into a section you put away;
+              gating this would stop you finishing a quote you are holding. */}
           <AddLookup initialQuery={creating.title} onCreated={targetCreated} />
         </div>
       )}
@@ -984,9 +1016,17 @@ export default function AddSurface({
   pendingImport = 0,
   onReviewImport,
   onStaged,
+  sections,
 }) {
+  // What there is to look up at all. With BOTH the Library and the Catalogue
+  // switched off there is no work to add, so the tab goes rather than standing
+  // there with an empty kind toggle in it. Capture and Import stay: a quote and a
+  // file are not filed in a section the reader can hide.
+  const lookupKinds = kindsFor(sections)
+  const canLookUp = lookupKinds.length > 0
   // 'standalone' is a capture too — it opens the same tab, in its own mode.
-  const tabFor = (s) => (s === 'import' ? 'import' : s === 'quote' || s === 'standalone' ? 'quote' : 'add')
+  const tabFor = (s) =>
+    s === 'import' ? 'import' : s === 'quote' || s === 'standalone' ? 'quote' : canLookUp ? 'add' : 'quote'
   const [tab, setTab] = useState(tabFor(initialSection))
   // The capture form's Save, lifted here so it can live in the title bar beside
   // Close (§ icons-in-title-bars). {canSave, busy, save} — null while the active
@@ -994,9 +1034,10 @@ export default function AddSurface({
   const [saveState, setSaveState] = useState(null)
   const mobile = useIsMobileScreen()
   // Short labels on a phone (the three-segment slider can't fit the full words).
-  const tabOptions = mobile
+  const tabOptions = (mobile
     ? [['add', 'Add'], ['quote', 'Capture'], ['import', 'Import']]
     : [['add', 'Look up / add'], ['quote', 'Capture quote'], ['import', 'Import files']]
+  ).filter(([key]) => key !== 'add' || canLookUp)
 
   useEffect(() => {
     if (!open) return
@@ -1051,6 +1092,7 @@ export default function AddSurface({
         <AddLookup
           initialKind={initialSection === 'film' ? 'film' : 'book'}
           onAdded={(what) => onAdded?.(what)}
+          sections={sections}
         />
       )}
       {tab === 'quote' && (

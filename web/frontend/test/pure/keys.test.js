@@ -259,3 +259,50 @@ describe('nothing is listed that does not work', () => {
     }
   })
 })
+
+// ---- the legend and a section the reader has put away ----
+//
+// Settings -> Features hides a whole section, and the sheet is generated from this
+// table precisely so it cannot fall behind it. That is the right property and it
+// has one consequence nobody wanted: a reader who has hidden the Catalogue would
+// still be shown "G then C - Go to Catalogue", beside a strip with no Catalogue in
+// it. So the sheet can be asked to leave rows out.
+//
+// The asymmetry is deliberate and is the thing to keep straight: the BINDING stays.
+// Hiding is cosmetic, and G-then-C is the URL typed, so the key still works. This
+// file's rule is that nothing may be LISTED that does not work; a key that works
+// and is not listed breaks no promise.
+describe('the legend can leave out a door that is not on screen', () => {
+  const idsOf = (groups) => groups.flatMap((g) => g.items.map((i) => i.id))
+
+  it('drops exactly the rows it is asked for, and keeps the rest in order', () => {
+    const all = idsOf(groupedShortcuts())
+    const some = idsOf(groupedShortcuts(new Set(['go-catalogue', 'go-quotes'])))
+    expect(all).toContain('go-catalogue')
+    expect(some).not.toContain('go-catalogue')
+    expect(some).not.toContain('go-quotes')
+    // Asserted as the whole remaining list rather than as a count: "two fewer" is
+    // just as true when the two are the wrong two.
+    expect(some).toEqual(all.filter((id) => id !== 'go-catalogue' && id !== 'go-quotes'))
+  })
+
+  it('leaves the binding itself working', () => {
+    expect(SHORTCUTS.some((s) => s.id === 'go-catalogue')).toBe(true)
+    expect(shortcutFor('go-catalogue')).toBe('G then C')
+    expect(matchShortcut('c', 'g')).toEqual({ id: 'go-catalogue', shift: false })
+  })
+
+  it('is a no-op for every caller that asks for nothing', () => {
+    expect(groupedShortcuts(undefined)).toEqual(groupedShortcuts())
+    expect(groupedShortcuts(new Set())).toEqual(groupedShortcuts())
+  })
+
+  it('takes the heading with the last row under it', () => {
+    // A group is built when its first surviving row arrives, so emptying one leaves
+    // no heading behind. Nothing can empty 'Go to' today - Home, Stats, Metadata,
+    // your profile and Settings are all unhideable - but a bare heading over
+    // nothing is the kind of thing a later section would introduce silently.
+    const gone = new Set(SHORTCUTS.filter((s) => s.group === 'Go to').map((s) => s.id))
+    expect(groupedShortcuts(gone).some((g) => g.group === 'Go to')).toBe(false)
+  })
+})

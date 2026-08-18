@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Turn off the parts of the app you do not use.** Settings → Features has a switch each for the
+  Library, the Catalogue and Quotes. Turn one off and its tab goes from the tab strip, the ☰ drawer
+  and the phone's bottom bar, its count tile goes from Home, its chip goes from Search's scope row,
+  ＋ stops offering that kind, and its row goes from the `?` shortcut sheet. Not everybody keeps
+  films, and a tab for something you have never used is a permanent invitation to an empty screen.
+
+  **Hiding takes away doors, not data.** Nothing is deleted, nothing is disabled, no search narrows
+  and no quiz changes. The URL is untouched, which is what makes that checkable: `/catalogue` still
+  opens, a bookmark from last year still works, `G` then `C` still goes there, and the review deck
+  still asks you about film lines you saved. Turn it back on and everything is where you left it.
+
+  **A link from a quote to its book is not a door.** With the Library hidden, a favourite on Home
+  still opens the book it came from — what it loses is the tile whose only job was "go to the
+  Library". Muting the thread from a thing to its source would strand four thousand highlights to
+  spare somebody a tab.
+
+  **One section has to stay.** An app with none has no list to stand in and no ＋ that offers
+  anything, which is a broken screen rather than a preference — so the last switch left on is
+  disabled, with the reason written beside it rather than hidden in a tooltip a phone cannot show.
+
 - **Keyboard shortcuts, and every one of them written on the button that does the same thing.**
   `/` searches, `N` captures a quote, `?` opens the help sheet, and `G` then `L`, `C`, `Q` or `S`
   goes to the Library, Catalogue, Quotes or Stats. In a quiz, `1` and `2` grade and `Space` reveals

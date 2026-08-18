@@ -428,6 +428,34 @@ type prefs struct {
 	// written from outside this file has to be a field in here, or the next
 	// unrelated save eats it.
 	DefaultBoardID int64 `json:"defaultBoardId,omitempty"`
+	// Which sections of the app the reader has turned off (Settings → Features).
+	//
+	// HIDING IS COSMETIC AND THE URL IS THE PROOF. It takes away the DOORS — the
+	// desktop strip, the drawer, the phone bar, Home's tiles, the ＋'s offer of
+	// that kind, the search scope chip and the shortcut legend — and touches
+	// nothing else. The route still resolves, a bookmark still opens, a quote
+	// still links to the book it came from, the deck still draws from the section,
+	// and every row stays exactly where it was. Somebody who keeps no films
+	// should not have to look at a Catalogue tab; somebody who turns it back on a
+	// year later finds everything in it.
+	//
+	// SPELLED AS `hide*` BECAUSE EVERY DEFAULT HERE IS THE ZERO VALUE. A
+	// `showLibrary` defaulting to true would have to be added to the four whole-
+	// struct literals ui_test.go compares with `!=`, and — worse — an older
+	// client that sends a partial set would read as asking for the Library to be
+	// hidden. The reader sees three switches that say Show; the wire says what
+	// they turned OFF, which is the shorter list and the one that stays correct
+	// when a fourth section arrives.
+	//
+	// NOT ALL THREE AT ONCE. Enforced in the validation switch below and again in
+	// loadPrefs, because a blob can also arrive from a restore or a hand edit: an
+	// app with no content sections has no ＋ that offers anything and no list to
+	// stand in, which is a broken screen rather than a preference. Same rule
+	// review_questions.go states for a deck and normalizeCats for the first
+	// colour — a setting may not configure the app into nothing.
+	HideLibrary   bool `json:"hideLibrary"`
+	HideCatalogue bool `json:"hideCatalogue"`
+	HideQuotes    bool `json:"hideQuotes"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -645,6 +673,14 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if p.TourStep < 0 || p.TourStep > 99 {
 		p.TourStep = 0
 	}
+	// The last content section cannot be hidden — on READ as well as on write,
+	// because this blob also arrives from a restore, from a hand-edited row, and
+	// from a build that knew a section this one does not. The Library comes back
+	// rather than all three, so the correction is one predictable section instead
+	// of silently undoing everything the reader chose.
+	if p.HideLibrary && p.HideCatalogue && p.HideQuotes {
+		p.HideLibrary = false
+	}
 	return p, nil
 }
 
@@ -689,6 +725,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRSubmit            *bool    `json:"srSubmit"`
 		Tour                *string  `json:"tour"`
 		TourStep            *int     `json:"tourStep"`
+		HideLibrary         *bool    `json:"hideLibrary"`
+		HideCatalogue       *bool    `json:"hideCatalogue"`
+		HideQuotes          *bool    `json:"hideQuotes"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -857,6 +896,18 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.TourStep != nil {
 		cur.TourStep = *in.TourStep
 	}
+	// Presence, not truth: `false` is the whole point of these three — it is what
+	// turning a section back ON looks like — so they cannot use the `!= nil && *v`
+	// guard the strings use.
+	if in.HideLibrary != nil {
+		cur.HideLibrary = *in.HideLibrary
+	}
+	if in.HideCatalogue != nil {
+		cur.HideCatalogue = *in.HideCatalogue
+	}
+	if in.HideQuotes != nil {
+		cur.HideQuotes = *in.HideQuotes
+	}
 	switch {
 	case !prefAesthetics[cur.Aesthetic]:
 		writeErr(w, http.StatusBadRequest, "aesthetic must be paper or film")
@@ -897,6 +948,14 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case cur.TourStep < 0 || cur.TourStep > 99:
 		writeErr(w, http.StatusBadRequest, "tourStep must be between 0 and 99")
+		return
+	case cur.HideLibrary && cur.HideCatalogue && cur.HideQuotes:
+		// Refused rather than quietly corrected, on the rule review_questions.go
+		// states for a deck: accepting it and handing back a different set is a
+		// control that flips back under the reader's finger and explains nothing.
+		// The message names the way out.
+		writeErr(w, http.StatusBadRequest,
+			"at least one of the Library, the Catalogue or Quotes has to stay visible — turn another one on first")
 		return
 	}
 	raw, err := json.Marshal(cur)

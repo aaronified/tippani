@@ -3143,7 +3143,11 @@ export function Kbd({ keys }) {
 // appears here without anybody remembering to document it. That is the failure
 // this replaces — a shortcut legend maintained by hand is a legend that is wrong
 // by the second release.
-export function ShortcutSheet({ open, onClose }) {
+// `omit` is the set of action ids whose row this reader should not be shown —
+// the Go-to keys for sections they have hidden. Passed in rather than derived
+// here, because this component knows how to draw a key cap and nothing about
+// preferences.
+export function ShortcutSheet({ open, onClose, omit }) {
   if (!open) return null;
   return (
     <HelpSheet open={open} title="Keyboard shortcuts" onClose={onClose}>
@@ -3157,7 +3161,7 @@ export function ShortcutSheet({ open, onClose }) {
         deck is your schedule and its grades are permanent, so the mode with lower stakes is the
         one that costs an extra finger.
       </p>
-      {groupedShortcuts().map((g) => (
+      {groupedShortcuts(omit).map((g) => (
         <div key={g.group} style={{ marginBottom: 16 }}>
           <MonoLabel className="mb-2 block">{g.group}</MonoLabel>
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>

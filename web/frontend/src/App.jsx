@@ -21,7 +21,10 @@ import {
   BOTTOM_TABS,
   CONTENT_TABS,
   DRAWER_TABS,
+  SECTIONS,
   UTILITY_TABS,
+  visibleSections,
+  visibleTabs,
   addSection,
   helpScreen,
   parsePath,
@@ -530,12 +533,18 @@ function tabOptions(rows) {
 }
 
 // DesktopNav: content tabs · divider · utility tabs, all inline.
-function DesktopNav({ tab, onChange }) {
+//
+// `sections` is what the reader has left switched on (Settings → Features). It is
+// applied through visibleTabs, the one filter all four nav lists share, so the
+// strip and the drawer and the phone bar cannot disagree about what is showing.
+// Toggle already tolerates a `value` matching none of its options by hiding the
+// thumb, which is exactly the render for standing in a hidden section by URL.
+function DesktopNav({ tab, onChange, sections }) {
   return (
     <div className="topbar-nav-group">
-      <Toggle className="nav-toggle" ariaLabel="Primary" value={tab} onChange={onChange} options={tabOptions(CONTENT_TABS)} />
+      <Toggle className="nav-toggle" ariaLabel="Primary" value={tab} onChange={onChange} options={tabOptions(visibleTabs(CONTENT_TABS, sections))} />
       <span className="nav-divider" aria-hidden="true" />
-      <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(UTILITY_TABS)} />
+      <Toggle className="nav-toggle" ariaLabel="Tools" value={tab} onChange={onChange} options={tabOptions(visibleTabs(UTILITY_TABS, sections))} />
     </div>
   )
 }
@@ -678,7 +687,7 @@ function UserAvatar({ user }) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, update, logout, dark, onUser }) {
+function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, update, logout, dark, onUser, sections }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -799,7 +808,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
               <span className="drawer-badge" style={{ color: 'var(--accent-ui)' }}>{pendingImport}</span>
             </button>
           )}
-          {DRAWER_TABS.map((t, i) =>
+          {visibleTabs(DRAWER_TABS, sections).map((t, i) =>
             t === null ? (
               <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
             ) : (
@@ -900,7 +909,7 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
 //
 // aria-label is "Quick navigation", not "Primary": the drawer already claims
 // that landmark name and both can be mounted at once.
-function MobileBottomNav({ tab, selectTab, hidden }) {
+function MobileBottomNav({ tab, selectTab, hidden, sections }) {
   // The bar stays focusable while slid away, so focusing a button must bring it
   // back rather than leave focus on something off-screen.
   const [focused, setFocused] = useState(false)
@@ -912,7 +921,7 @@ function MobileBottomNav({ tab, selectTab, hidden }) {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
-      {BOTTOM_TABS.map(([key, label, tip]) => {
+      {visibleTabs(BOTTOM_TABS, sections).map(([key, label, tip]) => {
         const active = tab === key
         return (
           <Tooltip key={key} label={tip} side="top">
@@ -1222,6 +1231,20 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // The ＋ Add pill carries the staging count, because that is where imports
   // start and where the queue is reached from.
   const importBadge = pendingImport > 0 && <span className="add-badge">{pendingImport}</span>
+  // Which sections this reader has left switched on (Settings → Features),
+  // resolved once per render beside the three route-derived controls. It is read
+  // from the same preference bag every applier reads, so the strip, the drawer,
+  // the phone bar, Home, the ＋, the scope chips and the shortcut legend all
+  // answer one question with one answer.
+  const sections = visibleSections(user.preferences)
+  // The Go-to keys whose destination has no visible door. The KEY still works —
+  // hiding is cosmetic and G-then-C is the URL typed — it just stops being
+  // advertised in a legend beside a tab that is not on screen. This is the only
+  // place that knows both halves: DRAWER_SHORTCUTS maps a tab to its action, and
+  // keys.js deliberately knows nothing about tabs.
+  const omitShortcuts = new Set(
+    SECTIONS.filter((sec) => !sections[sec.tab]).map((sec) => DRAWER_SHORTCUTS[sec.tab]).filter(Boolean),
+  )
   // The three context-aware shell controls, resolved once per render off the
   // route (see helpScreen / addSection / searchScope above the Shell).
   const help = helpScreen(tab, detail)
@@ -1245,7 +1268,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
             </button>
           </Tooltip>
           <nav ref={navRef} aria-label="Primary" className={'topbar-nav' + (navIconOnly ? ' icon-only' : '')}>
-            <DesktopNav tab={tab} onChange={selectTab} />
+            <DesktopNav tab={tab} onChange={selectTab} sections={sections} />
           </nav>
           {/* Add · Search · Help · chip — the same four, in the same order, as the
               phone bar below. Each of the first three reads the current route
@@ -1357,14 +1380,21 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         <div className="tab-panel">
         {tab === 'home' && (
           <div data-screen-label="home">
+            {/* THE THREE onGo* PROPS ARE DOORS, and each is passed only while the
+                section it opens has one (Settings → Features). Home draws every
+                one of those controls on the PROP being there, so an absent
+                callback removes the tile or the glyph rather than leaving a card
+                that answers a tap with nothing. onOpenBook / onOpenMovie beside
+                them are CONTENT LINKS and are never gated: a favourite still
+                opens the book it came from however the nav is configured. */}
             <Home
               user={user}
               stats={stats}
               onOpenBook={openBook}
               onOpenMovie={openMovie}
-              onGoLibrary={() => selectTab('library')}
-              onGoMovies={() => selectTab('movies')}
-              onGoQuotes={() => selectTab('quotes')}
+              onGoLibrary={sections.library ? () => selectTab('library') : null}
+              onGoMovies={sections.movies ? () => selectTab('movies') : null}
+              onGoQuotes={sections.quotes ? () => selectTab('quotes') : null}
               onPending={setPending}
               pendingImport={pendingImport}
               onReviewImport={() => selectTab('staging')}
@@ -1410,7 +1440,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {tab === 'search' && (
           <div data-screen-label="search">
-            <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} creditSeparators={user.preferences?.creditSeparators} />
+            <SearchPage onOpenBook={openBook} onOpenMovie={openMovie} creditSeparators={user.preferences?.creditSeparators} sections={sections} />
           </div>
         )}
         {tab === 'quotes' && (
@@ -1466,12 +1496,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         </div>
         </ErrorBoundary>
       </main>
-      <MobileBottomNav tab={tab} selectTab={selectTab} hidden={navHidden} />
+      <MobileBottomNav tab={tab} selectTab={selectTab} hidden={navHidden} sections={sections} />
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         tab={tab}
         selectTab={selectTab}
+        sections={sections}
         // The drawer is the deliberately CONTEXT-FREE route to both: its Add
         // opens the plain look-up card with nothing pre-filled, and its Search
         // clears the scope rather than inheriting the last page's. The top bar's
@@ -1490,12 +1521,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         dark={dark}
         onUser={onUser}
       />
-      <ShortcutSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <ShortcutSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} omit={omitShortcuts} />
       <AddSurface
         open={addOpen}
         initialSection={addSec}
         initialTarget={addTarget}
         pendingImport={pendingImport}
+        sections={sections}
         onReviewImport={() => { setAddOpen(false); selectTab('staging') }}
         onStaged={refreshPendingImport}
         onClose={() => setAddOpen(false)}
@@ -1506,7 +1538,14 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
           // Land on the list for what was just added so it's visible. When that is
           // the list you were already on, go() changes no state and nothing
           // remounts — which is exactly why bumpData() above is not optional.
-          go(what === 'film' ? 'movies' : 'library', null)
+          //
+          // UNLESS THAT SECTION IS HIDDEN, which is the one door that filtering a
+          // list could never have caught: a reader standing on /library by URL
+          // with the Library switched off would otherwise be walked into it by a
+          // save. They stay where they are; bumpData has already refreshed what
+          // is on screen.
+          const landing = what === 'film' ? 'movies' : 'library'
+          if (sections[landing] !== false) go(landing, null)
         }}
         onCaptured={() => {
           // A captured quote closes the surface but stays put — capture is a

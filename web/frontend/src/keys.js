@@ -142,9 +142,22 @@ export function withShortcut(label, id, shifted = false) {
 
 // groupedShortcuts is the help sheet's view of the table: the same list, in the
 // same order, bucketed by where it applies.
-export function groupedShortcuts() {
+//
+// `omit` DROPS A ROW FROM THE LEGEND WITHOUT UNBINDING THE KEY, and the asymmetry
+// is deliberate. A reader who has hidden the Catalogue (Settings → Features) has
+// no visible door to it, so a sheet still printing "G then C · Go to Catalogue" is
+// advertising a control that is not on screen. The key itself keeps working,
+// because hiding is cosmetic and the URL — which is what G-then-C is, typed —
+// still resolves. This file's own rule is that nothing may be LISTED that does not
+// work; a key that works and is not listed breaks no promise.
+//
+// A SET OF ACTION IDS, NOT OF TABS. keys.js knows which key runs which action and
+// deliberately nothing about screens, so the caller — which owns the tab-to-action
+// map — decides what to leave out.
+export function groupedShortcuts(omit) {
   const out = []
   for (const s of SHORTCUTS) {
+    if (omit?.has?.(s.id)) continue
     let g = out.find((x) => x.group === s.group)
     if (!g) out.push((g = { group: s.group, items: [] }))
     g.items.push({

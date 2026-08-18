@@ -22,6 +22,7 @@ import {
   uploadedFonts,
   verifyUpload,
 } from './fonts.js'
+import { SECTIONS, visibleSections } from './routes.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
@@ -109,7 +110,7 @@ function useColumnCount() {
 // says so.
 // Language marks and Type are NOT here. They are two buttons on the Appearance
 // card and a pop-up apiece (1.15.2) — see the note above `Appearance`.
-export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
+export const SETTINGS_CARDS = ['onboard', 'features', 'meta', 'colors', 'sr', 'devices', 'trash', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -145,12 +146,12 @@ export const SETTINGS_CARDS = ['onboard', 'meta', 'colors', 'sr', 'devices', 'tr
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
-    ['meta', 'colors', 'onboard'],
+    ['meta', 'colors', 'onboard', 'features'],
     ['sr', 'devices', 'trash', 'upd', 'backup'],
   ],
   3: [
     ['meta', 'colors'], // the tall one, and the card that belongs under it
-    ['sr', 'onboard'],
+    ['sr', 'onboard', 'features'],
     ['devices', 'trash', 'upd', 'backup'],
   ],
 }
@@ -169,6 +170,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   const ncols = useColumnCount()
   const cards = {
     onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
+    features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
     meta: <Metadata user={user} onPreferences={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
@@ -1677,12 +1679,88 @@ function ChangelogDialog({ current, onClose }) {
 // cannot drift from the tour), one fewer standing wall of text, and the blurbs
 // come back as blurbs rather than as dots — a dialog has the room a 300px column
 // did not.
+// ---- Features: which sections the app shows you ----
+//
+// Not everybody keeps films, and not everybody keeps a quote that belongs to no
+// book. A tab for something you have never used is a permanent invitation to a
+// screen with nothing on it, and until now the strip, the drawer and the phone bar
+// were the same eight destinations for everybody.
+//
+// HIDING IS COSMETIC, AND THAT IS THE WHOLE DESIGN. Nothing is deleted, nothing
+// is disabled, no query narrows and no deck changes. What goes is the DOORS: the
+// nav lists, Home's count tile, the ＋'s offer of that kind, the search scope
+// chips and the shortcut legend. The route still resolves, so a bookmark, a link
+// from a quote to the book it came from, and a typed URL all land exactly as
+// before — which is what makes "turn it back on and everything is where you left
+// it" a promise rather than a hope.
+//
+// ONE SWITCH CANNOT GO OFF, and the copy says which. An app with no content
+// sections has no ＋ that offers anything and no list to stand in — a broken
+// screen rather than a preference, and the one state a reader could not click
+// their way out of. The server refuses the same set and corrects it on read, so a
+// restored archive cannot arrive in it either.
+//
+// The switches read POSITIVELY — Show / Hide — while the wire says what was turned
+// OFF (`hideLibrary`…), because every preference default in this app is the zero
+// value. See the prefs struct for why that is not just a style.
+function FeaturesCard({ prefs, onSaved }) {
+  const on = visibleSections(prefs)
+  const lastOne = SECTIONS.filter((sec) => on[sec.tab]).length === 1
+  const set = (sec, show) => {
+    const patch = { [sec.pref]: !show }
+    onSaved?.(patch)
+    json('PUT', '/auth/me/preferences', patch)
+  }
+  return (
+    <Card>
+      <SectionTitle
+        info="Which sections you want to see. Hiding one takes away its tab, its tile on Home, its chip on Search and its offer under ＋ — and nothing else: every book, film and quote stays where it is, and a link or bookmark still opens it."
+        infoTitle="Features"
+      >
+        Features
+      </SectionTitle>
+      <p className="microcopy">
+        Turn off what you do not keep. This changes what you see, never what you have.
+      </p>
+      <div className="space-y-3 mt-3">
+        {SECTIONS.map((sec) => {
+          // The last one standing is the one that cannot go, and the reason
+          // replaces the microcopy on that row rather than hiding in a tooltip a
+          // touch screen has no way to show.
+          const locked = lastOne && on[sec.tab]
+          return (
+            <div key={sec.tab}>
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <MonoLabel>{sec.label}</MonoLabel>
+              </div>
+              <Toggle
+                ariaLabel={sec.label}
+                value={on[sec.tab] ? 'on' : 'off'}
+                onChange={(v) => set(sec, v === 'on')}
+                disabled={locked}
+                options={[['off', 'Hide'], ['on', 'Show']]}
+              />
+              <p className="microcopy mt-1">
+                {locked ? 'The last section has to stay — turn another one on first.' : sec.what}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
 function OnboardingCard({ user, onStartTour }) {
   const state = user.preferences?.tour || ''
   const step = user.preferences?.tourStep || 0
   const [picking, setPicking] = useState(false)
-  const feats = tourFeatures(user.is_admin)
-  const total = tourSteps(user.is_admin).length
+  // The same two arguments the tour itself passes, derived from the same
+  // preference bag — a picker offering a section the reader has hidden is a door
+  // into it, and an `at` computed over a different list opens the wrong step.
+  const sections = visibleSections(user.preferences)
+  const feats = tourFeatures(user.is_admin, sections)
+  const total = tourSteps(user.is_admin, sections).length
   // `at` is the feature's index in tourSteps, which is what onStartTour takes —
   // NOT its index in this filtered list. See tourFeatures.
   const start = (at) => { setPicking(false); onStartTour?.(at) }

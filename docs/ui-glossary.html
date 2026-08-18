@@ -912,6 +912,20 @@
 
       <div class="g-item wide">
         <div class="g-demo" style="display:block">
+          <div style="display:flex;flex-direction:column;gap:10px;max-width:420px">
+            <div class="mono-label">Library</div>
+            <div class="tp-toggle" role="tablist" style="max-width:220px"><span class="tp-toggle-thumb" style="left:50%;width:50%"></span><button role="tab">Hide</button><button role="tab" aria-selected="true">Show</button></div>
+            <div class="mono-label">Catalogue</div>
+            <div class="tp-toggle" role="tablist" style="max-width:220px"><span class="tp-toggle-thumb" style="left:0;width:50%"></span><button role="tab" aria-selected="true">Hide</button><button role="tab">Show</button></div>
+          </div>
+        </div>
+        <div class="g-name">Features <span class="g-tlabel">1.16.x</span></div>
+        <div class="g-src">FeaturesCard — Settings.jsx · SECTIONS / visibleSections / visibleTabs — routes.js · hideLibrary / hideCatalogue / hideQuotes prefs</div>
+        <div class="g-desc">Which sections of the app a reader wants to see: the <b>Library</b>, the <b>Catalogue</b>, <b>Quotes</b>. Not everybody keeps films, and a tab for something you have never used is a permanent invitation to an empty screen — until now the strip, the drawer and the phone bar were the same eight destinations for everybody.<br><br><b>Hiding is cosmetic, and the URL is what makes that checkable.</b> What goes is the DOORS: the four nav lists, the count tile on Home, the <code>＋</code>’s offer of that kind, the scope chips on Search, and the row in the shortcut sheet. Nothing else moves — the route still resolves, a bookmark still opens, the review deck still draws on the section, and every row stays exactly where it is. Turn it back on and everything is where you left it, which is a promise rather than a hope precisely because <code>parsePath</code> and <code>statePath</code> are not feature-aware and a test says so.<br><br><b>A content link is not a door</b>, and that is the line this feature is drawn on. A favourite on Home still opens the book it came from with the Library hidden; what it loses is the tile whose only job was “go to the Library”. Muting the thread from a thing to its source would strand four thousand highlights to spare somebody a tab.<br><br><b>One section has to stay.</b> An app with none has no list to stand in and no <code>＋</code> that offers anything — a broken screen rather than a preference, and the one state a reader could not click their way out of. The last standing switch is disabled with the reason in words beside it rather than in a <code>title</code> a phone cannot show, the server refuses the same set with a 400, and the read path corrects it — because a restored archive is where such a set would otherwise arrive from.<br><br><b>The switches read Show / Hide and the wire says what was turned OFF</b> (<code>hideLibrary</code>…). Every preference default in this app is the zero value: a <code>showLibrary</code> defaulting to true would have to be added to the four whole-struct literals the Go suite compares with <code>!=</code>, and an older client sending a partial set would read as asking for the Library to be hidden.<br><br><b>Review scope is deliberately not gated by this.</b> Those chips name what the DECK draws from rather than where you can go, so hiding the Catalogue does not stop you being asked about a film line you saved — silently narrowing the schedule would be the opposite of cosmetic.</div>
+      </div>
+
+      <div class="g-item wide">
+        <div class="g-demo" style="display:block">
           <div style="display:flex;flex-direction:column;gap:8px;max-width:420px">
             <div style="display:flex;align-items:center;gap:10px">
               <span class="color-dot dot-yellow active"></span>

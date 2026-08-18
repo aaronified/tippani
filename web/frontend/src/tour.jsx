@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { json } from './api.js'
+import { visibleSections } from './routes.js'
 import { FieldIconButton, IconBack, InfoDot, MonoLabel, StickerButton, toast, useIsMobileScreen } from './ui.jsx'
 
 // The guided feature tour (Settings → Onboarding). It auto-opens once per user
@@ -308,9 +309,23 @@ const TOUR_STEPS = [
 // index (onStartTour(step) → FeatureTour startStep), so a picker built on the
 // filtered list would open the wrong screen for every feature after the first —
 // silently, because every index is still a valid step.
-export const tourSteps = (isAdmin) => TOUR_STEPS.filter((s) => !s.admin || isAdmin)
-export const tourFeatures = (isAdmin) =>
-  tourSteps(isAdmin).map((s, at) => ({ ...s, at })).filter((s) => s.name)
+// `sections` FILTERS ON THE SAME RULE AS THE NAV, and it has to go through the
+// same function the index is taken from. A tour step whose `tab` names a section
+// the reader has switched off (Settings → Features) is two failures at once: the
+// Settings picker offering it is a door into a hidden section, and the step itself
+// spotlights a nav tab that is not rendered — findVisible returns nothing and the
+// reader gets a caption pointing at empty space.
+//
+// Dropping steps shifts every index after them, which is exactly the trap the
+// paragraph above describes for `admin`. It is safe here for one reason only:
+// `at` is computed by tourFeatures over the SAME filtered list, so both callers
+// pass both arguments and neither can see a different list from the other. Settings
+// and FeatureTour derive `sections` from the same user.preferences bag rather than
+// being handed it, so there is no prop to get out of step.
+export const tourSteps = (isAdmin, sections) =>
+  TOUR_STEPS.filter((s) => (!s.admin || isAdmin) && (!s.tab || sections?.[s.tab] !== false))
+export const tourFeatures = (isAdmin, sections) =>
+  tourSteps(isAdmin, sections).map((s, at) => ({ ...s, at })).filter((s) => s.name)
 
 // findVisible — the first match that actually renders (desktop and mobile
 // top bars both mount the same controls; CSS hides one set).
@@ -352,7 +367,8 @@ function DemoQuote({ kind }) {
 // dims everything else while staying pointer-events: none, so the highlighted
 // UI stays fully usable (the keys step invites pasting keys mid-tour).
 export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, onClose }) {
-  const steps = useMemo(() => tourSteps(user.is_admin), [user.is_admin])
+  const sections = useMemo(() => visibleSections(user.preferences), [user.preferences])
+  const steps = useMemo(() => tourSteps(user.is_admin, sections), [user.is_admin, sections])
   const [i, setI] = useState(() => Math.min(Math.max(0, startStep), steps.length - 1))
   const step = steps[i]
   const mobile = useIsMobileScreen()

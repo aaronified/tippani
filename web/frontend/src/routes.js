@@ -80,6 +80,84 @@ export const BOTTOM_TABS = [
   ['quotes', 'Quotes', 'Open your standalone quotes'],
 ]
 
+// ---- the sections a reader can turn off ----
+//
+// Settings → Features hides a whole section of the app. HIDING IS COSMETIC, and
+// the URL is what makes that claim checkable: it takes away the DOORS — the
+// desktop strip, the drawer, the phone bar, Home's count tiles, the ＋'s offer of
+// that kind, the search scope chips and the shortcut legend — and touches nothing
+// else. parsePath and statePath below are deliberately NOT feature-aware, so
+// /library still resolves, a bookmark still opens, a quote still links to the book
+// it came from, and the review deck still draws from the section. Nothing is
+// deleted and nothing is disabled; turning it back on finds everything where it
+// was.
+//
+// A CONTENT LINK IS NOT A DOOR, and that is the line this feature is drawn on. A
+// door is a control whose whole purpose is "go to this section". A quote card's
+// link to the book it came from is the thread from a thing to its source, and
+// muting it would strand four thousand highlights to spare somebody a tab.
+//
+// `pref` is the stored key, and every one of them is spelled hide* so that the
+// default is the zero value on both sides of the wire — see the prefs struct.
+export const SECTIONS = [
+  { tab: 'library', label: 'Library', pref: 'hideLibrary', what: 'Books, and the highlights you keep in them.' },
+  { tab: 'movies', label: 'Catalogue', pref: 'hideCatalogue', what: 'Films, shows and games, and the lines from them.' },
+  { tab: 'quotes', label: 'Quotes', pref: 'hideQuotes', what: 'Speeches, letters, proverbs — anything with no work behind it.' },
+]
+
+// visibleSections turns the preference bag into { tab: boolean }, which is the
+// only shape the rest of the app asks about.
+//
+// ABSENT MEANS VISIBLE, at every layer: a reader who has never opened Settings, a
+// demo fixture carrying three keys, and a build that predates this feature all
+// resolve to everything on. That is why the flags are stored as hide*.
+//
+// THE LAST ONE CANNOT GO. The server refuses a set that hides all three and
+// corrects such a set on read, but this is asserted here as well rather than
+// trusted, because an app with no content sections has no ＋ that offers anything
+// and no list to stand in — a broken screen rather than a preference, and the one
+// state a reader could not click their way out of.
+export function visibleSections(prefs) {
+  const on = {}
+  let any = false
+  for (const s of SECTIONS) {
+    on[s.tab] = !prefs?.[s.pref]
+    if (on[s.tab]) any = true
+  }
+  if (!any) on[SECTIONS[0].tab] = true
+  return on
+}
+
+// visibleTabs filters one nav list by that answer, and it is the ONE filter all
+// four of them share.
+//
+// Four hand-maintained lists naming the same tabs is a shape this file already
+// says "only stays correct if something checks it", and 1.5.0 proved it. A second
+// per-list rule for which rows are hidden would be the same bug with a preference
+// in front of it — so there is one function, every consumer calls it, and
+// routes.test.js asserts the invariant over all four lists at once rather than
+// four cases.
+//
+// A key this answer says nothing about passes through, which is what keeps Home,
+// Search and the four utility tabs out of it.
+export function visibleTabs(rows, sections) {
+  const out = []
+  for (const row of rows) {
+    // The drawer's null is a DIVIDER and it is positional — it separates the
+    // primary screens from the utility group. Emitted only after something it can
+    // divide and never twice, so filtering rows either side of it cannot leave a
+    // rule floating at the top of the menu.
+    if (row === null) {
+      if (out.length && out[out.length - 1] !== null) out.push(null)
+      continue
+    }
+    if (sections && sections[row[0]] === false) continue
+    out.push(row)
+  }
+  while (out.length && out[out.length - 1] === null) out.pop()
+  return out
+}
+
 // workID reads the id segment of a detail path, or null when it is not one.
 // Guarding on Number.isInteger rather than truthiness is the difference between
 // /books/abc landing on Home and it opening a detail view for work NaN — which

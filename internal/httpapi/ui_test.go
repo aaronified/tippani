@@ -139,6 +139,74 @@ func TestPreferences(t *testing.T) {
 	}
 }
 
+// Settings → Features: which sections the app shows you.
+//
+// Four things need asserting and only the first is obvious. The switches must
+// round-trip; `false` must be SENDABLE (turning a section back on is a false, and
+// the `!= nil && *v != ""` guard the string fields use would make it
+// unreachable); the last one must be refused rather than corrected; and a blob
+// that never came through the validator — a restore, a hand edit, a newer build —
+// must be corrected on the way OUT, because that path has no 400 to return.
+func TestSectionVisibilityPreferences(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	sections := func() (bool, bool, bool) {
+		t.Helper()
+		me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+		return me.Preferences.HideLibrary, me.Preferences.HideCatalogue, me.Preferences.HideQuotes
+	}
+
+	// Nothing is hidden until somebody hides it, and every default here is the
+	// zero value — which is the whole reason the fields are spelled hide* .
+	if l, c2, q := sections(); l || c2 || q {
+		t.Fatalf("a fresh account hides library=%v catalogue=%v quotes=%v, want none", l, c2, q)
+	}
+
+	// One section off, and nothing else disturbed: the accent set above it stays.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "ochre"}, 200)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"hideCatalogue": true}, 200)
+	if l, c2, q := sections(); l || !c2 || q {
+		t.Fatalf("after hiding the Catalogue: library=%v catalogue=%v quotes=%v", l, c2, q)
+	}
+	if me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200)); me.Preferences.Accent != "ochre" {
+		t.Fatalf("hiding a section changed the accent to %q", me.Preferences.Accent)
+	}
+
+	// And back on. This is the assertion that pins the presence idiom: with a
+	// `*v != false` style guard the switch would be a one-way door.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"hideCatalogue": false}, 200)
+	if _, c2, _ := sections(); c2 {
+		t.Fatal("the Catalogue stayed hidden after being turned back on")
+	}
+
+	// Two is allowed: somebody who only keeps standalone quotes.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"hideLibrary": true, "hideCatalogue": true}, 200)
+	if l, c2, q := sections(); !l || !c2 || q {
+		t.Fatalf("two hidden sections: library=%v catalogue=%v quotes=%v", l, c2, q)
+	}
+
+	// Three is refused, and the refusal leaves the stored set alone.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"hideQuotes": true}, http.StatusBadRequest)
+	if l, c2, q := sections(); !l || !c2 || q {
+		t.Fatalf("a rejected PUT changed the set: library=%v catalogue=%v quotes=%v", l, c2, q)
+	}
+
+	// The path with no validator in it: a row written by something that was not
+	// this handler. Corrected on read, to the Library rather than to all three.
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE users SET preferences = '{"hideLibrary":true,"hideCatalogue":true,"hideQuotes":true}' WHERE id = 1`,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if l, c2, q := sections(); l || !c2 || !q {
+		t.Fatalf("a restored blob hiding everything reads as library=%v catalogue=%v quotes=%v, want the Library back", l, c2, q)
+	}
+}
+
 func TestTagCRUD(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

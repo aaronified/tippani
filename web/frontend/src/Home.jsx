@@ -690,7 +690,15 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
 
       <PracticeCard onStates={setStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
 
-      <div className="grid grid-cols-2 gap-2.5">
+      {/* THE TWO COUNT TILES ARE DOORS, and a reader who has switched a section
+          off (Settings → Features) should not be looking at one. Gated on the
+          callback rather than on a flag of their own, so Home needs to know
+          nothing about preferences: the shell passes the prop while the section
+          has a door. One tile left standing takes the full width rather than half
+          of a two-column grid with a hole in it. */}
+      {(onGoLibrary || onGoMovies) && (
+      <div className={onGoLibrary && onGoMovies ? 'grid grid-cols-2 gap-2.5' : ''}>
+        {onGoLibrary && (
         <Tooltip label="Open the Library" className="flex items-stretch">
           <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
@@ -699,6 +707,8 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
             <MonoLabel style={{ fontSize: 11 }}>books · {stats ? stats.annotations : '–'} quotes</MonoLabel>
           </HandCard>
         </Tooltip>
+        )}
+        {onGoMovies && (
         <Tooltip label="Open the Catalogue" className="flex items-stretch">
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} role="button" tabIndex={0}>
             <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 24 }}>
@@ -709,7 +719,9 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
             </MonoLabel>
           </HandCard>
         </Tooltip>
+        )}
       </div>
+      )}
 
       {/* SERENDIPITY (roadmap §1). Two ways back into your own library that are
           not the review loop and not a search: one line at random, and what you
@@ -745,10 +757,18 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
                   setEditingFav(null)
                   setOpenFav((k) => (k === f.key ? null : f.key))
                 }}
-                onOpen={() =>
-                  f.kind === 'book' ? onOpenBook(f.workId)
-                    : f.kind === 'screen' ? onOpenMovie(f.workId)
-                      : onGoQuotes?.()}
+                // Two of the three are CONTENT LINKS — a favourite opening the
+                // book it came from stays live however the reader has configured
+                // their nav. The third is a DOOR: a standalone quote has no
+                // parent, so its glyph opens the Quotes screen, and with that
+                // screen switched off there is nowhere for it to go. Passing null
+                // takes the glyph off the tile instead of leaving a button that
+                // absorbs a tap and does nothing.
+                onOpen={
+                  f.kind === 'book' ? () => onOpenBook(f.workId)
+                    : f.kind === 'screen' ? () => onOpenMovie(f.workId)
+                      : onGoQuotes ? () => onGoQuotes()
+                        : null}
                 speakerMap={speakerMap}
                 onEditStart={() => setEditingFav(f.key)}
                 onEditCancel={() => setEditingFav(null)}
@@ -972,7 +992,7 @@ function FavouriteTile({
                     least surprising thing you can do with it. NavIcon draws it, so
                     the tile and the tab strip cannot end up with two different
                     pictures of the Library. */}
-                {f.openLabel && (
+                {f.openLabel && onOpen && (
                   <IconButton
                     icon={<NavIcon name={FAV_KINDS[f.kind].openIcon} />}
                     ariaLabel={f.openLabel}
@@ -1034,12 +1054,17 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
     if (r.ok) setShuffled(r.data?.quote || null)
   }
 
-  // Where a card goes when you press it: its parent, or the Quotes board for a
+  // Where a card goes when you press it: its parent, or the Quotes screen for a
   // standalone quote, which has no parent to open.
-  const open = (q) => {
-    if (q.kind === 'book' && q.work_id) onOpenBook?.(q.work_id)
-    else if (q.kind === 'screen' && q.work_id) onOpenMovie?.(q.work_id)
-    else onGoQuotes?.()
+  //
+  // Returns null when there is nowhere to go — a standalone quote with the Quotes
+  // section switched off. `onGoQuotes?.()` used to swallow that case, which left a
+  // card wearing cursor:pointer and role="button" that answered a tap with
+  // nothing. An absent control is honest; a dead one is not.
+  const opener = (q) => {
+    if (q.kind === 'book' && q.work_id) return () => onOpenBook?.(q.work_id)
+    if (q.kind === 'screen' && q.work_id) return () => onOpenMovie?.(q.work_id)
+    return onGoQuotes ? () => onGoQuotes() : null
   }
 
   if (!today.length && !shuffled) {
@@ -1058,7 +1083,7 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
           <MonoLabel className="block">On this day · {today.length}</MonoLabel>
           <div className="space-y-2">
             {today.slice(0, 3).map((q) => (
-              <SerendipityCard key={`${q.kind}${q.id}`} q={q} onOpen={() => open(q)} />
+              <SerendipityCard key={`${q.kind}${q.id}`} q={q} onOpen={opener(q)} />
             ))}
           </div>
         </>
@@ -1069,14 +1094,23 @@ function SerendipityRow({ onOpenBook, onOpenMovie, onGoQuotes }) {
         </Tooltip>
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
       </div>
-      {shuffled && <SerendipityCard q={shuffled} onOpen={() => open(shuffled)} />}
+      {shuffled && <SerendipityCard q={shuffled} onOpen={opener(shuffled)} />}
     </section>
   )
 }
 
 function SerendipityCard({ q, onOpen }) {
   return (
-    <HandCard colorBar={q.color || 'yellow'} className="cursor-pointer" style={{ padding: '12px 15px' }} onClick={onOpen} role="button" tabIndex={0}>
+    <HandCard
+      colorBar={q.color || 'yellow'}
+      // No destination, no affordance: without an opener the card keeps its words
+      // and loses the pointer, the role and the tab stop.
+      className={onOpen ? 'cursor-pointer' : ''}
+      style={{ padding: '12px 15px' }}
+      onClick={onOpen || undefined}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+    >
       <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
         {q.kind === 'screen' ? q.quote : `“${q.quote}”`}
       </p>

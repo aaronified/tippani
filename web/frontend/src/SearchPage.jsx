@@ -130,6 +130,24 @@ const SCOPES = [
   ['quotes', 'Quotes', <IconQuote />],
 ]
 
+// Which SECTION each chip searches, so the row answers the same Features switches
+// the nav strip does (Settings → Features). A section holds two chips wherever the
+// work and its quotes are separate kinds: hiding the Library takes Books AND
+// Annotations, because a highlight is a thing inside a book.
+//
+// `all` maps to nothing and never goes: it is the default and the way back, and
+// with a section hidden it is also the honest answer — searching everything still
+// FINDS rows in that section, because hiding removes doors and not data. What it
+// no longer offers is a chip inviting the reader to narrow to a screen they have
+// switched off.
+const SCOPE_SECTION = {
+  books: 'library',
+  annotations: 'library',
+  movies: 'movies',
+  dialogues: 'movies',
+  quotes: 'quotes',
+}
+
 // SearchBox — the free-text field, the facet dropdown, and the chips beneath.
 //
 // THE BOX HOLDS FREE TEXT. Typing a known field name and a colon opens the
@@ -424,11 +442,19 @@ function FacetPanel({ vocabulary, chips, querystring, onAdd, onRemove, onClear, 
 // for a "1990s" query. Work hits are grouped cards headed by the cover /
 // poster; quote hits sit under their parent work. 200 ms debounce with a
 // stale-guard; GET /search?q=&scope=.
-export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }) {
+export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, sections }) {
   // Persisted so leaving Search (into a book/film, another tab) and coming back
   // restores the last query, scope, and view instead of resetting to empty.
   const [q, setQ] = usePersistedState('tippani:search:q', '')
-  const [scope, setScope] = usePersistedState('tippani:search:scope', 'all')
+  const [rawScope, setScope] = usePersistedState('tippani:search:scope', 'all')
+  // A SCOPE PERSISTS AND A SECTION CAN BE SWITCHED OFF UNDER IT. The top bar's
+  // context-aware Search writes this key before this screen mounts, so somebody
+  // who was last searching films and has since hidden the Catalogue would arrive
+  // narrowed to a chip that is no longer in the row — a filter they can see the
+  // effect of and not the cause. Derived rather than rewritten, so turning the
+  // section back on restores the scope they actually chose.
+  const scope = SCOPE_SECTION[rawScope] && sections?.[SCOPE_SECTION[rawScope]] === false ? 'all' : rawScope
+  const scopes = SCOPES.filter(([value]) => !SCOPE_SECTION[value] || sections?.[SCOPE_SECTION[value]] !== false)
   // The active facets, persisted alongside the query and the scope — leaving
   // Search and coming back restores the whole question, not two thirds of it.
   const [chips, setChips] = usePersistedState('tippani:search:chips', [])
@@ -558,7 +584,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators }
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {SCOPES.map(([value, label, icon, keepLabel]) => (
+        {scopes.map(([value, label, icon, keepLabel]) => (
           <FilterChip
             key={value}
             active={scope === value}

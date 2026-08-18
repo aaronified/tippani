@@ -127,7 +127,21 @@ describe('a standalone quote has no work behind it, but it has somewhere to go',
     // their work.
     const adapter = src.slice(src.indexOf('function quoteFav'), src.indexOf('const FAV_KINDS'))
     expect(adapter).toContain('openLabel')
-    expect(src).toContain('{f.openLabel && (')
+    expect(src).toContain('{f.openLabel && onOpen && (')
+  })
+
+  it('draws the glyph only when there is somewhere for it to go', () => {
+    // The second half of the gate, added with Settings → Features. That glyph is
+    // the one FAV_KINDS row whose destination is a SCREEN rather than a record —
+    // so with the Quotes section switched off there is nowhere for it to go, and
+    // the shell passes no callback. `openLabel` alone would still draw it, and it
+    // would answer a tap with nothing: the old code called `onGoQuotes?.()`, which
+    // makes a dead control out of a missing one.
+    //
+    // A book and a film are unaffected, and that is the line this feature is drawn
+    // on: their glyphs open a RECORD, which hiding a section never takes away.
+    expect(src).toContain('onGoQuotes ? () => onGoQuotes()')
+    expect(src).toMatch(/onOpen=\{\s*f\.kind === 'book'/)
   })
 
   it('names a nav glyph for each kind, so the tile draws the tab strip’s own picture', () => {
