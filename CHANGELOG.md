@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Keyboard shortcuts, and every one of them written on the button that does the same thing.**
-  `/` searches, `N` captures a quote, `?` opens the help sheet, `⌘K`/`Ctrl-K` the palette, and
-  `G` then `L`, `C`, `Q` or `S` goes to the Library, Catalogue, Quotes or Stats. In a quiz, `1`
-  and `2` grade and `Space` reveals a flip card.
+  `/` searches, `N` captures a quote, `?` opens the help sheet, and `G` then `L`, `C`, `Q` or `S`
+  goes to the Library, Catalogue, Quotes or Stats. In a quiz, `1` and `2` grade and `Space` reveals
+  a flip card.
 
   There was no shortcut registry at all before this — the biggest single desktop gap in a text
   app with a large library. There is one table now, and the tooltip reads from it: bind a key and
