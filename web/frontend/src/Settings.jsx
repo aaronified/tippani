@@ -1700,14 +1700,27 @@ function ChangelogDialog({ current, onClose }) {
 // their way out of. The server refuses the same set and corrects it on read, so a
 // restored archive cannot arrive in it either.
 //
-// The switches read POSITIVELY — Show / Hide — while the wire says what was turned
-// OFF (`hideLibrary`…), because every preference default in this app is the zero
-// value. See the prefs struct for why that is not just a style.
+// The switches all read POSITIVELY — Show / Hide — while the STORED key is spelled
+// whichever way makes `false` that section's default: `hideLibrary` for the three
+// that are on until you say otherwise, `showAnthologies` for the one that is off
+// until you ask. Every preference default in this app is the zero value, and that
+// is the rule those two spellings are both obeying. See the prefs struct.
 function FeaturesCard({ prefs, onSaved }) {
   const on = visibleSections(prefs)
-  const lastOne = SECTIONS.filter((sec) => on[sec.tab]).length === 1
+  // The last one standing among the CONTENT sections. Anthologies is not one of
+  // them — it holds quotes that live in the other three — so it can neither be the
+  // last one nor be locked as one, which is exactly the rule the server's validator
+  // applies. The two have to agree: this card saves optimistically, so a client that
+  // allowed a set the server refuses would move the switch and revert on reload with
+  // nothing on screen saying why.
+  const lastOne = SECTIONS.filter((sec) => !sec.off && on[sec.tab]).length === 1
   const set = (sec, show) => {
-    const patch = { [sec.pref]: !show }
+    // THE POLARITY COMES OFF THE ROW. `hideX` stores the opposite of the switch and
+    // `showX` stores the switch itself; a hardcoded `!show` was correct for as long
+    // as every section was spelled hide* and would send `showAnthologies: false` for
+    // Show — a 200 that stores the reverse of what was pressed, since the PUT
+    // handler takes the key at its word and the shell updates optimistically.
+    const patch = { [sec.pref]: sec.off ? show : !show }
     onSaved?.(patch)
     json('PUT', '/auth/me/preferences', patch)
   }
@@ -1720,14 +1733,15 @@ function FeaturesCard({ prefs, onSaved }) {
         Features
       </SectionTitle>
       <p className="microcopy">
-        Turn off what you do not keep. This changes what you see, never what you have.
+        Turn off what you do not keep, and on what you have not tried yet. This changes what you see, never what
+        you have.
       </p>
       <div className="space-y-3 mt-3">
         {SECTIONS.map((sec) => {
           // The last one standing is the one that cannot go, and the reason
           // replaces the microcopy on that row rather than hiding in a tooltip a
           // touch screen has no way to show.
-          const locked = lastOne && on[sec.tab]
+          const locked = lastOne && on[sec.tab] && !sec.off
           return (
             <div key={sec.tab}>
               <div className="mb-1.5 flex items-center gap-1.5">

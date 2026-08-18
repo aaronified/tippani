@@ -1,4 +1,5 @@
 import {
+  IconAnthology,
   IconCopy,
   IconDelete,
   IconDetails,
@@ -232,6 +233,10 @@ export const BULK_SHELF = 'shelf'
 // Where a standalone quote is filed. Named for the thing rather than for the
 // column (`board_id`), like every other constant here.
 export const BULK_BOARD = 'board'
+// Which anthology a selection is gathered into. Bulk-only by nature and not an
+// omission from the item list: gathering ONE quote is a real thing to want, but the
+// selection is how you say which quotes, and the card menu has no picker in it.
+export const BULK_ANTHOLOGY = 'anthology'
 export const BULK_CONFIRM = 'confirm'
 
 // WORK_KINDS — a book, a film or a show, as against the three kinds of quote.
@@ -356,6 +361,23 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       // and the bar says so by passing the callback on that screen alone.
       available: !!ctx.setBoard,
       run: (values) => ctx.setBoard(items, values),
+    },
+    {
+      id: 'anthology',
+      label: 'Add to anthology',
+      where: OVERFLOW,
+      icon: <IconAnthology />,
+      form: BULK_ANTHOLOGY,
+      // THE ONLY DOOR INTO AN ANTHOLOGY, which is why it is here rather than on the
+      // anthologies screen: the add route takes (kind, item_id) pairs, and only a
+      // screen holding quotes can name them. Quotes only — a book is not a passage,
+      // and an anthology of covers is not a thing.
+      //
+      // Behind the ⋯ because it asks a question (which anthology) and because
+      // gathering is a considered act rather than the reflex colour-and-tag pair the
+      // row is reserved for.
+      available: !isWork && !!ctx.addToAnthology,
+      run: (values) => ctx.addToAnthology(items, values),
     },
     {
       id: 'set-fields',

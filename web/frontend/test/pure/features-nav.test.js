@@ -35,18 +35,42 @@ const keys = (list) => list.filter(Boolean).map(([key]) => key)
 const off = (tab) => ({ ...visibleSections({}), [tab]: false })
 
 describe('visibleSections', () => {
-  it('shows everything to a reader who has set nothing', () => {
+  it('shows every content section to a reader who has set nothing', () => {
     // Three callers depend on this, and one of them is published: a fresh account,
-    // any build older than the feature, and the demo fixture, which carries three
-    // preference keys and nothing else. It is the whole reason the stored flags are
-    // spelled hide* rather than show*.
+    // any build older than the feature, and the demo fixture. It is the whole
+    // reason the three stored flags are spelled hide* rather than show* — and the
+    // reason the fourth is spelled the other way round, since its default is the
+    // other answer. Either way, ABSENT MEANS THE DEFAULT.
     for (const prefs of [undefined, null, {}, { accent: 'ochre' }]) {
       expect(visibleSections(prefs), JSON.stringify(prefs)).toEqual({
         library: true,
         movies: true,
         quotes: true,
+        anthologies: false,
       })
     }
+  })
+
+  // THE SWITCH THAT READS THE OTHER WAY ROUND. Anthologies is off until somebody
+  // asks for it: most libraries will never hold one, and a fourth permanent tab
+  // for a screen nobody has opened is what the Features card exists to prevent.
+  //
+  // A hide* key cannot express that — absent means `!undefined`, which is true —
+  // so this is the assertion that pins the polarity. Without the `off` flag and
+  // the branch it drives, the tab is on for everybody the moment the row exists,
+  // and nothing else in the suite would say so.
+  it('keeps anthologies off until it is asked for, and on when it is', () => {
+    expect(visibleSections({}).anthologies).toBe(false)
+    expect(visibleSections({ showAnthologies: false }).anthologies).toBe(false)
+    expect(visibleSections({ showAnthologies: true })).toEqual({
+      library: true,
+      movies: true,
+      quotes: true,
+      anthologies: true,
+    })
+    // And the wire value is a boolean, not a truthy string: a `hideAnthologies`
+    // key is a key this build knows nothing about and must not answer to.
+    expect(visibleSections({ hideAnthologies: true }).anthologies).toBe(false)
   })
 
   it('hides the one that was turned off, and only that one', () => {
@@ -54,11 +78,21 @@ describe('visibleSections', () => {
       library: true,
       movies: false,
       quotes: true,
+      anthologies: false,
     })
     expect(visibleSections({ hideLibrary: true, hideQuotes: true })).toEqual({
       library: false,
       movies: true,
       quotes: false,
+      anthologies: false,
+    })
+    // Turning anthologies on disturbs nothing else, which is the same claim in the
+    // other direction.
+    expect(visibleSections({ hideCatalogue: true, showAnthologies: true })).toEqual({
+      library: true,
+      movies: false,
+      quotes: true,
+      anthologies: true,
     })
   })
 
@@ -72,6 +106,19 @@ describe('visibleSections', () => {
       library: true,
       movies: false,
       quotes: false,
+      anthologies: false,
+    })
+    // AND ANTHOLOGIES DOES NOT COUNT AS THE LAST ONE. It holds quotes that live in
+    // the other three, so an app showing only anthologies still has no + that
+    // offers anything and no list to stand in. The server's validator is three-way
+    // for the same reason, and the two have to agree exactly: a client that allowed
+    // this would move the switch, save, take a 400 nobody sees, and revert on the
+    // next reload.
+    expect(visibleSections({ hideLibrary: true, hideCatalogue: true, hideQuotes: true, showAnthologies: true })).toEqual({
+      library: true,
+      movies: false,
+      quotes: false,
+      anthologies: true,
     })
   })
 
@@ -90,8 +137,13 @@ describe('visibleSections', () => {
     // The card renders all three per row. A missing `what` is an empty paragraph
     // under a switch, which reads as a layout bug rather than as missing copy.
     for (const sec of SECTIONS) {
-      expect(sec.pref, sec.tab).toMatch(/^hide[A-Z]/)
+      // THE KEY'S SPELLING IS ITS POLARITY, and the two must agree or the stored
+      // flag means the opposite of what the switch writes. `hide*` for a section
+      // that is on by default, `show*` for one that is off — either way `false` is
+      // the default, which is the invariant the prefs struct is protecting.
+      expect(sec.pref, sec.tab).toMatch(sec.off ? /^show[A-Z]/ : /^hide[A-Z]/)
       expect(sec.label.trim(), sec.tab).not.toBe('')
+      expect(sec.label.trim().split(/\s+/).length, sec.tab).toBeLessThanOrEqual(5)
       expect(sec.what.trim().length, sec.tab).toBeGreaterThan(10)
     }
   })
@@ -153,13 +205,20 @@ describe('visibleTabs', () => {
     // or doubled — and three other tests read this list through
     // DRAWER_TABS.filter(Boolean), so a divider bug is invisible to every one of
     // them and shows up only as a rule floating at the top of somebody's menu.
+    //
+    // The FIRST case is now already a filtered drawer: anthologies is off by
+    // default, so the row sitting immediately above the rule is dropped for every
+    // reader who has not asked for it — which is exactly the placement that could
+    // leave a rule floating.
     const cases = [
       visibleSections({}),
+      visibleSections({ showAnthologies: true }),
       off('library'),
       off('movies'),
       off('quotes'),
       visibleSections({ hideLibrary: true, hideQuotes: true }),
       visibleSections({ hideCatalogue: true, hideQuotes: true }),
+      visibleSections({ hideLibrary: true, hideQuotes: true, showAnthologies: true }),
     ]
     for (const sections of cases) {
       const rows = visibleTabs(DRAWER_TABS, sections)

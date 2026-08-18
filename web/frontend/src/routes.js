@@ -18,7 +18,7 @@
 // modal, so it bookmarks and survives a refresh — which is what a route buys and
 // a nav entry does not. The nav contract in routes.test.js runs one way only:
 // every nav tab must have a URL; a URL is free not to be a tab.
-export const ROUTE_TABS = ['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin']
+export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin']
 
 // ---- the nav contract ----
 //
@@ -47,6 +47,7 @@ export const CONTENT_TABS = [
   ['library', 'Library', 'Your books'],
   ['movies', 'Catalogue', 'Films, shows and games'],
   ['quotes', 'Quotes', 'Lines from anywhere else'],
+  ['anthologies', 'Anthologies', 'Quotes you have gathered'],
 ]
 export const UTILITY_TABS = [
   ['tags', 'Tags', 'Tags and stickers'],
@@ -63,6 +64,7 @@ export const DRAWER_TABS = [
   ['library', 'Library'],
   ['movies', 'Catalogue'],
   ['quotes', 'Quotes'],
+  ['anthologies', 'Anthologies'],
   null,
   ['tags', 'Tags'],
   ['metadata', 'Metadata'],
@@ -78,6 +80,7 @@ export const BOTTOM_TABS = [
   ['library', 'Library', 'Open your book library'],
   ['movies', 'Catalogue', 'Open your film catalogue'],
   ['quotes', 'Quotes', 'Open your standalone quotes'],
+  ['anthologies', 'Anthologies', 'Open your anthologies'],
 ]
 
 // ---- the sections a reader can turn off ----
@@ -97,32 +100,57 @@ export const BOTTOM_TABS = [
 // link to the book it came from is the thread from a thing to its source, and
 // muting it would strand four thousand highlights to spare somebody a tab.
 //
-// `pref` is the stored key, and every one of them is spelled hide* so that the
-// default is the zero value on both sides of the wire — see the prefs struct.
+// `pref` is the stored key, and the RULE IS THE ZERO VALUE RATHER THAN THE WORD:
+// whatever a section's default is, `false` has to be it, on both sides of the
+// wire — see the prefs struct. Three sections are on until you say otherwise, so
+// they are spelled hide*. Anthologies is off until you ask for it, so it is
+// spelled show* and carries `off: true` to say which way round it reads.
+//
+// ONE FLAG RATHER THAN A SECOND LIST. The polarity is a fact about the row, so it
+// travels with the row and the two places that care — visibleSections below and
+// the Features card's writer — each branch on it once. A separate registry of
+// "the inverted ones" is the four-hand-maintained-lists shape this file already
+// warns about.
 export const SECTIONS = [
   { tab: 'library', label: 'Library', pref: 'hideLibrary', what: 'Books, and the highlights you keep in them.' },
   { tab: 'movies', label: 'Catalogue', pref: 'hideCatalogue', what: 'Films, shows and games, and the lines from them.' },
   { tab: 'quotes', label: 'Quotes', pref: 'hideQuotes', what: 'Speeches, letters, proverbs — anything with no work behind it.' },
+  {
+    tab: 'anthologies',
+    label: 'Anthologies',
+    pref: 'showAnthologies',
+    off: true,
+    what: 'Quotes gathered into a reading order, with your own words between them.',
+  },
 ]
 
 // visibleSections turns the preference bag into { tab: boolean }, which is the
 // only shape the rest of the app asks about.
 //
-// ABSENT MEANS VISIBLE, at every layer: a reader who has never opened Settings, a
-// demo fixture carrying three keys, and a build that predates this feature all
-// resolve to everything on. That is why the flags are stored as hide*.
+// ABSENT MEANS THE DEFAULT, at every layer: a reader who has never opened
+// Settings, the demo fixture, and a build that predates a section all resolve to
+// the same answer — the three on, anthologies off. That is why each flag is
+// spelled so that `false` is what it defaults to.
 //
 // THE LAST ONE CANNOT GO. The server refuses a set that hides all three and
 // corrects such a set on read, but this is asserted here as well rather than
 // trusted, because an app with no content sections has no ＋ that offers anything
 // and no list to stand in — a broken screen rather than a preference, and the one
 // state a reader could not click their way out of.
+//
+// `any` COUNTS THE CONTENT SECTIONS ONLY, and anthologies is not one. An
+// anthology holds quotes that live in the other three — it is a way of reading
+// them, not a place to keep anything — so it cannot be the last one standing.
+// This has to agree with the server's three-way rule exactly: if the client were
+// the more permissive of the two, hiding the third section while anthologies was
+// on would move the switch, save optimistically, take a 400 nobody sees, and
+// revert on the next reload.
 export function visibleSections(prefs) {
   const on = {}
   let any = false
   for (const s of SECTIONS) {
-    on[s.tab] = !prefs?.[s.pref]
-    if (on[s.tab]) any = true
+    on[s.tab] = s.off ? !!prefs?.[s.pref] : !prefs?.[s.pref]
+    if (on[s.tab] && !s.off) any = true
   }
   if (!any) on[SECTIONS[0].tab] = true
   return on
@@ -190,6 +218,12 @@ export function parsePath(pathname) {
   // so it has no id, and giving it the word keeps it bookmarkable like the rest.
   if (a === 'quotes' && b === 'all') return { tab: 'quotes', detail: { type: 'board', id: 'all' } }
   if (a === 'quotes' && workID(b)) return { tab: 'quotes', detail: { type: 'board', id: workID(b) } }
+  // An anthology's own page, the same two-level shape: /anthologies lists them and
+  // /anthologies/{id} is the one you are reading. An unusable id falls through to
+  // the ROUTE_TABS line below and lands on the list, which is the same answer
+  // /books/abc gets — you asked for an anthology, so the anthologies are a better
+  // reply than the front page.
+  if (a === 'anthologies' && workID(b)) return { tab: 'anthologies', detail: { type: 'anthology', id: workID(b) } }
   if (a === 'movies' || a === 'catalogue') return { tab: 'movies', detail: null }
   // /import is no longer a tab (§7 One "＋ Add"); an old link opens the Add
   // surface on its Import section over Home — handled by the Shell.
@@ -210,6 +244,7 @@ export function statePath(tab, detail) {
   if (detail?.type === 'book') return `/books/${detail.id}`
   if (detail?.type === 'movie') return `/catalogue/${detail.id}`
   if (detail?.type === 'board') return `/quotes/${detail.id}`
+  if (detail?.type === 'anthology') return `/anthologies/${detail.id}`
   if (tab === 'home') return '/'
   if (tab === 'library') return '/library'
   if (tab === 'movies') return '/catalogue'

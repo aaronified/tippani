@@ -46,6 +46,7 @@ export const SHORTCUTS = [
   { id: 'go-library', seq: ['g', 'l'], label: 'Go to Library', group: 'Go to' },
   { id: 'go-catalogue', seq: ['g', 'c'], label: 'Go to Catalogue', group: 'Go to' },
   { id: 'go-quotes', seq: ['g', 'q'], label: 'Go to Quotes', group: 'Go to' },
+  { id: 'go-anthologies', seq: ['g', 'a'], label: 'Go to Anthologies', group: 'Go to' },
   { id: 'go-stats', seq: ['g', 's'], label: 'Go to Stats', group: 'Go to' },
   { id: 'go-metadata', seq: ['g', 'm'], label: 'Go to Metadata', group: 'Go to' },
   { id: 'go-profile', seq: ['g', 'p'], label: 'Open your profile', group: 'Go to' },

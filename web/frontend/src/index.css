@@ -5158,6 +5158,54 @@ html[data-theme="dark"] .board-cover {
 }
 .board-form-img.is-empty { display: inline-block; background: var(--raised); }
 
+/* ---- anthologies (anthologies.jsx) ----------------------------------------
+   The LIST reuses .board-grid and .board-tile wholesale rather than growing a
+   parallel set of names, because it is the same object: a grid of containers,
+   each with a title, a count and a ⋯. A second vocabulary for the same shape is
+   how two screens start drifting apart at different rates.
+
+   What is genuinely new is the READING view, and only three rules are needed for
+   it. It is a column of prose rather than a board of cards — an anthology is
+   something you read top to bottom, so it takes a measure rather than filling the
+   width, and each entry is a passage with the reader's own words above it. */
+.anthology-read { max-width: 62ch; }
+/* Two lines of the introduction on the tile, and no more: the tiles are a grid,
+   and one anthology with six paragraphs would set the row height for every
+   anthology beside it. */
+.anthology-tile-intro {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* The reader's introduction, and the reader's commentary on an entry: their
+   words, so they take the reading face rather than the label face, and the blank
+   line between paragraphs is preserved because it is the only formatting the
+   field has (see trimProse on the server). */
+.anthology-prose {
+  white-space: pre-wrap;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+/* The passage itself. Indented behind a rule, which is what marks it as somebody
+   else's sentence — the same distinction the export draws with a `>`. The colour
+   is the quote's own category, so a gathered set still reads as coloured notes
+   rather than as flattened text. */
+.anthology-quote {
+  margin: 8px 0 0;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--entry-color, var(--line));
+  font-family: var(--font-display);
+  font-style: var(--font-display-style);
+  font-variant-caps: var(--font-display-caps);
+  text-transform: var(--font-display-case);
+  font-variant-numeric: var(--font-display-figures);
+  font-size: 17px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
   /* ---- keyboard legends ----
      A key cap, and the rows a legend is made of. Small, quiet and monospaced:
      it is a label on a control, not a control — anything with a border and a
@@ -5294,8 +5342,52 @@ html[data-theme="dark"] .board-cover {
 }
 
 /* An entry's asset sits under its words, not beside its name: `icon` is the glyph
-   the screen uses and helps you find the row, an asset is part of the answer. */
+   the screen uses and helps you find the row, an asset is part of the answer. Under
+   the words is right for the WIDE assets — a swatch row, the 240px import
+   schematic — because text beside a picture that wide is a ribbon. */
 .help-row-asset { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* A gesture clip is the exception: square, finger-sized, and something you watch
+   while reading the sentence it belongs to. So it is floated into the answer and
+   the prose wraps around it — one paragraph with a picture in it, rather than a
+   caption above a picture. A float and not a flex row or a grid column: only a
+   float reflows the text around the clip, and only a float lets a short entry keep
+   its full measure below it.
+
+   Its SIZE is the Gesture `size` prop (68) and is deliberately not repeated here,
+   so the two can never disagree. */
+.help-row-asset.is-clip {
+  float: left;
+  /* Replaces the base rule's margin-top: on a float that top gap would drop the
+     clip a line below the term and read as a misalignment, not as a wrap. The 14px
+     gutter is the clip's own overflow budget as well as optical space — `.gesture`
+     is overflow: visible and the travel keyframe pushes the fingertip up to 14px
+     outside its box, so a rightward clip cannot land on the wrapped text. */
+  margin: 2px 14px 4px 0;
+  /* A float is shrink-to-fit, i.e. max-content, so `wrap` can never fire; saying so
+     stops a two-part asset silently eating the measure if one is ever floated. */
+  flex-wrap: nowrap;
+}
+
+/* WHAT WRAPS IS THE SENTENCE, AND ONLY THE SENTENCE. Everything after the `what`
+   clears the clip, because a float shortens LINE boxes and leaves BLOCK boxes at
+   full width — so any block with a mark of its own on its left edge draws that mark
+   behind the clip while its text sits to the right of it.
+
+   Both of the two entries that carry a clip today are `what` + `more` with no `how`,
+   so `.help-more` is the live case and the ▸ disclosure is what would otherwise land
+   82px in from the left on a phone; `.help-how`'s dash is the same failure waiting
+   for the first clip entry that grows verb lines. One rule for both, because the
+   reason is one reason. */
+.help-row-asset.is-clip ~ .help-how,
+.help-row-asset.is-clip ~ .help-more { clear: left; }
+
+/* The words of an entry. flow-root, so a floated clip is contained HERE by rule:
+   being a flex item of `.help-row` already makes this a formatting context, but that
+   is an accident of `.help-row`'s display and float bleed into the next entry is too
+   ugly a failure to leave resting on it. min-width: 0 so a long unbroken word
+   shrinks this column instead of stretching the row. */
+.help-row-text { display: flow-root; min-width: 0; }
 
 /* ---- the help guide: rail, sections, and the collapse ----
    The panel a "?" opens. Two columns on a pointer screen — a rail you scan and a
@@ -5395,6 +5487,12 @@ html[data-theme="dark"] .board-cover {
   .help-rail-item { flex: none; padding: 6px 10px; border: 1px solid var(--line); }
   .help-rail-item.is-active { box-shadow: none; border-color: var(--accent-ui); }
   .help-guide-body { max-height: none; overflow: visible; }
+  /* THE CLIP KEEPS ITS SIZE AND ITS FLOAT HERE, on purpose. A phone is where a
+     gesture is performed, so it is the last place to shrink the picture of one, and
+     the measure left beside it holds: 390px screen less the sheet's 14px sides is
+     362, less an entry's 30px icon and 11px gap is 321, less the 68px clip and its
+     14px gutter is 239px — about forty characters at 12.5px, which is a paragraph
+     and not a ribbon. The narrowest phone in use, 320px, still leaves 169px. */
 }
 
 /* The live swatch row an entry can carry: the app's own .color-dot, painted from

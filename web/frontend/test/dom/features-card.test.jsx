@@ -65,7 +65,12 @@ describe('the Features card', () => {
     }
   })
 
-  it('opens showing everything on, for a reader who has set nothing', () => {
+  it('opens on each section’s own default, for a reader who has set nothing', () => {
+    // NOT A BLANKET "Show" any more. Three sections are on until you turn them off
+    // and Anthologies is off until you ask for it, so the expectation is read off
+    // the row's polarity rather than assumed — a card that rendered every switch
+    // the same way would pass a blanket assertion and be wrong about a quarter of
+    // its rows.
     page()
     for (const sec of SECTIONS) {
       const group = screen.getByLabelText(sec.label)
@@ -73,8 +78,15 @@ describe('the Features card', () => {
       // find: `getByRole('tab', {selected: true})` throws when nothing is selected,
       // which is the failure a `?? 'true'` fallback would have swallowed.
       const selected = within(group).getByRole('tab', { selected: true })
-      expect(selected.textContent, sec.label).toBe('Show')
+      expect(selected.textContent, sec.label).toBe(sec.off ? 'Hide' : 'Show')
     }
+  })
+
+  it('opens showing an asked-for section as shown', () => {
+    // The other direction for the inverted row, and the one that catches a card
+    // reading a show* key as though it were a hide* one.
+    page({ showAnthologies: true })
+    expect(within(screen.getByLabelText('Anthologies')).getByRole('tab', { selected: true }).textContent).toBe('Show')
   })
 
   it('opens showing a hidden section as hidden', () => {
@@ -101,6 +113,32 @@ describe('the Features card', () => {
     page({ hideQuotes: true })
     fireEvent.click(within(screen.getByLabelText('Quotes')).getByText('Show'))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideQuotes: false })
+  })
+
+  it('writes an inverted section’s key the right way round', () => {
+    // THE FAILURE THIS CASE EXISTS FOR. `{ [sec.pref]: !show }` was correct while
+    // every section was spelled hide*, and for a show* key it sends the OPPOSITE of
+    // what was pressed. The PUT handler takes the key at its word and returns 200,
+    // and the shell updates optimistically — so the switch would move, stick, and
+    // come back the other way round on the next reload, with nothing failing.
+    page()
+    fireEvent.click(within(screen.getByLabelText('Anthologies')).getByText('Show'))
+    expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: true })
+    page({ showAnthologies: true })
+    fireEvent.click(within(screen.getAllByLabelText('Anthologies').at(-1)).getByText('Hide'))
+    expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
+  })
+
+  it('never locks the inverted section, whatever the others are doing', () => {
+    // Anthologies is not a content section — it holds quotes that live in the other
+    // three — so it can never be the last one standing, and the lock must not spill
+    // onto it when one of the three is. It stays switchable while Quotes is locked.
+    page({ hideLibrary: true, hideCatalogue: true, showAnthologies: true })
+    expect(screen.getByLabelText('Quotes').getAttribute('aria-disabled')).toBe('true')
+    const gathered = screen.getByLabelText('Anthologies')
+    expect(gathered.getAttribute('aria-disabled'), 'the anthologies switch was locked too').not.toBe('true')
+    fireEvent.click(within(gathered).getByText('Hide'))
+    expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
 
   it('updates the shell optimistically as well as saving', () => {

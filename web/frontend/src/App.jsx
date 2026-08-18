@@ -10,6 +10,7 @@ import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
 import Movies from './Movies.jsx'
 import QuotesPage from './Quotes.jsx'
+import AnthologiesPage from './anthologies.jsx'
 import TagsPage from './TagsPage.jsx'
 import SearchPage from './SearchPage.jsx'
 import StagingPage from './StagingPage.jsx'
@@ -84,6 +85,7 @@ const DRAWER_SHORTCUTS = {
   library: 'go-library',
   movies: 'go-catalogue',
   quotes: 'go-quotes',
+  anthologies: 'go-anthologies',
   stats: 'go-stats',
   metadata: 'go-metadata',
   settings: 'go-settings',
@@ -1203,6 +1205,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       case 'go-library': go('library'); break
       case 'go-catalogue': go('movies'); break
       case 'go-quotes': go('quotes'); break
+      case 'go-anthologies': go('anthologies'); break
       case 'go-stats': go('stats'); break
       case 'go-metadata': go('metadata'); break
       case 'go-settings': go('settings'); break
@@ -1256,7 +1259,13 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // A work you have open is the capture target the ＋ pre-fills. openAdd takes
   // the target rather than reading `detail` itself, so the drawer's Add — which
   // must default to nothing — can call the same function with no target.
-  const addFor = detail ? { type: detail.type, id: detail.id } : null
+  //
+  // A WORK, AND ONLY A WORK. `detail` also names a board and an anthology now, and
+  // neither of those ids is a work id — CaptureQuote reads any non-movie target as
+  // a BOOK (see initialTarget), so handing it a board or an anthology would pre-fill
+  // whichever book happens to share the number. A positive list rather than an
+  // exclusion, so the next detail type cannot inherit the bug by default.
+  const addFor = detail?.type === 'book' || detail?.type === 'movie' ? { type: detail.type, id: detail.id } : null
   const addLabel = addKind === 'quote' ? 'Capture a quote' : addKind === 'film' ? 'Add a film or show' : 'Add or import'
 
   return (
@@ -1454,6 +1463,20 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpen={(id) => go('quotes', { type: 'board', id })}
               onClose={() => go('quotes', null)}
               creditSeparators={user.preferences?.creditSeparators}
+            />
+          </div>
+        )}
+        {tab === 'anthologies' && (
+          <div data-screen-label="anthologies">
+            {/* NOT GATED ON `sections`, like every other screen here. Hiding a
+                section takes away the DOORS and never the route, so /anthologies
+                still opens for a bookmark taken before the switch was turned off. */}
+            <AnthologiesPage
+              openId={detail?.type === 'anthology' ? detail.id : null}
+              onOpen={(id) => go('anthologies', { type: 'anthology', id })}
+              onClose={() => go('anthologies', null)}
+              onOpenBook={openBook}
+              onOpenMovie={openMovie}
             />
           </div>
         )}

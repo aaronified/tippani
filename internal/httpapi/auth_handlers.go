@@ -444,8 +444,9 @@ type prefs struct {
 	// struct literals ui_test.go compares with `!=`, and — worse — an older
 	// client that sends a partial set would read as asking for the Library to be
 	// hidden. The reader sees three switches that say Show; the wire says what
-	// they turned OFF, which is the shorter list and the one that stays correct
-	// when a fourth section arrives.
+	// they turned OFF, which is the shorter list. The fourth section did arrive,
+	// and it is spelled the other way round for exactly the same reason — see
+	// ShowAnthologies below.
 	//
 	// NOT ALL THREE AT ONCE. Enforced in the validation switch below and again in
 	// loadPrefs, because a blob can also arrive from a restore or a hand edit: an
@@ -456,6 +457,26 @@ type prefs struct {
 	HideLibrary   bool `json:"hideLibrary"`
 	HideCatalogue bool `json:"hideCatalogue"`
 	HideQuotes    bool `json:"hideQuotes"`
+	// The fourth section, and the one spelled the OTHER way round.
+	//
+	// THE RULE ABOVE IS ABOUT THE ZERO VALUE, NOT ABOUT THE WORD. Library,
+	// Catalogue and Quotes are on for everybody until somebody says otherwise, so
+	// `false` has to mean "shown" for those three and `hide*` is what makes the
+	// default the zero value. Anthologies is the reverse decision: it is a place
+	// for readers who compose, most libraries will never hold one, and a fourth
+	// permanent tab for a screen nobody has opened is the exact complaint the
+	// Features card exists to answer. So its default is OFF, and `show*` is what
+	// keeps `false` the default HERE too — same invariant, opposite word. An
+	// account that has never heard of anthologies stores nothing, and the four
+	// whole-struct literals in ui_test.go need no new field.
+	//
+	// IT DOES NOT COUNT TOWARDS "one section has to stay visible", below. An
+	// anthology holds quotes that already live in the three sections — it is a way
+	// of READING them, not a place to put anything — so an app showing only
+	// Anthologies still has no ＋ that offers anything and no list to stand in.
+	// Requiring it would also be absurd in the other direction: a rule satisfied
+	// by a section that is off for every existing account is not a rule.
+	ShowAnthologies bool `json:"showAnthologies"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -678,6 +699,9 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	// from a build that knew a section this one does not. The Library comes back
 	// rather than all three, so the correction is one predictable section instead
 	// of silently undoing everything the reader chose.
+	//
+	// Three-way for the same reason the validator is — ShowAnthologies is not a
+	// content section and cannot be the last one standing. See the prefs struct.
 	if p.HideLibrary && p.HideCatalogue && p.HideQuotes {
 		p.HideLibrary = false
 	}
@@ -728,6 +752,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		HideLibrary         *bool    `json:"hideLibrary"`
 		HideCatalogue       *bool    `json:"hideCatalogue"`
 		HideQuotes          *bool    `json:"hideQuotes"`
+		ShowAnthologies     *bool    `json:"showAnthologies"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -896,8 +921,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.TourStep != nil {
 		cur.TourStep = *in.TourStep
 	}
-	// Presence, not truth: `false` is the whole point of these three — it is what
-	// turning a section back ON looks like — so they cannot use the `!= nil && *v`
+	// Presence, not truth: `false` is the whole point of these four — it is what
+	// turning a section back ON looks like, and on the anthologies switch it is
+	// what turning it back OFF looks like — so they cannot use the `!= nil && *v`
 	// guard the strings use.
 	if in.HideLibrary != nil {
 		cur.HideLibrary = *in.HideLibrary
@@ -907,6 +933,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.HideQuotes != nil {
 		cur.HideQuotes = *in.HideQuotes
+	}
+	if in.ShowAnthologies != nil {
+		cur.ShowAnthologies = *in.ShowAnthologies
 	}
 	switch {
 	case !prefAesthetics[cur.Aesthetic]:
@@ -954,6 +983,13 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		// states for a deck: accepting it and handing back a different set is a
 		// control that flips back under the reader's finger and explains nothing.
 		// The message names the way out.
+		//
+		// THREE-WAY, AND ShowAnthologies IS DELIBERATELY NOT IN IT. Anthologies is
+		// a way of reading quotes that live in the other three, so it cannot stand
+		// in for them — and it is off by default, so a four-way test would be a
+		// rule satisfied by a section no existing account has. The client applies
+		// the same three-way rule (routes.js visibleSections), which is what stops
+		// the Features switch moving under a finger and reverting on reload.
 		writeErr(w, http.StatusBadRequest,
 			"at least one of the Library, the Catalogue or Quotes has to stay visible — turn another one on first")
 		return

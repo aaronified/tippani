@@ -279,6 +279,21 @@ export const HELP = {
       { term: 'Export', icon: <IconExport />, what: 'The quotes in view as Markdown, which imports back cleanly. It asks first and names the count.' },
     ],
   },
+  anthologies: {
+    title: 'Anthologies',
+    entries: [
+      { term: 'What lives here', what: 'Quotes gathered into a reading order, with your own words between them — a piece of writing rather than a shelf.', more: 'Book highlights, film dialogue and standalone quotes go in side by side, because what is being assembled is an argument and not a filing. The same line may sit in as many anthologies as you like, and none of them owns it.' },
+      { term: 'Not a board, not a tag', what: 'A board is where a quote is filed and a tag is what it is about. An anthology is an order you chose, and a quote can be in many.' },
+      { term: 'New anthology', icon: <IconPlus />, what: 'A title and an introduction. Two anthologies may share a title — nothing here refuses a name.', more: 'The introduction is the paragraph that says why these lines and in this order. It keeps the blank lines you type between paragraphs, which is the only formatting it has.' },
+      { term: 'Adding quotes', what: 'Select some on the Library, the Catalogue or Quotes, then choose Add to anthology from the selection bar.', more: 'They land at the end, in the order you had them. A quote already gathered here is skipped rather than doubled, and the toast says how many landed and how many were already in. Nothing on the anthology’s own page adds an entry, because only a screen holding quotes knows which ones you mean.' },
+      { term: 'Your note on an entry', what: 'The paragraph that introduces one passage. It reads above the quote, the way an editor speaks before the piece does.', more: 'Saved on its own, so writing about one entry never rewrites the other twenty-nine. Clearing the box takes it off again. It is a different thing from the note on the quote itself, and both can be there at once.' },
+      { term: 'Move up / Move down', what: 'The order is the anthology, so it is yours to change — one step at a time, from each entry’s ⋯ menu.', more: 'A menu item rather than a drag, so it works from the keyboard and under a thumb. The end of the list has no Move down: a greyed row in a menu is a thing to wonder about.' },
+      { term: 'Remove', icon: <IconDelete />, what: 'Takes the passage out of this anthology, with the note you wrote about it. The quote itself is untouched.' },
+      { term: 'Delete an anthology', icon: <IconDelete />, what: 'The introduction and every entry’s note go. The quotes stay exactly where they are.', more: 'This is the one delete in the app that does not wait in the bin, so it asks first and says so. What is lost is your own writing about the gathering — never the lines themselves, which an anthology never owned.' },
+      { term: 'Export', icon: <IconExport />, what: 'The whole anthology as Markdown: the introduction, then each entry with your note above the quote and its credit under it.', more: 'A real link, so middle-click and “save link as” work on it.' },
+      { term: 'Turning it off', what: 'Settings → Features. It starts off, because most libraries never hold one.', more: 'Switching it off takes away the tab and nothing else — the anthologies stay, the URL still opens, and turning it back on finds every one of them where you left it.' },
+    ],
+  },
   tags: {
     title: 'Tags & stickers',
     entries: [
@@ -414,6 +429,9 @@ const GUIDE_ORDER = [
   'movies',
   'movie-detail',
   'quotes',
+  // Directly under Quotes, because that is where an anthology is composed from:
+  // the door in is the selection bar on the screens that hold the lines.
+  'anthologies',
   'search',
   'capture',
   'staging',

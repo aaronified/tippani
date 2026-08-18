@@ -16,7 +16,10 @@ const USER = {
   is_admin: true,
   avatar_path: '',
   version: 'demo',
-  preferences: { aesthetic: 'paper', theme: 'light', accent: 'terracotta' },
+  // showAnthologies is ON here and off for a real fresh account, deliberately: a
+  // published demo whose job is to show the app has to show the section, and the
+  // default it is overriding is the one the Features card explains.
+  preferences: { aesthetic: 'paper', theme: 'light', accent: 'terracotta', showAnthologies: true },
 }
 
 // ---- inline artwork (data: URIs) ----
@@ -112,6 +115,89 @@ const UTTERANCES = [
   { id: 3, quote: 'The only thing we have to fear is fear itself.', note: '', color: 'pink', favorite: false, speaker: 'Franklin D. Roosevelt', occasion: 'first inaugural address', occasion_date: '1933-03-04', place: 'Washington', medium: 'speech', tags: ['courage'], noted_at: '2026-05-30' },
   { id: 4, quote: 'Least said, soonest mended.', note: 'my grandmother, about most things', color: 'yellow', favorite: false, speaker: '', occasion: '', occasion_date: '', place: '', medium: '', tags: [], noted_at: '2026-06-14' },
 ]
+
+// ---- anthologies (2.0.0) ----
+//
+// TWO OF THEM, because one cannot show what the list is for. The first is a real
+// gathering that runs ACROSS the three kinds — a book highlight, a film line and
+// something somebody's grandmother said — which is the whole point of the feature
+// and the thing a demo of one anthology full of book quotes would not show. The
+// second is the empty one somebody has just made, which is the state the tile's
+// count exists to report.
+//
+// The list is sorted by updated_at descending on the server, so these carry
+// timestamps that put the worked-on one first.
+const ANTHOLOGIES = [
+  {
+    id: 1,
+    title: 'On keeping quiet',
+    // The blank line is the reader's paragraph break, and it survives the round
+    // trip: trimProse takes the edges off the introduction and leaves its interior
+    // alone, so the demo has to carry one or the reading view's prose rule is
+    // untested by the published build.
+    intro: 'Three people who never met, circling the same idea from three directions.\n\nI keep finding it in different rooms.',
+    entries: 3,
+    created_at: '2026-07-02 09:14:00',
+    updated_at: '2026-08-04 18:02:00',
+  },
+  {
+    id: 2,
+    title: 'Beginnings',
+    intro: '',
+    entries: 0,
+    created_at: '2026-08-06 07:40:00',
+    updated_at: '2026-08-06 07:40:00',
+  },
+]
+
+// The entries, in position order and shaped field for field against
+// anthologyEntryRow: the anthology's own four facts, then enough of the quote to
+// render it without a second request. `work_id` is ABSENT on the standalone quote,
+// because the server omits it (omitempty) — a shim that sent 0 would have the card
+// offering a doorway to book zero.
+const ANTHOLOGY_ENTRIES = {
+  1: [
+    {
+      kind: 'book',
+      item_id: 2,
+      position: 1,
+      note: 'The plainest statement of it, and the one I read first.',
+      quote: 'Quiet is not the absence of sound but the presence of attention.',
+      quote_note: '',
+      color: 'blue',
+      favorite: false,
+      source: 'The Wide Margin',
+      credit: 'A. Whitfield',
+      work_id: 1,
+    },
+    {
+      kind: 'screen',
+      item_id: 1,
+      position: 2,
+      note: 'Said in a projection booth, which is the quietest room in any film.',
+      quote: "We don't remember days. We remember light, and the room it fell in.",
+      quote_note: '',
+      color: 'yellow',
+      favorite: true,
+      source: 'Northline',
+      credit: 'Mira · E. Sen',
+      work_id: 1,
+    },
+    {
+      kind: 'utterance',
+      item_id: 4,
+      position: 3,
+      note: 'And the shortest version, which nobody wrote down.',
+      quote: 'Least said, soonest mended.',
+      quote_note: 'my grandmother, about most things',
+      color: 'yellow',
+      favorite: false,
+      source: '',
+      credit: '',
+    },
+  ],
+  2: [],
+}
 
 // ---- movies + dialogues ----
 const MOVIES = [
@@ -829,6 +915,18 @@ export function route(method, path, params, body) {
       if (speaker) list = list.filter((u) => u.speaker === speaker)
       if (params.get('favorite')) list = list.filter((u) => u.favorite)
       return [200, { utterances: list.map(uttRow) }]
+    }
+    // The three envelopes the anthology routes actually use: the list is wrapped
+    // under `anthologies`, one is wrapped under `anthology` WITH its entries beside
+    // it, and `entries` on a detail row is the live length rather than the stored
+    // count. A shim that guessed one envelope for all three would look right here
+    // and break the screen.
+    case path === '/anthologies': return [200, { anthologies: ANTHOLOGIES }]
+    case /^\/anthologies\/\d+$/.test(path): {
+      const a = ANTHOLOGIES.find((x) => x.id === id('/anthologies/'))
+      if (!a) return [404, { error: 'anthology not found' }]
+      const entries = ANTHOLOGY_ENTRIES[a.id] || []
+      return [200, { anthology: { ...a, entries: entries.length }, entries }]
     }
     case path === '/tags': return [200, { tags: tagRows() }]
     case path === '/stickers': return [200, { stickers: STICKERS }]

@@ -70,6 +70,7 @@ const SCREENS = {
   metadata: [() => import('../../src/MetadataPage.jsx'), 'default', { user: USER, onOpenBook: noop, onOpenMovie: noop, onSearch: noop }],
   search: [() => import('../../src/SearchPage.jsx'), 'default', { onOpenBook: noop, onOpenMovie: noop, creditSeparators: ',;&' }],
   quotes: [() => import('../../src/Quotes.jsx'), 'default', { creditSeparators: ',;&' }],
+  anthologies: [() => import('../../src/anthologies.jsx'), 'default', { openId: null, onOpen: noop, onClose: noop, onOpenBook: noop, onOpenMovie: noop }],
   tags: [() => import('../../src/TagsPage.jsx'), 'default', {}],
   stats: [() => import('../../src/StatsPage.jsx'), 'default', { onSearch: noop }],
   staging: [() => import('../../src/StagingPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop }],

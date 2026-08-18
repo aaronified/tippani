@@ -4,6 +4,7 @@ import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, cat
 // replaces those call sites, then the compat block can shrink.
 import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { isGestureClip } from "./gestures.jsx";
 import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
@@ -3270,11 +3271,17 @@ export function HelpSheet({ open, title = "Help", wide = false, onClose, childre
 // what it does. Its own component because two things open it — the "?" button on
 // most screens, and a ⋯ menu row on the detail screens, whose top bar has no
 // room for a sixth 44px control.
-// `asset` is the entry's picture, and it is drawn AFTER the words rather than
-// beside the term where `icon` goes. The two are different jobs: an icon is the
-// glyph the screen uses, so it belongs against the name and helps you recognise the
-// row before reading it; an asset — a gesture clip, a live control, a diagram — is
-// part of the answer, so it belongs where the answer is.
+// `asset` is the entry's picture, and it is never put beside the term where `icon`
+// goes. The two are different jobs: an icon is the glyph the screen uses, so it
+// belongs against the name and helps you recognise the row before reading it; an
+// asset — a gesture clip, a live control, a diagram — is part of the answer, so it
+// belongs where the answer is.
+//
+// WHERE IN THE ANSWER depends on its shape. A wide asset (a swatch row, the import
+// schematic) is drawn under the words, because text beside a 240px picture is a
+// ribbon. A gesture CLIP is square and finger-sized, so it is floated into the
+// answer and the sentence wraps around it — the clip and the words it explains are
+// then one paragraph rather than a caption and a picture.
 export function HelpList({ entries = [] }) {
   return (
     <dl className="help-list">
@@ -3290,7 +3297,8 @@ export function HelpList({ entries = [] }) {
 //   term      what it is called
 //   what      ONE front-loaded sentence. Always visible, and capped by a test.
 //   how       up to three verb-first lines. Always visible.
-//   asset     the picture, if the answer has one
+//   asset     the picture, if the answer has one — under the words, EXCEPT a
+//             gesture clip, which is floated first so the words wrap around it
 //   more      everything else, COLLAPSED
 //
 // The order is the whole design. People scan rather than read — the F-pattern NN/g
@@ -3305,6 +3313,7 @@ export function HelpList({ entries = [] }) {
 // findable by the browser's own in-page search even while closed, and it needs no
 // hook.
 function HelpRow({ e }) {
+  const clip = isGestureClip(e.asset);
   return (
     <div className="help-row">
       {e.icon && (
@@ -3312,7 +3321,15 @@ function HelpRow({ e }) {
           {e.icon}
         </span>
       )}
-      <div className="min-w-0">
+      {/* The words, and — for a clip — the block whose formatting context holds the
+          float, so a tall clip on a short entry can never reach the entry below. */}
+      <div className="help-row-text">
+        {/* FIRST, and only for a clip. A float shortens the line boxes of what
+            follows it and nothing else, so an asset left in its old place after the
+            words would have nothing left to wrap. `.help-row` is a flex row, and a
+            float on a flex item is ignored — which is why the clip floats in here
+            with the text rather than beside the icon as a third column. */}
+        {clip && <div className="help-row-asset is-clip">{e.asset}</div>}
         <dt>{e.term}</dt>
         <dd>{e.what}</dd>
         {e.how?.length > 0 && (
@@ -3322,7 +3339,7 @@ function HelpRow({ e }) {
             ))}
           </ul>
         )}
-        {e.asset && <div className="help-row-asset">{e.asset}</div>}
+        {e.asset && !clip && <div className="help-row-asset">{e.asset}</div>}
         {e.more && (
           <details className="help-more">
             <summary>more</summary>
@@ -5011,6 +5028,13 @@ export function IconQuizSkip({ size = ICON_SIZE }) { return <svg {...iconStroke}
 // sheet: the act is SEALING a set of quotes with a single mark, and a sheet would
 // promise a choice per card.
 export function IconSeal({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><circle cx="12" cy="9.2" r="5.7"/><path d="m8.4 14.2-1.4 6.3 5-2.8 5 2.8-1.4-6.3"/></svg> }
+// IconAnthology — three lines held together by a brace. Not a book and not a
+// page: an anthology owns no words of its own, it GATHERS lines that already live
+// somewhere else, and the brace is the one mark in typography whose whole meaning
+// is "these, taken together". A stack of pages would have read as a document,
+// which is what the export is, and an open book would have been the Library tab
+// at a different angle.
+export function IconAnthology({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M9.8 5h9.4"/><path d="M9.8 12h9.4"/><path d="M9.8 19h9.4"/><path d="M7 5c-1.3 0-1.3 6-2.5 7 1.2 1 1.2 7 2.5 7"/></svg> }
 
 // NavIcon — the glyph for a nav tab, keyed by the tab key the four lists in
 // routes.js use.
@@ -5028,6 +5052,7 @@ export function NavIcon({ name }) {
   switch (name) {
     case 'home': return <IconHome />
     case 'quotes': return <IconQuote />
+    case 'anthologies': return <IconAnthology />
     case 'library': return <IconBooks />
     case 'movies': return <IconReel />
     case 'metadata': return <IconRecords />

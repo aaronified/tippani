@@ -1,6 +1,7 @@
 # Anthologies — roadmap §4
 
-**Status:** designed, not built.
+**Status:** backend built (2.0.0, migration 0043). Frontend built, minus reordering
+by drag and the review theme — see [What shipped](#what-shipped).
 
 Roadmap section [`#anthologies`](../roadmap.html#anthologies), issue #18. A named,
 ordered list of quotes drawn from anywhere in the library, carrying prose of its
@@ -127,6 +128,34 @@ anthology_entries WHERE anthology_id = ? AND kind = ?)` per row kind — the fir
 theme that is a join rather than a predicate. It goes through `deckCandidates`
 like the rest, and **Daily stays unthemeable**, which that file already enforces
 by making `handleDailyQuiz` pass `reviewTheme{}` by name.
+
+---
+
+## What shipped
+
+The screen is `web/frontend/src/anthologies.jsx`, two levels like Quotes:
+`/anthologies` lists them, `/anthologies/{id}` is the one being read. It creates,
+edits, deletes (with a confirm that says the introduction and every entry's note go
+and the quotes do not, because this one skips the bin), exports, removes an entry,
+and writes the per-entry commentary. `Add to anthology` is the one entry in
+`bulkActionsFor` this design asked for, on the selection bar.
+
+**A FOURTH SWITCH IN SETTINGS → FEATURES, OFF BY DEFAULT.** Not in the design above,
+and the one decision here that was not. Most libraries will never hold an anthology,
+and a permanent fifth tab for a screen nobody has opened is precisely the complaint
+the Features card exists to answer. It is the first section whose stored preference
+is spelled `show*` rather than `hide*` — the rule was always "`false` is the
+default", and for this one the default is off. It does **not** count towards "one
+section has to stay visible": an anthology holds quotes that live in the other three.
+
+**Reordering is Move up / Move down**, one step at a time, in each entry's `⋯` menu —
+not drag. The design says "drag, or the keyboard equivalent §6 asks for", and a drag
+shipped without that equivalent would be a control half the app cannot reach. Both
+directions post to the same `POST /anthologies/{id}/order` the drag would have used,
+so the server side of reordering is finished and drag is presentation when somebody
+wants it.
+
+**Still missing:** the review theme in the section below, and drag.
 
 ---
 

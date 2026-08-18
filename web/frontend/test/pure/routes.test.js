@@ -42,12 +42,13 @@ describe('parsePath', () => {
   // nothing would fail. This is the only test protecting that table, so it has
   // to state the expected contents rather than read them.
   it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin'])
+    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin'])
   })
 
   it('routes every plain tab by name', () => {
     expect(parsePath('/search')).toEqual({ tab: 'search', detail: null })
     expect(parsePath('/quotes')).toEqual({ tab: 'quotes', detail: null })
+    expect(parsePath('/anthologies')).toEqual({ tab: 'anthologies', detail: null })
     expect(parsePath('/tags')).toEqual({ tab: 'tags', detail: null })
     expect(parsePath('/metadata')).toEqual({ tab: 'metadata', detail: null })
     expect(parsePath('/stats')).toEqual({ tab: 'stats', detail: null })
@@ -183,11 +184,13 @@ describe('the round trip', () => {
     ['stats', null],
     ['settings', null],
     ['bin', null],
+    ['anthologies', null],
     ['library', { type: 'book', id: 42 }],
     ['movies', { type: 'movie', id: 7 }],
+    ['anthologies', { type: 'anthology', id: 5 }],
   ]
 
-  // One test over all twelve states rather than twelve one-line its: the body
+  // One test over every state rather than one one-line it per state: the body
   // was identical per row and only the state varied. Each row is still named
   // the way its it() was, and comparing the whole collected list at once names
   // EVERY state that failed to survive instead of stopping at the first.

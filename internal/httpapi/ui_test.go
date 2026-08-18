@@ -207,6 +207,78 @@ func TestSectionVisibilityPreferences(t *testing.T) {
 	}
 }
 
+// The fourth section, and the one whose flag reads the other way round.
+//
+// Anthologies is OFF until somebody asks for it, so its stored key is spelled
+// show* rather than hide* — same invariant as the three above (`false` is the
+// default) with the opposite word. Three things follow from that and none of them
+// is covered by the test above: the default has to be false rather than true, the
+// switch has to work in BOTH directions (so `false` must be sendable here too, and
+// for the opposite reason), and it must not count towards "one section has to stay
+// visible" — a rule satisfied by a section every existing account has switched off
+// would not be a rule.
+func TestAnthologiesSectionPreference(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	shown := func() bool {
+		t.Helper()
+		me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+		return me.Preferences.ShowAnthologies
+	}
+
+	// OFF for an account that has never asked. This is the whole reason for the
+	// spelling: a `hideAnthologies` would default to shown.
+	if shown() {
+		t.Fatal("a fresh account already shows Anthologies")
+	}
+
+	// On, and nothing else disturbed.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "ochre"}, 200)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"showAnthologies": true}, 200)
+	if !shown() {
+		t.Fatal("Anthologies stayed off after being turned on")
+	}
+	if me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200)); me.Preferences.Accent != "ochre" {
+		t.Fatalf("turning Anthologies on changed the accent to %q", me.Preferences.Accent)
+	}
+
+	// And off again by sending `false` rather than by dropping the key, which is
+	// the presence-not-truth idiom the whole struct depends on.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"showAnthologies": false}, 200)
+	if shown() {
+		t.Fatal("Anthologies stayed on after being turned back off")
+	}
+
+	// IT IS NOT A CONTENT SECTION. With it on, hiding all three of the others is
+	// still refused — an anthology holds quotes that live in those three, so an app
+	// showing only Anthologies still has no ＋ that offers anything and no list to
+	// stand in. The client applies the same three-way rule, so this 400 is one the
+	// UI can never provoke; it is asserted because a restore or a hand-rolled
+	// request can.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"showAnthologies": true, "hideLibrary": true, "hideCatalogue": true}, 200)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"hideQuotes": true}, http.StatusBadRequest)
+	if !shown() {
+		t.Fatal("a rejected PUT turned Anthologies off")
+	}
+
+	// And the same rule on the way out, for the blob no validator saw. The Library
+	// comes back even though Anthologies is on, because Anthologies was never one
+	// of the three it could come back instead of.
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE users SET preferences = '{"hideLibrary":true,"hideCatalogue":true,"hideQuotes":true,"showAnthologies":true}' WHERE id = 1`,
+	); err != nil {
+		t.Fatal(err)
+	}
+	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
+	if me.Preferences.HideLibrary || !me.Preferences.ShowAnthologies {
+		t.Fatalf("a hand-edited blob reads as hideLibrary=%v showAnthologies=%v, want the Library back and Anthologies kept",
+			me.Preferences.HideLibrary, me.Preferences.ShowAnthologies)
+	}
+}
+
 func TestTagCRUD(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()

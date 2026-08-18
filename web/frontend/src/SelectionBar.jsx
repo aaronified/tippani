@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
+import { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologies.jsx'
+import { errText, json } from './api.js'
 import { MoveToBoardDialog } from './boards.jsx'
 import { KIND_ROUTES, deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
@@ -80,6 +82,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   const [sealing, setSealing] = useState(false)
   const [tagging, setTagging] = useState(false)
   const [moving, setMoving] = useState(false)
+  const [gathering, setGathering] = useState(false)
   const { kind, ids, count } = selection
   // The mode, not the count — see useSelection. Deselecting the last card used to
   // tear the bar off the screen, so re-picking meant finding the long press again.
@@ -93,7 +96,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // is a mode. Skipped while any of this bar's own dialogs is up: there Escape
   // belongs to the dialog, and dismissing the selection underneath it would answer
   // a question nobody asked.
-  const inDialog = asking || sealing || tagging || moving
+  const inDialog = asking || sealing || tagging || moving || gathering
   useEffect(() => {
     if (!open || inDialog) return
     const k = (e) => {
@@ -145,6 +148,11 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     // its film, and neither has a board. The registry reads the callback's
     // presence, so naming the kind here is what keeps the action off those two.
     setBoard: kind === 'quote' ? (_, boardID) => ops.post({ board_id: boardID }, `moved ${count}`) : undefined,
+    // NOT THROUGH ops.post, which posts to `/{kind}/bulk`: gathering writes to the
+    // ANTHOLOGY's own route and changes nothing about the quotes, so there is no
+    // undo to register and no row to refresh. Offered for the three kinds of quote,
+    // which is what ANTHOLOGY_KIND answers.
+    addToAnthology: ANTHOLOGY_KIND[kind] ? (_, anthologyID) => gather(anthologyID) : undefined,
     // Works.
     fillGaps: isWork ? ops.fillGaps : undefined,
     setShelf: isWork ? (_, status) => ops.setShelf(status, `moved ${count}`) : undefined,
@@ -175,6 +183,24 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     byID.board.run(boardID)
   }
 
+  const applyAnthology = (anthologyID) => {
+    setGathering(false)
+    byID.anthology.run(anthologyID)
+  }
+
+  // A DUPLICATE IS A SKIP, NOT AN ERROR — the server ignores a quote already in the
+  // anthology — so the toast reports what the response says rather than assuming the
+  // whole selection landed. Saying "5 added" over a selection where two were already
+  // there is the kind of small lie that makes somebody stop trusting the count.
+  async function gather(anthologyID) {
+    const items = ids.map((itemID) => ({ kind: ANTHOLOGY_KIND[kind], item_id: itemID }))
+    const r = await json('POST', `/anthologies/${anthologyID}/entries`, { items })
+    if (!r.ok) return toast(errText(r, 'could not add those'))
+    const added = r.data?.added ?? 0
+    const skipped = r.data?.skipped ?? 0
+    toast(`${added} gathered${skipped ? `, ${skipped} already there` : ''}`)
+  }
+
   // The typed phrase is this component's; the request and its Undo are the
   // hook's, so a work's card menu deletes through exactly the same call and
   // lands in exactly the same one-entry bin (0032).
@@ -191,6 +217,7 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     'add-tags': () => setTagging(true),
     sticker: () => setSealing(true),
     board: () => setMoving(true),
+    anthology: () => setGathering(true),
     delete: () => setAsking(true),
   }
   const overflow = atOverflow(acts).map((a) => ({
@@ -331,6 +358,9 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
       {sealing && <SealDialog count={count} busy={busy} onApply={applySeal} onClose={() => setSealing(false)} />}
       {moving && (
         <MoveToBoardDialog count={count} busy={busy} onApply={applyBoard} onClose={() => setMoving(false)} />
+      )}
+      {gathering && (
+        <AddToAnthologyDialog count={count} busy={busy} onApply={applyAnthology} onClose={() => setGathering(false)} />
       )}
 
       <ConfirmDialog

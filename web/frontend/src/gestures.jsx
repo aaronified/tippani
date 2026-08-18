@@ -98,7 +98,13 @@ const dirOf = (kind) => {
 // `kind` is a key from GESTURES. Unknown keys render nothing rather than a box with
 // a question mark in it: a missing asset should be invisible, not an error message
 // aimed at the reader.
-export function Gesture({ kind, size = 44, className = '' }) {
+//
+// `size` is the CSS box, and the DRAWING is smaller than it: the surface rect is
+// inset 8 of 72 viewBox units a side, so the frame a reader actually sees is 56/72
+// of the box. The default is the help-entry size, because that is where a clip is
+// something you watch — 68 leaves a ~53px frame, which is a finger-sized thing
+// rather than a mark. GestureChip overrides it down to label height.
+export function Gesture({ kind, size = 68, className = '' }) {
   if (!GESTURES.includes(kind)) return null
   const label = GESTURE_LABEL[kind]
   const two = kind.startsWith('two-finger')
@@ -165,6 +171,18 @@ export function Gesture({ kind, size = 44, className = '' }) {
       )}
     </svg>
   )
+}
+
+// isGestureClip — is this help asset a clip? The one question a help entry's layout
+// has to ask about its asset, and it lives here because the answer is "is it this
+// component". A clip is square and small, so the prose can wrap around it; the other
+// assets help carries are wide (a swatch row, a 240px import schematic) and would
+// leave an unreadable ribbon of text beside them.
+//
+// Derived rather than declared: help.jsx says what an entry's picture IS, and how
+// wide a picture may be is a layout fact, not a help fact.
+export function isGestureClip(node) {
+  return !!node && node.type === Gesture
 }
 
 // GestureChip — the clip with its name beside it, which is how it appears in help.
