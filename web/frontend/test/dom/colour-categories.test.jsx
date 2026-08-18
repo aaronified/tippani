@@ -222,8 +222,8 @@ describe('categoryState — what Settings renders from', () => {
     const { applyColors, categoryState } = await load()
     applyColors({ catName2: 'Fact' })
     const rows = categoryState()
-    expect(rows[0].name).toBe('') // never pre-filled with "Uncategorised"
-    expect(rows[0].label).toBe('Uncategorised')
+    expect(rows[0].name).toBe('') // never pre-filled with the label
+    expect(rows[0].label).toBe('Default')
     expect(rows[1].name).toBe('Fact')
   })
 

@@ -222,7 +222,19 @@ export const CATEGORY_DEFAULT_HEX = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B',
 // Slot 1 has no name for the reason it has no name field — it is the absence of
 // a choice, not one of six.
 export const CATEGORY_DEFAULT_NAME = ['', 'Fact', 'Disagreed', 'Inspirational', 'Funny', 'Meta']
-export const UNSET_LABEL = 'Uncategorised'
+
+// What slot 1 is called. "DEFAULT" RATHER THAN "UNCATEGORISED", which is what it
+// said for eight releases and which was a small, constant reproach: a word built
+// from a negative prefix names what the quote is MISSING, so a library where most
+// quotes are slot 1 — which is every library, since it is the column default and
+// what an import with no colour writes — reads as thousands of rows waiting to be
+// filed. Nothing is waiting. Reaching for no highlighter is a legitimate answer and
+// the commonest one, and the label now says which answer it is instead of implying
+// a chore. The reader's words: *"the name uncategorised makes you feel incomplete
+// unless you assign it to a category."*
+//
+// Presentation only, like everything else here: the stored token is still 'yellow'.
+export const UNSET_LABEL = 'Default'
 
 // CATEGORY_PALETTE — the swatches the picker offers.
 //
@@ -267,7 +279,7 @@ export const CATEGORY_PALETTE = [
 // is a chart truncating the very categories it is breaking down. Fifteen is what
 // that column can hold outright, so the cap and the layout now agree and neither
 // has to apologise for the other. Every built-in name fits with room to spare
-// ("Inspirational" is 13, "Uncategorised" 13).
+// ("Inspirational", the longest, is 13).
 //
 // It lives here rather than in Settings.jsx because Settings is not its only
 // reader any more: StatsPage sizes its label column from it, and a cap the
@@ -324,9 +336,9 @@ export function applyColors(prefs = {}) {
 }
 
 // categoryName returns what to CALL a slot: the reader's name if they gave one,
-// else the colour word the token already is. Slot 1 says it is the absence of a
-// choice rather than a colour, because that is the honest answer and because
-// "Yellow" invites you to read it as one category among four.
+// else the colour word the token already is. Slot 1 says it is the DEFAULT rather
+// than a colour, because that is the honest answer and because "Yellow" invites you
+// to read it as one category among six.
 export function categoryName(token) {
   const i = CATEGORY_SLOTS.indexOf(token)
   if (i < 0) return token

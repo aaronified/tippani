@@ -389,7 +389,7 @@ function ColourCategoriesCard({ prefs, onSaved }) {
               {row.fixed ? (
                 <div className="min-w-0 flex-1">
                   <span style={{ fontWeight: 600 }}>{UNSET_LABEL}</span>
-                  <InfoDot title="Why this one has no name" text="The colour a quote gets when nobody picks one, and where an import with no colour lands. A name here would label every unmarked quote you have imported. Its colour is still yours to change." />
+                  <InfoDot title="Why this one has no name" text="Where a quote lands when nobody picks a colour, and where an import with no colour lands. Naming it would file every quote you never sorted under a category you never chose. Its colour is still yours to change." />
                 </div>
               ) : (
                 <input

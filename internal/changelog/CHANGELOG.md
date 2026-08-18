@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The first colour category is called "Default" rather than "Uncategorised".** It is the colour
+  a quote gets when nobody picks one, and where every import with no colour lands — so in most
+  libraries it holds more quotes than the other five together. Naming it after what it lacks made
+  all of them read as filing you had not got round to. Nothing is waiting: reaching for no
+  highlighter is an answer, and the commonest one. Only the label changed — the stored colour, the
+  exports and the imports are untouched.
+
 ### Fixed
 
 - **Skipping a book in the quiz now holds when you import into it again.** Mark a reference
