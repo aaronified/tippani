@@ -5296,3 +5296,98 @@ html[data-theme="dark"] .board-cover {
 /* An entry's asset sits under its words, not beside its name: `icon` is the glyph
    the screen uses and helps you find the row, an asset is part of the answer. */
 .help-row-asset { margin-top: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ---- the help guide: rail, sections, and the collapse ----
+   The panel a "?" opens. Two columns on a pointer screen — a rail you scan and a
+   body you read — and one column on a phone, where the rail becomes a scrolling
+   row of pills above the prose. Same swap the shell makes between its tab strip
+   and its bottom bar, so the panel is never the only thing on screen using a
+   layout idea of its own. */
+.help-guide { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 20px; }
+
+.help-rail {
+  display: flex; flex-direction: column; gap: 1px;
+  position: sticky; top: 0; align-self: start;
+  max-height: 62vh; overflow-y: auto; overscroll-behavior: contain;
+  border-right: 1px solid var(--line); padding-right: 12px;
+}
+.help-rail-item {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
+  color: var(--faint); text-decoration: none;
+  padding: 5px 8px; border-radius: 7px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.help-rail-item:hover { color: var(--ink); background: var(--raised); }
+/* The section you came from, marked so the rail answers "where am I" before the
+   body does. An accent BAR rather than a filled pill: the rail is a map, and a
+   filled item in a map reads as a pressed button. */
+.help-rail-item.is-active {
+  color: var(--ink); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent-ui);
+}
+
+.help-guide-body {
+  max-height: 62vh; overflow-y: auto; overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+.help-section + .help-section { margin-top: 22px; }
+/* scroll-margin, so an anchored section does not land with its heading under the
+   panel's own top edge — the classic sticky-header anchor bug. */
+.help-section { scroll-margin-top: 4px; }
+.help-section-title {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--faint);
+  padding-bottom: 6px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--card); z-index: 1;
+}
+
+/* The verb-first lines under an entry's sentence. Tight, and marked with a rule
+   rather than a bullet glyph: a disc at this size reads as noise beside mono
+   labels, and the eye only needs to know the lines are a set. */
+.help-how { margin: 6px 0 0; padding: 0 0 0 11px; list-style: none; }
+.help-how > li {
+  position: relative; padding: 2px 0; line-height: 1.45;
+  font-size: 13px; color: var(--ink);
+}
+.help-how > li::before {
+  content: ""; position: absolute; left: -11px; top: 0.72em;
+  width: 5px; height: 1px; background: var(--faint);
+}
+
+/* "more" — the reasoning, folded away. A <details>, so it is keyboard-operable and
+   the browser's own find-in-page reaches inside it while closed. */
+.help-more { margin-top: 7px; }
+.help-more > summary {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--faint);
+  cursor: pointer; width: fit-content; list-style: none;
+}
+.help-more > summary::-webkit-details-marker { display: none; }
+.help-more > summary::before { content: "▸ "; }
+.help-more[open] > summary::before { content: "▾ "; }
+.help-more > summary:hover { color: var(--ink); }
+.help-more-body {
+  margin-top: 5px; padding-left: 11px;
+  border-left: 1px solid var(--line);
+  font-size: 12.5px; line-height: 1.5; color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .help-guide { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  /* The rail becomes a row. Horizontally scrolling rather than wrapping to four
+     lines and pushing the answer off the screen. */
+  .help-rail {
+    flex-direction: row; position: static; max-height: none;
+    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+    border-right: 0; border-bottom: 1px solid var(--line);
+    padding: 0 0 8px; gap: 4px;
+  }
+  .help-rail-item { flex: none; padding: 6px 10px; border: 1px solid var(--line); }
+  .help-rail-item.is-active { box-shadow: none; border-color: var(--accent-ui); }
+  .help-guide-body { max-height: none; overflow: visible; }
+}
+
+/* The live swatch row an entry can carry: the app's own .color-dot, painted from
+   the reader's own --hl-N, so it is their palette rather than a picture of one. */
+.help-swatches { display: inline-flex; align-items: center; gap: 5px; }

@@ -570,8 +570,9 @@
     between, and the bottom bar is already one tap away.
   </p>
   <p>
-    Discoverability rides the existing spotlight: a short gesture chapter in the tour,
-    and every gesture listed in the help panel (<a href="#help-density">§5</a>).
+    Discoverability rides the existing spotlight: a short gesture chapter in the tour.
+    The help panel already draws the two gestures that exist — the long press and the
+    drawer's leftward swipe — so a gesture added here arrives with a clip waiting for it.
   </p>
   </div>
 </details>
@@ -627,17 +628,23 @@
   <div class="sec-body">
   <p>
     The help copy lives in a registry, <code>web/frontend/src/help.jsx</code>, keyed by
-    screen — and the help panel is the only thing that reads it. The info dots, the UI
-    glossary and the tour each still carry their own copy, which means four descriptions
-    of the same control with nothing holding them together. Making it a
-    <em>single</em> source is the whole of what is left, and it is the kind of work that
-    only ever gets more expensive.
+    screen, and four <em>panels</em> read it. The info dots, the UI glossary and the tour
+    each still carry their own copy, which means four descriptions of the same control
+    with nothing holding them together. Making it a <em>single</em> source is what is
+    left, and it is the kind of work that only ever gets more expensive.
+  </p>
+  <p>
+    <strong>The panel's own shape shipped in 2.0.1</strong> and is not what remains here:
+    an entry is now one front-loaded sentence with the rest folded behind a
+    <em>more</em>, capped by a test, with a rail of screen sections, live swatches and
+    drawn gestures. That work made this section <em>cheaper</em> rather than smaller —
+    an info dot needs one short sentence, and there is now one short sentence to read.
   </p>
   <ul>
     <li><strong>The info dots should read from it.</strong> The panel does; the dots still carry their copy inline, which is precisely the drift this section exists to end.</li>
     <li><strong><a href="ui-glossary.html">The glossary</a> should be generated from it</strong> — rendered the way this page's own regions are, by a script with a <code>--check</code> mode in CI. Hand-maintained, it is still the document most likely to go quietly stale.</li>
     <li><strong>The tour should read it too.</strong> Step copy and panel copy overlap today and neither knows about the other; the same change has already had to be made twice by hand, which is the argument.</li>
-    <li><strong>Deep links</strong> — <code>/library?help=filters</code>, which the URL routing already supports.</li>
+    <li><strong>Deep links</strong> — <code>/library?help=filters</code>. Not "add a key": the shell parses a <em>pathname</em> and pushes a <em>path</em>, with no <code>URLSearchParams</code> anywhere, so whoever builds this builds the app's first query-string state.</li>
     <li><strong>The completeness test</strong>, the same shape as the one keeping <code>docs/troubleshoot.md</code> in lockstep with <code>internal/olog/codes.go</code>: every screen has an entry, every entry has copy, every dot resolves to a key. That is the difference between "explains every option" as an intention and as a guarantee.</li>
   </ul>
   </div>

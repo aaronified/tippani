@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The `?` panel is something you can scan.** Every entry now opens with one sentence that
+  answers the question, and the rest of it — the reasoning, the caveats, the exceptions — folds
+  behind a **more** you press only if you want it. The visible copy went from 49,738 characters to
+  19,732, longest entry from 1,911 to 200. **Nothing was deleted**: 28,831 characters moved behind
+  the fold, and a test now caps what is on screen so it cannot creep back.
+
+  **A rail down the side lists every screen**, so the panel is no longer a dead end — it opens on
+  the screen you pressed `?` from and the rest is one click away, instead of behind a different
+  screen's `?` button. On a phone the rail is a row of pills above the words.
+
+  **Pictures where a picture is shorter than a sentence.** The colour-category entries show your
+  own six swatches, live — your names, your colours, not a screenshot of somebody else's. Import
+  shows the queue as a diagram, because the one thing worth knowing is that nothing reaches your
+  library until you approve it. And the two gestures the app has — long press, and swiping the
+  drawer closed — are drawn rather than described.
+
+  The gesture clips are drawn abstractly on purpose: a fingertip, a trail, a ring for the wait. So
+  they cannot go out of date when the interface changes, and they stop moving if you have asked
+  your system for less motion — holding the pose rather than vanishing.
+
 ### Added
 
 - **A chapter has a number and a name, and they are separate fields now.** Both optional and

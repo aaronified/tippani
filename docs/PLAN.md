@@ -4143,6 +4143,46 @@ Two mechanisms for explaining a control both widened the page and neither worked
 
 <sub>0.6.9 → 1.7.2 — `CHANGELOG.md`</sub>
 
+### The help panel's copy had no budget, so it grew one reasonable sentence at a time
+
+**Decided.** An entry is `{ term, icon?, what, how?, more?, asset? }`. `what` is one front-loaded sentence and `how` is up to three verb-first lines; both are **visible and capped by a test**. `more` is folded behind a `<details>` and is **deliberately not capped**. The panel gained a rail of screen sections with anchors, opening on the screen you pressed `?` from.
+
+**The measurement, because "too much fluff" needed a number.** 157 entries, 49,738 characters, about 8,000 words. The median entry was 233 characters — perfectly fine — and the tail was not: 40 over 400, 8 over 800, the worst 1,911 characters and fifteen sentences. And the longest entries were the SHELL ones, which every screen's panel appends, so **the copy a reader met most often was the copy that read least.** After: 19,732 visible characters, mean 125, longest 200, with 28,831 characters folded rather than deleted.
+
+**Why nothing noticed.** No test failed, no gate fired, and every individual addition was defensible — the entry on selecting several things is fifteen true sentences. Prose has no compiler, so the only instrument that works is a budget, and the budget has to be on what is VISIBLE rather than on what is written. Capping `more` would have turned "collapse it" into "delete it" by the back door.
+
+**Front-loading is the whole formatting decision.** People scan rather than read, and the F-pattern NN/g documented is a warning about that rather than a layout to design for — so the first phrase of an entry is the answer, and anything that is not the answer is one click away instead of in front of it.
+
+**The reader is not a beginner**, which the register test enforces: *simply*, *just*, *you can*, *in order to* and *press and hold* are refused in the visible half. Four of those are always deletable and the fifth explains how to operate a touch screen to somebody holding one.
+
+**The split was mechanical and the rewrites were not.** 86 entries had their tail folded by a script that moves sentences and never edits one — the copy was already front-loaded, so the first sentence was already the answer. Only 8 needed writing by hand: three whose first sentence was itself over budget, and five carrying a banned word. Doing it the other way round — rewriting 157 entries from scratch — would have lost detail nobody was asking to lose.
+
+**Assets, ranked by how they go stale.** A live-rendered control is first choice because it is not a picture of the app, it IS the app: the swatch row in the colour entries reads `var(--hl-N)`, so a reader who renamed or recoloured their categories sees theirs. A schematic SVG is second, because it states a relationship — the import queue is a gate — and a restyle cannot make a relationship wrong. Gesture clips are third and abstract for the same reason. **A screenshot is last and there are none**, because real pixels are the one class that silently shows last year's interface, which `AI.md` names as this repo's worst failure mode.
+
+**Instead of.** A Help screen at its own route (help stops being beside the control), a task rail (the panel loses the one thing it knows for free — what screen you are on), a search box (it answers only when you already know the word for what you cannot find), and cutting the reasoning to the bone.
+
+**Reversal.** Supplements the entry above rather than overturning it. Moving explanation off the page into a dot was right; what it did not come with was a limit on how long the explanation could then get.
+
+**Approved.** The owner's, who asked for formatting and assets rather than only brevity — "the user should be able to easily scan the page to know where he needs to go, gets there with a click or a short scroll, and understands everything at a glance" — and who added, after the first pass, that the reader "is not a complete idiot".
+
+<sub>2.0.1 — `web/frontend/src/help.jsx` · `web/frontend/src/ui.jsx` · `web/frontend/src/gestures.jsx` · `web/frontend/test/pure/help-budget.test.js`</sub>
+
+### A gesture is drawn, and the drawing is abstract so it cannot go stale
+
+**Decided.** `gestures.jsx` holds eleven clips as inline animated SVG. `IMPLEMENTED` is the two the app binds — the 500ms long press and the drawer's leftward swipe — and a test fails if the interface references any other.
+
+**Why not a GIF**, which is what was asked for and what this is visually indistinguishable from: 1–2 KB instead of 10–30 and it lives in a diff; one file rather than one per theme, because every stroke is `currentColor`; and **it can stop.** A playing GIF ignores `prefers-reduced-motion` entirely. Go's `image/gif` would have produced real GIFs with no new dependency and was declined on those three grounds.
+
+**The still frame is set explicitly, not left to `animation: none`.** The travel keyframe starts *and* ends at `opacity: 0`, so simply stopping it would have rendered every swipe invisible. With motion off each clip holds the pose that states the gesture: the ring at full size, the tip at the END of its trail beside the dashed line it travelled.
+
+**Why the art is abstract** — a disc for the fingertip, a trail for the travel, a ring for the wait — rather than a screenshot with a hand over it: an abstract clip is not tied to the interface, so a restyle cannot make it wrong and one clip serves every context that gesture ever appears in. That is what lets this be a fixed library rather than a maintenance surface.
+
+**Nine clips are unreachable on purpose.** There is no pinch handler anywhere and swipe-to-open is deliberately absent, because the left screen edge belongs to the OS back gesture. The nine exist so a newly bound gesture is a one-line reference rather than a new asset pipeline — and a test reads the tree, not this paragraph, so the day a pinch lands it fails and asks for the clip to be promoted.
+
+**Approved.** The owner's, including the argument for it: an abstract gesture clip "never gets stale, and can be reused in different contexts". The eleven-not-two call is theirs too.
+
+<sub>2.0.1 — `web/frontend/src/gestures.jsx` · `web/frontend/src/index.css`</sub>
+
 ### An info dot opens an anchored popover on a pointer and a centred card on a phone, and carries no hover label of its own
 
 **Decided.** On a pointer, hover opens it and moving away closes it; a *click* pins it until clicked again, Escape, or a click outside. On touch, tap toggles and every touch-opened popover behaves as pinned. On a pointer it is anchored to the dot with a caret; on a phone it is a compact centred card. The dot carries no tooltip.

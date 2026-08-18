@@ -3214,7 +3214,7 @@ export function ShortcutSheet({ open, onClose, omit }) {
   );
 }
 
-export function HelpSheet({ open, title = "Help", onClose, children }) {
+export function HelpSheet({ open, title = "Help", wide = false, onClose, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);
   useEffect(() => {
@@ -3244,7 +3244,9 @@ export function HelpSheet({ open, title = "Help", onClose, children }) {
         aria-modal="true"
         aria-label={title}
         className="hand-card hc-r2 w-full"
-        style={{ maxWidth: 520, padding: "18px 20px 20px" }}
+        // The guide needs room for a rail AND a readable measure beside it; the
+        // flat list keeps the 520 it was designed at.
+        style={{ maxWidth: wide ? 860 : 520, padding: "18px 20px 20px" }}
       >
         <div className="mb-3 flex items-center gap-3">
           <h2 className="display-title flex-1" style={{ fontSize: 19 }}>
@@ -3277,20 +3279,119 @@ export function HelpList({ entries = [] }) {
   return (
     <dl className="help-list">
       {entries.map((e) => (
-        <div className="help-row" key={e.term}>
-          {e.icon && (
-            <span className="help-row-icon" aria-hidden="true">
-              {e.icon}
-            </span>
-          )}
-          <div className="min-w-0">
-            <dt>{e.term}</dt>
-            <dd>{e.what}</dd>
-            {e.asset && <div className="help-row-asset">{e.asset}</div>}
-          </div>
-        </div>
+        <HelpRow key={e.term} e={e} />
       ))}
     </dl>
+  );
+}
+
+// HelpRow — one entry, in the order the eye needs it.
+//
+//   term      what it is called
+//   what      ONE front-loaded sentence. Always visible, and capped by a test.
+//   how       up to three verb-first lines. Always visible.
+//   asset     the picture, if the answer has one
+//   more      everything else, COLLAPSED
+//
+// The order is the whole design. People scan rather than read — the F-pattern NN/g
+// documented is a warning about that, not a layout to aim at — so the first phrase
+// is the answer and anything that is not the answer is one click away rather than
+// in front of it.
+//
+// `more` COLLAPSES RATHER THAN DISAPPEARS. This project writes down why things are
+// the way they are, and that writing is worth keeping; what it is not worth is
+// being the first thing somebody meets when they wanted to know what a button does.
+// A <details> element rather than state of our own: it is keyboard-operable, it is
+// findable by the browser's own in-page search even while closed, and it needs no
+// hook.
+function HelpRow({ e }) {
+  return (
+    <div className="help-row">
+      {e.icon && (
+        <span className="help-row-icon" aria-hidden="true">
+          {e.icon}
+        </span>
+      )}
+      <div className="min-w-0">
+        <dt>{e.term}</dt>
+        <dd>{e.what}</dd>
+        {e.how?.length > 0 && (
+          <ul className="help-how">
+            {e.how.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+        {e.asset && <div className="help-row-asset">{e.asset}</div>}
+        {e.more && (
+          <details className="help-more">
+            <summary>more</summary>
+            <div className="help-more-body">{e.more}</div>
+          </details>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// HelpRail — the list of sections, and the reason the panel is navigable at all.
+//
+// A rail rather than a search box, and rather than an accordion: 157 entries is a
+// document you scan for the heading you want, and the ask was "know where to go at
+// a glance, get there with a click or a short scroll". A search box answers only
+// when you already know the word for the thing you cannot find, which is not the
+// state somebody opening help is in.
+//
+// It is a column on a desktop and a scrolling row of pills on a phone, which is the
+// same swap the shell makes between a tab strip and a bottom bar. Plain anchors, so
+// the browser does the scrolling and the back button undoes it.
+function HelpRail({ sections, active }) {
+  return (
+    <nav className="help-rail" aria-label="Help sections">
+      {sections.map((sec) => (
+        <a
+          key={sec.id}
+          href={`#help-${sec.id}`}
+          className={"help-rail-item" + (sec.id === active ? " is-active" : "")}
+          aria-current={sec.id === active ? "true" : undefined}
+        >
+          {sec.title}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+// HelpGuide — the whole panel: a rail, then every section with an anchor.
+//
+// `active` is the section the reader was on when they pressed "?", and it is
+// scrolled to on open rather than being the only thing shown. That is the
+// difference the owner asked for: help is still contextual — it opens where you
+// are — but the rest of it is now one click away instead of behind a different
+// screen's "?" button.
+export function HelpGuide({ sections = [], active }) {
+  const bodyRef = useRef(null);
+  // scrollIntoView on the anchor rather than on mount of the section, because the
+  // sheet's own body is the scroll container and it does not exist until the portal
+  // has painted. `instant` on purpose: an animated jump on open reads as the panel
+  // being unable to decide where it is.
+  useEffect(() => {
+    if (!active) return;
+    const el = bodyRef.current?.querySelector(`#help-${active}`);
+    el?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [active, sections]);
+  return (
+    <div className="help-guide">
+      <HelpRail sections={sections} active={active} />
+      <div className="help-guide-body" ref={bodyRef}>
+        {sections.map((sec) => (
+          <section key={sec.id} id={`help-${sec.id}`} className="help-section">
+            <h3 className="help-section-title">{sec.title}</h3>
+            <HelpList entries={sec.entries} />
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -3305,9 +3406,12 @@ export function HelpList({ entries = [] }) {
 // the avatar read as a control from a different set. The default ring is for the
 // two places the bar is not on screen: the work-detail ⋯ menu and the full-screen
 // Profile page.
-export function HelpButton({ title, entries = [], side = "bottom", variant = "ring" }) {
+export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring" }) {
   const [open, setOpen] = useState(false);
-  if (!entries.length) return null;
+  // `sections` is the navigable guide; `entries` is the flat list. Both are
+  // supported because two callers want each: the shell's "?" opens the guide, and a
+  // work-detail ⋯ row opens that screen's list on its own.
+  if (!sections && !entries.length) return null;
   const pill = variant === "pill";
   return (
     <>
@@ -3324,8 +3428,8 @@ export function HelpButton({ title, entries = [], side = "bottom", variant = "ri
           <IconHelp size={pill ? 18 : 22} />
         </button>
       </Tooltip>
-      <HelpSheet open={open} title={title} onClose={() => setOpen(false)}>
-        <HelpList entries={entries} />
+      <HelpSheet open={open} title={title} wide={!!sections} onClose={() => setOpen(false)}>
+        {sections ? <HelpGuide sections={sections} active={active} /> : <HelpList entries={entries} />}
       </HelpSheet>
     </>
   );
