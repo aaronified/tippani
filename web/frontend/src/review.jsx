@@ -196,7 +196,7 @@ const QUIZ_OPTION_LINES = 4
 // and on a wide desktop card. The measurement is skipped while open (the clamp
 // is off then, so it would always report "fits" and the control would vanish
 // mid-read), which leaves the flag latched at its last closed value.
-function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style }) {
+function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style, hotkey }) {
   const [open, setOpen] = useState(false)
   const [clipped, setClipped] = useState(false)
   const textRef = useRef(null)
@@ -222,7 +222,11 @@ function QuizOption({ opt, om, personMaps, isSource, disabled, onPick, style }) 
         style={style}
       >
         <span ref={textRef} style={{ display: 'block', ...clamp }}>
-          {opt}
+          {/* The number that answers this option, on the option. Four keys and
+              four answers is the one place in the app where the legend IS the
+              instruction — without it, 1-4 is a shortcut you can only find by
+              reading a sheet. */}
+          {hotkey && <Kbd keys={hotkey} />}{hotkey ? ' ' : ''}{opt}
         </span>
         {om?.person && (
           <span className="mt-1.5 flex" style={{ fontStyle: 'normal' }}>
@@ -487,6 +491,8 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   const [dismissed, setDismissed] = useState(false) // "Keep asking", this session
   const [setAside, setSetAside] = useState(false)   // it is out of the deck now
   const [saving, setSaving] = useState(false)
+  // The cloze field, so the shortcut has something to focus.
+  const clozeRef = useRef(null)
   const [saveErr, setSaveErr] = useState('') // the grade didn't reach the server
   // posRef is the card on screen right now, readable from a settled request's
   // closure: a slow reply must not paint its error onto a card the reader has
@@ -534,13 +540,42 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // a flip card has been revealed, exactly as the Got it / Forgot buttons do not
   // appear until then, so the key and the button can never disagree about
   // whether the card is answerable.
-  useEffect(() => installShortcuts((id) => {
+  // WHICH KIND OF CARD IS ON SCREEN, which is what decides what a key means. The
+  // registry only makes a binding live in its own context, so `1` is the first
+  // answer on an MCQ and Forgot on the flip card that replaces it — and neither
+  // exists outside a quiz at all.
+  const ctx = cloze ? 'cloze' : flip ? 'flip' : 'mcq'
+
+  // PRACTICE ASKS FOR SHIFT, and the Daily Quiz does not. The two show the same
+  // card with the same buttons and are not the same act: the daily deck IS the
+  // schedule and its grades are permanent, while Practice is study. A reader
+  // running through Practice with the daily keys in their fingers should not be
+  // able to move a schedule by reflex, so the lower-stakes mode is the one that
+  // costs an extra finger. A key pressed with the wrong modifier does NOTHING,
+  // rather than doing the right thing anyway — a guard that can be ignored is
+  // not a guard.
+  const wantShift = mode === 'practice'
+
+  useEffect(() => installShortcuts((id, { shift }) => {
     if (saving) return
-    if (id === 'reveal' && flip && !shown) return setShown(true)
-    if (flip && !shown) return // nothing else is answerable yet
-    if (id === 'grade-got') grade('got')
-    else if (id === 'grade-forgot') grade('forgot')
-  }), [saving, flip, shown, i, card?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (shift !== wantShift) return
+    // A flip card is two acts: reveal, then say whether you had it. Nothing else
+    // is answerable until the first, exactly as the buttons are not shown.
+    if (id === 'reveal') return flip && !shown ? setShown(true) : undefined
+    if (flip && !shown) return
+    if (id === 'grade-got') return grade('got')
+    if (id === 'grade-forgot') return grade('forgot')
+    // The blank, and only while the field is NOT already focused — so the key
+    // can never eat a space somebody meant to type into it.
+    if (id === 'focus-blank') return clozeRef.current?.focus()
+    if (id.startsWith('pick-')) {
+      const idx = Number(id.slice(5)) - 1
+      // Silently ignore a pick past the end: a three-option card and a four-key
+      // reflex is a normal collision, and answering the wrong option would be
+      // very much worse than doing nothing.
+      if (idx >= 0 && idx < (card.options?.length || 0) && !committed) pick(idx)
+    }
+  }, { ctx: () => ctx }), [saving, flip, shown, cloze, ctx, wantShift, committed, i, card?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function advance() {
     posRef.current = i + 1
@@ -713,8 +748,9 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               <Field
                 label="The missing words"
                 hideLabel
+                inputRef={clozeRef}
                 value={attempt}
-                placeholder="type what belongs in the blank"
+                placeholder={`type what belongs in the blank · ${shortcutFor('focus-blank', mode === 'practice')}`}
                 autoFocus
                 onChange={(e) => setAttempt(e.target.value)}
               />
@@ -747,33 +783,33 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 // The keys are on the buttons, per the rule that a shortcut is
                 // only real once the control that shares its job says so.
                 <div className="mt-3 flex items-center gap-2">
-                  <Tooltip label="Forgot" shortcut="grade-forgot">
+                  <Tooltip label="Forgot" shortcut="grade-forgot" shiftKey={mode === 'practice'}>
                     <button
                       type="button"
                       className="tp-btn tactile"
                       disabled={saving}
                       onClick={() => selfGrade('forgot')}
                     >
-                      Forgot <Kbd keys={shortcutFor('grade-forgot')} />
+                      Forgot <Kbd keys={shortcutFor('grade-forgot', mode === 'practice')} />
                     </button>
                   </Tooltip>
-                  <Tooltip label="Got it" shortcut="grade-got">
+                  <Tooltip label="Got it" shortcut="grade-got" shiftKey={mode === 'practice'}>
                     <button
                       type="button"
                       className="tp-btn tp-btn-primary tactile"
                       disabled={saving}
                       onClick={() => selfGrade('got')}
                     >
-                      Got it <Kbd keys={shortcutFor('grade-got')} />
+                      Got it <Kbd keys={shortcutFor('grade-got', mode === 'practice')} />
                     </button>
                   </Tooltip>
                 </div>
               ) : null}
             </>
           ) : (
-            <Tooltip label="Reveal the answer" shortcut="reveal">
+            <Tooltip label="Reveal the answer" shortcut="reveal" shiftKey={mode === 'practice'}>
               <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setShown(true)}>
-                Show me <Kbd keys={shortcutFor('reveal')} />
+                Show me <Kbd keys={shortcutFor('reveal', mode === 'practice')} />
               </button>
             </Tooltip>
           )}
@@ -816,6 +852,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
               personMaps={personMaps}
               isSource={isSource}
               disabled={committed || saving}
+              hotkey={idx < 4 ? shortcutFor(`pick-${idx + 1}`, mode === 'practice') : ''}
               onPick={() => pick(idx)}
               style={{
                 minHeight: 44,

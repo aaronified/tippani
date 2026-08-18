@@ -485,7 +485,12 @@ export function PageHeader({ title, counts, right }) {
 // shape, because every existing caller is written as
 // `onChange={(e) => setX(e.target.value)}` and a field that capitalises should
 // not be a field with a different signature from the one beside it.
-export function Field({ label, className = "", nameCase = false, onChange, ...rest }) {
+// `inputRef` is named rather than taken as `ref`, because Field is a plain
+// function component: a `ref` on it would attach to nothing and fail silently,
+// which is exactly how a caller ends up focusing an element that never moves.
+// Pulled out of `rest` for the same reason every other named prop is — anything
+// left in there is spread onto the <input> and would land as a DOM attribute.
+export function Field({ label, className = "", nameCase = false, onChange, inputRef, ...rest }) {
   const onName = useNameCasing(rest.value, (v) =>
     onChange?.({ target: { value: v } }),
   );
@@ -494,6 +499,7 @@ export function Field({ label, className = "", nameCase = false, onChange, ...re
       <MonoLabel>{label}</MonoLabel>
       <input
         className="tp-input"
+        ref={inputRef}
         {...rest}
         onChange={nameCase ? (e) => onName(e.target.value) : onChange}
       />
@@ -2513,8 +2519,8 @@ const HOVER_HIDE_MS = 3000;
 // owner's rule that a shortcut "must always be spelled out in the corresponding
 // button's tooltip". Passing an id with no binding leaves the label untouched,
 // so any Tooltip can name an action speculatively.
-export function Tooltip({ label, side = "top", className = "", onContextMenu, shortcut, children }) {
-  label = withShortcut(label, shortcut);
+export function Tooltip({ label, side = "top", className = "", onContextMenu, shortcut, shiftKey = false, children }) {
+  label = withShortcut(label, shortcut, shiftKey);
   const timer = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
@@ -3145,6 +3151,12 @@ export function ShortcutSheet({ open, onClose }) {
         Every one of these is also written on the button that does the same thing, so you
         never have to memorise one to find it. Keys do nothing while you are typing.
       </p>
+      <p className="microcopy" style={{ marginBottom: 14 }}>
+        A quiz card answers to the keys for the kind of question it is asking. In{' '}
+        <strong>Practice</strong> the same keys need <kbd className="kbd">Shift</kbd> — the daily
+        deck is your schedule and its grades are permanent, so the mode with lower stakes is the
+        one that costs an extra finger.
+      </p>
       {groupedShortcuts().map((g) => (
         <div key={g.group} style={{ marginBottom: 16 }}>
           <MonoLabel className="mb-2 block">{g.group}</MonoLabel>
@@ -3152,7 +3164,17 @@ export function ShortcutSheet({ open, onClose }) {
             {g.items.map((it) => (
               <li key={it.id} className="kbd-row">
                 <span>{it.label}</span>
-                <Kbd keys={it.keys} />
+                {/* Both forms for a card key, so somebody in Practice is not left
+                    pressing one that does nothing. */}
+                <span className="kbd-pair">
+                  <Kbd keys={it.keys} />
+                  {it.practiceKeys && (
+                    <>
+                      <span className="kbd-then">practice</span>
+                      <Kbd keys={it.practiceKeys} />
+                    </>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

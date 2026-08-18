@@ -5202,3 +5202,4 @@ html[data-theme="dark"] .board-cover {
   }
   /* The menu-row variant: no rule, just the cap pushed to the end. */
   .menu-item .kbd-legend { margin-left: auto; padding-left: 12px; }
+  .kbd-pair { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }

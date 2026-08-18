@@ -38,18 +38,44 @@ export const SHORTCUTS = [
   { id: 'capture', keys: ['n'], label: 'Capture a quote', group: 'Anywhere' },
   { id: 'help', keys: ['?'], label: 'Keyboard shortcuts', group: 'Anywhere' },
 
-  // Go to — a sequence, so the single letters stay free.
+  // Go to — a sequence, so the single letters stay free. The letter is the first
+  // letter of the destination wherever one is available, which is why Settings is
+  // the exception: S is Stats, and the comma is what ⌘, has trained everybody to
+  // reach for instead.
   { id: 'go-home', seq: ['g', 'h'], label: 'Go to Home', group: 'Go to' },
   { id: 'go-library', seq: ['g', 'l'], label: 'Go to Library', group: 'Go to' },
   { id: 'go-catalogue', seq: ['g', 'c'], label: 'Go to Catalogue', group: 'Go to' },
   { id: 'go-quotes', seq: ['g', 'q'], label: 'Go to Quotes', group: 'Go to' },
   { id: 'go-stats', seq: ['g', 's'], label: 'Go to Stats', group: 'Go to' },
+  { id: 'go-metadata', seq: ['g', 'm'], label: 'Go to Metadata', group: 'Go to' },
+  { id: 'go-profile', seq: ['g', 'p'], label: 'Open your profile', group: 'Go to' },
+  { id: 'go-settings', seq: ['g', ','], label: 'Go to Settings', group: 'Go to' },
 
-  // Review. 1 and 2 are what anybody arriving from an SRS tool reaches for on
-  // reflex, and space-to-reveal is the same reflex for a flip card.
-  { id: 'grade-forgot', keys: ['1'], label: 'Forgot', group: 'Review' },
-  { id: 'grade-got', keys: ['2'], label: 'Got it', group: 'Review' },
-  { id: 'reveal', keys: ['space'], label: 'Reveal the answer', group: 'Review' },
+  // ---- review, and the two things that make it different --------------------
+  //
+  // THE SAME KEY DOES A DIFFERENT JOB PER CARD, which is why bindings carry a
+  // `ctx`. A quiz shows one of three kinds of question and they want different
+  // answers: an MCQ wants "which of these four", a flip card wants "did you have
+  // it", a cloze wants the caret in the blank. Binding 1 globally to "Forgot"
+  // would mean pressing 1 on a four-option question graded it instead of picking
+  // the first answer — a keystroke that silently marks a card wrong.
+  //
+  // So `ctx` is part of the identity of a binding: 1 is unique WITHIN mcq and
+  // within flip, and the two never coexist on screen.
+  { id: 'pick-1', ctx: 'mcq', keys: ['1'], label: 'Choose the first answer', group: 'Multiple choice' },
+  { id: 'pick-2', ctx: 'mcq', keys: ['2'], label: 'Choose the second', group: 'Multiple choice' },
+  { id: 'pick-3', ctx: 'mcq', keys: ['3'], label: 'Choose the third', group: 'Multiple choice' },
+  { id: 'pick-4', ctx: 'mcq', keys: ['4'], label: 'Choose the fourth', group: 'Multiple choice' },
+
+  { id: 'reveal', ctx: 'flip', keys: ['space'], label: 'Reveal the answer', group: 'Flip card' },
+  { id: 'grade-forgot', ctx: 'flip', keys: ['1'], label: 'Forgot', group: 'Flip card' },
+  { id: 'grade-got', ctx: 'flip', keys: ['2'], label: 'Got it', group: 'Flip card' },
+
+  // Space again, and legitimately: on a cloze there is nothing to reveal, and
+  // "get on with this card" means put the caret where the typing goes. It only
+  // fires while the field is NOT focused, so it can never eat a space you meant
+  // to type.
+  { id: 'focus-blank', ctx: 'cloze', keys: ['space'], label: 'Type in the blank', group: 'Fill in the blank' },
 ]
 
 const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]))
@@ -87,8 +113,19 @@ export function shortcutLabel(s) {
 }
 
 // shortcutFor is what a control calls to find out what key it is.
-export function shortcutFor(id) {
-  return id ? shortcutLabel(BY_ID.get(id)) : ''
+//
+// `shifted` renders the PRACTICE form of a review key. Practice and the Daily
+// Quiz show the same card with the same buttons, and the two are not the same
+// act: the daily deck is the schedule and its grades are permanent, while
+// Practice is study. A reader running through Practice on reflex with the daily
+// keys in their fingers should not be able to move a schedule by accident, so
+// Practice asks for Shift — one deliberate extra finger, on the mode where the
+// stakes are lower but the muscle memory is identical.
+export function shortcutFor(id, shifted = false) {
+  const s = BY_ID.get(id)
+  if (!s) return ''
+  const label = shortcutLabel(s)
+  return shifted && s.ctx ? 'Shift-' + label : label
 }
 
 // withShortcut appends the key to a tooltip label, and is the function that
@@ -98,8 +135,8 @@ export function shortcutFor(id) {
 // facts about a control everywhere else in this app, and because brackets read
 // as optional. Returns the label unchanged when the action has no binding, so
 // every existing Tooltip can pass an id it may not have one for.
-export function withShortcut(label, id) {
-  const k = shortcutFor(id)
+export function withShortcut(label, id, shifted = false) {
+  const k = shortcutFor(id, shifted)
   return k ? `${label} · ${k}` : label
 }
 
@@ -110,7 +147,14 @@ export function groupedShortcuts() {
   for (const s of SHORTCUTS) {
     let g = out.find((x) => x.group === s.group)
     if (!g) out.push((g = { group: s.group, items: [] }))
-    g.items.push({ id: s.id, label: s.label, keys: shortcutLabel(s) })
+    g.items.push({
+      id: s.id,
+      label: s.label,
+      keys: shortcutLabel(s),
+      // A review key answers to two decks; the sheet says both rather than
+      // leaving somebody in Practice pressing a key that does nothing.
+      practiceKeys: s.ctx ? shortcutFor(s.id, true) : '',
+    })
   }
   return out
 }
@@ -142,24 +186,47 @@ export function eventCombo(e) {
   if (e.metaKey || e.ctrlKey) parts.push('mod')
   if (e.altKey) parts.push('alt')
   let key = e.key
+  // THE PHYSICAL KEY, FOR DIGITS ONLY. Shift-1 reports `key: "!"` on a US
+  // layout, "¡" on some others and something else again on a third — so a
+  // Practice grade bound to `shift+1` would work on one keyboard and not the
+  // next. `code` says Digit1 whichever layout is in front of you.
+  //
+  // Only digits, because `code` is the wrong answer for letters: it names the
+  // physical position, so a Dvorak reader pressing the key labelled N would get
+  // KeyB and the wrong action.
+  if (e.shiftKey && /^Digit[0-9]$/.test(e.code || '')) key = e.code.slice(5)
   if (key === ' ') key = 'space'
   else if (key === 'Escape') key = 'esc'
   else if (key.length === 1) key = key.toLowerCase()
+  if (e.shiftKey && (key === 'space' || /^[0-9]$/.test(key))) parts.push('shift')
   parts.push(key)
   return parts.join('+')
 }
 
 // matchShortcut finds the action a combo runs, given the pending sequence prefix.
 // Returns { id } for a hit, { pending } when the combo starts a sequence, or null.
-export function matchShortcut(combo, pending = '') {
+export function matchShortcut(combo, pending = '', ctx = null) {
   if (!combo) return null
-  if (pending) {
-    const seq = SHORTCUTS.find((s) => s.seq && s.seq[0] === pending && s.seq[1] === combo)
-    return seq ? { id: seq.id } : null
+  // Shift is stripped before matching and reported alongside, so one binding
+  // covers both decks and the caller decides which mode it is in.
+  let shift = false
+  if (combo.startsWith('shift+')) {
+    shift = true
+    combo = combo.slice(6)
   }
-  const direct = SHORTCUTS.find((s) => s.keys?.includes(combo))
-  if (direct) return { id: direct.id }
-  if (SHORTCUTS.some((s) => s.seq && s.seq[0] === combo)) return { pending: combo }
+  // A binding with a `ctx` is only live in that context; one without is global.
+  const live = (b) => !b.ctx || b.ctx === ctx
+  if (pending) {
+    const seq = SHORTCUTS.find((b) => b.seq && b.seq[0] === pending && b.seq[1] === combo && live(b))
+    return seq ? { id: seq.id, shift } : null
+  }
+  const direct = SHORTCUTS.find((b) => b.keys?.includes(combo) && live(b))
+  // SHIFT ONLY EVER QUALIFIES A CARD BINDING. Without this, Shift-N would run
+  // "capture a quote" — a global key silently gaining a second spelling, and one
+  // that would fire whenever somebody shift-typed near a control.
+  if (direct) return shift && !direct.ctx ? null : { id: direct.id, shift }
+  if (shift) return null
+  if (SHORTCUTS.some((b) => b.seq && b.seq[0] === combo && live(b))) return { pending: combo }
   return null
 }
 
@@ -181,6 +248,11 @@ export const SEQUENCE_MS = 2000
 // ACTION and nothing about what the action does, which is what keeps the table
 // readable and testable without a browser.
 export function installShortcuts(run, opts = {}) {
+  // `ctx` is which kind of card is on screen, or null for the shell. A function
+  // rather than a value because the card changes under a listener that is
+  // installed once — reading it at press time is what makes 1 mean "first
+  // answer" on an MCQ and "Forgot" on the flip card that replaces it.
+  const ctxOf = typeof opts.ctx === 'function' ? opts.ctx : () => opts.ctx || null
   const doc = opts.document || (typeof document !== 'undefined' ? document : null)
   const win = opts.window || (typeof window !== 'undefined' ? window : null)
   if (!win) return () => {}
@@ -197,7 +269,7 @@ export function installShortcuts(run, opts = {}) {
 
     const combo = eventCombo(e)
     if (pending && Date.now() - pendingAt > SEQUENCE_MS) pending = ''
-    const hit = matchShortcut(combo, pending)
+    const hit = matchShortcut(combo, pending, ctxOf())
     if (!hit) {
       pending = ''
       return
@@ -213,7 +285,7 @@ export function installShortcuts(run, opts = {}) {
     // preventDefault only once something is actually going to happen — an
     // unbound key must behave exactly as it did before this file existed.
     e.preventDefault()
-    run(hit.id, e)
+    run(hit.id, { shift: !!hit.shift, event: e })
   }
 
   win.addEventListener('keydown', onKeyDown)

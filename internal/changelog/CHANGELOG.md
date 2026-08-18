@@ -30,6 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the same table the handler reads — a legend maintained by hand is a legend that is wrong
   by the second release.
 
+  **Go to** reaches Metadata (`G` then `M`), your profile (`G` then `P`) and Settings (`G` then
+  `,` — S is Stats, and ⌘, is what everybody already reaches for).
+
+  **A quiz card answers to the keys for the kind of question it is asking.** `1`–`4` pick an
+  answer on a multiple choice; on a flip card `1` and `2` grade it and `Space` reveals it; on a
+  fill-in-the-blank `Space` puts the caret in the blank. Binding `1` globally to "Forgot" would
+  have meant pressing it on a four-option question graded the card instead of answering it — a
+  keystroke that silently marks you wrong.
+
+  **Practice asks for `Shift`.** The two decks show the same card with the same buttons and are
+  not the same act: the daily deck *is* your schedule and its grades are permanent, while Practice
+  is study. Running through Practice with the daily keys in your fingers should not be able to
+  move a schedule by reflex, so the mode with lower stakes is the one that costs an extra finger.
+  A key pressed with the wrong modifier does nothing rather than doing the right thing anyway.
+  Every legend shows the form for the mode you are actually in.
+
   **Nothing is listed that does not work.** The first draft of the table also bound a command
   palette, `J`/`K` to move through a list, `F` to favourite, `E` to edit and `U` to undo — every
   one a key with no handler behind it. Since the sheet and the tooltips both read the table, an

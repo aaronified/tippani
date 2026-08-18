@@ -82,6 +82,8 @@ const DRAWER_SHORTCUTS = {
   movies: 'go-catalogue',
   quotes: 'go-quotes',
   stats: 'go-stats',
+  metadata: 'go-metadata',
+  settings: 'go-settings',
   search: 'search',
 }
 
@@ -1189,6 +1191,11 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
       case 'go-catalogue': go('movies'); break
       case 'go-quotes': go('quotes'); break
       case 'go-stats': go('stats'); break
+      case 'go-metadata': go('metadata'); break
+      case 'go-settings': go('settings'); break
+      // Profile is a panel rather than a tab — the account chip opens it in both
+      // bars — so this opens the panel rather than navigating.
+      case 'go-profile': setProfileOpen(true); break
       case 'help': setShortcutsOpen(true); break
       default: break
     }

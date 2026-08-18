@@ -52,12 +52,31 @@ describe('every binding can be spelled out', () => {
   })
 
   // Two actions on one key is a shortcut whose behaviour depends on which entry
-  // the finder reaches first — which is a coin toss dressed as a feature.
-  it('and no key bound to two actions', () => {
-    const combos = SHORTCUTS.flatMap((s) => s.keys || [])
-    expect(new Set(combos).size).toBe(combos.length)
-    const seqs = SHORTCUTS.filter((s) => s.seq).map((s) => s.seq.join('+'))
-    expect(new Set(seqs).size).toBe(seqs.length)
+  // the finder reaches first — a coin toss dressed as a feature. Uniqueness is
+  // PER CONTEXT, because that is the identity of a binding now: `1` is the first
+  // MCQ answer and `Forgot` on a flip card, and the two never share a screen.
+  it('and no key bound to two actions in the same context', () => {
+    const byCtx = {}
+    for (const s of SHORTCUTS) {
+      const k = s.ctx || 'global'
+      byCtx[k] = byCtx[k] || []
+      byCtx[k].push(...(s.keys || []), ...(s.seq ? [s.seq.join('+')] : []))
+    }
+    for (const [ctx, combos] of Object.entries(byCtx)) {
+      expect(new Set(combos).size, `${ctx} binds a key twice`).toBe(combos.length)
+    }
+  })
+
+  // A context binding must never collide with a GLOBAL one: the global is live
+  // on every screen, so the two would both be live together and the card would
+  // win or lose depending on table order.
+  it('and no context key that shadows a global one', () => {
+    const global = new Set(SHORTCUTS.filter((s) => !s.ctx).flatMap((s) => s.keys || []))
+    for (const s of SHORTCUTS.filter((x) => x.ctx)) {
+      for (const k of s.keys || []) {
+        expect(global.has(k), `${k} is both global and ${s.ctx}`).toBe(false)
+      }
+    }
   })
 
   // A single key must not also be the first key of a sequence: pressing it would
@@ -72,17 +91,42 @@ describe('every binding can be spelled out', () => {
 
 describe('matching a key press', () => {
   it('finds a direct binding', () => {
-    expect(matchShortcut('/')).toEqual({ id: 'search' })
-    expect(matchShortcut('n')).toEqual({ id: 'capture' })
-    expect(matchShortcut('2')).toEqual({ id: 'grade-got' })
+    expect(matchShortcut('/')).toEqual({ id: 'search', shift: false })
+    expect(matchShortcut('n')).toEqual({ id: 'capture', shift: false })
   })
 
   it('and waits for the second key of a sequence', () => {
     expect(matchShortcut('g')).toEqual({ pending: 'g' })
-    expect(matchShortcut('l', 'g')).toEqual({ id: 'go-library' })
+    expect(matchShortcut('l', 'g')).toEqual({ id: 'go-library', shift: false })
+    expect(matchShortcut(',', 'g')).toEqual({ id: 'go-settings', shift: false })
     // A prefix followed by nothing meaningful is simply not a shortcut — it must
     // not fall through to whatever the second key would have done alone.
     expect(matchShortcut('z', 'g')).toBeNull()
+  })
+
+  // THE CARD DECIDES WHAT A KEY MEANS. Binding 1 globally to "Forgot" would mean
+  // pressing it on a four-option question graded the card instead of answering
+  // it — a keystroke that silently marks you wrong.
+  it('and answers according to the card on screen', () => {
+    expect(matchShortcut('1', '', 'mcq')).toEqual({ id: 'pick-1', shift: false })
+    expect(matchShortcut('1', '', 'flip')).toEqual({ id: 'grade-forgot', shift: false })
+    expect(matchShortcut('space', '', 'flip')).toEqual({ id: 'reveal', shift: false })
+    expect(matchShortcut('space', '', 'cloze')).toEqual({ id: 'focus-blank', shift: false })
+    // Outside a quiz none of them exist.
+    expect(matchShortcut('1')).toBeNull()
+    expect(matchShortcut('space')).toBeNull()
+    // And a card cannot answer for a different card's key.
+    expect(matchShortcut('3', '', 'flip')).toBeNull()
+  })
+
+  // Practice and the Daily Quiz show the same card with the same buttons, and
+  // they are not the same act: the daily deck IS the schedule. Shift is the one
+  // deliberate finger between reflex and a permanent grade.
+  it('and reports Shift so the two decks can differ', () => {
+    expect(matchShortcut('shift+1', '', 'mcq')).toEqual({ id: 'pick-1', shift: true })
+    expect(matchShortcut('shift+space', '', 'flip')).toEqual({ id: 'reveal', shift: true })
+    // Shift only ever qualifies a card binding; it does not invent global ones.
+    expect(matchShortcut('shift+n')).toBeNull()
   })
 
   it('and answers nothing for an unbound key', () => {
@@ -105,8 +149,8 @@ describe('reading a keydown', () => {
   it('keeping ? and / apart', () => {
     expect(eventCombo({ key: '?', shiftKey: true })).toBe('?')
     expect(eventCombo({ key: '/' })).toBe('/')
-    expect(matchShortcut('?')).toEqual({ id: 'help' })
-    expect(matchShortcut('/')).toEqual({ id: 'search' })
+    expect(matchShortcut('?')).toEqual({ id: 'help', shift: false })
+    expect(matchShortcut('/')).toEqual({ id: 'search', shift: false })
   })
 })
 
@@ -186,11 +230,15 @@ describe('legends sit on the controls that share the job', () => {
     }
   })
 
-  it('and on the quiz’s own buttons', () => {
+  it('and on the quiz’s own buttons, in the mode’s own form', () => {
     const review = read('review.jsx')
-    for (const id of ['grade-forgot', 'grade-got', 'reveal']) {
-      expect(review, id).toContain(`shortcutFor('${id}')`)
+    for (const id of ['grade-forgot', 'grade-got', 'reveal', 'focus-blank']) {
+      // The second argument is the mode: a legend that always printed the daily
+      // key would be wrong for half the app.
+      expect(review, id).toContain("shortcutFor('" + id + "', mode === 'practice')")
     }
+    // And the MCQ options number themselves from the same table.
+    expect(review).toMatch(/shortcutFor\(`pick-\$\{idx \+ 1\}`, mode === 'practice'\)/)
   })
 })
 
@@ -202,7 +250,12 @@ describe('nothing is listed that does not work', () => {
   it('every action is dispatched by the shell or by the quiz', () => {
     const wired = read('App.jsx') + read('review.jsx')
     for (const s of SHORTCUTS) {
-      expect(wired.includes(`'${s.id}'`), `${s.id} is in the table with no handler`).toBe(true)
+      // A FAMILY COUNTS AS WIRED. pick-1..4 are dispatched by prefix rather than
+      // by four identical cases, which is the right code and would otherwise
+      // fail a test looking only for literals.
+      const family = s.id.replace(/-\d+$/, '-')
+      const ok = wired.includes(`'${s.id}'`) || wired.includes(`'${family}'`)
+      expect(ok, `${s.id} is in the table with no handler`).toBe(true)
     }
   })
 })
