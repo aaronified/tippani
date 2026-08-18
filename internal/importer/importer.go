@@ -208,8 +208,13 @@ type MovieHeader struct {
 	Title       string
 	Year        int
 	IMDbID      string // as found in the file (ttNNNNN); informational
-	MediaType   string // "movie" | "show"
+	MediaType   string // "movie" | "show" | "game"
 	Director    string
+	// Publisher is a game's, and it is here so an export round-trips (0042).
+	// `director` alone could not: re-importing a catalogue export written before
+	// the split would have nowhere to put the second credit and would silently
+	// drop it, which is how an export stops being a backup.
+	Publisher   string
 	Genres      []string
 	Series      string  // collection / franchise name, when the file carries one
 	SeriesIndex float64 // position within it (0 = unknown)

@@ -312,33 +312,60 @@ func (g *IGDB) Details(ctx context.Context, id string) (*MovieDetails, error) {
 	} else if len(gm.Franchises) > 0 {
 		d.Series = gm.Franchises[0].Name
 	}
-	d.Director, d.StudioLogoURL = igdbStudio(gm)
+	d.Director, d.StudioLogoURL, d.Publisher = igdbCredits(gm)
 	return d, nil
 }
 
-// igdbStudio picks the studio name and its logo. The developer is preferred over
-// the publisher — the developer is who MADE it, which is the credit a reader
-// means by "studio" — but the publisher is taken when no company is flagged
-// developer, because a blank studio is worse than a slightly wrong one and the
-// research measured developer logos on 18 of 24 games against publisher on 22.
-func igdbStudio(gm igdbGame) (name, logo string) {
-	var pubName, pubLogo string
+// igdbCredits splits the two company credits a game has, which until 0042 were
+// one field pretending to be one fact.
+//
+// THERE IS NO FALLBACK BETWEEN THEM ANY MORE. The old igdbStudio took the
+// publisher when no company was flagged developer, reasoning that "a blank studio
+// is worse than a slightly wrong one" — true while there was a single column to
+// put a name in, and false now the publisher has its own. A game whose record
+// names only a publisher comes back with a publisher and an empty studio, which
+// is what IGDB actually said.
+//
+// THE DEVELOPER THAT IS *ONLY* A DEVELOPER WINS, and that tie-break is the
+// reported bug rather than a refinement. involved_companies is a set of flag
+// pairs and a company may carry both: a label that owns the studio it published
+// through is routinely entered as developer AND publisher, so "the first row
+// flagged developer" resolved to Electronic Arts on Mass Effect Legendary
+// Edition while BioWare sat further down the same array, flagged developer and
+// nothing else. Array order is IGDB's and carries no meaning, so preferring the
+// company with the narrower claim is the only signal in the payload. A record
+// where every developer is also a publisher still yields one — the tie-break
+// picks a better answer where there is one and never turns an answer into a
+// blank.
+func igdbCredits(gm igdbGame) (studio, logo, publisher string) {
+	// anyDev is the first developer whatever else it claims; soleDev is the first
+	// developer that claims nothing else. soleDev wins where it exists.
+	var anyDevName, anyDevLogo string
+	var soleDevName, soleDevLogo string
 	for _, c := range gm.InvolvedCompanies {
 		if c.Company.Name == "" {
 			continue
 		}
-		l := ""
+		companyLogo := ""
 		if c.Company.Logo != nil {
-			l = IGDBCoverURL(c.Company.Logo.ImageID)
+			companyLogo = IGDBCoverURL(c.Company.Logo.ImageID)
 		}
 		if c.Developer {
-			return c.Company.Name, l
+			if anyDevName == "" {
+				anyDevName, anyDevLogo = c.Company.Name, companyLogo
+			}
+			if !c.Publisher && soleDevName == "" {
+				soleDevName, soleDevLogo = c.Company.Name, companyLogo
+			}
 		}
-		if c.Publisher && pubName == "" {
-			pubName, pubLogo = c.Company.Name, l
+		if c.Publisher && publisher == "" {
+			publisher = c.Company.Name
 		}
 	}
-	return pubName, pubLogo
+	if soleDevName != "" {
+		return soleDevName, soleDevLogo, publisher
+	}
+	return anyDevName, anyDevLogo, publisher
 }
 
 func coverID(c *igdbImage) string {

@@ -207,6 +207,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A game credits its studio and its publisher separately, and they are not the same company.**
+  *Mass Effect Legendary Edition* read STUDIO Electronic Arts. EA published it; BioWare made it.
+
+  A game had two company credits and one field to hold them, so both suppliers wrote the
+  developer where the record named one and *fell back to the publisher* where it did not. That
+  trade was reasonable while there was a single column — a blank studio is worse than a slightly
+  wrong one — and it stopped being reasonable the moment the fact had somewhere else to go. A
+  field labelled STUDIO naming a company that did not make the game is not the interface being
+  vague, it is the interface stating something false in the present tense.
+
+  So the publisher has its own column, the fallback is gone, and a game whose record names only a
+  publisher now shows a publisher and an empty studio — which is what the source actually said.
+  The studio keeps its portrait chip and its People page; the publisher is plain text after it, as
+  `PUB.`, because it has no page to open and a clickable name would promise one. Both are
+  editable by hand, in the Details panel, the Add form, and across a selection in the bulk
+  editor, and both survive an export and come back on re-import.
+
+  **The tie-break is where the reported bug actually lived.** IGDB lists involved companies as
+  flag pairs in no meaningful order, and a label that owns the studio it published through is
+  routinely entered as developer *and* publisher — which is how "the first company flagged
+  developer" picked EA while BioWare sat further down the same list flagged developer alone. The
+  company with the narrower claim wins now. It never turns an answer into a blank: a studio that
+  publishes its own game is named in both fields, because both are true of it. Wikidata gets the
+  same rule, and its studio logo is read off the company the name came from rather than the first
+  developer statement — otherwise the icon and the credit beside it could describe two different
+  companies.
+
+  **Nothing was backfilled, deliberately.** Every game saved before this holds either its
+  developer or its publisher in one column and nothing records which, so guessing would write the
+  same wrong fact into a second field and give it the authority of having been migrated. Re-fetch
+  a game under Fetch metadata and both fields come back split; a re-sync overwrites the publisher
+  rather than preserving it, which is what makes the re-fetch a remedy. Publisher is not in the
+  search index: a fourth column on the films FTS table means dropping and rebuilding the virtual
+  table and all three of its triggers, which is the most dangerous shape in this schema, and
+  nobody asked to search by publisher.
+
 - **Games are not films.** Every game report in one place: the Details page said Type "Film" with
   no way to correct it, called its studio a Director, offered three film ids and not the one that
   works, fetched covers at 90×128 and stored them that way, said "Search TMDB & TheTVDB" on a

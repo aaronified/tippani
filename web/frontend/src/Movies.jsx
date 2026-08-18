@@ -202,6 +202,10 @@ function movieState(m) {
   return {
     title: m.title,
     director: m.director || '',
+    // 0042: a game's publisher is its own column, and it is full-state like the
+    // rest — so the detail-header ♥ has to carry it or favouriting a game would
+    // clear who published it. The same trap as imdb_id below.
+    publisher: m.publisher || '',
     release_year: m.release_year || 0,
     description: m.description || '',
     genres: m.genres || [],
@@ -641,6 +645,11 @@ export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCan
 // state up so that button can grey itself. See ManualTab in Library.jsx.
 export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded, formId, onBusy }) {
   const [director, setDirector] = useState('')
+  // GAMES ONLY (0042). A film has a distributor and a show has a network, and the
+  // column is deliberately open to both — but neither is a field anybody has
+  // asked to type, so the box appears where the distinction has actually been
+  // getting stated wrongly.
+  const [publisher, setPublisher] = useState('')
   const [year, setYear] = useState('')
   const [genres, setGenres] = useState([])
   const [genreSuggestions, setGenreSuggestions] = useState([])
@@ -652,6 +661,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
   const isShow = mediaType === 'show'
+  const isGame = mediaType === 'game'
 
   async function submit(e) {
     e.preventDefault()
@@ -662,6 +672,7 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
       title: title.trim(),
       media_type: mediaType,
       director: director.trim() || undefined,
+      publisher: isGame ? publisher.trim() : undefined,
       release_year: year ? parseYearInput(year).year : undefined,
       release_circa: year ? parseYearInput(year).circa : undefined,
       genres,
@@ -683,6 +694,13 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
           value={director}
           onChange={(e) => setDirector(e.target.value)}
         />
+        {isGame && (
+          <NameInput
+            placeholder="Publisher"
+            value={publisher}
+            onChange={(e) => setPublisher(e.target.value)}
+          />
+        )}
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
         <NameInput placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />
@@ -898,9 +916,19 @@ function MovieDetail({ id, onClose, creditSeparators, onAdd, onSearch, dataNonce
   // supplier plumbing — what a re-sync pulls from — not something anyone reads a
   // film page to learn, so they moved into the Details panel, where each carries
   // an InfoDot explaining what it is and a link out to the source record.
+  // PUB. sits after the studio and before the year, which is the order the two
+  // credits are read in — who made it, then who put it out. Plain mono text
+  // rather than a PersonCredit chip: a publisher has no `people` row, no logo and
+  // no panel to open (0042), so a clickable name would promise a page that does
+  // not exist. Games only, for the same reason the form's box is.
+  const publisherNode =
+    detailMediaType === 'game' && movie?.publisher ? (
+      <span key="publisher">PUB. {movie.publisher}</span>
+    ) : null
   const metaParts = movie
     ? [
         directorNode,
+        publisherNode,
         formatYear(movie.release_year, movie.release_circa) || null,
         seriesLabel(movie) || null,
       ].filter(Boolean)
@@ -1124,6 +1152,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   const [title, setTitle] = useState(movie.title || '')
   const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
   const [director, setDirector] = useState(movie.director || '')
+  const [publisher, setPublisher] = useState(movie.publisher || '')
   const [year, setYear] = useState(formatYear(movie.release_year, movie.release_circa))
   const [genres, setGenres] = useState(movie.genres || [])
   const [genreSuggestions, setGenreSuggestions] = useState([])
@@ -1147,6 +1176,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   // permanently-visible lookup block.
   const [pickerOpen, setPickerOpen] = useState(false)
   const isShow = mediaType === 'show'
+  const isGame = mediaType === 'game'
 
   async function submit(e) {
     e.preventDefault()
@@ -1157,6 +1187,9 @@ export function EditMovie({ movie, onSaved, onCancel }) {
       title: title.trim(),
       media_type: mediaType,
       director: director.trim(),
+      // Sent whatever the medium is, because this is a full-state PUT: hiding the
+      // BOX for a film must not clear a value the row already holds.
+      publisher: publisher.trim(),
       release_year: year ? parseYearInput(year).year : undefined,
       release_circa: year ? parseYearInput(year).circa : undefined,
       genres,
@@ -1231,6 +1264,13 @@ export function EditMovie({ movie, onSaved, onCancel }) {
           value={director}
           onChange={(e) => setDirector(e.target.value)}
         />
+        {isGame && (
+          <NameInput
+            placeholder="Publisher"
+            value={publisher}
+            onChange={(e) => setPublisher(e.target.value)}
+          />
+        )}
         <input className="tp-input" placeholder="Year" inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder="add a genre…" ariaLabel="Genres" transform={titleCaseGenre} />
         <NameInput placeholder="Collection / franchise" value={series} onChange={(e) => setSeries(e.target.value)} />

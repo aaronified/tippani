@@ -186,10 +186,17 @@ func GameDetailsWikidata(ctx context.Context, qid string) (*MovieDetails, error)
 		labels, images = map[string]string{}, map[string]string{}
 	}
 
-	studio := wikidataFirstLabel(c, wdPropDeveloper, labels)
-	if studio == "" {
-		studio = wikidataFirstLabel(c, wdPropPublisher, labels)
-	}
+	// Two credits, two fields, and NO FALLBACK BETWEEN THEM (0042). This path used
+	// to take P123 when P178 was absent, on the same reasoning the IGDB path did
+	// and with the same consequence: a publisher's name under a label reading
+	// STUDIO. A game Wikidata records only a publisher for now arrives with a
+	// publisher and an empty studio.
+	//
+	// The same narrower-claim tie-break as igdbCredits, for the same reason: a
+	// label that both made and published a title is often stated as both, and the
+	// company that only developed it is the one the reader means by "studio".
+	studio, studioQID := wikidataGameStudio(c, labels)
+	publisher := wikidataFirstLabel(c, wdPropPublisher, labels)
 	genres := []string{}
 	for _, st := range c[wdPropGenre] {
 		if l := labels[st.entityID()]; l != "" {
@@ -203,14 +210,11 @@ func GameDetailsWikidata(ctx context.Context, qid string) (*MovieDetails, error)
 	}
 	poster := wikidataImage(c)
 	// The studio's own logo, where it has one — this is what puts a studio icon
-	// where a film shows its director's face.
-	logo := ""
-	for _, st := range c[wdPropDeveloper] {
-		if u := images[st.entityID()]; u != "" {
-			logo = u
-			break
-		}
-	}
+	// where a film shows its director's face. Read off the entity the studio name
+	// came from rather than off the first developer statement, so the logo and the
+	// name cannot end up describing two different companies once the tie-break
+	// above has skipped one.
+	logo := images[studioQID]
 	d := &MovieDetails{
 		Source:        "wikidata",
 		SourceID:      qid,
@@ -218,6 +222,7 @@ func GameDetailsWikidata(ctx context.Context, qid string) (*MovieDetails, error)
 		Slug:          wikidataString(c, wdPropIGDBSlug),
 		Title:         labels[qid],
 		Director:      studio,
+		Publisher:     publisher,
 		StudioLogoURL: logo,
 		ReleaseYear:   wikidataYear(c),
 		Genres:        genres,
@@ -357,6 +362,36 @@ func wikidataString(claims map[string][]wdStatement, prop string) string {
 		}
 	}
 	return ""
+}
+
+// wikidataGameStudio picks the developer, and returns the Q-id it came from so
+// the caller can read that company's logo rather than the first developer's.
+//
+// The tie-break is igdbCredits' one, expressed against statements instead of
+// flags: a company stated as BOTH developer and publisher is passed over while a
+// developer-only company exists. Where every developer also publishes, the first
+// one is still returned — this narrows an answer, it never blanks one.
+func wikidataGameStudio(claims map[string][]wdStatement, labels map[string]string) (name, qid string) {
+	published := map[string]bool{}
+	for _, st := range claims[wdPropPublisher] {
+		if id := st.entityID(); id != "" {
+			published[id] = true
+		}
+	}
+	for _, st := range claims[wdPropDeveloper] {
+		id := st.entityID()
+		l := labels[id]
+		if l == "" {
+			continue
+		}
+		if !published[id] {
+			return l, id
+		}
+		if name == "" {
+			name, qid = l, id
+		}
+	}
+	return name, qid
 }
 
 func wikidataFirstLabel(claims map[string][]wdStatement, prop string, labels map[string]string) string {

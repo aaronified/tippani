@@ -401,6 +401,16 @@ func intFromPtr(p *int) any {
 	return *p
 }
 
+// strFromPtr is nullableFromPtr for a NOT NULL column: an emptied field stores
+// the empty string, because that is what the column's default is and a NULL there
+// would make every read COALESCE around a state the schema forbids.
+func strFromPtr(p *string) any {
+	if p == nil {
+		return ""
+	}
+	return strings.TrimSpace(*p)
+}
+
 func boolIntFromPtr(p *bool) any {
 	if p == nil {
 		return 0
@@ -457,6 +467,11 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		ReleaseCirca *bool   `json:"release_circa"`
 		Description  *string `json:"description"`
 		Favorite     *bool   `json:"favorite"`
+		// A game's publisher (0042). Here for the same reason Director is: a
+		// selection of titles from one label is exactly the shape a bulk
+		// correction is for, and the column that most needs correcting is the one
+		// every game added before 1.17.0 has empty.
+		Publisher *string `json:"publisher"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -539,6 +554,10 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 		{"release_year", intFromPtr(req.ReleaseYear), req.ReleaseYear != nil},
 		{"release_circa", boolIntFromPtr(req.ReleaseCirca), req.ReleaseCirca != nil},
 		{"favorite", boolIntFromPtr(req.Favorite), req.Favorite != nil},
+		// NOT nullable: the column is NOT NULL DEFAULT '' (0042), so clearing it
+		// writes the empty string rather than a NULL the reads would have to
+		// COALESCE around.
+		{"publisher", strFromPtr(req.Publisher), req.Publisher != nil},
 	} {
 		if !f.on {
 			continue

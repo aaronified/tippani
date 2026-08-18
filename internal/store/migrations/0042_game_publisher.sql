@@ -1,0 +1,54 @@
+-- 0042: a game's PUBLISHER is not its studio, and the schema now says which is
+-- which.
+--
+-- WHAT WENT WRONG. 0040 folded games into `movies` and mapped "studio" onto
+-- `movies.director`, the column a show's creator already used. One column, one
+-- credit — and both suppliers were then written to collapse two different facts
+-- into it: `igdbStudio` preferred the company flagged *developer* and FELL BACK
+-- to the *publisher* when none was flagged, and GameDetailsWikidata did the same
+-- with P178 falling back to P123. The stated reason was that "a blank studio is
+-- worse than a slightly wrong one".
+--
+-- That reasoning was sound while there was one column and is wrong now there are
+-- two, and the report that broke it is exact: Mass Effect Legendary Edition came
+-- back with Electronic Arts as its studio. EA published it. BioWare made it. The
+-- interface was not being vague, it was stating the wrong company in a field
+-- labelled STUDIO — the same class of error 0041 fixed for provenance, where a
+-- stale source line was worse than none because it is the app asserting a fact
+-- in the present tense and being wrong about it.
+--
+-- So the fallback goes, and the fact it was standing in for gets a column. A
+-- game whose source names only a publisher now shows a publisher and an empty
+-- studio, which is what the source actually said.
+--
+-- WHY A COLUMN ON `movies` AND NOT A `people` ROW. A studio is a `people` row of
+-- kind 'studio' (0040) because it earned one by 0037's test: it has BEHAVIOUR —
+-- a logo, a click target, its own slot where a director's face goes. A publisher
+-- has none of that here. It is a name on a details page, and nothing in the app
+-- groups, portraits or navigates by it. A seventh person kind carrying no
+-- behaviour is a label, and 0037 named that as how a vocabulary rots. If a
+-- publisher ever gets a logo and a page, it can become a kind then; the column
+-- is what a plain fact costs.
+--
+-- WHY IT IS NOT IN `movies_fts`. That index covers (title, director, genre_text),
+-- and adding a fourth column means dropping and recreating the external-content
+-- table AND all three of its sync triggers — 0029 is the record of how much care
+-- that takes and why it is the most dangerous shape in this schema. Searching by
+-- publisher is not a thing anybody asked for, and buying it at that price would
+-- be paying the highest-risk migration in the project for a field with one
+-- reader. It can be added later by the ordinary FTS dance if it is ever wanted.
+--
+-- MEANINGFUL ONLY FOR A GAME, and deliberately NOT constrained to one. A film
+-- has a distributor and a show has a network, and both are the same kind of fact
+-- about the same kind of row — so the column is left open the way `media_type`,
+-- `status` and `person_kinds` are, and the UI decides which media type shows it.
+-- A CHECK tying it to games would be the thing standing in the way the next time
+-- somebody wants a network.
+--
+-- NOT BACKFILLED, and it cannot be. Every existing game's `director` holds
+-- either its developer or its publisher and NOTHING RECORDS WHICH — that is the
+-- defect. Guessing would write the same wrong fact into a second column and give
+-- it the authority of having been migrated. The rows stay as they are; a re-fetch
+-- ("Fetch metadata" on the game) rewrites both fields from the source with the
+-- distinction intact, and the reader can type either by hand.
+ALTER TABLE movies ADD COLUMN publisher TEXT NOT NULL DEFAULT '';

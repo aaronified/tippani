@@ -127,7 +127,12 @@ const MOVIES = [
   // have the demo disagreeing with the server about where a studio lives.
   // Status is 'playing', not 'watching': a shim carrying the wrong word here
   // would render the Games chip over a board whose shelf bar says Watching.
-  { id: 5, title: 'Hollow Reach', director: 'Lantern Works', release_year: 2019, genres: ['adventure'], series: 'Reach', series_index: 1, favorite: true, media_type: 'game', status: 'playing', progress: 35, igdb_id: 90210, poster_path: coverArt('#101A18', '#7FB7A8', 'HOLLOW', 'REACH') },
+  //
+  // `publisher` is a SECOND company, and it is here because 0042 split it out of
+  // `director`: the demo has to show the two credits reading differently, or the
+  // one screen where the distinction is visible would look identical to the bug
+  // it replaced.
+  { id: 5, title: 'Hollow Reach', director: 'Lantern Works', publisher: 'Ninefold Games', release_year: 2019, genres: ['adventure'], series: 'Reach', series_index: 1, favorite: true, media_type: 'game', status: 'playing', progress: 35, igdb_id: 90210, poster_path: coverArt('#101A18', '#7FB7A8', 'HOLLOW', 'REACH') },
 ]
 const MOVIE_DESCRIPTIONS = {
   1: 'Two strangers share a night train north; neither says where they are going.',

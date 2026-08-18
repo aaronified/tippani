@@ -130,6 +130,13 @@ export const MOVIE_FIELDS = [
   { key: 'title', label: 'Title', nameCase: true },
   { key: 'media_type', label: 'Type', kind: 'mediaType', hint: 'A show’s dialogue carries a season and episode; a film’s and a game’s do not. Changing this does not move any lines you have already saved.' },
   { key: 'director', label: 'Director', nameCase: true },
+  {
+    key: 'publisher',
+    label: 'Publisher',
+    nameCase: true,
+    media: ['game'],
+    hint: 'Who put the game out, as against the studio above, who made it. They are usually two different companies — Electronic Arts published Mass Effect and BioWare developed it — and a fetch used to collapse them into one field, so a game added before 1.17.0 may credit its publisher as its studio. Re-fetching it under “Fetch metadata” separates the two.',
+  },
   { key: 'release_year', label: 'Year', kind: 'year', circaKey: 'release_circa' },
   { key: 'series', label: 'Collection', nameCase: true, hint: 'The franchise this title belongs to — the film side of a book’s series.' },
   { key: 'series_index', label: 'Collection #', kind: 'number' },
@@ -196,6 +203,8 @@ function fullState(kind, it) {
   return {
     title: it.title,
     director: it.director || '',
+    // 0042 — a game's publisher, full-state like everything else here.
+    publisher: it.publisher || '',
     release_year: it.release_year || 0,
     release_circa: !!it.release_circa,
     description: it.description || '',

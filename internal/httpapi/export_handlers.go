@@ -333,6 +333,9 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	writeFrontmatter(&sb,
 		kv{"title", m.Title},
 		kv{"director", m.Director},
+		// Games only in practice, and empty lines are dropped by writeFrontmatter,
+		// so a film's export is byte-identical to what it was before 0042.
+		kv{"publisher", m.Publisher},
 		kv{"year", zeroBlank(m.ReleaseYear)},
 		kv{"genres", strings.Join(m.Genres, ", ")},
 		kv{"collection", seriesFrontmatter(m.Series, m.SeriesIndex)},

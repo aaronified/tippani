@@ -178,8 +178,8 @@ func TestWikidataGameSearchIsEmptyRatherThanAnError(t *testing.T) {
 }
 
 // The developer is the studio, and lands in Director — the same column a show's
-// creator uses (0040). The publisher is the fallback because a game with a
-// publisher and no developer statement is commoner than the reverse.
+// creator uses (0040). The publisher lands in Publisher (0042); there is no
+// longer any fallback between the two.
 func TestWikidataGameDetailsMapsStudioAndFranchise(t *testing.T) {
 	newWDGameStub(t, &wdGameStub{
 		claims: map[string]string{"Q1": gameClaims(2011,
@@ -200,6 +200,9 @@ func TestWikidataGameDetailsMapsStudioAndFranchise(t *testing.T) {
 	if d.Director != "Bethesda Game Studios" {
 		t.Fatalf("studio must land in Director (the column a show's creator uses): %q", d.Director)
 	}
+	if d.Publisher != "" {
+		t.Errorf("Publisher = %q — this record states no P123, so the field is empty", d.Publisher)
+	}
 	if d.Series != "The Elder Scrolls" || d.ReleaseYear != 2011 {
 		t.Fatalf("details = %+v", d)
 	}
@@ -219,7 +222,11 @@ func TestWikidataGameDetailsMapsStudioAndFranchise(t *testing.T) {
 	}
 }
 
-func TestWikidataGameDetailsFallsBackToThePublisher(t *testing.T) {
+// TestWikidataGameDetailsDoesNotPassThePublisherOffAsTheStudio replaces
+// TestWikidataGameDetailsFallsBackToThePublisher. Same reasoning as the IGDB
+// side: with a column of its own, the publisher no longer has to borrow the
+// studio's label to be shown at all.
+func TestWikidataGameDetailsDoesNotPassThePublisherOffAsTheStudio(t *testing.T) {
 	newWDGameStub(t, &wdGameStub{
 		claims: map[string]string{"Q1": gameClaims(2015,
 			`"P123":[{"mainsnak":{"datavalue":{"value":{"id":"Q_pub"}}}}]`)},
@@ -229,8 +236,63 @@ func TestWikidataGameDetailsFallsBackToThePublisher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Director != "Some Publisher" {
-		t.Fatalf("with no developer the publisher is the studio, got %q", d.Director)
+	if d.Director != "" {
+		t.Errorf("Director = %q — with no P178 the studio is unknown, not the publisher", d.Director)
+	}
+	if d.Publisher != "Some Publisher" {
+		t.Errorf("Publisher = %q, want Some Publisher", d.Publisher)
+	}
+}
+
+// The Mass Effect shape on the Wikidata side: a company stated as BOTH developer
+// and publisher is passed over while a developer-only company exists, and the
+// LOGO follows the name rather than the first P178 statement — otherwise the icon
+// and the credit beside it would describe two different companies.
+func TestWikidataGameDetailsPrefersTheDeveloperThatOnlyDevelops(t *testing.T) {
+	newWDGameStub(t, &wdGameStub{
+		claims: map[string]string{"Q1": gameClaims(2021,
+			`"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q_ea"}}}},` +
+				`{"mainsnak":{"datavalue":{"value":{"id":"Q_bioware"}}}}],` +
+				`"P123":[{"mainsnak":{"datavalue":{"value":{"id":"Q_ea"}}}}]`)},
+		labels: map[string]string{
+			"Q1": "Mass Effect Legendary Edition", "Q_ea": "Electronic Arts", "Q_bioware": "BioWare",
+		},
+		images: map[string]string{"Q_ea": "EA.svg", "Q_bioware": "BioWare.svg"},
+	})
+	d, err := GameDetailsWikidata(context.Background(), "Q1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Director != "BioWare" {
+		t.Errorf("Director (studio) = %q, want BioWare", d.Director)
+	}
+	if d.Publisher != "Electronic Arts" {
+		t.Errorf("Publisher = %q, want Electronic Arts", d.Publisher)
+	}
+	if !strings.Contains(d.StudioLogoURL, "BioWare.svg") {
+		t.Errorf("studio logo = %q — it must be the logo of the company named as the studio", d.StudioLogoURL)
+	}
+}
+
+// Narrowing must never blank: a studio that publishes its own game is still the
+// studio, and is named in both fields because both are true of it.
+func TestWikidataGameDetailsKeepsASelfPublishingStudio(t *testing.T) {
+	newWDGameStub(t, &wdGameStub{
+		claims: map[string]string{"Q1": gameClaims(2019,
+			`"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q_lw"}}}}],` +
+				`"P123":[{"mainsnak":{"datavalue":{"value":{"id":"Q_lw"}}}}]`)},
+		labels: map[string]string{"Q1": "Hollow Reach", "Q_lw": "Lantern Works"},
+		images: map[string]string{"Q_lw": "Lantern.svg"},
+	})
+	d, err := GameDetailsWikidata(context.Background(), "Q1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Director != "Lantern Works" || d.Publisher != "Lantern Works" {
+		t.Fatalf("studio/publisher = %q / %q — both, because both are true", d.Director, d.Publisher)
+	}
+	if !strings.Contains(d.StudioLogoURL, "Lantern.svg") {
+		t.Errorf("studio logo = %q", d.StudioLogoURL)
 	}
 }
 

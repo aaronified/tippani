@@ -167,6 +167,17 @@ func backfillImportMovie(tx *sql.Tx, uid, movieID int64, m importer.MovieHeader)
 			return err
 		}
 	}
+	// NULLIF rather than COALESCE, because this column is NOT NULL DEFAULT ''
+	// (0042): an unset publisher is the empty string, not a NULL, so COALESCE
+	// would treat "never filled in" as "already filled in" and the fill-empty-only
+	// rule would never fire.
+	if m.Publisher != "" {
+		if _, err := tx.Exec(
+			`UPDATE movies SET publisher = COALESCE(NULLIF(publisher, ''), ?), updated_at = datetime('now') WHERE id = ?`,
+			m.Publisher, movieID); err != nil {
+			return err
+		}
+	}
 	if m.Series != "" {
 		if _, err := tx.Exec(
 			`UPDATE movies SET series = COALESCE(series, ?), series_index = COALESCE(series_index, ?), updated_at = datetime('now')

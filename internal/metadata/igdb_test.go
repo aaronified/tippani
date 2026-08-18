@@ -180,6 +180,11 @@ func TestIGDBDetails(t *testing.T) {
 	if d.StudioLogoURL != IGDBCoverURL("devlogo") {
 		t.Errorf("StudioLogoURL = %q, want the DEVELOPER logo", d.StudioLogoURL)
 	}
+	// 0042 — and this is the assertion the old shape could not make: the
+	// publisher is not lost, it is simply not the studio.
+	if d.Publisher != "Bandai Namco" {
+		t.Errorf("Publisher = %q, want Bandai Namco", d.Publisher)
+	}
 	// collection beats franchises: the tighter name is the one a reader typed.
 	if d.Series != "Elden Ring" {
 		t.Errorf("Series = %q, want the collection name", d.Series)
@@ -201,9 +206,15 @@ func TestIGDBDetails(t *testing.T) {
 	}
 }
 
-// TestIGDBStudioFallsBackToPublisher covers the 6-of-24 games with no company
-// flagged developer: a publisher name beats a blank studio.
-func TestIGDBStudioFallsBackToPublisher(t *testing.T) {
+// TestIGDBPublisherIsNotTheStudio replaces TestIGDBStudioFallsBackToPublisher,
+// which asserted the behaviour 0042 removed.
+//
+// That test was right about its own design and the design was wrong: with one
+// column to write a company into, "a publisher name beats a blank studio" was a
+// reasonable trade. With two columns it is a field labelled STUDIO stating the
+// name of a company that did not make the game — so the publisher goes in the
+// publisher field and the studio stays empty, which is what IGDB actually said.
+func TestIGDBPublisherIsNotTheStudio(t *testing.T) {
 	games := `[{"id":7,"name":"Some Game","slug":"some-game",
 	   "involved_companies":[{"developer":false,"publisher":true,
 	     "company":{"name":"Sony Interactive","logo":{"image_id":"sonylogo"}}}]}]`
@@ -212,8 +223,63 @@ func TestIGDBStudioFallsBackToPublisher(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Director != "Sony Interactive" || d.StudioLogoURL != IGDBCoverURL("sonylogo") {
-		t.Fatalf("publisher fallback: director=%q logo=%q", d.Director, d.StudioLogoURL)
+	if d.Director != "" {
+		t.Errorf("Director = %q — a publisher must never be reported as the studio", d.Director)
+	}
+	if d.StudioLogoURL != "" {
+		t.Errorf("StudioLogoURL = %q — no developer means no studio logo", d.StudioLogoURL)
+	}
+	if d.Publisher != "Sony Interactive" {
+		t.Errorf("Publisher = %q, want Sony Interactive", d.Publisher)
+	}
+}
+
+// TestIGDBPrefersTheDeveloperThatOnlyDevelops is the reported bug, in the shape
+// it was reported: Mass Effect Legendary Edition came back crediting Electronic
+// Arts as its studio.
+//
+// EA is entered as developer AND publisher on that record, and BioWare — which
+// actually made it — sits later in the same array flagged developer alone.
+// involved_companies has no meaningful order, so "the first row flagged
+// developer" was picking EA by luck. The company with the narrower claim wins.
+func TestIGDBPrefersTheDeveloperThatOnlyDevelops(t *testing.T) {
+	games := `[{"id":126459,"name":"Mass Effect Legendary Edition","slug":"mass-effect-legendary-edition",
+	   "involved_companies":[
+	     {"developer":true,"publisher":true,"company":{"name":"Electronic Arts","logo":{"image_id":"ealogo"}}},
+	     {"developer":true,"publisher":false,"company":{"name":"BioWare","logo":{"image_id":"biowarelogo"}}}]}]`
+	s := newIGDBStub(t, 200, 200, okToken, games)
+	d, err := s.client().Details(context.Background(), "126459")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Director != "BioWare" {
+		t.Errorf("Director (studio) = %q, want BioWare — EA published it, BioWare made it", d.Director)
+	}
+	if d.StudioLogoURL != IGDBCoverURL("biowarelogo") {
+		t.Errorf("StudioLogoURL = %q — the logo must follow the studio the name came from", d.StudioLogoURL)
+	}
+	if d.Publisher != "Electronic Arts" {
+		t.Errorf("Publisher = %q, want Electronic Arts", d.Publisher)
+	}
+}
+
+// TestIGDBEveryDeveloperAlsoPublishes guards the tie-break against the failure
+// it would be easy to introduce: narrowing an answer must never blank one. A
+// self-published studio is flagged both and is still the studio.
+func TestIGDBEveryDeveloperAlsoPublishes(t *testing.T) {
+	games := `[{"id":9,"name":"Self Published","slug":"self-published",
+	   "involved_companies":[{"developer":true,"publisher":true,
+	     "company":{"name":"Lantern Works","logo":{"image_id":"lanternlogo"}}}]}]`
+	s := newIGDBStub(t, 200, 200, okToken, games)
+	d, err := s.client().Details(context.Background(), "9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Director != "Lantern Works" || d.StudioLogoURL != IGDBCoverURL("lanternlogo") {
+		t.Fatalf("studio = %q / %q — a studio that publishes itself is still the studio", d.Director, d.StudioLogoURL)
+	}
+	if d.Publisher != "Lantern Works" {
+		t.Errorf("Publisher = %q — it is both, and both fields say so", d.Publisher)
 	}
 }
 
@@ -227,6 +293,9 @@ func TestIGDBNoCompaniesLeavesStudioBlank(t *testing.T) {
 	}
 	if d.Director != "" || d.StudioLogoURL != "" {
 		t.Fatalf("expected a blank studio, got %q / %q", d.Director, d.StudioLogoURL)
+	}
+	if d.Publisher != "" {
+		t.Errorf("Publisher = %q, want empty", d.Publisher)
 	}
 }
 

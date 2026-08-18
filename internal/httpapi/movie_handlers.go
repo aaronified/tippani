@@ -43,6 +43,10 @@ type movieReq struct {
 	SourceID     string   `json:"source_id"` // id within the source
 	Title        string   `json:"title"`
 	Director     string   `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
+	// Publisher is the OTHER company credit a game has (0042). Its own field
+	// rather than a second meaning for Director, because collapsing the two is
+	// the bug that migration exists to end.
+	Publisher    string   `json:"publisher"`
 	ReleaseYear  int      `json:"release_year"`
 	ReleaseCirca bool     `json:"release_circa"`
 	Description  string   `json:"description"`
@@ -158,6 +162,7 @@ type movieDetail struct {
 	ID           int64                 `json:"id"`
 	Title        string                `json:"title"`
 	Director     string                `json:"director"`
+	Publisher    string                `json:"publisher"`
 	ReleaseYear  int                   `json:"release_year"`
 	ReleaseCirca bool                  `json:"release_circa"`
 	TMDBID       int64                 `json:"tmdb_id"`
@@ -187,13 +192,13 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, cast_json, created_at,
-		       COALESCE(imdb_id, '')
+		       COALESCE(imdb_id, ''), publisher
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&castJSON, &m.CreatedAt, &m.IMDbID)
+			&castJSON, &m.CreatedAt, &m.IMDbID, &m.Publisher)
 	if err != nil {
 		return nil, err
 	}
@@ -264,11 +269,11 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, release_circa, description,
-		                    media_type, series, series_index, favorite, imdb_id)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    media_type, series, series_index, favorite, imdb_id, publisher)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID)); err != nil {
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher); err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
 	}
@@ -352,11 +357,12 @@ func (s *Server) createMovieFromSource(w http.ResponseWriter, r *http.Request, s
 	}
 	res, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, tmdb_id, tvdb_id, igdb_id,
-		                    media_type, poster_path, description, series, cast_json, source_metadata, imdb_id)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                    media_type, poster_path, description, series, cast_json, source_metadata, imdb_id, publisher)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), nullableInt64(d.IGDBID), d.MediaType,
-		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), d.IMDbID)
+		nullable(posterPath), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw), d.IMDbID,
+		d.Publisher)
 	if err != nil {
 		s.removeCoverFile(posterPath)
 		internalError(w, r, "create movie: insert", err)
@@ -800,11 +806,11 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, release_circa = ?, description = ?,
 		                  media_type = ?, series = ?, series_index = ?, favorite = ?, imdb_id = ?,
-		                  updated_at = datetime('now')
+		                  publisher = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), id, uid)
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, id, uid)
 	if err != nil {
 		failErr("update movie: exec", err)
 		return
@@ -928,14 +934,21 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, tmdb_id = ?, tvdb_id = ?, igdb_id = ?,
 		                  media_type = ?, poster_path = ?, description = ?, series = ?,
-		                  cast_json = ?, source_metadata = ?, imdb_id = ?, updated_at = datetime('now')
+		                  cast_json = ?, source_metadata = ?, imdb_id = ?, publisher = ?,
+		                  updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		d.Title, nullable(d.Director), nullableInt(d.ReleaseYear),
 		nullableInt64(d.TMDBID), nullableInt64(d.TVDBID), nullableInt64(d.IGDBID), d.MediaType,
 		nullable(poster), nullable(d.Overview), nullable(d.Series), castJSON, string(d.Raw),
 		// A re-sync that found no id must not ERASE one the reader typed: the
 		// supplier is the authority on what it knows, not on what it does not.
-		imdbOrKeep(tx, uid, id, d.IMDbID), id, uid)
+		imdbOrKeep(tx, uid, id, d.IMDbID),
+		// THE PUBLISHER IS OVERWRITTEN, not kept the way imdb_id is, and that is
+		// what makes a re-fetch the remedy 0042 promises. Every game stored before
+		// that migration has its developer-or-publisher muddle in `director` and an
+		// empty publisher, and the only thing that can tell the two apart is the
+		// source. Keeping a blank would leave the row exactly as wrong as it was.
+		d.Publisher, id, uid)
 	if err != nil {
 		failErr("resync movie: exec", err)
 		return

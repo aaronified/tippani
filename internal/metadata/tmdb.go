@@ -150,10 +150,17 @@ type MovieDetails struct {
 	IMDbID   string
 	Title    string
 	Director string // "creator" for shows, "studio" for games; stored in the director column
-	// StudioLogoURL is the developer/publisher logo for a game, and is empty for
-	// every other media type. It is separate from PosterURL because it is not the
-	// work's own art: it becomes the portrait on a `people` row of kind 'studio',
-	// which is what puts a studio icon where a film shows its director.
+	// Publisher is who PUT IT OUT, and it is a different company from the one
+	// that made it (0042). Empty for every media type but games, and never a
+	// stand-in for a missing Director: the two fields collapsing into one is the
+	// bug 0042 exists to end — Mass Effect Legendary Edition arrived crediting
+	// Electronic Arts as its studio, which published it, where BioWare made it.
+	Publisher string
+	// StudioLogoURL is the DEVELOPER's logo, and is empty for every other media
+	// type. It is separate from PosterURL because it is not the work's own art:
+	// it becomes the portrait on a `people` row of kind 'studio', which is what
+	// puts a studio icon where a film shows its director. A publisher gets no
+	// logo here, because it gets no people row — see 0042.
 	StudioLogoURL string
 	ReleaseYear   int
 	Overview      string
