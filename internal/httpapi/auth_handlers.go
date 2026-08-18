@@ -407,6 +407,27 @@ type prefs struct {
 	// from — the Settings card shows a Resume button for it.
 	Tour     string `json:"tour"`
 	TourStep int    `json:"tourStep"`
+	// DefaultBoardID (0036) is the shelf a standalone quote lands on when nothing
+	// named one — the ＋ pressed outside a board, an import with no board key.
+	//
+	// IT IS HERE TO BE PRESERVED, NOT TO BE SET. Nothing in the request struct
+	// below reads it and no client may write it: it points at a row, so a value
+	// off the wire would be an unchecked reference to another account's board.
+	// setDefaultBoard and 0036's backfill write it with SQL json_set, and this
+	// field is what carries it back out through the marshal below.
+	//
+	// WITHOUT IT, EVERY PREFERENCES PUT DELETED IT. This handler ends in
+	// json.Marshal(cur) and one full-row UPDATE, so a key that is not a field
+	// here is a key loadPrefs drops and the write never restores. Clicking an
+	// accent swatch silently unset the reader's default board; defaultBoardID
+	// then fell back to `ORDER BY pos, id LIMIT 1` and repointed, so their chosen
+	// shelf became their FIRST shelf and the next quote captured outside a board
+	// was filed on the wrong one. Nothing threw and nothing on screen said so.
+	//
+	// Which is the general lesson for anything added to this blob: a preference
+	// written from outside this file has to be a field in here, or the next
+	// unrelated save eats it.
+	DefaultBoardID int64 `json:"defaultBoardId,omitempty"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather

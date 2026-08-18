@@ -314,3 +314,79 @@ func TestStarterProverbsLandOnTheBoardThatOfferedThem(t *testing.T) {
 		}
 	}
 }
+
+// THE DEFAULT BOARD SURVIVES AN UNRELATED SETTINGS CHANGE, and until 1.16.1 it
+// did not.
+//
+// `defaultBoardId` is a preference pointing at a row, and it is the one
+// preference written from outside handleUpdatePreferences — 0036's migration and
+// setDefaultBoard both reach into the blob with SQL json_set. But that handler
+// ends in `json.Marshal(cur)` over the `prefs` struct and one full-row UPDATE,
+// and the key is not a field on that struct: loadPrefs drops it on unmarshal and
+// the marshal never writes it back. So clicking an accent swatch deleted it.
+//
+// Nothing threw. defaultBoardID tolerates a missing key by falling back to
+// `ORDER BY pos, id LIMIT 1` and repointing — so the reader's chosen shelf
+// silently became their FIRST shelf, and the next quote captured outside a board
+// was filed on the wrong one. 0036's own backfill produces exactly the shape
+// that shows it: Others is seeded at pos 2, and Proverbs at pos 0 is what the
+// fallback picks.
+//
+// Two assertions, because the key surviving and the filing being right are
+// different claims and only the second is what the reader sees.
+func TestASettingsChangeDoesNotMoveYourDefaultBoard(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Scanned through a NULL-tolerant pointer, because the failure this test
+	// exists for DELETES the key rather than changing it — and "converting NULL
+	// to int64 is unsupported" is a scan error that says nothing about what went
+	// wrong. 0 means the key is not there at all.
+	storedDefault := func() int64 {
+		t.Helper()
+		var id *int64
+		if err := srv.Store.DB.QueryRow(
+			`SELECT CAST(json_extract(preferences, '$.defaultBoardId') AS INTEGER) FROM users WHERE id = 1`,
+		).Scan(&id); err != nil {
+			t.Fatalf("read defaultBoardId: %v", err)
+		}
+		if id == nil {
+			return 0
+		}
+		return *id
+	}
+
+	// The first quote makes the first board and points the preference at it.
+	first := newUtterance(t, c, bose())
+	if storedDefault() != first.BoardID {
+		t.Fatalf("defaultBoardId = %d after the first quote, want board %d", storedDefault(), first.BoardID)
+	}
+
+	// A second shelf, and the reader's default moved onto it — the shape 0036's
+	// backfill leaves behind, where the default is NOT the first board by
+	// (pos, id). Written the way the migration writes it, which is the point:
+	// this key has always been set from outside the preferences handler.
+	dest := newBoard(t, c, "Speeches")
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE users SET preferences = json_set(
+		   CASE WHEN COALESCE(preferences,'') = '' THEN '{}' ELSE preferences END,
+		   '$.defaultBoardId', ?) WHERE id = 1`, dest.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Something entirely unrelated: one accent swatch.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"aesthetic": "paper", "theme": "light", "accent": "olive"}, http.StatusOK)
+
+	if got := storedDefault(); got != dest.ID {
+		t.Fatalf("defaultBoardId = %d after an accent change, want %d — the preferences PUT deleted it", got, dest.ID)
+	}
+
+	// And the consequence the reader would actually notice: a quote captured
+	// outside any board still lands on the shelf they chose.
+	next := newUtterance(t, c, map[string]any{"quote": "Another line entirely"})
+	if next.BoardID != dest.ID {
+		t.Fatalf("a quote captured after a settings change landed on board %d, want %d", next.BoardID, dest.ID)
+	}
+}

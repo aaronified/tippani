@@ -77,6 +77,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   multi-user instance that is the difference between "a request failed" and "this account's
   request failed", which is the question an operator actually has.
 
+### Fixed
+
+- **Changing a setting no longer moves your default board.** The shelf a standalone quote lands on
+  when nothing names one is a preference pointing at a row — and every save on the Settings screen
+  was deleting it. An accent swatch, a theme switch, the review sliders, anything: the key went, the
+  app quietly fell back to your *first* board, and the next quote captured outside a board was filed
+  there instead. Nothing failed and nothing said so; the only visible symptom was a quote turning up
+  on a shelf you did not choose.
+
+  The cause is how the preferences row is written. `PUT /auth/me/preferences` loads the stored set,
+  overlays the fields the request actually carries, and marshals the whole preferences struct back
+  over the row — so a key that is not a field on that struct is a key the read drops and the write
+  never restores. The default board is written from *outside* that handler, both by the migration
+  that introduced boards and by the code that repoints it when you delete one, and it was not a
+  field. It is one now, carried through the save and still not settable by any client: it points at
+  a row, so a value off the wire would be an unchecked reference to somebody else's board.
+
+  **Not fixed by preserving unknown keys.** Merging the incoming set into the stored row instead of
+  marshalling over it would have covered this key and every future one — but the deliberate
+  behaviour of that struct is that retired keys are dropped on the next save, which is what keeps a
+  years-old browser from resurrecting a setting this version no longer has. One field is the
+  narrower fix and it leaves that alone.
+
 ## [1.16.0] - 2026-08-17
 
 ### Added
