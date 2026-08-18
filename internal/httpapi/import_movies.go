@@ -225,6 +225,18 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		movieID).Scan(&castJSON, &mediaType)
 	show := mediaType == "show"
 
+	// The film's quiz opt-out, inherited by every line this loop writes.
+	//
+	// A SECOND READ OF A ROW ALREADY FETCHED, on purpose. The query above ignores
+	// its error because a missing cast list costs an autofill and nothing else,
+	// and the same tolerance applied here would turn a failed read into a silent
+	// "included" — the exact shape of the bug this fixes. It goes through
+	// workExclusion so both import paths answer this question the same way.
+	excluded, err := workExclusion(tx, "movies", movieID)
+	if err != nil {
+		return 0, 0, err
+	}
+
 	added, enriched := 0, 0
 	// One id reservation for the batch (idBlock, id_floor.go).
 	ids := newIDBlock(tx, "dialogues", len(dialogues))
@@ -264,10 +276,12 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (id, movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (id, movie_id, quote, note, color, character, actor, timestamp, season, episode, favorite, dedupe_hash, noted_at,
+			   review_excluded)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			did, movieID, quote, nullable(note), color, nullable(d.Character), nullable(actor),
-			nullable(d.Timestamp), season, episode, d.Favorite, store.DialogueDedupeHash(quote, season, episode), nullable(d.NotedAt))
+			nullable(d.Timestamp), season, episode, d.Favorite, store.DialogueDedupeHash(quote, season, episode), nullable(d.NotedAt),
+			excluded)
 		if err != nil {
 			return 0, 0, err
 		}

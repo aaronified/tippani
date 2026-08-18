@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Skipping a book in the quiz now holds when you import into it again.** Mark a reference
+  manual "Skip in quiz", import your clippings a week later, and its new highlights were back in
+  the deck — which is the one book where that is guaranteed to happen, because you excluded it
+  *because* you keep adding to it.
+
+  A work's opt-out reaches its quotes as a write rather than as a filter, deliberately: a
+  highlight barred from the deck by a flag that was not on it made the control that clears its
+  own flag report an outcome that never happened ("back in the quiz", on a card the deck still
+  refused). The price of that is that every path which puts a quote under a work has to write the
+  work's answer onto it. Capturing one by hand did. **Importing did not** — one column missing
+  from one `INSERT`, for books and for films alike.
+
+  **Merging carried the same hole**, found while checking the rest of them: re-pointing one
+  edition's highlights into another quietly refilled the deck from a book you had taken out of
+  it. It travels one way only — excluding propagates into an excluded target, and including never
+  propagates out of an included one, because a quote you personally put back in the quiz inside a
+  manual you otherwise skip is an answer a merge has no business erasing.
+
 ## [2.0.0] - 2026-08-18
 
 ### Added

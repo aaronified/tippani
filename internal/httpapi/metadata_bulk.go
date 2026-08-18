@@ -368,6 +368,34 @@ func (s *Server) handleMergeBooks(w http.ResponseWriter, r *http.Request) {
 		addGenres(g)
 	}
 
+	// A merge INTO an excluded book is another path that puts a quote under a work,
+	// so it owes the same debt every create path owes (see workExclusion): the flag
+	// that gates the deck is the quote's own, so arriving under a book marked "not
+	// for quizzing" has to write it. Otherwise merging two editions quietly refills
+	// the deck from a book the reader took out of it.
+	//
+	// ONE-WAY, and only one way. Excluding propagates; including does not. A quote
+	// carries its own answer — somebody may have put a single line back in the quiz
+	// inside a manual they otherwise skip — and a merge is not the moment to erase
+	// that. Written on the SOURCE rows before they move, because that is exactly the
+	// set that is moving: the target's own quotes are none of this operation's
+	// business, and the ones that collide are deleted with the source anyway.
+	if intoExcluded, err := workExclusion(tx, "books", req.Into); err != nil {
+		internalError(w, r, "merge: read the target's quiz opt-out", err)
+		return
+	} else if intoExcluded == 1 {
+		srcArgs := make([]any, 0, len(from))
+		for _, id := range from {
+			srcArgs = append(srcArgs, id)
+		}
+		if _, err := tx.Exec(
+			`UPDATE annotations SET review_excluded = 1, updated_at = datetime('now')
+			 WHERE book_id IN (`+inClause(len(from))+`)`, srcArgs...); err != nil {
+			internalError(w, r, "merge: carry the quiz opt-out", err)
+			return
+		}
+	}
+
 	// Re-point annotations; OR IGNORE skips ones that would duplicate a quote
 	// already on the target (they stay on the source and are removed with it).
 	fromArgs := make([]any, 0, len(from)+1)
@@ -482,6 +510,24 @@ func (s *Server) handleMergeMovies(w http.ResponseWriter, r *http.Request) {
 				genreSet[strings.ToLower(n)] = true
 				union = append(union, n)
 			}
+		}
+	}
+
+	// The same debt the book merge owes, for the same reason and with the same
+	// one-way rule — see the comment there.
+	if intoExcluded, err := workExclusion(tx, "movies", req.Into); err != nil {
+		internalError(w, r, "merge: read the target's quiz opt-out", err)
+		return
+	} else if intoExcluded == 1 {
+		srcArgs := make([]any, 0, len(from))
+		for _, id := range from {
+			srcArgs = append(srcArgs, id)
+		}
+		if _, err := tx.Exec(
+			`UPDATE dialogues SET review_excluded = 1, updated_at = datetime('now')
+			 WHERE movie_id IN (`+inClause(len(from))+`)`, srcArgs...); err != nil {
+			internalError(w, r, "merge: carry the quiz opt-out", err)
+			return
 		}
 	}
 

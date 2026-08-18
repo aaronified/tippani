@@ -218,6 +218,35 @@ type bookSummary struct {
 	Enriched int    `json:"enriched"`
 }
 
+// workExclusion reads a work's quiz opt-out so a batch insert can seed every
+// child row it writes from it.
+//
+// WHY EVERY CREATE PATH HAS TO DO THIS. 0033 made the flag that gates the deck the
+// quote's OWN column, deliberately — a highlight barred by a flag that was not on
+// it made the control that clears its flag report an outcome that did not happen.
+// The price of that decision is that "skip this book" has to be written onto the
+// quotes, and therefore onto each new quote at the moment it is created. Miss it in
+// one path and the opt-out silently stops holding on that path only, which is
+// exactly what happened here: `POST /annotations` inherited and the importer did
+// not, so re-importing a clippings file put an excluded manual back in the deck.
+//
+// READ ONCE PER BATCH rather than as the correlated subquery `POST /annotations`
+// uses. Inside one transaction the parent's flag cannot move, so the two are
+// equivalent — and a clippings file is thousands of rows, which would be thousands
+// of lookups of a value that cannot have changed between them.
+//
+// A missing parent reads as included rather than failing the import. It cannot
+// happen (the caller resolved the work first) and refusing an import over it would
+// trade a whole file for a flag.
+func workExclusion(tx *sql.Tx, table string, id int64) (int, error) {
+	var excluded int
+	err := tx.QueryRow(`SELECT COALESCE(review_excluded, 0) FROM `+table+` WHERE id = ?`, id).Scan(&excluded)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return excluded, err
+}
+
 // writeBookAnnotations inserts/enriches a batch of parsed annotations against a
 // book that has ALREADY been resolved, inside the caller's transaction. It
 // returns how many were added and how many enriched an existing copy. A bad
@@ -229,6 +258,13 @@ type bookSummary struct {
 // below stay the single implementation for every path into the library.
 func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, anns []importer.Annotation) (int, int, error) {
 	added, enriched := 0, 0
+	// The work's quiz opt-out, inherited by every row this loop writes. See
+	// workExclusion: without it, excluding a book and then importing into it put
+	// the new highlights straight back in the deck.
+	excluded, err := workExclusion(tx, "books", bookID)
+	if err != nil {
+		return 0, 0, err
+	}
 	// One id reservation for the batch rather than one per quote: a clippings file
 	// is thousands of rows, and ids skipped by the dedupe below cost nothing (see
 	// idBlock in id_floor.go).
@@ -251,11 +287,12 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (id, book_id, quote, note, color, chapter, location, favorite, source, dedupe_hash, noted_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			  (id, book_id, quote, note, color, chapter, location, favorite, source, dedupe_hash, noted_at,
+			   review_excluded)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			annID, bookID, nullable(a.Quote), nullable(a.Note), color,
 			nullable(a.Chapter), nullable(a.Location), a.Favorite,
-			source, store.DedupeHash(text), nullable(a.NotedAt))
+			source, store.DedupeHash(text), nullable(a.NotedAt), excluded)
 		if err != nil {
 			return 0, 0, err
 		}
