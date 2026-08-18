@@ -55,8 +55,13 @@ func (b *bookReq) validate() string {
 	}
 	if raw := strings.TrimSpace(b.ISBN); raw == "" {
 		b.ISBN = ""
-	} else if b.ISBN = metadata.NormalizeISBN(raw); b.ISBN == "" {
-		return "invalid isbn"
+	} else if why := metadata.ISBNProblem(raw); why != "" {
+		// The reason, not "invalid isbn". A refusal that does not say which of four
+		// mistakes you made is a refusal you argue with — and the commonest of the
+		// four, a wrong number of digits, was completely invisible.
+		return why
+	} else {
+		b.ISBN = metadata.NormalizeISBN(raw)
 	}
 	if !validYear(b.PublishedYear) {
 		return "published_year must be between 4000 BCE and 3000 CE"

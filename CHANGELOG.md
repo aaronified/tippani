@@ -33,6 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A refused ISBN now says which mistake it was, and ten-digit ISBNs are named as welcome.**
+  The answer to every bad ISBN was "invalid isbn", which is equally true of a 14-digit number, a
+  stray letter, an ASIN pasted into the wrong box and a single mistyped digit — four mistakes with
+  four different fixes, and the commonest of them (wrong number of digits) was the one the message
+  hid completely. Each now gets its own sentence, in the Book details form and in a metadata
+  look-up alike.
+
+  Ten-digit ISBNs were always accepted and converted to the thirteen-digit form the app stores —
+  but the field's own help called it "the 13-digit book identifier", so the number printed on any
+  book published before 2007 read as unsupported. The help now says both lengths are fine, hyphens
+  and all, and what happens to the shorter one.
+
 - **Skipping a book in the quiz now holds when you import into it again.** Mark a reference
   manual "Skip in quiz", import your clippings a week later, and its new highlights were back in
   the deck — which is the one book where that is guaranteed to happen, because you excluded it

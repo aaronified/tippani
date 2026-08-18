@@ -33,10 +33,14 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	}
 	var isbn string
 	if req.ISBN != "" {
-		if isbn = metadata.NormalizeISBN(req.ISBN); isbn == "" {
-			writeErr(w, http.StatusBadRequest, "invalid isbn")
+		// The same reason the save form gives. A look-up is the OTHER place somebody
+		// types an ISBN by hand, and it is where a mistyped one is most likely — the
+		// number is being copied off a book at the time.
+		if why := metadata.ISBNProblem(req.ISBN); why != "" {
+			writeErr(w, http.StatusBadRequest, why)
 			return
 		}
+		isbn = metadata.NormalizeISBN(req.ISBN)
 	}
 	gkey, err := s.Store.GetSetting(settingGoogleBooksKey)
 	if err != nil {

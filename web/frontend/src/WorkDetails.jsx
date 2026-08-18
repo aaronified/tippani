@@ -76,7 +76,7 @@ const BOOK_FIELDS = [
   {
     key: 'isbn',
     label: 'ISBN',
-    hint: 'The 13-digit book identifier. Tippani only uses it to look the book up — a better cover, description or series come from a match on it. Nothing needs it to work.',
+    hint: 'Ten digits or thirteen, hyphens and all — an older book’s ten-digit ISBN is kept as its thirteen-digit form. Only used to look the book up: a better cover or description comes from a match on it.',
   },
   {
     key: 'asin',
