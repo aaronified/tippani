@@ -10,12 +10,12 @@
 // Nothing else noticed: no test failed, no gate fired, and each entry grew by one
 // reasonable sentence at a time until the panel was a document nobody opened twice.
 //
-// WHAT IS BUDGETED IS WHAT IS VISIBLE. `what` and `how` are on screen the moment
-// the panel opens, so they are capped; `more` is behind a fold and is deliberately
-// NOT capped, because the reasoning this project writes down is worth keeping — it
-// is only not worth being the first thing somebody meets. That asymmetry is the
-// whole design, and a cap on `more` would quietly turn the collapse decision into
-// the delete-it-all one.
+// EVERYTHING IS BUDGETED, the fold included. The first pass capped only what was on
+// screen and argued that `more` should stay free, so the reasoning survived. The
+// owner overruled it — "clip long texts as much as possible without compromising
+// utility" — and was right: a fold is not a licence, it is a second chance to be
+// long. MORE_MAX is looser than WHAT_MAX because that is what the fold is FOR, and
+// tight enough that opening one is still reading a note rather than an essay.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,15 +24,17 @@ import { HELP, helpFor, helpGuide } from '../../src/help.jsx'
 
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 
-// WHAT_MAX — one sentence, front-loaded. 200 rather than 120: this app's sentences
-// carry em dashes and clauses, and a cap that forces "Search across your library."
-// buys density by throwing away the half of the sentence that was useful.
-const WHAT_MAX = 200
+// WHAT_MAX — one sentence, front-loaded. 160: tight enough that it cannot become a
+// paragraph, loose enough for the clause after an em dash, which is usually where
+// this app's sentences say the useful half.
+const WHAT_MAX = 160
 // HOW_MAX / HOW_LINES — a verb-first line, and at most three of them. Three is the
 // number that still reads as a set at a glance; the fourth is where a list becomes
 // a procedure, and a procedure belongs in `more`.
 const HOW_MAX = 120
 const HOW_LINES = 3
+// MORE_MAX — the fold is a note, not an essay. See the header.
+const MORE_MAX = 420
 
 const allEntries = () => {
   const seen = new Map()
@@ -78,6 +80,13 @@ describe('the visible part of an entry', () => {
       }
     }
     expect(bad).toEqual([])
+  })
+
+  it('keeps the fold to a note, not a second essay', () => {
+    const over = allEntries()
+      .filter(([, e]) => (e.more || '').length > MORE_MAX)
+      .map(([k, e]) => `${k} (${e.more.length})`)
+    expect(over, `over ${MORE_MAX} characters behind the fold`).toEqual([])
   })
 
   it('does not put a whole entry behind the fold and leave nothing in front', () => {

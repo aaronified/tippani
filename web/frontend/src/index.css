@@ -5334,12 +5334,15 @@ html[data-theme="dark"] .board-cover {
 /* scroll-margin, so an anchored section does not land with its heading under the
    panel's own top edge — the classic sticky-header anchor bug. */
 .help-section { scroll-margin-top: 4px; }
+/* NOT STICKY, on purpose. It was, and it needed an opaque background to cover the
+   prose scrolling under it — which against the card's paper texture read as a
+   filled, selected row rather than as a heading. It was also saying what the rail
+   already says and marks. */
 .help-section-title {
   font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--faint);
   padding-bottom: 6px; margin-bottom: 10px;
   border-bottom: 1px solid var(--line);
-  position: sticky; top: 0; background: var(--card); z-index: 1;
 }
 
 /* The verb-first lines under an entry's sentence. Tight, and marked with a rule
@@ -5378,10 +5381,16 @@ html[data-theme="dark"] .board-cover {
   /* The rail becomes a row. Horizontally scrolling rather than wrapping to four
      lines and pushing the answer off the screen. */
   .help-rail {
-    flex-direction: row; position: static; max-height: none;
+    flex-direction: row; max-height: none;
     overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
     border-right: 0; border-bottom: 1px solid var(--line);
-    padding: 0 0 8px; gap: 4px;
+    padding: 2px 0 8px; gap: 4px;
+    /* STATIC, and the panel does not auto-scroll on a phone — see HelpGuide. Sticky
+       was tried and produced two artifacts at once: prose leaking through the gap
+       above it, and the section heading clipped underneath it. On a screen this
+       narrow the whole map fits above the answer anyway, so showing it is better
+       than scrolling past it and pinning a copy. */
+    position: static;
   }
   .help-rail-item { flex: none; padding: 6px 10px; border: 1px solid var(--line); }
   .help-rail-item.is-active { box-shadow: none; border-color: var(--accent-ui); }

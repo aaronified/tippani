@@ -3345,9 +3345,9 @@ function HelpRow({ e }) {
 // It is a column on a desktop and a scrolling row of pills on a phone, which is the
 // same swap the shell makes between a tab strip and a bottom bar. Plain anchors, so
 // the browser does the scrolling and the back button undoes it.
-function HelpRail({ sections, active }) {
+function HelpRail({ sections, active, railRef }) {
   return (
-    <nav className="help-rail" aria-label="Help sections">
+    <nav className="help-rail" aria-label="Help sections" ref={railRef}>
       {sections.map((sec) => (
         <a
           key={sec.id}
@@ -3371,18 +3371,39 @@ function HelpRail({ sections, active }) {
 // screen's "?" button.
 export function HelpGuide({ sections = [], active }) {
   const bodyRef = useRef(null);
-  // scrollIntoView on the anchor rather than on mount of the section, because the
-  // sheet's own body is the scroll container and it does not exist until the portal
-  // has painted. `instant` on purpose: an animated jump on open reads as the panel
-  // being unable to decide where it is.
+  const railRef = useRef(null);
+  const mobile = useIsMobileScreen();
+  // TWO BEHAVIOURS, because the two layouts have different scroll containers and
+  // the phone one cannot afford to scroll past its own map.
+  //
+  // On a POINTER screen the guide body scrolls inside a fixed panel, the rail is
+  // sticky beside it, and jumping to the section you came from costs nothing — the
+  // map stays on screen the whole time.
+  //
+  // On a PHONE the sheet itself scrolls, so the same jump carried the rail off the
+  // top and left the reader in the middle of a document with no visible way out.
+  // Making the rail sticky there fixed that and broke two other things (prose
+  // leaking above it, the section heading clipped under it). So the phone does not
+  // scroll at all: the whole rail is the first thing on screen, and the section you
+  // came from is the pill that is marked — scrolled into view HORIZONTALLY, which
+  // is the one bit of scrolling that helps rather than hides.
+  //
+  // `instant` on purpose in both: an animated jump on open reads as the panel being
+  // unable to decide where it is.
   useEffect(() => {
     if (!active) return;
+    if (mobile) {
+      railRef.current
+        ?.querySelector(".help-rail-item.is-active")
+        ?.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+      return;
+    }
     const el = bodyRef.current?.querySelector(`#help-${active}`);
     el?.scrollIntoView({ block: "start", behavior: "instant" });
-  }, [active, sections]);
+  }, [active, sections, mobile]);
   return (
     <div className="help-guide">
-      <HelpRail sections={sections} active={active} />
+      <HelpRail sections={sections} active={active} railRef={railRef} />
       <div className="help-guide-body" ref={bodyRef}>
         {sections.map((sec) => (
           <section key={sec.id} id={`help-${sec.id}`} className="help-section">
