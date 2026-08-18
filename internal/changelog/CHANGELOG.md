@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A chapter has a number and a name, and they are separate fields now.** Both optional and
+  independent: a numbered novel fills the first, an essay collection or a book of scripture the
+  second, and a book that gives its chapters both gets both. The number takes a decimal, because
+  12.5 is where an interlude or an appendix goes.
+
+  One field was holding two facts, and the interface had already admitted it — the capture form's
+  placeholder said "e.g. 3" under a label reading **Chapter**, so it was asking for a number and
+  filing it as a name. Sorting a table by chapter put 10 between 1 and 2, and each screen guessed
+  differently whether to caption a row "CH. 3" or just "Envoi". Now the number sorts as a number,
+  every screen captions it the same way, and an export writes one heading per chapter — `## 7 · The
+  Fall` — that re-imports with both halves intact.
+
+  **Nothing you already have was touched.** Every existing chapter stays exactly as you typed it,
+  in the name, with the number left empty until you fill it in. Splitting "3. The Fall" into a 3 and
+  a name would be right most of the time and wrong for a chapter called "1984" — and a wrong value
+  written by an upgrade looks like something you did. The one exception is a re-import: a file whose
+  chapter was simply "3" comes back as the number 3, because there the heading really is
+  unambiguous.
+
 ### Changed
 
 - **No keyboard shortcuts printed on a phone.** The drawer stopped repeating `G then L` beside

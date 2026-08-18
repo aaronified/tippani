@@ -90,14 +90,14 @@ const DESCRIPTIONS = {
   4: 'A memoir of a long coastal walk after losing everything.',
 }
 const ANNOTATIONS = [
-  { id: 1, book_id: 1, quote: 'She kept the margins wider than the text, the way some people keep a spare room — for whoever might arrive.', note: 'the wide-margin argument, again — keep.', color: 'yellow', chapter: '3', location: '142', favorite: true, tags: ['memory', 'craft'], noted_at: '2026-02-11', sticker_id: 1, sticker_x: 0.84, sticker_y: 0.06 },
+  { id: 1, book_id: 1, quote: 'She kept the margins wider than the text, the way some people keep a spare room — for whoever might arrive.', note: 'the wide-margin argument, again — keep.', color: 'yellow', chapter_no: 3, chapter: 'The wide margin', location: '142', favorite: true, tags: ['memory', 'craft'], noted_at: '2026-02-11', sticker_id: 1, sticker_x: 0.84, sticker_y: 0.06 },
   // Skipped on its own account, in a book that is not — the other half of the
   // pair with highlight 6.
-  { id: 2, book_id: 1, quote: 'Quiet is not the absence of sound but the presence of attention.', note: '', color: 'blue', chapter: '1', location: '9', favorite: false, tags: ['craft'], noted_at: '2026-03-02', review_excluded: true },
-  { id: 3, book_id: 1, quote: 'A margin is a promise: that there is always room to answer back.', note: '', color: 'pink', chapter: '5', location: '201', favorite: true, tags: ['favourite'], noted_at: '2026-05-19' },
-  { id: 4, book_id: 2, quote: 'The dead do not dream, and yet here we are, dreaming them.', note: '', color: 'orange', chapter: '', location: '', favorite: false, tags: ['heartbreak'], noted_at: '2026-06-08' },
-  { id: 5, book_id: 2, quote: 'Children. Confront them with a mystery and they will attack it with a hammer.', note: 'so good', color: 'yellow', chapter: '', location: '', favorite: true, tags: ['funny', 'wisdom'], noted_at: '2026-06-21' },
-  { id: 6, book_id: 3, quote: 'The lamp does not argue with the dark; it simply keeps its corner.', note: '', color: 'blue', chapter: '', location: '', favorite: false, tags: [], noted_at: '2026-07-01' },
+  { id: 2, book_id: 1, quote: 'Quiet is not the absence of sound but the presence of attention.', note: '', color: 'blue', chapter_no: 1, chapter: '', location: '9', favorite: false, tags: ['craft'], noted_at: '2026-03-02', review_excluded: true },
+  { id: 3, book_id: 1, quote: 'A margin is a promise: that there is always room to answer back.', note: '', color: 'pink', chapter_no: 5, chapter: 'Answering back', location: '201', favorite: true, tags: ['favourite'], noted_at: '2026-05-19' },
+  { id: 4, book_id: 2, quote: 'The dead do not dream, and yet here we are, dreaming them.', note: '', color: 'orange', chapter_no: 0, chapter: '', location: '', favorite: false, tags: ['heartbreak'], noted_at: '2026-06-08' },
+  { id: 5, book_id: 2, quote: 'Children. Confront them with a mystery and they will attack it with a hammer.', note: 'so good', color: 'yellow', chapter_no: 0, chapter: '', location: '', favorite: true, tags: ['funny', 'wisdom'], noted_at: '2026-06-21' },
+  { id: 6, book_id: 3, quote: 'The lamp does not argue with the dark; it simply keeps its corner.', note: '', color: 'blue', chapter_no: 0, chapter: '', location: '', favorite: false, tags: [], noted_at: '2026-07-01' },
 ]
 
 // ---- standalone quotes (ROADMAP §24) ----
@@ -340,7 +340,7 @@ function bookCard(a, direction) {
     kind: 'book', id: a.id, direction: direction || (a.id % 2 ? 'source' : 'quote'),
     quote: a.quote || '', note: a.note || '', color: a.color || 'yellow',
     title: b.title || '', author: b.author || '', character: '',
-    chapter: a.chapter || '', location: a.location || '', timestamp: '', season: null, episode: null, media_type: '',
+    chapter: a.chapter || '', chapter_no: a.chapter_no || 0, location: a.location || '', timestamp: '', season: null, episode: null, media_type: '',
     stability: 7, review_count: 0, status: 'unseen',
   }
   return { ...card, ...demoMCQ(card) }
@@ -351,7 +351,7 @@ function screenCard(d, direction) {
     kind: 'screen', id: d.id, direction: direction || (d.id % 2 ? 'source' : 'quote'),
     quote: d.quote || '', note: d.note || '', color: '',
     title: m.title || '', author: '', character: d.character || '',
-    chapter: '', location: '', timestamp: d.timestamp || '',
+    chapter: '', chapter_no: 0, location: '', timestamp: d.timestamp || '',
     season: d.season ?? null, episode: d.episode ?? null, media_type: m.media_type || 'movie',
     stability: 7, review_count: 0, status: 'unseen',
   }

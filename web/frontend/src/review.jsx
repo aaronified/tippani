@@ -17,7 +17,7 @@ import { installShortcuts, shortcutFor } from './keys.js'
 import { useEffect, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { errText, json } from './api.js'
-import { episodeLabel } from './text.js'
+import { chapterMeta, episodeLabel } from './text.js'
 import { DEFAULT_CREDIT_SEPS, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
 import {
@@ -289,9 +289,8 @@ function SourceLines({ card, maps = {} }) {
     meta = card.occasion_date || ''
   } else {
     // The author lives in the chips row now; the meta line keeps the location.
-    const ch = (card.chapter || '').trim()
     meta = [
-      ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch),
+      chapterMeta(card),
       card.location && `P. ${card.location}`,
     ]
       .filter(Boolean)

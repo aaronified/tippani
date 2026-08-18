@@ -6,7 +6,7 @@
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { errText, json } from './api.js'
-import { episodeLabel } from './text.js'
+import { chapterLabel, chapterMeta, episodeLabel } from './text.js'
 import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
@@ -361,10 +361,9 @@ const FAVS_INITIAL = 4 // tiles shown before "view more"
 // once as plain text and once as the thing you can actually click.
 // `source`, the collapsed line, keeps the credit: there are no chips down there.
 function bookFav(a) {
-  const ch = (a.chapter || '').trim()
   const meta = [
     a.book_title,
-    ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch),
+    chapterMeta(a),
     a.location && `P. ${a.location}`,
   ]
     .filter(Boolean)
@@ -638,7 +637,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
     if (f.kind === 'book') {
       return bookShare({
         quote: f.raw.quote, note: f.raw.note, author: f.raw.book_author, title: f.raw.book_title,
-        chapter: f.raw.chapter, location: f.raw.location, date: fmtDate(annDate(f.raw)),
+        chapter: chapterLabel(f.raw), location: f.raw.location, date: fmtDate(annDate(f.raw)),
         tags: f.raw.tags, color: f.raw.color, people: authorMap,
       })
     }
@@ -856,8 +855,7 @@ function FavouriteTile({
   let collapsedSource = f.source
   let expandedMeta = f.meta
   if (isBook) {
-    const ch = (f.raw.chapter || '').trim()
-    const chLabel = ch && (/^\d/.test(ch) ? `CH. ${ch}` : ch)
+    const chLabel = chapterMeta(f.raw)
     const locLabel = f.raw.location ? `P. ${f.raw.location}` : ''
     collapsedSource = [f.raw.book_title, authorText].filter(Boolean).join(' · ')
     // No author in the EXPANDED line: the PersonCredit chips below carry the

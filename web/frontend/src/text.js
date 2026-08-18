@@ -103,3 +103,45 @@ export function episodeLabel(d) {
   if (d?.season == null) return ''
   return d.episode == null ? `S${d.season}` : `S${d.season}E${d.episode}`
 }
+
+// chapterLabel is what a chapter is CALLED anywhere the interface prints one, and
+// it is spelled the same way as chapterHeading in export_handlers.go — the string
+// this produces is the string a book export writes as its "## " heading, and the
+// string the importer reads back.
+//
+//   7 · The Fall    a number and a name
+//   7               a number alone (most books)
+//   The Fall        a name alone (essays, scripture, anything unnumbered)
+//   ''              neither, so a caller can join it in unconditionally
+//
+// TWO FIELDS, ONE LABEL. 0044 split `chapter` into a number and a name because one
+// text field was holding both and could not sort — but nothing on a card wants to
+// show them as two things, so every display site goes through here instead of
+// deciding for itself how to punctuate the pair. That is the whole reason it is a
+// function and not four template literals.
+//
+// A whole number prints without its decimal part: 7, never 7.0. That is what
+// JavaScript's own number-to-string gives us, and it happens to match Go's
+// shortest-form FormatFloat, which is what keeps the two spellings identical.
+export function chapterLabel(a) {
+  const no = Number(a?.chapter_no) || 0
+  const name = (a?.chapter || '').trim()
+  if (!no) return name
+  return name ? `${no} · ${name}` : String(no)
+}
+
+// chapterMeta is chapterLabel with the "CH." a card's meta line wants — and it puts
+// the prefix on a NUMBER only. "CH. 7" reads as a chapter; "CH. Envoi" reads as
+// somebody who did not know what was in the field.
+//
+// This replaces the same heuristic written out in three files — `/^\d/.test(ch) ?
+// 'CH. ' + ch : ch` — which existed precisely BECAUSE one text field held both a
+// number and a name and the card had to guess which it had. Now it knows, so the
+// guess becomes a rule; and Library's own meta line, which prefixed CH. onto
+// everything unconditionally, stops disagreeing with Home and the quiz about how to
+// caption the identical row.
+export function chapterMeta(a) {
+  const label = chapterLabel(a)
+  if (!label) return ''
+  return Number(a?.chapter_no) ? `CH. ${label}` : label
+}

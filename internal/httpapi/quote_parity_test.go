@@ -122,7 +122,11 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 		return names
 	}
 
-	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "Location"}
+	// ChapterNo (0044) is a locator and stays on this side: it says WHERE IN THE BOOK,
+	// which is the one thing this half is for. A film has no chapters and a standalone
+	// quote has no book, so promoting it to quoteRow would put a null on two kinds to
+	// spare one struct a field — and this test would then be measuring nothing.
+	wantAnn := []string{"BookAuthor", "BookID", "BookTitle", "Chapter", "ChapterNo", "Location"}
 	// Season/Episode are locators too: which episode of a show the line is from
 	// (0025). A film leaves them null — its timestamp is the whole locator.
 	wantDlg := []string{"Actor", "Character", "Episode", "MovieID", "Season", "Timestamp"}

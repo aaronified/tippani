@@ -25,7 +25,7 @@ import { CreditFaces, PersonCredit, PersonModal, PersonPortrait, parseCreditSeps
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
-import { episodeLabel } from './text.js'
+import { chapterLabel, episodeLabel } from './text.js'
 import {
   BulkBar,
   CloseButton,
@@ -1019,7 +1019,7 @@ function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMap = {},
     isQuote
       ? quoteShare({ quote: row.quote, note: row.note, speaker: row.speaker, occasion: row.occasion, when: formatPartialDate(row.occasion_date), place: row.place, medium: row.medium, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: speakerMap, seps })
       : isBook
-        ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: row.chapter, location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
+        ? bookShare({ quote: row.quote, note: row.note, author: parent?.author, title, published: parent?.published_year, chapter: chapterLabel(row), location: row.location, date: fmtDate(annDate(row)), tags: row.tags, color: row.color, people: authorMap, seps })
         : movieShare({ quote: row.quote, note: row.note, title, year: parent?.release_year, character: row.character, actor: row.actor, timestamp: row.timestamp, episode: episodeLabel(row), tags: row.tags, color: row.color, tmdbId: parent?.tmdb_id, tvdbId: parent?.tvdb_id, people: actorMap, seps })
 
   return (

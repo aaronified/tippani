@@ -85,16 +85,20 @@ type bulkTagReq struct {
 	// here, because a note is a remark ABOUT a quote and "same thought about all
 	// of these" is a real thing to want — but it warns like every other field,
 	// because it still overwrites.
-	Note      *string `json:"note"`
-	Chapter   *string `json:"chapter"`   // annotation
-	Location  *string `json:"location"`  // annotation
-	Character *string `json:"character"` // dialogue
-	Actor     *string `json:"actor"`     // dialogue
-	Timestamp *string `json:"timestamp"` // dialogue
-	Speaker   *string `json:"speaker"`   // quote
-	Occasion  *string `json:"occasion"`  // quote
-	Place     *string `json:"place"`     // quote
-	Medium    *string `json:"medium"`    // quote
+	Note    *string `json:"note"`
+	Chapter *string `json:"chapter"` // annotation
+	// The chapter NUMBER (0044), carried as a string for the reason the staged
+	// editor's season is: absent, cleared and "0" are three states and a *float64
+	// holds two. Blank clears it.
+	ChapterNo *string `json:"chapter_no"` // annotation
+	Location  *string `json:"location"`   // annotation
+	Character *string `json:"character"`  // dialogue
+	Actor     *string `json:"actor"`      // dialogue
+	Timestamp *string `json:"timestamp"`  // dialogue
+	Speaker   *string `json:"speaker"`    // quote
+	Occasion  *string `json:"occasion"`   // quote
+	Place     *string `json:"place"`      // quote
+	Medium    *string `json:"medium"`     // quote
 	// Which board these are filed on (0036). STANDALONE QUOTES ONLY — an
 	// annotation belongs to its book and a dialogue to its film, and neither has
 	// a board to be moved between. Sent to either of those kinds it is refused
@@ -147,23 +151,24 @@ var binnableKinds = map[string]quoteBulkKind{
 // column. One table, so "which fields does a dialogue take" has one answer and
 // adding a column means editing a list rather than remembering a switch.
 var quoteFieldKinds = map[string][]string{
-	"note":      {"annotation", "dialogue", "quote"},
-	"chapter":   {"annotation"},
-	"location":  {"annotation"},
-	"character": {"dialogue"},
-	"actor":     {"dialogue"},
-	"timestamp": {"dialogue"},
-	"speaker":   {"quote"},
-	"occasion":  {"quote"},
-	"place":     {"quote"},
-	"medium":    {"quote"},
+	"note":       {"annotation", "dialogue", "quote"},
+	"chapter":    {"annotation"},
+	"chapter_no": {"annotation"},
+	"location":   {"annotation"},
+	"character":  {"dialogue"},
+	"actor":      {"dialogue"},
+	"timestamp":  {"dialogue"},
+	"speaker":    {"quote"},
+	"occasion":   {"quote"},
+	"place":      {"quote"},
+	"medium":     {"quote"},
 }
 
 // unsupportedQuoteField returns the name of the first field this kind cannot
 // take, or "".
 func unsupportedQuoteField(kind string, req *bulkTagReq) string {
 	for name, p := range map[string]*string{
-		"note": req.Note, "chapter": req.Chapter, "location": req.Location,
+		"note": req.Note, "chapter": req.Chapter, "chapter_no": req.ChapterNo, "location": req.Location,
 		"character": req.Character, "actor": req.Actor, "timestamp": req.Timestamp,
 		"speaker": req.Speaker, "occasion": req.Occasion,
 		"place": req.Place, "medium": req.Medium,
@@ -211,6 +216,15 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if bad := unsupportedQuoteField(kind, &req); bad != "" {
 		writeErr(w, http.StatusBadRequest, bad+" does not apply to this kind")
 		return
+	}
+	// Refused rather than quietly nulled. nullableMeasure maps junk to NULL, which
+	// over a selection would clear the chapter number on forty rows and report
+	// success — the worst answer available, because nothing on screen would say it.
+	if req.ChapterNo != nil {
+		if msg := chapterNoProblem(*req.ChapterNo); msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
 	}
 	uid := userID(r)
 	// A sticker is a per-user row, so a borrowed id has to be refused rather than
@@ -272,6 +286,10 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	}{
 		{"note", req.Note},
 		{"chapter", req.Chapter}, {"location", req.Location},
+		// chapter_no is NOT in this loop: every field in it is written through
+		// nullable(), which stores a string. A number goes through nullableMeasure
+		// below, so "7" lands as 7 rather than as the text "7" in a REAL column —
+		// which SQLite would accept and then sort as text.
 		{"character", req.Character}, {"actor", req.Actor}, {"timestamp", req.Timestamp},
 		{"speaker", req.Speaker}, {"occasion", req.Occasion},
 		{"place", req.Place}, {"medium", req.Medium},
@@ -287,6 +305,12 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.Color != nil {
 		if err := bulkSetChild(tx, table, "color", *req.Color, owned); err != nil {
 			internalError(w, r, "bulk tag: color", err)
+			return
+		}
+	}
+	if req.ChapterNo != nil {
+		if err := bulkSetChild(tx, table, "chapter_no", nullableMeasure(*req.ChapterNo), owned); err != nil {
+			internalError(w, r, "bulk tag: chapter_no", err)
 			return
 		}
 	}

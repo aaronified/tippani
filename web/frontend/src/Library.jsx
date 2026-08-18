@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEMO, json, errText, downloadPost } from './api.js'
+import { chapterLabel } from './text.js'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { ScreenHelpSheet } from './help.jsx'
@@ -1175,6 +1176,7 @@ export function annotationState(a) {
     quote: a.quote || '',
     note: a.note || '',
     chapter: a.chapter || '',
+    chapter_no: a.chapter_no || 0,
     location: a.location || '',
     color: a.color || 'yellow',
     tags: a.tags || [],
@@ -1276,7 +1278,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // which is why the test is against undefined rather than falsiness.
   const metaLine =
     meta === undefined
-      ? [a.chapter && `CH. ${a.chapter}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')
+      ? [chapterLabel(a) && `CH. ${chapterLabel(a)}`, a.location && `P.${a.location}`, d].filter(Boolean).join(' · ')
       : meta
   const editForm = (
     <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel="Save" tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} />
@@ -1470,7 +1472,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                   </div>
                 )}
               </td>
-              <td className="col-mono">{a.chapter || '—'}</td>
+              <td className="col-mono">{chapterLabel(a) || '—'}</td>
               <td className="col-mono">{a.location || '—'}</td>
               <td className="col-mono">{fmtDate(annDate(a)) || '—'}</td>
               <td className="col-center">{a.favorite ? '♥' : '—'}</td>
@@ -1581,7 +1583,10 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
     const val = (a) => {
       switch (sort.col) {
         case 'quote': return (a.quote || a.note || '').toLowerCase()
-        case 'chapter': return (a.chapter || '').toLowerCase()
+        // Sorted on the NUMBER when there is one, which is the point of splitting it
+        // out: text put chapter 10 between 1 and 2. Numbered chapters come first, in
+        // order; named ones follow alphabetically, which is the only order they have.
+        case 'chapter': return a.chapter_no ? a.chapter_no : (a.chapter || '').toLowerCase()
         case 'location': return locSortVal(a)
         case 'date': return annDate(a)
         case 'favorite': return a.favorite ? 1 : 0
@@ -1722,7 +1727,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       author: book?.author,
       title: book?.title,
       published: book?.published_year,
-      chapter: a.chapter,
+      chapter: chapterLabel(a),
       location: a.location,
       date: fmtDate(annDate(a)),
       tags: a.tags,
@@ -1920,6 +1925,10 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')
+  // The chapter's NUMBER, kept as a string so the box can be empty. Number(...)||0
+  // at submit is the same shape the work forms use for Series #, and 0 is how the
+  // server spells "no number".
+  const [chapterNo, setChapterNo] = useState(initial?.chapter_no ? String(initial.chapter_no) : '')
   const [location, setLocation] = useState(initial?.location || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
@@ -1944,6 +1953,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       quote: quote.trim(),
       note: note.trim(),
       chapter: chapter.trim(),
+      chapter_no: Number(chapterNo.trim()) || 0,
       location: location.trim(),
       color,
       tags,
@@ -1979,8 +1989,16 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
         <MonoLabel className="mb-1.5 block">Note</MonoLabel>
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
+      {/* Number, then name, then where on the page — the order somebody reads a
+          chapter in. Both chapter fields are optional and independent: a numbered
+          book fills the first, an essay collection the second. The number box takes
+          a decimal, because 12.5 is where an interlude goes. */}
       <div className="cl-grid">
-        <Field label="Chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} />
+        <Field label="Chapter #" inputMode="decimal" placeholder="e.g. 7" value={chapterNo}
+               onChange={(e) => setChapterNo(e.target.value.replace(/[^\d.]/g, '').slice(0, 7))} />
+        <Field label="Chapter name" value={chapter} onChange={(e) => setChapter(e.target.value)} />
+      </div>
+      <div className="cl-grid">
         <Field label="Location" placeholder="e.g. 1042" value={location} onChange={(e) => setLocation(e.target.value)} />
       </div>
       <label className="block">

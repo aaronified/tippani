@@ -287,11 +287,11 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO annotations
-			  (id, book_id, quote, note, color, chapter, location, favorite, source, dedupe_hash, noted_at,
+			  (id, book_id, quote, note, color, chapter, chapter_no, location, favorite, source, dedupe_hash, noted_at,
 			   review_excluded)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			annID, bookID, nullable(a.Quote), nullable(a.Note), color,
-			nullable(a.Chapter), nullable(a.Location), a.Favorite,
+			nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), a.Favorite,
 			source, store.DedupeHash(text), nullable(a.NotedAt), excluded)
 		if err != nil {
 			return 0, 0, err
@@ -307,6 +307,7 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 			upd, err := tx.Exec(`
 				UPDATE annotations SET
 				  chapter    = COALESCE(chapter, ?),
+				  chapter_no = COALESCE(chapter_no, ?),
 				  location   = COALESCE(location, ?),
 				  note       = COALESCE(note, ?),
 				  noted_at   = COALESCE(noted_at, ?),
@@ -315,15 +316,16 @@ func writeBookAnnotations(tx *sql.Tx, uid int64, source string, bookID int64, an
 				  updated_at = datetime('now')
 				WHERE book_id = ? AND dedupe_hash = ?
 				  AND (   (chapter IS NULL AND ? IS NOT NULL)
+				       OR (chapter_no IS NULL AND ? IS NOT NULL)
 				       OR (location IS NULL AND ? IS NOT NULL)
 				       OR (note IS NULL AND ? IS NOT NULL)
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
-				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
+				nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
 				color, color, a.Favorite,
 				bookID, store.DedupeHash(text),
-				nullable(a.Chapter), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
+				nullable(a.Chapter), nullableFloat(a.ChapterNo), nullable(a.Location), nullable(a.Note), nullable(a.NotedAt),
 				color, a.Favorite)
 			if err != nil {
 				return 0, 0, err

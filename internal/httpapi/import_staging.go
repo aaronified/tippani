@@ -359,11 +359,12 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues []importer.Dialogue) (int, error) {
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
-		  (staged_work_id, quote, note, color, favorite, chapter, location, location_orig,
+		  (staged_work_id, quote, note, color, favorite, chapter, chapter_no, location, location_orig,
 		   character, actor, timestamp, timestamp_orig, season, episode, tags, noted_at, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
-	add := func(quote, note, color string, favorite bool, chapter, location, character, actor, timestamp string,
+	add := func(quote, note, color string, favorite bool, chapter string, chapterNo float64,
+		location, character, actor, timestamp string,
 		season, episode *int, tags []string, notedAt string) error {
 		if color == "" {
 			color = "yellow" // Kindle and IMDb sources carry no colour (PLAN §3)
@@ -381,7 +382,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// no-op on the annotation half of the queue.
 		hash := store.DialogueDedupeHash(text, season, episode)
 		res, err := tx.Exec(q, workID, nullable(quote), nullable(note), color, favorite,
-			nullable(chapter), nullable(location), nullable(location),
+			nullable(chapter), nullableFloat(chapterNo), nullable(location), nullable(location),
 			nullable(character), nullable(actor), nullable(timestamp), nullable(timestamp),
 			season, episode, joinTags(tags), nullable(notedAt), hash)
 		if err != nil {
@@ -397,15 +398,15 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// must too, or the second copy's locators, note, colour and tags are lost
 		// silently before anyone can see them.
 		return enrichStagedQuote(tx, workID, hash, quote, note, color, favorite,
-			chapter, location, character, actor, timestamp, season, episode, tags, notedAt)
+			chapter, chapterNo, location, character, actor, timestamp, season, episode, tags, notedAt)
 	}
 	for _, a := range anns {
-		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.Location, "", "", "", nil, nil, a.Tags, a.NotedAt); err != nil {
+		if err := add(a.Quote, a.Note, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location, "", "", "", nil, nil, a.Tags, a.NotedAt); err != nil {
 			return 0, err
 		}
 	}
 	for _, d := range dialogues {
-		if err := add(d.Quote, d.Note, d.Color, d.Favorite, "", "", d.Character, d.Actor, d.Timestamp,
+		if err := add(d.Quote, d.Note, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp,
 			d.Season, d.Episode, d.Tags, d.NotedAt); err != nil {
 			return 0, err
 		}
@@ -420,7 +421,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 // whose edits survive. The _orig snapshots follow their live column, so a locator
 // that arrives only on the second copy is still resettable.
 func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string, favorite bool,
-	chapter, location, character, actor, timestamp string, season, episode *int,
+	chapter string, chapterNo float64, location, character, actor, timestamp string, season, episode *int,
 	tags []string, notedAt string) error {
 
 	var id int64
@@ -438,6 +439,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		  note           = COALESCE(note, ?),
 		  noted_at       = COALESCE(noted_at, ?),
 		  chapter        = COALESCE(chapter, ?),
+		  chapter_no     = COALESCE(chapter_no, ?),
 		  location       = COALESCE(location, ?),
 		  location_orig  = COALESCE(location_orig, ?),
 		  character      = COALESCE(character, ?),
@@ -449,7 +451,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, color string
 		  color          = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 		  favorite       = MAX(favorite, ?)
 		 WHERE id = ?`,
-		nullable(note), nullable(notedAt), nullable(chapter),
+		nullable(note), nullable(notedAt), nullable(chapter), nullableFloat(chapterNo),
 		nullable(location), nullable(location),
 		nullable(character), nullable(actor),
 		nullable(timestamp), nullable(timestamp),
@@ -519,22 +521,23 @@ type stagedWorkRow struct {
 }
 
 type stagedQuoteRow struct {
-	ID            int64  `json:"id"`
-	StagedWorkID  int64  `json:"staged_work_id"`
-	BatchID       int64  `json:"batch_id"`
-	Quote         string `json:"quote"`
-	Note          string `json:"note"`
-	Color         string `json:"color"`
-	Favorite      bool   `json:"favorite"`
-	Chapter       string `json:"chapter"`
-	Location      string `json:"location"`
-	LocationOrig  string `json:"location_orig"`
-	Character     string `json:"character"`
-	Actor         string `json:"actor"`
-	Timestamp     string `json:"timestamp"`
-	TimestampOrig string `json:"timestamp_orig"`
-	Season        *int   `json:"season"`  // shows only; null = the file didn't say
-	Episode       *int   `json:"episode"` // (season 0 is a real season — see 0025)
+	ID            int64   `json:"id"`
+	StagedWorkID  int64   `json:"staged_work_id"`
+	BatchID       int64   `json:"batch_id"`
+	Quote         string  `json:"quote"`
+	Note          string  `json:"note"`
+	Color         string  `json:"color"`
+	Favorite      bool    `json:"favorite"`
+	Chapter       string  `json:"chapter"`
+	ChapterNo     float64 `json:"chapter_no"` // 0044; 0 = the file gave no number
+	Location      string  `json:"location"`
+	LocationOrig  string  `json:"location_orig"`
+	Character     string  `json:"character"`
+	Actor         string  `json:"actor"`
+	Timestamp     string  `json:"timestamp"`
+	TimestampOrig string  `json:"timestamp_orig"`
+	Season        *int    `json:"season"`  // shows only; null = the file didn't say
+	Episode       *int    `json:"episode"` // (season 0 is a real season — see 0025)
 	// The occasion (§24), the third kind's locator. Empty on every book and
 	// film row, as chapter/character are on this one.
 	Speaker      string `json:"speaker"`
@@ -831,7 +834,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	}
 
 	q := `SELECT q.id, q.staged_work_id, w.batch_id, COALESCE(q.quote, ''), COALESCE(q.note, ''),
-	             q.color, q.favorite, COALESCE(q.chapter, ''), COALESCE(q.location, ''),
+	             q.color, q.favorite, COALESCE(q.chapter, ''), COALESCE(q.chapter_no, 0), COALESCE(q.location, ''),
 	             COALESCE(q.location_orig, ''), COALESCE(q.character, ''), COALESCE(q.actor, ''),
 	             COALESCE(q.timestamp, ''), COALESCE(q.timestamp_orig, ''), q.season, q.episode,
 	             COALESCE(q.tags, ''),
@@ -855,7 +858,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 		var sq stagedQuoteRow
 		var tags string
 		if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.BatchID, &sq.Quote, &sq.Note, &sq.Color,
-			&sq.Favorite, &sq.Chapter, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
+			&sq.Favorite, &sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
 			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt,
 			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
 			&sq.Category, &sq.Language, &sq.Translation,
@@ -1163,7 +1166,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 	err = chunkIDs(picked.QuoteIDs, func(batch []int64) error {
 		rows, err := tx.Query(`
 			SELECT q.id, q.staged_work_id, COALESCE(q.quote, ''), COALESCE(q.note, ''), q.color, q.favorite,
-			       COALESCE(q.chapter, ''), COALESCE(q.location, ''), COALESCE(q.character, ''),
+			       COALESCE(q.chapter, ''), COALESCE(q.chapter_no, 0), COALESCE(q.location, ''), COALESCE(q.character, ''),
 			       COALESCE(q.actor, ''), COALESCE(q.timestamp, ''), q.season, q.episode, COALESCE(q.tags, ''),
 			       COALESCE(q.noted_at, ''),
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
@@ -1182,7 +1185,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			var sq stagedQuoteRow
 			var tags string
 			if err := rows.Scan(&sq.ID, &sq.StagedWorkID, &sq.Quote, &sq.Note, &sq.Color, &sq.Favorite,
-				&sq.Chapter, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
+				&sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
 				&sq.Season, &sq.Episode, &tags, &sq.NotedAt,
 				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
 				&sq.Category, &sq.Language, &sq.Translation,
@@ -1250,7 +1253,7 @@ func stagedAsAnnotations(quotes []stagedQuoteRow) []importer.Annotation {
 	out := make([]importer.Annotation, 0, len(quotes))
 	for _, q := range quotes {
 		out = append(out, importer.Annotation{
-			Quote: q.Quote, Note: q.Note, Chapter: q.Chapter, Location: q.Location,
+			Quote: q.Quote, Note: q.Note, Chapter: q.Chapter, ChapterNo: q.ChapterNo, Location: q.Location,
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 		})
 	}

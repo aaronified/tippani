@@ -224,7 +224,7 @@ func serveMarkdown(w http.ResponseWriter, filename, body string) {
 func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
 		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), color, COALESCE(chapter, ''),
-		       COALESCE(location, ''), favorite, COALESCE(noted_at, '')
+		       COALESCE(chapter_no, 0), COALESCE(location, ''), favorite, COALESCE(noted_at, '')
 		FROM annotations WHERE book_id = ? ORDER BY id`, b.ID)
 	if err != nil {
 		return "", err
@@ -234,7 +234,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	for rows.Next() {
 		var a annotationRow
 		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Color, &a.Chapter,
-			&a.Location, &a.Favorite, &a.NotedAt); err != nil {
+			&a.ChapterNo, &a.Location, &a.Favorite, &a.NotedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row scan failed: %v", err)
 			continue
 		}
@@ -267,13 +267,18 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		kv{"page", posFrontmatter(b.Status, b.position)},
 		kv{"reads", readsFrontmatter(b.Reads)})
 
+	// GROUPED ON THE RENDERED HEADING, not on the name alone (0044). Two highlights
+	// in chapter 7 belong under one "## 7 · The Fall" whether their name field agrees
+	// or not, and grouping on `chapter` while printing the pair would have split one
+	// chapter into two sections the moment somebody filled in a number.
 	order := []string{""}
 	grouped := map[string][]annotationRow{}
 	for _, a := range anns {
-		if _, seen := grouped[a.Chapter]; !seen && a.Chapter != "" {
-			order = append(order, a.Chapter)
+		h := chapterHeading(a.ChapterNo, a.Chapter)
+		if _, seen := grouped[h]; !seen && h != "" {
+			order = append(order, h)
 		}
-		grouped[a.Chapter] = append(grouped[a.Chapter], a)
+		grouped[h] = append(grouped[h], a)
 	}
 	for _, ch := range order {
 		if ch != "" {
@@ -607,4 +612,34 @@ func zipName(used map[string]bool, dir, title string) string {
 	}
 	used[name] = true
 	return name + ".md"
+}
+
+// chapterHeading is the one form a chapter takes wherever it is written as a line
+// of text: in a book export's "## " heading, and — spelled identically in
+// text.js's chapterLabel — everywhere the interface prints one.
+//
+//	7 · The Fall    a number and a name
+//	7               a number alone (most books)
+//	The Fall        a name alone (essays, scripture, anything unnumbered)
+//	                neither: no heading at all
+//
+// A MIDDLE DOT, AND WHY THE SEPARATOR MATTERS MORE THAN IT LOOKS. This string is
+// what the importer reads back, so the separator is the whole round trip. "7. The
+// Fall" — the printed convention — cannot be parsed without ambiguity once numbers
+// may be fractional: "7.5" is either chapter 7.5 or chapter 7 named "5", and no
+// rule can tell. The dot this app already uses to join facts has no such collision
+// and is not a character a chapter number can contain.
+//
+// The number is trimmed of a trailing ".0" so chapter 7 reads as "7" rather than
+// as "7.0", which is what strconv's shortest form gives us for free.
+func chapterHeading(no float64, name string) string {
+	name = strings.TrimSpace(name)
+	if no == 0 {
+		return name
+	}
+	n := strconv.FormatFloat(no, 'f', -1, 64)
+	if name == "" {
+		return n
+	}
+	return n + " · " + name
 }

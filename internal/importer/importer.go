@@ -46,14 +46,20 @@ type Read struct {
 
 // Annotation is one parsed quote/note.
 type Annotation struct {
-	Quote    string
-	Note     string
-	Chapter  string
-	Location string
-	Color    string // "" -> caller defaults to yellow
-	Tags     []string
-	Favorite bool
-	NotedAt  string // original date of the highlight/note, when the source carries one; "" otherwise
+	Quote string
+	Note  string
+	// Chapter is the chapter's NAME and ChapterNo its number (0044). A source that
+	// carries one undivided string — a Kindle clipping's "Chapter 3", a hand-written
+	// file's "## The Fall" — puts all of it in Chapter and leaves ChapterNo at 0.
+	// Nothing guesses: see splitChapterHeading for the one shape that is split, and
+	// the migration for why that restraint is the point.
+	Chapter   string
+	ChapterNo float64
+	Location  string
+	Color     string // "" -> caller defaults to yellow
+	Tags      []string
+	Favorite  bool
+	NotedAt   string // original date of the highlight/note, when the source carries one; "" otherwise
 }
 
 // Result groups the annotations of one book.
@@ -205,11 +211,11 @@ func parseReads(val string) []Read {
 // Genres come from the Tippani catalogue export (renderMovieExport); the IMDb
 // importer leaves them empty.
 type MovieHeader struct {
-	Title       string
-	Year        int
-	IMDbID      string // as found in the file (ttNNNNN); informational
-	MediaType   string // "movie" | "show" | "game"
-	Director    string
+	Title     string
+	Year      int
+	IMDbID    string // as found in the file (ttNNNNN); informational
+	MediaType string // "movie" | "show" | "game"
+	Director  string
 	// Publisher is a game's, and it is here so an export round-trips (0042).
 	// `director` alone could not: re-importing a catalogue export written before
 	// the split would have nowhere to put the second credit and would silently

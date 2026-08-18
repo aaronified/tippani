@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -185,7 +186,8 @@ func parseFrontmatter(lines []string) (*Result, error) {
 		case strings.HasPrefix(line, ">"):
 			if !inQuote { // fresh quote, or metadata ended the previous one
 				flush()
-				cur = &Annotation{Chapter: chapter}
+				no, name := splitChapterHeading(chapter)
+				cur = &Annotation{Chapter: name, ChapterNo: no}
 				inQuote = true
 			}
 			qlines = append(qlines, strings.TrimPrefix(strings.TrimPrefix(line, ">"), " "))
@@ -253,7 +255,8 @@ func parseReadest(lines []string) (*Result, error) {
 		if q == "" {
 			return
 		}
-		res.Annotations = append(res.Annotations, Annotation{Quote: q, Chapter: chapter})
+		no, name := splitChapterHeading(chapter)
+		res.Annotations = append(res.Annotations, Annotation{Quote: q, Chapter: name, ChapterNo: no})
 		lastIdx = len(res.Annotations) - 1
 	}
 	for _, line := range lines {
@@ -298,3 +301,56 @@ func parseReadest(lines []string) (*Result, error) {
 func bindingKey(k string) string {
 	return strings.ToLower(strings.TrimSpace(k))
 }
+
+// splitChapterHeading recovers a chapter number from a "## " heading, and is the
+// other half of the export's chapterHeading.
+//
+// IT SPLITS EXACTLY ONE SHAPE: a number, then " · ", then the rest — which is what
+// this app writes and nothing else does. Everything else is a name, whole and
+// untouched. That restraint is the point, and it is the same argument the anthology
+// importer makes about not parsing an em dash out of a heading: a parse tuned to the
+// exporter's own output will mangle what a person typed. "## 3. The Fall", "## 1984",
+// "## Chapter 7" and "## 3:16" all stay names, exactly as they were before 0044.
+//
+// The one cost: a chapter whose name is only a number — "## 1984" is a name, but
+// "## 1984 · Winston" would split into number 1984. Rare, visible in the form
+// afterwards, and fixable in one edit; the alternative is a heading that cannot
+// round-trip a number at all.
+func splitChapterHeading(h string) (float64, string) {
+	num, rest, found := strings.Cut(h, " · ")
+	if !found {
+		// A HEADING THAT IS NOTHING BUT A SMALL NUMBER is a chapter number: it is what
+		// the export writes for a numbered chapter with no name, which is most of
+		// them, and losing it would make the commonest shape the one that cannot come
+		// home. `chapterNoCeiling` is what stops that from swallowing a NAME that
+		// happens to be numeric — "## 1984", "## 2001" — because no book has a
+		// thousandth chapter and every year-shaped title is above it. A bound is a
+		// blunt instrument and it is the only signal the string carries; it is stated
+		// here rather than discovered later.
+		//
+		// One deliberate consequence: an older file whose chapter was the text "3"
+		// re-imports as the NUMBER 3 with no name. That is the same fact in the right
+		// field, and it is the only place anything about this feature moves existing
+		// data — a re-export and re-import fills in numbers the migration refused to
+		// guess at, because here the heading really is unambiguous.
+		if n, err := strconv.ParseFloat(strings.TrimSpace(h), 64); err == nil && n > 0 && n < chapterNoCeiling {
+			return n, ""
+		}
+		return 0, h
+	}
+	n, err := strconv.ParseFloat(strings.TrimSpace(num), 64)
+	if err != nil || n <= 0 {
+		return 0, h
+	}
+	return n, strings.TrimSpace(rest)
+}
+
+// chapterNoCeiling separates a chapter number from a name that merely looks like
+// one.
+//
+// TIGHTER THAN THE BOUND THE API REFUSES (chapterNoProblem allows up to 10,000),
+// and the two are doing different jobs: that one rejects input a person typed into
+// the wrong box, this one resolves a string that is genuinely ambiguous with no
+// person to ask. Guessing conservatively is right here and would be wrong there —
+// anything this declines to read as a number is still kept, whole, as the name.
+const chapterNoCeiling = 1000

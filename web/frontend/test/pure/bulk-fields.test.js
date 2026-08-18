@@ -50,7 +50,7 @@ describe('what may be set over a selection', () => {
     expect(keys('movie')).toEqual(
       expect.arrayContaining(['director', 'media_type', 'release_year', 'series', 'description']),
     )
-    expect(keys('annotation')).toEqual(expect.arrayContaining(['note', 'chapter', 'location']))
+    expect(keys('annotation')).toEqual(expect.arrayContaining(['note', 'chapter', 'chapter_no', 'location']))
     expect(keys('dialogue')).toEqual(expect.arrayContaining(['character', 'actor', 'timestamp']))
     expect(keys('quote')).toEqual(expect.arrayContaining(['speaker', 'occasion', 'place', 'medium']))
   })

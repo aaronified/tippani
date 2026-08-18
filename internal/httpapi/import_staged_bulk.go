@@ -44,6 +44,7 @@ type stagedBulkReq struct {
 	Color      *string  `json:"color"`
 	Favorite   *bool    `json:"favorite"`
 	Chapter    *string  `json:"chapter"`
+	ChapterNo  *string  `json:"chapter_no"` // 0044, a decimal as text — see Season
 	Location   *string  `json:"location"`
 	Character  *string  `json:"character"`
 	Actor      *string  `json:"actor"`
@@ -82,6 +83,11 @@ func (req *stagedBulkReq) validate() string {
 	}
 	if req.Color != nil && !validColor(*req.Color) {
 		return "color must be " + colorList()
+	}
+	if req.ChapterNo != nil {
+		if msg := chapterNoProblem(*req.ChapterNo); msg != "" {
+			return msg
+		}
 	}
 	for _, f := range []struct {
 		val  *string
@@ -171,6 +177,9 @@ func (s *Server) handleBulkStaged(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Chapter != nil {
 		set("chapter", nullable(*req.Chapter))
+	}
+	if req.ChapterNo != nil {
+		set("chapter_no", nullableMeasure(*req.ChapterNo))
 	}
 	if req.Location != nil {
 		// Assigning a location outright also re-bases its snapshot: the value the

@@ -1,0 +1,47 @@
+-- 0044: a chapter has a number and a name, and they are different facts.
+--
+-- `annotations.chapter` has been one free-text field since 0001, and it has been
+-- holding two things at once. People put "3" in it, or "The Fall", or "Chapter 3 —
+-- The Fall", and the app could not tell which — so a chapter could not be SORTED
+-- (text puts 10 between 1 and 2), the capture form's own placeholder said "e.g. 3"
+-- while the field was labelled Chapter, and a reader who wanted both had to invent
+-- their own punctuation and then type it identically every time.
+--
+-- So the number gets its own column and `chapter` becomes the NAME. Both optional,
+-- independently: a highlight can have a number and no name (most books), a name and
+-- no number (essay collections, scripture), both, or neither.
+--
+-- REAL, NOT INTEGER, for the same reason series_index is REAL: 12.5 is where an
+-- interlude, an appendix or a part-boundary goes, and a schema that cannot hold one
+-- pushes the reader back into the text field this migration exists to empty.
+--
+-- ZERO MEANS ABSENT, which is series_index's convention and therefore the one the
+-- Go layer, the forms and the field specs already implement. The cost is stated
+-- rather than discovered: a chapter numbered 0 — a prologue somebody has numbered
+-- deliberately — cannot be expressed and has to live in the name. The alternative
+-- was a nullable column read through a pointer at eight call sites, for a case that
+-- has never come up in a library, and inconsistency with the identical field one
+-- table over is worse than the gap.
+--
+-- NOTHING IS BACKFILLED, and this is a deliberate refusal rather than laziness.
+-- Every existing row holds either a number, a name or both, in whatever punctuation
+-- its reader or its importer chose, and nothing records which. A migration that
+-- parsed "3. The Fall" into 3 + "The Fall" would be right most of the time and
+-- silently wrong for a chapter named "1984" or a locator like "3:16" — and a wrong
+-- value written by a migration carries the authority of having been migrated, which
+-- is exactly the argument 0042 made about the game publisher it also refused to
+-- guess. Existing values stay whole, in the name, and the number is empty until
+-- somebody fills it in. That also means this migration is reversible by dropping
+-- one column: no data moved.
+--
+-- STAGED QUOTES TOO. The import queue is a copy of the shape it will approve into;
+-- a column present on annotations and absent here is an import that loses the number
+-- at the last step, which is the one place a loss is invisible because the file is
+-- already gone.
+--
+-- No FTS change: `chapter` was never in the index (searching by chapter is what the
+-- facet grammar is for) so neither table nor trigger names it, and a number is not
+-- text anybody searches.
+
+ALTER TABLE annotations ADD COLUMN chapter_no REAL;
+ALTER TABLE staged_quotes ADD COLUMN chapter_no REAL;

@@ -198,7 +198,8 @@ export const BULK_WORK_FIELDS = [
 
 export const BULK_QUOTE_FIELDS = [
   { key: 'note', label: 'Note', long: true },
-  { key: 'chapter', label: 'Chapter', kinds: ['annotation'] },
+  { key: 'chapter_no', label: 'Chapter #', kinds: ['annotation'], number: true },
+  { key: 'chapter', label: 'Chapter name', kinds: ['annotation'] },
   { key: 'location', label: 'Location', kinds: ['annotation'] },
   { key: 'character', label: 'Character', kinds: ['dialogue'] },
   { key: 'actor', label: 'Actor', kinds: ['dialogue'] },

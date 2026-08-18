@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
-import { episodeLabel } from './text.js'
+import { chapterLabel, episodeLabel } from './text.js'
 import {
   ANNOTATION_HEX,
   BulkBar,
@@ -435,7 +435,7 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
   // The three sets are disjoint by construction (a book quote has no speaker, a
   // standalone quote has no chapter), so no branch is needed to keep them apart.
   const bits = [
-    quote.chapter,
+    chapterLabel(quote),
     quote.location,
     quote.character,
     quote.actor,
@@ -512,7 +512,8 @@ function FieldsPanel({ n, busy, onApply }) {
   const [addTags, setAddTags] = useState([])
   const [removeTags, setRemoveTags] = useState([])
   const FIELDS = [
-    ['chapter', 'Chapter'],
+    ['chapter_no', 'Chapter #'],
+    ['chapter', 'Chapter name'],
     ['location', 'Location'],
     ['character', 'Character'],
     ['actor', 'Actor'],
@@ -716,6 +717,9 @@ function Panel({ title, children }) {
 function StagedQuoteForm({ quote, onSaved, onCancel }) {
   const [f, setF] = useState({
     chapter: quote.chapter || '',
+    // Kept as a string for the same reason season is: '' clears it, and the
+    // endpoint takes a decimal as text so absent and cleared stay distinguishable.
+    chapter_no: quote.chapter_no ? String(quote.chapter_no) : '',
     location: quote.location || '',
     character: quote.character || '',
     actor: quote.actor || '',
@@ -743,6 +747,7 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
     const body = { add_tags: tags, remove_tags: gone }
     for (const [k, was] of [
       ['chapter', quote.chapter || ''],
+      ['chapter_no', quote.chapter_no ? String(quote.chapter_no) : ''],
       ['location', quote.location || ''],
       ['character', quote.character || ''],
       ['actor', quote.actor || ''],
@@ -772,7 +777,8 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
         so moving this onto a film — or back onto a book — never loses the other half.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Chapter" placeholder="Chapter 1" value={f.chapter} onChange={upd('chapter')} />
+        <Field label="Chapter #" inputMode="decimal" placeholder="7" value={f.chapter_no} onChange={upd('chapter_no')} />
+        <Field label="Chapter name" placeholder="optional" value={f.chapter} onChange={upd('chapter')} />
         <Field label="Location" placeholder="p.142" value={f.location} onChange={upd('location')} />
         <Field label="Character" nameCase placeholder="Philip Marlowe" value={f.character} onChange={upd('character')} />
         <Field label="Actor" nameCase placeholder="Elliott Gould" value={f.actor} onChange={upd('actor')} />

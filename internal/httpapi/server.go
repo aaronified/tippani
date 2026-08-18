@@ -769,6 +769,19 @@ func nullableCount(s string) any {
 	return n
 }
 
+// nullableMeasure parses a decimal typed into a bulk field and maps blank-or-junk
+// to NULL. It is nullableCount's fractional twin, and exists for the same reason:
+// three states have to be distinguishable through one field, and a *float64 carries
+// only two. Absent is the pointer being nil (the caller checks that); "" is an
+// explicit clear; "12.5" is a value.
+func nullableMeasure(s string) any {
+	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || f == 0 {
+		return nil
+	}
+	return f
+}
+
 // nullableFloat maps 0 to NULL — used for series_index, where "unset" and
 // "position 0" are not meaningfully distinct for a reading/watch order.
 func nullableFloat(f float64) any {

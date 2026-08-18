@@ -673,7 +673,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
       targetKey: fresh ? sitting.targetKey || null : null,
     }
   })
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
+  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', medium: '' })
   // "This came from nothing" is a MODE rather than an entry in the work picker.
   // The picker is search-first, so a synthetic "no book or film" row would only
   // surface for someone who typed words matching it — which is nobody, since it
@@ -792,6 +792,7 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
           quote: draft.quote.trim(),
           note: draft.note.trim(),
           chapter: draft.chapter.trim(),
+          chapter_no: Number(String(draft.chapter_no).trim()) || 0,
           location: draft.location.trim(),
           color: draft.color,
           tags,
@@ -952,9 +953,17 @@ export function CaptureQuote({ initialTarget = null, initialStandalone = false, 
         </>
       ) : (
         <div className="grid grid-cols-2 gap-3">
+          {/* The number and the name, since 0044. This form's placeholder used to read
+              "e.g. 3" under a label saying Chapter, which is the whole reason the field
+              was split: it was asking for a number and storing it as a name. */}
           <label className="tp-field">
-            <MonoLabel>Chapter</MonoLabel>
-            <input className="tp-input" placeholder="e.g. 3" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
+            <MonoLabel>Chapter #</MonoLabel>
+            <input className="tp-input" inputMode="decimal" placeholder="e.g. 7" value={draft.chapter_no}
+                   onChange={(e) => set({ chapter_no: e.target.value.replace(/[^\d.]/g, '').slice(0, 7) })} />
+          </label>
+          <label className="tp-field">
+            <MonoLabel>Chapter name</MonoLabel>
+            <input className="tp-input" placeholder="optional" value={draft.chapter} onChange={(e) => set({ chapter: e.target.value })} />
           </label>
           <label className="tp-field">
             <MonoLabel>Location</MonoLabel>

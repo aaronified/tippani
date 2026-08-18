@@ -13,9 +13,14 @@ import (
 // passage sits. See quote.go for the shared half.
 type annotationReq struct {
 	quoteReq
-	BookID   int64  `json:"book_id"`
-	Chapter  string `json:"chapter"`
-	Location string `json:"location"`
+	BookID int64 `json:"book_id"`
+	// Chapter is the chapter's NAME; ChapterNo is its number (0044). Both optional
+	// and independent — most books give a number and no name, an essay collection
+	// the reverse. 0 is absent, which is series_index's convention for the same
+	// shape of field; see the migration for what that costs.
+	Chapter   string  `json:"chapter"`
+	ChapterNo float64 `json:"chapter_no"`
+	Location  string  `json:"location"`
 }
 
 func (a *annotationReq) validate() string {
@@ -33,6 +38,14 @@ func (a *annotationReq) validate() string {
 	}
 	if a.Location, ok = trimCap(a.Location, 128); !ok {
 		return "location too long (max 128 characters)"
+	}
+	// Through chapterNoProblem, the same function the two bulk editors call, so a
+	// number this form accepts can never be one the selection bar refuses. The bound
+	// it applies is generous rather than meaningful: nothing has ten thousand
+	// chapters, and the point is to catch a page number, a year or a whole locator
+	// pasted into the number box and say so.
+	if msg := chapterNoProblem(strconv.FormatFloat(a.ChapterNo, 'f', -1, 64)); msg != "" {
+		return msg
 	}
 	return ""
 }
@@ -57,11 +70,12 @@ func favoriteFilter(w http.ResponseWriter, r *http.Request, alias string, q *str
 // half.
 type annotationRow struct {
 	quoteRow
-	BookID     int64  `json:"book_id"`
-	BookTitle  string `json:"book_title"`  // parent attribution for cross-book lists
-	BookAuthor string `json:"book_author"` // "" if unknown
-	Chapter    string `json:"chapter"`
-	Location   string `json:"location"`
+	BookID     int64   `json:"book_id"`
+	BookTitle  string  `json:"book_title"`  // parent attribution for cross-book lists
+	BookAuthor string  `json:"book_author"` // "" if unknown
+	Chapter    string  `json:"chapter"`
+	ChapterNo  float64 `json:"chapter_no"`
+	Location   string  `json:"location"`
 	// The book's exclusion is NOT here beside the title and the author, though it
 	// is borrowed from the same row: it is quoteRow.WorkReviewExcluded, shared
 	// with dialogues. See that field for why the parity test settled it.
@@ -72,13 +86,13 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	err := s.Store.DB.QueryRow(`
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
-		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite,
+		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''), a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
 		       a.review_excluded, b.review_excluded
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
 		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
+			&a.Chapter, &a.ChapterNo, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.ReviewExcluded, &a.WorkReviewExcluded)
 	if err != nil {
 		return nil, err
@@ -149,17 +163,17 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	res, err := tx.Exec(`
-		INSERT INTO annotations (id, book_id, quote, note, color, chapter, location,
+		INSERT INTO annotations (id, book_id, quote, note, color, chapter, chapter_no, location,
 		                         favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
 		                         review_excluded)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
 		        -- INHERITED FROM THE BOOK, which is the one job its column still has.
 		        -- The deck reads this row's flag and not its book's, so "skip this
 		        -- reference manual" has to reach the highlight added tomorrow at the
 		        -- moment it is added rather than by being ANDed in at query time.
 		        (SELECT COALESCE(review_excluded, 0) FROM books WHERE id = ?)) ON CONFLICT DO NOTHING`,
 		id, req.BookID, nullable(req.Quote), nullable(req.Note), req.Color,
-		nullable(req.Chapter), nullable(req.Location), req.Favorite, req.Source, req.hash(),
+		nullable(req.Chapter), nullableFloat(req.ChapterNo), nullable(req.Location), req.Favorite, req.Source, req.hash(),
 		nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY, req.BookID)
 	if err != nil {
 		internalError(w, r, "insert annotation", err)
@@ -233,7 +247,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	q := `
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''),
 		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color,
-		       COALESCE(a.chapter, ''), COALESCE(a.location, ''), a.favorite,
+		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''), a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
 		       r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
 		       a.review_excluded, b.review_excluded
@@ -283,7 +297,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		var a annotationRow
 		a.Tags = []string{}
 		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.Quote, &a.Note, &a.Color,
-			&a.Chapter, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
+			&a.Chapter, &a.ChapterNo, &a.Location, &a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult,
 			&a.ReviewExcluded, &a.WorkReviewExcluded); err != nil {
 			// Never silently drop a row: a scan error means the SELECT and the
@@ -381,11 +395,11 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
-		UPDATE annotations SET quote = ?, note = ?, color = ?, chapter = ?, location = ?,
+		UPDATE annotations SET quote = ?, note = ?, color = ?, chapter = ?, chapter_no = ?, location = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
 		nullable(req.Quote), nullable(req.Note), req.Color,
-		nullable(req.Chapter), nullable(req.Location), req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
+		nullable(req.Chapter), nullableFloat(req.ChapterNo), nullable(req.Location), req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
 		internalError(w, r, "update annotation", err)
 		return
 	}

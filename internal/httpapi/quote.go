@@ -206,3 +206,28 @@ func colorFilter(w http.ResponseWriter, r *http.Request, alias string, q *string
 	}
 	return true
 }
+
+// chapterNoProblem is the one rule for what a chapter number may be, in words for
+// the person who typed it. "" means the value is fine, and a BLANK STRING IS FINE:
+// every caller reads blank as "clear it", which is a legitimate edit.
+//
+// Shared by the two bulk editors and spelled the same way as the single-quote
+// form's own check (annotationReq.validate), because a number the details form
+// accepts and the bulk bar refuses is a rule nobody can learn.
+func chapterNoProblem(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	n, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return "a chapter number has to be a number — the chapter's name takes anything"
+	}
+	if n < 0 {
+		return "a chapter number cannot be negative"
+	}
+	if n >= 10000 {
+		return "that is too large for a chapter number — the name field takes anything"
+	}
+	return ""
+}

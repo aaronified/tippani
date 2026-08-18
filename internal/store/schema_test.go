@@ -706,6 +706,11 @@ func wantShapes() []tableShape {
 				// quote that has never been reviewed and inserting a bare one would
 				// read as "seen" in four separate queries. See the migration.
 				{Name: "review_excluded", Type: "INTEGER", NotNull: true, Default: "0", HasDflt: true},
+				// 0044. The chapter's NUMBER, beside the name `chapter` has held since
+				// 0001. REAL because 12.5 is where an interlude goes, nullable with 0
+				// meaning absent — series_index's convention, one table over, for the
+				// identical field. Nothing was backfilled: see the migration.
+				{Name: "chapter_no", Type: "REAL"},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
