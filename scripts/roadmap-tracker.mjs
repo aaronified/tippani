@@ -8,6 +8,13 @@
 //
 //   node scripts/roadmap-tracker.mjs && node scripts/roadmap-data.mjs
 //
+// And one mode that writes nothing, for when the page has just changed:
+//
+//   node scripts/roadmap-tracker.mjs --audit
+//
+// which fails if an open issue has no section on the page, or a closed one still has one.
+// Run it in the same pass as any roadmap cull — see DEVELOPMENT.md.
+//
 // THE TRACKER DECIDES WHAT IS ON THE ROADMAP. Nothing in the repo does. Three queries,
 // one per place an entry can land, and each needs a label only a maintainer can apply:
 //
@@ -41,6 +48,7 @@ import { dirname, join } from 'node:path'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'docs', 'data', 'tracker.json')
 const REPO = process.env.GITHUB_REPOSITORY || 'aaronified/tippani'
+const AUDIT = process.argv.includes('--audit')
 
 function gh(args) {
   try {
@@ -62,6 +70,62 @@ const ndjson = (out) =>
     .map((l) => l.trim())
     .filter(Boolean)
     .map((l) => JSON.parse(l))
+
+// ---- --audit: does the tracker still agree with the page? ---------------------------
+//
+// Closing an issue is the only bookkeeping the roadmap has, so forgetting to close one is
+// the only way the page can lie — and nothing else notices. `roadmap-data.mjs --check`
+// validates the GENERATED regions against docs/data/*.json and never reads the
+// hand-written backlog, which is where every culled section lived. Four issues sat open
+// with no section on the page before this existed, across two releases.
+//
+// Two directions, because the drift goes both ways:
+//
+//   orphan   open, labelled for the page, and not on it — the section shipped or was
+//            dropped and the issue was left behind. Close it, or put the section back.
+//   ghost    closed, and still on the page — something is promising work whose issue is
+//            already settled.
+//
+// It reads the page and the tracker and WRITES NOTHING: this is a question, not a fix.
+// The answer includes the `gh issue close` line, so the disposition stays a decision
+// rather than something a script picks.
+if (AUDIT) {
+  const page = readFileSync(join(ROOT, 'docs', 'roadmap.html'), 'utf8')
+  const issues = ndjson(
+    gh([
+      'api',
+      '--paginate',
+      '-H', 'Accept: application/vnd.github+json',
+      `repos/${REPO}/issues?state=all&per_page=100`,
+      '--jq',
+      '.[] | select(has("pull_request") | not) | {number, title, state, labels: [.labels[].name]}',
+    ]),
+  )
+  // An issue is meant to be on the page if a maintainer said so with a label. Anything
+  // unlabelled was filed and not accepted, and publishes nothing either way.
+  const listed = (l) => l.includes('accepted') || l.includes('considered') || l.includes('roadmap')
+  // The closing quote is load-bearing: matching `/issues/2` alone would let the link to
+  // #23 answer for #2, and every reference the renderer writes is an `href="...">`.
+  const onPage = (n) => page.includes(`/issues/${n}"`)
+
+  const orphans = issues.filter((i) => i.state === 'open' && listed(i.labels) && !onPage(i.number))
+  const ghosts = issues.filter((i) => i.state === 'closed' && onPage(i.number))
+
+  for (const i of orphans) {
+    console.error(`orphan  #${i.number}  ${i.title}`)
+    console.error(`        open and labelled for the page, and not on it.`)
+    console.error(`        gh issue close ${i.number} --reason completed|"not planned" --comment "..."`)
+  }
+  for (const i of ghosts) {
+    console.error(`ghost   #${i.number}  ${i.title}`)
+    console.error(`        closed, and the page still lists it. Cull the section, or reopen it.`)
+  }
+  console.log(
+    `audit: ${issues.length} issue(s) read, ${orphans.length} orphan(s), ${ghosts.length} ghost(s)` +
+      (orphans.length + ghosts.length === 0 ? ' — the page and the tracker agree' : ''),
+  )
+  process.exit(orphans.length + ghosts.length > 0 ? 1 : 0)
+}
 
 // `labels=` is AND, not OR: a comma-separated list matches issues carrying every one of
 // them. Three queries, one per place an entry can land on the page.

@@ -313,7 +313,7 @@ The shared modules do:
 | File | What it does |
 | --- | --- |
 | `roadmap-data.mjs` | Renders `docs/data/*.json` into the marked regions of `docs/roadmap.html`. Backs up first, and refuses to write a page that fails verification. |
-| `roadmap-tracker.mjs` | Reads the issue tracker through `gh` into `docs/data/tracker.json`, so the renderer needs no network. |
+| `roadmap-tracker.mjs` | Reads the issue tracker through `gh` into `docs/data/tracker.json`, so the renderer needs no network. `--audit` writes nothing and fails if the page and the tracker disagree. |
 | `glossary-css.mjs` | Refreshes the built stylesheet that `docs/ui-glossary.html` inlines, so its samples are styled by the rules the app ships. |
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` that does not resolve. |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
@@ -637,11 +637,45 @@ decides how it reads.**
 
 ```bash
 node scripts/roadmap-tracker.mjs   # read the tracker (needs gh, and auth)
+node scripts/roadmap-tracker.mjs --audit  # does the page still match the tracker?
 node scripts/roadmap-data.mjs      # render the page
 node scripts/roadmap-data.mjs --check     # CI: fail if the page is stale
 node scripts/roadmap-data.mjs --restore   # put docs/roadmap.backup.html back
 node scripts/seed-issues.mjs       # file an issue per existing roadmap item (dry run)
 ```
+
+### Taking something off the roadmap
+
+**Culling a section and closing its issue are one job, not two.** Every item on the page
+carries an issue number, and the page's own promise is that closing the issue is the only
+bookkeeping there is — so an item removed from the page with its issue left open turns
+that promise into a lie, in the one direction nobody notices. It has happened four times:
+§§1–3 and §18 came off the page across 1.15.3 and 1.16.0 and their issues sat open
+afterwards.
+
+So, in the same pass:
+
+```bash
+node scripts/roadmap-tracker.mjs --audit          # lists what is out of step, both ways
+gh issue comment <n> --body-file <what happened>  # what shipped, or what was dropped and why
+gh issue close <n> --reason completed             # or --reason "not planned"
+```
+
+`--audit` reports two kinds of drift and exits non-zero on either: an **orphan** is open,
+labelled for the page, and no longer on it; a **ghost** is closed and still listed.
+`roadmap-data.mjs --check` cannot catch either — it validates the *generated* regions
+against `docs/data/*.json` and never reads the hand-written backlog, which is where every
+culled section lived.
+
+It is **not** in CI, deliberately. It needs a live tracker read, so it would put a
+contributor's pull request at the mercy of what is happening on the issue tracker, and go
+red for maintainer bookkeeping that has nothing to do with their diff. It is a step in the
+cull, not a gate on the tree.
+
+The comment is the part that cannot be automated. A closed issue with no explanation reads
+as a shrug to whoever subscribed to it, and `--reason "not planned"` on something half
+delivered reads as a refusal — so the comment says what shipped, what was dropped, and
+whether a request would reopen it.
 
 Three things keep it from going wrong: every write keeps the previous page in
 `docs/roadmap.backup.html`; a render that loses a marker, unbalances `<details>` or
