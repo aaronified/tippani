@@ -21,6 +21,11 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
+Three are open now — `anthologies.md`, `help-density.md` and `access.md`, for
+roadmap §4, §5 and §6 — and their verification passes moved four claims between
+them. That is four for three plans, which is the strongest argument this file
+makes for the rule that a plan opens by reading the tree.
+
 ## The two documents
 
 | | |
