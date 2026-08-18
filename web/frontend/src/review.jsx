@@ -33,6 +33,7 @@ import {
   MonoLabel,
   toast,
   Tooltip,
+  useIsMobileScreen,
 } from './ui.jsx'
 
 // tzOffsetMinutes — the client's UTC offset, east positive, sent with every
@@ -468,6 +469,8 @@ function CardTools({ card, onPatch }) {
 // advancing; skip (Practice) advances locally, touching neither schedule nor
 // score.
 export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone, submitStep = false }) {
+  // Phones get no key legends anywhere; see Kbd.
+  const noKeys = useIsMobileScreen()
   // startIndex seeds the position (Practice restores it from a persisted
   // session on reload); onIndex reports each advance so the host can persist it.
   const [i, setI] = useState(startIndex)
@@ -750,7 +753,15 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 hideLabel
                 inputRef={clozeRef}
                 value={attempt}
-                placeholder={`type what belongs in the blank · ${shortcutFor('focus-blank', mode === 'practice')}`}
+                // The only shortcut in the app rendered as text rather than through
+                // Kbd or a Tooltip, so it needs the phone gate spelled out here.
+                // A placeholder is the narrowest line on the screen and half of it
+                // was a key nobody on a touch device can press.
+                placeholder={
+                  noKeys
+                    ? 'type what belongs in the blank'
+                    : `type what belongs in the blank · ${shortcutFor('focus-blank', mode === 'practice')}`
+                }
                 autoFocus
                 onChange={(e) => setAttempt(e.target.value)}
               />

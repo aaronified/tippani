@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **No keyboard shortcuts printed on a phone.** The drawer stopped repeating `G then L` beside
+  every row, hover labels stopped spending half their width on a key ("Search · /" is "Search"
+  again), the quiz buttons and multiple-choice options lost their key caps, and the `?` sheet —
+  which is nothing but keys — no longer opens. A key cap is an instruction, and an instruction
+  nobody can follow is clutter on the narrowest screen the app has.
+
+  **Nothing was unbound.** A keyboard attached to a phone or a tablet still works exactly as it
+  did; only the reminders go, which is the same shape as hiding a section in Settings → Features.
+  It reads the one breakpoint the whole shell already swaps on, so a desktop window narrowed past
+  it loses the reminders and keeps the keys.
+
+  The keyboard entry in the `?` help also moved out of the Search screen, where it had somehow
+  been living, into the list the app shows only to readers who have a pointer — so on a desktop it
+  now answers from every screen, and on a phone from none.
+
 - **The first colour category is called "Default" rather than "Uncategorised".** It is the colour
   a quote gets when nobody picks one, and where every import with no colour lands — so in most
   libraries it holds more quotes than the other five together. Naming it after what it lacks made

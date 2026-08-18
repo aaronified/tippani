@@ -2520,7 +2520,12 @@ const HOVER_HIDE_MS = 3000;
 // button's tooltip". Passing an id with no binding leaves the label untouched,
 // so any Tooltip can name an action speculatively.
 export function Tooltip({ label, side = "top", className = "", onContextMenu, shortcut, shiftKey = false, children }) {
-  label = withShortcut(label, shortcut, shiftKey);
+  // The key is dropped from the bubble on a phone, for the reason Kbd gives: the
+  // rule is that a shortcut must be spelled out on the control that shares its
+  // job, and its purpose is teaching a binding to somebody who can press it.
+  // "Search · /" on a touch screen is half a label spent on a key with no board.
+  // The LABEL still shows — only the suffix goes.
+  label = useIsMobileScreen() ? label : withShortcut(label, shortcut, shiftKey);
   const timer = useRef(null);
   const origin = useRef(null);
   const fired = useRef(false);
@@ -3123,6 +3128,21 @@ export function InfoDot({ text, title }) {
 // and drawing it as `Gthen L` would say it is one. shortcutLabel already renders
 // the joining word, so the split is on it.
 export function Kbd({ keys }) {
+  // NOT ON A PHONE. A key cap is an instruction, and an instruction nobody can
+  // follow is clutter that also reads as a design that forgot where it was: the
+  // drawer's whole job is to list every destination, and printing "G then L"
+  // beside each row on a device with no G costs a line of noise on the narrowest
+  // screen the app has.
+  //
+  // The same breakpoint the shell swaps on, deliberately — the drawer, the bottom
+  // bar and help.jsx's own choice of which shell to describe all read it, and a
+  // second definition of "mobile" is the drift this saves nothing by inviting.
+  // A desktop window narrowed past it loses the reminders and keeps the keys.
+  //
+  // GATED HERE RATHER THAN AT THE CALL SITES, because there are a dozen of them
+  // — every drawer row, every quiz button, the MCQ options — and a rule applied
+  // to eleven of twelve is the defect this repo keeps finding.
+  if (useIsMobileScreen()) return null;
   if (!keys) return null;
   return (
     <span className="kbd-legend" aria-hidden="true">
@@ -3148,6 +3168,12 @@ export function Kbd({ keys }) {
 // here, because this component knows how to draw a key cap and nothing about
 // preferences.
 export function ShortcutSheet({ open, onClose, omit }) {
+  // A sheet whose entire content is keys is nothing on a phone. Refused here as
+  // well as hidden at its two entry points, so the one that opens it cannot come
+  // back on a screen where every row of it is unreachable — `?` is itself a key,
+  // but a Bluetooth keyboard on a narrow window would otherwise open a panel the
+  // rest of the app has stopped mentioning.
+  if (useIsMobileScreen()) return null;
   if (!open) return null;
   return (
     <HelpSheet open={open} title="Keyboard shortcuts" onClose={onClose}>

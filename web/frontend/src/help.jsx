@@ -71,8 +71,17 @@ const SHELL_TOUCH = [
   { term: 'Long press', what: 'Three different things, decided by what is under your thumb. On a CONTROL it shows that control’s label — there is no hover on a phone — and the hold swallows the tap, so holding Delete to find out what it does never deletes anything. On the WORDS OF A QUOTE it does nothing at all, which is deliberate: that is how your phone selects text, and this is an app for keeping other people’s sentences. ANYWHERE ELSE on a card, cover or poster — the empty space, the small print, the row the buttons sit in — it picks that card, and a tick appears in its corner. Hold a second one to add it. It no longer highlights a word on the way through: your phone reads the same hold as the start of a text selection, so a press that picked a card used to leave a stray word shaded behind it.' },
 ]
 
-// Pointer only: the tab strip that stands in for the drawer, and hover labels.
+// Pointer only: the tab strip that stands in for the drawer, hover labels, and
+// the keyboard.
+//
+// THE KEYBOARD ENTRY LIVES HERE, not on the Search screen where it started. It
+// describes the whole shell rather than one screen, so on a desktop it now answers
+// from every "?" instead of only the one nobody opens looking for keys — and on a
+// phone it goes, along with every key cap the app used to draw. Telling somebody
+// with no keyboard to press ? for the full list is the same fault as describing the
+// drawer to somebody who has a tab strip.
 const SHELL_POINTER = [
+  { term: 'Keyboard', what: 'Press ? anywhere for the full list. / searches, N captures a quote, and G then H, L, C, Q or S goes Home or to the Library, the Catalogue, Quotes or Stats. In a quiz, 1 and 2 grade and Space reveals a flip card. Every shortcut is also written on the button that does the same thing, so you never have to memorise one to find it.' },
   { term: 'Tab strip', what: 'Every screen, always visible in the top bar: Home, Library, Catalogue and Quotes, then the tools — Tags, Metadata, Stats, Settings. The first four are what Settings → Features governs, so the strip is as long as you want it to be. It collapses to icons when the window is too narrow for the labels, and each one names itself on hover.' },
   { term: 'Hover labels', what: 'Every glyph-only control says what it is when you hover or tab to it, in a small bubble anchored to the control itself.' },
   { term: 'Right-click a card', what: 'A quote card answers a right-click with its own menu — copy, share, edit, delete — opened where you pressed. Shift+F10 or the Menu key does the same from the keyboard, and Escape closes it and hands focus back. If you have selected text inside the card, the browser’s own menu wins instead: you wanted Copy, or Look Up, and those are not ours to take away.' },
@@ -153,7 +162,6 @@ export const HELP = {
   search: {
     title: 'Search',
     entries: [
-      { term: 'Keyboard', what: 'Press ? anywhere for the full list. / searches, N captures a quote, and G then H, L, C, Q or S goes Home or to the Library, the Catalogue, Quotes or Stats. In a quiz, 1 and 2 grade and Space reveals a flip card. Every shortcut is also written on the button that does the same thing and on the drawer row that goes there, so you never have to memorise one to find it.' },
       { term: 'An exact phrase', what: 'Put it in quotation marks — “to be or not to be” — and it is searched as one phrase rather than as six words in any order. Everything outside the quotes still matches as you type. A quotation mark you did not close is not an error: those words simply search loosely.' },
       { term: 'The box', icon: <IconSearch />, what: 'Typo-tolerant and instant. Your last search is remembered.' },
       { term: 'Filters', icon: <IconFilter />, what: 'The same narrowing as the colon grammar, with nothing to remember: every field, every value your own library uses, and whether a second pick narrows or widens written on each group. Pressing a value makes exactly the chip typing it would make, so the two are the same thing seen from different ends. Each value carries how many hits it would give under the search you are running now — so a number of 0 goes grey rather than disappearing, which tells you which chip to take off. Two tags narrow, so the number beside a second one is how many wear both; two authors widen, so the number beside a second one is what allowing them as well would give.' },

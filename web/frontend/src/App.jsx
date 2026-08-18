@@ -970,8 +970,12 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // were three surfaces for one job. Those call sites open this, with `sec` and
   // `target` carrying the context they used to imply.
   const [addOpen, setAddOpen] = useState(false)
-  // The legend for every binding at once. `?` opens it, and so does the drawer
-  // row — a shortcut whose only way in is itself is a shortcut you cannot find.
+  // The legend for every binding at once, opened by `?`. Discovery is the help
+  // sheet's Keyboard entry, which is in the pointer-only shell list — so it is
+  // named on every screen a keyboard is plausible on, and on none where it is not.
+  // (This comment used to claim a drawer row opened it too. There has never been
+  // one, and the drawer is the phone's shell, which is now the one place the app
+  // deliberately says nothing about keys.)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [addSec, setAddSec] = useState('book')
   const [addTarget, setAddTarget] = useState(null) // {type:'book'|'movie', id} | null
