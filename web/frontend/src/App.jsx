@@ -4,7 +4,7 @@ import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
 import { pickEpigraph } from './epigraphs.js'
-import { installShortcuts } from './keys.js'
+import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
 import Library from './Library.jsx'
 import MetadataPage from './MetadataPage.jsx'
@@ -56,6 +56,8 @@ import {
   useIsMobileScreen,
   usePersistedState,
   useResolvedDark,
+  Kbd,
+  ShortcutSheet,
 } from './ui.jsx'
 import { takeSearchSeed } from './facets.js'
 import { Profile } from './Account.jsx'
@@ -71,6 +73,18 @@ export { DEMO } from './api.js'
 
 // App is the auth gate: first-run onboarding, login, then the logged-in shell.
 // The grain overlay (§5) sits above every screen, auth included.
+// DRAWER_SHORTCUTS maps a drawer destination to the ACTION that reaches it, so
+// the row can show its key. Kept here rather than in keys.js: that file knows
+// which key runs which action and deliberately nothing about tabs.
+const DRAWER_SHORTCUTS = {
+  home: 'go-home',
+  library: 'go-library',
+  movies: 'go-catalogue',
+  quotes: 'go-quotes',
+  stats: 'go-stats',
+  search: 'search',
+}
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
@@ -799,6 +813,11 @@ function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, use
                 <NavIcon name={t[0]} />
                 {t[1]}
                 {badge(t[0])}
+                {/* The legend, on the row that does the same thing. This is the
+                    drawer's whole job — it is the one surface that lists every
+                    destination — so it is the natural place to learn that G-then-L
+                    exists without having gone looking for a shortcut sheet. */}
+                <Kbd keys={shortcutFor(DRAWER_SHORTCUTS[t[0]])} />
               </button>
             ),
           )}
@@ -940,6 +959,9 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
   // were three surfaces for one job. Those call sites open this, with `sec` and
   // `target` carrying the context they used to imply.
   const [addOpen, setAddOpen] = useState(false)
+  // The legend for every binding at once. `?` opens it, and so does the drawer
+  // row — a shortcut whose only way in is itself is a shortcut you cannot find.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [addSec, setAddSec] = useState('book')
   const [addTarget, setAddTarget] = useState(null) // {type:'book'|'movie', id} | null
   const openAdd = (sec = 'book', target = null) => {
@@ -1162,12 +1184,12 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
     switch (id) {
       case 'search': openSearch(); break
       case 'capture': openAdd('quote'); break
-      case 'palette': openSearch(); break
       case 'go-home': go('home'); break
       case 'go-library': go('library'); break
       case 'go-catalogue': go('movies'); break
       case 'go-quotes': go('quotes'); break
       case 'go-stats': go('stats'); break
+      case 'help': setShortcutsOpen(true); break
       default: break
     }
   }), [tab, detail, globalSearch]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1461,6 +1483,7 @@ function Shell({ user, onLogout, onPreferences, onUser }) {
         dark={dark}
         onUser={onUser}
       />
+      <ShortcutSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <AddSurface
         open={addOpen}
         initialSection={addSec}

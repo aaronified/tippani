@@ -5157,3 +5157,48 @@ html[data-theme="dark"] .board-cover {
   border: 1px solid var(--line);
 }
 .board-form-img.is-empty { display: inline-block; background: var(--raised); }
+
+  /* ---- keyboard legends ----
+     A key cap, and the rows a legend is made of. Small, quiet and monospaced:
+     it is a label on a control, not a control — anything with a border and a
+     background at full contrast reads as pressable, and a legend you can click
+     is a legend that lies.
+
+     The cap borrows the mono face rather than the UI one because a keyboard key
+     is a literal, in the same way a tag name or a file path is, and every other
+     literal in this app is set in mono. */
+  .kbd {
+    font-family: var(--font-mono);
+    font-style: var(--font-mono-style);
+    font-variant-caps: var(--font-mono-caps);
+    font-variant-numeric: var(--font-mono-figures);
+    font-size: 10.5px; line-height: 1;
+    color: var(--soft);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 3px 5px;
+    white-space: nowrap;
+  }
+  .kbd-legend { display: inline-flex; align-items: center; gap: 4px; }
+  .kbd-then {
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--faint);
+    text-transform: lowercase;
+  }
+  /* One row of the sheet: what it does on the left, the key on the right, and a
+     dotted rule between them so the eye can cross a wide sheet without losing
+     the line — the same job a table of contents' leader dots do. */
+  .kbd-row {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 0;
+  }
+  .kbd-row > span:first-child { flex: none; }
+  .kbd-row::before { content: ""; }
+  .kbd-row > .kbd-legend { margin-left: auto; }
+  .kbd-row > span:first-child::after {
+    content: "";
+    display: inline-block;
+  }
+  /* The menu-row variant: no rule, just the cap pushed to the end. */
+  .menu-item .kbd-legend { margin-left: auto; padding-left: 12px; }

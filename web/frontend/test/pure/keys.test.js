@@ -36,7 +36,7 @@ describe('every binding can be spelled out', () => {
   // brackets read as optional.
   it('appending it to a label', () => {
     expect(withShortcut('Search', 'search')).toBe('Search · /')
-    expect(withShortcut('Favourite', 'favourite')).toBe('Favourite · F')
+    expect(withShortcut('Got it', 'grade-got')).toBe('Got it · 2')
   })
 
   // An action with no binding must pass through unchanged, or every existing
@@ -73,7 +73,7 @@ describe('every binding can be spelled out', () => {
 describe('matching a key press', () => {
   it('finds a direct binding', () => {
     expect(matchShortcut('/')).toEqual({ id: 'search' })
-    expect(matchShortcut('mod+k')).toEqual({ id: 'palette' })
+    expect(matchShortcut('n')).toEqual({ id: 'capture' })
     expect(matchShortcut('2')).toEqual({ id: 'grade-got' })
   })
 
@@ -137,6 +137,72 @@ describe('the help sheet’s view', () => {
     for (const g of groups) {
       expect(g.group).toBeTruthy()
       for (const i of g.items) expect(i.keys).toBeTruthy()
+    }
+  })
+})
+
+// ---- the legends ---------------------------------------------------------
+//
+// A LEGEND MAINTAINED BY HAND IS A LEGEND THAT IS WRONG BY THE SECOND RELEASE.
+// The sheet, the drawer rows and the quiz buttons all read the registry rather
+// than repeating it, and these are the assertions that keep that true — a
+// hand-written list of keys in a component would pass every other test in this
+// file while telling the reader something the app no longer does.
+
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
+const read = (f) => readFileSync(join(SRC, f), 'utf8')
+
+describe('the shortcut sheet', () => {
+  const ui = read('ui.jsx')
+
+  it('is built from the registry, not from a list of its own', () => {
+    expect(ui).toMatch(/function ShortcutSheet\(/)
+    expect(ui).toMatch(/groupedShortcuts\(\)/)
+  })
+
+  // Every key cap in the app goes through one component, so a sequence renders
+  // as two caps and a joining word everywhere rather than in whichever places
+  // somebody remembered.
+  it('draws its caps with the shared Kbd', () => {
+    expect(ui).toMatch(/export function Kbd\(/)
+    expect(ui).toMatch(/<Kbd keys=/)
+  })
+})
+
+describe('legends sit on the controls that share the job', () => {
+  it('on the drawer’s destinations', () => {
+    const app = read('App.jsx')
+    expect(app).toMatch(/DRAWER_SHORTCUTS/)
+    expect(app).toMatch(/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[t\[0\]\]\)\}/)
+    // Every destination it maps must be a real action, or the row renders a
+    // blank cap and teaches nothing.
+    const ids = [...app.matchAll(/^\s+\w+: '([a-z-]+)',$/gm)].map((m) => m[1])
+    const known = new Set(SHORTCUTS.map((s) => s.id))
+    for (const id of ids.filter((x) => known.has(x) || x.startsWith('go-'))) {
+      expect(known.has(id), `${id} is not a registered action`).toBe(true)
+    }
+  })
+
+  it('and on the quiz’s own buttons', () => {
+    const review = read('review.jsx')
+    for (const id of ['grade-forgot', 'grade-got', 'reveal']) {
+      expect(review, id).toContain(`shortcutFor('${id}')`)
+    }
+  })
+})
+
+// EVERY LISTED KEY IS ACTUALLY WIRED. The table feeds the tooltips and the
+// sheet, so an entry is a PROMISE printed on a button — and the first draft of
+// it bound a command palette, j/k, f, e and u with no handler behind any of
+// them. This is the assertion that stops that coming back.
+describe('nothing is listed that does not work', () => {
+  it('every action is dispatched by the shell or by the quiz', () => {
+    const wired = read('App.jsx') + read('review.jsx')
+    for (const s of SHORTCUTS) {
+      expect(wired.includes(`'${s.id}'`), `${s.id} is in the table with no handler`).toBe(true)
     }
   })
 })

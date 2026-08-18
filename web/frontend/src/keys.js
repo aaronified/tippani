@@ -24,12 +24,19 @@
 //
 // `seq` is a two-key sequence ("g then l"), which is how a small alphabet covers
 // navigation without stealing single letters that mean something else.
+//
+// NOTHING IS LISTED THAT DOES NOT WORK. The first draft of this table also bound
+// a command palette, j/k to move through a list, f to favourite, e to edit and u
+// to undo — every one of them a key with no handler behind it. That is worse than
+// having no shortcut at all, because the sheet and the tooltips read from this
+// table: an entry here is a PROMISE printed on a button and in a legend, and five
+// of them would have been promises the app does not keep. They come back when
+// something is wired to them.
 export const SHORTCUTS = [
   // Global
-  { id: 'palette', keys: ['mod+k'], label: 'Command palette', group: 'Anywhere' },
   { id: 'search', keys: ['/'], label: 'Search', group: 'Anywhere' },
   { id: 'capture', keys: ['n'], label: 'Capture a quote', group: 'Anywhere' },
-  { id: 'help', keys: ['?'], label: 'What’s on this screen', group: 'Anywhere' },
+  { id: 'help', keys: ['?'], label: 'Keyboard shortcuts', group: 'Anywhere' },
 
   // Go to — a sequence, so the single letters stay free.
   { id: 'go-home', seq: ['g', 'h'], label: 'Go to Home', group: 'Go to' },
@@ -38,18 +45,11 @@ export const SHORTCUTS = [
   { id: 'go-quotes', seq: ['g', 'q'], label: 'Go to Quotes', group: 'Go to' },
   { id: 'go-stats', seq: ['g', 's'], label: 'Go to Stats', group: 'Go to' },
 
-  // In a list
-  { id: 'next', keys: ['j'], label: 'Next', group: 'In a list' },
-  { id: 'prev', keys: ['k'], label: 'Previous', group: 'In a list' },
-  { id: 'favourite', keys: ['f'], label: 'Favourite', group: 'In a list' },
-  { id: 'edit', keys: ['e'], label: 'Edit', group: 'In a list' },
-
   // Review. 1 and 2 are what anybody arriving from an SRS tool reaches for on
   // reflex, and space-to-reveal is the same reflex for a flip card.
   { id: 'grade-forgot', keys: ['1'], label: 'Forgot', group: 'Review' },
   { id: 'grade-got', keys: ['2'], label: 'Got it', group: 'Review' },
-  { id: 'reveal', keys: ['space'], label: 'Reveal', group: 'Review' },
-  { id: 'undo', keys: ['u'], label: 'Undo the last answer', group: 'Review' },
+  { id: 'reveal', keys: ['space'], label: 'Reveal the answer', group: 'Review' },
 ]
 
 const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]))

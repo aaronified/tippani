@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   just a letter. Two keys are never bound to one action, no single key is also the first key of a
   sequence, and `?` and `/` stay separate because one is Shift-ed and the other is not.
 
+  **The keys are drawn as legends, not just described.** `?` opens a sheet listing every one
+  of them, grouped, with a key cap beside each; the drawer prints `G then L` on the row that goes
+  to the Library; and the quiz's own buttons carry `1`, `2` and `Space`. All of it is generated
+  from the same table the handler reads — a legend maintained by hand is a legend that is wrong
+  by the second release.
+
+  **Nothing is listed that does not work.** The first draft of the table also bound a command
+  palette, `J`/`K` to move through a list, `F` to favourite, `E` to edit and `U` to undo — every
+  one a key with no handler behind it. Since the sheet and the tooltips both read the table, an
+  entry in it is a promise printed on a button, and five of them would have been promises the app
+  does not keep. They come back when something is wired to them, and a test now fails if an
+  unwired one is added.
+
   The review keys live with the card rather than in the global listener: a grade only means
   something to the card in front of you, and they are gated on exactly the conditions the buttons
   are, so a key and a button can never disagree about whether a card is answerable.

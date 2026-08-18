@@ -2,9 +2,9 @@
 // compatibility exports the pre-redesign pages still import — the page pass
 import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
 // replaces those call sites, then the compat block can shrink.
-import { Children, Component, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { withShortcut } from "./keys.js";
+import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 import { coverImgURL } from "./api.js";
 
@@ -3109,6 +3109,59 @@ export function InfoDot({ text, title }) {
 // centred dialog on desktop. Portalled to <body> so it escapes the isolated
 // stacking context of whatever card it was opened from. Escape and a backdrop
 // click both close.
+// Kbd — one key cap. The legend everywhere else in this file is built out of
+// these, so a shortcut looks the same on a menu row, in the sheet and under a
+// quiz card.
+//
+// A SEQUENCE IS TWO CAPS AND A WORD, not one long cap: "G then L" is two presses
+// and drawing it as `Gthen L` would say it is one. shortcutLabel already renders
+// the joining word, so the split is on it.
+export function Kbd({ keys }) {
+  if (!keys) return null;
+  return (
+    <span className="kbd-legend" aria-hidden="true">
+      {String(keys).split(" then ").map((k, i) => (
+        <Fragment key={k + i}>
+          {i > 0 && <span className="kbd-then">then</span>}
+          <kbd className="kbd">{k}</kbd>
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+// ShortcutSheet — the legend for every binding at once, opened by `?`.
+//
+// It reads groupedShortcuts() rather than a list of its own, which is the whole
+// point: the sheet cannot fall behind the table, and a key added to keys.js
+// appears here without anybody remembering to document it. That is the failure
+// this replaces — a shortcut legend maintained by hand is a legend that is wrong
+// by the second release.
+export function ShortcutSheet({ open, onClose }) {
+  if (!open) return null;
+  return (
+    <HelpSheet open={open} title="Keyboard shortcuts" onClose={onClose}>
+      <p className="microcopy" style={{ marginBottom: 14 }}>
+        Every one of these is also written on the button that does the same thing, so you
+        never have to memorise one to find it. Keys do nothing while you are typing.
+      </p>
+      {groupedShortcuts().map((g) => (
+        <div key={g.group} style={{ marginBottom: 16 }}>
+          <MonoLabel className="mb-2 block">{g.group}</MonoLabel>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {g.items.map((it) => (
+              <li key={it.id} className="kbd-row">
+                <span>{it.label}</span>
+                <Kbd keys={it.keys} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </HelpSheet>
+  );
+}
+
 export function HelpSheet({ open, title = "Help", onClose, children }) {
   const mobile = useIsMobileScreen();
   useBodyScrollLock(open);

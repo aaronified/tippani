@@ -3941,6 +3941,8 @@ The navigation shape is the single most re-litigated decision in the project, mo
 
 **Instead of.** A key legend in the help sheet only, which is where shortcuts go to be forgotten.
 
+**The legends are generated, and nothing is listed that does not work.** `?` opens a sheet built from `groupedShortcuts()`, the drawer prints each destination's key on its own row, and the quiz's buttons carry theirs — all from the one table, because a legend maintained by hand is wrong by the second release. The first draft of that table also bound a command palette, `j`/`k`, `f`, `e` and `u` with no handler behind any of them; since the sheet and the tooltips both read it, an entry is a promise printed on a button, and those five would have been promises the app does not keep. A test now fails if an unwired action is added.
+
 <sub>1.16.x — `web/frontend/src/keys.js` · `web/frontend/src/ui.jsx`</sub>
 
 ### A replace is previewed because its damage is the only kind you cannot see

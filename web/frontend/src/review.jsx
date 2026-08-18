@@ -6,7 +6,7 @@
 // tag, this person, this colour") is started from a work tile, a person panel, a
 // tag card and the Stats colour breakdown — and every one of those modules sits
 // BELOW Home.jsx: Home imports Library and Movies, which import works.jsx, which
-import { installShortcuts } from './keys.js'
+import { installShortcuts, shortcutFor } from './keys.js'
 // draws the tiles. A dialog exported from Home and imported by works.jsx would
 // have closed that loop. So the runner moved down to a module whose own imports
 // are all leaves (ui, api, people, bulkOps, theme, text), and Home imports it
@@ -29,6 +29,7 @@ import {
   HandNote,
   IconEdit,
   IconHeart,
+  Kbd,
   MonoLabel,
   toast,
   Tooltip,
@@ -753,7 +754,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                       disabled={saving}
                       onClick={() => selfGrade('forgot')}
                     >
-                      Forgot
+                      Forgot <Kbd keys={shortcutFor('grade-forgot')} />
                     </button>
                   </Tooltip>
                   <Tooltip label="Got it" shortcut="grade-got">
@@ -763,7 +764,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                       disabled={saving}
                       onClick={() => selfGrade('got')}
                     >
-                      Got it
+                      Got it <Kbd keys={shortcutFor('grade-got')} />
                     </button>
                   </Tooltip>
                 </div>
@@ -772,7 +773,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           ) : (
             <Tooltip label="Reveal the answer" shortcut="reveal">
               <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => setShown(true)}>
-                Show me
+                Show me <Kbd keys={shortcutFor('reveal')} />
               </button>
             </Tooltip>
           )}
