@@ -251,6 +251,20 @@ func usernameTaken(tx *sql.Tx, snap snapshot) (string, error) {
 	return "", nil
 }
 
+// anthologyStillThere reports whether the anthology an entry points at survived
+// however long the quote sat in the bin.
+func anthologyStillThere(tx *sql.Tx, row map[string]any) bool {
+	id, ok := intOf(row["anthology_id"])
+	if !ok {
+		return false
+	}
+	var n int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM anthologies WHERE id = ?`, id).Scan(&n); err != nil {
+		return false
+	}
+	return n == 1
+}
+
 // restoreSnapshot re-inserts a payload in foreign-key order.
 //
 // Ids are the ORIGINAL ids, always. Nothing has to be renumbered because no id was
@@ -289,6 +303,15 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 		}
 		remap, hasRemap := remapColumn[table]
 		for _, row := range rows {
+			// AN ANTHOLOGY CAN GO WHILE A QUOTE SITS IN THE BIN, and an entry has a
+			// real foreign key to it — so putting one back would fail the constraint
+			// and roll back the whole restore. The quote is what the reader asked for;
+			// its place in a document that no longer exists is not worth refusing them
+			// that. Dropped silently, because there is nothing they could do about it
+			// and nothing left to tell them about.
+			if table == "anthology_entries" && !anthologyStillThere(tx, row) {
+				continue
+			}
 			if hasRemap {
 				if old, ok := intOf(row[remap.col]); ok {
 					if now, ok := vocab[remap.kind][old]; ok {

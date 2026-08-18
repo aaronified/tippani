@@ -553,6 +553,14 @@ type stagedQuoteRow struct {
 	Tags        []string `json:"tags"`
 	NotedAt     string   `json:"noted_at"`
 	CreatedAt   string   `json:"created_at"`
+	// 0043. The anthology this row belongs to, by TITLE, and the commentary that
+	// introduces it there. Held in the queue for exactly the reason the paragraph
+	// above gives: an anthology file's whole content beyond the quotes is its order
+	// and its prose, so a queue that dropped the prose would report a successful
+	// import of an anthology with nothing written in it.
+	Anthology      string `json:"anthology"`
+	AnthologyNote  string `json:"anthology_note"`
+	AnthologyIntro string `json:"anthology_intro"`
 }
 
 // handleListStaged answers the pending queue: every batch, every work, and the
@@ -831,7 +839,9 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 	             COALESCE(q.place, ''), COALESCE(q.medium, ''),
 	             COALESCE(q.category, 'other'), COALESCE(q.language, ''),
-	             COALESCE(q.translation, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
+	             COALESCE(q.translation, ''),
+	             COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
+	             COALESCE(q.anthology_intro, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
 	if !applyPaging(w, r, &q, &args) {
 		return nil, 0, nil
 	}
@@ -848,7 +858,8 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 			&sq.Favorite, &sq.Chapter, &sq.Location, &sq.LocationOrig, &sq.Character, &sq.Actor,
 			&sq.Timestamp, &sq.TimestampOrig, &sq.Season, &sq.Episode, &tags, &sq.NotedAt, &sq.CreatedAt,
 			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
-			&sq.Category, &sq.Language, &sq.Translation); err != nil {
+			&sq.Category, &sq.Language, &sq.Translation,
+			&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
 			continue
 		}
@@ -1157,7 +1168,9 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			       COALESCE(q.noted_at, ''),
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 			       COALESCE(q.place, ''), COALESCE(q.medium, ''),
-			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, '')
+			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''),
+			       COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
+			       COALESCE(q.anthology_intro, '')
 			  FROM staged_quotes q
 			 WHERE q.id IN (`+inClause(len(batch))+`)
 			 ORDER BY q.id`, int64sAsAny(batch)...)
@@ -1172,7 +1185,8 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 				&sq.Chapter, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
 				&sq.Season, &sq.Episode, &tags, &sq.NotedAt,
 				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium,
-				&sq.Category, &sq.Language, &sq.Translation); err != nil {
+				&sq.Category, &sq.Language, &sq.Translation,
+				&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
 				return err
 			}
 			sq.Tags = splitStoredList(tags)
@@ -1253,6 +1267,7 @@ func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
 			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium,
 			Category: q.Category, Language: q.Language, Translation: q.Translation,
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
+			Anthology: q.Anthology, AnthologyNote: q.AnthologyNote, AnthologyIntro: q.AnthologyIntro,
 		})
 	}
 	return out

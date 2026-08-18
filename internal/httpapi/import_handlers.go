@@ -31,6 +31,20 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// An anthology file (0043) is a quotes file with prose and an order around it,
+	// so it stages through the SAME queue: one group, one row per entry, in the
+	// file's order. What it carries extra is the anthology's title on every row and
+	// the commentary on each — resolved to a row at approval time, which is where an
+	// import is allowed to write to the library.
+	if importer.MarkdownKind(data) == importer.KindAnthology {
+		an, err := importer.AnthologyMarkdown(bytes.NewReader(data))
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		s.stageQuotesFile(w, r, "md", filename, an.Entries)
+		return
+	}
 	if importer.MarkdownKind(data) == importer.KindQuotes {
 		us, err := importer.QuoteMarkdownAll(bytes.NewReader(data))
 		if err != nil {

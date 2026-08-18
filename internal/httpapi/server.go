@@ -298,6 +298,25 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /boards/{id}/cover", s.requireAuth(s.handleUploadBoardImage))
 	mux.Handle("POST /quotes/starters", s.requireAuth(s.handleSeedProverbs))
 
+	// Anthologies (0043) — a made document rather than a container: a title, an
+	// introduction, and quotes in an order with the reader's commentary between
+	// them. Their own noun for the same reason boards have theirs: an anthology
+	// draws from all three kinds of quote at once, so it belongs under none of them.
+	//
+	// The entry routes spell (kind, item) into the PATH because that IS an entry's
+	// identity — there is no entry id — and because a DELETE with a body is a shape
+	// half the HTTP stacks in the world treat as optional.
+	mux.Handle("GET /anthologies", s.requireAuth(s.handleListAnthologies))
+	mux.Handle("POST /anthologies", s.requireAuth(s.handleCreateAnthology))
+	mux.Handle("GET /anthologies/{id}", s.requireAuth(s.handleGetAnthology))
+	mux.Handle("PUT /anthologies/{id}", s.requireAuth(s.handleUpdateAnthology))
+	mux.Handle("DELETE /anthologies/{id}", s.requireAuth(s.handleDeleteAnthology))
+	mux.Handle("POST /anthologies/{id}/entries", s.requireAuth(s.handleAddAnthologyEntries))
+	mux.Handle("PUT /anthologies/{id}/entries", s.requireAuth(s.handleAnthologyEntryNote))
+	mux.Handle("DELETE /anthologies/{id}/entries/{kind}/{itemID}", s.requireAuth(s.handleRemoveAnthologyEntry))
+	mux.Handle("POST /anthologies/{id}/order", s.requireAuth(s.handleReorderAnthology))
+	mux.Handle("GET /anthologies/{id}/export", s.requireAuth(s.handleExportAnthology))
+
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
 	// Tags are a managed vocabulary with colour + style (§10).
 	mux.Handle("GET /genres", s.requireAuth(s.handleListGenres))

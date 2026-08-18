@@ -37,21 +37,22 @@ const (
 	// Per-subsystem "list row failed to scan" — a SELECT/struct drift that would
 	// otherwise silently shorten a list with a 200 (the class the 0.6.4 favourites
 	// bug exposed). One per subsystem that has list/collection loops.
-	CodeAnnoRowScan    Code = "TIP-ANNO-001"
-	CodeDlgRowScan     Code = "TIP-DLG-001"
-	CodeUttRowScan     Code = "TIP-UTT-001"
-	CodeBookRowScan    Code = "TIP-BOOK-001"
-	CodeMovieRowScan   Code = "TIP-MOVIE-001"
-	CodePeopleRowScan  Code = "TIP-PEOPLE-001"
-	CodeReviewRowScan  Code = "TIP-REVIEW-001"
-	CodeExportRowScan  Code = "TIP-EXPORT-001"
-	CodeBulkRowScan    Code = "TIP-BULK-001"
-	CodeTagRowScan     Code = "TIP-TAG-001"
-	CodeBoardRowScan   Code = "TIP-BOARD-001"
-	CodeStatsRowScan   Code = "TIP-STATS-001"
-	CodeStickerRowScan Code = "TIP-STICKER-001"
-	CodeAdminRowScan   Code = "TIP-ADMIN-001"
-	CodeMetaRowScan    Code = "TIP-META-001"
+	CodeAnnoRowScan      Code = "TIP-ANNO-001"
+	CodeDlgRowScan       Code = "TIP-DLG-001"
+	CodeUttRowScan       Code = "TIP-UTT-001"
+	CodeBookRowScan      Code = "TIP-BOOK-001"
+	CodeMovieRowScan     Code = "TIP-MOVIE-001"
+	CodePeopleRowScan    Code = "TIP-PEOPLE-001"
+	CodeReviewRowScan    Code = "TIP-REVIEW-001"
+	CodeExportRowScan    Code = "TIP-EXPORT-001"
+	CodeBulkRowScan      Code = "TIP-BULK-001"
+	CodeTagRowScan       Code = "TIP-TAG-001"
+	CodeBoardRowScan     Code = "TIP-BOARD-001"
+	CodeAnthologyRowScan Code = "TIP-ANTH-001"
+	CodeStatsRowScan     Code = "TIP-STATS-001"
+	CodeStickerRowScan   Code = "TIP-STICKER-001"
+	CodeAdminRowScan     Code = "TIP-ADMIN-001"
+	CodeMetaRowScan      Code = "TIP-META-001"
 
 	// Specific genuine-failure codes (were silently swallowed before).
 	CodeStickerSeed      Code = "TIP-STICKER-002" // a starter sticker could not be copied into a user's library
@@ -141,21 +142,22 @@ var Registry = map[Code]string{
 	CodeSearchRowScan: "A search result row failed to scan and was dropped from the results.",
 	CodeSearchVocab:   "A fuzzy-search vocabulary read failed; typo correction was skipped and the exact (empty) result was returned.",
 
-	CodeAnnoRowScan:    "An annotation list row failed to scan (SELECT/struct drift); dropped from the list.",
-	CodeDlgRowScan:     "A dialogue list row failed to scan (SELECT/struct drift); dropped from the list.",
-	CodeUttRowScan:     "A quote list row failed to scan (SELECT/struct drift); dropped from the list.",
-	CodeBookRowScan:    "A book list row failed to scan (SELECT/struct drift); dropped from the list.",
-	CodeMovieRowScan:   "A movie list row failed to scan (SELECT/struct drift); dropped from the list.",
-	CodePeopleRowScan:  "A people list row failed to scan (SELECT/struct drift); dropped from the list.",
-	CodeReviewRowScan:  "A review/quiz candidate row failed to scan; dropped from the set.",
-	CodeExportRowScan:  "An export row failed to scan; omitted from the export.",
-	CodeBulkRowScan:    "A bulk-selection id row failed to scan; omitted from the operation.",
-	CodeTagRowScan:     "A genre/tag row failed to scan; dropped from the list.",
-	CodeBoardRowScan:   "A quote-board row failed to scan; dropped from the list.",
-	CodeStatsRowScan:   "A stats aggregate row failed to scan; omitted from the totals.",
-	CodeStickerRowScan: "A sticker list row failed to scan; dropped from the list.",
-	CodeAdminRowScan:   "A user list row failed to scan; dropped from the admin list.",
-	CodeMetaRowScan:    "A metadata console/library row failed to scan; dropped from the result.",
+	CodeAnnoRowScan:      "An annotation list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeDlgRowScan:       "A dialogue list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeUttRowScan:       "A quote list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeBookRowScan:      "A book list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeMovieRowScan:     "A movie list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodePeopleRowScan:    "A people list row failed to scan (SELECT/struct drift); dropped from the list.",
+	CodeReviewRowScan:    "A review/quiz candidate row failed to scan; dropped from the set.",
+	CodeExportRowScan:    "An export row failed to scan; omitted from the export.",
+	CodeBulkRowScan:      "A bulk-selection id row failed to scan; omitted from the operation.",
+	CodeTagRowScan:       "A genre/tag row failed to scan; dropped from the list.",
+	CodeBoardRowScan:     "A quote-board row failed to scan; dropped from the list.",
+	CodeAnthologyRowScan: "An anthology or one of its entries failed to scan; dropped from the list.",
+	CodeStatsRowScan:     "A stats aggregate row failed to scan; omitted from the totals.",
+	CodeStickerRowScan:   "A sticker list row failed to scan; dropped from the list.",
+	CodeAdminRowScan:     "A user list row failed to scan; dropped from the admin list.",
+	CodeMetaRowScan:      "A metadata console/library row failed to scan; dropped from the result.",
 
 	CodeStickerSeed:      "A starter sticker could not be copied into a user's library; the rest of the set still went in.",
 	CodeMetaKeyRead:      "A metadata provider key/setting could not be read; lookups degrade to unconfigured.",

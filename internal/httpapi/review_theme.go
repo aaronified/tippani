@@ -33,10 +33,17 @@ type reviewTheme struct {
 	person string // author, actor, speaker or director — matched across all of them
 	book   int64
 	movie  int64
+	// anthology (0043) is the SIXTH theme and the first one that is not a predicate
+	// on a column. The five above all ask "does this row look like that?"; this one
+	// asks "is this row in that list?" — an explicit set of ids across three tables,
+	// which is a JOIN rather than a comparison. Everything else about it is the
+	// same: it goes through deckCandidates like the rest, and Daily stays
+	// unthemeable because handleDailyQuiz passes reviewTheme{} by name.
+	anthology int64
 }
 
 func (t reviewTheme) any() bool {
-	return t.tag != "" || t.colour != "" || t.person != "" || t.book != 0 || t.movie != 0
+	return t.tag != "" || t.colour != "" || t.person != "" || t.book != 0 || t.movie != 0 || t.anthology != 0
 }
 
 // parseReviewTheme reads the theme off a query string. Unknown values are not
@@ -52,6 +59,9 @@ func parseReviewTheme(q url.Values) reviewTheme {
 	}
 	if n, err := strconv.ParseInt(q.Get("movie"), 10, 64); err == nil {
 		t.movie = n
+	}
+	if n, err := strconv.ParseInt(q.Get("anthology"), 10, 64); err == nil {
+		t.anthology = n
 	}
 	return t
 }
@@ -86,6 +96,26 @@ func (t reviewTheme) clause(rs reviewSource) (string, []any, bool) {
 		// Every kind of quote carries a colour, so this one never excludes a kind.
 		sql.WriteString(" AND x.color = ?")
 		args = append(args, t.colour)
+	}
+	if t.anthology != 0 {
+		// THE FIRST THEME THAT IS A JOIN, and it excludes no kind: an anthology can
+		// hold all three, so every source has to be asked. A kind with no entries in
+		// this anthology contributes an empty set, which is the correct answer and
+		// not an exclusion — dropping the kind instead would be indistinguishable
+		// right up until somebody added a film line to the anthology.
+		//
+		// THE SUBQUERY CARRIES NO USER SCOPE, and the fact that makes that safe is
+		// worth writing down rather than trusting: an id is unique per TABLE across
+		// every account (the id floor, 0031, hands out one increasing sequence per
+		// table and never reuses one), so an item_id names exactly one row in the
+		// whole database. rs.where() has already restricted x to the caller's rows,
+		// so a foreign anthology's entries name ids this reader does not have and
+		// match nothing — a themed round over somebody else's anthology is empty
+		// rather than a leak. The handler also refuses one with a 404 before it gets
+		// here; this is the layer that would still hold if it did not.
+		sql.WriteString(` AND x.id IN (SELECT e.item_id FROM anthology_entries e
+		                               WHERE e.anthology_id = ? AND e.kind = ?)`)
+		args = append(args, t.anthology, rs.kind)
 	}
 	if t.tag != "" {
 		// Tags are a join table per kind, named for the kind rather than shared.

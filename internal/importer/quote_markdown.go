@@ -44,6 +44,17 @@ type Utterance struct {
 	Category    string
 	Language    string
 	Translation string
+	// 0043. Which anthology this quote belongs to and the commentary that
+	// introduces it there — both empty for every file that is not an anthology
+	// export, which is why they can ride on this struct rather than needing a
+	// parallel one. The title is resolved to a row by NAME at approval time, the
+	// way an imported board name is.
+	Anthology     string
+	AnthologyNote string
+	// The anthology's INTRODUCTION, carried on every entry of the same file. One
+	// fact per file rather than per quote, and it rides here because the staging
+	// queue is per quote; approval writes it only when it creates the anthology.
+	AnthologyIntro string
 }
 
 // QuoteMarkdownAll parses a standalone-quote export. It returns a flat list
@@ -118,60 +129,75 @@ func QuoteMarkdownAll(r io.Reader) ([]Utterance, error) {
 			flush()
 			occasion = strings.TrimSpace(line[3:])
 		case cur != nil && strings.HasPrefix(line, "- "):
-			key, val, found := strings.Cut(line[2:], ":")
-			if !found {
-				continue
-			}
 			inQuote = false
-			val = strings.TrimSpace(val)
-			switch bindingKey(key) { // repeated key: last wins
-			case "speaker", "said by", "by":
-				cur.Speaker = val
-			case "occasion":
-				// A binding beats the heading, so a hand-written file that names
-				// the occasion per quote instead of using "## " still works.
-				cur.Occasion = val
-			case "occasion_date", "occasion date", "said", "when":
-				cur.OccasionDate = val
-			case "place", "where":
-				cur.Place = val
-			case "medium", "via":
-				cur.Medium = val
-			case "note":
-				cur.Note = val
-			case "color", "colour":
-				cur.Color = val
-			// 0035. `kind` and `type` are accepted as aliases because a
-			// hand-written file is as likely to reach for either, and neither can
-			// collide here: `type` lives in the frontmatter, which this loop never
-			// sees.
-			case "category", "kind", "type":
-				cur.Category = strings.ToLower(val)
-			case "language", "lang":
-				cur.Language = val
-			// The English half of a line not in English. NOT folded into `note`:
-			// a note is what you thought, a translation is what the line says.
-			case "translation", "translated", "english":
-				cur.Translation = val
-			// `date` is when YOU saved it, matching the book export. When it was
-			// SAID is occasion_date above — the two are different facts, and a
-			// parser that folded them together would date a 1944 speech to the
-			// afternoon somebody typed it in.
-			case "date", "added", "noted":
-				cur.NotedAt = val
-			case "tags":
-				cur.Tags = nil
-				for _, t := range strings.Split(val, ",") {
-					if t = strings.TrimSpace(t); t != "" {
-						cur.Tags = append(cur.Tags, t)
-					}
-				}
-			case "favorite":
-				cur.Favorite = truthy(val)
-			}
+			applyQuoteBinding(cur, line)
 		}
 		// anything else is ignored
 	}
 	flush()
 	return out, nil
+}
+
+// applyQuoteBinding reads one "- key: value" line onto a quote.
+//
+// LIFTED OUT SO TWO PARSERS CANNOT DRIFT. The anthology format (0043) is the
+// quotes format with prose and headings around it, and its bindings are the same
+// bindings — so the aliases, the last-key-wins rule and the speaker/occasion
+// distinction have to be one piece of code. Two copies would diverge on the first
+// alias somebody added to only one, and the symptom is a field that imports from
+// a quotes file and silently does not from an anthology.
+//
+// A line with no colon is ignored rather than refused: a hand-written file uses
+// "- " for an ordinary list too.
+func applyQuoteBinding(cur *Utterance, line string) {
+	key, val, found := strings.Cut(strings.TrimPrefix(line, "- "), ":")
+	if !found {
+		return
+	}
+	val = strings.TrimSpace(val)
+	switch bindingKey(key) { // repeated key: last wins
+	case "speaker", "said by", "by":
+		cur.Speaker = val
+	case "occasion":
+		// A binding beats the heading, so a hand-written file that names
+		// the occasion per quote instead of using "## " still works.
+		cur.Occasion = val
+	case "occasion_date", "occasion date", "said", "when":
+		cur.OccasionDate = val
+	case "place", "where":
+		cur.Place = val
+	case "medium", "via":
+		cur.Medium = val
+	case "note":
+		cur.Note = val
+	case "color", "colour":
+		cur.Color = val
+	// 0035. `kind` and `type` are accepted as aliases because a
+	// hand-written file is as likely to reach for either, and neither can
+	// collide here: `type` lives in the frontmatter, which this loop never
+	// sees.
+	case "category", "kind", "type":
+		cur.Category = strings.ToLower(val)
+	case "language", "lang":
+		cur.Language = val
+	// The English half of a line not in English. NOT folded into `note`:
+	// a note is what you thought, a translation is what the line says.
+	case "translation", "translated", "english":
+		cur.Translation = val
+	// `date` is when YOU saved it, matching the book export. When it was
+	// SAID is occasion_date above — the two are different facts, and a
+	// parser that folded them together would date a 1944 speech to the
+	// afternoon somebody typed it in.
+	case "date", "added", "noted":
+		cur.NotedAt = val
+	case "tags":
+		cur.Tags = nil
+		for _, t := range strings.Split(val, ",") {
+			if t = strings.TrimSpace(t); t != "" {
+				cur.Tags = append(cur.Tags, t)
+			}
+		}
+	case "favorite":
+		cur.Favorite = truthy(val)
+	}
 }

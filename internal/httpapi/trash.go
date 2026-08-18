@@ -27,10 +27,11 @@ import (
 // restored whole. There is no way to end up with a quote whose book is missing.
 //
 // WHAT TRAVELS IS DECLARED, NOT DISCOVERED. Walking the foreign-key graph looks
-// like the robust choice and is not: `item_reviews` (kind, item_id) and
-// `work_reads` (kind, work_id) carry no foreign key at all and are cleared by
-// AFTER DELETE triggers instead, so an FK walk would silently drop somebody's
-// memory half-life and their entire read log — and the restore would look like it
+// like the robust choice and is not: `item_reviews` (kind, item_id),
+// `work_reads` (kind, work_id) and now `anthology_entries` (kind, item_id) carry no
+// foreign key at all and are cleared by AFTER DELETE triggers instead, so an FK
+// walk would silently drop somebody's memory half-life, their entire read log and
+// the commentary they wrote about a passage — and the restore would look like it
 // worked. See migration 0031's header, which records this and two other things
 // the schema does that a reader would not guess.
 //
@@ -263,6 +264,9 @@ func collectWork(tx *sql.Tx, uid int64, kind string, id int64) (*collected, erro
 		if err := collectReviews(tx, out, reviewKind, ids(qs, "id")); err != nil {
 			return nil, err
 		}
+		if err := collectAnthologyEntries(tx, out, reviewKind, ids(qs, "id")); err != nil {
+			return nil, err
+		}
 	}
 
 	// The read log, which has no foreign key and is cleared by a trigger (0024).
@@ -315,6 +319,9 @@ func collectQuote(tx *sql.Tx, uid int64, kind string, id int64) (*collected, err
 		return nil, err
 	}
 	if err := collectReviews(tx, out, reviewKindFor[kind], []int64{id}); err != nil {
+		return nil, err
+	}
+	if err := collectAnthologyEntries(tx, out, reviewKindFor[kind], []int64{id}); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -400,6 +407,37 @@ func collectReviews(tx *sql.Tx, out *collected, reviewKind string, itemIDs []int
 	}
 	if len(revs) > 0 {
 		out.Payload["item_reviews"] = mergeRows(out.Payload["item_reviews"], revs)
+	}
+	return nil
+}
+
+// collectAnthologyEntries carries a quote's place in every anthology it is in,
+// AND the commentary written about it there.
+//
+// THE THIRD TABLE OF THIS SHAPE, and the one with the most to lose. item_reviews
+// holds a half-life the app computed and work_reads holds dates; this holds a
+// sentence the reader wrote, which exists nowhere else in the library. A quote
+// deleted and put back without it comes back missing from every anthology it was
+// in, with its commentary gone — and the bin would report a successful restore.
+//
+// Scoped by anthology OWNER as well as by item, so a payload can only ever carry
+// entries from the caller's own anthologies. That is redundant today (an entry
+// cannot be created against a quote its anthology's owner does not own) and it is
+// the line that keeps this correct if that ever stops being true.
+func collectAnthologyEntries(tx *sql.Tx, out *collected, entryKind string, itemIDs []int64) error {
+	marks, args, ok := inList(itemIDs)
+	if !ok {
+		return nil
+	}
+	rows, err := queryMaps(tx, `
+		SELECT e.* FROM anthology_entries e
+		JOIN anthologies an ON an.id = e.anthology_id
+		WHERE e.kind = ? AND e.item_id IN `+marks, append([]any{entryKind}, args...)...)
+	if err != nil {
+		return err
+	}
+	if len(rows) > 0 {
+		out.Payload["anthology_entries"] = append(out.Payload["anthology_entries"], rows...)
 	}
 	return nil
 }
@@ -852,6 +890,13 @@ var accountTables = []string{
 	// cascading, which is exactly what it did before this line moved here.
 	"boards",
 	"annotations", "dialogues", "utterances",
+	// anthologies BEFORE its entries, and its entries AFTER the three quote tables,
+	// because this list is in restore order and an entry references both ends. The
+	// anthologies row carries the reader's own prose — the introduction and the
+	// commentary on every entry — which is the only thing in this snapshot that
+	// exists nowhere else in the library: a quote can be re-highlighted, and a
+	// sentence somebody wrote about why it sits third cannot.
+	"anthologies", "anthology_entries",
 	"book_genres", "movie_genres",
 	"annotation_tags", "dialogue_tags", "utterance_tags",
 	"item_reviews", "work_reads",
@@ -914,6 +959,15 @@ func (s *Server) binAccount(tx *sql.Tx, adminID, targetID int64, username string
 			rows, err = queryMaps(tx,
 				`SELECT * FROM dialogue_tags WHERE dialogue_id IN
 				   (SELECT d.id FROM dialogues d JOIN movies m ON m.id = d.movie_id WHERE m.user_id = ?)`, targetID)
+		case "anthology_entries":
+			// Polymorphic on one side and a real foreign key on the other, so it is
+			// reached through the ANTHOLOGY rather than through the three parents: an
+			// entry belongs to the account that owns its anthology, and the quote it
+			// points at is that account's by construction (an entry cannot be created
+			// against a quote the caller does not own — see quoteOwned).
+			rows, err = queryMaps(tx,
+				`SELECT * FROM anthology_entries WHERE anthology_id IN (SELECT id FROM anthologies WHERE user_id = ?)`,
+				targetID)
 		case "utterance_tags":
 			rows, err = queryMaps(tx,
 				`SELECT * FROM utterance_tags WHERE utterance_id IN (SELECT id FROM utterances WHERE user_id = ?)`, targetID)

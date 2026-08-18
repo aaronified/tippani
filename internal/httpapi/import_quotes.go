@@ -144,8 +144,9 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 		INSERT OR IGNORE INTO staged_quotes
 		  (staged_work_id, quote, note, color, favorite, tags, noted_at,
 		   speaker, occasion, occasion_date, place, medium,
-		   category, language, translation, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		   category, language, translation, dedupe_hash,
+		   anthology, anthology_note, anthology_intro)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
 	for _, u := range us {
 		color := u.Color
@@ -173,7 +174,11 @@ func stageUtterances(tx *sql.Tx, workID int64, us []importer.Utterance) (int, er
 			strings.TrimSpace(u.Speaker), strings.TrimSpace(u.Occasion),
 			strings.TrimSpace(u.OccasionDate), strings.TrimSpace(u.Place), strings.TrimSpace(u.Medium),
 			category, strings.TrimSpace(u.Language), strings.TrimSpace(u.Translation),
-			hash)
+			hash,
+			// 0043. Empty for every file that is not an anthology export, which is
+			// why these ride on the same row rather than needing a table: a staged
+			// quote either names an anthology or it does not.
+			strings.TrimSpace(u.Anthology), trimProse(u.AnthologyNote), trimProse(u.AnthologyIntro))
 		if err != nil {
 			return 0, err
 		}
@@ -259,12 +264,82 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance) (int, error
 		}
 		n, _ := res.RowsAffected()
 		if n == 0 {
-			continue // already saved — a re-import of the same file
+			// Already saved — a re-import of the same file. The QUOTE is a skip, and
+			// the anthology entry is NOT: re-importing an anthology whose quotes are
+			// already in the library is the ordinary case (it is how you get an
+			// anthology back after deleting it), and skipping the entry too would
+			// rebuild an empty document. So find the row this collided with and file
+			// that one instead.
+			if u.Anthology != "" {
+				existing, err := utteranceByHash(tx, uid, hash)
+				if err != nil {
+					return added, err
+				}
+				if existing != 0 {
+					if err := fileInAnthology(tx, uid, u, existing); err != nil {
+						return added, err
+					}
+				}
+			}
+			continue
 		}
 		added++
 		if err := setTags(tx, "utterance", uid, id, u.Tags); err != nil {
 			return added, err
 		}
+		if err := fileInAnthology(tx, uid, u, id); err != nil {
+			return added, err
+		}
 	}
 	return added, nil
+}
+
+// utteranceByHash finds the quote an INSERT OR IGNORE collided with, so a
+// re-imported anthology can point at the copy already in the library rather than
+// at the id it did not get to use.
+//
+// Scoped by user AND by hash because the UNIQUE index is per user: two readers can
+// each hold the same line, and this must find the caller's.
+func utteranceByHash(tx *sql.Tx, uid int64, hash string) (int64, error) {
+	var id int64
+	err := tx.QueryRow(`SELECT id FROM utterances WHERE user_id = ? AND dedupe_hash = ?`, uid, hash).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	return id, err
+}
+
+// fileInAnthology puts one imported quote into the anthology its file named, in
+// the order the file listed it.
+//
+// A no-op for every import that is not an anthology, which is every import until
+// 0043 — the two fields are empty on a quotes file, a Kindle clippings file and a
+// book export alike. The title is resolved by NAME, find-or-create, which is the
+// same trade boardByName makes and for the same stated reason: a typo makes a
+// second anthology, which is visible in the list and fixable by renaming, whereas
+// a refused import is a wall.
+func fileInAnthology(tx *sql.Tx, uid int64, u importer.Utterance, itemID int64) error {
+	if strings.TrimSpace(u.Anthology) == "" {
+		return nil
+	}
+	anthologyID, made, err := anthologyByName(tx, uid, u.Anthology)
+	if err != nil {
+		return err
+	}
+	// THE INTRODUCTION IS WRITTEN ONLY ON THE ANTHOLOGY THIS IMPORT MADE. Importing
+	// into one that already exists — the same file twice, or a second file naming the
+	// same title — must not overwrite prose the reader has edited since. That is the
+	// same rule "fill gaps" follows for a work's metadata: write what is empty and
+	// touch nothing that is not.
+	if made && trimProse(u.AnthologyIntro) != "" {
+		if _, err := tx.Exec(`UPDATE anthologies SET intro = ? WHERE id = ? AND intro = ''`,
+			trimProse(u.AnthologyIntro), anthologyID); err != nil {
+			return err
+		}
+	}
+	// Every imported quote is an utterance, whatever it was when it was exported —
+	// the file carries no book, so a re-imported highlight comes back as a
+	// standalone quote. That loss is stated in the importer's header; here it is
+	// simply the kind.
+	return addAnthologyEntry(tx, anthologyID, kindUtterance, itemID, u.AnthologyNote)
 }

@@ -145,3 +145,142 @@ func TestDailyIgnoresATheme(t *testing.T) {
 		t.Fatalf("the daily deck was narrowed after all: %+v", seen)
 	}
 }
+
+// TestAnAnthologyThemeDrawsOnlyItsEntries — the sixth theme, and the first that is
+// a JOIN rather than a predicate on a column.
+//
+// The five before it ask "does this row look like that?" and can be got right by
+// spelling one column name. This one asks "is this row in that list?", across three
+// tables, and there are two ways for it to be quietly wrong: matching too much (a
+// missing kind clause, so an entry files every kind at that id) and matching too
+// little (a kind spelled with the wrong vocabulary, so the arm returns nothing and
+// the anthology looks empty). Both are asserted, per kind.
+func TestAnAnthologyThemeDrawsOnlyItsEntries(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// One quote of each kind IN the anthology, and one of each kind outside it, so
+	// "only its entries" is a claim about every arm of the union rather than about
+	// the one kind a single-quote test would happen to exercise.
+	book := createBook(t, c, "Invisible Cities")
+	inBook := decode[annotationRow](t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "the highlight in the anthology"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "the highlight left out of it"}, http.StatusCreated)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Stalker"}, http.StatusCreated))
+	inScreen := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "the line in the anthology", "character": "Stalker",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "the line left out of it", "character": "Writer",
+	}, http.StatusCreated)
+
+	inUtt := newUtterance(t, c, bose())
+	other := bose()
+	other["quote"] = "a different speech entirely"
+	newUtterance(t, c, other)
+
+	a := decode[anthologyRow](t, c.mustDo("POST", "/anthologies",
+		map[string]any{"title": "Three in, three out"}, http.StatusCreated))
+	c.mustDo("POST", "/anthologies/"+itoa(a.ID)+"/entries", map[string]any{"items": []map[string]any{
+		{"kind": "book", "item_id": inBook.ID},
+		{"kind": "screen", "item_id": inScreen.ID},
+		{"kind": "utterance", "item_id": inUtt.ID},
+	}}, http.StatusOK)
+
+	got := themedPool(t, c, "?anthology="+itoa(a.ID))
+	kinds := map[string]int{}
+	for _, card := range got {
+		kinds[card.Kind]++
+		switch card.Kind {
+		case kindBook:
+			if card.ID != inBook.ID {
+				t.Errorf("a highlight outside the anthology was drawn: %d", card.ID)
+			}
+		case kindScreen:
+			if card.ID != inScreen.ID {
+				t.Errorf("a film line outside the anthology was drawn: %d", card.ID)
+			}
+		case kindUtterance:
+			if card.ID != inUtt.ID {
+				t.Errorf("a standalone quote outside the anthology was drawn: %d", card.ID)
+			}
+		}
+	}
+	// ALL THREE ARMS, named individually: a missing kind is the failure that reads
+	// as "the anthology is short" rather than as a bug, and a count-only assertion
+	// would pass with three cards of one kind.
+	for _, k := range []string{kindBook, kindScreen, kindUtterance} {
+		if kinds[k] != 1 {
+			t.Errorf("the themed round drew %d %s cards, want exactly 1", kinds[k], k)
+		}
+	}
+	if len(got) != 3 {
+		t.Fatalf("the themed round drew %d cards, want 3", len(got))
+	}
+
+	// A theme naming an anthology that is not the caller's is a 404 rather than an
+	// empty round: the clause already matches nothing, but "no cards" and "not
+	// yours" look identical on screen and only the first is fixable by the reader.
+	bob := addUser(t, h, c, "bob")
+	bob.mustDo("GET", "/review/practice?anthology="+itoa(a.ID), nil, http.StatusNotFound)
+}
+
+// TestDailyIgnoresAnAnthologyTheme is the same assertion TestDailyIgnoresATheme
+// makes, for the theme that arrived after it.
+//
+// Its own file's header is emphatic about where a theme clause may go, and the
+// reason is exactly this: dailyRemaining draws the badge and reviewStates draws the
+// status row, and a theme spliced into either would change the number of cards the
+// app says are due today. The anthology clause is the first one that joins another
+// table, so it is the first that could have been put somewhere convenient.
+func TestDailyIgnoresAnAnthologyTheme(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Invisible Cities")
+	var inIt int64
+	for i := 0; i < 4; i++ {
+		row := decode[annotationRow](t, c.mustDo("POST", "/annotations",
+			map[string]any{"book_id": book, "quote": "line " + itoa(int64(i))}, http.StatusCreated))
+		if i == 0 {
+			inIt = row.ID
+		}
+	}
+	ageSeededItems(t, srv)
+
+	a := decode[anthologyRow](t, c.mustDo("POST", "/anthologies",
+		map[string]any{"title": "One of four"}, http.StatusCreated))
+	c.mustDo("POST", "/anthologies/"+itoa(a.ID)+"/entries",
+		map[string]any{"items": []map[string]any{{"kind": "book", "item_id": inIt}}}, http.StatusOK)
+
+	plain := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, http.StatusOK))
+	themed := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily?anthology="+itoa(a.ID), nil, http.StatusOK))
+
+	if len(themed.Items) != len(plain.Items) {
+		t.Fatalf("an anthology theme changed the daily deck: %d cards vs %d", len(themed.Items), len(plain.Items))
+	}
+	if themed.States.Total != plain.States.Total {
+		t.Fatalf("an anthology theme changed the status counts: %+v vs %+v", themed.States, plain.States)
+	}
+	// The specific thing the header warns about: the badge, which is a separate
+	// query (dailyRemaining) from the deck and is the one a theme could narrow
+	// without anybody noticing until the number stopped matching the cards.
+	badge := func(query string) int {
+		t.Helper()
+		var out struct {
+			Remaining int `json:"remaining"`
+		}
+		out = decode[struct {
+			Remaining int `json:"remaining"`
+		}](t, c.mustDo("GET", "/review/scores"+query, nil, http.StatusOK))
+		return out.Remaining
+	}
+	if b, p := badge("?anthology="+itoa(a.ID)), badge(""); b != p {
+		t.Fatalf("an anthology theme changed the badge: %d vs %d", b, p)
+	}
+}

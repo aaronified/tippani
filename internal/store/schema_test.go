@@ -729,6 +729,12 @@ func wantShapes() []tableShape {
 				// review row with it or the deck serves a card for a quote that no
 				// longer exists.
 				"item_reviews_book_del",
+				// 0043's, the same shape and for the same reason: an anthology entry
+				// points at (kind, item_id) across three tables and can hold no real
+				// foreign key, so a deleted highlight has to be removed from every
+				// anthology it was in. Left behind, it renders as a gap the reader
+				// cannot delete because nothing on screen represents it.
+				"anthology_entries_book_del",
 			},
 		},
 		{
@@ -784,6 +790,7 @@ func wantShapes() []tableShape {
 			Triggers: []string{
 				"dialogues_ad", "dialogues_ai", "dialogues_au",
 				"item_reviews_screen_del",
+				"anthology_entries_screen_del", // 0043 — see annotations above
 			},
 		},
 		{
@@ -1214,9 +1221,18 @@ func TestSchemaInvariants(t *testing.T) {
 	if n := len(shapes["item_reviews"].FKs); n != 0 {
 		t.Errorf("item_reviews grew %d foreign keys; it is polymorphic and can have none", n)
 	}
+	// anthology_entries (0043) is the third table of this shape and the second to
+	// need writing out by hand, so its three triggers are named here beside
+	// item_reviews'. utterances carries only the anthology one: item_reviews has no
+	// utterance trigger because 0026's quotes arrived with the id floor already in
+	// place, while anthology_entries needs all three — the orphan is a correctness
+	// problem whether or not the id can be reused.
 	for _, tc := range []struct{ table, trigger string }{
 		{"annotations", "item_reviews_book_del"},
 		{"dialogues", "item_reviews_screen_del"},
+		{"annotations", "anthology_entries_book_del"},
+		{"dialogues", "anthology_entries_screen_del"},
+		{"utterances", "anthology_entries_utterance_del"},
 	} {
 		found := false
 		for _, tr := range shapes[tc.table].Triggers {
@@ -1425,5 +1441,107 @@ func TestSchemaItemReviewTriggersStandInForCascade(t *testing.T) {
 	}
 	if n := countRows(t, s, `SELECT count(*) FROM item_reviews`); n != 0 {
 		t.Errorf("item_reviews: %d rows outlived their quotes", n)
+	}
+}
+
+// TestAnthologyEntriesFollowTheirQuotes is the same proof for 0043's three
+// triggers, and it needs all three: an anthology draws from every kind at once,
+// which is the one thing a board cannot do, so a cascade that works for two kinds
+// out of three is a feature that quietly rots for the third.
+//
+// The failure it guards is not a crash. An orphaned entry leaves the anthology
+// rendering a gap — a position and a piece of the reader's own commentary with no
+// quote under it — that they cannot delete, because nothing on screen represents
+// the thing to delete.
+//
+// AND ONE THING IT DELIBERATELY DOES NOT ASSERT: that a reused rowid inherits an
+// orphan's entries. 0026's header warns about id reuse, and the plan for this
+// feature repeated the warning — but 0031's id floor took it away for exactly
+// these three tables, and it did so BECAUSE item_reviews had already been bitten
+// by it. Writing that case here would be a test whose subject is another file's
+// guarantee; TestIDFloorNeverReusesAnID is where it belongs.
+func TestAnthologyEntriesFollowTheirQuotes(t *testing.T) {
+	s := openHead(t)
+	seedTagged(t, s)
+	for _, q := range []string{
+		// A standalone quote, which seedTagged has no reason to make: it exists for
+		// the third trigger, and it is the kind with no parent table at all.
+		`INSERT INTO utterances (id, user_id, quote, speaker, dedupe_hash)
+		 VALUES (1, 1, 'Give me blood, and I will give you freedom.', 'Subhas Chandra Bose', 'h3')`,
+		`INSERT INTO anthologies (id, user_id, title, intro) VALUES (1, 1, 'Cities and their ghosts', 'Three passages.')`,
+		// One entry per kind, each carrying commentary, because the commentary is
+		// the thing that is actually lost when an entry outlives its quote.
+		`INSERT INTO anthology_entries (anthology_id, position, kind, item_id, note)
+		 VALUES (1, 1.0, 'book', 1, 'Calvino first, because he sets the terms.')`,
+		`INSERT INTO anthology_entries (anthology_id, position, kind, item_id, note)
+		 VALUES (1, 2.0, 'screen', 1, 'Then the Zone answers him.')`,
+		`INSERT INTO anthology_entries (anthology_id, position, kind, item_id, note)
+		 VALUES (1, 3.0, 'utterance', 1, 'And a voice from outside either.')`,
+		// A second anthology holding the same book quote: filing is not moving, so
+		// deleting the QUOTE must clear both, and deleting one anthology must not
+		// touch the other's entry.
+		`INSERT INTO anthologies (id, user_id, title) VALUES (2, 1, 'Openings')`,
+		`INSERT INTO anthology_entries (anthology_id, position, kind, item_id)
+		 VALUES (2, 1.0, 'book', 1)`,
+	} {
+		if _, err := s.DB.Exec(q); err != nil {
+			t.Fatalf("seed %q: %v", q, err)
+		}
+	}
+
+	// The real foreign key, which the anthologies table DOES have: dropping an
+	// anthology takes its entries and nothing else.
+	if _, err := s.DB.Exec(`DELETE FROM anthologies WHERE id = 2`); err != nil {
+		t.Fatalf("delete anthology: %v", err)
+	}
+	if n := countRows(t, s, `SELECT count(*) FROM anthology_entries WHERE anthology_id = 2`); n != 0 {
+		t.Errorf("%d entries outlived their anthology; the ON DELETE CASCADE is not firing", n)
+	}
+	if n := countRows(t, s, `SELECT count(*) FROM anthology_entries WHERE anthology_id = 1`); n != 3 {
+		t.Fatalf("deleting one anthology left %d of the other's 3 entries", n)
+	}
+
+	// And now the three that are triggers rather than declarations. One kind at a
+	// time, asserting the other two are untouched after each — the scoping is the
+	// part that a copy-pasted trigger gets wrong, and a trigger missing its `kind`
+	// clause would empty the whole anthology on the first delete while every
+	// count-based assertion still looked plausible.
+	for _, tc := range []struct {
+		del  string
+		kind string
+		left []string
+	}{
+		{`DELETE FROM annotations WHERE id = 1`, "book", []string{"screen", "utterance"}},
+		{`DELETE FROM dialogues WHERE id = 1`, "screen", []string{"utterance"}},
+		{`DELETE FROM utterances WHERE id = 1`, "utterance", nil},
+	} {
+		if _, err := s.DB.Exec(tc.del); err != nil {
+			t.Fatalf("%s: %v", tc.del, err)
+		}
+		if n := countRows(t, s,
+			`SELECT count(*) FROM anthology_entries WHERE kind = ?`, tc.kind); n != 0 {
+			t.Errorf("%s: %d %s entries outlived the quote", tc.del, n, tc.kind)
+		}
+		for _, other := range tc.left {
+			if n := countRows(t, s,
+				`SELECT count(*) FROM anthology_entries WHERE kind = ?`, other); n != 1 {
+				t.Errorf("%s: took the %s entry with it — the trigger is not scoped by kind", tc.del, other)
+			}
+		}
+	}
+
+	// The anthology itself survives being emptied. It holds the reader's own
+	// writing: an intro that outlives every quote in it is still theirs, and a
+	// container that deleted itself when its last entry went would take that prose
+	// with it silently.
+	if n := countRows(t, s, `SELECT count(*) FROM anthologies WHERE id = 1`); n != 1 {
+		t.Error("the anthology deleted itself when its last entry went")
+	}
+	var intro string
+	if err := s.DB.QueryRow(`SELECT intro FROM anthologies WHERE id = 1`).Scan(&intro); err != nil {
+		t.Fatal(err)
+	}
+	if intro != "Three passages." {
+		t.Errorf("intro = %q after the entries went", intro)
 	}
 }

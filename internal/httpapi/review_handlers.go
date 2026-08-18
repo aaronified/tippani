@@ -1812,6 +1812,16 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	// "Quiz me on this book / tag / colour / person." Absent parameters mean the
 	// whole pool, which is what Practice has always served.
 	theme := parseReviewTheme(r.URL.Query())
+	// An anthology theme names a ROW, unlike the other five, which name a value —
+	// so it is the one theme that can be asked about something that is not the
+	// caller's. Refused with a 404 rather than served as an empty round: the clause
+	// itself already matches nothing (see review_theme.go), but "no cards" and
+	// "not yours" look identical on screen, and the first is a thing a reader can
+	// fix by adding a quote.
+	if theme.anthology != 0 && !anthologyOwned(s.Store.DB, uid, theme.anthology) {
+		writeErr(w, http.StatusNotFound, "anthology not found")
+		return
+	}
 	// 0: Practice varies its distractors between rounds on purpose.
 	pools, err := s.quizPools(uid, scope, 0)
 	if err != nil {

@@ -30,6 +30,13 @@ const (
 	KindBook   = "book"
 	KindMovie  = "movie"
 	KindQuotes = "quotes" // standalone quotes: no work, no parent (§24)
+	// KindAnthology is a made document rather than a collection of records: a
+	// title, an introduction, and quotes in an order with the reader's commentary
+	// between them (0043). Its rows go through the same staging queue as
+	// KindQuotes — it IS a quotes file with prose and an order around it — and the
+	// separate kind exists because the file has to be parsed by something that
+	// keeps that prose rather than skipping it.
+	KindAnthology = "anthology"
 )
 
 // MarkdownKind decides which of the three exports a file is, so the import
@@ -65,6 +72,8 @@ func MarkdownKind(data []byte) string {
 				return KindBook
 			case "quotes", "quote":
 				return KindQuotes
+			case "anthology":
+				return KindAnthology
 			}
 			continue // an unrecognised type says nothing; keep scanning
 		}
@@ -78,6 +87,12 @@ func MarkdownKind(data []byte) string {
 			return KindMovie
 		// A quote's locator is who said it and where. "- speaker:" is unique to
 		// this kind; "- occasion:" likewise. Neither appears on a book or a film.
+		// An `anthology:` key names the document this file IS, so it is as decisive
+		// as `type:`. Checked before the quote bindings below because an anthology
+		// export carries those too — it is a quotes file with prose around it, and
+		// the prose is the whole reason the two parse differently.
+		case strings.HasPrefix(line, "anthology:"):
+			return KindAnthology
 		case strings.HasPrefix(line, "- speaker:"), strings.HasPrefix(line, "- occasion:"):
 			return KindQuotes
 		case strings.HasPrefix(line, "author:"), strings.HasPrefix(line, "isbn:"),
