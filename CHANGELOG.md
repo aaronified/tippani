@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Each anthology now decides what its passages show.** Six switches on the anthology
+  itself — who said it, where it came from, the chapter/page/timestamp, the day you saved
+  it, your commentary, and the colour bar. A collection of film lines can name its actors;
+  a book of proverbs can carry nothing but the words. One global preference could not say
+  both, which is most of the reason to want it.
+
+  **What you see is what you export.** The same switches drive the reading view and the
+  Markdown file, because an export that quietly differs from the screen is a surprise you
+  only find in a file you already sent somebody. Two of the six — the locator and the date —
+  were never shown anywhere before, so they are off by default, which means an anthology you
+  have never configured exports exactly as it did before this existed.
+
+- **An anthology can be practised as a deck.** The review engine has been able to run a
+  round over one anthology since 2.0.0 and nothing could ask for it: the query parameter was
+  dropped on the way out and no screen had the button. Both fixed — Practise sits on the
+  anthology page, before Edit, and a mixed anthology of book highlights and film lines
+  practises as one deck.
+
 ### Changed
 
 - **A shuffled quote now looks like something worth having found.** It was the words, a
