@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-Four are open now — `anthologies.md` and `access.md` for roadmap §4 and §6,
-`entry-helpers.md`, which no roadmap section owns, and
+Five are open now — `anthologies.md` and `access.md` for roadmap §4 and §6,
+`entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
 `multilingual.md`, whose mechanism shipped in 2.1.0 and whose Bengali shipped in 2.1.1. That
 last one is the exception the directory's own rule allows for: the *language* work is done
 and it stays because two things outlast it — the record of how a six-writer translation was
@@ -39,7 +39,10 @@ it again on arrival: its premise was that movie characters already autocomplete 
 the edit form and only needed porting to the add form, and reading the tree showed
 those suggestions are the TMDB cast list rather than a memory of anything typed —
 so the pool the feature is *about* did not exist on any surface, and two edit hosts
-were offering no suggestions at all.
+were offering no suggestions at all. It then split in two: episodes turned out to need a
+name, three orderings, a provider fetch and a dialog of their own, which is a feature and
+not a field, and **one file per feature** is the rule at the top of this page. They cite
+each other and can ship in either order.
 
 ## The two documents
 
