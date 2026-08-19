@@ -15,7 +15,7 @@
 
 <p align="center">
   A self-hosted, multi-user home for your <strong>book highlights</strong>, <strong>movie dialogues</strong> and <strong>quotes from anywhere else</strong> —<br>
-  paste or bulk-import quotes, tag · colour · favourite · rate them, auto-fetch covers &amp; metadata,<br>
+  paste or bulk-import quotes, tag · colour · favourite them, auto-fetch covers &amp; metadata,<br>
   search everything instantly, and export it all back out as Obsidian-friendly Markdown.
 </p>
 
@@ -45,6 +45,12 @@
   — once I accept one, it lists itself on the roadmap and delists itself when it is fixed.
 </p>
 
+<p align="center">
+  📓 <strong><a href="docs/PLAN.md">The design log</a></strong> — how Tippani is built and why: one entry
+  per decision, each with the alternatives<br>
+  considered and the trade-offs behind it. Every feature listed below has one.
+</p>
+
 ---
 
 Built for low-powered NAS boxes that already run a hundred other things: a single static Go
@@ -56,18 +62,15 @@ and it serves HTTPS itself. No Node at runtime;
 metadata lookups are on-demand and optional (nothing external is required to run); covers and
 posters are served from your own disk.
 
-What is coming next is on **[the roadmap](https://aaronified.github.io/tippani/roadmap.html)** —
-the open backlog in priority order, the bugs I already know about, and a
-[list of things refused on purpose](https://aaronified.github.io/tippani/roadmap.html#aside)
-so the boundaries stay decisions rather than gaps. Why any of it is built the way it is —
-every design decision, its reasoning, and the ones I got wrong — is in
-[`docs/PLAN.md`](docs/PLAN.md); release history is in
-[`CHANGELOG.md`](CHANGELOG.md). **Building it, changing it, or forking it into your own
-thing** is [`DEVELOPMENT.md`](DEVELOPMENT.md) — it covers the handful of strings that
-still say my name, and the pull-request conventions. Tippani was **written with AI
-assistance** and the
-app itself **contains no AI** — no model calls, nothing sent anywhere. Both halves
-of that are spelled out in [`AI.md`](AI.md).
+**[The roadmap](https://aaronified.github.io/tippani/roadmap.html)** holds the open backlog in
+priority order, the known bugs, and the
+[features refused on purpose](https://aaronified.github.io/tippani/roadmap.html#aside), so the
+boundaries are stated rather than left as gaps. **[`docs/PLAN.md`](docs/PLAN.md)** documents how the
+app is built and why. Release history is in [`CHANGELOG.md`](CHANGELOG.md), and
+[`DEVELOPMENT.md`](DEVELOPMENT.md) covers building, changing or forking it — including the
+pull-request conventions and the handful of strings that still carry my name. Tippani was **written
+with AI assistance**; the app itself **contains no AI** — no model calls, nothing sent anywhere.
+Both halves of that are set out in [`AI.md`](AI.md).
 
 ## Screenshots
 
@@ -90,108 +93,103 @@ of that are spelled out in [`AI.md`](AI.md).
 
 ## Features
 
-One line each. Every one of them has an entry of its own in [`docs/PLAN.md`](docs/PLAN.md), which is
-where the reasoning and the evolution live.
-
 - 📚 **Books & annotations** — quotes and notes with six colour categories, tags, chapter and page, a
   favourite ♥ and series metadata; browse as masonry, list or sortable table, and group by series,
   author, decade or genre.
-- 🎬 **Movies, shows & games** — lines with a timestamp, character and auto-filled actor; a show's
+- 🎬 **Movies, shows & games** — lines with a timestamp, character and auto-filled actor. A show's
   lines carry the episode, so they read as *S2E6* and sort through the run rather than by the clock.
 - 💬 **Quotes from anywhere else, on boards you make** — a speech, a letter, a song, a proverb,
-  something a friend said. A board says what it *holds*, so a proverb board asks which languages it
-  is for and puts the translation first on the form.
+  something a friend said. A board describes what it holds, so a proverb board asks which languages it
+  covers and puts the translation first on the form.
 - 📖 **Anthologies** — quotes gathered into a reading order with your own prose between them, drawn
-  from all three kinds at once. Six switches decide what each passage shows, and the same switches
-  govern the Markdown export.
+  from all three kinds at once. Six switches control what each passage shows, in the reading view and
+  in the Markdown export alike.
 - 🎨 **Colour categories** — six highlight colours, named by you: a tag says what a quote is *about*,
-  its colour says what *kind* of note it is. The stored value never changes, so a rename cannot break
-  a round trip.
-- 🔖 **Shelves** — *reading* · *paused* · *abandoned* · *completed*, drawn as a colour bar under the
-  cover, with progress in the units the thing is made of and a `×3` chip holding the dates of every
-  reread.
-- 🧠 **Daily Quiz & Practice** — spaced repetition over books, films and standalone quotes alike,
-  each independently switchable. Every quote carries a memory half-life and comes back along the
-  Ebbinghaus curve, asked one of five ways including a server-graded fill-in-the-blank.
-- 🎲 **Shuffle & on this day** — one quote at random from anywhere in the library, and what you saved
-  on this date in other years. Neither touches your review schedule: landing on a quote by chance is
-  not answering a card.
-- 😴 **Skip something in the quiz without deleting it** — a shopping list, a reference manual whose
-  highlights are all page numbers. Do it to a book and every highlight you add to it later is covered
-  too.
-- 📊 **Stats** — an activity calendar, recall breakdown, a decade timeline and superlatives, every one
-  of them a doorway: click a dot, a row or a tile and it becomes a search.
-- 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, people, genres, series, quotes,
-  notes, tags and dialogue, returned sectioned by what matched, and typo-tolerant when nothing does.
+  its colour says what *kind* of note it is. Renaming one changes every label in the app and nothing in
+  your exports.
+- 🔖 **Shelves** — *reading* · *paused* · *abandoned* · *completed*, shown as a colour bar beneath the
+  cover, with progress as a percentage, a page or a season and episode, and every reread kept as its
+  own dated entry.
+- 🧠 **Daily Quiz & Practice** — spaced repetition across books, films and standalone quotes, each
+  independently switchable. Every quote carries a memory half-life and returns along the Ebbinghaus
+  forgetting curve, asked one of five ways including a server-graded fill-in-the-blank.
+- 🎲 **Shuffle & on this day** — one quote at random from anywhere in your library, and whatever you
+  saved on this date in earlier years. Neither affects your review schedule.
+- 😴 **Skip something in the quiz without deleting it** — for a shopping list, or a reference manual
+  whose highlights are all page numbers. Applied to a book, it covers every highlight you add to it
+  afterwards.
+- 📊 **Stats** — an activity calendar, a recall breakdown, a decade timeline and superlatives, each of
+  them clickable straight through to the quotes behind it.
+- 🔎 **Instant search** — full-text search across titles, people, genres, series, quotes, notes, tags
+  and dialogue, returned in sections by what matched, with a typo-tolerant fallback when a search finds
+  nothing.
 - 🏷 **Say which field you meant** — type `tag:`, `author:`, `colour:` or any of sixteen fields and a
-  dropdown offers your own library's words. Each becomes a removable chip that travels as its own
-  query parameter, so no facet value ever reaches the full-text index.
-- 🧭 **A search that knows where you are** — searching from a filtered shelf arrives filtered, and
-  from a book's own page you get `book:` that book. Every chip is removable, so narrowing is free
-  because widening is one click.
-- ☑️ **Multiselect on everything** — tick a card's corner, Ctrl-click, or hold it on a phone. A bar of
-  glyphs offers the colour, ♥, tags, a sticker, a shelf, the quiz toggle and fill-in-the-gaps over the
-  whole selection.
+  dropdown offers your own library's words, narrowing as you type. Each choice becomes a chip you can
+  remove.
+- 🧭 **A search that knows where you are** — searching from a filtered shelf arrives filtered, and from
+  a book's own page it is scoped to that book. Every chip is removable, so narrowing costs nothing.
+- ☑️ **Multiselect on everything** — tick a card's corner, Ctrl-click, or press and hold on a phone,
+  then set the colour, ♥, tags, a sticker or a shelf across the whole selection, or fill in missing
+  metadata for all of it at once.
 - 🩹 **Fill only the gaps** — fetch metadata for a selection and write only the fields that are empty,
-  so a description you wrote or a cover you chose is never touched. *Re-verify* is the other half: it
-  shows every difference and waits for you to tick the ones you believe.
-- 🖼 **Metadata & covers** — books from Google Books and Open Library, screens from TMDB and TheTVDB,
-  fetched at full resolution through an SSRF-guarded fetcher and served locally, never hotlinked.
-- 👤 **People** — authors, actors, directors, translators, editors and speakers are real records with
-  portraits, a bio and their own page; one human can be an author on one book and a translator on
-  another without becoming two.
+  so a description you wrote or a cover you chose is never overwritten. *Re-verify* is the other half:
+  it shows every difference and waits for you to approve the ones you want.
+- 🖼 **Metadata & covers** — books from Google Books and Open Library, films and shows from TMDB and
+  TheTVDB. Artwork is fetched at full resolution and served from your own disk, never hotlinked.
+- 👤 **People** — authors, actors, directors, translators, editors and speakers are all real records
+  with portraits, a biography and a page of their own; one person can be an author on one book and a
+  translator on another.
 - 📥 **Bulk import** — Tippani and Readest Markdown, Kindle Bookcision, your Kindle notebook, the
   device's own `My Clippings.txt`, saved Goodreads and Hardcover pages, and IMDb quote pages.
-  Re-imports are idempotent.
-- 🧺 **Nothing lands until you okay it** — an import parses into a pending queue and waits as long as
-  you like. Fix a whole file at once — tags, colour, chapter, actor, moving quotes onto the right
-  work — then approve, discard, or leave it.
-- 📤 **Export** — any work, a filtered set, your standalone quotes or the whole library, as
-  Obsidian-friendly Markdown that round-trips cleanly back through the importer.
-- 📨 **Share a quote** — a share sheet formatting it for Markdown, WhatsApp, plain text or Reddit, or
-  rendering it as an image in your current skin, generated locally with the credited person as a
-  portrait backdrop.
-- 🏷️ **Stickers** — a heart, a star and three faces in the box; upload your own transparent PNG or
+  Importing the same file twice adds nothing.
+- 🧺 **Nothing lands until you approve it** — an import parses into a pending queue and waits there as
+  long as you like. Correct a whole file at once — tags, colour, chapter, actor, or moving quotes onto
+  the right work — then approve, discard, or come back to it.
+- 📤 **Export** — any single work, a filtered set, your standalone quotes, or the whole library, as
+  Obsidian-friendly Markdown that imports cleanly back in.
+- 📨 **Share a quote** — formatted for Markdown, WhatsApp, plain text or Reddit, or rendered as an
+  image in your current theme. Images are generated on your own machine and can carry the credited
+  person as a portrait backdrop.
+- 🏷️ **Stickers** — a heart, a star and three faces are included; upload your own transparent PNG or
   SVG and pin one to any quote as a seal the text flows around.
-- 🗑️ **A thirty-day bin** — every delete is recoverable, with the same ids, tags, colours,
-  spaced-repetition history and cover picture. It is a real snapshot rather than a `deleted_at` flag,
-  so nothing anywhere has to remember to exclude it.
-- 🌐 **Two languages, and room for yours** — English and Bengali are both compiled in, so neither is
-  the other's fallback. Any further language is one file of keys in `data/Locales/`, editable without
-  a rebuild, with its coverage shown and never enforced.
-- 🔤 **Choose the type** — six faces in semantic roles, each shown doing its own job, with two
-  alternates each and your own uploads accepted. Bold, italic, small caps and lining figures are per
-  role, and every bundled face ships with the app.
-- 🎨 **Two skins, and they are made of something** — Paper is a note lifted off a desk, Film a frame
-  on a light table, each carrying a real texture tile in every card, button and bar. If your system
-  asks for more contrast, every texture drops to zero and nothing else moves.
-- 📱 **Phone-first ergonomics** — an installable PWA with a drawer, a Home screen a logo-tap away,
-  quote capture one ❝ tap away, full-screen filter sheets, 44 px targets and no horizontal scroll.
+- 🗑️ **A thirty-day bin** — every deletion is recoverable, and comes back with its tags, colours,
+  review history and cover picture intact. Keep things for 7, 30 or 90 days, or indefinitely.
+- 🌐 **English and Bengali, with room for more** — both ship in the box, and neither is a fallback for
+  the other. Any further language is a single file of text you can drop in and edit without rebuilding
+  anything.
+- 🔤 **Choose the type** — six typefaces in named roles, each previewed doing its own job, with two
+  alternates each and your own uploads accepted. Bold, italic, small caps and lining figures are set
+  per role, and every bundled face ships with the app.
+- 🎨 **Two skins, and they are made of something** — Paper is a note lifted off a desk, Film a frame on
+  a light table, each with real texture in every card, button and bar. If your system asks for higher
+  contrast, the texture drops away and nothing else moves.
+- 📱 **Phone-first ergonomics** — an installable PWA with a drawer, a Home screen one tap from the
+  logo, quote capture one ❝ tap away, full-screen filter sheets, 44 px touch targets and no horizontal
+  scrolling.
 - 👌 **A long press that knows what it is on** — hold a control for its label, hold a card to select
   it, and hold the *words* of a quote for nothing at all, because that is how your phone selects text.
-- ⌨️ **Keyboard shortcuts, printed on the buttons that share their job** — one registry binds every
-  key, so a control announces its own shortcut and a rebind changes both. Typing is never a shortcut.
-- 🧭 **A tour that uses its own examples** — a walk through every feature on first run, drawn from
-  public-domain sample content rather than from your library, resumable from Settings.
-- 🔐 **Multi-user** — per-user isolated libraries and a Profile screen the avatar opens: photo, name,
-  password, account switching (its own password every time), and for an admin the user list. Granting
-  admin is something you do to others; revoking is something you do to yourself.
-- 📲 **Paired devices** — a one-shot pairing code a native client exchanges for a long-lived bearer
-  token, so a phone never holds your password. Changing your password signs out browsers and
-  deliberately leaves phones alone.
-- 🔗 **Real URLs** — every tab and detail view has its own address, so browser and mouse
-  back/forward work and a link deep-links straight to it.
-- 🔄 **In-app updates** — Settings checks GitHub for a newer release on demand, never automatically,
-  and with the Docker socket mounted (opt-in) one click pulls and restarts; otherwise it hands you the
-  exact command.
-- 💾 **Backup & restore, encrypted** — one click builds a dated AES-256-GCM archive of the whole data
-  directory and restores it in-process, from here or from a file taken off another Tippani server. Its
-  key is wrapped twice: under your password, so the file opens anywhere, and under this instance's
-  recovery key, so changing your password cannot orphan your backups.
-- 🕒 **Sort by when you last read it** — the Library and Catalogue sort by the most recent date you
-  had the thing in your hands, finished or not; anything never logged sits at the end, alphabetically.
-- 🪶 **Frugal** — one static binary, WAL SQLite, no pollers and no cron; built to sit quietly on a
-  shared NAS.
+- ⌨️ **Keyboard shortcuts** — printed on the buttons that share their job, so nothing has to be
+  memorised or looked up, and `?` lists them all. Typing is never a shortcut.
+- 🧭 **A guided tour** — a walk through every feature on first run, using its own sample content rather
+  than your library, and resumable from Settings whenever you stopped.
+- 🔐 **Multi-user** — isolated libraries per person, and a Profile screen behind the avatar for your
+  photo, name, password and account switching. Admins can add members, hand over admin, and step down.
+- 📲 **Paired devices** — a one-time pairing code that a native client exchanges for a long-lived
+  token, so a phone never holds your password. Changing your password signs out browsers and leaves
+  paired devices alone.
+- 🔗 **Real URLs** — every tab and detail view has its own address, so back and forward work and a link
+  opens straight onto the view.
+- 🔄 **In-app updates** — Settings checks GitHub for a newer release when you ask it to, never on its
+  own. Mount the Docker socket and one click pulls and restarts; otherwise it gives you the exact
+  command to run.
+- 💾 **Backup & restore, encrypted** — one click builds a dated AES-256-GCM archive of your whole data
+  directory, and restore puts it back in place without needing the Docker socket, from here or from a
+  file taken off another Tippani server. Your password opens it on any machine, and changing your
+  password does not orphan the archives this server already made.
+- 🕒 **Sort by when you last read it** — the Library and Catalogue sort by the most recent date you had
+  the thing in your hands, whether or not you finished it.
+- 🪶 **Frugal** — one static binary, SQLite, no background jobs and no cron; built to sit quietly on a
+  NAS that is already busy.
 
 > **Roadmap** — an **Android app** that photographs a page and turns it into a highlight, with OCR
 > **on the device**; more ways in (Kobo, Apple Books, Readwise and read-later imports; a PWA
