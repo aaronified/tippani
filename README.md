@@ -90,8 +90,8 @@ of that are spelled out in [`AI.md`](AI.md).
 
 ## Features
 
-One line each. **Why** any of it works the way it does — the reasoning, the alternatives turned
-down, and the decisions reversed — is one entry per decision in [`docs/PLAN.md`](docs/PLAN.md).
+One line each. Every one of them has an entry of its own in [`docs/PLAN.md`](docs/PLAN.md), which is
+where the reasoning and the evolution live.
 
 - 📚 **Books & annotations** — quotes and notes with six colour categories, tags, chapter and page, a
   favourite ♥ and series metadata; browse as masonry, list or sortable table, and group by series,
