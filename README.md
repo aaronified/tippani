@@ -123,9 +123,9 @@ down, and the decisions reversed — is one entry per decision in [`docs/PLAN.md
   of them a doorway: click a dot, a row or a tile and it becomes a search.
 - 🔎 **Instant search** — injection-safe SQLite FTS5 across titles, people, genres, series, quotes,
   notes, tags and dialogue, returned sectioned by what matched, and typo-tolerant when nothing does.
-- 🏷 **Say which field you meant** — type `tag:`, `author:`, `colour:` and eleven more, and a dropdown
-  offers your own library's words. Each becomes a removable chip that travels as its own query
-  parameter, so no facet value ever reaches the full-text index.
+- 🏷 **Say which field you meant** — type `tag:`, `author:`, `colour:` or any of sixteen fields and a
+  dropdown offers your own library's words. Each becomes a removable chip that travels as its own
+  query parameter, so no facet value ever reaches the full-text index.
 - 🧭 **A search that knows where you are** — searching from a filtered shelf arrives filtered, and
   from a book's own page you get `book:` that book. Every chip is removable, so narrowing is free
   because widening is one click.
